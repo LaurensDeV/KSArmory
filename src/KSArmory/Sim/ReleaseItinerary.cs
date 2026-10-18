@@ -63,6 +63,16 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// </summary>
     public const double SingleTargetMetresPerSecond = 16.1;
 
+    /// <summary>
+    /// What a hop after the first takes besides its divert burn: <see cref="MedianHopSeconds"/>' clearance and four
+    /// correction passes, without the separation null only the first stop pays.
+    /// </summary>
+    public const double HopOverheadSeconds = 48.0;
+
+    // Slots and releases agree to well under a second by the third pass: a longer slot moves the release earlier,
+    // where the reach is greater and the hop cheaper.
+    private const int SlotPasses = 4;
+
     /// <summary>One place the bus is sent, and all the schedule needs to know about it.</summary>
     /// <param name="Warheads">
     /// How many of the bus's warheads leave here. <b>A target with none is not a stop</b>: a divert
@@ -139,6 +149,11 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// How long before the first release the bus splits to turn onto the entry airflow
     /// (<see cref="IcbmProgram.SplitGate"/>): room the coast must hold, never part of a stop's slot.
     /// </param>
+    /// <param name="HopAccelerationMetresPerSecond2">
+    /// What the bus's trim pushes it at, which gives each hop a slot of its own under
+    /// <see cref="IcbmConfig.HopsSizeTheirOwnSlots"/>: <see cref="SlotFor"/>. NaN gives every hop
+    /// <paramref name="HopSeconds"/>.
+    /// </param>
     /// <param name="HopsFlyTheirOwnCeiling">
     /// <see cref="IcbmConfig.HopsFlyTheirOwnCeiling"/>: a hop is bounded by the budget alone rather than by
     /// <see cref="BusTrim.MaxMetresPerSecond"/>. See <see cref="PassCeilingMetresPerSecond"/>.
@@ -153,8 +168,30 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
                                         double ReserveAfterFirstStopMetresPerSecond = 0.0,
                                         bool HopsFlyTheirOwnCeiling = false,
                                         double TurnSeconds = 0.0,
-                                        double ReachMeasuredMetresPerMetrePerSecond = double.NaN)
+                                        double ReachMeasuredMetresPerMetrePerSecond = double.NaN,
+                                        double HopAccelerationMetresPerSecond2 = double.NaN)
     {
+        public bool SizesSlots => HopAccelerationMetresPerSecond2 > 0.0 && double.IsFinite(HopAccelerationMetresPerSecond2);
+
+        /// <summary>
+        /// How long a hop priced at <paramref name="hopMetresPerSecond"/> takes from the release before it: never
+        /// less than <see cref="HopSeconds"/>, and the burn on top of <see cref="HopOverheadSeconds"/> once that is
+        /// longer. The price is per axis, which is what the trim fires one axis at a time.
+        /// </summary>
+        public double SlotFor(double hopMetresPerSecond)
+        {
+            double hop = double.IsFinite(HopSeconds) ? Math.Max(0.0, HopSeconds) : 0.0;
+            if (!SizesSlots || !(hopMetresPerSecond > 0.0) || !double.IsFinite(hopMetresPerSecond)) return hop;
+
+            return Math.Max(hop, HopOverheadSeconds + hopMetresPerSecond / HopAccelerationMetresPerSecond2);
+        }
+
+        /// <summary><see cref="GateFor"/> for slots of their own, which together take <paramref name="slotsSeconds"/>.</summary>
+        public double GateForSlots(double slotsSeconds)
+            => FromCutoff && double.IsFinite(CoastSeconds) && double.IsFinite(slotsSeconds) && slotsSeconds > 0.0
+                   ? Math.Max(GateSeconds, CoastSeconds - slotsSeconds)
+                   : GateSeconds;
+
         /// <summary>
         /// The most one hop's pass may fly. With its own ceiling a hop is bounded by the budget, which
         /// <see cref="ReleaseItinerary.Plan"/> already holds every stop to.
@@ -237,10 +274,15 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// which is less than <paramref name="HopMetresPerSecond"/> where that is priced per axis. NaN where they
     /// are the same.
     /// </param>
+    /// <param name="SlotSeconds">
+    /// How long after the release before this one it releases, where the hop has a slot of its own
+    /// (<see cref="Bus.SizesSlots"/>); NaN where every hop takes <see cref="Bus.HopSeconds"/>.
+    /// </param>
     internal readonly record struct Stop(int Target, int Warheads, double BeforeArrivalSeconds,
                                          double HopMetresPerSecond, double SpentMetresPerSecond,
                                          double ReachMetresPerMetrePerSecond, bool Affordable,
-                                         double PassMetresPerSecond = double.NaN)
+                                         double PassMetresPerSecond = double.NaN,
+                                         double SlotSeconds = double.NaN)
     {
         public double PassFlies => double.IsFinite(PassMetresPerSecond) ? PassMetresPerSecond : HopMetresPerSecond;
     }
@@ -306,21 +348,51 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
             taken.Add((i, got));
         }
 
-        Stop[] stops = new Stop[taken.Count];
+        int n = taken.Count;
+        Stop[] stops = new Stop[n];
         double spent = Math.Max(0.0, bus.SpentMetresPerSecond);
-        double gate = bus.GateFor(stops.Length);
+        double gate = bus.GateFor(n);
 
-        for (int k = 0; k < stops.Length; k++)
+        double[] befores = new double[n];
+        for (int k = 0; k < n; k++) befores[k] = BeforeArrivalSeconds(k, n, gate, bus.HopSeconds);
+
+        double[]? slots = null;
+        if (bus.SizesSlots && n > 1)
         {
-            double before = BeforeArrivalSeconds(k, stops.Length, gate, bus.HopSeconds);
+            slots = new double[n];
+            for (int pass = 0; pass < SlotPasses; pass++)
+            {
+                double total = 0.0;
+                for (int k = 1; k < n; k++)
+                {
+                    double price = HopOnto(targets[taken[k].Target], bus,
+                                           ReachAtSlot(reachMetresPerMetrePerSecond, k, befores[k], bus));
+                    slots[k] = bus.SlotFor(price);
+                    total += slots[k];
+                }
+
+                double at = bus.GateForSlots(total);
+                befores[n - 1] = at;
+                for (int k = n - 2; k >= 0; k--)
+                {
+                    at += slots[k + 1];
+                    befores[k] = at;
+                }
+            }
+        }
+
+        for (int k = 0; k < n; k++)
+        {
+            double before = befores[k];
             double reach = ReachAtSlot(reachMetresPerMetrePerSecond, k, before, bus);
             double hop = k == 0 ? 0.0 : HopOnto(targets[taken[k].Target], bus, reach);
             double pass = k == 0 ? double.NaN : PassOnto(targets[taken[k].Target], bus, reachMetresPerMetrePerSecond, k,
-                                                         BeforeArrivalSeconds(k - 1, stops.Length, gate, bus.HopSeconds));
+                                                         befores[k - 1]);
             spent += hop;
 
             stops[k] = new Stop(taken[k].Target, taken[k].Warheads, before,
-                                hop, spent, reach, k == 0 || Within(spent, bus.BudgetAt(k)), pass);
+                                hop, spent, reach, k == 0 || Within(spent, bus.BudgetAt(k)), pass,
+                                slots is null || k == 0 ? double.NaN : slots[k]);
         }
 
         return new ReleaseItinerary(stops, bus, without);
@@ -404,6 +476,21 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
         double left = budget - Math.Max(0.0, bus.SpentMetresPerSecond);
         if (!(left > 0.0)) return 0.0;
 
+        // Slots of their own make the chain's cost nonlinear in the spacing, so the root is searched for.
+        if (bus.SizesSlots)
+        {
+            double lo = 0.0, hi = 1_000.0;
+            while (HopsCost(targets, hi, reach, bus) <= left && hi < 1e8) hi *= 2.0;
+            for (int i = 0; i < 60; i++)
+            {
+                double mid = 0.5 * (lo + hi);
+                if (HopsCost(targets, mid, reach, bus) <= left) lo = mid;
+                else hi = mid;
+            }
+
+            return lo;
+        }
+
         // The chain's cost is linear in the spacing, so one metre's worth of hops inverts straight
         // into how many metres the budget buys.
         double perMetre = HopsCost(targets, 1.0, reach, bus);
@@ -441,6 +528,23 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
         get
         {
             if (Count == 0) return 0;
+
+            if (Means.SizesSlots && Count > 1 && double.IsFinite(Stops[1].SlotSeconds))
+            {
+                if (!double.IsFinite(Means.CoastSeconds)) return Count;
+
+                double spare = Means.CoastSeconds - LastBeforeArrivalSeconds - Math.Max(0.0, Means.TurnSeconds);
+                int fit = 1;
+                double used = 0.0;
+                while (fit < Count)
+                {
+                    used += Stops[fit].SlotSeconds;
+                    if (used > spare + 1e-9) break;
+                    fit++;
+                }
+
+                return fit;
+            }
 
             double hop = Means.HopSeconds;
             if (!double.IsFinite(Means.CoastSeconds) || !double.IsFinite(hop) || hop <= 0.0) return Count;
@@ -519,6 +623,12 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     private static double HopsCost(int targets, double spacingMetres, IReadOnlyList<double>? reach,
                                    in Bus bus)
     {
+        if (bus.SizesSlots && targets > 1)
+        {
+            ReleaseItinerary chain = Chain(targets, spacingMetres, reach, bus);
+            return chain.NeedsMetresPerSecond - Math.Max(0.0, bus.SpentMetresPerSecond);
+        }
+
         double total = 0.0;
 
         double gate = bus.GateFor(targets);

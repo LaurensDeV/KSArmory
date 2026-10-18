@@ -22,7 +22,7 @@ reading of code and have not been run; everything else names where it was measur
 ## Progress
 
 - [ ] 1. Flip night for the walk flags
-- [ ] 2. Make a hop's time and budget belong to the hop (headless, flagged)
+- [x] 2. Make a hop's time and budget belong to the hop (headless, flagged) -- 2026-10-18, rig only
 - [ ] 3. Spend the Heavy bus's tank, rolled once for the walk
 - [ ] 4. Decide the route to 50 km (rig pricing, a decision, no build)
 - [ ] 5. Build the chosen route (headless)
@@ -38,8 +38,8 @@ the narrower axis, per-axis priced, arrival pinned) against the budget plus the 
 
 **Baseline**: shipped ~4.5 km for six at 6,179 km; **7.0 km in the rig** (`HopCeilingRigTests`, six at 6,181 km, all
 three flags on, at the 70 m/s edge). Planner reach **~0.65 km per m/s at 6,179 km** (rig, from that fit; flown hops
-0.66-0.67). At 12,902 km it is *not measured*: the pinned straight-line reach at cutoff is 1,647 m per m/s
-(`ICBM-GUIDANCE.md`), so planner-priced it is ~1.0-1.3; **step 2's first job is to measure it**. Coasts above 100 km:
+0.66-0.67), and **~0.95 at 12,902 km** (rig: six fit 10 km apart and not 11; flown hops 1.16). The rig's 12,902 km arc
+coasts 2,726 s against the 1,772 s flown on GeoSat FAT, so the flight may get less there. Coasts above 100 km:
 351 s at 2,000 km, 1,315 s at 6,179 and 1,772 s at 12,902 (`ICBM-GUIDANCE.md` ~1680).
 
 Spacing each budget buys, *inferred* from that model (12,902 km at reach 1.0):
@@ -49,6 +49,10 @@ Spacing each budget buys, *inferred* from that model (12,902 km at reach 1.0):
 | Heavy, 60 (today) | 17 / 27 km | 7 / 11 km | 6 / 9 km |
 | Heavy, ~130 (step 3) | 40 / 62 km | 16 / 25 km | 13 / 21 km |
 | post-boost, ~500 (engine) | 160 / 250 km | 64 / 99 km | 54 / 82 km |
+
+**Measured in the rig with step 2 on and a 140 m/s budget** (`WideSpreadRigTests`, the Heavy bus at 0.55 m/s² and
+2.9 t): six targets **16 km** apart and three **40 km** apart at 6,181 km; six **25 km** and three **60 km** apart at
+12,902 km; every stop under a centimetre, none curtailed. Whether the tank pays 140 is step 3's question.
 
 So **three targets 50 km apart at 12,902 km may need no engine at all** (~110 m/s, inside step 3), and six or seven
 at 50 km need either the post-boost bus's propellant or a cheaper kilometre (step 4). Freeing the arrival per stop
@@ -118,6 +122,25 @@ Headless, 1-2 days. Shared by every route. Everything new is behind one research
 
 Pass: the new tests pass with the flag on, every stop under a centimetre, price against flown spend 0.8-1.0, the full
 suite green with the flag off. Fail on linearity (flown well over price at 50 km): stop and re-price before step 3.
+
+**Done 2026-10-18, rig only, `HopsSizeTheirOwnSlots` off.** Built as listed, with two departures. The slot is
+`max(65.1, 48 + hop / a)`: 48 s is `MedianHopSeconds`' clearance and four passes without the split null only the first
+stop pays (`ReleaseItinerary.HopOverheadSeconds`), and `a` is `LauncherProfile.TrimAccelerationMetresPerSecond2` --
+0.56 on the Heavy bus (flown), 0.40 on the post-boost bus (its four forward nozzles, bridge). The budget the plan and
+the passes read is the flight's own, an unlimited (negative) one as no bound (`ReleaseLoop.PlanningBudget`). Left
+alone: the warp's `UnplannedWalkSeconds` (a set not yet planned), and the rig's two `MedianHopSeconds` calls, which
+are the legacy `WalkAimsAtEpoch` path rather than a planned walk.
+
+What it measured (`WideSpreadRigTests`, `WalkPricingTests`):
+
+- **The clock is the part that matters.** Three targets 60 km apart at 6,181 km, budget 140: with the trim's clock
+  left at 120 s the 91 m/s hop stops at 72 ("ran out of time") and stop 2 lands **10.3 km** from its target; with the
+  clock following the burn, under a centimetre. The slots move the plans little at these spacings.
+- **The budget is what widens the walk**: planned on 60, six at 16 km walk fewer than six; planned on 140, all six.
+- **Price against flown, 140 m/s:** 0.83-1.07 at 6,181 km (over 1.0 only on the 40 km set's first hop, 60.0 against
+  58.2), but **1.03-1.08 at 12,902 km** on every stop (22.2 against 21.2 at 25 km, 46.5 against 42.9 at 50 km). Not
+  "well over", but a walk planned to the budget's edge at long range can run dry, so step 3's guard keeps a margin of
+  at least 10% there. Why it is over at long range and under at 6,181 km is not known.
 
 ### 3. Spend the Heavy bus's tank, rolled once for the walk
 

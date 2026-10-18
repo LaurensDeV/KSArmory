@@ -127,7 +127,11 @@ internal sealed partial class IcbmComputer
                                                           HopsFlyTheirOwnCeiling: Config.HopsFlyTheirOwnCeiling,
                                                           TurnSeconds: Program.TurnsAtTheSplit
                                                                            ? Config.TurnAllowanceSeconds
-                                                                           : 0.0),
+                                                                           : 0.0,
+                                                          BudgetMetresPerSecond: Config.HopsSizeTheirOwnSlots
+                                                              ? ReleaseLoop.PlanningBudget(Config.TrimBudgetMetresPerSecond)
+                                                              : PostBoostAim.MaxTrimMetresPerSecond,
+                                                          HopAccelerationMetresPerSecond2: HopAcceleration),
                                  Program.Phase, SalvoIsOver, TargetSet.MaxTargets,
                                  Warhead.LethalRadius(_warhead!.ChargeKg), _targets.LeadIndex,
                                  coasting ? ReachHold.Unflown : ReachHold.EpochUnmeasured,

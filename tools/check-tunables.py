@@ -161,6 +161,7 @@ RESEARCH = (
     "HoldDriftsUntilIgnition",
     "HoldKeepsItsWindow",
     "HopsFlyTheirOwnCeiling",
+    "HopsSizeTheirOwnSlots",
     "HoldPointsLoosely",
     "JetsThroughTheKeyboardClear",
     "KickAtTheRelease",

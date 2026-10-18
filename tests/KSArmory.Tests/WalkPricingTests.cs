@@ -139,6 +139,28 @@ public class WalkPricingTests
     }
 
     [Fact]
+    public void AHopsSlotIsTheMedianUntilItsBurnOutgrowsIt()
+    {
+        ReleaseItinerary.Bus bus = Bus() with { HopAccelerationMetresPerSecond2 = 0.5 };
+
+        Assert.Equal(ReleaseItinerary.MedianHopSeconds, bus.SlotFor(5.0));
+        Assert.Equal(ReleaseItinerary.HopOverheadSeconds + 40.0, bus.SlotFor(20.0), 9);
+        Assert.Equal(ReleaseItinerary.MedianHopSeconds, Bus().SlotFor(20.0));
+    }
+
+    [Fact]
+    public void TheCoastHoldsFewerStopsOnceEachHopTakesItsBurn()
+    {
+        ReleaseItinerary.Bus constant = new(Gate, Gate + 3.0 * ReleaseItinerary.MedianHopSeconds + 1.0, 6,
+                                            BudgetMetresPerSecond: double.PositiveInfinity);
+        ReleaseItinerary.Bus sized = constant with { HopAccelerationMetresPerSecond2 = 0.5 };
+
+        // 20 km hops at 1,000 m per m/s are 20 m/s, an 88 s slot each against 65.1.
+        Assert.Equal(4, ReleaseItinerary.Chain(4, 20_000.0, [1_000.0], constant).CoastFits);
+        Assert.Equal(3, ReleaseItinerary.Chain(4, 20_000.0, [1_000.0], sized).CoastFits);
+    }
+
+    [Fact]
     public void TheSplitReserveLetsASixStopWalkTheBudgetCut()
     {
         ReleaseWalk asSet = ReleaseLoop.Plan(Chain(6, 9_500.0), Bus(), [1_000.0], lead: 0);

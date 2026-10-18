@@ -197,7 +197,8 @@ internal sealed partial class IcbmComputer
             plan.CeilingMetresPerSecond,
             Config.PulseTrim ? Config.PulseSeconds : 0.0,
             Config.StallFallsBackToHolding,
-            Config.TrimCountsTheCommandInFlight));
+            Config.TrimCountsTheCommandInFlight,
+            MaxSeconds: Config.HopsSizeTheirOwnSlots ? BusTrim.MaxSeconds + _hopBurnSeconds : double.NaN));
 
         // The mode goes through the attitude window for the same reason the aim does: applying a
         // worker's results copies the whole flight computer over anything written outside it. The
@@ -232,7 +233,10 @@ internal sealed partial class IcbmComputer
             AimHasSettled: _aim.Settled,
             TrimGaveUp: _trim.GaveUp,
             TrimSpentMetresPerSecond: _trim.SpentMetresPerSecond,
-            BudgetMetresPerSecond: PostBoostAim.MaxTrimMetresPerSecond + ReserveReleasedMetresPerSecond,
+            BudgetMetresPerSecond: Config.HopsSizeTheirOwnSlots
+                                       ? ReleaseLoop.PlanningBudget(TrimBudgetMetresPerSecond)
+                                       : PostBoostAim.MaxTrimMetresPerSecond + ReserveReleasedMetresPerSecond,
+            MaxSeconds: Config.HopsSizeTheirOwnSlots ? PostBoostAim.MaxSeconds + _hopBurnSeconds : double.NaN,
             HoldingCostMetresPerSecond: double.IsFinite(_holdingCost)
                                             ? _holdingCost
                                             : Config.HoldingCostMetresPerSecond,

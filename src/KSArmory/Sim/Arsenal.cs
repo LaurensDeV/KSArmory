@@ -744,6 +744,9 @@ public static class Arsenal
 
         // About 250 kg an Mk 21 (KSArmoryGameData.xml), shed as each leaves (IcbmConfig.ShedWarheadMass).
         StoreMassKg = 250f,
+
+        // Flown: the twenty nozzles' measured acceleration (ReleaseItinerary.MedianHopSeconds).
+        TrimAccelerationMetresPerSecond2 = 0.56,
         TubeArmamentLabel = "Warheads",
         Tubes =
         [
@@ -779,6 +782,9 @@ public static class Arsenal
         Sensor = "MIRVBUS",
 
         StoreMassKg = 250f,
+
+        // The four forward nozzles, 7.92 m/s in 20 s on the bridge (docs/POSTBOOST-BUS.md).
+        TrimAccelerationMetresPerSecond2 = 0.40,
 
         // The RV's two base motors (KSArmory_Subpart_PostBoostRv): mouths at r 0.15 m, 45 and 225 deg
         // round +X from +Y, each exhausting 45 deg round the axis from straight aft, so their sideways

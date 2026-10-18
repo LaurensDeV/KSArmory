@@ -184,6 +184,20 @@ internal static class ReleaseLoop
                : budgetMetresPerSecond;
 
     /// <summary>
+    /// The budget a walk is planned and corrected on under <see cref="IcbmConfig.HopsSizeTheirOwnSlots"/>: the
+    /// flight's own, an unlimited one (negative) as no bound at all.
+    /// </summary>
+    public static double PlanningBudget(double budgetMetresPerSecond)
+        => budgetMetresPerSecond < 0.0 ? double.PositiveInfinity : budgetMetresPerSecond;
+
+    /// <summary>How long a hop's divert burn takes at the bus's trim acceleration, or zero where either is unknown.</summary>
+    public static double HopBurnSeconds(double hopMetresPerSecond, double accelerationMetresPerSecond2)
+        => hopMetresPerSecond > 0.0 && double.IsFinite(hopMetresPerSecond)
+           && accelerationMetresPerSecond2 > 0.0 && double.IsFinite(accelerationMetresPerSecond2)
+               ? hopMetresPerSecond / accelerationMetresPerSecond2
+               : 0.0;
+
+    /// <summary>
     /// Plan a walk, or say why there is not one.
     /// </summary>
     /// <param name="targets">

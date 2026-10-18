@@ -167,6 +167,7 @@ internal sealed partial class IcbmComputer
         _trimShape = "";
         _saidLast = "";
         _spentAtStopStart = _trim.SpentMetresPerSecond;
+        _hopBurnSeconds = ReleaseLoop.HopBurnSeconds(_walker.Step.HopMetresPerSecond, HopAcceleration);
 
         Log.Info($"walk on {KsaWorld.DisplayName(Craft)}: re-aiming at target {next} "
                  + $"{_targets.Entries[next].Site.Describe()}, stop {_walker.Stop + 1} of "

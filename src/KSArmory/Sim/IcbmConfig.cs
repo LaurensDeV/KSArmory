@@ -217,6 +217,14 @@ internal sealed class IcbmConfig
     public bool PriceSlotsOnTheGateChord;
 
     /// <summary>
+    /// Whether a walk gives each hop the time its divert burn takes at the bus's
+    /// <see cref="LauncherProfile.TrimAccelerationMetresPerSecond2"/> -- its slot, the trim's clock and the
+    /// correction's -- and plans on <see cref="TrimBudgetMetresPerSecond"/> rather than
+    /// <see cref="PostBoostAim.MaxTrimMetresPerSecond"/>. <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c> step 2.
+    /// </summary>
+    public bool HopsSizeTheirOwnSlots;
+
+    /// <summary>
     /// Whether the trim reserve kept beyond the budget for nulling the split may be spent on hops once a
     /// walk's first stop has let its warheads go. Flown paired on a 4 km six-target walk: 12 of 12 buses walked five stops
     /// against four for all 12 without it, every warhead within 5 mm. <c>docs/MIRV-TARGETS.md</c>.

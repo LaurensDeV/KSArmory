@@ -386,6 +386,11 @@ internal sealed partial class IcbmComputer
 
     // The ceiling the hop just handed over to was priced at, for the pass before the correction's first.
     private double _hopCeilingMetresPerSecond = double.NaN;
+    private double _hopBurnSeconds;
+
+    // What the bus's jets push it at, for sizing a hop's slot and clocks; NaN with the flag off.
+    private double HopAcceleration
+        => Config.HopsSizeTheirOwnSlots ? _release?.Profile.TrimAccelerationMetresPerSecond2 ?? double.NaN : double.NaN;
 
     // Which target each released warhead was sent to, by reference, for a harness scoring a walk.
     // At most one entry per warhead aboard, cleared with the flight.
@@ -591,6 +596,7 @@ internal sealed partial class IcbmComputer
         _walker.Reset();
         _spentAtStopStart = 0.0;
         _hopCeilingMetresPerSecond = double.NaN;
+        _hopBurnSeconds = 0.0;
         _sentTo.Clear();
         _wentTo.Clear();
         _saidWalk = "";
@@ -767,6 +773,7 @@ internal sealed partial class IcbmComputer
         _saidFloorUnaffordable = false;
         _owedAtSplit = double.NaN;
         _hopCeilingMetresPerSecond = double.NaN;
+        _hopBurnSeconds = 0.0;
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} stood down: {why}");
     }
 

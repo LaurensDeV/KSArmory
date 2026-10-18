@@ -62,6 +62,19 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     public double ThrusterMetresPerSecond2 = 0.35;
     public int CommandLatencyFrames = 1;
 
+    /// <summary>
+    /// The bus's mass fully loaded, which makes the jets push harder by what each warhead takes with it; NaN keeps
+    /// <see cref="ThrusterMetresPerSecond2"/> for the whole flight.
+    /// </summary>
+    public double BusMassKg = double.NaN;
+    public double WarheadMassKg = 250.0;
+    private int _warheadsGone;
+
+    private double JetAcceleration
+        => double.IsFinite(BusMassKg) && BusMassKg > _warheadsGone * WarheadMassKg
+               ? ThrusterMetresPerSecond2 * BusMassKg / (BusMassKg - _warheadsGone * WarheadMassKg)
+               : ThrusterMetresPerSecond2;
+
     public double MaxSecondsAfterCutoff = 3_000.0;
 
     /// <summary>How fast the modelled nose swings onto a new held line; flown, 90 deg took about 3 s.</summary>
@@ -116,6 +129,13 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
 
     private readonly ReleaseWalker _walker = new();
     private double _hopCeilingMetresPerSecond = double.NaN;
+    private double _hopBurnSeconds;
+
+    /// <summary>Whether a hop's slot and clocks follow the jets under the flag; false keeps the budget alone.</summary>
+    public bool SlotsFollowTheJets = true;
+
+    private double HopAcceleration
+        => Config.HopsSizeTheirOwnSlots && SlotsFollowTheJets ? ThrusterMetresPerSecond2 : double.NaN;
     private DivertFootprint? _footprint;
     private double3 _landingNowCci;
     private double _landingAt = double.NaN;
@@ -392,6 +412,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
                 Outcome released = Release(t, double.IsNaN(splitAt) ? double.NaN : t - splitAt);
                 double spent = _trim.SpentMetresPerSecond;
                 Stops.Add(new Stop(released.LandedMetres, spent - spentAtLastStop, spent));
+                _warheadsGone += PlannedTargets.Count > 0 && _walker.Walking ? _walker.Step.Warheads : 1;
                 spentAtLastStop = spent;
 
                 if (PlannedTargets.Count > 0)
@@ -536,7 +557,11 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
                                                                                ? ReleaseLoop.SplitNullReserveMetresPerSecond
                                                                                : 0.0,
                                      HopsFlyTheirOwnCeiling: Config.HopsFlyTheirOwnCeiling,
-                                     TurnSeconds: Program.TurnsAtTheSplit ? Config.TurnAllowanceSeconds : 0.0),
+                                     TurnSeconds: Program.TurnsAtTheSplit ? Config.TurnAllowanceSeconds : 0.0,
+                                     BudgetMetresPerSecond: Config.HopsSizeTheirOwnSlots
+                                         ? ReleaseLoop.PlanningBudget(Config.TrimBudgetMetresPerSecond)
+                                         : PostBoostAim.MaxTrimMetresPerSecond,
+                                     HopAccelerationMetresPerSecond2: HopAcceleration),
             Program.Phase, false, TargetSet.MaxTargets, KSArmory.Warhead.LethalRadius(Warhead.ChargeKg), PlannedLead,
             ReachHold.Unflown, Config.PriceEachHopAtItsSlot, Config.PriceHopsAtWhatTheTrimPays,
             Config.PriceSlotsOnTheGateChord);
@@ -586,6 +611,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     // IcbmComputer.HandOverTo, for a walk the rig planned: the walker sets the gate.
     private void HandOverToPlanned()
     {
+        _hopBurnSeconds = ReleaseLoop.HopBurnSeconds(_walker.Step.HopMetresPerSecond, HopAcceleration);
         _aim.Retarget(Config.CarryAimBiasAcrossHops);
         Program.CorrectCoastArc();
         _trim.Resume();
@@ -641,7 +667,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         if (command.Fire.HasFlag(TrimAxes.Up)) direction -= down;
 
         double burn = command.Pulse && Config.PulseTrim ? Config.PulseSeconds : seconds;
-        return direction * (ThrusterMetresPerSecond2 * burn);
+        return direction * (JetAcceleration * burn);
     }
 
     // The modelled nose, rolled to keep down toward the planet.
@@ -781,7 +807,8 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
             plan.CeilingMetresPerSecond,
             Config.PulseTrim ? Config.PulseSeconds : 0.0,
             Config.StallFallsBackToHolding,
-            Config.TrimCountsTheCommandInFlight));
+            Config.TrimCountsTheCommandInFlight,
+            MaxSeconds: Config.HopsSizeTheirOwnSlots ? BusTrim.MaxSeconds + _hopBurnSeconds : double.NaN));
 
         ReleaseAnArrivalTheTrimCannotFly(trim, state);
 
@@ -802,7 +829,10 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
             HoldingCostMetresPerSecond: double.IsFinite(_holdingCost) ? _holdingCost : Config.HoldingCostMetresPerSecond,
             DecideOnTheReading: Config.DecideOnTheReading,
             ReleaseInsideTheTrimFloor: Config.ReleaseInsideTheTrimFloor,
-            TrimFloorMetres: _trimFloor));
+            TrimFloorMetres: _trimFloor,
+            BudgetMetresPerSecond: Config.HopsSizeTheirOwnSlots ? ReleaseLoop.PlanningBudget(Budget)
+                                                                : PostBoostAim.MaxTrimMetresPerSecond,
+            MaxSeconds: Config.HopsSizeTheirOwnSlots ? PostBoostAim.MaxSeconds + _hopBurnSeconds : double.NaN));
 
         if (pass.MayMeasure) _measureDue = true;
 

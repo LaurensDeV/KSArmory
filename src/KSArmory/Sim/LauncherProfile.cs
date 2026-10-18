@@ -312,6 +312,12 @@ public sealed class LauncherProfile
     /// </summary>
     public RoundSpin? ReleaseSpin;
 
+    /// <summary>
+    /// What the bus's trim nozzles push it at along one axis, fully loaded (m/s²), which sizes how long a hop's
+    /// divert burn takes under <see cref="IcbmConfig.HopsSizeTheirOwnSlots"/>. NaN where nobody measured it.
+    /// </summary>
+    public double TrimAccelerationMetresPerSecond2 = double.NaN;
+
     /// <summary>What one complete round in the belt weighs (kg), case and charge included; see <see cref="StoreMassKg"/>.</summary>
     public float GunRoundMassKg;
 

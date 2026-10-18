@@ -37,6 +37,10 @@ namespace KSArmory;
 /// <see cref="PostBoostAim.MaxTrimMetresPerSecond"/>, and the split's reserve on top of it under
 /// <see cref="IcbmConfig.SpendTheSplitReserveAfterTheFirstStop"/>.
 /// </param>
+/// <param name="MaxSeconds">
+/// How long the passes may run before the salvo goes regardless, or NaN for <see cref="PostBoostAim.MaxSeconds"/> --
+/// longer for a hop whose divert burn runs on the same clock (<see cref="IcbmConfig.HopsSizeTheirOwnSlots"/>).
+/// </param>
 /// <param name="DecideOnTheReading">
 /// Whether a frame with no reading leaves the flown correction for the reading that follows —
 /// <see cref="IcbmConfig.DecideOnTheReading"/>.
@@ -61,7 +65,8 @@ internal readonly record struct PostBoostSituation(
     bool DecideOnTheReading = false,
     bool ReleaseInsideTheTrimFloor = false,
     double TrimFloorMetres = double.NaN,
-    double BudgetMetresPerSecond = PostBoostAim.MaxTrimMetresPerSecond);
+    double BudgetMetresPerSecond = PostBoostAim.MaxTrimMetresPerSecond,
+    double MaxSeconds = double.NaN);
 
 /// <summary>
 /// Correcting the aim after the engines have stopped, with the trim as the actuator.
@@ -265,7 +270,9 @@ internal sealed class PostBoostAim
     private double _elapsed;
 
     /// <summary>How long the passes may still run before the salvo goes whatever they have reached.</summary>
-    public double SecondsLeft => _stage == Stage.Finished ? 0.0 : Math.Max(0.0, MaxSeconds - _elapsed);
+    public double SecondsLeft => _stage == Stage.Finished ? 0.0 : Math.Max(0.0, _maxSeconds - _elapsed);
+
+    private double _maxSeconds = MaxSeconds;
     private double _cycleStartedAt;
     private double _lastCycleSeconds = FirstCycleSeconds;
     private double3 _anchor;
@@ -296,7 +303,8 @@ internal sealed class PostBoostAim
 
         Watch(step, now.ReleaseDirectionCci, now.TrimSettled);
 
-        if (_elapsed >= MaxSeconds) return Finish($"released after {_elapsed:F0} s of correcting");
+        _maxSeconds = now.MaxSeconds > 0.0 && double.IsFinite(now.MaxSeconds) ? now.MaxSeconds : MaxSeconds;
+        if (_elapsed >= _maxSeconds) return Finish($"released after {_elapsed:F0} s of correcting");
 
         if (now.TrimSpentMetresPerSecond >= now.BudgetMetresPerSecond)
         {
@@ -517,6 +525,7 @@ internal sealed class PostBoostAim
     {
         _stage = Stage.Settling;
         _elapsed = 0.0;
+        _maxSeconds = MaxSeconds;
         _cycleStartedAt = 0.0;
         _lastCycleSeconds = FirstCycleSeconds;
         _anchor = Vec.Zero;
