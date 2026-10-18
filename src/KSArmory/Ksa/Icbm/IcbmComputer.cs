@@ -766,6 +766,7 @@ internal sealed partial class IcbmComputer
         _saidBudget = false;
         _saidFloorUnaffordable = false;
         _owedAtSplit = double.NaN;
+        _hopCeilingMetresPerSecond = double.NaN;
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} stood down: {why}");
     }
 
