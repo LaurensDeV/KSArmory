@@ -173,6 +173,7 @@ RESEARCH = (
     "PredictionStopsOnTheTerrain",
     "PriceEachHopAtItsSlot",
     "PriceHopsAtWhatTheTrimPays",
+    "PriceSlotsOnTheGateChord",
     "ProbeMissFollowsTheGround",
     "PulseSeconds",
     "PulseTrim",

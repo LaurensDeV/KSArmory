@@ -127,6 +127,10 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// <see cref="SlotReachScale"/> of it — <see cref="IcbmConfig.PriceEachHopAtItsSlot"/>. NaN
     /// prices every slot at the reach as given.
     /// </param>
+    /// <param name="ReachMeasuredMetresPerMetrePerSecond">
+    /// The reach measured at <paramref name="ReachMeasuredAtSeconds"/>, which the chord from the gate needs as an
+    /// absolute — <see cref="IcbmConfig.PriceSlotsOnTheGateChord"/>. NaN leaves every slot on the linear scale.
+    /// </param>
     /// <param name="ReserveAfterFirstStopMetresPerSecond">
     /// What the budget gains once the first stop's warheads are away —
     /// <see cref="IcbmConfig.SpendTheSplitReserveAfterTheFirstStop"/>. Zero leaves it the budget.
@@ -148,7 +152,8 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
                                         double ReachMeasuredAtSeconds = double.NaN,
                                         double ReserveAfterFirstStopMetresPerSecond = 0.0,
                                         bool HopsFlyTheirOwnCeiling = false,
-                                        double TurnSeconds = 0.0)
+                                        double TurnSeconds = 0.0,
+                                        double ReachMeasuredMetresPerMetrePerSecond = double.NaN)
     {
         /// <summary>
         /// The most one hop's pass may fly. With its own ceiling a hop is bounded by the budget, which
@@ -162,13 +167,29 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
         /// <summary>
         /// The share of the measured reach a release <paramref name="beforeArrivalSeconds"/> out keeps.
         ///
-        /// <para>Linear in the time to go and never above one, which makes it a floor: the pinned reach
-        /// is concave in the time to go, about <c>sin(ωt)/ω</c>.</para>
+        /// <para>Never above one, and a floor because the pinned reach is concave in the time to go: the line
+        /// from the origin to the measured reach lies under it, and so does the line from the gate's own floor,
+        /// <see cref="DivertFootprint.PinnedMetresPerSecondToGo"/> times the gate, which the larger of the two
+        /// takes where a slot lies between the gate and the measurement.</para>
         /// </summary>
         public double SlotReachScale(double beforeArrivalSeconds)
-            => PricesEachSlot && beforeArrivalSeconds >= 0.0 && double.IsFinite(beforeArrivalSeconds)
-                   ? Math.Min(1.0, beforeArrivalSeconds / ReachMeasuredAtSeconds)
-                   : 1.0;
+        {
+            if (!PricesEachSlot || !(beforeArrivalSeconds >= 0.0) || !double.IsFinite(beforeArrivalSeconds)) return 1.0;
+
+            double linear = Math.Min(1.0, beforeArrivalSeconds / ReachMeasuredAtSeconds);
+
+            double measured = ReachMeasuredMetresPerMetrePerSecond;
+            double gate = GateSeconds;
+            bool chordHolds = measured > 0.0 && double.IsFinite(measured)
+                              && gate >= DivertFootprint.EpochLeastSeconds && gate <= DivertFootprint.EpochMostSeconds
+                              && beforeArrivalSeconds >= gate && beforeArrivalSeconds < ReachMeasuredAtSeconds;
+            if (!chordHolds) return linear;
+
+            double atGate = DivertFootprint.PinnedMetresPerSecondToGo * gate;
+            double chord = atGate + (measured - atGate) * (beforeArrivalSeconds - gate) / (ReachMeasuredAtSeconds - gate);
+
+            return Math.Min(1.0, Math.Max(linear, chord / measured));
+        }
 
         /// <summary>What stop <paramref name="stop"/>, counted from zero, may have spent by its release.</summary>
         public double BudgetAt(int stop) => stop > 0 ? WalkBudgetMetresPerSecond : BudgetMetresPerSecond;

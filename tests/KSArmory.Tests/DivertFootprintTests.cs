@@ -316,6 +316,85 @@ public class DivertFootprintTests(ITestOutputHelper Out)
         }
     }
 
+    /// <summary>
+    /// <see cref="ReleaseItinerary.Bus.SlotReachScale"/>'s line from the gate's floor never promises a slot more
+    /// reach than its own columns fly, and it is worth having.
+    /// </summary>
+    [Fact]
+    public void TheGateChordIsAFloorUnderEverySlotItPrices()
+    {
+        const double gate = 420.0;
+        double worst = double.PositiveInfinity;
+        List<double> gain = [];
+
+        foreach (SortedDictionary<double, double> reach in ReachByEpoch(gate, 1_740.0, 120.0))
+        {
+            foreach ((double measuredAt, double measured) in reach)
+            {
+                ReleaseItinerary.Bus bus = new(gate, double.NaN, 6, ReachMeasuredAtSeconds: measuredAt,
+                                               ReachMeasuredMetresPerMetrePerSecond: measured);
+
+                foreach ((double slot, double flown) in reach)
+                {
+                    if (slot < gate || slot >= measuredAt) continue;
+
+                    double priced = measured * bus.SlotReachScale(slot);
+                    worst = Math.Min(worst, flown / priced);
+                    gain.Add(bus.SlotReachScale(slot) / Math.Min(1.0, slot / measuredAt));
+                }
+            }
+        }
+
+        gain.Sort();
+        Out.WriteLine($"{gain.Count} slots: flown over priced at least {worst:F4}; the chord over the linear "
+                      + $"scale median {gain[gain.Count / 2]:F3}, most {gain[^1]:F3}");
+
+        Assert.True(gain.Count >= 200, $"only {gain.Count} slots priced");
+        Assert.True(worst >= 1.0, $"a slot was promised {1.0 / worst:F4}x the reach its columns fly");
+        Assert.True(gain[^1] > 1.3, $"the chord never beat the linear scale by more than {gain[^1]:F3}x");
+    }
+
+    // The sweep's arcs, each flown at every epoch from `least` to `most`, as reach per m/s keyed on the fall the
+    // columns actually took.
+    private static IEnumerable<SortedDictionary<double, double>> ReachByEpoch(double least, double most, double step)
+    {
+        foreach (double latitudeDeg in new[] { 0.0, 25.0 })
+        foreach (double downrangeDeg in new[] { 18.0, 40.0, 60.0, 90.0, 115.0 })
+        foreach (double loft in new[] { 1.0, 1.35 })
+        {
+            double3 cutoffCci = new(R + 200_000.0, 0.0, 0.0);
+
+            double d = downrangeDeg * Math.PI / 180.0, lat = latitudeDeg * Math.PI / 180.0;
+            double3 aimCci = new double3(Math.Cos(d) * Math.Cos(lat), Math.Sin(d) * Math.Cos(lat),
+                                         Math.Sin(lat)) * R;
+
+            if (!BallisticArc.TryCheapest(Earth, cutoffCci, Vec.Zero, aimCci,
+                                          out BallisticArc.Solution arc, loft)) continue;
+
+            SortedDictionary<double, double> reach = [];
+            for (double epoch = least; epoch <= most; epoch += step)
+            {
+                double coast = arc.FlightSeconds - epoch;
+                if (coast <= 10.0) continue;
+
+                if (!Kepler.TryCoast(Mu, cutoffCci, arc.RequiredVelocityCci, coast, out double3 atRelease,
+                                     out double3 velocity)) continue;
+                if (Vec.Len(atRelease) < R + 100_000.0) continue;
+
+                ReleaseFocus.Air air = new(new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21), 2.0, R, true);
+                ReleaseFocus.FlownSensitivity? columns =
+                    ReleaseFocus.FlownSensitivity.TryFly(Earth, atRelease, velocity, air);
+
+                if (columns is null || !DivertFootprint.TryFrom(Earth, columns, DivertFootprint.ArrivalClock.Pinned,
+                                                                true, out DivertFootprint pinned)) continue;
+
+                reach[columns.FlightSeconds] = pinned.SemiMinorMetresPerMetrePerSecond;
+            }
+
+            if (reach.Count > 2) yield return reach;
+        }
+    }
+
     /// <summary>Outside that band it refuses, because the constant stops being a floor there.</summary>
     [Fact]
     public void OutsideTheBandThereIsNoEstimateRatherThanAWrongOne()

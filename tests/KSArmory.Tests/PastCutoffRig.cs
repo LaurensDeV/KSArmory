@@ -538,7 +538,8 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
                                      HopsFlyTheirOwnCeiling: Config.HopsFlyTheirOwnCeiling,
                                      TurnSeconds: Program.TurnsAtTheSplit ? Config.TurnAllowanceSeconds : 0.0),
             Program.Phase, false, TargetSet.MaxTargets, KSArmory.Warhead.LethalRadius(Warhead.ChargeKg), PlannedLead,
-            ReachHold.Unflown, Config.PriceEachHopAtItsSlot, Config.PriceHopsAtWhatTheTrimPays);
+            ReachHold.Unflown, Config.PriceEachHopAtItsSlot, Config.PriceHopsAtWhatTheTrimPays,
+            Config.PriceSlotsOnTheGateChord);
         _reach = reach;
 
         bool mayReplan = !(Program.TurnsAtTheSplit && _didSplit) || reach.Flown.Stops == _walker.Walk.Stops;

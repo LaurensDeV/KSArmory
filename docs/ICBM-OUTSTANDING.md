@@ -197,6 +197,13 @@ What the rig said (`HopCeilingRigTests`, six targets at 6,181 km from cutoff):
   14.98) and the passes after it 0.1-0.2 m/s each. The margin grows along the walk because a slot is priced at
   `min(1, s/T)` of the reach measured now -- the floor, since the pinned reach per second falls with the epoch -- so the
   last stop is the one most over-priced. No reserve is needed at the budget's edge.
+- **Pricing a slot nearer the truth buys a stop: `PriceSlotsOnTheGateChord`, built 2026-10-18, off.** The pinned reach
+  is concave in the time to go, so the line from the gate's own floor (0.88 x the gate) to the reach measured now lies
+  under it as surely as the line from the origin does, and the slot takes the larger. Over `DivertFootprintTests`'
+  sweep, 981 slots from 420 to 1,740 s, it never priced more than the columns fly (1.2% in hand at the worst; 0.95 x the
+  gate fails the test) and priced a median 3% and at most 58% more reach than the line from the origin. In the rig
+  (`HopCeilingRigTests`, both walk flags on) **six targets fit 7.0 km apart against 6.5, and five 9.0 km apart against
+  8.0**, every stop landing under a centimetre. Wants the same paired night as the flags, as a third arm.
 - **ICBM-GUIDANCE's six-at-8.5 km is not what the shipped planner prices**: that table is along-track, straight-line and
   60 m/s with no pass ceiling; priced at what the jets pay on the narrower axis, five fit at about 7.6 km and six at
   about 6.1 on the budget alone.

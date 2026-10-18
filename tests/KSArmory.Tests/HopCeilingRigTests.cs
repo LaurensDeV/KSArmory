@@ -16,13 +16,13 @@ public class HopCeilingRigTests(ITestOutputHelper Out)
 
     // APlannedWalkLandsEveryStopItFliesAndTheReserveBuysAnother's bus and shot, the walk started at cutoff, six targets
     // spaced wider than a gate-ending walk can reach at all.
-    private PastCutoffRig Planned(bool ownCeiling, double spacingMetres)
+    private PastCutoffRig Planned(bool ownCeiling, double spacingMetres, bool gateChord = false)
     {
         IcbmProgram program = new(new IcbmConfig
         {
             Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, ArrivalPreference = 0.5, FlyAnyRange = true,
             PulsesBelowTheFloor = false, SpendTheSplitReserveAfterTheFirstStop = true,
-            WalkStartsAtCutoff = true, HopsFlyTheirOwnCeiling = ownCeiling,
+            WalkStartsAtCutoff = true, HopsFlyTheirOwnCeiling = ownCeiling, PriceSlotsOnTheGateChord = gateChord,
         });
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
@@ -76,5 +76,20 @@ public class HopCeilingRigTests(ITestOutputHelper Out)
         Assert.False(rig.ReleasedTurning, "a warhead left while the bus was still turning");
         Assert.All(rig.NoseFromEntryDeg, deg => Assert.True(deg < 2.0, $"nose {deg:F2} deg off the entry airflow"));
         Assert.All(rig.Stops, stop => Assert.True(stop.LandedMetres < 1.0, $"landed {stop.LandedMetres:F2} m out"));
+    }
+
+    [Theory]
+    [InlineData(7_000.0, 5, 6)]
+    [InlineData(9_000.0, 4, 5)]
+    public void PricingSlotsOnTheGateChordWalksAStopMoreAtTheSameSpacing(double spacingMetres, int linearStops,
+                                                                          int chordStops)
+    {
+        PastCutoffRig linear = Planned(ownCeiling: true, spacingMetres);
+        PastCutoffRig chord = Planned(ownCeiling: true, spacingMetres, gateChord: true);
+
+        Assert.Equal(linearStops, linear.Stops.Count);
+        Assert.Equal(chordStops, chord.Stops.Count);
+        Assert.False(chord.Curtailed, "a stop the chord priced was not flown");
+        Assert.All(chord.Stops, stop => Assert.True(stop.LandedMetres < 1.0, $"landed {stop.LandedMetres:F2} m out"));
     }
 }

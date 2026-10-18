@@ -124,6 +124,21 @@ public class WalkPricingTests
     }
 
     [Fact]
+    public void TheGateChordLiftsASlotNearTheGateAndNeverPastOne()
+    {
+        ReleaseItinerary.Bus linear = Bus(perSlot: true);
+        ReleaseItinerary.Bus chord = linear with { ReachMeasuredMetresPerMetrePerSecond = MeasuredReach };
+
+        // 0.88 of the gate is 369.6 m per m/s, where the line from the origin gives 955 * 420 / 1,200 = 334.25.
+        Assert.Equal(369.6 / MeasuredReach, chord.SlotReachScale(Gate), 9);
+        Assert.Equal(Gate / MeasuredAt, linear.SlotReachScale(Gate), 9);
+
+        Assert.Equal(1.0, chord.SlotReachScale(MeasuredAt));
+        Assert.Equal(1.0, (chord with { ReachMeasuredMetresPerMetrePerSecond = 100.0 }).SlotReachScale(800.0));
+        Assert.Equal(linear.SlotReachScale(300.0), chord.SlotReachScale(300.0));
+    }
+
+    [Fact]
     public void TheSplitReserveLetsASixStopWalkTheBudgetCut()
     {
         ReleaseWalk asSet = ReleaseLoop.Plan(Chain(6, 9_500.0), Bus(), [1_000.0], lead: 0);

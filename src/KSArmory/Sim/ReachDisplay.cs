@@ -181,6 +181,10 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     /// <see cref="IcbmConfig.PriceEachHopAtItsSlot"/>: each hop, and the ring, at the reach of the slot
     /// it is flown in rather than at the reach the footprint was measured with.
     /// </param>
+    /// <param name="chordFromTheGate">
+    /// <see cref="IcbmConfig.PriceSlotsOnTheGateChord"/>: each slot at the larger of the two floors
+    /// <see cref="ReleaseItinerary.Bus.SlotReachScale"/> knows, rather than the line from the origin alone.
+    /// </param>
     /// <param name="priceAtTheTrim">
     /// <see cref="IcbmConfig.PriceHopsAtWhatTheTrimPays"/>: each hop at
     /// <see cref="DivertFootprint.TrimCostMetresPerSecond"/>, and the ring, the refusal and the readouts at
@@ -190,7 +194,7 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
                                    in ReleaseItinerary.Bus means, IcbmPhase phase, bool salvoAway,
                                    int maxTargets, double spacingMetres, int lead,
                                    ReachHold unpriced, bool pricePerSlot = false,
-                                   bool priceAtTheTrim = false)
+                                   bool priceAtTheTrim = false, bool chordFromTheGate = false)
     {
         int targets = placed?.Count ?? 0;
 
@@ -198,8 +202,14 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
         if (phase == IcbmPhase.NoSolution) return None(ReachHold.NoShot, targets);
         if (footprint is not { } reach) return None(unpriced, targets);
 
-        ReleaseItinerary.Bus bus = pricePerSlot ? means with { ReachMeasuredAtSeconds = reach.FlightSeconds }
-                                                : means;
+        ReleaseItinerary.Bus bus = pricePerSlot
+            ? means with
+            {
+                ReachMeasuredAtSeconds = reach.FlightSeconds,
+                ReachMeasuredMetresPerMetrePerSecond = chordFromTheGate ? reach.SemiMinorMetresPerMetrePerSecond
+                                                                        : double.NaN,
+            }
+            : means;
 
         // The smaller axis, which pinned is within 3% of the other. One number, which the itinerary
         // scales per slot under pricePerSlot exactly as the ring is, so the two cannot disagree.

@@ -209,6 +209,14 @@ internal sealed class IcbmConfig
     public bool PriceEachHopAtItsSlot = true;
 
     /// <summary>
+    /// Whether a slot between the gate and the reach's measurement is priced on the line from the gate's own floor
+    /// to that measurement where it is above the line from the origin. Both lie under the concave pinned reach;
+    /// over the sweep the gate's line held with 1.3% in hand and priced 6% more reach (median) for a slot near the
+    /// gate on a walk from cutoff. <b>Off until flown</b>: <c>docs/ICBM-OUTSTANDING.md</c> 4.12.
+    /// </summary>
+    public bool PriceSlotsOnTheGateChord;
+
+    /// <summary>
     /// Whether the trim reserve kept beyond the budget for nulling the split may be spent on hops once a
     /// walk's first stop has let its warheads go. Flown paired on a 4 km six-target walk: 12 of 12 buses walked five stops
     /// against four for all 12 without it, every warhead within 5 mm. <c>docs/MIRV-TARGETS.md</c>.
