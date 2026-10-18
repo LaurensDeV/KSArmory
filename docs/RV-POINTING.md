@@ -155,10 +155,11 @@ point is taken at `ReleaseGate - T`, the instant the warheads actually go; the w
 
 ## When, and what holds the release
 
-**Only on a long shot that splits at the gate.** A short shot splits at cutoff, in air (`IsShortShot`,
-`IcbmComputer.cs:995`), and a `ReleasesAtCutoff` shot never splits; with `WalkStartsAtCutoff`, or a coast with no room
-for the gate plus the turn, the gate cannot open earlier. In all of those the flag does nothing and the line stays the
-cutoff line, and the log says so once.
+**On every shot that splits out of the air.** A short shot splits at cutoff, in air (`IsShortShot`,
+`IcbmComputer.cs:995`), and a `ReleasesAtCutoff` shot never splits; in both the flag does nothing and the line stays
+the cutoff line. A walk from cutoff (`WalkStartsAtCutoff`) turns after its split at cutoff and holds the line through
+every stop -- in the rig, four stops 10 km apart at 6,181 km leave within 0.02 deg of their airflow, against 161 deg
+held on the cutoff line, for 2.8 m/s more of the walk's 46.
 
 The order after the split:
 

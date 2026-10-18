@@ -42,7 +42,8 @@ public class HopCeilingRigTests(ITestOutputHelper Out)
         for (int k = 0; k < rig.Stops.Count; k++)
         {
             Out.WriteLine($"  stop {k + 1}: landed {rig.Stops[k].LandedMetres:F2} m, divert "
-                          + $"{rig.Stops[k].DivertMetresPerSecond:F2} m/s, spent {rig.Stops[k].SpentMetresPerSecond:F2}");
+                          + $"{rig.Stops[k].DivertMetresPerSecond:F2} m/s, spent {rig.Stops[k].SpentMetresPerSecond:F2}, nose "
+                          + $"{(k < rig.NoseFromEntryDeg.Count ? rig.NoseFromEntryDeg[k] : double.NaN):F2} deg off the entry airflow");
         }
 
         return rig;
@@ -64,5 +65,16 @@ public class HopCeilingRigTests(ITestOutputHelper Out)
         {
             Assert.True(on.Stops[k].LandedMetres < 1.0, $"stop {k + 1} landed {on.Stops[k].LandedMetres:F2} m out");
         }
+    }
+
+    [Fact]
+    public void AWalkFromCutoffReleasesEveryWarheadAlongItsEntryAirflow()
+    {
+        PastCutoffRig rig = Planned(ownCeiling: true, 10_000.0);
+
+        Assert.True(rig.Stops.Count > 1, $"the fixture walks {rig.Stops.Count} stop");
+        Assert.False(rig.ReleasedTurning, "a warhead left while the bus was still turning");
+        Assert.All(rig.NoseFromEntryDeg, deg => Assert.True(deg < 2.0, $"nose {deg:F2} deg off the entry airflow"));
+        Assert.All(rig.Stops, stop => Assert.True(stop.LandedMetres < 1.0, $"landed {stop.LandedMetres:F2} m out"));
     }
 }

@@ -957,11 +957,10 @@ internal sealed partial class IcbmProgram
 
     /// <summary>
     /// Whether this flight turns its bus onto the entry airflow after the split -- never a short shot, which
-    /// splits in air at cutoff, one that releases at cutoff and never splits, or a walk from cutoff, whose
-    /// gate cannot open any earlier.
+    /// splits in air at cutoff, or one that releases at cutoff and never splits.
     /// </summary>
     public bool TurnsAtTheSplit
-        => Config.PointRvsAtEntry && !_shortShot && !_releasesAtCutoff && !Config.WalkStartsAtCutoff;
+        => Config.PointRvsAtEntry && !_shortShot && !_releasesAtCutoff;
 
     /// <summary>
     /// When the bus splits, in seconds before arrival: the release gate, opened earlier by the turn's
