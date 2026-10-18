@@ -211,6 +211,51 @@ public class MapViewportTests
     }
 
     [Fact]
+    public void AStepAcrossTheDatelineIsNotDrawnThrough()
+    {
+        // The reach walked round: a curve straddling 180 degrees. Only the pair either side of
+        // the meridian is the seam; every other step is an ordinary piece of the outline.
+        double[] longitudes = [176.0, 178.0, 179.5, -179.5, -178.0, -176.0];
+
+        for (int i = 1; i < longitudes.Length; i++)
+        {
+            float was = MapViewport.ToUv(longitudes[i - 1], 0.0).X;
+            float now = MapViewport.ToUv(longitudes[i], 0.0).X;
+
+            bool crossing = longitudes[i - 1] > 0.0 && longitudes[i] < 0.0;
+
+            Assert.Equal(!crossing, MapViewport.Joins(was, now));
+        }
+    }
+
+    [Fact]
+    public void AnOutlineWiderThanTheZoomIsStillOneOutline()
+    {
+        // The case a threshold measured against the visible crop gets wrong, and the reason this
+        // one is measured against the world. Zoomed this far the crop is about a fifth of a
+        // degree -- twenty kilometres, which is a reasonable look at an aim point -- while a
+        // divert footprint walked in 96 steps puts its own points further apart than that. Judged
+        // against the crop, every step reads as a dateline crossing and the outline disappears at
+        // exactly the zoom somebody went to in order to see it.
+        MapViewport.FromPanZoom(Size, new float2(-900000f, -430000f), 2000f,
+                                out float2 min, out float2 max);
+
+        float was = MapViewport.ToUv(-62.0, 0.0).X;
+        float now = MapViewport.ToUv(-61.7, 0.0).X;
+
+        Assert.True(now - was > (max.X - min.X) * 0.5f, "the fixture stopped being a hard case");
+        Assert.True(MapViewport.Joins(was, now));
+    }
+
+    [Fact]
+    public void TheDatelineIsTheSeamAtEveryZoom()
+    {
+        // Nothing about the test may depend on the zoom: these are world UV, so a wrap is one.
+        Assert.False(MapViewport.Joins(MapViewport.ToUv(179.9, 0.0).X,
+                                       MapViewport.ToUv(-179.9, 0.0).X));
+    }
+
+    [Fact]
     public void AMarkOutsideTheCropIsNotShown()
     {
         MapViewport.FromPanZoom(Area, float2.Zero, 2f, out float2 min, out float2 max);

@@ -35,10 +35,6 @@ internal static class GroundTrackMarks
     // and one projection each, on a window nobody has open while flying.
     private const int ReachPoints = 96;
 
-    // Longitudes either side of the dateline project a full map apart, so a step wider than this
-    // share of the crop is the seam rather than a line to draw.
-    private const float SeamShare = 0.5f;
-
     private static readonly double[] Latitudes = [45.0, 0.0, -45.0];
     private static readonly double[] Longitudes = [-90.0, 0.0, 90.0];
 
@@ -126,11 +122,6 @@ internal static class GroundTrackMarks
             return;
         }
 
-        // The seam is a share of what is on screen rather than of the whole world: zoomed in, two
-        // points a degree apart are most of the width, and a fixed fraction of 360 would read
-        // every one of them as a dateline crossing and draw nothing at all.
-        float span = Math.Max(1e-6f, max.X - min.X);
-
         float2 wasAt = default;
         float wasU = 0f;
         bool have = false;
@@ -150,7 +141,7 @@ internal static class GroundTrackMarks
             float u = MapViewport.ToUv(lon, lat).X;
             float2 point = GroundTrackWindow.ProjectOnImage(at, size, lon, lat, min, max);
 
-            if (have && Math.Abs(u - wasU) <= SeamShare * span)
+            if (have && MapViewport.Joins(wasU, u))
                 draw.AddLine(wasAt, point, Reach, 1.5f);
 
             wasAt = point;

@@ -92,6 +92,28 @@ internal static class MapViewport
         return true;
     }
 
+    /// <summary>
+    /// Whether two points of a line walked across the map may be joined, or whether the step
+    /// between them is the dateline.
+    /// </summary>
+    /// <remarks>
+    /// <para>An equirectangular map wraps, so a curve crossing &#177;180&#176; jumps the full
+    /// width of the picture. Drawn through, that is a line straight across the map; what it should
+    /// be is two pieces that leave opposite edges.</para>
+    ///
+    /// <para><b>Against the whole world, never the visible crop.</b> These are world UV, so a
+    /// wrap is about one whatever the zoom, and any real step is small — no footprint a bus can
+    /// divert across spans half a planet between two samples. Measuring it against the crop looks
+    /// equivalent and is not: zoomed in, the crop is a sliver, half of it is a fraction of a
+    /// degree, and an outline whose own points are further apart than that is cut into nothing at
+    /// exactly the zoom somebody is inspecting it at.</para>
+    /// </remarks>
+    public static bool Joins(float wasU, float u)
+        => System.Math.Abs(u - wasU) <= SeamShare;
+
+    // How much of the world a step may span before it reads as the dateline.
+    private const float SeamShare = 0.5f;
+
     /// <summary>Whether a point's UV is inside the crop, so a mark off the edge is not drawn.</summary>
     public static bool Shows(float2 uv, float2 min, float2 max)
         => uv.X >= min.X && uv.X <= max.X && uv.Y >= min.Y && uv.Y <= max.Y;
