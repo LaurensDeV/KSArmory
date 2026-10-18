@@ -28,15 +28,15 @@ the narrower axis as the planner prices a hop (6.1 km against 8.5 straight-line 
 | 12,902 km | ~1.06 km |
 
 Seven RVs (the art seats seven) are six gaps, so a chain `S` apart is `6S` end to end and costs `6S / reach` in hops.
-Every figure below adds the 1.3x a flown hop costs over its price (`ICBM-OUTSTANDING.md` 4.12, 1.13-1.29x) and 20 m/s
-for the split's null and the corrections.
+Every figure below adds 20 m/s for the split's null and the corrections, and nothing over the planner's price: a flown
+hop costs 82-98% of it (`ICBM-OUTSTANDING.md` 4.12, "What a stop costs").
 
 | spacing | 6,179 km | 12,902 km |
 | --- | --- | --- |
-| 10 km | 131 m/s | 94 m/s |
-| 25 km | 299 m/s | 204 m/s |
-| 50 km | 577 m/s | 388 m/s |
-| 100 km | 1,134 m/s | 756 m/s |
+| 10 km | 106 m/s | 77 m/s |
+| 25 km | 234 m/s | 162 m/s |
+| 50 km | 449 m/s | 303 m/s |
+| 100 km | 877 m/s | 586 m/s |
 
 ## How big a tank
 
@@ -46,9 +46,9 @@ the engine's, so they are priced at 2,996:
 
 | propellant | hops it flies | spacing at 6,179 km | at 12,902 km |
 | --- | --- | --- | --- |
-| 500 kg (declared: one 0.5247 m sphere on the axis) | 526 m/s | ~45 km | ~69 km |
-| 1,000 kg | 979 m/s | ~86 km | ~130 km |
-| 1,500 kg | 1,378 m/s | ~122 km | ~184 km |
+| 500 kg (declared: one 0.5247 m sphere on the axis) | 526 m/s | ~59 km | ~89 km |
+| 1,000 kg | 979 m/s | ~112 km | ~169 km |
+| 1,500 kg | 1,378 m/s | ~158 km | ~240 km |
 
 Measured 2026-10-17 on the bus alone in a 300 km orbit, with the bridge's `burn`: 20 s on the engine took 45.4 kg for
 34.30 m/s off the accelerometer (2.27 kg/s, ~6.8 kN), and 20 s on the four forward nozzles 10.7 kg for 7.92 m/s

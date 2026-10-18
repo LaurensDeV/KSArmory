@@ -170,8 +170,12 @@ So the walk from cutoff reaches spacings the gate schedule cannot, for about a m
   planned two stops on the pad and fell to one at the coast. It found 1.23 instead.
 
 So on the walk set the flags reach a target the shipped walk drops, and cost 0.7-0.9 mm a warhead on two nights. Still
-open before a flip: step 3, the budget-edge refusal, `Abort` clearing the hop ceiling, a panel row, and a walk under
-2,000 km that 1.23 does not swamp.
+open before a flip: a walk under 2,000 km that 1.23 does not swamp. **Closed 2026-10-18:** the budget edge is not in
+danger (below, "What a stop costs"); `Abort` clears the hop ceiling, which before it bounded a re-armed flight's split
+null at the last hop's ceiling; step 3 buys only the outline before cutoff (below); and a panel row is not one, since
+every walk flag shipped on -- `PointRvsAtEntry`, `SpendTheSplitReserveAfterTheFirstStop` -- is in `RESEARCH` without one. **Since 2026-10-18 a walk from cutoff turns its RVs onto their entry airflow too**
+(`TurnsAtTheSplit` no longer excludes it); both nights flew before the turn existed, every RV on both arms leaving
+off its airflow, so their 0.7-0.9 mm is re-measured with the turn on both arms before a flip. Rig only, not flown.
 `WalkStartsAtCutoff` is back (`1adf1aa9` reversed, panel row left out, listed in `check-tunables.py`'s `RESEARCH`), and
 `HopsFlyTheirOwnCeiling` is new, both off. With it on, the pass after a hand-over may spend
 `ReleaseLoop.HopCeilingFor` -- 1.25x the pass's price and never under the constant -- through
@@ -186,12 +190,13 @@ What the rig said (`HopCeilingRigTests`, six targets at 6,181 km from cutoff):
 - **`CoastFits` dropped a stop to rounding** -- the fault that lost 4.3 -- and is fixed (a nanosecond of slack;
   `WalkFromCutoffTests.FromCutoffEveryStopTheChainCountsBackFitsTheCoast` fails without it at 2 and 4 stops). Before the
   fix the on arm walked 3 at 10-12 km, a fourth stop the budget could pay for dropped.
-- **What a stop costs runs 1.13-1.29x its price** (12 km: priced 12.76, flown 16.0-16.5), all of it after the hop's
-  first pass -- corrections and recoil nulls at the budget's ceiling. So 1.25 is not the bound in danger; **the budget
-  is**: `CanFlyTheHop` admits the last hop at its price, and on a walk planned to the budget's edge the stop can run the
-  tank out with its warheads already assigned. Two follow-ups, neither built: refuse at the hand-over on the solved
-  demand rather than the price (with the flag on `BeyondOnePass` can no longer trip), and hold a correction reserve in
-  the budget check.
+- **What a stop costs is under its price.** The 1.13-1.29x first written here divided the flown stop by the plan's
+  `HopMetresPerSecond`, which is the dearest *pass length*; the budget check (`CanFlyTheHop`) and the planner charge the
+  per-axis price, which is what the trim pays. Against that, re-read 2026-10-18 with the turn on at 7, 9, 10, 11, 12, 13,
+  15 and 18 km: every hop's first pass flew 82-98% of its price (10 km: priced 15.17, 15.99, 16.90; flown 14.73, 14.80,
+  14.98) and the passes after it 0.1-0.2 m/s each. The margin grows along the walk because a slot is priced at
+  `min(1, s/T)` of the reach measured now -- the floor, since the pinned reach per second falls with the epoch -- so the
+  last stop is the one most over-priced. No reserve is needed at the budget's edge.
 - **ICBM-GUIDANCE's six-at-8.5 km is not what the shipped planner prices**: that table is along-track, straight-line and
   60 m/s with no pass ceiling; priced at what the jets pay on the narrower axis, five fit at about 7.6 km and six at
   about 6.1 on the budget alone.
@@ -220,10 +225,15 @@ two solutions. 4.3's lost night is no evidence either way: its truncations were 
    cutoff-started with and without the flag, which isolates it -- at 4 km the hop's own ceiling never binds, and five
    targets cannot test it at this range because the budget binds (~7.6 km) before a pass reaches 10 m/s (~8.4).
    Declared in `~/shots/scripts-2026-10-14/DECLARE-hop-ceiling.md`. 12 km at 12,902 waits for step 3.
-3. **Lift `DivertFootprint.EpochMostSeconds`** (760 s, `Sim/DivertFootprint.cs:122`): a six-stop walk from cutoff
-   opens around 895 s before arrival, past where the pre-launch reach is priced, so the outline refuses what the
-   flight could do. Pinned reach falls off as `sin(ωt)/ω` -- 0.96 of `t_go` at 420 s, 0.76 at 1,200 -- so it wants
-   the falloff priced, not just the bound raised.
+3. **Lift `DivertFootprint.EpochMostSeconds`** (760 s, `Sim/DivertFootprint.cs:122`). **Read 2026-10-18: it bounds
+   only the outline before cutoff.** In the coast the reach is flown from the bus's own state (`TryFrom`), which has no
+   epoch bound, so the walk and its refusals already price the real coast. Before cutoff `TryAtTheEpoch` is asked at
+   `ReleaseBeforeArrivalSeconds` alone, and nothing on the pad knows the coast (`Program.Arc` is solved once the burn
+   starts), so pricing a walk from cutoff there needs a coast estimate that comes in short -- an overestimate promises
+   ground. The falloff is measured: over `DivertFootprintTests`' sweep the worst pinned reach per second of `t_go` is
+   0.886 at 760 s, 0.848 at 900, 0.756 at 1,200, 0.650 at 1,500 and 0.573 at 1,700 (11 geometries), so
+   `0.88 - 0.00034 (t - 760)` is a floor to 1,700 s and breaks past ~1,900; `sinc(ωt)` is not one (0.669 at 1,200 against
+   0.756 flown, and above the worst at 420 s). Display only, so after the flip.
 4. **Use the trim's cheap direction.** The jets pay the L1 norm on the bus's axes
    (`DivertFootprint.TrimCostMetresPerSecond`) and the ring is drawn at `WorstAxisFactor`, so on a good bearing it
    understates reach by up to 1.7x. First draw the true cost contour or mark the cheap bearing (S-M, display only,
