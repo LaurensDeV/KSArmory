@@ -789,7 +789,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     private double ForTheTrimMetres()
     {
         if (!Config.TrimWaitsOutTheStack || !_haveStack || !Vec.IsFinite(_trim.ToGainCci)
-            || (Config.StackWaitsOnlyForTheSplit && _postBoost.Cycles > 0))
+            || (Config.StackWaitsOnlyForTheSplit && (_postBoost.Cycles > 0 || _warheadsGone > 0)))
         {
             return 0.0;
         }
