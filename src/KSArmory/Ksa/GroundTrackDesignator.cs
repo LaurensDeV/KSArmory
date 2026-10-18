@@ -183,7 +183,7 @@ internal static class GroundTrackDesignator
         if (!site.IsSet) return;
 
         ReachVerdict verdict = Verdict(computer, site);
-        string says = ReachDisplay.CursorSays(verdict);
+        string says = ReachDisplay.CursorSays(verdict, computer.Targets.Count);
 
         list.AddText(spot, ReachDisplay.Takes(verdict) ? Takes : Refused,
                      says.Length > 0 ? says : site.Coordinates);

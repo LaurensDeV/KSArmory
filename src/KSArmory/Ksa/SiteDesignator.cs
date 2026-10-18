@@ -112,7 +112,7 @@ internal sealed class SiteDesignator
         GroundRings.Add(groundEcl, Math.Max(MarkerMin, range * MarkerScale), 0.0,
                         new float4(ink.X, ink.Y, ink.Z, 0.05f));
 
-        Say(ReachDisplay.CursorSays(verdict));
+        Say(ReachDisplay.CursorSays(verdict, computer.Targets.Count));
     }
 
     // Beside the cursor rather than on the panel: a refusal an operator has to look away to read is

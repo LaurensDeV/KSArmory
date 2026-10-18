@@ -450,13 +450,21 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     }
 
     /// <summary>What to print beside the cursor, or empty where the click needs no explaining.</summary>
-    public static string CursorSays(ReachVerdict verdict)
+    public static string CursorSays(ReachVerdict verdict, int targets = 0)
         => verdict switch
         {
             ReachVerdict.OutsideReach => "outside reach",
             ReachVerdict.OffBody => "another world",
             ReachVerdict.Full => "six targets already",
             ReachVerdict.Unknown => "reach not known",
+
+            // Designating starts the shot over, so with a set already placed this click destroys
+            // it. Said because the condition is not the operator's doing and not visible: a click
+            // adds only while the reach is known, and a reach that comes and goes turns the same
+            // gesture into a different one without anything on screen changing.
+            ReachVerdict.Designates when targets > 0 =>
+                $"replaces {targets} target{(targets == 1 ? "" : "s")}",
+
             _ => "",
         };
 
