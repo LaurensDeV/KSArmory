@@ -104,4 +104,69 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
         Assert.True(guarded.Curtailed, "the guarded walk did not end early");
         Assert.All(guarded.Stops, stop => Assert.True(stop.LandedMetres < 0.01, $"landed {stop.LandedMetres:F3} m out"));
     }
+
+    // The post-boost bus on its nozzles alone: 0.40 m/s² forward, 3.8 t wet, 500 kg at 2,912 m/s (docs/POSTBOOST-BUS.md).
+    [Fact]
+    public void ThePostBoostBusWalksSevenTargetsFiftyKilometresApartOnItsNozzles()
+    {
+        IcbmProgram program = new(new IcbmConfig
+        {
+            Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, ArrivalPreference = 0.5, FlyAnyRange = true,
+            PulsesBelowTheFloor = false, SpendTheSplitReserveAfterTheFirstStop = true,
+            WalkStartsAtCutoff = true, HopsFlyTheirOwnCeiling = true, PriceSlotsOnTheGateChord = true,
+            HopsSizeTheirOwnSlots = true, TrimBudgetMetresPerSecond = 1_000.0,
+        });
+
+        PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
+                                              Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21), DensityAt);
+        rig.ThrusterMetresPerSecond2 = Arsenal.PostBoostBus.TrimAccelerationMetresPerSecond2;
+        rig.ShoveMetresPerSecond = 1.0;
+        rig.BusMassKg = 3_800.0;
+        rig.PropellantKg = 500.0;
+        rig.JetExhaustVelocity = 2_912.0;
+        for (int k = 0; k < 7; k++) rig.PlannedTargets.Add((GameStackShortRangeTests.South(12_902_000.0 - k * 50_000.0), 1));
+        rig.PlannedLead = 0;
+
+        rig.Fly(GameStackShortRangeTests.South(12_902_000.0));
+        Out.WriteLine($"planned {rig.Plan.Stops}, flew {rig.Stops.Count}, {rig.PropellantUsedKg:F0} kg used, "
+                      + $"spent {rig.Stops[^1].SpentMetresPerSecond:F0} m/s");
+
+        Assert.Equal(7, rig.Stops.Count);
+        Assert.False(rig.Curtailed);
+        Assert.False(rig.RanDry);
+        Assert.All(rig.Stops, stop => Assert.True(stop.LandedMetres < 0.01, $"landed {stop.LandedMetres:F3} m out"));
+    }
+
+    /// <summary>
+    /// What a free arrival would buy (<c>docs/WIDE-SPREAD.md</c> step 4, branch A): an along-track hop from the coast's
+    /// start, solved to the committed arrival against left to find its own, vacuum, two-body.
+    /// </summary>
+    [Theory]
+    [InlineData(6_181_000.0, 2.5)]
+    [InlineData(12_902_000.0, 5.0)]
+    public void AFreeArrivalMakesAnAlongTrackHopSeveralTimesCheaper(double rangeMetres, double atLeast)
+    {
+        const double mu = 3.986004418e14;
+        BallisticBody earth = new(mu, R, new double3(0, 0, 1), 7.2921159e-5);
+        double3 cutoff = new(R + 200_000.0, 0, 0);
+
+        double3 Along(double metres) => new double3(Math.Cos(metres / R), Math.Sin(metres / R), 0) * R;
+
+        Assert.True(BallisticArc.TryCheapest(earth, cutoff, Vec.Zero, Along(rangeMetres), out BallisticArc.Solution arc));
+        Assert.True(Kepler.TryCoast(mu, cutoff, arc.RequiredVelocityCci, 30.0, out double3 p, out double3 v));
+        double toGo = arc.FlightSeconds - 30.0;
+
+        foreach (double hop in new[] { -50_000.0, 50_000.0, 300_000.0 })
+        {
+            double3 aimNow = earth.CarryCci(Along(rangeMetres + hop), 30.0);
+            Assert.True(BallisticArc.TrySolve(earth, p, aimNow, toGo, out BallisticArc.Solution pinned));
+            Assert.True(BallisticArc.TryCheapest(earth, p, v, aimNow, out BallisticArc.Solution free, seedFlightSeconds: toGo));
+
+            double ratio = Vec.Len(pinned.RequiredVelocityCci - v) / Vec.Len(free.RequiredVelocityCci - v);
+            Out.WriteLine($"{rangeMetres / 1_000.0:F0} km, {hop / 1_000.0:+0;-0} km: pinned "
+                          + $"{Vec.Len(pinned.RequiredVelocityCci - v):F1} m/s, free {Vec.Len(free.RequiredVelocityCci - v):F1} "
+                          + $"({ratio:F2}x), arrival {free.FlightSeconds - toGo:+0;-0} s");
+            Assert.True(ratio > atLeast, $"a free arrival bought only {ratio:F2}x");
+        }
+    }
 }

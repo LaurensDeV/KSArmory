@@ -24,7 +24,7 @@ reading of code and have not been run; everything else names where it was measur
 - [ ] 1. Flip night for the walk flags
 - [x] 2. Make a hop's time and budget belong to the hop (headless, flagged) -- 2026-10-18, rig only
 - [ ] 3. Spend the Heavy bus's tank, rolled once for the walk
-- [ ] 4. Decide the route to 50 km (rig pricing, a decision, no build)
+- [x] 4. Decide the route to 50 km (rig pricing, a decision, no build) -- 2026-10-18: A and B, C deferred
 - [ ] 5. Build the chosen route (headless)
 - [ ] 6. Fly it in game, once
 - [ ] 7. The wide nights
@@ -159,8 +159,8 @@ Headless 1 day, then one night. The first large hops, and possibly the whole goa
   three targets 50 km apart at 12,902 km if the rig flies it; keep one single-target cell. Bars: stops walked, every
   warhead within 2 km of its own target, no "ran out of time", no curtailed stop.
 
-Pass: the flag ships, and the table above gets measured rows. If three at 50 km flies at 12,902 km, ask the user
-whether that meets the goal before building more.
+Pass: the flag ships, and the table above gets measured rows. **The goal has no "enough"** (the user, 2026-10-18): the
+widest spacing physically possible with accuracy unharmed, so carry on to step 4 whatever this step reaches.
 
 **Headless half built 2026-10-18, under `HopsSizeTheirOwnSlots`; the night is still to fly.**
 
@@ -200,12 +200,29 @@ Headless, ~2 days, **pricing only**: each branch gets a rig number before any is
 Decide by the cheapest branch that reaches the target count the user wants, and write the decision and its numbers
 here. A and C combine: a free arrival makes every engine hop cheaper.
 
+**Decided 2026-10-18: build A, fly B, defer C.** Measured (`WideSpreadRigTests`):
+
+- **B needs nothing new.** The post-boost bus on its nozzles under steps 2-3 (0.40 m/s², 3.8 t, 500 kg at 2,912 m/s)
+  walks **seven targets 50 km apart from 12,902 km**, every stop under a centimetre, 365 of 500 kg; at 70 km the guard
+  ends it at six. From 6,181 km the coast binds before the tank: the slots run 270-390 s, so three at 50 km, five at
+  30. The rig's 12,902 km arc coasts 2,726 s against 1,772 flown, so B's long-range figure is the optimistic one.
+- **A is the largest lever there is.** A 50 km along-track hop from the coast's start costs 42.4 m/s pinned and 15.7
+  free at 6,181 km (**2.7x**), 24.9 and 4.3 at 12,902 km (**5.8x**), the same ratio at 300 km, the arrival moving
+  about 10 s per 50 km. Across the track it buys nothing. Every bus gains it, and since a cheaper hop is a shorter
+  burn it also eases the coast that binds B at 6,181 km. *Inferred*: B with A spreads seven targets roughly 5x wider
+  from 12,902 km before the tank binds, and the Heavy bus's six at 25 km becomes ~140 km.
+- **C only buys time** at the ranges where the nozzles are too slow for the coast (6,181 km and under), and A cuts the
+  burn it would be buying time for. Re-price it after A flies.
+
+Accuracy is the open question for A: each warhead arrives at its own instant (seconds apart), and the aim correction,
+the release gate and the post-boost passes all assume one. Step 5 has to show the landing does not move.
+
 ### 5. Build the chosen route
 
 Headless, behind a flag. Per branch:
 
-- **A**: free the arrival per stop through the five assumptions, each with a rig test that fails against the pinned
-  form.
+- **A** (chosen): free the arrival per stop through the five assumptions, each with a rig test that fails against the
+  pinned form, and the walk's landing per warhead held against the pinned walk's at a spacing both fly.
 - **B**: step 2's profile plus the post-boost bus's budget and acceleration; nothing else new.
 - **C**: first the engine risks below, then:
   - `Sim/HopBurn.cs` only if step 4 said open-loop leaves more than a pass: point (`BusTurn`, capped), burn re-solving
