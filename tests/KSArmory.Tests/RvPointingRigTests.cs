@@ -63,4 +63,41 @@ public class RvPointingRigTests(ITestOutputHelper Out)
         Assert.True(last.Released, last.Said);
         Assert.All(rig.NoseFromEntryDeg, deg => Assert.True(deg > 30.0, $"nose only {deg:F2} deg off the entry airflow"));
     }
+
+    // The planner the computer flies, at a range whose coast is shorter than the release gate: the bus splits as the burn
+    // ends and the turn can only make the first release late.
+    private PastCutoffRig Planned(bool pointAtEntry, double range, int targets, double spacingMetres)
+    {
+        IcbmProgram program = new(new IcbmConfig
+        {
+            Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, ArrivalPreference = 0.5, FlyAnyRange = true,
+            PulsesBelowTheFloor = false, PointRvsAtEntry = pointAtEntry,
+        });
+
+        PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
+                                              Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21), DensityAt);
+        rig.ThrusterMetresPerSecond2 = 0.55;
+        rig.ShoveMetresPerSecond = 1.0;
+        for (int k = 0; k < targets; k++) rig.PlannedTargets.Add((GameStackShortRangeTests.South(range - k * spacingMetres), 1));
+        rig.PlannedLead = 0;
+
+        PastCutoffRig.Outcome last = rig.Fly(GameStackShortRangeTests.South(range));
+        Out.WriteLine($"{(pointAtEntry ? "on" : "off")}: planned {rig.Plan.Stops}, flew {rig.Stops.Count}: {last.Said}");
+        return rig;
+    }
+
+    [Theory]
+    [InlineData(2_000_000.0, 4, 4_000.0)]
+    [InlineData(2_000_000.0, 7, 2_500.0)]
+    [InlineData(3_000_000.0, 7, 2_500.0)]
+    public void APlannedWalkWithTheTurnFliesEveryStopItWouldWithout(double range, int targets, double spacingMetres)
+    {
+        PastCutoffRig off = Planned(pointAtEntry: false, range, targets, spacingMetres);
+        PastCutoffRig on = Planned(pointAtEntry: true, range, targets, spacingMetres);
+
+        Assert.True(off.Stops.Count > 1, $"the fixture walks {off.Stops.Count} stop without the turn");
+        Assert.True(on.Stops.Count >= off.Stops.Count, $"with the turn {on.Stops.Count} stops, without {off.Stops.Count}");
+        Assert.All(on.Stops, stop => Assert.True(stop.LandedMetres < 1.0, $"landed {stop.LandedMetres:F2} m out"));
+        Assert.All(on.NoseFromEntryDeg, deg => Assert.True(deg < 2.0, $"nose {deg:F2} deg off the entry airflow"));
+    }
 }

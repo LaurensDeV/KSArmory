@@ -163,6 +163,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     private readonly BusTurn _turn = new();
     private int _turnLeg;
     private double3 _entryLineCci;
+    private bool _reachDueAfterTurn;
     private double3 _trueAimCci;
 
     /// <summary>What one flight came to.</summary>
@@ -288,8 +289,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
                        && (_trim.Done || _trimAbandoned || !Config.TrimBeforeRelease);
             if (!due) return;
 
-            if (Program.CommittedArrivalFromNow < Program.ReleaseGate
-                || !TryEntryAirflow(state.PositionCci, state.VelocityCci, out double3 airflow))
+            if (!TryEntryAirflow(state.PositionCci, state.VelocityCci, out double3 airflow))
             {
                 _turnLeg = 3;
                 return;
@@ -308,6 +308,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         if (stage == BusTurn.Stage.Turning) return;
         if (stage == BusTurn.Stage.Capped) Program.CoastLineCci = _turn.ReachedCci;
         _turnLeg = 3;
+        _reachDueAfterTurn = PlannedTargets.Count > 0;
     }
 
     // The nose swings onto the held line at a fixed rate, and holds it exactly once there.
@@ -384,7 +385,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
             bool held = PostCutoffSequence.TrimHoldsTheRelease(Config.TrimBeforeRelease, _command.ReadyToDeploy,
                                                                _trimAbandoned, atCutoff, _trim.Done,
                                                                _postBoost.Correcting)
-                        || _turn.Holds;
+                        || _turn.Holds || _reachDueAfterTurn;
 
             if (Config.AutoRelease && _command.ReadyToDeploy && !held)
             {
@@ -510,7 +511,11 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         if (coasting)
         {
             _sinceReach += step;
-            if (_sinceReach >= ReachIntervalSeconds) FlyTheReach(state, t);
+            if (_sinceReach >= ReachIntervalSeconds || _reachDueAfterTurn)
+            {
+                _reachDueAfterTurn = false;
+                FlyTheReach(state, t);
+            }
         }
 
         List<ReachDisplay.Placed> placed = [];
@@ -530,12 +535,14 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
                                      ReserveAfterFirstStopMetresPerSecond: Config.SpendTheSplitReserveAfterTheFirstStop
                                                                                ? ReleaseLoop.SplitNullReserveMetresPerSecond
                                                                                : 0.0,
-                                     HopsFlyTheirOwnCeiling: Config.HopsFlyTheirOwnCeiling),
+                                     HopsFlyTheirOwnCeiling: Config.HopsFlyTheirOwnCeiling,
+                                     TurnSeconds: Program.TurnsAtTheSplit ? Config.TurnAllowanceSeconds : 0.0),
             Program.Phase, false, TargetSet.MaxTargets, KSArmory.Warhead.LethalRadius(Warhead.ChargeKg), PlannedLead,
             ReachHold.Unflown, Config.PriceEachHopAtItsSlot, Config.PriceHopsAtWhatTheTrimPays);
         _reach = reach;
 
-        if (reach.Flown.Stops > 0) _walker.Plan(reach.Flown);
+        bool mayReplan = !(Program.TurnsAtTheSplit && _didSplit) || reach.Flown.Stops == _walker.Walk.Stops;
+        if (reach.Flown.Stops > 0 && mayReplan) _walker.Plan(reach.Flown);
         Program.ReleaseGateSeconds = _walker.GateOverrideSeconds(Config, Math.Max(PlannedTargets.Count, 1));
     }
 

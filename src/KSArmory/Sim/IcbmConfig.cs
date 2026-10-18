@@ -189,15 +189,16 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// Whether the bus turns once after its split so every RV leaves along the airflow it will meet, and
-    /// holds that line through the walk. <b>Off until flown</b>: <c>docs/RV-POINTING.md</c>.
+    /// holds that line through the walk. Paired over 30 flights of eight at 2,000 and 6,181 km, every RV met the air
+    /// within 0.30 deg of its airflow against 147-164 without, at 0.87x the worst warhead's miss: <c>docs/RV-POINTING.md</c>.
     /// </summary>
-    public bool PointRvsAtEntry;
+    public bool PointRvsAtEntry = true;
 
     /// <summary>
-    /// How much earlier the bus splits so the turn does not come out of the first stop's slot. It has to hold the
-    /// clearance and the trim as well as the turn: flown at a 350 s gate, 5 s and 23 s before a turn could start.
+    /// How much earlier the bus splits so the turn does not come out of the first stop's slot. None: the turn only delays
+    /// the release, and any allowance is coast the walk planner takes from the stops: 10 s cost a 2,000 km walk a stop in the rig.
     /// </summary>
-    public double TurnAllowanceSeconds = 60.0;
+    public double TurnAllowanceSeconds;
 
     /// <summary>
     /// Whether the walk planner prices each hop at the reach of the slot it is flown in, scaled down

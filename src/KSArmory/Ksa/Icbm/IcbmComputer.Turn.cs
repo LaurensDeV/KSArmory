@@ -60,23 +60,19 @@ internal sealed partial class IcbmComputer
                 return;
             }
 
-            // A split that came too late to turn before the release instant: a coast shorter than the gate and the allowance.
-            bool found = TryEntryAirflow(state, out double3 airflow, out double altitude);
-            string keeps = Program.CommittedArrivalFromNow < Program.ReleaseGate
-                               ? "the coast left no room to turn before the release"
-                               : !found ? "its conic has no entry to point at"
-                               : "";
-
-            if (keeps.Length > 0)
+            // Turned however late: every pass so far was aimed for the kick along the entry line, so keeping the cutoff
+            // line here is what would miss. A late turn costs the release its seconds.
+            if (!TryEntryAirflow(state, out double3 airflow, out double altitude))
             {
                 _turnLeg = 3;
-                Log.Info($"turn on {KsaWorld.DisplayName(Craft)}: keeps the cutoff line -- {keeps}");
+                Log.Info($"turn on {KsaWorld.DisplayName(Craft)}: keeps the cutoff line -- its conic has no entry to point at");
                 return;
             }
 
             _entryLineCci = Vec.Unit(airflow);
             Log.Info($"turn on {KsaWorld.DisplayName(Craft)}: onto the airflow at {altitude / 1000.0:F0} km, "
-                     + $"{Degrees(line, airflow):F1} deg from the cutoff line");
+                     + $"{Degrees(line, airflow):F1} deg from the cutoff line, "
+                     + $"{Program.CommittedArrivalFromNow - Program.ReleaseGate:F0} s before the release gate");
             StartTurn(1, airflow, state);
             return;
         }

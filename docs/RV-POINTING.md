@@ -1,10 +1,55 @@
 # Releasing the RVs nose-first
 
-**A plan, not a record.** Nothing in it is built or flown. One turn of the bus after the split, so every reentry
+**A record: built, flown, and on since 2026-10-18** ("What was flown"); how it works now is `docs/ICBM-GUIDANCE.md`. One turn of the bus after the split, so every reentry
 vehicle leaves with its nose along the airflow it will meet, held through the whole walk. Drawn up 2026-10-17 from
 three read-only surveys of the code, then revised twice after adversarial review: two reviews (one against the
 source, one against what has been flown) found the first draft's blocking faults, and a third found three more in the
 revision. Each is answered below where it applies.
+
+## What was flown, 2026-10-17
+
+**Built, flown, paired, and off by default** (`IcbmConfig.PointRvsAtEntry`), because of one open item below.
+
+- **Step 0 answered: the bus follows a large turn.** `TurnTestDegrees` 90 on the post-boost bus: settled within
+  0.35 deg in 5.1 s on 1.04 kg, nothing owed by it (0.002 -> 0.002 m/s), back in 7.3 s, 7 of 7 within 5.1 mm.
+- **The allowance had to hold the trim, not just the turn.** At `TurnAllowanceSeconds` 20, sized on the turn alone,
+  the first one-target flight cleared its stack in 5 s, nulled 1.67 m/s in another 23 and reached the turn 8 s past
+  the 350 s gate: it kept the cutoff line and every RV met the air 164.8 deg off. At 60 s it turns.
+- **Single flights, flag on, 6,181 km:** post-boost bus one target, 162.7 deg in 9.0 s on 1.45 kg, 0.1 deg at the air,
+  7 of 7 within 3.8 mm; the seven-target walk, one turn of 165.2 deg held through all seven releases, 0.1-0.2 deg at
+  the air, worst 6.0 mm; the old bus, 159.6 deg in 7.3 s on 1.05 kg, 0.1 deg, 6 of 6 within 2.8 mm.
+- **The declared paired night**, `PBB SCALE 8`, 6 blocks of 8 a cell, `~/shots/2026-10-17-rvpoint/DECLARE.md`.
+  One target: worst warhead 0.82x [0.65, 1.03], landing 0.97x [0.79, 1.12]. Seven targets 2.5 km apart: worst
+  0.86x [0.62, 1.19], every bus walking all seven stops on both arms. All 336 entry RVs met the air within 0.30 deg
+  (base 162.5-164.4), 48 turns, none capped or kept, a median 1.44-1.45 kg each. The worst-warhead ratio is
+  `score.py` beside the declaration, a geometric mean per flight with a t interval, since `shot-report.py` has no
+  such endpoint; its own landing interval for seven targets is [0.60, 1.68] at 97%. Frames ran 26-29 ms.
+
+**The short-range walk, answered 2026-10-18.** With the flag on, `WalkRigTests`' forced four-stop walk at 2,000 km
+lost stops 2-4. Two causes, both in the turn's timing. Its "no room" exit kept the cutoff line whenever the null
+finished past the release gate -- after every pass was aimed for the kick along the entry line, so keeping the line is
+what missed; at 2,000 km the coast is shorter than the gate and the exit always fired. And the 60 s allowance was coast
+the planner took from the stops: on the planned walk, 10 s cost 2,000 km a stop and 60 s cost 3,000 km one. Now the
+bus turns however late and splits at the gate (`TurnAllowanceSeconds` 0), and in the rig it walks at least as many
+stops as without at every range from 1,500 to 12,900 km. The forced walk sits on the 10 m/s pass ceiling either way
+and is pinned off. Flown on `TEST PBB GeoSat FAT`, four targets 4 km apart from 10.622N 80.604W: on and off walk the
+same two stops, 0.9-2.1 mm; on, the bus turned 147 deg 28 s after the gate, settled in 6.8 s on 1.04 kg, every RV
+0.1-0.2 deg off its airflow.
+
+**The second paired night, 2026-10-18**, on that code, `~/shots/2026-10-18-rvpoint/DECLARE.md`, 6 blocks of 8 a cell:
+
+| cell | worst warhead, entry/base | walk | at the air | |
+| --- | --- | --- | --- | --- |
+| 2,000 km, 4 x 4 km | 0.92x [0.64, 1.33] | 1 target a bus, both arms | 0.20 deg max | **fails the 1.25x bound** |
+| 6,181 km, one | 0.89x [0.75, 1.06] | -- | 0.10 deg max | pass |
+| 6,181 km, 7 x 2.5 km | 0.88x [0.62, 1.24] | 7 of 7 on every bus | 0.30 deg max | pass |
+
+The turn starts 17-29 s after the gate, settles every time, and spends a median 1.05 kg at 2,000 km and 1.44 at
+6,181. At 2,000 km on the eight-rocket save seven of eight buses release everything on one target in both arms; the
+bus being flown walks two or three. **By the declared rule it would have stayed off**: the 2,000 km cell's interval
+reaches 1.33x with a point estimate of 0.92x, one flight at 1.58x. Pooled over both nights' 30 paired flights -- not
+declared, so evidence rather than a pass -- the worst warhead is 0.87x [0.79, 0.97], 20 of 30 won. **Turned on by the
+user's decision on that pooled evidence**, with the missed cell stated rather than re-flown.
 
 ## What is wrong today, and what is not
 
@@ -196,7 +241,7 @@ the gate and follow it. The longer fall costs about 2 m of stop band for 45 s, n
 
 ## Flag and files
 
-`IcbmConfig.PointRvsAtEntry`, off, in `check-tunables.py`'s `RESEARCH`; `BallisticSettings` and `ShotArms` take it by
+`IcbmConfig.PointRvsAtEntry`, on, in `check-tunables.py`'s `RESEARCH`; `BallisticSettings` and `ShotArms` take it by
 reflection. New: `Sim/EntryDirection.cs`, its tests, and the step-0 bridge command. Changed: `IcbmProgram.Coast.cs`
 (the latch), `IcbmProgram.cs:941` and `ReleaseItinerary` (the gate), `IcbmComputer.Prediction.cs` (the predicted kick),
 `IcbmComputer.Release.cs` (the release term, the instruments), `IcbmComputer.cs` / `Walk.cs` (the latched gate, the
@@ -208,7 +253,7 @@ per-stop check), `IcbmComputer.Reach.cs` (the re-fly), `PastCutoffRig.cs`, and t
 - **The turn costs propellant from the tank**, not from the 60-70 m/s trim budget; holding the new line costs what
   holding the cutoff line costs, both inertial at Strict. CHECKLIST 12.7e's "watch RCS propellant to the last release"
   is still unticked and should be read on the same flights.
-- **The turn time is unmeasured**; every timing above scales with it.
+- **The turn time**, measured since: 7.3-9.1 s for 160-165 deg, which `TurnCapSeconds` and the allowance are sized on.
 - **The trim tips the bus off the line.** The ring is a pure couple for rotation, but not the other way: a lateral
   trim push carries 0.107-0.193 of torque per unit at these seats (`POSTBOOST-BUS.md`), so every pass after the turn
   nudges the attitude, as it does today off the cutoff line. The steadiness gate sees it; step 0 says how much.
