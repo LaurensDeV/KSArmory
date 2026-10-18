@@ -698,6 +698,13 @@ internal sealed partial class IcbmComputer
     public void SetTargetWarheads(int index, int warheads)
         => _targets.SetWarheads(index, warheads, WarheadsAboard);
 
+    /// <summary>
+    /// Move warheads onto one target by <paramref name="delta"/>, taking them from the lead.
+    /// What a click on the map does; refused rather than clamped when there are not enough.
+    /// </summary>
+    public bool ShiftTargetWarheads(int index, int delta)
+        => _targets.Shift(index, delta, WarheadsAboard);
+
     /// <summary>Spread every warhead over the targets chosen, evenly.</summary>
     public void BalanceTargets() => _targets.Balance(WarheadsAboard);
 

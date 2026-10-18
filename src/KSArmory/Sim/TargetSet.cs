@@ -199,6 +199,53 @@ internal sealed class TargetSet
     }
 
     /// <summary>
+    /// Move warheads onto one target, by one or by several — what a click on a map does.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>The lead is the pool.</b> A target that takes none still rides there
+    /// (<see cref="Describe"/>), and <c>Designate</c> hands it everything aboard, so there is
+    /// nowhere else for a warhead to come from. Taking spills from the unassigned remainder first
+    /// where there is one, and from the lead after.</para>
+    ///
+    /// <para><b>Giving one back does not name a destination.</b> It simply stops being assigned,
+    /// and an unassigned warhead already rides to the lead — crediting it explicitly would be the
+    /// same arithmetic written twice, and the two could then disagree.</para>
+    ///
+    /// <para>Refused rather than clamped when there are not enough: half a gesture leaves an
+    /// operator believing a click did something it did not.</para>
+    /// </remarks>
+    public bool Shift(int index, int delta, int available)
+    {
+        if (index < 0 || index >= _entries.Count || delta == 0) return false;
+
+        int want = _entries[index].Warheads + delta;
+        if (want < 0) return false;
+
+        if (delta < 0)
+        {
+            _entries[index] = _entries[index] with { Warheads = want };
+            return true;
+        }
+
+        int spare = Math.Max(0, available - Assigned);
+        int fromLead = delta - Math.Min(spare, delta);
+
+        if (fromLead > 0)
+        {
+            if (index == LeadIndex) return false;
+            if (_entries[LeadIndex].Warheads < fromLead) return false;
+
+            _entries[LeadIndex] = _entries[LeadIndex] with
+            {
+                Warheads = _entries[LeadIndex].Warheads - fromLead,
+            };
+        }
+
+        _entries[index] = _entries[index] with { Warheads = want };
+        return true;
+    }
+
+    /// <summary>
     /// Spread every warhead over the chosen targets: evenly, and the remainder to the earliest chosen.
     /// </summary>
     /// <remarks>

@@ -104,9 +104,16 @@ internal sealed partial class Ui
         ImGui.SameLine();
         bool picking = computer.Config.DesignateByClicking;
         if (ImGui.Checkbox("Click to aim", ref picking)) computer.Config.DesignateByClicking = picking;
-        Tip("Click the map to put the warheads there. The first click replaces the set; once "
-            + "there is a reach to price it against, another adds a target. A refused click says "
-            + "why beside the pointer before it is made.");
+        Tip("Click bare ground to put a target there, and click a target again to put another "
+            + "warhead on it -- the number beside the mark is how many clicks it has had. Shift "
+            + "takes one back, and shift on a target with none removes it. A warhead comes from "
+            + "the lead, which is where an unplaced one rides anyway. A refused click says why "
+            + "beside the pointer before it is made.");
+
+        ImGui.SameLine();
+        if (ImGui.SmallButton("Spread")) computer.BalanceTargets();
+        Tip("Share every warhead out evenly over the targets chosen. The click-by-click way is to "
+            + "click a mark to put one more on it; this is the whole-handful way.");
 
         ImGui.SameLine();
         if (ImGui.SmallButton("Whole world")) _planetView.ResetView();
@@ -123,6 +130,20 @@ internal sealed partial class Ui
         {
             ImGui.TextDisabled("no target");
             return;
+        }
+
+        int aboard = computer.WarheadsAboard;
+        int assigned = 0;
+        for (int i = 0; i < entries.Count; i++) assigned += entries[i].Warheads;
+
+        // The ledger, because an unassigned warhead is not idle -- it rides to the lead. Without
+        // this line a half-assigned set reads as broken when it is doing exactly what it says.
+        ImGui.TextDisabled($"{assigned} of {aboard} warhead(s) placed");
+
+        if (assigned < aboard)
+        {
+            ImGui.SameLine();
+            ImGui.TextDisabled($"- {aboard - assigned} rides to the lead");
         }
 
         ImGui.TextDisabled($"{entries.Count} target(s), {computer.Reach.Say()}");

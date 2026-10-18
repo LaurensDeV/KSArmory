@@ -38,7 +38,11 @@ internal static class GroundTrackDesignator
         float2 mouse = ImGui.GetMousePos();
         bool over = MapViewport.TryPlace(at, size, min, max, mouse, out double lon, out double lat);
 
-        if (over) Say(computer, mouse, lon, lat);
+        // On a mark the gesture is weighting, which the reach does not bound: putting another
+        // warhead on a place already chosen is accounting, not a divert.
+        int mark = over ? GroundTrackMarks.Nearest(computer, at, size, min, max, mouse) : -1;
+
+        if (over) Say(computer, mouse, lon, lat, mark);
 
         if (ImGui.IsMouseClicked(ImGuiMouseButton.Left, repeat: false))
         {
@@ -55,7 +59,40 @@ internal static class GroundTrackDesignator
         _pressing = false;
         if (!wasClick) return;
 
-        Take(computer, lon, lat);
+        if (mark >= 0) Weigh(computer, mark, ImGui.GetIO().KeyShift ? -1 : 1);
+        else Take(computer, lon, lat);
+    }
+
+    // A click on a mark moves one warhead onto it; shift takes one back, and the click that would
+    // take the last one off a target removes the target -- which is the only way a map can say
+    // "not here after all" without a second gesture to learn.
+    private static void Weigh(IcbmComputer computer, int index, int delta)
+    {
+        int had = index < computer.Targets.Count ? computer.Targets[index].Warheads : 0;
+
+        if (delta < 0 && had == 0)
+        {
+            if (!computer.MayRemoveTarget(index))
+            {
+                Log.Debug($"ground-track map: target {index + 1} is the lead and stays");
+                return;
+            }
+
+            computer.RemoveTarget(index);
+            Log.Debug($"ground-track map: target {index + 1} removed, "
+                      + $"{computer.Targets.Count} left");
+            return;
+        }
+
+        if (!computer.ShiftTargetWarheads(index, delta))
+        {
+            Log.Debug($"ground-track map: {delta:+0;-0} on target {index + 1} refused, "
+                      + $"{computer.Targets.Count} target(s) over {computer.WarheadsAboard}");
+            return;
+        }
+
+        Log.Debug($"ground-track map: target {index + 1} now has "
+                  + $"{computer.Targets[index].Warheads} warhead(s)");
     }
 
     private static void Take(IcbmComputer computer, double lon, double lat)
@@ -79,9 +116,18 @@ internal static class GroundTrackDesignator
 
         if (verdict == ReachVerdict.Adds)
         {
-            bool took = computer.AddTarget(site);
-            Log.Debug($"ground-track map: click on {site.Coordinates} "
-                      + (took ? $"added, {computer.Targets.Count} target(s)" : "not added"));
+            if (!computer.AddTarget(site))
+            {
+                Log.Debug($"ground-track map: click on {site.Coordinates} not added");
+                return;
+            }
+
+            // A target with nothing on it is not a stop, so placing one and leaving it empty is a
+            // click that looks like it worked and changed nothing about the shot.
+            computer.ShiftTargetWarheads(computer.Targets.Count - 1, 1);
+
+            Log.Debug($"ground-track map: click on {site.Coordinates} added, "
+                      + $"{computer.Targets.Count} target(s)");
             return;
         }
 
@@ -110,8 +156,27 @@ internal static class GroundTrackDesignator
     // Beside the cursor rather than on the panel, for the reason SiteDesignator says it there: a
     // refusal an operator has to look away to read is one they find out about by clicking and
     // watching nothing happen.
-    private static void Say(IcbmComputer computer, float2 mouse, double lon, double lat)
+    private static void Say(IcbmComputer computer, float2 mouse, double lon, double lat, int mark)
     {
+        ImDrawListPtr list = ImGui.GetWindowDrawList();
+        float2 spot = new(mouse.X + 14f, mouse.Y + 6f);
+
+        if (mark >= 0 && mark < computer.Targets.Count)
+        {
+            int had = computer.Targets[mark].Warheads;
+            bool back = ImGui.GetIO().KeyShift;
+
+            string what = back
+                ? had == 0 ? computer.MayRemoveTarget(mark) ? "remove" : "the lead stays"
+                           : $"take one back ({had - 1})"
+                : $"one more here ({had + 1})";
+
+            list.AddText(spot, Takes, what);
+            list.AddText(new float2(spot.X, spot.Y + 14f), Refused,
+                         computer.Targets[mark].Site.Coordinates);
+            return;
+        }
+
         if (computer.Parent is not { } body) return;
 
         AimSite site = new(body.Id, lat, lon, "");
@@ -120,13 +185,10 @@ internal static class GroundTrackDesignator
         ReachVerdict verdict = Verdict(computer, site);
         string says = ReachDisplay.CursorSays(verdict);
 
-        ImDrawListPtr draw = ImGui.GetWindowDrawList();
-        float2 where = new(mouse.X + 14f, mouse.Y + 6f);
-
-        draw.AddText(where, ReachDisplay.Takes(verdict) ? Takes : Refused,
+        list.AddText(spot, ReachDisplay.Takes(verdict) ? Takes : Refused,
                      says.Length > 0 ? says : site.Coordinates);
 
         if (says.Length > 0)
-            draw.AddText(new float2(where.X, where.Y + 14f), Refused, site.Coordinates);
+            list.AddText(new float2(spot.X, spot.Y + 14f), Refused, site.Coordinates);
     }
 }

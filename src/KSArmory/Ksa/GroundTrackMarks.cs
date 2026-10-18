@@ -69,6 +69,46 @@ internal static class GroundTrackMarks
         }
     }
 
+    /// <summary>
+    /// Which target's mark a point is on, or -1. What separates weighting a target already chosen
+    /// from placing a new one — and they are different gestures, because only placement is bounded
+    /// by what the bus can divert to.
+    /// </summary>
+    public static int Nearest(IcbmComputer computer, float2 at, float2 size,
+                              float2 min, float2 max, float2 point)
+    {
+        var entries = computer.Targets;
+        int found = -1;
+        float nearest = GrabPx * GrabPx;
+
+        for (int i = 0; i < entries.Count; i++)
+        {
+            AimSite site = entries[i].Site;
+            if (!site.IsSet) continue;
+            if (!MapViewport.Shows(MapViewport.ToUv(site.LongitudeDeg, site.LatitudeDeg), min, max))
+                continue;
+
+            float2 mark = GroundTrackWindow.ProjectOnImage(at, size, site.LongitudeDeg,
+                                                           site.LatitudeDeg, min, max);
+
+            float dx = point.X - mark.X;
+            float dy = point.Y - mark.Y;
+            float away = (dx * dx) + (dy * dy);
+
+            if (away > nearest) continue;
+
+            nearest = away;
+            found = i;
+        }
+
+        return found;
+    }
+
+    // How near a mark counts as being on it. Wider than the diamond, because the gesture is worth
+    // more than the pixel: a click that lands a few pixels off should weight the target it
+    // obviously meant rather than place a new one on top of it.
+    private const float GrabPx = 11f;
+
     private static void DrawTargets(ImDrawListPtr draw, IcbmComputer computer,
                                     float2 at, float2 size, float2 min, float2 max)
     {
