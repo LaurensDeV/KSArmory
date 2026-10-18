@@ -190,6 +190,42 @@ internal static class ReleaseLoop
     public static double PlanningBudget(double budgetMetresPerSecond)
         => budgetMetresPerSecond < 0.0 ? double.PositiveInfinity : budgetMetresPerSecond;
 
+    /// <summary>
+    /// The share of what the tank can still pay that the trim may not plan on: flown hops ran 1.03-1.08x their price
+    /// at 12,902 km in the rig.
+    /// </summary>
+    public const double TankMargin = 0.10;
+
+    /// <summary>
+    /// The most the trim may have spent by the end of the flight on what the tank still holds: what it has spent, and
+    /// the rest of the tank on the bus's dearest axis less <see cref="TankMargin"/>. NaN where any input is unreadable.
+    /// </summary>
+    public static double TankCeilingMetresPerSecond(double spentMetresPerSecond, double propellantKg, double massKg,
+                                                    double worstAxisExhaustVelocity)
+    {
+        if (!(propellantKg >= 0.0) || !(massKg > propellantKg) || !(worstAxisExhaustVelocity > 0.0)
+            || !double.IsFinite(massKg) || !double.IsFinite(worstAxisExhaustVelocity) || !double.IsFinite(spentMetresPerSecond))
+        {
+            return double.NaN;
+        }
+
+        double payable = worstAxisExhaustVelocity * Math.Log(massKg / (massKg - propellantKg));
+        return Math.Max(0.0, spentMetresPerSecond) + (1.0 - TankMargin) * payable;
+    }
+
+    /// <summary>A budget held under <paramref name="tankCeiling"/>; an unread tank leaves it as it was.</summary>
+    public static double CappedByTheTank(double budgetMetresPerSecond, double tankCeiling)
+        => double.IsFinite(tankCeiling) ? Math.Min(PlanningBudget(budgetMetresPerSecond), tankCeiling) : budgetMetresPerSecond;
+
+    /// <summary>
+    /// The budget a walk is planned on with the tank read: the first stop's, so that it and the reserve released after
+    /// it stay under <paramref name="tankCeiling"/>.
+    /// </summary>
+    public static double PlanningBudget(double budgetMetresPerSecond, double tankCeiling, double reserveMetresPerSecond)
+        => double.IsFinite(tankCeiling)
+               ? Math.Max(0.0, Math.Min(PlanningBudget(budgetMetresPerSecond), tankCeiling - Math.Max(0.0, reserveMetresPerSecond)))
+               : PlanningBudget(budgetMetresPerSecond);
+
     /// <summary>How long a hop's divert burn takes at the bus's trim acceleration, or zero where either is unknown.</summary>
     public static double HopBurnSeconds(double hopMetresPerSecond, double accelerationMetresPerSecond2)
         => hopMetresPerSecond > 0.0 && double.IsFinite(hopMetresPerSecond)

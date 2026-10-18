@@ -161,6 +161,27 @@ public class WalkPricingTests
     }
 
     [Fact]
+    public void TheTankCeilingIsWhatIsSpentAndNineTenthsOfTheRestOnTheDearestAxis()
+    {
+        // The Heavy bus full: 134.3 kg on 2.9 t at 2,055 m/s, 97.3 m/s laterally.
+        double payable = 2_055.0 * Math.Log(2_900.0 / (2_900.0 - 134.3));
+
+        Assert.Equal(5.0 + 0.9 * payable, ReleaseLoop.TankCeilingMetresPerSecond(5.0, 134.3, 2_900.0, 2_055.0), 9);
+        Assert.True(double.IsNaN(ReleaseLoop.TankCeilingMetresPerSecond(5.0, double.NaN, 2_900.0, 2_055.0)));
+        Assert.True(double.IsNaN(ReleaseLoop.TankCeilingMetresPerSecond(5.0, 134.3, 100.0, 2_055.0)));
+    }
+
+    [Fact]
+    public void AnUnreadTankLeavesTheBudgetAndAnUnlimitedOneIsHeldUnderARead()
+    {
+        Assert.Equal(-1.0, ReleaseLoop.CappedByTheTank(-1.0, double.NaN));
+        Assert.Equal(80.0, ReleaseLoop.CappedByTheTank(-1.0, 80.0));
+        Assert.Equal(60.0, ReleaseLoop.CappedByTheTank(60.0, 80.0));
+        Assert.Equal(70.0, ReleaseLoop.PlanningBudget(140.0, 80.0, ReleaseLoop.SplitNullReserveMetresPerSecond));
+        Assert.Equal(double.PositiveInfinity, ReleaseLoop.PlanningBudget(-1.0, double.NaN, 10.0));
+    }
+
+    [Fact]
     public void TheSplitReserveLetsASixStopWalkTheBudgetCut()
     {
         ReleaseWalk asSet = ReleaseLoop.Plan(Chain(6, 9_500.0), Bus(), [1_000.0], lead: 0);

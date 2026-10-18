@@ -747,6 +747,9 @@ public static class Arsenal
 
         // Flown: the twenty nozzles' measured acceleration (ReleaseItinerary.MedianHopSeconds).
         TrimAccelerationMetresPerSecond2 = 0.56,
+
+        // ve 2,906 m/s, a lateral m/s costing 1.41x an axial one: 101 m/s against 143 (docs/ICBM-GUIDANCE.md).
+        TrimWorstAxisExhaustVelocity = 2_906.0 / 1.414,
         TubeArmamentLabel = "Warheads",
         Tubes =
         [
@@ -785,6 +788,9 @@ public static class Arsenal
 
         // The four forward nozzles, 7.92 m/s in 20 s on the bridge (docs/POSTBOOST-BUS.md).
         TrimAccelerationMetresPerSecond2 = 0.40,
+
+        // The Heavy bus's nozzles at the 2,912 m/s measured on this one.
+        TrimWorstAxisExhaustVelocity = 2_912.0 / 1.414,
 
         // The RV's two base motors (KSArmory_Subpart_PostBoostRv): mouths at r 0.15 m, 45 and 225 deg
         // round +X from +Y, each exhausting 45 deg round the axis from straight aft, so their sideways

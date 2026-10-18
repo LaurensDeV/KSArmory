@@ -162,6 +162,25 @@ Headless 1 day, then one night. The first large hops, and possibly the whole goa
 Pass: the flag ships, and the table above gets measured rows. If three at 50 km flies at 12,902 km, ask the user
 whether that meets the goal before building more.
 
+**Headless half built 2026-10-18, under `HopsSizeTheirOwnSlots`; the night is still to fly.**
+
+- **The guard** reads the bus's tank once it is alone (`KsaWorld.TryTankMassKg`, the craft's own mass) and holds the
+  trim budget, the passes' and the planner's under `ReleaseLoop.TankCeilingMetresPerSecond`: what is spent plus nine
+  tenths of the rest at `LauncherProfile.TrimWorstAxisExhaustVelocity` (2,906/1.414 on the Heavy bus, a lateral m/s
+  costing 1.41x an axial one). Before the split it reads nothing and the setting stands. It binds at the hand-over:
+  the hop it cannot pay is refused and the stop takes the warheads left (`CurtailTheWalk`).
+- **Rig, with a tank** (`PastCutoffRig.PropellantKg`, 134.3 kg, nozzles stopping when it is empty), budget 200: six at
+  10 and 16 km and three at 30 km from 6,181 km, and six at 10 and 16 km and three at 30 and 50 km from 12,902 km, all
+  fly, none near the bottom (at most 108 of 134 kg). **Three 50 km apart from 6,181 km does not**: unguarded the jets
+  run dry mid-hop and stop 3 lands **15.1 km** out; guarded the third hop is refused and every warhead released lands
+  under a centimetre (`WideSpreadRigTests.ABudgetPastTheTankEndsTheWalkAStopEarlyRatherThanRunningDry`).
+- **The slider** runs to 200 m/s with the flag on, its tooltip saying the tank bounds it.
+- **The roll, deferred.** In the rig the 6,181 km hops are almost all axial (107 kg for 122.8 m/s, about what an
+  axial burn costs), so one roll would buy nearly nothing there; at 12,902 km about a fifth of the propellant goes to
+  the lateral premium (108 kg for 94.3 m/s). The rig rolls its frame to keep down toward the planet, so this is the
+  rig's attitude, not the game's: read the axis split off a flown walk's trim lines before building it.
+- **Left**: the night above, which needs the walk flags (step 1) or flies them as arms.
+
 ### 4. Decide the route to 50 km
 
 Headless, ~2 days, **pricing only**: each branch gets a rig number before any is built.

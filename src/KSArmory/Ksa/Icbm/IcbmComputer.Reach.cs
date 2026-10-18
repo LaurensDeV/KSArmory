@@ -129,7 +129,12 @@ internal sealed partial class IcbmComputer
                                                                            ? Config.TurnAllowanceSeconds
                                                                            : 0.0,
                                                           BudgetMetresPerSecond: Config.HopsSizeTheirOwnSlots
-                                                              ? ReleaseLoop.PlanningBudget(Config.TrimBudgetMetresPerSecond)
+                                                              ? ReleaseLoop.PlanningBudget(
+                                                                    Config.TrimBudgetMetresPerSecond,
+                                                                    TankCeilingMetresPerSecond,
+                                                                    Config.SpendTheSplitReserveAfterTheFirstStop
+                                                                        ? ReleaseLoop.SplitNullReserveMetresPerSecond
+                                                                        : 0.0)
                                                               : PostBoostAim.MaxTrimMetresPerSecond,
                                                           HopAccelerationMetresPerSecond2: HopAcceleration),
                                  Program.Phase, SalvoIsOver, TargetSet.MaxTargets,

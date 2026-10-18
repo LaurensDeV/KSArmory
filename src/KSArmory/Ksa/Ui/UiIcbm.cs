@@ -33,6 +33,9 @@ internal sealed partial class Ui
     private static readonly float4 Working = new(0.95f, 0.85f, 0.45f, 1f);
     private static readonly float4 Bad = new(0.98f, 0.5f, 0.45f, 1f);
 
+    // The slider's top once the tank, not the 60 m/s reserve, bounds the budget: past the Heavy bus's 143 m/s axially.
+    private const double WideTrimBudgetMetresPerSecond = 200.0;
+
     private void DrawIcbm(IcbmComputer computer)
     {
         DrawIcbmTarget(computer);
@@ -750,15 +753,20 @@ internal sealed partial class Ui
 
         float budget = (float)config.TrimBudgetMetresPerSecond;
         if (ImGui.SliderFloat("Trim budget", ref budget, 0f,
-                              (float)PostBoostAim.MaxTrimMetresPerSecond,
+                              (float)(config.HopsSizeTheirOwnSlots ? WideTrimBudgetMetresPerSecond
+                                                                   : PostBoostAim.MaxTrimMetresPerSecond),
                               "%.0f m/s for the flight"))
         {
             config.TrimBudgetMetresPerSecond = budget;
         }
-        Tip("Spent across every correction, then it stops. At 0 there is no trimming at all, and the "
-            + "warheads go on the aim as the burn left it. The bus reserves "
-            + $"{PostBoostAim.MaxTrimMetresPerSecond:F0} m/s anyway, so a budget under that is the one "
-            + "that binds.");
+        Tip(config.HopsSizeTheirOwnSlots
+                ? "Spent across every correction and every hop between targets, then it stops. At 0 there is no "
+                  + "trimming at all. Never more than the bus's tank still pays on its dearest axis, less a tenth, "
+                  + "so a walk the tank cannot finish ends a stop early rather than running dry."
+                : "Spent across every correction, then it stops. At 0 there is no trimming at all, and the "
+                  + "warheads go on the aim as the burn left it. The bus reserves "
+                  + $"{PostBoostAim.MaxTrimMetresPerSecond:F0} m/s anyway, so a budget under that is the one "
+                  + "that binds.");
 
         bool keepOut = config.KeepOutCoversTheClearance;
         if (ImGui.Checkbox("Keep trimming past the clearance", ref keepOut))

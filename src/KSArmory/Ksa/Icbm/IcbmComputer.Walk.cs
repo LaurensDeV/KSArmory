@@ -70,9 +70,28 @@ internal sealed partial class IcbmComputer
         => ReleaseLoop.HopCeilingFor(Config.HopsFlyTheirOwnCeiling, step.NextHopMetresPerSecond,
                                      _trim.ToGainMetresPerSecond, step.NextPassMetresPerSecond);
 
-    // The flight's trim budget, with the split's reserve once a walk's first stop has let go.
+    // The flight's trim budget, with the split's reserve once a walk's first stop has let go, and under the flag never
+    // more than the tank still pays.
     private double TrimBudgetMetresPerSecond
-        => ReleaseLoop.BudgetWithReserve(Config.TrimBudgetMetresPerSecond, ReserveReleasedMetresPerSecond);
+        => ReleaseLoop.CappedByTheTank(
+               ReleaseLoop.BudgetWithReserve(Config.TrimBudgetMetresPerSecond, ReserveReleasedMetresPerSecond),
+               TankCeilingMetresPerSecond);
+
+    // What the bus's own tank still pays, read once it is the bus alone; NaN before the split or with the flag off.
+    private double TankCeilingMetresPerSecond
+    {
+        get
+        {
+            if (!Config.HopsSizeTheirOwnSlots || !_didSplit || LauncherPart.Find(Craft) is not { } launcher
+                || !KsaWorld.TryTankOf(launcher.Part, out Tank? tank) || !KsaWorld.TryTankMassKg(tank, out double kg))
+            {
+                return double.NaN;
+            }
+
+            return ReleaseLoop.TankCeilingMetresPerSecond(_trim.SpentMetresPerSecond, kg, KsaWorld.MassKg(Craft),
+                                                          _release?.Profile.TrimWorstAxisExhaustVelocity ?? double.NaN);
+        }
+    }
 
     private double ReserveReleasedMetresPerSecond
         => ReleaseLoop.ReserveReleased(Config.SpendTheSplitReserveAfterTheFirstStop, _walker.FirstStopAway);

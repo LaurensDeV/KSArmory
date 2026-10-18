@@ -16,7 +16,7 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
 
     // The Heavy bus as HopCeilingRigTests flies it, with its loaded mass so the jets push harder as warheads leave.
     private PastCutoffRig Walk(double rangeMetres, int targets, double spacingMetres, bool sized, double budget,
-                               bool slotsFollowTheJets = true)
+                               bool slotsFollowTheJets = true, double propellantKg = double.NaN, bool guard = true)
     {
         IcbmProgram program = new(new IcbmConfig
         {
@@ -32,6 +32,8 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
         rig.ShoveMetresPerSecond = 1.0;
         rig.BusMassKg = 2_900.0;
         rig.SlotsFollowTheJets = slotsFollowTheJets;
+        rig.PropellantKg = propellantKg;
+        rig.GuardsTheTank = guard;
         for (int k = 0; k < targets; k++)
         {
             rig.PlannedTargets.Add((GameStackShortRangeTests.South(rangeMetres - k * spacingMetres), 1));
@@ -41,7 +43,8 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
         rig.Fly(GameStackShortRangeTests.South(rangeMetres));
         Out.WriteLine($"{rangeMetres / 1_000.0:F0} km, {targets} at {spacingMetres / 1_000.0:F0} km, sized {sized}, "
                       + $"budget {budget:F0}, jets {slotsFollowTheJets}: planned {rig.Plan.Stops} ({rig.Plan.Hold}), "
-                      + $"flew {rig.Stops.Count}, curtailed {rig.Curtailed}");
+                      + $"flew {rig.Stops.Count}, curtailed {rig.Curtailed}, ran dry {rig.RanDry}, "
+                      + $"{rig.PropellantUsedKg:F1} kg used");
         for (int k = 0; k < rig.Stops.Count; k++)
         {
             Out.WriteLine($"  stop {k + 1}: landed {rig.Stops[k].LandedMetres:F2} m, divert "
@@ -84,5 +87,21 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
         Assert.Equal(3, rig.Stops.Count);
         Assert.False(rig.Curtailed);
         Assert.All(rig.Stops, stop => Assert.True(stop.LandedMetres < 0.01, $"landed {stop.LandedMetres:F3} m out"));
+    }
+
+    // The Heavy bus's own 134.3 kg (docs/ICBM-GUIDANCE.md), against a budget the tank cannot pay.
+    [Fact]
+    public void ABudgetPastTheTankEndsTheWalkAStopEarlyRatherThanRunningDry()
+    {
+        PastCutoffRig unguarded = Walk(6_181_000.0, 3, 50_000.0, sized: true, budget: 200.0, propellantKg: 134.3,
+                                       guard: false);
+        PastCutoffRig guarded = Walk(6_181_000.0, 3, 50_000.0, sized: true, budget: 200.0, propellantKg: 134.3);
+
+        Assert.True(unguarded.RanDry, "the fixture never reached the bottom of the tank");
+        Assert.Contains(unguarded.Stops, stop => stop.LandedMetres > 1_000.0);
+
+        Assert.False(guarded.RanDry, "the guarded walk emptied the tank");
+        Assert.True(guarded.Curtailed, "the guarded walk did not end early");
+        Assert.All(guarded.Stops, stop => Assert.True(stop.LandedMetres < 0.01, $"landed {stop.LandedMetres:F3} m out"));
     }
 }

@@ -70,10 +70,40 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     public double WarheadMassKg = 250.0;
     private int _warheadsGone;
 
+    /// <summary>
+    /// What the jets' tank holds at the split, which they then spend and stop on; NaN fires for ever. Needs
+    /// <see cref="BusMassKg"/>. A lateral metre a second costs <see cref="LateralCostFactor"/> times an axial one.
+    /// </summary>
+    public double PropellantKg = double.NaN;
+    public double JetExhaustVelocity = 2_906.0;
+    public double LateralCostFactor = 1.414;
+    private double _propellantUsedKg;
+
+    /// <summary>Whether the tank was emptied with the jets still asked to fire.</summary>
+    public bool RanDry { get; private set; }
+
+    private bool HasTank => double.IsFinite(PropellantKg) && double.IsFinite(BusMassKg);
+
+    /// <summary>Whether the budget is held under what the tank pays; false lets the jets find the bottom.</summary>
+    public bool GuardsTheTank = true;
+
+    /// <summary>What the jets have taken out of the tank (kg).</summary>
+    public double PropellantUsedKg => _propellantUsedKg;
+
+    private double MassNowKg
+        => (double.IsFinite(BusMassKg) ? BusMassKg : double.NaN) - _warheadsGone * WarheadMassKg - _propellantUsedKg;
+
     private double JetAcceleration
-        => double.IsFinite(BusMassKg) && BusMassKg > _warheadsGone * WarheadMassKg
-               ? ThrusterMetresPerSecond2 * BusMassKg / (BusMassKg - _warheadsGone * WarheadMassKg)
+        => double.IsFinite(BusMassKg) && MassNowKg > 0.0
+               ? ThrusterMetresPerSecond2 * BusMassKg / MassNowKg
                : ThrusterMetresPerSecond2;
+
+    // IcbmComputer.TankCeilingMetresPerSecond: read once the bus is alone.
+    private double TankCeiling
+        => Config.HopsSizeTheirOwnSlots && _didSplit && HasTank && GuardsTheTank
+               ? ReleaseLoop.TankCeilingMetresPerSecond(_trim.SpentMetresPerSecond, PropellantKg - _propellantUsedKg,
+                                                        MassNowKg, JetExhaustVelocity / LateralCostFactor)
+               : double.NaN;
 
     public double MaxSecondsAfterCutoff = 3_000.0;
 
@@ -509,9 +539,11 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
 
     // IcbmComputer.TrimBudgetMetresPerSecond: the split's reserve once a walk's first stop has let go.
     private double Budget
-        => ReleaseLoop.BudgetWithReserve(Config.TrimBudgetMetresPerSecond,
-                                         ReleaseLoop.ReserveReleased(Config.SpendTheSplitReserveAfterTheFirstStop,
-                                                                     _walker.FirstStopAway));
+        => ReleaseLoop.CappedByTheTank(
+               ReleaseLoop.BudgetWithReserve(Config.TrimBudgetMetresPerSecond,
+                                             ReleaseLoop.ReserveReleased(Config.SpendTheSplitReserveAfterTheFirstStop,
+                                                                         _walker.FirstStopAway)),
+               TankCeiling);
 
     private int WarheadsAboard
     {
@@ -559,7 +591,10 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
                                      HopsFlyTheirOwnCeiling: Config.HopsFlyTheirOwnCeiling,
                                      TurnSeconds: Program.TurnsAtTheSplit ? Config.TurnAllowanceSeconds : 0.0,
                                      BudgetMetresPerSecond: Config.HopsSizeTheirOwnSlots
-                                         ? ReleaseLoop.PlanningBudget(Config.TrimBudgetMetresPerSecond)
+                                         ? ReleaseLoop.PlanningBudget(Config.TrimBudgetMetresPerSecond, TankCeiling,
+                                                                      Config.SpendTheSplitReserveAfterTheFirstStop
+                                                                          ? ReleaseLoop.SplitNullReserveMetresPerSecond
+                                                                          : 0.0)
                                          : PostBoostAim.MaxTrimMetresPerSecond,
                                      HopAccelerationMetresPerSecond2: HopAcceleration),
             Program.Phase, false, TargetSet.MaxTargets, KSArmory.Warhead.LethalRadius(Warhead.ChargeKg), PlannedLead,
@@ -667,7 +702,23 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         if (command.Fire.HasFlag(TrimAxes.Up)) direction -= down;
 
         double burn = command.Pulse && Config.PulseTrim ? Config.PulseSeconds : seconds;
-        return direction * (JetAcceleration * burn);
+        double dv = JetAcceleration * burn;
+
+        if (HasTank)
+        {
+            if (_propellantUsedKg >= PropellantKg)
+            {
+                RanDry = true;
+                return Vec.Zero;
+            }
+
+            int axial = (command.Fire.HasFlag(TrimAxes.Forward) ? 1 : 0) + (command.Fire.HasFlag(TrimAxes.Backward) ? 1 : 0);
+            int lateral = (command.Fire.HasFlag(TrimAxes.Right) ? 1 : 0) + (command.Fire.HasFlag(TrimAxes.Left) ? 1 : 0)
+                          + (command.Fire.HasFlag(TrimAxes.Down) ? 1 : 0) + (command.Fire.HasFlag(TrimAxes.Up) ? 1 : 0);
+            _propellantUsedKg += MassNowKg * dv * (axial + lateral * LateralCostFactor) / JetExhaustVelocity;
+        }
+
+        return direction * dv;
     }
 
     // The modelled nose, rolled to keep down toward the planet.

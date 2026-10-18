@@ -318,6 +318,12 @@ public sealed class LauncherProfile
     /// </summary>
     public double TrimAccelerationMetresPerSecond2 = double.NaN;
 
+    /// <summary>
+    /// The trim nozzles' exhaust velocity as their dearest axis spends it (m/s): what a metre a second fired that way
+    /// costs the tank, which bounds the budget under <see cref="IcbmConfig.HopsSizeTheirOwnSlots"/>. NaN reads no tank.
+    /// </summary>
+    public double TrimWorstAxisExhaustVelocity = double.NaN;
+
     /// <summary>What one complete round in the belt weighs (kg), case and charge included; see <see cref="StoreMassKg"/>.</summary>
     public float GunRoundMassKg;
 
