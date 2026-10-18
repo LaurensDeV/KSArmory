@@ -139,7 +139,7 @@ first night), before Tier 3.
 | 4.9 | **The AIRS guidance ring** and its component pane (art, the `Guidance` role moved off the bus, a mass split needing its own night). | GUIDANCE-SECTION | L |
 | 4.10 | **The mod spawning the craft on the pad** (frame ordering of `CreateVehicleBuffer`; control past `FillSeats`). | CLAUDE.md | M |
 | ~~4.11~~ | **Done 2026-10-09.** `PastCutoffTests.ALunarShotLandsOnItsTarget` flies `IcbmFlightTests`' lunar stack on the shipped settings with the Mk 21 through the trim, three post-boost passes and the release, and lands under a metre; CHECKLIST 12.1 has the panel's refusal of a target on another body, which the panel already prints. | CLAUDE.md; memory "fly it on an airless body" | S |
-| 4.12 | **A wider MIRV spread without more propellant: divert earlier.** Today six targets sit 4.5 km apart at 6,179 km and 3.8 km at 12,902, 22.5 and 19.2 km end to end, on the gate-ending schedule. Pinned, a m/s moves the landing about `0.96 · t_go` metres, so the same 60 m/s spent from cutoff is worth 8.5 and 12.6 km spacing -- priced, not flown. What stops it is not the tank but the per-pass ceiling on every hop. Plan below. | ICBM-GUIDANCE "What bounds a set is its spacing"; 4.3 | M-L |
+| 4.12 | **The sequential plan for a much wider spread is `docs/WIDE-SPREAD.md`; work it from there.** **A wider MIRV spread without more propellant: divert earlier.** Today six targets sit 4.5 km apart at 6,179 km and 3.8 km at 12,902, 22.5 and 19.2 km end to end, on the gate-ending schedule. Pinned, a m/s moves the landing about `0.96 · t_go` metres, so the same 60 m/s spent from cutoff is worth 8.5 and 12.6 km spacing -- priced, not flown. What stops it is not the tank but the per-pass ceiling on every hop. Plan below. | ICBM-GUIDANCE "What bounds a set is its spacing"; 4.3 | M-L |
 
 ### 4.12's plan: spend the bus's divert where it is worth most
 
@@ -218,7 +218,7 @@ below is priced off ICBM-GUIDANCE's tables, extrapolated where it says so, and n
 (`HopBeyondOnePass`, `Sim/ReleaseLoop.cs:222`), and `ReachDisplay` clamps each hop to it (`Sim/ReachDisplay.cs:226`).
 The ceiling guards the aim correction and the trim winding each other up; a planned hop is a known change between
 two solutions. 4.3's lost night is no evidence either way: its truncations were `CoastFits` rounding. 50 km along-track costs
-18.2 m/s at cutoff against 72.5 at today's gate.
+18.2 m/s at cutoff against 72.5 at today's gate free-clock; pinned, as the flight flies, ~46.5 m/s at cutoff.
 
 1. **A hop gets its own ceiling; the aim correction keeps 10 m/s.** Either price the hop's first pass at the hop
    (with a margin) or split a hop dearer than one pass into two re-aims. MIRV-NEXT 8ae is not evidence against it:

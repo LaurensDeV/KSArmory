@@ -1697,8 +1697,9 @@ is the staleness rate *within* a cycle rather than a debt that accrues. The late
 *better*: the trim's 0.02 m/s stop band is worth 14 m on the ground at the release gate against 55 m at
 cutoff.
 
-**What a later target actually loses is reach**, and steeply. At 6,179 km, 50 km of along-track divert costs
-18.2 m/s bought at cutoff, 26.7 at +400 s, 47.8 at +800 and **72.5 at today's gate**. So the order is by
+**What a later target actually loses is reach**, and steeply. At 6,179 km, 50 km of along-track divert costs,
+free-clock, 18.2 m/s bought at cutoff, 26.7 at +400 s, 47.8 at +800 and **72.5 at today's gate**; the flight pins the
+arrival, which costs 2.56x that along the track at cutoff, about 46.5 m/s for the same 50 km. So the order is by
 reach, far first — not by which target is "hardest".
 
 ### Scoring a split salvo
