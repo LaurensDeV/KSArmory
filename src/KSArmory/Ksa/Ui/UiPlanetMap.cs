@@ -31,6 +31,9 @@ internal sealed partial class Ui
 
     private const float RowsBelow = 132f;
 
+    // A window dragged shut still draws a frame on the way down.
+    private const float LeastPx = 80f;
+
     private void DrawPlanetMapWindow()
     {
         if (_icbms?.For(Focused) is not { } computer || !computer.Config.MapOpen)
@@ -73,9 +76,13 @@ internal sealed partial class Ui
 
         DrawPlanetMapHeader(computer);
 
+        // Fitted, not filled. Filling the width squashes the picture whenever the window is
+        // shorter than half its width, and by an amount that changes as it is dragged.
         float2 avail = ImGui.GetContentRegionAvail();
-        float2 size = new(avail.X, Math.Max(80f, Math.Min(avail.Y - RowsBelow,
-                                                          avail.X * MapAspect)));
+        float2 size = MapViewport.Fit(new float2(avail.X, avail.Y - RowsBelow), MapAspect,
+                                      LeastPx, out float inset);
+
+        if (inset > 0f) ImGui.SetCursorPosX(ImGui.GetCursorPosX() + inset);
 
         // Ours, so it may be called outright -- it consumes the drag and the wheel notch, which is
         // exactly why nothing may call it twice in a frame.

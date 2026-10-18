@@ -1,3 +1,4 @@
+using System;
 using Brutal.Numerics;
 
 namespace KSArmory;
@@ -54,10 +55,10 @@ internal static class MapViewport
     {
         const float Tolerance = 1e-4f;
 
-        return System.Math.Abs(aMin.X - bMin.X) < Tolerance
-               && System.Math.Abs(aMin.Y - bMin.Y) < Tolerance
-               && System.Math.Abs(aMax.X - bMax.X) < Tolerance
-               && System.Math.Abs(aMax.Y - bMax.Y) < Tolerance;
+        return Math.Abs(aMin.X - bMin.X) < Tolerance
+               && Math.Abs(aMin.Y - bMin.Y) < Tolerance
+               && Math.Abs(aMax.X - bMax.X) < Tolerance
+               && Math.Abs(aMax.Y - bMax.Y) < Tolerance;
     }
 
     /// <summary>
@@ -109,7 +110,36 @@ internal static class MapViewport
     /// exactly the zoom somebody is inspecting it at.</para>
     /// </remarks>
     public static bool Joins(float wasU, float u)
-        => System.Math.Abs(u - wasU) <= SeamShare;
+        => Math.Abs(u - wasU) <= SeamShare;
+
+    /// <summary>
+    /// The largest picture of a given shape that fits a box, and how far in from the left it sits
+    /// to be centred there.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>An equirectangular map has one shape and it is not negotiable.</b> The crop is
+    /// <c>1/zoom</c> across <em>and</em> down whatever the window is doing — a square in UV, which
+    /// is two-to-one on the ground — so a picture drawn into anything but that ratio is stretched.
+    /// Fitting rather than filling is what keeps it honest; the cost is a letterbox.</para>
+    ///
+    /// <para>The floor is there because a window dragged shut still draws a frame on the way, and
+    /// a zero or negative extent is not a rectangle.</para>
+    /// </remarks>
+    public static float2 Fit(float2 room, float aspect, float least, out float inset)
+    {
+        inset = 0f;
+
+        if (!(aspect > 0f)) return new float2(least, least);
+
+        float wide = Math.Max(least, room.X);
+        float tall = Math.Max(least, room.Y);
+
+        float width = Math.Min(wide, tall / aspect);
+        width = Math.Max(least, width);
+
+        inset = Math.Max(0f, (room.X - width) * 0.5f);
+        return new float2(width, width * aspect);
+    }
 
     // How much of the world a step may span before it reads as the dateline.
     private const float SeamShare = 0.5f;
