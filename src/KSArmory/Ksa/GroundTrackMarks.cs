@@ -25,6 +25,12 @@ internal static class GroundTrackMarks
     private static readonly ImColor8 Other = new(255, 170, 60, 170);
     private static readonly ImColor8 Count = new(255, 200, 130, 200);
     private static readonly ImColor8 Reach = new(90, 190, 255, 150);
+
+    // Fireball, what it destroys, what it damages. Hottest in, faintest out -- the order they are
+    // read in is outward, and the eye should land on the lethal one.
+    private static readonly ImColor8 Fireball = new(255, 240, 180, 210);
+    private static readonly ImColor8 Lethal = new(255, 90, 60, 200);
+    private static readonly ImColor8 Damage = new(255, 170, 60, 110);
     private static readonly ImColor8 Calibration = new(80, 230, 255, 220);
     private static readonly ImColor8 Label = new(80, 230, 255, 160);
 
@@ -34,6 +40,12 @@ internal static class GroundTrackMarks
     // Enough that the longest reach reads as a curve rather than a polygon; it is one conversion
     // and one projection each, on a window nobody has open while flying.
     private const int ReachPoints = 96;
+
+    // Enough that a blast ring reads as round at the zoom one is worth looking at.
+    private const int RingPoints = 48;
+
+    // Under this across, a ring is a smudge on the mark it surrounds rather than information.
+    private const float RingLeastPx = 6f;
 
     private static readonly double[] Latitudes = [45.0, 0.0, -45.0];
     private static readonly double[] Longitudes = [-90.0, 0.0, 90.0];
@@ -58,6 +70,7 @@ internal static class GroundTrackMarks
             // Under the targets: the region is context for them, and an outline crossing a mark
             // should not be the thing on top.
             DrawReach(draw, computer, at, size, min, max);
+            DrawEffects(draw, computer, at, size, min, max);
             DrawTargets(draw, computer, at, size, min, max);
 
             // Inside the clip, so the cursor's own line cannot spill over the window's chrome.
@@ -108,6 +121,69 @@ internal static class GroundTrackMarks
     // more than the pixel: a click that lands a few pixels off should weight the target it
     // obviously meant rather than place a new one on top of it.
     private const float GrabPx = 11f;
+
+    // What a warhead does to the ground round each target: the fireball, what it destroys and
+    // what it damages, as Warhead derives them from the charge. Walked on the sphere rather than
+    // drawn as screen circles -- GroundCircle says why that is not the same shape.
+    //
+    // Per warhead, not per target. A target taking three is hit three times in one place, which
+    // makes the hole deeper and not wider; a bigger circle would say otherwise.
+    private static void DrawEffects(ImDrawListPtr draw, IcbmComputer computer,
+                                    float2 at, float2 size, float2 min, float2 max)
+    {
+        if (computer.Munition is not { } warhead) return;
+        if (computer.Parent is not { } body) return;
+
+        double charge = warhead.ChargeKg;
+        if (!(charge > 0.0)) return;
+
+        double across = Math.Max(1e-6, max.Y - min.Y);
+        double perDegree = size.Y / (across * 180.0);
+
+        var entries = computer.Targets;
+
+        for (int i = 0; i < entries.Count; i++)
+        {
+            AimSite site = entries[i].Site;
+            if (!site.IsSet || entries[i].Warheads <= 0) continue;
+            if (!MapViewport.Shows(MapViewport.ToUv(site.LongitudeDeg, site.LatitudeDeg), min, max))
+                continue;
+
+            Ring(draw, body, site, Warhead.BlastRadius(charge), perDegree, Damage, at, size, min, max);
+            Ring(draw, body, site, Warhead.LethalRadius(charge), perDegree, Lethal, at, size, min, max);
+            Ring(draw, body, site, Warhead.FireballRadius(charge), perDegree, Fireball, at, size, min, max);
+        }
+    }
+
+    private static void Ring(ImDrawListPtr draw, Celestial body, AimSite site, double metres,
+                             double pixelsPerDegree, ImColor8 colour,
+                             float2 at, float2 size, float2 min, float2 max)
+    {
+        if (!(metres > 0.0)) return;
+
+        // Cheap first: a ring under a few pixels across is noise round the mark, and walking it
+        // would be dozens of projections for something nobody can see.
+        if (GroundCircle.HeightDeg(metres, body.MeanRadius) * pixelsPerDegree < RingLeastPx) return;
+
+        float2 wasAt = default;
+        float wasU = 0f;
+        bool have = false;
+
+        for (int i = 0; i <= RingPoints; i++)
+        {
+            GroundCircle.At(site.LatitudeDeg, site.LongitudeDeg, metres, body.MeanRadius,
+                            2.0 * Math.PI * i / RingPoints, out double lat, out double lon);
+
+            float u = MapViewport.ToUv(lon, lat).X;
+            float2 point = GroundTrackWindow.ProjectOnImage(at, size, lon, lat, min, max);
+
+            if (have && MapViewport.Joins(wasU, u)) draw.AddLine(wasAt, point, colour, 1.2f);
+
+            wasAt = point;
+            wasU = u;
+            have = true;
+        }
+    }
 
     private static void DrawTargets(ImDrawListPtr draw, IcbmComputer computer,
                                     float2 at, float2 size, float2 min, float2 max)
