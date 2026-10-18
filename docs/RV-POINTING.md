@@ -1,6 +1,6 @@
 # Releasing the RVs nose-first
 
-**A plan, built and flown; the flag is off until one open item is answered** ("What was flown"). One turn of the bus after the split, so every reentry
+**A plan, built and flown; the flag is off by its declared rule** ("What was flown"). One turn of the bus after the split, so every reentry
 vehicle leaves with its nose along the airflow it will meet, held through the whole walk. Drawn up 2026-10-17 from
 three read-only surveys of the code, then revised twice after adversarial review: two reviews (one against the
 source, one against what has been flown) found the first draft's blocking faults, and a third found three more in the
@@ -25,12 +25,30 @@ revision. Each is answered below where it applies.
   `score.py` beside the declaration, a geometric mean per flight with a t interval, since `shot-report.py` has no
   such endpoint; its own landing interval for seven targets is [0.60, 1.68] at 97%. Frames ran 26-29 ms.
 
-**Open, and the reason it ships off: short-range walks.** `WalkRigTests`' forced four-stop walk at 2,000 km loses
-stops 2-4 with the flag on, all landing on the first target. Two things in it. The coast there is shorter than the
-split gate, so the turn reaches its "no room" exit and keeps the cutoff line after the passes were aimed for the
-turned kick, and the correction then exceeds a pass's 10 m/s; removing that exit turns the bus, but the first hop
-still sits over the per-pass ceiling by the turn's ~9 s. That walk skips the planner, which the computer feeds
-`TurnSeconds` and which may plan fewer stops; nothing at 2,000 km has been flown.
+**The short-range walk, answered 2026-10-18.** With the flag on, `WalkRigTests`' forced four-stop walk at 2,000 km
+lost stops 2-4. Two causes, both in the turn's timing. Its "no room" exit kept the cutoff line whenever the null
+finished past the release gate -- after every pass was aimed for the kick along the entry line, so keeping the line is
+what missed; at 2,000 km the coast is shorter than the gate and the exit always fired. And the 60 s allowance was coast
+the planner took from the stops: on the planned walk, 10 s cost 2,000 km a stop and 60 s cost 3,000 km one. Now the
+bus turns however late and splits at the gate (`TurnAllowanceSeconds` 0), and in the rig it walks at least as many
+stops as without at every range from 1,500 to 12,900 km. The forced walk sits on the 10 m/s pass ceiling either way
+and is pinned off. Flown on `TEST PBB GeoSat FAT`, four targets 4 km apart from 10.622N 80.604W: on and off walk the
+same two stops, 0.9-2.1 mm; on, the bus turned 147 deg 28 s after the gate, settled in 6.8 s on 1.04 kg, every RV
+0.1-0.2 deg off its airflow.
+
+**The second paired night, 2026-10-18**, on that code, `~/shots/2026-10-18-rvpoint/DECLARE.md`, 6 blocks of 8 a cell:
+
+| cell | worst warhead, entry/base | walk | at the air | |
+| --- | --- | --- | --- | --- |
+| 2,000 km, 4 x 4 km | 0.92x [0.64, 1.33] | 1 target a bus, both arms | 0.20 deg max | **fails the 1.25x bound** |
+| 6,181 km, one | 0.89x [0.75, 1.06] | -- | 0.10 deg max | pass |
+| 6,181 km, 7 x 2.5 km | 0.88x [0.62, 1.24] | 7 of 7 on every bus | 0.30 deg max | pass |
+
+The turn starts 17-29 s after the gate, settles every time, and spends a median 1.05 kg at 2,000 km and 1.44 at
+6,181. At 2,000 km on the eight-rocket save seven of eight buses release everything on one target in both arms; the
+bus being flown walks two or three. **By the declared rule it stays off**: the 2,000 km cell's interval reaches 1.33x
+with a point estimate of 0.92x, one flight at 1.58x. Pooled over both nights' 30 paired flights -- not declared, so
+evidence rather than a pass -- the worst warhead is 0.87x [0.79, 0.97], 20 of 30 won.
 
 ## What is wrong today, and what is not
 
@@ -222,7 +240,7 @@ the gate and follow it. The longer fall costs about 2 m of stop band for 45 s, n
 
 ## Flag and files
 
-`IcbmConfig.PointRvsAtEntry`, off until the short-range walk above is answered, in `check-tunables.py`'s `RESEARCH`; `BallisticSettings` and `ShotArms` take it by
+`IcbmConfig.PointRvsAtEntry`, off until a declared night passes every cell, in `check-tunables.py`'s `RESEARCH`; `BallisticSettings` and `ShotArms` take it by
 reflection. New: `Sim/EntryDirection.cs`, its tests, and the step-0 bridge command. Changed: `IcbmProgram.Coast.cs`
 (the latch), `IcbmProgram.cs:941` and `ReleaseItinerary` (the gate), `IcbmComputer.Prediction.cs` (the predicted kick),
 `IcbmComputer.Release.cs` (the release term, the instruments), `IcbmComputer.cs` / `Walk.cs` (the latched gate, the

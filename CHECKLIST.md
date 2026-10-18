@@ -2768,7 +2768,8 @@ stack wait holds only the split. `docs/MIRV-TARGETS.md`, "six stops to the groun
 - [x] The bus turned onto its RVs' entry airflow after the split (`PointRvsAtEntry`, off): every RV meets the air
       0.1-0.3 deg off it against 162-164 deg without, on both buses, one target and the seven-target walk; paired over
       96 buses at 6,181 km it is no worse on the worst warhead (0.82x, 0.86x). `docs/RV-POINTING.md`.
-- [ ] The same at 2,000 km with a walk: the rig's forced four-stop walk loses stops 2-4 with the flag on. Unflown.
+- [x] The same at 2,000 km with a walk: on and off walk the same two stops of four, 0.9-2.1 mm, the bus turning 28 s
+      after the gate (2026-10-18). Paired, the worst warhead is 0.92x [0.64, 1.33] -- the one cell the declared bar fails.
 
 ### 12.6 It gives the vehicle back
 
