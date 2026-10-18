@@ -48,8 +48,10 @@ internal sealed class Bridge : IViewPose
     public Bridge(Config config, Func<Vehicle?, WeaponSystem?> systemFor,
                   Func<IEnumerable<WeaponSystems.Entry>> systems, Func<IReadOnlyList<WeaponSystem>> loose,
                   Countermeasures countermeasures, Action<Vehicle> focus,
-                  Func<IEnumerable<OpticalHeads.Entry>> heads)
+                  Func<IEnumerable<OpticalHeads.Entry>> heads,
+                  Func<Vehicle?, IcbmComputer?> computerFor)
     {
+        _computerFor = computerFor;
         _heads = heads;
         _loose = loose;
         _focus = focus;
@@ -58,6 +60,8 @@ internal sealed class Bridge : IViewPose
         _systems = systems;
         _countermeasures = countermeasures;
     }
+
+    private readonly Func<Vehicle?, IcbmComputer?> _computerFor;
 
     private readonly Func<IEnumerable<WeaponSystems.Entry>> _systems;
     private readonly Func<IEnumerable<OpticalHeads.Entry>> _heads;
@@ -253,6 +257,7 @@ internal sealed class Bridge : IViewPose
             "save" => SaveGame(command),
             "control" => Control(command),
             "ground_track" => GroundTrack(command),
+            "designate" => Designate(command),
             "remove" => RemoveCraft(command),
             "orbit" => PutInOrbit(command),
             "attitude" => Attitude(command),
@@ -680,6 +685,35 @@ internal sealed class Bridge : IViewPose
     }
 
     // Fly the named craft: the camera follows it and the controls drive it.
+    // Where a craft's warheads are aimed, set from outside -- the first target replaces the set,
+    // and add=1 appends one. The panel does this by clicking the world; a test cannot click.
+    private Reply Designate(BridgeCommand command)
+    {
+        string name = command.String("craft");
+        Vehicle? craft = name.Length > 0 ? CraftNamed(name) : KsaWorld.ControlledVehicle;
+
+        if (craft is null) return Failed("no such craft, and none is being flown");
+        if (_computerFor(craft) is not { } computer) return Failed("that craft has no ballistic computer");
+        if (craft.Parent is not Celestial body) return Failed("no body under that craft");
+
+        AimSite site = new(body.Id, command.Number("lat", 0.0), command.Number("lon", 0.0),
+                           command.String("label"));
+
+        if (!site.IsSet) return Failed("that is not a place");
+
+        bool add = command.Number("add", 0.0) != 0.0;
+
+        if (add && !computer.AddTarget(site)) return Failed("the target set would not take another");
+        if (!add) computer.Designate(site);
+
+        return Done(new()
+        {
+            ["craft"] = KsaWorld.DisplayName(craft),
+            ["targets"] = computer.Targets.Count,
+            ["aimed"] = site.Coordinates,
+        });
+    }
+
     // KSA's own ground-track map, opened on a craft and pointed somewhere -- so a change to what
     // this mod draws on it can be flown and photographed without anybody pressing F3. The window
     // is the game's; only its zoom and pan are written here, and KSA re-clamps both as it draws.

@@ -3743,6 +3743,30 @@ internal static class KsaWorld
         typeof(ViewportBase).GetProperty(nameof(ViewportBase.OptionFlags))?.GetSetMethod(nonPublic: true);
 
     /// <summary>
+    /// Which craft a ground-track window belongs to. The window holds it privately and nothing
+    /// else names it, so this is reflection; a refusal means the marks are not drawn, which is the
+    /// honest failure for an overlay.
+    /// </summary>
+    public static bool TryGroundTrackCraft(GroundTrackWindow window,
+                                           [NotNullWhen(true)] out Vehicle? craft)
+    {
+        craft = null;
+
+        try
+        {
+            craft = typeof(GroundTrackWindow)
+                    .GetField("_vehicle", BindingFlags.NonPublic | BindingFlags.Instance)
+                    ?.GetValue(window) as Vehicle;
+
+            return craft is not null && IsAlive(craft);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// KSA's ground-track window for a craft, opened or closed. The property builds and disposes
     /// the window, so this is the whole of it.
     /// </summary>

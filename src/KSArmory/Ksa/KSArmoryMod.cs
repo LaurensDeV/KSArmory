@@ -183,8 +183,11 @@ public sealed class KSArmoryMod
 
         GroundTrackHook.Install((window, at, size, cropMin, cropMax) =>
         {
-            if (_config.DrawGroundTrackMarks)
-                GroundTrackMarks.Draw(window, at, size, cropMin, cropMax);
+            if (_icbms is not { } computers) return;
+            if (!_config.DrawGroundTrackMarks && !_config.DrawGroundTrackCalibration) return;
+
+            GroundTrackMarks.Draw(computers, window, at, size, cropMin, cropMax,
+                                  _config.DrawGroundTrackCalibration);
         });
 
         // Which save is open and when the game writes one, which the settings kept in a save follow.
@@ -227,7 +230,7 @@ public sealed class KSArmoryMod
             _bridge = new Bridge(_config, craft => _roster?.For(craft)?.Weapon,
                                  () => _roster?.All ?? [], () => _roster?.Loose ?? [],
                                  _countermeasures, craft => _ui?.Manage(craft),
-                                 () => _heads?.All ?? []);
+                                 () => _heads?.All ?? [], craft => _icbms?.For(craft));
         }
 
         Log.Info(Build.Developer

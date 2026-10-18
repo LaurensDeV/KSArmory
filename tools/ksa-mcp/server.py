@@ -455,6 +455,12 @@ TOOLS = {
                   "lay": {"type": "boolean"}, "rounds": _num("rounds"), "station": _num("launcher number"),
                   "at_craft": {"type": "string"}}, [],
                  lambda a: [_text(json.dumps(send("fire", **a)))]),
+    "ksa_designate": ("Aim a craft's warheads at a latitude and longitude. The first call replaces the target "
+                     "set; add=1 appends another, up to the bus's limit. What the panel does by clicking the "
+                     "world, for a test that cannot click.",
+                     {"lat": _num("deg"), "lon": _num("deg"), "label": {"type": "string"},
+                      "add": _num("0 or 1"), "craft": {"type": "string"}}, ["lat", "lon"],
+                     lambda a: [_text(json.dumps(send("designate", **a)))]),
     "ksa_ground_track": ("KSA's own ground-track map window, opened on a craft (default: the one being flown) "
                         "and pointed somewhere. open=0 closes it. zoom is 1 (whole planet) to 5000; pan_x/pan_y "
                         "are pixels and run from -(area*(zoom-1)) to 0, so centring at zoom z is about "
