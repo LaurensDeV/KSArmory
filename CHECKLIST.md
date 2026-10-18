@@ -2765,7 +2765,7 @@ stack wait holds only the split. `docs/MIRV-TARGETS.md`, "six stops to the groun
 - [x] Each RV's base motors light for 0.6 s on release and spin it at half a turn a second.
 - [ ] In the editor: listed under Weapons, stacks on a 3 m tank without sinking, seven RVs seated, colliders right.
 - [ ] By hand: switch the engine on and off from the popup's Active boxes, then prograde and retrograde still hold.
-- [x] The bus turned onto its RVs' entry airflow after the split (`PointRvsAtEntry`, off): every RV meets the air
+- [x] The bus turned onto its RVs' entry airflow after the split (`PointRvsAtEntry`, on since 2026-10-18): every RV meets the air
       0.1-0.3 deg off it against 162-164 deg without, on both buses, one target and the seven-target walk; paired over
       96 buses at 6,181 km it is no worse on the worst warhead (0.82x, 0.86x). `docs/RV-POINTING.md`.
 - [x] The same at 2,000 km with a walk: on and off walk the same two stops of four, 0.9-2.1 mm, the bus turning 28 s

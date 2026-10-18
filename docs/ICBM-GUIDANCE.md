@@ -1172,6 +1172,27 @@ Two things it is careful about:
   settles: the tube alternates between on the line and a full cant off it, and half the time it
   looks perfect.
 
+## The bus turns once so every RV leaves nose-first
+
+Held on the cutoff line, the bus throws its RVs 147-164 deg off the airflow they will meet, and each tumbles into the
+air backwards. So once the split's shove is nulled, and before the first post-boost pass, the bus turns onto the
+airflow at the entry altitude and holds that line through the whole walk (`IcbmConfig.PointRvsAtEntry`, on). Every
+RV then meets the air within 0.30 deg of it. `Ksa/Icbm/IcbmComputer.Turn.cs` drives it, `Sim/BusTurn.cs` judges it on
+the nose the engine reports, and `Sim/EntryDirection.cs` finds the airflow in closed form on the conic.
+
+- **The prediction aims for the turned kick from the start.** Until the turn has settled, the kick the release would
+  give is rotated onto the entry line, so the burn and every pass are aimed for the departure the warheads will
+  actually have, and the turn moves the prediction by the difference between two estimates of one line.
+- **So it turns however late, and only a conic with no entry keeps the cutoff line.** The split stays at the gate
+  (`TurnAllowanceSeconds` 0) and a turn due past it delays the release by the turn's own seconds. Keeping the line
+  instead misses by the whole swing of the kick, and an allowance is coast the walk planner takes from the stops.
+- **The release, the trim and the post-boost passes all wait while it turns**, and the reach is re-flown once it has
+  settled, so the walk is priced on the axes it is flown on; after the split only a plan of the same stops replaces it.
+
+Turns of 147-165 deg settle in 6.8-9.1 s on 1.0-1.5 kg of the bus's propellant, with nothing owed by them. Paired
+over 30 flights of eight at 2,000 and 6,181 km the worst warhead is 0.87x [0.79, 0.97] of the cutoff line's.
+`docs/RV-POINTING.md` has the flights and the one declared cell that missed its bound.
+
 ### The release gate is one budget, not two thresholds
 
 How far off the line the tube is and how fast the vehicle is sweeping it are **the same quantity**:

@@ -1,6 +1,6 @@
 # Releasing the RVs nose-first
 
-**A plan, built and flown; the flag is off by its declared rule** ("What was flown"). One turn of the bus after the split, so every reentry
+**A record: built, flown, and on since 2026-10-18** ("What was flown"); how it works now is `docs/ICBM-GUIDANCE.md`. One turn of the bus after the split, so every reentry
 vehicle leaves with its nose along the airflow it will meet, held through the whole walk. Drawn up 2026-10-17 from
 three read-only surveys of the code, then revised twice after adversarial review: two reviews (one against the
 source, one against what has been flown) found the first draft's blocking faults, and a third found three more in the
@@ -46,9 +46,10 @@ same two stops, 0.9-2.1 mm; on, the bus turned 147 deg 28 s after the gate, sett
 
 The turn starts 17-29 s after the gate, settles every time, and spends a median 1.05 kg at 2,000 km and 1.44 at
 6,181. At 2,000 km on the eight-rocket save seven of eight buses release everything on one target in both arms; the
-bus being flown walks two or three. **By the declared rule it stays off**: the 2,000 km cell's interval reaches 1.33x
-with a point estimate of 0.92x, one flight at 1.58x. Pooled over both nights' 30 paired flights -- not declared, so
-evidence rather than a pass -- the worst warhead is 0.87x [0.79, 0.97], 20 of 30 won.
+bus being flown walks two or three. **By the declared rule it would have stayed off**: the 2,000 km cell's interval
+reaches 1.33x with a point estimate of 0.92x, one flight at 1.58x. Pooled over both nights' 30 paired flights -- not
+declared, so evidence rather than a pass -- the worst warhead is 0.87x [0.79, 0.97], 20 of 30 won. **Turned on by the
+user's decision on that pooled evidence**, with the missed cell stated rather than re-flown.
 
 ## What is wrong today, and what is not
 
@@ -240,7 +241,7 @@ the gate and follow it. The longer fall costs about 2 m of stop band for 45 s, n
 
 ## Flag and files
 
-`IcbmConfig.PointRvsAtEntry`, off until a declared night passes every cell, in `check-tunables.py`'s `RESEARCH`; `BallisticSettings` and `ShotArms` take it by
+`IcbmConfig.PointRvsAtEntry`, on, in `check-tunables.py`'s `RESEARCH`; `BallisticSettings` and `ShotArms` take it by
 reflection. New: `Sim/EntryDirection.cs`, its tests, and the step-0 bridge command. Changed: `IcbmProgram.Coast.cs`
 (the latch), `IcbmProgram.cs:941` and `ReleaseItinerary` (the gate), `IcbmComputer.Prediction.cs` (the predicted kick),
 `IcbmComputer.Release.cs` (the release term, the instruments), `IcbmComputer.cs` / `Walk.cs` (the latched gate, the
