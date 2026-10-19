@@ -135,7 +135,8 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     public List<double3> WalkAimsAtEpoch { get; } = [];
 
     /// <summary>What each stop of a walk came to, the lead first.</summary>
-    internal readonly record struct Stop(double LandedMetres, double DivertMetresPerSecond, double SpentMetresPerSecond);
+    internal readonly record struct Stop(double LandedMetres, double DivertMetresPerSecond, double SpentMetresPerSecond,
+                                         double BeforeArrivalSeconds = double.NaN);
 
     public List<Stop> Stops { get; } = [];
 
@@ -167,6 +168,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     private double HopAcceleration
         => Config.HopsSizeTheirOwnSlots && SlotsFollowTheJets ? ThrusterMetresPerSecond2 : double.NaN;
     private DivertFootprint? _footprint;
+    private List<DivertFootprint>? _later;
     private double3 _landingNowCci;
     private double _landingAt = double.NaN;
     private double _sinceReach = double.PositiveInfinity;
@@ -441,7 +443,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
             {
                 Outcome released = Release(t, double.IsNaN(splitAt) ? double.NaN : t - splitAt);
                 double spent = _trim.SpentMetresPerSecond;
-                Stops.Add(new Stop(released.LandedMetres, spent - spentAtLastStop, spent));
+                Stops.Add(new Stop(released.LandedMetres, spent - spentAtLastStop, spent, Program.CommittedArrivalFromNow));
                 _warheadsGone += PlannedTargets.Count > 0 && _walker.Walking ? _walker.Step.Warheads : 1;
                 spentAtLastStop = spent;
 
@@ -581,6 +583,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
             placed.Add(known ? new ReachDisplay.Placed(along, cross, warheads) : new ReachDisplay.Placed(0.0, 0.0, 0));
         }
 
+        bool tankByStop = Config.PriceTheTankStopByStop && double.IsFinite(TankCeiling);
         ReachDisplay reach = ReachDisplay.For(
             _footprint, placed,
             new ReleaseItinerary.Bus(Config.ReleaseBeforeArrivalSeconds, coast, WarheadsAboard,
@@ -591,19 +594,25 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
                                      HopsFlyTheirOwnCeiling: Config.HopsFlyTheirOwnCeiling,
                                      TurnSeconds: Program.TurnsAtTheSplit ? Config.TurnAllowanceSeconds : 0.0,
                                      BudgetMetresPerSecond: Config.HopsSizeTheirOwnSlots
-                                         ? ReleaseLoop.PlanningBudget(Config.TrimBudgetMetresPerSecond, TankCeiling,
+                                         ? ReleaseLoop.PlanningBudget(Config.TrimBudgetMetresPerSecond,
+                                                                      tankByStop ? double.NaN : TankCeiling,
                                                                       Config.SpendTheSplitReserveAfterTheFirstStop
                                                                           ? ReleaseLoop.SplitNullReserveMetresPerSecond
                                                                           : 0.0)
                                          : PostBoostAim.MaxTrimMetresPerSecond,
                                      HopAccelerationMetresPerSecond2: HopAcceleration,
-                                     FreeArrival: Config.HopsFreeTheirArrival),
+                                     FreeArrival: Config.HopsFreeTheirArrival,
+                                     TankKg: tankByStop ? PropellantKg - _propellantUsedKg : double.NaN,
+                                     MassKg: MassNowKg,
+                                     TankExhaustVelocity: JetExhaustVelocity / LateralCostFactor,
+                                     StoreMassKg: WarheadMassKg),
             Program.Phase, false, TargetSet.MaxTargets, KSArmory.Warhead.LethalRadius(Warhead.ChargeKg), PlannedLead,
             ReachHold.Unflown, Config.PriceEachHopAtItsSlot, Config.PriceHopsAtWhatTheTrimPays,
-            Config.PriceSlotsOnTheGateChord);
+            Config.PriceSlotsOnTheGateChord, _later);
         _reach = reach;
 
-        bool mayReplan = !(Program.TurnsAtTheSplit && _didSplit) || reach.Flown.Stops == _walker.Walk.Stops;
+        bool mayReplan = ReleaseLoop.MayReplan(Program.TurnsAtTheSplit, _didSplit, reach.Flown.Stops, _walker.Walk.Stops,
+                                               Config.WalkShrinksAfterTheSplit);
         if (reach.Flown.Stops > 0 && mayReplan) _walker.Plan(reach.Flown);
         Program.ReleaseGateSeconds = _walker.GateOverrideSeconds(Config, Math.Max(PlannedTargets.Count, 1));
     }
@@ -614,16 +623,16 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
 
         double3 positionCci = state.PositionCci;
         double3 velocityCci = state.VelocityCci + ReleaseImpulseCci();
+        _later = null;
         if (!AimCorrection.DepartureIsWorthObserving(DensityAt(positionCci)))
         {
             _footprint = null;
             return;
         }
 
-        ReleaseFocus.FlownSensitivity? flown = ReleaseFocus.FlownSensitivity.TryFly(
-            Body, positionCci, velocityCci,
-            new ReleaseFocus.Air(new ImpactPredictor.Drag(DensityAt, Warhead), PredictStepSeconds, Body.SurfaceRadius,
-                                 Config.PredictionStopsOnTheSurface, Config.PredictionStopsOnTheTerrain));
+        ReleaseFocus.Air air = new(new ImpactPredictor.Drag(DensityAt, Warhead), PredictStepSeconds, Body.SurfaceRadius,
+                                   Config.PredictionStopsOnTheSurface, Config.PredictionStopsOnTheTerrain);
+        ReleaseFocus.FlownSensitivity? flown = ReleaseFocus.FlownSensitivity.TryFly(Body, positionCci, velocityCci, air);
 
         DivertFootprint.ArrivalClock clock = Config.HopsFreeTheirArrival ? DivertFootprint.ArrivalClock.Free
                                                                          : DivertFootprint.ArrivalClock.Pinned;
@@ -639,6 +648,26 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
             && DivertFootprint.TryAxisPrice(Body, flown, nose, right, down, out DivertFootprint.AxisPrice axes, clock))
         {
             footprint = footprint with { Axes = axes };
+
+            if (Config.HopsFreeTheirArrival && Config.FreeHopsMeasureTheirSlots)
+            {
+                // IcbmComputer.LaterReach.
+                List<DivertFootprint> later = [];
+                foreach (double before in DivertFootprint.LaterEpochsBeforeArrival(flown.FlightSeconds,
+                                                                                   Config.ReleaseBeforeArrivalSeconds))
+                {
+                    if (!DivertFootprint.TryFreeLater(Body, positionCci, velocityCci, flown.FlightSeconds, before, air,
+                                                      nose, right, down, out DivertFootprint atEpoch))
+                    {
+                        later.Clear();
+                        break;
+                    }
+
+                    later.Add(atEpoch);
+                }
+
+                _later = later.Count > 0 ? later : null;
+            }
         }
 
         _footprint = footprint;

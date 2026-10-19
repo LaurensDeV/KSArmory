@@ -162,6 +162,7 @@ internal sealed partial class IcbmComputer
     // instant they departed from and five seconds of Earth's spin is 2.3 km of ground -- which on a
     // ring a few kilometres across is the whole shape.
     private DivertFootprint? _reachFootprint;
+    private List<DivertFootprint>? _reachLater;
     private double3 _reachLandingCcf;
     private doubleQuat _reachCci2Ccf = doubleQuat.Identity;
     private doubleQuat _reachCcf2Cci = doubleQuat.Identity;
@@ -805,6 +806,7 @@ internal sealed partial class IcbmComputer
             // The reach is not one of the things that outlive the bus: it describes where the bus
             // could still send a warhead, and there is no bus.
             _reachFootprint = null;
+            _reachLater = null;
             Reach = ReachDisplay.None(ReachHold.SalvoAway, _targets.Count);
 
             StepTraceLoose(simStep);

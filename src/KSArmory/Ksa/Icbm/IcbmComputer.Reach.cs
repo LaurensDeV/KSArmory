@@ -89,6 +89,7 @@ internal sealed partial class IcbmComputer
         if (!wanted)
         {
             _reachFootprint = null;
+            _reachLater = null;
             _sinceReachWall = double.PositiveInfinity;
             _reachDueAfterTurn = false;
             Reach = ReachDisplay.None(WhyNotWanted(), _targets.Count);
@@ -116,6 +117,9 @@ internal sealed partial class IcbmComputer
             ReachAtTheEpoch(state);
         }
 
+        double tankKg = double.NaN, busKg = double.NaN;
+        bool tankByStop = Config.PriceTheTankStopByStop && TryReadTheTank(out tankKg, out busKg);
+
         Reach = ReachDisplay.For(_reachFootprint, PlacedTargets(),
                                  new ReleaseItinerary.Bus(Config.ReleaseBeforeArrivalSeconds,
                                                           coast, WarheadsAboard,
@@ -131,26 +135,30 @@ internal sealed partial class IcbmComputer
                                                           BudgetMetresPerSecond: Config.HopsSizeTheirOwnSlots
                                                               ? ReleaseLoop.PlanningBudget(
                                                                     Config.TrimBudgetMetresPerSecond,
-                                                                    TankCeilingMetresPerSecond,
+                                                                    tankByStop ? double.NaN : TankCeilingMetresPerSecond,
                                                                     Config.SpendTheSplitReserveAfterTheFirstStop
                                                                         ? ReleaseLoop.SplitNullReserveMetresPerSecond
                                                                         : 0.0)
                                                               : PostBoostAim.MaxTrimMetresPerSecond,
                                                           HopAccelerationMetresPerSecond2: HopAcceleration,
-                                                          FreeArrival: Config.HopsFreeTheirArrival),
+                                                          FreeArrival: Config.HopsFreeTheirArrival,
+                                                          TankKg: tankByStop ? tankKg : double.NaN,
+                                                          MassKg: busKg,
+                                                          TankExhaustVelocity: TankExhaustVelocity,
+                                                          StoreMassKg: ShedStoreMassKg),
                                  Program.Phase, SalvoIsOver, TargetSet.MaxTargets,
                                  Warhead.LethalRadius(_warhead!.ChargeKg), _targets.LeadIndex,
                                  coasting ? ReachHold.Unflown : ReachHold.EpochUnmeasured,
                                  Config.PriceEachHopAtItsSlot, Config.PriceHopsAtWhatTheTrimPays,
-                                 Config.PriceSlotsOnTheGateChord);
+                                 Config.PriceSlotsOnTheGateChord, _reachLater);
 
         // Held rather than re-read, and only replaced by a plan that has stops. A frame whose
         // footprint did not come down would otherwise take the walk away on the approach to the
         // release gate and put the gate back to the setting, which shuts ReadyToDeploy mid-walk.
         // The walker refuses everything once the first warhead has gone, so the plan behind the bus
         // cannot be re-ordered under it either.
-        // Once a turning bus has split, only a plan of the same stops: its gate is the one the split was timed on.
-        bool mayReplan = !(Program.TurnsAtTheSplit && _didSplit) || Reach.Flown.Stops == _walker.Walk.Stops;
+        bool mayReplan = ReleaseLoop.MayReplan(Program.TurnsAtTheSplit, _didSplit, Reach.Flown.Stops, _walker.Walk.Stops,
+                                               Config.WalkShrinksAfterTheSplit);
         if (Reach.Flown.Stops > 0 && mayReplan && _walker.Plan(Reach.Flown)) SayTheWalkIfItChanged();
     }
 
@@ -187,6 +195,7 @@ internal sealed partial class IcbmComputer
     private void ReachAtTheEpoch(in IcbmState state)
     {
         _reachFootprint = null;
+        _reachLater = null;
 
         if (Parent is not { } parent || !Target.IsSet || Target.BodyName != parent.Id) return;
 
@@ -232,6 +241,7 @@ internal sealed partial class IcbmComputer
             if (!AimCorrection.DepartureIsWorthObserving(DensityRatioAt(positionCci)))
             {
                 _reachFootprint = null;
+                _reachLater = null;
                 return;
             }
 
@@ -244,11 +254,10 @@ internal sealed partial class IcbmComputer
 
             long started = System.Diagnostics.Stopwatch.GetTimestamp();
 
-            ReleaseFocus.FlownSensitivity? flown = ReleaseFocus.FlownSensitivity.TryFly(
-                Body, positionCci, velocityCci,
-                new ReleaseFocus.Air(new ImpactPredictor.Drag(DensityRatioAt, warhead), PredictStepSeconds,
-                                     groundRadius, Config.PredictionStopsOnTheSurface,
-                                     Config.PredictionStopsOnTheTerrain));
+            ReleaseFocus.Air air = new(new ImpactPredictor.Drag(DensityRatioAt, warhead), PredictStepSeconds,
+                                       groundRadius, Config.PredictionStopsOnTheSurface,
+                                       Config.PredictionStopsOnTheTerrain);
+            ReleaseFocus.FlownSensitivity? flown = ReleaseFocus.FlownSensitivity.TryFly(Body, positionCci, velocityCci, air);
 
             double ms = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
@@ -257,17 +266,24 @@ internal sealed partial class IcbmComputer
                                             out DivertFootprint footprint))
             {
                 _reachFootprint = null;
+                _reachLater = null;
                 Log.Debug($"reach on {KsaWorld.DisplayName(Craft)}: not priced -- a column did not come "
                           + $"down ({ms:F2} ms)");
                 return;
             }
 
+            _reachLater = null;
             if (Config.PriceHopsAtWhatTheTrimPays
                 && KsaWorld.TryControlFrameCci(Craft, parent, out double3 nose, out double3 right, out double3 down)
                 && DivertFootprint.TryAxisPrice(Body, flown, nose, right, down, out DivertFootprint.AxisPrice axes,
                                                 ReachClock))
             {
                 footprint = footprint with { Axes = axes };
+
+                if (Config.HopsFreeTheirArrival && Config.FreeHopsMeasureTheirSlots)
+                {
+                    _reachLater = LaterReach(positionCci, velocityCci, flown.FlightSeconds, air, nose, right, down);
+                }
             }
 
             _reachFootprint = footprint;
@@ -290,8 +306,28 @@ internal sealed partial class IcbmComputer
         {
             // Inside the frame hook, where an exception is the game rather than a log line.
             _reachFootprint = null;
+            _reachLater = null;
             Log.Warn($"reach on {KsaWorld.DisplayName(Craft)}: not priced -- {e.Message}");
         }
+    }
+
+    // Every epoch or none: a curve with a gap in it would read the gap as the worst case's fall.
+    private List<DivertFootprint>? LaterReach(double3 positionCci, double3 velocityCci, double secondsToGo,
+                                              in ReleaseFocus.Air air, double3 nose, double3 right, double3 down)
+    {
+        List<DivertFootprint> later = [];
+        foreach (double before in DivertFootprint.LaterEpochsBeforeArrival(secondsToGo, Config.ReleaseBeforeArrivalSeconds))
+        {
+            if (!DivertFootprint.TryFreeLater(Body, positionCci, velocityCci, secondsToGo, before, air, nose, right, down,
+                                              out DivertFootprint footprint))
+            {
+                return null;
+            }
+
+            later.Add(footprint);
+        }
+
+        return later.Count > 0 ? later : null;
     }
 
     // The set as the ground sees it, which is what prices the itinerary.

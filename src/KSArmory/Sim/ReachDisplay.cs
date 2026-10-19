@@ -190,11 +190,17 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     /// <see cref="DivertFootprint.TrimCostMetresPerSecond"/>, and the ring, the refusal and the readouts at
     /// the worst bearing's, so a point the ring takes is one the planner can pay for.
     /// </param>
+    /// <param name="later">
+    /// <see cref="IcbmConfig.FreeHopsMeasureTheirSlots"/>: the same reach flown from where the coast will be at later
+    /// epochs, falling, which gives each free hop its own <see cref="ReleaseItinerary.Target.Slots"/>. Null, or any
+    /// footprint without its axes, leaves every hop on <see cref="ReleaseItinerary.FreeSlotExponent"/>.
+    /// </param>
     public static ReachDisplay For(DivertFootprint? footprint, IReadOnlyList<Placed>? placed,
                                    in ReleaseItinerary.Bus means, IcbmPhase phase, bool salvoAway,
                                    int maxTargets, double spacingMetres, int lead,
                                    ReachHold unpriced, bool pricePerSlot = false,
-                                   bool priceAtTheTrim = false, bool chordFromTheGate = false)
+                                   bool priceAtTheTrim = false, bool chordFromTheGate = false,
+                                   IReadOnlyList<DivertFootprint>? later = null)
     {
         int targets = placed?.Count ?? 0;
 
@@ -224,7 +230,17 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
             ? (along, cross) => reach.TrimCostMetresPerSecond(along, cross) * perMetrePerSecond
             : null;
 
-        Walk walk = Order(placed, lead, hopMetres);
+        Func<double, double, ReleaseItinerary.SlotCurve?>? slots = null;
+        if (hopMetres is not null && bus.FreeArrival && later is { Count: > 0 } && reach.Axes.Known
+            && later.All(f => f.Axes.Known))
+        {
+            DivertFootprint[] epochs = [reach, .. later];
+            double[] seconds = epochs.Select(f => f.FlightSeconds).ToArray();
+            slots = (along, cross) => ReleaseItinerary.SlotCurve.From(
+                seconds, epochs.Select(f => f.TrimCostMetresPerSecond(along, cross)).ToArray());
+        }
+
+        Walk walk = Order(placed, lead, hopMetres, slots);
         ReleaseItinerary itinerary = ReleaseItinerary.Plan(walk.Set, bus, atEachSlot);
 
         // Planned off the same ordered set the ring is drawn from, rather than built again beside
@@ -525,8 +541,10 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     /// What a hop of this many metres along and across is charged as, in straight-line metres; null charges its
     /// length.
     /// </param>
+    /// <param name="slots">A hop's own <see cref="ReleaseItinerary.Target.Slots"/>; null leaves it unset.</param>
     public static Walk Order(IReadOnlyList<Placed>? placed, int lead,
-                             Func<double, double, double>? hopMetres = null)
+                             Func<double, double, double>? hopMetres = null,
+                             Func<double, double, ReleaseItinerary.SlotCurve?>? slots = null)
     {
         if (placed is null || placed.Count == 0) return new Walk([], 0.0, 0.0, 0);
 
@@ -596,7 +614,8 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
             set[order[k]] = hopMetres is null
                 ? new ReleaseItinerary.Target(to.Warheads, order.Count - k, length)
                 : new ReleaseItinerary.Target(to.Warheads, order.Count - k, hopMetres(along - atAlong, cross - atCross),
-                                              HopLengthMetres: length);
+                                              HopLengthMetres: length,
+                                              Slots: slots?.Invoke(along - atAlong, cross - atCross));
 
             atAlong = along;
             atCross = cross;

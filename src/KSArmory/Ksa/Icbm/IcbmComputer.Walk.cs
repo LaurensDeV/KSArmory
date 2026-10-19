@@ -79,18 +79,26 @@ internal sealed partial class IcbmComputer
 
     // What the bus's own tank still pays, read once it is the bus alone; NaN before the split or with the flag off.
     private double TankCeilingMetresPerSecond
-    {
-        get
-        {
-            if (!Config.HopsSizeTheirOwnSlots || !_didSplit || LauncherPart.Find(Craft) is not { } launcher
-                || !KsaWorld.TryTankOf(launcher.Part, out Tank? tank) || !KsaWorld.TryTankMassKg(tank, out double kg))
-            {
-                return double.NaN;
-            }
+        => TryReadTheTank(out double kg, out double massKg)
+               ? ReleaseLoop.TankCeilingMetresPerSecond(_trim.SpentMetresPerSecond, kg, massKg, TankExhaustVelocity)
+               : double.NaN;
 
-            return ReleaseLoop.TankCeilingMetresPerSecond(_trim.SpentMetresPerSecond, kg, KsaWorld.MassKg(Craft),
-                                                          _release?.Profile.TrimWorstAxisExhaustVelocity ?? double.NaN);
+    private double TankExhaustVelocity => _release?.Profile.TrimWorstAxisExhaustVelocity ?? double.NaN;
+
+    private double ShedStoreMassKg
+        => Config.ShedWarheadMass && _release is { } release ? release.Profile.StoreMassKg : 0.0;
+
+    private bool TryReadTheTank(out double kg, out double massKg)
+    {
+        kg = massKg = double.NaN;
+        if (!Config.HopsSizeTheirOwnSlots || !_didSplit || LauncherPart.Find(Craft) is not { } launcher
+            || !KsaWorld.TryTankOf(launcher.Part, out Tank? tank) || !KsaWorld.TryTankMassKg(tank, out kg))
+        {
+            return false;
         }
+
+        massKg = KsaWorld.MassKg(Craft);
+        return true;
     }
 
     private double ReserveReleasedMetresPerSecond

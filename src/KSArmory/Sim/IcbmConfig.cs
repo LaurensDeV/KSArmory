@@ -233,6 +233,28 @@ internal sealed class IcbmConfig
     public bool HopsFreeTheirArrival;
 
     /// <summary>
+    /// Whether a walk prices the bus's tank in kilograms stop by stop, each hop at the mass the bus has by then, rather
+    /// than in metres a second at its mass with every warhead aboard. Six Mk 21s are 1,500 kg of a 2,900 kg Heavy bus.
+    /// <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c> step 5.
+    /// </summary>
+    public bool PriceTheTankStopByStop;
+
+    /// <summary>
+    /// Whether a free walk flies its reach again from where the coast will be at <see cref="DivertFootprint.LaterEpochs"/>
+    /// epochs down to the release gate, and prices each hop's slot on what it costs there rather than on
+    /// <see cref="ReleaseItinerary.FreeSlotExponent"/>, the fastest fall over 54 arcs. About 1 ms a flight, every 5 s.
+    /// <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c> step 5.
+    /// </summary>
+    public bool FreeHopsMeasureTheirSlots;
+
+    /// <summary>
+    /// Whether a plan with fewer stops may replace the walker's once a turning bus has split. Fewer stops never move the
+    /// first release earlier, which is what the split was timed on. <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c>
+    /// step 5.
+    /// </summary>
+    public bool WalkShrinksAfterTheSplit;
+
+    /// <summary>
     /// Whether the trim reserve kept beyond the budget for nulling the split may be spent on hops once a
     /// walk's first stop has let its warheads go. Flown paired on a 4 km six-target walk: 12 of 12 buses walked five stops
     /// against four for all 12 without it, every warhead within 5 mm. <c>docs/MIRV-TARGETS.md</c>.

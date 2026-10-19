@@ -330,6 +330,55 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
         return price.Known;
     }
 
+    /// <summary>How many epochs <see cref="IcbmConfig.FreeHopsMeasureTheirSlots"/> flies the reach at past the first.</summary>
+    public const int LaterEpochs = 4;
+
+    /// <summary>
+    /// <see cref="LaterEpochs"/> epochs before arrival, falling, evenly spaced on log axes from
+    /// <paramref name="secondsToGo"/> down to <paramref name="gateSeconds"/>; empty where the gate is not before it.
+    /// </summary>
+    public static double[] LaterEpochsBeforeArrival(double secondsToGo, double gateSeconds)
+    {
+        if (!(gateSeconds > 0.0) || !(secondsToGo > gateSeconds) || !double.IsFinite(secondsToGo)) return [];
+
+        double[] epochs = new double[LaterEpochs];
+        for (int i = 1; i <= LaterEpochs; i++)
+        {
+            epochs[i - 1] = secondsToGo * Math.Pow(gateSeconds / secondsToGo, (double)i / LaterEpochs);
+        }
+
+        return epochs;
+    }
+
+    /// <summary>
+    /// The free reach, with its per-axis price on the given axes, flown from where a vacuum coast from
+    /// <paramref name="positionCci"/> is <paramref name="beforeArrivalSeconds"/> before an arrival
+    /// <paramref name="secondsToGo"/> away: <see cref="IcbmConfig.FreeHopsMeasureTheirSlots"/>.
+    /// </summary>
+    public static bool TryFreeLater(BallisticBody body, double3 positionCci, double3 velocityCci, double secondsToGo,
+                                    double beforeArrivalSeconds, in ReleaseFocus.Air air, double3 noseCci,
+                                    double3 rightCci, double3 downCci, out DivertFootprint later)
+    {
+        later = default;
+
+        double coast = secondsToGo - beforeArrivalSeconds;
+        if (!(coast > 0.0) || !(beforeArrivalSeconds > 0.0)
+            || !Kepler.TryCoast(body.Mu, positionCci, velocityCci, coast, out double3 p, out double3 v))
+        {
+            return false;
+        }
+
+        if (ReleaseFocus.FlownSensitivity.TryFly(body, p, v, air) is not { } flown
+            || !TryFrom(body, flown, ArrivalClock.Free, fromTheRealState: true, out DivertFootprint footprint)
+            || !TryAxisPrice(body, flown, noseCci, rightCci, downCci, out AxisPrice axes, ArrivalClock.Free))
+        {
+            return false;
+        }
+
+        later = footprint with { Axes = axes };
+        return true;
+    }
+
     /// <summary>Whether a displacement is inside what the stated budget can pay for.</summary>
     public bool Reaches(double alongMetres, double crossMetres, double budgetMetresPerSecond)
         => CostMetresPerSecond(alongMetres, crossMetres) <= budgetMetresPerSecond;

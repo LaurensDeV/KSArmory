@@ -226,6 +226,15 @@ internal static class ReleaseLoop
                ? Math.Max(0.0, Math.Min(PlanningBudget(budgetMetresPerSecond), tankCeiling - Math.Max(0.0, reserveMetresPerSecond)))
                : PlanningBudget(budgetMetresPerSecond);
 
+    /// <summary>
+    /// Whether a fresh plan of <paramref name="freshStops"/> may replace the walker's <paramref name="heldStops"/>. Once a
+    /// turning bus has split, only one of the same stops, whose first release is the one the split was timed on — or,
+    /// under <see cref="IcbmConfig.WalkShrinksAfterTheSplit"/>, one of fewer, whose first release is never earlier.
+    /// </summary>
+    public static bool MayReplan(bool turnsAtTheSplit, bool didSplit, int freshStops, int heldStops, bool mayShrink)
+        => !(turnsAtTheSplit && didSplit) || freshStops == heldStops
+           || (mayShrink && freshStops > 0 && freshStops < heldStops);
+
     /// <summary>How long a hop's divert burn takes at the bus's trim acceleration, or zero where either is unknown.</summary>
     public static double HopBurnSeconds(double hopMetresPerSecond, double accelerationMetresPerSecond2)
         => hopMetresPerSecond > 0.0 && double.IsFinite(hopMetresPerSecond)

@@ -139,7 +139,8 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
     }
 
     // Either bus on its own tank, a budget only the tank bounds, the targets laid uprange of each other along the track.
-    private PastCutoffRig Hops(bool postBoostBus, double rangeMetres, int targets, double spacingMetres, bool free)
+    private PastCutoffRig Hops(bool postBoostBus, double rangeMetres, int targets, double spacingMetres, bool free,
+                               bool remade = false)
     {
         IcbmProgram program = new(new IcbmConfig
         {
@@ -147,6 +148,7 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
             PulsesBelowTheFloor = false, SpendTheSplitReserveAfterTheFirstStop = true,
             WalkStartsAtCutoff = true, HopsFlyTheirOwnCeiling = true, PriceSlotsOnTheGateChord = true,
             HopsSizeTheirOwnSlots = true, TrimBudgetMetresPerSecond = 1_000.0, HopsFreeTheirArrival = free,
+            PriceTheTankStopByStop = remade, FreeHopsMeasureTheirSlots = remade, WalkShrinksAfterTheSplit = remade,
         });
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
@@ -173,7 +175,7 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
 
         rig.Fly(GameStackShortRangeTests.South(rangeMetres));
         Out.WriteLine($"{(postBoostBus ? "post-boost" : "Heavy")} {rangeMetres / 1_000.0:F0} km, {targets} at "
-                      + $"{spacingMetres / 1_000.0:F0} km, {(free ? "free" : "pinned")}: planned {rig.Plan.Stops} "
+                      + $"{spacingMetres / 1_000.0:F0} km, {(free ? "free" : "pinned")}{(remade ? ", remade" : "")}: planned {rig.Plan.Stops} "
                       + $"({rig.Plan.Hold}), flew {rig.Stops.Count}, curtailed {rig.Curtailed}, ran dry {rig.RanDry}, "
                       + $"{rig.PropellantUsedKg:F1} kg used");
         for (int k = 0; k < rig.Stops.Count; k++)
@@ -201,6 +203,33 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
         Assert.False(free.Curtailed, "the free walk ended early");
         Assert.False(free.RanDry, "the free walk emptied the tank");
         Assert.All(free.Stops, stop => Assert.True(stop.LandedMetres < 0.01, $"landed {stop.LandedMetres:F3} m out"));
+    }
+
+    // A hop flown past its price by more than the tank's margin is one the tank was not held back for.
+    [Theory]
+    [InlineData(false, 6_181_000.0, 6, 25_000.0)]
+    [InlineData(true, 12_902_000.0, 7, 100_000.0)]
+    public void AFreeHopFliesWithinTheTanksMarginOfItsPriceOnceThePlanIsRemadeAfterTheSplit(
+        bool postBoostBus, double rangeMetres, int targets, double spacingMetres)
+    {
+        static bool Honest(PastCutoffRig rig, int k)
+        {
+            double ratio = rig.Stops[k].DivertMetresPerSecond / rig.Plan.Itinerary.Stops[k].HopMetresPerSecond;
+            return ratio <= 1.0 / (1.0 - ReleaseLoop.TankMargin) && ratio >= 0.85;
+        }
+
+        PastCutoffRig stale = Hops(postBoostBus, rangeMetres, targets, spacingMetres, free: true);
+        PastCutoffRig remade = Hops(postBoostBus, rangeMetres, targets, spacingMetres, free: true, remade: true);
+
+        Assert.Contains(Enumerable.Range(1, stale.Stops.Count - 1), k => !Honest(stale, k));
+
+        Assert.Equal(targets, remade.Stops.Count);
+        Assert.False(remade.Curtailed);
+        Assert.False(remade.RanDry);
+        Assert.All(remade.Stops, stop => Assert.True(stop.LandedMetres < 0.01, $"landed {stop.LandedMetres:F3} m out"));
+        Assert.All(Enumerable.Range(1, remade.Stops.Count - 1),
+                   k => Assert.True(Honest(remade, k), $"hop {k} flew {remade.Stops[k].DivertMetresPerSecond:F2} m/s "
+                                                       + $"on a price of {remade.Plan.Itinerary.Stops[k].HopMetresPerSecond:F2}"));
     }
 
     /// <summary>

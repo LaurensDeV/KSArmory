@@ -253,17 +253,56 @@ Headless, behind a flag. Per branch:
 
   **Two defects keep the step from passing:**
 
-  1. **The plan goes stale after a turning split**, in the game and the rig alike (`IcbmComputer.Reach.cs`,
-     `mayReplan`). Once a turning bus has split, only a plan with the same number of stops replaces the walker's; when
-     the re-priced one has fewer, the walker keeps the plan made before the split and turn, priced on the pre-turn nose
-     (axis-sum factor about 1.07 against the 1.47 flown). Free hops at 6,181 km then fly 1.3-1.6x the walker's price
-     but within ~5% of the fresh one: Heavy 6,181 km at 25 km, the fresh plan prices hop 1 at 14.7 (flown 15.0), the
-     walker held 10.4. Letting a smaller plan replace it after the split was tried and reverted. It is safe, since a
-     shrinking plan never moves the first release earlier, and the prices became honest, but walks got **shorter**
-     (Heavy 6,181 km at 60 km: 4 stops to 2, 46 kg used), because the planner values the tank at the bus's full mass:
-     88 m/s at the split against 128 by the later hops once warheads have gone. The fix: price the tank stop by stop in
-     kg as each release lightens the bus (an RV is 250 kg), then retry the shrink rule behind a research flag, the
-     predicate in `Sim/ReleaseLoop.cs` so the game and the rig share it.
+  1. **The plan goes stale after a turning split**, in the game and the rig alike. Once a turning bus has split,
+     only a plan with the same number of stops replaces the walker's; when the re-priced one has fewer, the walker
+     keeps the plan made before the split and turn, priced on the pre-turn nose (axis-sum factor about 1.07 against
+     the 1.47 flown). Heavy 6,181 km at 25 km: the walker held hop 1 at 10.4 m/s and it flew 15.0.
+
+     **Built 2026-10-19, three research flags, rig only.** Letting a smaller plan replace it
+     (`WalkShrinksAfterTheSplit`, the predicate `ReleaseLoop.MayReplan`) makes the prices honest but on its own
+     shortens walks (Heavy 6,181 km at 60 km: 4 stops to 2). The stale plan was never bound by the tank at all,
+     because the tank is read only after the split, so it promised more than the fresh one could. Two things priced
+     the fresh plan too dear, and each now has its own flag:
+
+     - **The tank at the bus's full mass.** `PriceTheTankStopByStop` charges each hop in kilograms at the mass the
+       bus has by then, every earlier stop's warheads gone (`ReleaseItinerary.Bus.HopKg`, the 10% margin on the
+       exhaust velocity, so at one mass it is exactly the old ceiling). Under it a slot's burn also follows the
+       lighter bus. On its own it moves no walk: the slots, below, were the binding term.
+     - **Every slot on the worst-case decay.** `(s/T)^1.2` is the fastest fall over 54 arcs, and at 12,902 km the
+       flown hops are flat (45.5 to 46.1 m/s over six hops) while it priced them 46.8 to 89.0.
+       `FreeHopsMeasureTheirSlots` flies the reach again from the coast Kepler-carried to four epochs down to the gate
+       (`DivertFootprint.TryFreeLater`, evenly spaced on log axes, about 1 ms each every 5 s), and prices each hop on
+       its own cost there (`ReleaseItinerary.SlotCurve`), never cheaper than now and the worst case past the gate.
+       What the trim pays for an along-track hop on a held nose is convex in the time to go on log axes, 0.449 to
+       1.130 m/s per km from 1,484 s to 396 s at 6,181 km, so each chord lies over it. The reach's length alone is
+       nearly a straight line there (exponent about 1.06), which is why one exponent fitted between now and the gate
+       priced the middle of the coast too dear.
+
+     With all three, every hop flies within the tank's margin of its price
+     (`WideSpreadRigTests.AFreeHopFliesWithinTheTanksMarginOfItsPriceOnceThePlanIsRemadeAfterTheSplit`, failing
+     against the stale plan at 1.44x and 0.52x). Full walks, every stop under 1 cm in both columns:
+
+     | Cell | A alone (stale plan) | A + the three flags |
+     | --- | --- | --- |
+     | Heavy 6,181 km, 6 at 25 km | 6, hops 1.44x their price | 6, 0.88-1.03x |
+     | Heavy 6,181 km, 6 at 40 km | 6 | 4 planned |
+     | Heavy 6,181 km, 6 at 60 km | 4, curtailed | 3 planned |
+     | Heavy 12,902 km, 6 at 60 km | 6 | 5 planned |
+     | Post-boost 6,181 km, 7 at 50 km | 7 | 7 |
+     | Post-boost 6,181 km, 7 at 75 km | 5 | 5 |
+     | Post-boost 12,902 km, 7 at 100 km | 7, last hop 0.52x | 7, 0.95-1.05x |
+     | Post-boost 12,902 km, 7 at 150 km | 6, curtailed | 5 planned |
+     | Post-boost 6,181 km, 2 at 300 km | stop 2 lands 24.8 km out | 1 stop |
+
+     **Where the honest plan walks fewer stops, the rig is the likelier reason.** It flies a hop's overhead in 16-27 s
+     against the 48 s the game measured over 96 buses (`ReleaseItinerary.HopOverheadSeconds`), so in the rig a stop
+     releases before its planned slot (Heavy 6,181 km at 40 km: the fourth at 1,112 s to go against 1,064 planned),
+     where the hop is cheaper. A game flight on the game's overhead would buy its hops where the plan prices them,
+     and the stale plan would curtail or run the guard there. Which of the two the game agrees with is a flown
+     question: step 6. Not yet known in the rig either: whether the fresh plan's first-hop price, about 10% over at
+     Heavy 6,181 km and 40 km and under at 25 and 60, depends on when in the turn the last plan before the first
+     release was made.
+
   2. **Post-boost 6,181 km, two targets 300 km apart: stop 2 lands 24.8 km out.** The hop flew at its real cost
      (178 m/s by the first pass), then the aim bias ran away to 23.7 km over three passes and the next correction
      wanted 48 m/s, past the 32 m/s one pass may spend. Not pricing: the fresh plan says one stop fits, so fixing
@@ -271,8 +310,8 @@ Headless, behind a flag. Per branch:
      cheapest arc: `TryCommitTheCheapestArrival` passes no `minArrivalDeg`, and the sweep runs at
      `MinArrivalAngleDeg` 0.
 
-  Pass for A: flown hops at or under their price and every stop under a centimetre, so both defects first. Then
-  re-price C at the post-boost bus's 6,181 km, where its coast binds.
+  Pass for A: flown hops at or under their price and every stop under a centimetre. Defect 1 is closed in the rig
+  behind its flags; defect 2 is next. Then re-price C at the post-boost bus's 6,181 km, where its coast binds.
 - **B**: step 2's profile plus the post-boost bus's budget and acceleration; nothing else new.
 - **C**: first the engine risks below, then:
   - `Sim/HopBurn.cs` only if step 4 said open-loop leaves more than a pass: point (`BusTurn`, capped), burn re-solving
