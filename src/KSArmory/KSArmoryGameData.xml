@@ -416,6 +416,38 @@
     </Collider>
   </PartGameData>
 
+  <PartGameData Id="KSArmory_Prefab_Yal1Turret" DisplayName="YAL-1 Nose Turret">
+    <EditorTag Value="Sensors" />
+    <Diameter M="3" />
+
+    <!-- Stacks, like the CIWS: no Radial tag and no ToSurface flag. -->
+    <Connector Id="_yalConnectorBase" />
+
+    <!-- About 14,000 lb with its telescope (Boeing, 2000). -->
+    <SolidSphereMass>
+      <Mass Kg="6350" />
+      <Radius M="1.50" />
+    </SolidSphereMass>
+
+    <Collider Id="KSArmory_Yal1Collider">
+      <Box Id="KSArmory_Yal1CollarCollider">
+        <LocationAsmb X="0.20" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.40" />
+        <LengthY M="3.24" />
+        <LengthZ M="3.24" />
+      </Box>
+      <!-- The shell at every roll it can reach: a body of revolution, so one box does. -->
+      <Box Id="KSArmory_Yal1ShellCollider">
+        <LocationAsmb X="2.20" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="3.60" />
+        <LengthY M="3.00" />
+        <LengthZ M="3.00" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
   <PartGameData Id="KSArmory_Prefab_Ciws" DisplayName="Mk 15 Phalanx CIWS">
     <EditorTag Value="Weapons" />
     <Diameter M="3" />

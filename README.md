@@ -79,7 +79,7 @@ Nothing on it moves and nothing about it aims: the ballistic computer flies the 
 the engines on the solution, trims the bus back onto it with its own thrusters, and then lets the
 warheads go one at a time. See [`docs/ICBM-GUIDANCE.md`](docs/ICBM-GUIDANCE.md).
 
-Two sights come with them, and they are the same instrument on different mechanisms:
+Three sights come with them, and they are the same instrument on different mechanisms:
 
 **EO Director** — a sight as a part in its own right, on a mast. It finds its own targets through
 its own sensor and drives the view with no weapon involved, so a hull carrying nothing else is an
@@ -88,6 +88,9 @@ observation post. A launcher may carry one as well, and the Pantsir's turret roo
 **Rafael LITENING pod** — that same sight on a roll-nod gimbal: the whole nose rolls about the
 pod's centreline while the ball nods within it, and the picture is counter-rotated so what the pod
 hangs from stays at the top of it.
+
+**YAL-1 nose turret** — the Airborne Laser's beam director: the LITENING's mechanism scaled to a
+1.5 m telescope behind a 1.8 m window, stacking on a 3 m node. It looks and tracks; it fires nothing.
 
 And one piece of kit that shoots nothing:
 

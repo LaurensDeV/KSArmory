@@ -13,9 +13,10 @@ minute to the Phalanx's four and a half thousand, and shells that burst on a tim
 having to hit — an **M197 chin turret**, a three-barrel 20 mm cannon that hangs under a nose and
 traverses ±110° — and a **B61 rack**, which is the one that neither aims nor fires: it lets a bomb go
 and the ground does the rest. The **ALE-47 dispensers**, one of flares and one of chaff, shoot nothing:
-they throw decoys that take a missile's seeker away from the craft carrying them. Two sights come with them, and they are the
-same instrument on different mechanisms: an **EO director** on a mast, and a **Rafael LITENING
-pod**, whose whole nose rolls about the pod's centreline while the sight nods within it.
+they throw decoys that take a missile's seeker away from the craft carrying them. Three sights come with them, and they are the
+same instrument on different mechanisms: an **EO director** on a mast, a **Rafael LITENING
+pod**, whose whole nose rolls about the pod's centreline while the sight nods within it, and the
+**YAL-1 nose turret**, that same roll-nod head scaled to a 1.5 m telescope and stacked on a 3 m node.
 
 ## Read this first
 

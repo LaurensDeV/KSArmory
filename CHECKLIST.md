@@ -2104,6 +2104,20 @@ maps are all unproven paths.
       from. The sensor cone points out of the mounting face, which keeps it off that direction
       without forbidding it.
 
+### 7.6c-2 The YAL-1 nose turret — the roll-nod head, stacked
+
+**Never flown.** The art is authored, baked into one 2048 atlas and checked by `checkmesh.py`
+and `validate-parts.py`; the C# is the LITENING's profile with other numbers.
+
+- [ ] `YAL-1 Nose Turret` appears under **Sensors** and stacks on a 3 m node like the CIWS.
+- [ ] **It points forward.** The base subpart carries a quarter turn about Z so its own +Y is the
+      stack axis. If the turret lies sideways or faces into the stack, that sign is wrong.
+- [ ] The shell rolls about the stack axis and the ball nods in its slot, never through the shell.
+- [ ] Looking dead ahead it says **in the keyhole**, as the pod does.
+- [ ] It parks with the window **sideways** (the mount's normal), not hidden. The real one stows
+      the window behind the shell; nothing models a stow.
+- [ ] `SlewRateDeg = 30` is a guess, not a published number.
+
 ### 7.6d The suspension rail — carriage gear the builder cannot place
 
 **Hidden rather than deleted.** A bare rail carries nothing and is registered as no launcher, so

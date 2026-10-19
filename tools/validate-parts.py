@@ -1530,7 +1530,24 @@ OPTIC_GEOMETRY = {
     "EoDirector": "optic",
     "PantsirDirector": "optic",
     "Litening": "litening",
+    "Yal1Turret": "yal1",
 }
+
+# Geometry for heads whose art is authored rather than generated. Its own file because build.sh
+# rewrites muzzles.json wholesale, which would drop anything written into it by hand.
+AUTHORED_GEOMETRY = REPO / "tools" / "model" / "authored-optics.json"
+
+
+def rotate_inverse(euler, v):
+    """*v* carried back through a <Rotation>, by checkmesh's reading of KSA's convention."""
+    qx, qy, qz, qw = import_module("checkmesh").euler_quaternion(euler)
+    q = (-qx, -qy, -qz)
+
+    def cross(a, b):
+        return (a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0])
+
+    inner = cross(q, tuple(cross(q, v)[i] + qw * v[i] for i in range(3)))
+    return [v[i] + 2.0 * inner[i] for i in range(3)]
 
 
 def check_optic_geometry(profile="EoDirector"):
@@ -1543,17 +1560,16 @@ def check_optic_geometry(profile="EoDirector"):
 
     Nothing at build or run time connects the three, which is the whole reason for this.
     """
-    muzzles = REPO / "tools" / "model" / "muzzles.json"
-    if not muzzles.is_file():
-        return 0, 0
-
     block_name = OPTIC_GEOMETRY.get(profile)
     if block_name is None:
         print(f"  UNCHECKED Arsenal.{profile}: no entry in OPTIC_GEOMETRY, so its pivot is "
               f"compared against nothing", file=sys.stderr)
         return 1, 1
 
-    expected = json.loads(muzzles.read_text()).get(block_name)
+    expected = None
+    for source in (REPO / "tools" / "model" / "muzzles.json", AUTHORED_GEOMETRY):
+        if source.is_file():
+            expected = expected or json.loads(source.read_text()).get(block_name)
     if expected is None:
         return 0, 0
 
@@ -1625,6 +1641,7 @@ def check_optic_geometry(profile="EoDirector"):
         return problems + 1, checked
 
     placed = {}
+    base_turn = [0.0, 0.0, 0.0]
     for path in sorted(MOD.glob("KSArmory*.xml")):
         for part in ET.parse(path).getroot().findall("Part"):
             for sub in part.findall("SubPart"):
@@ -1632,8 +1649,11 @@ def check_optic_geometry(profile="EoDirector"):
                     if sub.get("Id") != ident:
                         continue
                     position = sub.find("Transform/Position")
+                    rotation = sub.find("Transform/Rotation")
                     placed[marker] = ([float(position.get(axis, "0")) for axis in "XYZ"]
                                       if position is not None else [0.0, 0.0, 0.0])
+                    if marker == "BaseMarker" and rotation is not None:
+                        base_turn = [float(rotation.get(axis, "0")) for axis in "XYZ"]
 
     missing = [ids[m] for m in wanted if m not in placed]
     if missing:
@@ -1643,8 +1663,9 @@ def check_optic_geometry(profile="EoDirector"):
         # Every moving body, against the same pivot. The roll gimbal shares it with the head --
         # that is what lets the ball sweep its travel without fouling the shroud -- so placing the
         # two apart in the XML would swing one of them around the other.
+        # HeadPivot is in the base's own axes, so a base turned in the XML is turned back first.
         for marker in [m for m in wanted if m != "BaseMarker"]:
-            offset = [h - b for h, b in zip(placed[marker], placed["BaseMarker"])]
+            offset = rotate_inverse(base_turn, [h - b for h, b in zip(placed[marker], placed["BaseMarker"])])
             if any(abs(a - b) > 5e-4 for a, b in zip(offset, want)):
                 print(f"  STALE <SubPart Id=\"{ids[marker]}\"> sits {tuple(offset)} from its "
                       f"base, mesh says {tuple(want)}", file=sys.stderr)

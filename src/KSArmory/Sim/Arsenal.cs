@@ -1350,6 +1350,29 @@ public static class Arsenal
     };
 
     /// <summary>
+    /// What the YAL-1's turret tracks with. The aircraft's six IRSTs did the detecting; this stands
+    /// in for the whole chain handing a booster to the turret.
+    ///
+    /// <para><see cref="BoresightMode.MountNormal"/> is the part's <c>+X</c>, which for a turret
+    /// stacked on a nose is straight ahead along its roll axis.</para>
+    /// </summary>
+    public static readonly SensorProfile BeamDirectorSensor = new()
+    {
+        Name = "Yal1BeamDirector",
+        DisplayName = "YAL-1 beam director",
+
+        // The design range against a solid-fuelled booster (APS, 2003); liquid was twice that.
+        Range = 300000f,
+        ConeDeg = 120f,
+
+        BoresightSource = BoresightMode.MountNormal,
+        ThreatRadius = 6000f,
+        ThreatHorizonSeconds = 30f,
+        LockSeconds = 0.6f,
+        MinTargetSpeed = 0f,
+    };
+
+    /// <summary>
     /// A Rafael LITENING pod. Geometry from <c>tools/model/import-litening.py</c>.
     ///
     /// <para>The first <see cref="GimbalKind.RollNod"/> head, and the reason that enum exists. Its
@@ -1397,6 +1420,42 @@ public static class Arsenal
 
         // A rangefinder and designator, as every pod of the class carries.
         HasLaser = true,
+    };
+
+    /// <summary>
+    /// The beam director in the YAL-1 Airborne Laser's nose. Geometry from its Blender export.
+    ///
+    /// <para>A <see cref="GimbalKind.RollNod"/> head like <see cref="Litening"/>: Lockheed Martin's
+    /// turret ball "yaws and rolls in flight" inside a roll shell. Its base is turned a quarter turn
+    /// in the part XML, so its centreline is the stack axis and the window looks forward at zero
+    /// nod.</para>
+    /// </summary>
+    public static readonly OpticProfile Yal1Turret = new()
+    {
+        PartId = "KSArmory_Prefab_Yal1Turret",
+        DisplayName = "YAL-1 beam director",
+        Sensor = BeamDirectorSensor.Name,
+        Gimbal = GimbalKind.RollNod,
+
+        BaseMarker = "Yal1_Base",
+        RollMarker = "Yal1_Roll",
+        HeadMarker = "Yal1_Head",
+
+        HeadPivot = new(0.00000, 2.50000, 0.00000),
+        EyeForward = 1.400f,
+
+        // Not published. Slower than the pod's 140 for a 6.4 t ball; a guess until something says.
+        SlewRateDeg = 30f,
+
+        // Laserstars' ±120° field of regard; the shell's slot clears the window to that nod.
+        MaxOffBoresightDeg = 120f,
+        KeyholeDeg = 4f,
+
+        MaxMagnification = 53f,
+
+        // The tracking and beacon illuminators leave through this window.
+        HasLaser = true,
+        LaserRangeMetres = 300000f,
     };
 
     // ---- Countermeasures -------------------------------------------------
@@ -1477,13 +1536,15 @@ public static class Arsenal
          Shell5In54];
     public static readonly IReadOnlyList<SensorProfile> Sensors =
         [SeekerHeadAim9, SeekerHeadAim120, SeekerHeadAgm88, SearchRadarVps2,
-         BombSight, EoSensor, PodSensor, BusDesignation, FireControlMk68, TurretSight];
+         BombSight, EoSensor, PodSensor, BeamDirectorSensor, BusDesignation, FireControlMk68,
+         TurretSight];
 
     /// <summary>
     /// Optical heads. Most are parts in their own right; one rides a launcher's turret, and
     /// nothing downstream can tell which is which — nor which gimbal any of them is hung on.
     /// </summary>
-    public static readonly IReadOnlyList<OpticProfile> Optics = [EoDirector, PantsirDirector, Litening];
+    public static readonly IReadOnlyList<OpticProfile> Optics =
+        [EoDirector, PantsirDirector, Litening, Yal1Turret];
 
     public static readonly IReadOnlyList<DecoyProfile> Decoys = [FlareMju7, ChaffRr170];
     public static readonly IReadOnlyList<DispenserProfile> Dispensers = [Ale47Flare, Ale47Chaff];
@@ -1522,6 +1583,12 @@ public static class Arsenal
 
             // Nothing declared, for the mast director's reason: its sensor is not gear it
             // carries, it *is* the pod, and the survey walks parts and finds it directly.
+        },
+        new ComponentProfile
+        {
+            PartId = Yal1Turret.PartId,
+            Role = WeaponRole.Camera,
+            DisplayName = Yal1Turret.DisplayName,
         },
         new ComponentProfile
         {

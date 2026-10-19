@@ -80,6 +80,18 @@
   </PbrMaterial>
 
   <!--
+    The YAL-1 nose turret's atlas: three bodies unwrapped into one 2048 set. Authored in Blender;
+    its .blend and the scripts that build, bake and export it are not in this repository.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_Yal1.glb" />
+
+  <PbrMaterial Id="KSArmory_Yal1_Material">
+    <Diffuse Path="Textures/KSArmory_Yal1_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Yal1_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Yal1_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <!--
     The suspension rail's atlas and material. Authored like the pod, and arriving in better shape
     than it did: already in part space with its origin on the mounting face, node names matching
     mesh names, its own _VM twin, and a _ColPrim_ box carrying the collider — which is Core's own
@@ -615,6 +627,39 @@
     </PartModel>
     <MeshView>
       <Mesh Id="KSArmory_Subpart_LiteningWindow_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- The YAL-1 turret's fixed collar. Modelled with the roll axis on its own +Y, as a pod is. -->
+  <SubPart Id="KSArmory_Yal1Base_SubPart">
+    <PartModel Id="KSArmory_Subpart_Yal1Base_Model">
+      <Mesh Id="KSArmory_Subpart_Yal1Base" />
+      <Material Id="KSArmory_Yal1_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Yal1Base_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- The roll shell: drum, dome and the slot the ball nods along. -->
+  <SubPart Id="KSArmory_Yal1Roll_SubPart">
+    <PartModel Id="KSArmory_Subpart_Yal1Roll_Model">
+      <Mesh Id="KSArmory_Subpart_Yal1Roll" />
+      <Material Id="KSArmory_Yal1_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Yal1Roll_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- The ball and its window, concentric with the shell's dome. -->
+  <SubPart Id="KSArmory_Yal1Head_SubPart">
+    <PartModel Id="KSArmory_Subpart_Yal1Head_Model">
+      <Mesh Id="KSArmory_Subpart_Yal1Head" />
+      <Material Id="KSArmory_Yal1_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Yal1Head_VM" />
     </MeshView>
   </SubPart>
 
@@ -1252,6 +1297,46 @@
       <Transform>
         <Position X="0.00000" />
         <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+  </Part>
+
+  <!--
+    The YAL-1 Airborne Laser's nose turret, which stacks on a 3 m node: a roll-nod head like the
+    pod's, scaled up to a 1.5 m telescope behind a 1.8 m window.
+
+    The bodies are modelled as a pod is, roll axis on their own +Y, because that is the axis the
+    roll-nod code turns about. The base's quarter turn about Z carries that +Y onto the stack axis,
+    and MountFrame reads the turn back off the engine, so the head follows it with nothing in the C#.
+  -->
+  <Part Id="KSArmory_Prefab_Yal1Turret">
+
+    <SubPart Id="KSArmory_Yal1_Base" InstanceOf="KSArmory_Yal1Base_SubPart">
+      <Transform>
+        <Rotation Z="-1.57080" />
+      </Transform>
+    </SubPart>
+
+    <!-- Both turn about the dome's centre, 2.5 m up the axis; the mod rewrites these each frame. -->
+    <SubPart Id="KSArmory_Yal1_Roll" InstanceOf="KSArmory_Yal1Roll_SubPart">
+      <Transform>
+        <Position X="2.50000" Y="0.00000" Z="0.00000" />
+        <Rotation Z="-1.57080" />
+      </Transform>
+    </SubPart>
+
+    <SubPart Id="KSArmory_Yal1_Head" InstanceOf="KSArmory_Yal1Head_SubPart">
+      <Transform>
+        <Position X="2.50000" Y="0.00000" Z="0.00000" />
+        <Rotation Z="-1.57080" />
+      </Transform>
+    </SubPart>
+
+    <Connector Id="_yalConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation X="3.14159" Z="3.14159" />
+        <Scale X="3.00000" Y="3.00000" Z="3.00000" />
       </Transform>
     </Connector>
   </Part>
