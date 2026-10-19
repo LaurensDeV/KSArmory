@@ -255,6 +255,7 @@ internal sealed class Bridge : IViewPose
             "load" => BeginLoad(command),
             "system" => System(command),
             "optic" => Optic(command),
+            "clouds" => Clouds(command),
             "dispense" => Dispense(command),
             "fly" => Fly(command),
             "burn" => BeginBurn(command),
@@ -944,6 +945,23 @@ internal sealed class Bridge : IViewPose
 
     // A craft's directors, as their rows would set them. view is "new" for a spare camera window,
     // "main", "off" or a window's index; the reply reads each window's camera back.
+    // The coverage maps the beam is stopped by, round a craft, as the CPU reads them.
+    private Reply Clouds(BridgeCommand command)
+    {
+        if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
+        if (KsaWorld.ParentBody(craft) is not { } body) return Failed("the craft is at no body");
+
+        double half = command.Number("half_km", 20.0) * 1000.0;
+        int cells = (int)Math.Clamp(command.Number("cells", 21.0), 1.0, 81.0);
+        double3 up = command.Has("lat") && command.Has("lon")
+                         ? body.GetDirCcfFromLatLon(command.Number("lat", 0.0), command.Number("lon", 0.0))
+                         : (KsaWorld.PositionEcl(craft) - body.GetPositionEcl()).Transform(body.GetCce2Ccf());
+        return Done(new Dictionary<string, object?>
+        {
+            ["layers"] = CloudLayers.CoverageAround(body, up, half, cells),
+        });
+    }
+
     private Reply Optic(BridgeCommand command)
     {
         if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
@@ -1007,6 +1025,7 @@ internal sealed class Bridge : IViewPose
                 row["beam_s_left"] = e.Head.ChemicalSecondsLeft;
                 row["beam_range_m"] = e.Head.BeamOn ? Vec.Len(e.Head.BeamToEcl - e.Head.BeamFromEcl) : null;
                 row["burning"] = e.Head.Burning is { } part ? $"{part.Id} {PartHealth.World.Of(part):P0} left" : null;
+                row["in_cloud"] = e.Head.InCloud;
             }
 
             if (p.Viewport >= 0)

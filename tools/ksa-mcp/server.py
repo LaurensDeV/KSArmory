@@ -423,6 +423,12 @@ TOOLS = {
                    "mouse": {"type": "boolean"}, "at_craft": {"type": "string"}, "refill": {"type": "boolean"},
                    "lase": {"type": "boolean"}, "code": _num("1111-1788")}, ["craft"],
                   lambda a: [_text(json.dumps(send("optic", **a), indent=1))]),
+    "ksa_clouds": ("The cloud coverage maps a beam is stopped by, round a craft, as the mod reads them on the "
+                   "CPU: per layer, rows north to south of tenths west to east, half_km either side, cells a side, round the "
+                   "craft or round lat/lon on its body. A thin layer the beam passes through is left out.",
+                   {"craft": {"type": "string"}, "half_km": _num("km"), "cells": _num("count"),
+                    "lat": _num("deg"), "lon": _num("deg")}, ["craft"],
+                   lambda a: [_text(json.dumps(send("clouds", **a), indent=1))]),
     "ksa_dispense": ("Press a craft's countermeasures: kind flare, chaff or both; auto sets auto-dispense. "
                      "The craft defaults to the one being flown.",
                      {"craft": {"type": "string"}, "kind": {"type": "string", "enum": ["flare", "chaff", "both"]},
