@@ -52,11 +52,8 @@ internal sealed partial class IcbmComputer
         double3 nose = Vec.Zero;
         if (Parent is { } parent) KsaWorld.TryControlFrameCci(Craft, parent, out nose, out _, out _);
 
-        // Against the bus in the same frame: the round's own ecliptic position is a step of ~30 km/s from the craft's.
-        double released = _sentTo.Count > 0 ? Vec.Len(_sentTo[^1].Round.OffsetFromPlatform) : double.NaN;
-
         HopBurn.Stage was = _hopBurn.Now;
-        HopBurn.Decision d = _hopBurn.Update(simStep, toGain, nose, EngineAcceleration, released);
+        HopBurn.Decision d = _hopBurn.Update(simStep, toGain, nose, EngineAcceleration, ReleasedMetres);
 
         if (was == HopBurn.Stage.Pending) _hopAskedBefore = _hopBurn.AskedMetresPerSecond;
         if (d.EngineOn && !_engineLit) _hopMassBefore = Mass();
@@ -77,6 +74,14 @@ internal sealed partial class IcbmComputer
                           + $"{_hopBurn.TurnedSeconds:F1} s"
                         : _hopBurn.Said));
     }
+
+    // Against the bus in the same frame: the round's own ecliptic position is a step of ~30 km/s from the craft's.
+    private double ReleasedMetres => _sentTo.Count > 0 ? Vec.Len(_sentTo[^1].Round.OffsetFromPlatform) : double.NaN;
+
+    // A hop on the nozzles pushes the bus back along the line its warhead just left on, and passes through it.
+    private bool HopWaitsForItsWarhead
+        => Config.HopsWaitForTheirWarhead && _trim.ToGainMetresPerSecond > HopBurn.LeaveForTheNozzlesMetresPerSecond
+           && ReleasedMetres < HopBurn.ClearMetres;
 
     private void ResolveTheHop()
     {

@@ -255,6 +255,14 @@ internal sealed class IcbmConfig
     public bool FreeHopsCountTheArrivalTheyMove;
 
     /// <summary>
+    /// Whether a hop flown on the nozzles holds until the warhead just released is <see cref="HopBurn.ClearMetres"/> away,
+    /// as an engine hop does. Without it the trim fires 25 ms after the release and the bus, pushed back along the line
+    /// the warhead left on at 0.5 m/s, passes through it, seen on 2026-10-19. <b>Off until flown</b>: the wait is
+    /// about 20 s a stop that <see cref="ReleaseItinerary.HopOverheadSeconds"/> was not measured with.
+    /// </summary>
+    public bool HopsWaitForTheirWarhead;
+
+    /// <summary>
     /// Whether a plan with fewer stops may replace the walker's once a turning bus has split. Fewer stops never move the
     /// first release earlier, which is what the split was timed on. <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c>
     /// step 5.
