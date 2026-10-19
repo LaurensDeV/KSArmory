@@ -236,6 +236,10 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// <param name="MassKg">The bus now, with every warhead the plan sends still aboard.</param>
     /// <param name="TankExhaustVelocity">The trim's exhaust velocity on its dearest axis.</param>
     /// <param name="StoreMassKg">What each warhead takes off the bus as it leaves.</param>
+    /// <param name="HopTurnSeconds">
+    /// What a hop's turns add to its slot, where a hop is turned onto -- <see cref="HopBurn.TurnsSeconds"/> for one flown
+    /// on the engine.
+    /// </param>
     internal readonly record struct Bus(double GateSeconds, double CoastSeconds, int Warheads,
                                         double HopSeconds = MedianHopSeconds,
                                         double BudgetMetresPerSecond = PostBoostAim.MaxTrimMetresPerSecond,
@@ -252,7 +256,8 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
                                         double TankKg = double.NaN,
                                         double MassKg = double.NaN,
                                         double TankExhaustVelocity = double.NaN,
-                                        double StoreMassKg = 0.0)
+                                        double StoreMassKg = 0.0,
+                                        double HopTurnSeconds = 0.0)
     {
         public bool PricesTheTank => TankKg >= 0.0 && MassKg > TankKg && TankExhaustVelocity > 0.0
                                      && double.IsFinite(MassKg) && double.IsFinite(TankExhaustVelocity);
@@ -282,7 +287,8 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
             if (!SizesSlots || !(hopMetresPerSecond > 0.0) || !double.IsFinite(hopMetresPerSecond)) return hop;
 
             double lighter = PricesTheTank && massKg > 0.0 && massKg < MassKg ? MassKg / massKg : 1.0;
-            return Math.Max(hop, HopOverheadSeconds + hopMetresPerSecond / (HopAccelerationMetresPerSecond2 * lighter));
+            return Math.Max(hop, HopOverheadSeconds + Math.Max(0.0, HopTurnSeconds)
+                                 + hopMetresPerSecond / (HopAccelerationMetresPerSecond2 * lighter));
         }
 
         /// <summary><see cref="GateFor"/> for slots of their own, which together take <paramref name="slotsSeconds"/>.</summary>

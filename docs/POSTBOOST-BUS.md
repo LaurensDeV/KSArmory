@@ -127,6 +127,8 @@ to match.
   does not, so that is what is left to try; `attitude` reads the tracker back. Nothing in flight switches the engine
   on today: `make-rocket.py` stages it with the release, but the computer lets the bus go by firing its joint, so that
   stage is never reached.
+  **A hop-length burn holds, 2026-10-19**, the same bus and orbit: 56 s on the engine loaded and again after one RV
+  released, the prograde hold within ±0.50 and ±0.48 deg throughout (`WIDE-SPREAD.md` step 5, C).
 - **The reach at hundreds of m/s.** The per-m/s figures are small-divert slopes; a 90 m/s hop is still under 2% of the
   velocity at cutoff, but the planner should be checked against a flown chain rather than trusted at 100 km.
 - **The coast.** Seven stops need a coast of the gate plus six slots, about 3,100 km and up today; faster hops shorten

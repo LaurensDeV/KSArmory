@@ -451,6 +451,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/HoldingCost.cs` | what a second of holding the warheads costs, **measured off the arc rather than typed**, because it runs from 0.82 m/s at 500 km to 21.79 at 12,900 |
 | `Sim/BusTrim.cs` | putting the bus back on its solution after the split — **the only thing that can**, because the burn is over |
 | `Sim/BusTurn.cs` | one commanded turn of the bus after its split — **judged on the nose the engine reports**, and held until it settles or the cap keeps whatever it reached |
+| `Sim/HopBurn.cs` | one hop on a post-boost bus's own engine -- **held until the warhead just released is 10 m clear, turned onto it, burnt down to the nozzles' metre a second, turned back** -- with the arc re-solved every two seconds of burn, because a burn is not an impulse (`IcbmConfig.HopsBurnTheEngine`, off) |
 | `Sim/EntryDirection.cs` | the airflow a coasting RV meets where the air first turns it — **closed form on the conic**, so any coast state gives the same entry |
 | `Sim/PostCutoffSequence.cs` | what the loop after cutoff does next — **the decision that dominates where the warheads land** |
 | `Sim/ShedStage.cs` | which of the vehicles that just appeared is the half this stack let go of — **bounded and refusable**, because several rockets stage together and a foreign stage passes the clearance at once |
@@ -575,6 +576,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Icbm/IcbmComputer.Separation.cs` | letting the launcher go, the stages a split or a staging shed, and the clearance the trim waits on |
 | `Ksa/Icbm/IcbmComputer.Trim.cs` | driving `BusTrim` on the bus's own jets, the post-boost passes it feeds, and what the trim is said and measured to owe |
 | `Ksa/Icbm/IcbmComputer.Turn.cs` | turning the bus onto its RVs' entry airflow once the split is nulled (`IcbmConfig.PointRvsAtEntry`, on), holding the release and the passes while it turns — **however late, because the passes were aimed for the turned kick** |
+| `Ksa/Icbm/IcbmComputer.Hop.cs` | driving `HopBurn`: the line the bus holds, the engine Active and lit while it burns, the trim and the release held, one line per hop |
 | `Ksa/Icbm/IcbmComputer.Coast.cs` | the coast written down every ten simulated seconds — rails, the bubble, what is near — **measurement, not control** |
 | `Ksa/Icbm/IcbmComputer.Release.cs` | letting a warhead go, the line the launcher holds for it, and the once-a-flight release summary |
 | `Ksa/Icbm/IcbmComputer.Walk.cs` | the walk between targets as actuated — a stop's hand-over, and a hop the trim cannot fly refused |

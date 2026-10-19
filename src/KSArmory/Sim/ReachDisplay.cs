@@ -190,6 +190,10 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     /// <see cref="DivertFootprint.TrimCostMetresPerSecond"/>, and the ring, the refusal and the readouts at
     /// the worst bearing's, so a point the ring takes is one the planner can pay for.
     /// </param>
+    /// <param name="engineHops">
+    /// <see cref="IcbmConfig.HopsBurnTheEngine"/>: a hop is paid along its length, as one engine pushing along it pays,
+    /// rather than <see cref="DivertFootprint.TrimCostMetresPerSecond"/>'s sum over the nozzles' axes.
+    /// </param>
     /// <param name="later">
     /// <see cref="IcbmConfig.FreeHopsMeasureTheirSlots"/>: the same reach flown from where the coast will be at later
     /// epochs, falling, which gives each free hop its own <see cref="ReleaseItinerary.Target.Slots"/>. Null, or any
@@ -200,7 +204,7 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
                                    int maxTargets, double spacingMetres, int lead,
                                    ReachHold unpriced, bool pricePerSlot = false,
                                    bool priceAtTheTrim = false, bool chordFromTheGate = false,
-                                   IReadOnlyList<DivertFootprint>? later = null)
+                                   IReadOnlyList<DivertFootprint>? later = null, bool engineHops = false)
     {
         int targets = placed?.Count ?? 0;
 
@@ -222,12 +226,16 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
         double perMetrePerSecond = reach.SemiMinorMetresPerMetrePerSecond;
         double[] atEachSlot = [perMetrePerSecond];
 
-        double axisFactor = priceAtTheTrim ? reach.WorstAxisFactor() : 1.0;
+        double axisFactor = priceAtTheTrim && !engineHops ? reach.WorstAxisFactor() : 1.0;
+
+        Func<DivertFootprint, double, double, double> pays = engineHops
+            ? (f, along, cross) => f.LengthCostMetresPerSecond(along, cross)
+            : (f, along, cross) => f.TrimCostMetresPerSecond(along, cross);
 
         // In metres the straight-line reach would charge the same as the trim pays, so the itinerary's own
         // division by the reach, and its per-slot scaling, carry over unchanged.
         Func<double, double, double>? hopMetres = priceAtTheTrim
-            ? (along, cross) => reach.TrimCostMetresPerSecond(along, cross) * perMetrePerSecond
+            ? (along, cross) => pays(reach, along, cross) * perMetrePerSecond
             : null;
 
         Func<double, double, ReleaseItinerary.SlotCurve?>? slots = null;
@@ -237,7 +245,7 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
             DivertFootprint[] epochs = [reach, .. later];
             double[] seconds = epochs.Select(f => f.FlightSeconds).ToArray();
             slots = (along, cross) => ReleaseItinerary.SlotCurve.From(
-                seconds, epochs.Select(f => f.TrimCostMetresPerSecond(along, cross)).ToArray());
+                seconds, epochs.Select(f => pays(f, along, cross)).ToArray());
         }
 
         Walk walk = Order(placed, lead, hopMetres, slots);

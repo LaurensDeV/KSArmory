@@ -324,6 +324,20 @@ public sealed class LauncherProfile
     /// </summary>
     public double TrimWorstAxisExhaustVelocity = double.NaN;
 
+    /// <summary>
+    /// The bus's own main engine, which flies a hop under <see cref="IcbmConfig.HopsBurnTheEngine"/> (N); NaN where the
+    /// bus has none.
+    /// </summary>
+    public double HopEngineThrustNewtons = double.NaN;
+
+    /// <summary>That engine's exhaust velocity (m/s), which prices a hop it flies.</summary>
+    public double HopEngineExhaustVelocity = double.NaN;
+
+    /// <summary>
+    /// What that engine pushes the bus at fully loaded (m/s²), which sizes a hop's slot before the bus is alone to weigh.
+    /// </summary>
+    public double HopEngineAccelerationMetresPerSecond2 = double.NaN;
+
     /// <summary>What one complete round in the belt weighs (kg), case and charge included; see <see cref="StoreMassKg"/>.</summary>
     public float GunRoundMassKg;
 

@@ -251,6 +251,15 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
     }
 
     /// <summary>
+    /// What one engine pushing along the divert pays to move the landing this far: the velocity change's length, or
+    /// <see cref="CostMetresPerSecond"/> where the axes are not known.
+    /// </summary>
+    public double LengthCostMetresPerSecond(double alongMetres, double crossMetres)
+        => Axes.Known
+               ? Vec.Len((Axes.PerMetreAlong * alongMetres) + (Axes.PerMetreAcross * crossMetres))
+               : CostMetresPerSecond(alongMetres, crossMetres);
+
+    /// <summary>
     /// The worst ratio of what the trim pays to the divert's length over every bearing on the ground: what the
     /// ring is shrunk by so that every point inside it is affordable.
     /// </summary>

@@ -337,7 +337,49 @@ Headless, behind a flag. Per branch:
 
   So at 6,181 km C moves the post-boost bus from five stops at 75 km to seven at 75-100 km, where the tank binds
   instead of the coast. It is worth building, and the turn each way per hop is the first thing its price leaves out.
-  First the engine risks below, then:
+
+  **Built 2026-10-19, behind `IcbmConfig.HopsBurnTheEngine`, off.** `Sim/HopBurn.cs` turns the bus onto the hop's
+  velocity to gain, lights the engine once the nose has held on it (`BusTurn`'s band), steers the line onto what is
+  left each frame and re-solves the arc every 2 s from where the burn has carried the bus, stops with 1 m/s left for
+  the nozzles (or with what is left 20 deg off the nose), and turns back onto the line the warheads leave along. The
+  trim, the passes and the release wait while it runs. `Ksa/Icbm/IcbmComputer.Hop.cs` actuates it: the engine made
+  Active and lit for the burn, inactive after, the coast's throttle at full. The planner prices an engine hop along
+  its length at the engine's 2,996 m/s, sizes its burn at the 1.70 m/s2 measured on the loaded bus
+  (`LauncherProfile.HopEngineAccelerationMetresPerSecond2`), and adds `HopBurn.TurnsSeconds`, 38 s: 18 for the two
+  turns, the flown entry turn having settled a 164 deg swing in 9.0 s on all 48 buses of 2026-10-17 and 18, and 20
+  for the wait before the first. The bus holds its line until the warhead it has just let go of is 10 m away, twice
+  the 4.4 m its other warheads sweep, or the turn carries them through it -- seen in the first flight, before the wait
+  was in. In the rig, the
+  post-boost bus's 500 kg, A with `HopsResolveAfterTheirBurn` and the plan flags, every stop under 0.1 mm:
+
+  | Range, 7 targets | Nozzles | Engine |
+  | --- | --- | --- |
+  | 6,181 km at 75 km | 6 | 7, 191 kg |
+  | 6,181 km at 100 km | 4 | 7, 257 kg |
+  | 6,181 km at 150 km | 3 | 7, 398 kg |
+  | 6,181 km at 200 km | 2 | 5 planned, the tank binding |
+  | 12,902 km at 200 km | 4 of 5 planned | 7, 282 kg |
+  | 12,902 km at 300 km | 2 of 3 planned | 7, 406 kg |
+
+  An engine hop costs about two-thirds of the same hop on the nozzles (39 against 60 m/s at 100 km from 6,181 km):
+  no axis sum, and no drift to chase. Priced within about 5% of what flew. Guarded by
+  `WideSpreadRigTests.TheEngineWalksSevenTargetsAHundredKilometresApartWhereTheNozzlesRunOutOfCoast` and
+  `HopBurnTests`. Not built: the bus engine's sequence made active, so KSA's Δv gauge reads (below).
+
+  **Flown 2026-10-19 on `PBB SCALE 8`** (`~/shots/2026-10-19-engine100`): seven targets 100 km apart in longitude at
+  24 S from 6,180 km, arms `nozzles` and `engine` (both with A, `HopsResolveAfterTheirBurn` and the plan flags),
+  seat by seat. **The engine buses walked four stops each, the nozzle buses two**, every warhead released arriving.
+  Twelve engine hops of 99.8-112.5 m/s, each burnt 49-55 s and stopped within 1.01 ± 0.03 m/s of what was asked.
+  The hops cost about 100 m/s, not the rig's 39: the targets step in longitude, which here lies largely across the
+  track, where a free arrival buys nothing, and the tank (about 360 m/s at this mass) took the walk to four. The next
+  flight lays them along the track. 22 of 24 landed within 2 cm, one at 4.9 cm, and **one at 0.79 m**: bus 6's last
+  stop, where the post-boost passes oscillated -- the landing moved about twice as far as each aim correction (254 m
+  of aim, 621 m of impact) against 0.55-0.9 on its earlier stops, and `AimCorrection` re-learns its response only
+  from moves over 500 m, so the bias swung 130-491 m for three passes and the release's own kick took 320 m back.
+  Why the response doubled there is not known; one stop in twelve. The bus also swung its warheads through the one
+  it had just released, turning straight onto the hop; it now holds until that one is 10 m away (above).
+
+  What C was planned with, kept for the reasoning:
   - `Sim/HopBurn.cs` only if step 4 said open-loop leaves more than a pass: point (`BusTurn`, capped), burn re-solving
     every ~0.25 s with `BurnoutGuidance.TrySteer` **from the current position** (a ~90 m/s burn at ~1.8 m/s² carries the
     bus ~2 km off the hand-over reference and `BusTrim` nulls velocity only), stop by its own rule leaving ~1 m/s for
@@ -352,10 +394,14 @@ Headless, behind a flag. Per branch:
     correction), reaching every `IsBurning` reader that must see it: the warp policy, `IcbmComputers.AbandonBurns`,
     `SecondsToArrival`, `ArrivalIsIfReleasedNow`, `IcbmComputer.Prediction`.
   - The profile's pass ceiling, hop clock and acceleration for an engine; the planner reads them.
-  - **Engine risks, retired before C's code, on the bridge with the user's permission (~1 h)**: one ring RV released
-    moves the centre of mass ~6 cm off axis (*inferred*), ~400 N·m at 6.8 kN against ~390 N nozzles and no gimbal —
-    burn 10-20 s on the bus alone and read the hold back with `attitude`. The engine on/off path already passed on the
-    bridge (`POSTBOOST-BUS.md`, 2026-10-17). Fail: paired releases, a smaller engine, or a gimbal, and step 4 again.
+  - **Engine risks: retired 2026-10-19.** The centre of mass never leaves the axis in KSA: a released RV's 250 kg comes
+    off the bus part's declared mass where it is (`Ksa/StoreMass.cs`), so the 6 cm and ~400 N·m inferred from the real
+    hardware cannot occur. Flown on the bridge, `PBB Bus Alone` on a 300 km orbit under KSA's prograde hold: 56 s on
+    the engine loaded, 95.3 m/s, error within ±0.50 deg the whole burn; one RV released (3,863 to 3,613 kg) and the same
+    burn, 102.3 m/s, within ±0.48 deg -- the deadband's own slow swing either way, ve 2,995 against 2,996 declared.
+  - **KSA's own Δv gauge reads 0 for the bus**: it shows the active sequence's Δv (`FindActiveSequenceDeltaV`), and the
+    bus engine is staged with a release the flight never stages. C activates it per part, so make its sequence the
+    active one at the split too, or a player watching the panel sees no Δv through every hop.
 
 Pass: the branch's rig tests, every stop under a centimetre, the suite green with the flag off.
 
@@ -363,7 +409,24 @@ Pass: the branch's rig tests, every stop under a centimetre, the suite green wit
 
 On `TEST PBB GeoSat FAT` (or the Heavy bus for A), one two-target set 50 km apart along track: both stops walked, each
 warhead within 2 km of its own target, the warp held through any burn, no exception in the KSA log. Still `refactor`,
-flag off. For C, first:
+flag off.
+
+**Flown 2026-10-19 for A, twice, on `PBB SCALE 8`**: eight post-boost buses at 6,180 km, seven targets 50 km apart in
+longitude at 24 S, arms `stale` (A, the walk flags, `HopsResolveAfterTheirBurn`) and `honest` (those and the three plan
+flags), alternating seat by seat (`~/shots/2026-10-19-wide50`, `-wide50b`).
+
+- **The first landed nothing.** A bus whose walk had dropped two targets still had its gate to wait for, warped to it
+  with every warhead falling, and the world reached 56x against a warhead's 0.32 s step. Fixed in `43a28da4`: the
+  coast warp never starts while a round flies (ICBM-GUIDANCE, "Waiting is warped through").
+- **The second landed every warhead released, 25 of them, 1.2-6.9 mm from targets 50 km apart and one at 31.8 mm.**
+  No coast warp, no step overrun, the world at the scenario's 8x. Hops flew 67.8-68.2 m/s, then 74.3-75.1, one 86.1, a
+  re-solve round after each.
+- **Both arms walked three of the seven** (one honest bus four). Every bus planned five at cutoff at 952 m/s, then cut
+  to three before the split, which is the last re-plan the stale arm gets: hops priced 76.8 and 116.4 against 68 and
+  75 flown, so the coast on 0.40 m/s2 nozzles binds -- what C's engine is for. The cut from five to three wrote no
+  line; `SayTheWalkIfItChanged` should name it.
+
+For C, first:
 
 - **Ignition**: `VehicleCommand.SetEnginesActive` switches every engine on the craft. Add a per-part form for the bus's
   own engine after the split, and rewrite its "bridge only" rule to name this use.

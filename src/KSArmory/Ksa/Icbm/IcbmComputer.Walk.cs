@@ -167,6 +167,7 @@ internal sealed partial class IcbmComputer
         // they land -- or under HopsFreeTheirArrival to the cheapest, each at its own.
         if (Config.HopsFreeTheirArrival) Program.FreeTheHopArrival();
         else Program.CorrectCoastArc();
+        BeginTheHop();
 
         // Resume, never Reset: Reset zeroes SpentMetresPerSecond and hands the whole budget back,
         // so a six-stop walk would price every hop as if it were the first.

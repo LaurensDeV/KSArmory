@@ -279,8 +279,9 @@ internal static class VehicleCommand
     }
 
     /// <summary>
-    /// Switch every engine on the craft on or off as the part's Active box does, staged or not. For
-    /// the bridge's measured burn only: nothing that flies a shot may light an engine out of sequence.
+    /// Switch every engine on the craft on or off as the part's Active box does, staged or not. For the bridge's
+    /// measured burn, and a hop on a post-boost bus's own engine (<see cref="IcbmConfig.HopsBurnTheEngine"/>) once the
+    /// bus is the craft's only engine; nothing else that flies a shot may light an engine out of sequence.
     /// </summary>
     public static void SetEnginesActive(Vehicle craft, bool active)
     {

@@ -607,6 +607,7 @@ internal sealed partial class IcbmComputer
         _hopCeilingMetresPerSecond = double.NaN;
         _hopBurnSeconds = 0.0;
         _hopRound = -1;
+        ResetTheHop();
         _sentTo.Clear();
         _wentTo.Clear();
         _saidWalk = "";
@@ -785,6 +786,7 @@ internal sealed partial class IcbmComputer
         _hopCeilingMetresPerSecond = double.NaN;
         _hopBurnSeconds = 0.0;
         _hopRound = -1;
+        ResetTheHop();
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} stood down: {why}");
     }
 
@@ -1028,7 +1030,15 @@ internal sealed partial class IcbmComputer
         if ((Command.ReadyToDeploy && !atCutoff) || burnOver) SeparateOnce(release);
 
         DriveTurn(simStep, state);
-        DriveTrim(simStep, state, release);
+        DriveHop(simStep, state);
+        if (_hopBurn.Holds)
+        {
+            if (_trim.Firing != TrimAxes.None) VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
+        }
+        else
+        {
+            DriveTrim(simStep, state, release);
+        }
 
         // Attitude is driven for every phase that is doing something, not only while an engine is
         // lit. A hold can be an hour long and the vehicle is pointed at the burn for all of it; and
@@ -1231,7 +1241,7 @@ internal sealed partial class IcbmComputer
         }
         else if (_driving)
         {
-            VehicleCommand.SetEngine(Craft, running: false);
+            VehicleCommand.SetEngine(Craft, running: _engineLit);
             _throttleAchieved = VehicleCommand.DriveThrottle(Craft, Command.Pulsing || Command.HoldsLever ? Command.Throttle : 1.0,
                                                              Config.ThrottleThroughTheKeyboardClear);
         }

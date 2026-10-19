@@ -792,6 +792,13 @@ public static class Arsenal
         // The Heavy bus's nozzles at the 2,912 m/s measured on this one.
         TrimWorstAxisExhaustVelocity = 2_912.0 / 1.414,
 
+        // 2.27 kg/s at 2,996 m/s, both measured on the bridge (docs/POSTBOOST-BUS.md).
+        HopEngineThrustNewtons = 6_800.0,
+        HopEngineExhaustVelocity = 2_996.0,
+
+        // 95.3 m/s in 56 s on the loaded bus alone, 2026-10-19 (docs/WIDE-SPREAD.md step 5, C).
+        HopEngineAccelerationMetresPerSecond2 = 1.70,
+
         // The RV's two base motors (KSArmory_Subpart_PostBoostRv): mouths at r 0.15 m, 45 and 225 deg
         // round +X from +Y, each exhausting 45 deg round the axis from straight aft, so their sideways
         // pushes cancel and their torques add about -X. The rate is a choice: half a turn a second

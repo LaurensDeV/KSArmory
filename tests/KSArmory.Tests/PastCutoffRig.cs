@@ -76,6 +76,24 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     /// </summary>
     public double PropellantKg = double.NaN;
     public double JetExhaustVelocity = 2_906.0;
+
+    /// <summary>
+    /// The bus's main engine (N), which flies a hop under <see cref="IcbmConfig.HopsBurnTheEngine"/> along the modelled
+    /// nose from the same tank; NaN is a bus with none. Needs <see cref="BusMassKg"/>.
+    /// </summary>
+    public double EngineThrustNewtons = double.NaN;
+    public double EngineExhaustVelocity = 2_996.0;
+    private readonly HopBurn _hopBurn = new();
+    private double _releasedAt = double.NaN;
+    private double _now;
+    private bool _engineOn;
+    private double _engineSpent;
+
+    private bool EngineHops => Config.HopsBurnTheEngine && HasEngine && Config.HopsSizeTheirOwnSlots;
+
+    private bool HasEngine => double.IsFinite(EngineThrustNewtons) && EngineThrustNewtons > 0.0 && double.IsFinite(BusMassKg);
+
+    private double EngineAcceleration => HasEngine && MassNowKg > 0.0 ? EngineThrustNewtons / MassNowKg : 0.0;
     public double LateralCostFactor = 1.414;
     private double _propellantUsedKg;
 
@@ -136,7 +154,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
 
     /// <summary>What each stop of a walk came to, the lead first.</summary>
     internal readonly record struct Stop(double LandedMetres, double DivertMetresPerSecond, double SpentMetresPerSecond,
-                                         double BeforeArrivalSeconds = double.NaN);
+                                         double BeforeArrivalSeconds = double.NaN, double EngineMetresPerSecond = 0.0);
 
     public List<Stop> Stops { get; } = [];
 
@@ -415,6 +433,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         {
             double3 aimNow = Body.CarryCci(aimAtEpoch, t);
             _trueAimCci = aimNow;
+            _now = t;
 
             IcbmState state = new(Body, _busPositionCci, _busVelocityCci, _aim.Apply(aimNow), HasAim: true,
                                   Flight.Performance(), DensityAt(_busPositionCci), PropellantAvailable: false,
@@ -432,18 +451,22 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
             if ((_command.ReadyToDeploy && !atCutoff) || burnOver) SeparateOnce();
 
             DriveTurn(h, state, Stops.Count > 0);
-            TrimCommand trim = DriveTrim(h, state);
+            DriveHop(h, state);
+            TrimCommand trim = _hopBurn.Holds ? default : DriveTrim(h, state);
             if (_didSplit && double.IsNaN(splitAt)) splitAt = t;
             bool held = PostCutoffSequence.TrimHoldsTheRelease(Config.TrimBeforeRelease, _command.ReadyToDeploy,
                                                                _trimAbandoned, atCutoff, _trim.Done,
                                                                _postBoost.Correcting)
-                        || _turn.Holds || _reachDueAfterTurn;
+                        || _turn.Holds || _reachDueAfterTurn || _hopBurn.Holds;
 
             if (Config.AutoRelease && _command.ReadyToDeploy && !held)
             {
                 Outcome released = Release(t, double.IsNaN(splitAt) ? double.NaN : t - splitAt);
                 double spent = _trim.SpentMetresPerSecond;
-                Stops.Add(new Stop(released.LandedMetres, spent - spentAtLastStop, spent, Program.CommittedArrivalFromNow));
+                _releasedAt = t;
+                Stops.Add(new Stop(released.LandedMetres, spent - spentAtLastStop, spent, Program.CommittedArrivalFromNow,
+                                   _engineSpent));
+                _engineSpent = 0.0;
                 _warheadsGone += PlannedTargets.Count > 0 && _walker.Walking ? _walker.Step.Warheads : 1;
                 spentAtLastStop = spent;
 
@@ -510,7 +533,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
             if (_haveStack) Advance(ref _stackPositionCci, ref _stackVelocityCci, next);
             if (_haveStack) Knock();
 
-            _busVelocityCci += Push(applied, next);
+            _busVelocityCci += Push(applied, next) + Burn(next);
             t += next;
             h = next;
         }
@@ -600,15 +623,16 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
                                                                           ? ReleaseLoop.SplitNullReserveMetresPerSecond
                                                                           : 0.0)
                                          : PostBoostAim.MaxTrimMetresPerSecond,
-                                     HopAccelerationMetresPerSecond2: HopAcceleration,
+                                     HopAccelerationMetresPerSecond2: EngineHops ? EngineAcceleration : HopAcceleration,
                                      FreeArrival: Config.HopsFreeTheirArrival,
                                      TankKg: tankByStop ? PropellantKg - _propellantUsedKg : double.NaN,
                                      MassKg: MassNowKg,
-                                     TankExhaustVelocity: JetExhaustVelocity / LateralCostFactor,
-                                     StoreMassKg: WarheadMassKg),
+                                     TankExhaustVelocity: EngineHops ? EngineExhaustVelocity : JetExhaustVelocity / LateralCostFactor,
+                                     StoreMassKg: WarheadMassKg,
+                                     HopTurnSeconds: EngineHops ? HopBurn.TurnsSeconds : 0.0),
             Program.Phase, false, TargetSet.MaxTargets, KSArmory.Warhead.LethalRadius(Warhead.ChargeKg), PlannedLead,
             ReachHold.Unflown, Config.PriceEachHopAtItsSlot, Config.PriceHopsAtWhatTheTrimPays,
-            Config.PriceSlotsOnTheGateChord, _later);
+            Config.PriceSlotsOnTheGateChord, _later, EngineHops);
         _reach = reach;
 
         bool mayReplan = ReleaseLoop.MayReplan(Program.TurnsAtTheSplit, _didSplit, reach.Flown.Stops, _walker.Walk.Stops,
@@ -675,6 +699,62 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         _landingAt = t;
     }
 
+    // IcbmComputer.DriveHop: the hop on the engine, the arc solved again as it burns and once more when it stops.
+    private void DriveHop(double step, in IcbmState state)
+    {
+        if (_hopBurn.Now is HopBurn.Stage.Idle or HopBurn.Stage.Done)
+        {
+            _engineOn = false;
+            return;
+        }
+
+        double3 toGain = Vec.Zero;
+        if (Program.Arc is { } arc
+            && Kepler.TryCoast(Body.Mu, Program.ReferencePositionCci, arc.RequiredVelocityCci, Program.SecondsSinceReference,
+                               out _, out double3 required))
+        {
+            toGain = required - state.VelocityCci;
+        }
+
+        // The rig's warheads are not objects: the last one has gone at its kick since it left.
+        double released = double.IsFinite(_releasedAt) ? (_now - _releasedAt) * Warhead.LaunchSpeed : double.NaN;
+        HopBurn.Decision d = _hopBurn.Update(step, toGain, _attitudeCci, EngineAcceleration, released);
+        _engineOn = d.EngineOn;
+        if (!d.LineCci.Equals(Vec.Zero)) Program.CoastLineCci = d.LineCci;
+        if (d.ResolveNow) ResolveTheHop();
+
+        if (_hopBurn.Now != HopBurn.Stage.Done) return;
+
+        if (_hopBurn.Burnt) ResolveTheHop();
+        _trim.Resume();
+        _spentAtHopRound = _trim.SpentMetresPerSecond;
+    }
+
+    private void ResolveTheHop()
+    {
+        if (Config.HopsFreeTheirArrival) Program.FreeTheHopArrival();
+        else Program.CorrectCoastArc();
+    }
+
+    // The engine along the modelled nose, from the same tank as the nozzles.
+    private double3 Burn(double seconds)
+    {
+        if (!_engineOn || !HasEngine) return Vec.Zero;
+
+        if (HasTank && _propellantUsedKg >= PropellantKg)
+        {
+            RanDry = true;
+            return Vec.Zero;
+        }
+
+        double dv = EngineAcceleration * seconds;
+        _engineSpent += dv;
+        if (HasTank) _propellantUsedKg += EngineThrustNewtons / EngineExhaustVelocity * seconds;
+
+        Frame(out double3 nose, out _, out _);
+        return nose * dv;
+    }
+
     // IcbmComputer.HandOverTo, for a walk the rig planned: the walker sets the gate.
     private void HandOverToPlanned()
     {
@@ -684,6 +764,10 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         _aim.Retarget(Config.CarryAimBiasAcrossHops);
         if (Config.HopsFreeTheirArrival) Program.FreeTheHopArrival();
         else Program.CorrectCoastArc();
+        if (Config.HopsBurnTheEngine && HasEngine)
+        {
+            _hopBurn.Begin(!Program.CoastLineCci.Equals(Vec.Zero) ? Program.CoastLineCci : _entryLineCci);
+        }
         _trim.Resume();
         _postBoost.Reset();
         _trimAbandoned = false;

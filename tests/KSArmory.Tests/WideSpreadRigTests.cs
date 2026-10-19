@@ -7,7 +7,8 @@ namespace KSArmory.Tests;
 /// <summary>
 /// <see cref="IcbmConfig.HopsSizeTheirOwnSlots"/> on walks wider than a 60 m/s budget reaches, all three walk flags on
 /// (<c>docs/WIDE-SPREAD.md</c> step 2), and <see cref="IcbmConfig.HopsFreeTheirArrival"/> on walks wider than a pinned
-/// arrival pays for, with the plan remade after the split and a long hop's burn solved away (step 5).
+/// arrival pays for, with the plan remade after the split, a long hop's burn solved away, and hops on the
+/// post-boost bus's engine (step 5).
 /// </summary>
 public class WideSpreadRigTests(ITestOutputHelper Out)
 {
@@ -140,7 +141,7 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
 
     // Either bus on its own tank, a budget only the tank bounds, the targets laid uprange of each other along the track.
     private PastCutoffRig Hops(bool postBoostBus, double rangeMetres, int targets, double spacingMetres, bool free,
-                               bool remade = false, bool resolve = false)
+                               bool remade = false, bool resolve = false, bool engine = false)
     {
         IcbmProgram program = new(new IcbmConfig
         {
@@ -149,7 +150,7 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
             WalkStartsAtCutoff = true, HopsFlyTheirOwnCeiling = true, PriceSlotsOnTheGateChord = true,
             HopsSizeTheirOwnSlots = true, TrimBudgetMetresPerSecond = 1_000.0, HopsFreeTheirArrival = free,
             PriceTheTankStopByStop = remade, FreeHopsMeasureTheirSlots = remade, WalkShrinksAfterTheSplit = remade,
-            HopsResolveAfterTheirBurn = resolve,
+            HopsResolveAfterTheirBurn = resolve, HopsBurnTheEngine = engine,
         });
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
@@ -161,6 +162,8 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
             rig.BusMassKg = 3_800.0;
             rig.PropellantKg = 500.0;
             rig.JetExhaustVelocity = 2_912.0;
+            rig.EngineThrustNewtons = Arsenal.PostBoostBus.HopEngineThrustNewtons;
+            rig.EngineExhaustVelocity = Arsenal.PostBoostBus.HopEngineExhaustVelocity;
         }
         else
         {
@@ -246,6 +249,24 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
         Assert.Equal(2, resolved.Stops.Count);
         Assert.All(resolved.Stops, stop => Assert.True(stop.LandedMetres < 0.01, $"landed {stop.LandedMetres:F3} m out"));
         Assert.True(resolved.Stops[1].DivertMetresPerSecond < asFlown.Stops[1].DivertMetresPerSecond);
+    }
+
+    // The post-boost bus from 6,181 km, where 0.40 m/s2 of nozzles runs out of coast before it runs out of tank.
+    [Fact]
+    public void TheEngineWalksSevenTargetsAHundredKilometresApartWhereTheNozzlesRunOutOfCoast()
+    {
+        PastCutoffRig nozzles = Hops(true, 6_181_000.0, 7, 100_000.0, free: true, resolve: true);
+        PastCutoffRig engine = Hops(true, 6_181_000.0, 7, 100_000.0, free: true, resolve: true, engine: true);
+
+        Assert.True(nozzles.Stops.Count < 7, $"the nozzles walked all {nozzles.Stops.Count}");
+        Assert.All(nozzles.Stops, stop => Assert.Equal(0.0, stop.EngineMetresPerSecond));
+
+        Assert.Equal(7, engine.Stops.Count);
+        Assert.False(engine.Curtailed);
+        Assert.False(engine.RanDry);
+        Assert.All(engine.Stops.Skip(1), stop => Assert.True(stop.EngineMetresPerSecond > HopBurn.EngineAboveMetresPerSecond,
+                                                               $"a hop flew {stop.EngineMetresPerSecond:F1} m/s on the engine"));
+        Assert.All(engine.Stops, stop => Assert.True(stop.LandedMetres < 0.01, $"landed {stop.LandedMetres:F3} m out"));
     }
 
     /// <summary>

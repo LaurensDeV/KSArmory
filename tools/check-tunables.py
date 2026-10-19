@@ -167,6 +167,7 @@ RESEARCH = (
     "FreeHopsMeasureTheirSlots",
     "WalkShrinksAfterTheSplit",
     "HopsResolveAfterTheirBurn",
+    "HopsBurnTheEngine",
     "HoldPointsLoosely",
     "JetsThroughTheKeyboardClear",
     "KickAtTheRelease",

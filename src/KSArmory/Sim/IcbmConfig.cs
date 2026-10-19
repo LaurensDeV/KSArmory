@@ -263,6 +263,13 @@ internal sealed class IcbmConfig
     public bool HopsResolveAfterTheirBurn;
 
     /// <summary>
+    /// Whether a hop over <see cref="HopBurn.EngineAboveMetresPerSecond"/> is flown on the bus's main engine, where it has
+    /// one (<see cref="LauncherProfile.HopEngineThrustNewtons"/>): turned onto the hop, burnt down to what the nozzles
+    /// take, and turned back. <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c> step 5, C.
+    /// </summary>
+    public bool HopsBurnTheEngine;
+
+    /// <summary>
     /// Whether the trim reserve kept beyond the budget for nulling the split may be spent on hops once a
     /// walk's first stop has let its warheads go. Flown paired on a 4 km six-target walk: 12 of 12 buses walked five stops
     /// against four for all 12 without it, every warhead within 5 mm. <c>docs/MIRV-TARGETS.md</c>.
