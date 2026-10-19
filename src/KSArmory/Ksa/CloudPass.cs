@@ -1615,7 +1615,7 @@ internal static class CloudPass
         public int OriginX;            // the dispatch's first pixel
         public int OriginY;
         public float4 Colour;          // the core's colour, and the halo's share of it
-        public float4 BallColour;      // a round with no tracer's
+        public float4 BallColour;      // a round with no tracer's; w over zero holds a segment's brightness to its tail
     }
 
     // KSArmoryTracer.comp's workgroup.
@@ -1660,8 +1660,32 @@ internal static class CloudPass
         Span<ShellTracers.Segment> all = _tracerMemory.AsSpan<ShellTracers.Segment>();
         Span<ShellTracers.Segment> mine = all.Slice(first, ShellTracers.MostPerView);
 
-        int count = ShellTracers.Build(camera, width, height, mine,
+        // The shells take the slot's front and the beams its last run, each dispatched in its own colour.
+        int beamsAt = ShellTracers.MostPerView - LaserBeams.MostSegments;
+        int count = ShellTracers.Build(camera, width, height, mine[..beamsAt],
                                        out int minX, out int minY, out int maxX, out int maxY);
+        bool drew = DispatchTracers(commandBuffer, viewport, view, first, count, width, height,
+                                    minX, minY, maxX, maxY, TracerColour, BallColour);
+
+        LaserBeams.MarkPainted();
+        count = LaserBeams.Build(camera, width, height, mine[beamsAt..], out minX, out minY, out maxX, out maxY);
+        drew |= DispatchTracers(commandBuffer, viewport, view, first + beamsAt, count, width, height,
+                                minX, minY, maxX, maxY, BeamColour, BeamUniform);
+
+        return drew;
+    }
+
+    // A beam's green. The halo spreads five half-widths, so its share is kept low: on a beam a few
+    // hundred pixels wide near the eye, more would wash the whole picture.
+    private static readonly float4 BeamColour = new(0.25f, 1.0f, 0.35f, 0.2f);
+
+    // No grey rounds, and a w of one: the shader then keeps a segment's whole brightness to its tail.
+    private static readonly float4 BeamUniform = new(0f, 0f, 0f, 1f);
+
+    private static bool DispatchTracers(CommandBuffer commandBuffer, IViewport viewport, View view, int first,
+                                        int count, int width, int height, int minX, int minY, int maxX, int maxY,
+                                        float4 colour, float4 ballColour)
+    {
         if (count == 0) return false;
 
         minX = Math.Clamp(minX, 0, width);
@@ -1676,8 +1700,8 @@ internal static class CloudPass
             Count = count,
             OriginX = minX,
             OriginY = minY,
-            Colour = TracerColour,
-            BallColour = BallColour,
+            Colour = colour,
+            BallColour = ballColour,
         };
 
         using (commandBuffer.TagRegion(GpuTag))

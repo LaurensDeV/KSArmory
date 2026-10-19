@@ -548,7 +548,7 @@ public sealed class KSArmoryMod
             if (KsaWorld.InFlight)
             {
                 using (_budget.Measure("shells")) foreach (WeaponSystems.Entry e in _roster.All) Visuals.DrawShellStream(e.Weapon);
-                if (_heads is not null) foreach (OpticalHeads.Entry e in _heads.All) Visuals.DrawBeam(e.Head);
+                if (_heads is not null && !LaserBeams.Painting) foreach (OpticalHeads.Entry e in _heads.All) Visuals.DrawBeam(e.Head);
             }
 
             // Outside the debug overlay switch, and deliberately: this is a sight the operator
@@ -891,6 +891,8 @@ public sealed class KSArmoryMod
         // After the rounds have been stepped, so a motor is heard where its round now is
         // rather than where it was at the start of the frame.
         ShellTracers.BeginFrame();
+        LaserBeams.BeginFrame();
+        if (_heads is not null) foreach (OpticalHeads.Entry e in _heads.All) LaserBeams.Collect(e.Head);
         foreach (WeaponSystems.Entry e in _roster.All)
         {
             _motors.Update(e.Weapon);
