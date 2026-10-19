@@ -209,7 +209,11 @@ public sealed class KSArmoryMod
 
             using (_budget.Measure("shell bodies"))
             {
-                foreach (WeaponSystems.Entry e in roster.All) e.Weapon.DrawShellBodies(viewport, frameIndex);
+                foreach (WeaponSystems.Entry e in roster.All)
+                {
+                    e.Weapon.DrawShellBodies(viewport, frameIndex);
+                    e.Weapon.DrawFarBodies(viewport, frameIndex);
+                }
             }
 
             if (roster.Loose.Count == 0) return;

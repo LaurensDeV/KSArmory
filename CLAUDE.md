@@ -593,7 +593,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/GroundTrackMarks.cs` | what goes on that map — today a calibration cross at nine round coordinates, **placed with KSA's own `ProjectOnImage`** so a mark cannot disagree with the locations beside it. They sit on the ground they name, **not on KSA's grid lines**, which are spread across whatever is visible rather than drawn at round degrees |
 | `Ksa/SaveHook.cs` | **which save is open, and that the game just wrote one** — postfixes on `UncompressedSave.Load` and `Make`, because KSA keeps no record of the loaded save and `GameSaves.Selected` is only the row highlighted in its list, which a console load, a scenario and a save-as never set |
 | `Ksa/RoundBodyDrawHook.cs` | the fourth — **a launcher's rounds drawn after the engine has culled the launcher**, because a body is one of its parts and KSA draws none of a craft under a pixel across |
-| `Ksa/LooseBodyDrawHook.cs` | **a destroyed launcher's rounds drawn anyway** — each round's mesh, taken off its subpart at `GoLoose`, added as an instance of the engine's own part model every viewport, because a model outlives the craft its parts were on — **and every gun shell with a model, launcher alive or not**, so however many are in the air: one instanced draw, no subpart each |
+| `Ksa/LooseBodyDrawHook.cs` | **a destroyed launcher's rounds drawn anyway** — each round's mesh, taken off its subpart at `GoLoose`, added as an instance of the engine's own part model every viewport, because a model outlives the craft its parts were on — **and every gun shell with a model, launcher alive or not**, so however many are in the air: one instanced draw, no subpart each — **and any round past 10 km of its launcher**, where a subpart's float placement shakes |
 | `Ksa/VehicleCommand.cs` | **the only place this mod flies somebody else's rocket** — attitude, throttle, ignition, staging |
 | `Ksa/IcbmOverlay.cs` | the arc it is on, the rings it is aimed at and the ground the bus can still divert to — **painted by the ring pass, with no draped fallback** |
 | `Ksa/WarheadTrace.cs` | **one warhead against the prediction of it**, re-flown from where it has got to — measurement only, off by default, and the discriminator is whether the two part *smoothly* or in a *step* |
@@ -1774,7 +1774,8 @@ steady false wind — 0.055 m/s at 25 ms — and it was 30 mm of cross-range on 
 (`docs/ACCURACY-PLAN.md` 3el).
 
 **Rounds are drawn as real subparts, anchored to the tube they left.** Twelve `Missile`
-subparts, scaled to nothing until fired, with their transform written each frame. A gun's shells
+subparts, scaled to nothing until fired, with their transform written each frame, until the round is
+10 km from its launcher and is drawn as an instance instead (see *Not done*). A gun's shells
 leave no tube and have no subpart: each is an instance of the shell's model, drawn by
 `WeaponSystem.DrawShellBodies` from `Ksa/LooseBodyDrawHook.cs` at the camera's view of the craft plus
 `TryRoundEffectEcl` less the craft's position — `Vehicle.GetMatrixAsmb2Ego`, the placement the engine
@@ -3047,12 +3048,14 @@ mis-tagged guard is found before a merge rather than never — what is lost is *
   0.16 ms at 0.01x — and the drives, the array and the chase blend, all of which are frame pacing
   and are handled. The chased round cannot show it, because the camera moves with it.
 
-- A round body's drawn position has a floor of a few millimetres at range, and it is the engine's.
+- A round body placed as a subpart has a floor of a few millimetres at range, and it is the engine's.
   A part's matrix to its vehicle's frame and that frame's to **Ego** are each packed to `float` and
   multiplied there (`PartTreeRenderData.ToPerInstanceData`), so the quantum follows the larger of the
   body's distance from its launcher and the launcher's from the camera — 0.6 mm at 10 km and 9.5 mm
   at 80 km. **A chased round is not immune**: the camera is metres from it, but both terms are the
-  shot's length, and they cancel in float. What that costs on a long chase has not been flown.
+  shot's length. Flown: a MIRV warhead 4,077 km from its bus, chased from 15 m, shook visibly. So past
+  `WeaponSystem.FarBodyMetres`, 10 km, a round is drawn as an instance placed off the camera instead
+  (`DrawFarBodies`), which packs only its few metres from the camera.
 
 - Shells collide with terrain only when their profile asks; **every missile does**, and goes off on
   the ground it meets (`Interceptor.Ground`), since a salvo is a dozen rounds and a HARM fired downhill

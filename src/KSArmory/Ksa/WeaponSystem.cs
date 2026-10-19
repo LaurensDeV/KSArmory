@@ -49,6 +49,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private sealed record LooseBody(PartModel? Body, PartModel?[] Blades, PartModel? FinSet);
     private readonly Dictionary<IProjectile, LooseBody> _looseBodies = new(ReferenceEqualityComparer.Instance);
 
+    // Rounds further from their launcher than FarBodyMetres, drawn as instances by DrawFarBodies.
+    private readonly Dictionary<IProjectile, LooseBody> _farBodies = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>
+    /// How far from its launcher a round's body stops being placed as the launcher's subpart and is drawn as an
+    /// instance placed off the camera. A subpart's placement is packed to <c>float</c> against its craft, a step of
+    /// 0.6 mm here and about half a metre at the 4,000 km a MIRV warhead flies, which a chase camera 15 m behind
+    /// sees as the round shaking.
+    /// </summary>
+    public const double FarBodyMetres = 10_000.0;
+
     private readonly record struct DrawnAttitude(doubleQuat Ecl, double Age);
 
     // Craft an unguided round could run into, rebuilt at most once a frame.
@@ -2049,6 +2060,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             drawn = Carry(drawn, round, density);
             _drawnAttitudes[round] = drawn;
 
+            // Not flying, so the loop below seats and hides its subpart, and DrawFarBodies draws it.
+            if (_farBodies.ContainsKey(round) || Vec.Len(round.TravelSinceLaunch) > FarBodyMetres)
+            {
+                if (!_farBodies.ContainsKey(round)) _farBodies[round] = BodiesOf(round, index);
+                continue;
+            }
+
             if (!LauncherPart.TryPlaceMissile(platform, launcher, _missileBodies[index],
                                               round.LaunchAnchorPartFrame, round.TravelSinceLaunch,
                                               drawn.Ecl, round.LaunchAttitude,
@@ -2227,6 +2245,29 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
             double3 ego = platformEgo + (ecl - platformEcl);
             if (Vec.IsFinite(ego)) AddInstance(_shellModel, double3.One, drawn.Ecl, ego, viewport, frameIndex);
+        }
+    }
+
+    /// <summary>
+    /// Queues the bodies of this system's rounds that are beyond <see cref="FarBodyMetres"/> of their launcher for one
+    /// viewport, placed as <see cref="DrawShellBodies"/> places a shell.
+    /// </summary>
+    public void DrawFarBodies(IViewport viewport, int frameIndex)
+    {
+        if (_farBodies.Count == 0 || !_config.UseRoundBodies || Platform is not { } platform
+            || !KsaWorld.IsAlive(platform) || viewport.GetCamera() is not { } camera) return;
+
+        double3 platformEgo = camera.GetPositionEgo(platform);
+        double3 platformEcl = KsaWorld.PositionEcl(platform);
+
+        foreach (IProjectile round in _rounds)
+        {
+            if (round.State != RoundState.Flying || !_farBodies.TryGetValue(round, out LooseBody? looks)
+                || !_drawnAttitudes.TryGetValue(round, out DrawnAttitude drawn)
+                || !TryRoundEffectEcl(round, out double3 ecl)) continue;
+
+            double3 ego = platformEgo + (ecl - platformEcl);
+            if (Vec.IsFinite(ego)) AddRoundInstances(looks, drawn, ego, round, viewport, frameIndex);
         }
     }
 
@@ -2962,6 +3003,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _inVacuum.Remove(_rounds[index]);
         _seekers.Remove(_rounds[index]);
         _looseBodies.Remove(_rounds[index]);
+        _farBodies.Remove(_rounds[index]);
         _rounds.RemoveAt(index);
     }
 
@@ -2973,6 +3015,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _inVacuum.Clear();
         _seekers.Clear();
         _looseBodies.Clear();
+        _farBodies.Clear();
     }
 
     /// <summary>
@@ -3144,12 +3187,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             int index = round.Tube - 1;
             if (index < 0 || index >= _missileBodies.Count || !_drawnAttitudes.ContainsKey(round)) continue;
 
-            MunitionProfile munition = round.Munition;
-            var blades = new PartModel?[Math.Max(0, munition.FinsPerRound)];
-            for (int b = 0; b < blades.Length; b++) blades[b] = LauncherPart.ModelOf(FinsFor(index * blades.Length + b));
-
-            _looseBodies[round] = new LooseBody(LauncherPart.ModelOf(_missileBodies[index]), blades,
-                                                blades.Length == 0 ? LauncherPart.ModelOf(FinsFor(index)) : null);
+            _looseBodies[round] = BodiesOf(round, index);
         }
 
         foreach (IProjectile round in _rounds)
@@ -3164,6 +3202,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // its round bodies at their last placement -- a second copy of every round now drawn loose.
         for (int i = 0; i < _missileBodies.Count; i++) LauncherPart.HideMissile(_missileBodies[i]);
         for (int i = 0; i < _finBodies.Count; i++) LauncherPart.HideMissile(_finBodies[i]);
+    }
+
+    // The models a tube's round is drawn with, off the subparts that say which template each is.
+    private LooseBody BodiesOf(IProjectile round, int index)
+    {
+        var blades = new PartModel?[Math.Max(0, round.Munition.FinsPerRound)];
+        for (int b = 0; b < blades.Length; b++) blades[b] = LauncherPart.ModelOf(FinsFor(index * blades.Length + b));
+
+        return new LooseBody(LauncherPart.ModelOf(_missileBodies[index]), blades,
+                             blades.Length == 0 ? LauncherPart.ModelOf(FinsFor(index)) : null);
     }
 
     // On from where each was last drawn, as SyncRoundBodies turns a body that still has its launcher.
@@ -3231,21 +3279,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             double3 ego = bodyEgo + round.OffsetFromPlatform;
             if (!Vec.IsFinite(ego)) continue;
 
-            MunitionProfile munition = round.Munition;
-            AddInstance(looks.Body, double3.One, drawn.Ecl, ego, viewport, frameIndex);
+            AddRoundInstances(looks, drawn, ego, round, viewport, frameIndex);
             drawnCount += looks.Body is null ? 0 : 1;
             nearest = Math.Min(nearest, Vec.Len(ego));
-
-            for (int b = 0; b < looks.Blades.Length; b++)
-            {
-                double roll = FinMixer.FinRollRad(b, looks.Blades.Length, Math.PI / 4.0);
-                doubleQuat rotation = drawn.Ecl * doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), roll);
-                AddInstance(looks.Blades[b], double3.One, rotation,
-                            ego + (drawn.Ecl * new double3(munition.FinHingeStation, 0, 0)), viewport, frameIndex);
-            }
-
-            AddInstance(looks.FinSet, TubeGeometry.FinScale(munition, round.FinDeployment(munition)),
-                        drawn.Ecl, ego, viewport, frameIndex);
         }
 
         if (_looseBodiesReported || drawnCount == 0) return;
@@ -3254,6 +3290,25 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     private bool _looseBodiesReported;
+
+    // A round's body, its blades and its fin set, at ego.
+    private static void AddRoundInstances(LooseBody looks, DrawnAttitude drawn, double3 ego, IProjectile round,
+                                          IViewport viewport, int frameIndex)
+    {
+        MunitionProfile munition = round.Munition;
+        AddInstance(looks.Body, double3.One, drawn.Ecl, ego, viewport, frameIndex);
+
+        for (int b = 0; b < looks.Blades.Length; b++)
+        {
+            double roll = FinMixer.FinRollRad(b, looks.Blades.Length, Math.PI / 4.0);
+            doubleQuat rotation = drawn.Ecl * doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), roll);
+            AddInstance(looks.Blades[b], double3.One, rotation,
+                        ego + (drawn.Ecl * new double3(munition.FinHingeStation, 0, 0)), viewport, frameIndex);
+        }
+
+        AddInstance(looks.FinSet, TubeGeometry.FinScale(munition, round.FinDeployment(munition)),
+                    drawn.Ecl, ego, viewport, frameIndex);
+    }
 
     private static void AddInstance(PartModel? model, double3 scale, doubleQuat rotation, double3 ego,
                                     IViewport viewport, int frameIndex)
