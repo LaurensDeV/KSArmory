@@ -412,7 +412,7 @@ TOOLS = {
                    lambda a: [_text(json.dumps(send("system", **a), indent=1))]),
     "ksa_optic": ("A craft's optical directors, as their rows would set them: view new (a spare camera "
                   "window), main, off or a window index; magnification; tracking; bearing_deg and elevation_deg aim it by hand; mouse false stops it following the cursor, which outranks the hand aim; at_craft designates a "
-                  "craft by name; refill tops up a beam's magazine; "
+                  "craft by name; refill tops up a beam's chemicals; "
                   "lase and code fire its laser. Reads each window's camera back, and a "
                   "beam's state: firing, its length, what it is burning and the magazine left.",
                   {"craft": {"type": "string"}, "view": {"type": "string"}, "magnification": _num("x"),

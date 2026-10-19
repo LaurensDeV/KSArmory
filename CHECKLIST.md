@@ -2122,10 +2122,13 @@ and `validate-parts.py`; the C# is the LITENING's profile with other numbers.
       into terrain rather than ending on it, thins to a faint thread far away instead of vanishing, is
       brightest looking back along it toward the turret, and dims in thin air. With the pass off, a thin
       orange gizmo line. The line beside the
-      button counts the magazine down from 100 s only while firing, and not while paused.
+      button counts the chemicals down from 100 s only while firing, and not while paused.
 - [x] Held on a craft, the line says `burning <part>` with its health falling; at the end that part
       breaks off (or the whole craft goes, with per-part damage off). Logged as `beam burnt through`.
-- [ ] It will not fire through its own airframe (the laser's MASK), and the ground stops it.
+- [x] The ground stops it: nodded 10° and 25° below the horizon on the pad, the beam ended 27 m and
+      23 m out, on the ground the depth buffer shows.
+- [ ] It will not fire through its own airframe (the laser's MASK). Not reachable on a turret stacked
+      on top of a tank, whose nod stops 30° below the horizon; it wants one mounted lower on a hull.
 
 ### 7.6d The suspension rail — carriage gear the builder cannot place
 
