@@ -94,27 +94,8 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
                + $"pass under {BarMetres / 1000.0:F1} km";
     }
 
-    /// <summary>
-    /// Reads the arguments a scenario name carries — everything after the colon in
-    /// <c>mirv:26.485S,68.148W</c>, and the empty string for a bare <c>mirv</c>.
-    ///
-    /// <para>Two fields are an aim point and three add the bar in kilometres. A hemisphere letter
-    /// may stand in for the sign, because that is how coordinates are written down everywhere else
-    /// and a request nobody can type from a map is a request nobody uses.</para>
-    ///
-    /// <para>One field is the bar alone, for a shot aimed at whatever the scene defends: a bar without an
-    /// aim is the only way to judge that shot, and it leaves <see cref="AimWasGiven"/> false so the
-    /// scenario does not move the site to a point nobody named.</para>
-    /// </summary>
-    /// <param name="trouble">
-    /// What an operator has to change, or empty. Naming the field is the whole point: a scenario
-    /// that refuses a request has to say which half of it was wrong, or the next attempt is a
-    /// guess.
-    /// </param>
-    /// <summary>
-    /// <c>track:6x100</c> -- six more targets 100 km apart uprange of the first -- or <c>across:6x100</c>, square to it.
-    /// False with no trouble for a segment that is not one at all.
-    /// </summary>
+    // track:6x100 -- six more targets 100 km apart uprange of the first -- or across:6x100, square to it. False with no
+    // trouble for a segment that is not one at all.
     private static bool TryTrack(string segment, out int count, out double spacingMetres, out bool across,
                                  out string trouble)
     {
@@ -143,6 +124,23 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
         return true;
     }
 
+    /// <summary>
+    /// Reads the arguments a scenario name carries — everything after the colon in
+    /// <c>mirv:26.485S,68.148W</c>, and the empty string for a bare <c>mirv</c>.
+    ///
+    /// <para>Two fields are an aim point and three add the bar in kilometres. A hemisphere letter
+    /// may stand in for the sign, because that is how coordinates are written down everywhere else
+    /// and a request nobody can type from a map is a request nobody uses.</para>
+    ///
+    /// <para>One field is the bar alone, for a shot aimed at whatever the scene defends: a bar without an
+    /// aim is the only way to judge that shot, and it leaves <see cref="AimWasGiven"/> false so the
+    /// scenario does not move the site to a point nobody named.</para>
+    /// </summary>
+    /// <param name="trouble">
+    /// What an operator has to change, or empty. Naming the field is the whole point: a scenario
+    /// that refuses a request has to say which half of it was wrong, or the next attempt is a
+    /// guess.
+    /// </param>
     public static bool TryParse(string? arguments, out ShotRequest shot, out string trouble)
     {
         shot = Default;
