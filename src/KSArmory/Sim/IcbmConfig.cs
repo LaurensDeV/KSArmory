@@ -255,6 +255,14 @@ internal sealed class IcbmConfig
     public bool WalkShrinksAfterTheSplit;
 
     /// <summary>
+    /// Whether a hop's arc is solved again from where its burn left the bus before the aim correction reads a miss.
+    /// The arc is an impulse at the hand-over, and the trim nulls velocity alone: a 180 m/s hop on the post-boost bus's
+    /// nozzles burns for about 450 s and ends 44.5 km off it, which the correction took for drag and ran away on.
+    /// <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c> step 5.
+    /// </summary>
+    public bool HopsResolveAfterTheirBurn;
+
+    /// <summary>
     /// Whether the trim reserve kept beyond the budget for nulling the split may be spent on hops once a
     /// walk's first stop has let its warheads go. Flown paired on a 4 km six-target walk: 12 of 12 buses walked five stops
     /// against four for all 12 without it, every warhead within 5 mm. <c>docs/MIRV-TARGETS.md</c>.

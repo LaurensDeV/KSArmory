@@ -303,15 +303,26 @@ Headless, behind a flag. Per branch:
      Heavy 6,181 km and 40 km and under at 25 and 60, depends on when in the turn the last plan before the first
      release was made.
 
-  2. **Post-boost 6,181 km, two targets 300 km apart: stop 2 lands 24.8 km out.** The hop flew at its real cost
-     (178 m/s by the first pass), then the aim bias ran away to 23.7 km over three passes and the next correction
-     wanted 48 m/s, past the 32 m/s one pass may spend. Not pricing: the fresh plan says one stop fits, so fixing
-     defect 1 avoids this cell, but the non-convergence is not understood. Suspect a shallow or drag-sensitive
-     cheapest arc: `TryCommitTheCheapestArrival` passes no `minArrivalDeg`, and the sweep runs at
-     `MinArrivalAngleDeg` 0.
+  2. **Post-boost 6,181 km, two targets 300 km apart: stop 2 landed 24.8 km out.** Not a shallow arc (33.5° before and
+     after the hop, and an arrival floor of 25° changed nothing), and not the trim, which nulled cleanly. **Burn
+     drift**: the hop's arc is an impulse at the hand-over, the trim nulls velocity alone, and a 180 m/s hop on
+     0.40 m/s² nozzles burns for about 450 s, leaving the bus about `½·Δv·t` off the arc it is now matched to. The
+     first reading after it was 44.5 km from the target, which the aim correction took for drag (bias 0.56 to 43.9
+     km) and then oscillated on; the drift grows with the square of the hop, 11.9 km at 150 km apart and 20.6 at 200,
+     where the passes did converge, at a price.
+
+     **Built 2026-10-19, `HopsResolveAfterTheirBurn`, rig only.** Once a hop's trim is done, and before any pass may
+     read a miss, the arc is solved again from where the burn left the bus (`FreeTheHopArrival`, or the pinned
+     re-solve), while the round just flown spent more than one pass's 10 m/s, at most four rounds
+     (`ReleaseLoop.ResolvesTheHopAgain`). The 300 km cell then lands at 0.0 m on 215.5 m/s against 305.6, and every
+     free hop measured is 3-15% cheaper, because the passes no longer spend propellant chasing the drift: Heavy
+     6,181 km at 40 km 115 kg against 122, post-boost 6,181 km at 100 km 286 against 363
+     (`WideSpreadRigTests.ALongHopsBurnIsSolvedAwayBeforeTheAimCorrectionReadsItAsAMiss`). With it and the three
+     flags above, the plan at 12,902 km prices every hop within about 1% of what it flies.
 
   Pass for A: flown hops at or under their price and every stop under a centimetre. Defect 1 is closed in the rig
-  behind its flags; defect 2 is next. Then re-price C at the post-boost bus's 6,181 km, where its coast binds.
+  behind its flags, and defect 2 behind its own. What is left is flown: step 6, with all five flags on. Then re-price C
+  at the post-boost bus's 6,181 km, where its coast binds.
 - **B**: step 2's profile plus the post-boost bus's budget and acceleration; nothing else new.
 - **C**: first the engine risks below, then:
   - `Sim/HopBurn.cs` only if step 4 said open-loop leaves more than a pass: point (`BusTurn`, capped), burn re-solving

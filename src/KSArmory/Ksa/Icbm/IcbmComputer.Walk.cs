@@ -163,8 +163,8 @@ internal sealed partial class IcbmComputer
         // Retarget rather than Reset, which would re-seed the plant at the pre-burn 1/Gain.
         _aim.Retarget(Config.CarryAimBiasAcrossHops);
 
-        // Re-solved to the same committed arrival, which is what makes a hop a hop rather than a
-        // new shot: every warhead of the walk arrives at one instant however far apart they land.
+        // Re-solved to the same committed arrival, so every warhead of the walk arrives at one instant however far apart
+        // they land -- or under HopsFreeTheirArrival to the cheapest, each at its own.
         if (Config.HopsFreeTheirArrival) Program.FreeTheHopArrival();
         else Program.CorrectCoastArc();
 
@@ -196,6 +196,8 @@ internal sealed partial class IcbmComputer
         _saidLast = "";
         _spentAtStopStart = _trim.SpentMetresPerSecond;
         _hopBurnSeconds = ReleaseLoop.HopBurnSeconds(_walker.Step.HopMetresPerSecond, HopAcceleration);
+        _hopRound = Config.HopsResolveAfterTheirBurn ? 0 : -1;
+        _spentAtHopRound = _trim.SpentMetresPerSecond;
 
         Log.Info($"walk on {KsaWorld.DisplayName(Craft)}: re-aiming at target {next} "
                  + $"{_targets.Entries[next].Site.Describe()}, stop {_walker.Stop + 1} of "

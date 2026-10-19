@@ -221,6 +221,8 @@ internal sealed partial class IcbmComputer
         // steadiness is the term that actually moves the reading rather than a proxy for it.
         ReleaseAnArrivalTheTrimCannotFly(trim, state);
 
+        if (ResolvedTheHopAgain()) return;
+
         int passesBefore = _postBoost.Cycles;
 
         MeasureHoldingCost();
@@ -313,6 +315,30 @@ internal sealed partial class IcbmComputer
             (trim.Acceleration > 0.0 ? $" (thrusters measured at {trim.Acceleration:F3} m/s2)" : "")
             + Grew()
             + Arrivals());
+    }
+
+    // Before the passes may measure: the arc solved from where the hop's burn left the bus.
+    private bool ResolvedTheHopAgain()
+    {
+        if (_hopRound < 0 || !_trim.Done || _postBoost.Cycles > 0) return false;
+
+        double spent = _trim.SpentMetresPerSecond - _spentAtHopRound;
+        if (!ReleaseLoop.ResolvesTheHopAgain(_hopRound, spent))
+        {
+            _hopRound = -1;
+            return false;
+        }
+
+        _hopRound++;
+        _spentAtHopRound = _trim.SpentMetresPerSecond;
+        if (Config.HopsFreeTheirArrival) Program.FreeTheHopArrival();
+        else Program.CorrectCoastArc();
+        _trim.Resume();
+        _measureDue = false;
+        _freshMiss = double.NaN;
+        Log.Info($"walk on {KsaWorld.DisplayName(Craft)}: the hop's burn spent {spent:F1} m/s, so its arc is solved "
+                 + $"again from where it left the bus (round {_hopRound} of at most {ReleaseLoop.MaxHopRounds})");
+        return true;
     }
 
     // The one state the latch cannot get itself out of. The arrival is pinned during the burn and

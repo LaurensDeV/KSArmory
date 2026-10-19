@@ -166,6 +166,7 @@ RESEARCH = (
     "PriceTheTankStopByStop",
     "FreeHopsMeasureTheirSlots",
     "WalkShrinksAfterTheSplit",
+    "HopsResolveAfterTheirBurn",
     "HoldPointsLoosely",
     "JetsThroughTheKeyboardClear",
     "KickAtTheRelease",

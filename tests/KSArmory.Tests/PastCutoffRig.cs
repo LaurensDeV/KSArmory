@@ -679,6 +679,8 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     private void HandOverToPlanned()
     {
         _hopBurnSeconds = ReleaseLoop.HopBurnSeconds(_walker.Step.HopMetresPerSecond, HopAcceleration);
+        _hopRound = Config.HopsResolveAfterTheirBurn ? 0 : -1;
+        _spentAtHopRound = _trim.SpentMetresPerSecond;
         _aim.Retarget(Config.CarryAimBiasAcrossHops);
         if (Config.HopsFreeTheirArrival) Program.FreeTheHopArrival();
         else Program.CorrectCoastArc();
@@ -838,6 +840,31 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
                                                     _busVelocityCci - _stackVelocityCci, _trim.ToGainCci, toRelease);
     }
 
+    private int _hopRound = -1;
+    private double _spentAtHopRound;
+
+    // IcbmComputer.ResolvedTheHopAgain, less its line.
+    private bool ResolvedTheHopAgain()
+    {
+        if (_hopRound < 0 || !_trim.Done || _postBoost.Cycles > 0) return false;
+
+        double spent = _trim.SpentMetresPerSecond - _spentAtHopRound;
+        if (!ReleaseLoop.ResolvesTheHopAgain(_hopRound, spent))
+        {
+            _hopRound = -1;
+            return false;
+        }
+
+        _hopRound++;
+        _spentAtHopRound = _trim.SpentMetresPerSecond;
+        if (Config.HopsFreeTheirArrival) Program.FreeTheHopArrival();
+        else Program.CorrectCoastArc();
+        _trim.Resume();
+        _measureDue = false;
+        _freshMiss = double.NaN;
+        return true;
+    }
+
     // IcbmComputer.DriveTrim, less its logging.
     // IcbmComputer.ReleaseAnArrivalTheTrimCannotFly, less its wait for a flown prediction.
     private void ReleaseAnArrivalTheTrimCannotFly(in TrimCommand trim, in IcbmState state)
@@ -897,6 +924,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         ReleaseAnArrivalTheTrimCannotFly(trim, state);
 
         if (_turn.Holds) return trim;
+        if (ResolvedTheHopAgain()) return trim;
 
         int passesBefore = _postBoost.Cycles;
 

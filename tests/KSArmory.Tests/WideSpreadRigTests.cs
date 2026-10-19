@@ -7,7 +7,7 @@ namespace KSArmory.Tests;
 /// <summary>
 /// <see cref="IcbmConfig.HopsSizeTheirOwnSlots"/> on walks wider than a 60 m/s budget reaches, all three walk flags on
 /// (<c>docs/WIDE-SPREAD.md</c> step 2), and <see cref="IcbmConfig.HopsFreeTheirArrival"/> on walks wider than a pinned
-/// arrival pays for (step 5).
+/// arrival pays for, with the plan remade after the split and a long hop's burn solved away (step 5).
 /// </summary>
 public class WideSpreadRigTests(ITestOutputHelper Out)
 {
@@ -140,7 +140,7 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
 
     // Either bus on its own tank, a budget only the tank bounds, the targets laid uprange of each other along the track.
     private PastCutoffRig Hops(bool postBoostBus, double rangeMetres, int targets, double spacingMetres, bool free,
-                               bool remade = false)
+                               bool remade = false, bool resolve = false)
     {
         IcbmProgram program = new(new IcbmConfig
         {
@@ -149,6 +149,7 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
             WalkStartsAtCutoff = true, HopsFlyTheirOwnCeiling = true, PriceSlotsOnTheGateChord = true,
             HopsSizeTheirOwnSlots = true, TrimBudgetMetresPerSecond = 1_000.0, HopsFreeTheirArrival = free,
             PriceTheTankStopByStop = remade, FreeHopsMeasureTheirSlots = remade, WalkShrinksAfterTheSplit = remade,
+            HopsResolveAfterTheirBurn = resolve,
         });
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
@@ -175,7 +176,7 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
 
         rig.Fly(GameStackShortRangeTests.South(rangeMetres));
         Out.WriteLine($"{(postBoostBus ? "post-boost" : "Heavy")} {rangeMetres / 1_000.0:F0} km, {targets} at "
-                      + $"{spacingMetres / 1_000.0:F0} km, {(free ? "free" : "pinned")}{(remade ? ", remade" : "")}: planned {rig.Plan.Stops} "
+                      + $"{spacingMetres / 1_000.0:F0} km, {(free ? "free" : "pinned")}{(remade ? ", remade" : "")}{(resolve ? ", re-solved" : "")}: planned {rig.Plan.Stops} "
                       + $"({rig.Plan.Hold}), flew {rig.Stops.Count}, curtailed {rig.Curtailed}, ran dry {rig.RanDry}, "
                       + $"{rig.PropellantUsedKg:F1} kg used");
         for (int k = 0; k < rig.Stops.Count; k++)
@@ -230,6 +231,21 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
         Assert.All(Enumerable.Range(1, remade.Stops.Count - 1),
                    k => Assert.True(Honest(remade, k), $"hop {k} flew {remade.Stops[k].DivertMetresPerSecond:F2} m/s "
                                                        + $"on a price of {remade.Plan.Itinerary.Stops[k].HopMetresPerSecond:F2}"));
+    }
+
+    // Two targets 300 km apart on the post-boost bus: a 180 m/s hop at 0.40 m/s² burns for about 450 s.
+    [Fact]
+    public void ALongHopsBurnIsSolvedAwayBeforeTheAimCorrectionReadsItAsAMiss()
+    {
+        PastCutoffRig asFlown = Hops(true, 6_181_000.0, 2, 300_000.0, free: true);
+        PastCutoffRig resolved = Hops(true, 6_181_000.0, 2, 300_000.0, free: true, resolve: true);
+
+        Assert.Equal(2, asFlown.Stops.Count);
+        Assert.True(asFlown.Stops[1].LandedMetres > 1_000.0, $"landed {asFlown.Stops[1].LandedMetres:F1} m out");
+
+        Assert.Equal(2, resolved.Stops.Count);
+        Assert.All(resolved.Stops, stop => Assert.True(stop.LandedMetres < 0.01, $"landed {stop.LandedMetres:F3} m out"));
+        Assert.True(resolved.Stops[1].DivertMetresPerSecond < asFlown.Stops[1].DivertMetresPerSecond);
     }
 
     /// <summary>

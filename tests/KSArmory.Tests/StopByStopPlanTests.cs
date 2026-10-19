@@ -100,6 +100,15 @@ public class StopByStopPlanTests
     }
 
     [Fact]
+    public void AHopIsSolvedAgainWhileItsLastRoundSpentMoreThanOnePassAndNoMoreThanFourTimes()
+    {
+        Assert.True(ReleaseLoop.ResolvesTheHopAgain(0, 178.8));
+        Assert.True(ReleaseLoop.ResolvesTheHopAgain(1, BusTrim.MaxMetresPerSecond + 0.1));
+        Assert.False(ReleaseLoop.ResolvesTheHopAgain(1, BusTrim.MaxMetresPerSecond));
+        Assert.False(ReleaseLoop.ResolvesTheHopAgain(ReleaseLoop.MaxHopRounds, 178.8));
+    }
+
+    [Fact]
     public void OnceATurningBusHasSplitOnlyTheSameStopsOrFewerUnderTheFlagReplaceTheWalk()
     {
         Assert.True(ReleaseLoop.MayReplan(turnsAtTheSplit: false, didSplit: true, 3, 5, mayShrink: false));

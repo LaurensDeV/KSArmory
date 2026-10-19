@@ -235,6 +235,17 @@ internal static class ReleaseLoop
         => !(turnsAtTheSplit && didSplit) || freshStops == heldStops
            || (mayShrink && freshStops > 0 && freshStops < heldStops);
 
+    /// <summary>The most times one hop is solved again from where its burn left the bus.</summary>
+    public const int MaxHopRounds = 4;
+
+    /// <summary>
+    /// Whether a hop's trim, done, is solved again from where the bus now is before anything reads a miss
+    /// (<see cref="IcbmConfig.HopsResolveAfterTheirBurn"/>): while the round just flown spent more than one pass would,
+    /// since the position it drifted off by grows with that burn's length and its velocity change together.
+    /// </summary>
+    public static bool ResolvesTheHopAgain(int roundsSoFar, double spentThisRoundMetresPerSecond)
+        => roundsSoFar < MaxHopRounds && spentThisRoundMetresPerSecond > BusTrim.MaxMetresPerSecond;
+
     /// <summary>How long a hop's divert burn takes at the bus's trim acceleration, or zero where either is unknown.</summary>
     public static double HopBurnSeconds(double hopMetresPerSecond, double accelerationMetresPerSecond2)
         => hopMetresPerSecond > 0.0 && double.IsFinite(hopMetresPerSecond)
