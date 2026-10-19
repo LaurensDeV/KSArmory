@@ -379,6 +379,14 @@ Headless, behind a flag. Per branch:
   Why the response doubled there is not known; one stop in twelve. The bus also swung its warheads through the one
   it had just released, turning straight onto the hop; it now holds until that one is 10 m away (above).
 
+  **Flown again with the targets in latitude, 2026-10-19** (`~/shots/2026-10-19-engine100-lat`), 100 km apart
+  southward from 24 S, the 10 m wait in: **every engine bus walked all seven and passed, 28 of 28 warheads within
+  9.5 mm** (0.3-9.5 mm); the nozzle buses walked three or four, every warhead within 9.1 mm. 24 engine hops of
+  45.8-77.9 m/s, under half the morning's across the track, each stopped with 1.00-1.07 m/s for the nozzles; the two
+  turns took a median 12.4 s (9.4-12.9) against the 18 the slot allows. No pass oscillated. So at 6,180 km along
+  the track the post-boost bus on its engine reaches seven targets 100 km apart in millimetres, against 4.5 km for
+  six on the Heavy bus's shipped settings.
+
   What C was planned with, kept for the reasoning:
   - `Sim/HopBurn.cs` only if step 4 said open-loop leaves more than a pass: point (`BusTurn`, capped), burn re-solving
     every ~0.25 s with `BurnoutGuidance.TrySteer` **from the current position** (a ~90 m/s burn at ~1.8 m/s² carries the
