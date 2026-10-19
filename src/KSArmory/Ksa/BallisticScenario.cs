@@ -200,7 +200,7 @@ internal sealed class BallisticScenario
 
         // Sized from what was ASKED FOR rather than from what the flight reaches, so a target the
         // walk could not pay for fails with its number in the line instead of quietly not existing.
-        _board = new ShotBoard(_shot.Targets.Count);
+        _board = new ShotBoard(_shot.TargetCount);
     }
 
     /// <summary>What state a timeout would name, so a run that never got there says where it stuck.</summary>
@@ -901,6 +901,12 @@ internal sealed class BallisticScenario
     private void AddTheOtherTargets(IcbmComputer computer, Celestial parent,
                                     double leadLat, double leadLon)
     {
+        if (_shot.TrackTargets > 0)
+        {
+            LayTheTrack(computer, parent, leadLat, leadLon);
+            return;
+        }
+
         IReadOnlyList<ShotRequest.Aim> asked = _shot.Targets;
         if (asked.Count <= 1) return;
 
@@ -934,6 +940,39 @@ internal sealed class BallisticScenario
         computer.BalanceTargets();
 
         _say($"{computer.DescribeTargets()}; the booster flies to target {computer.LeadTarget + 1}, "
+             + string.Join(", ", TargetLines(computer)));
+    }
+
+    // ShotRequest.TrackTargets, laid from the rocket's own pad: uprange is the bearing from the lead back to it.
+    private void LayTheTrack(IcbmComputer computer, Celestial parent, double leadLat, double leadLon)
+    {
+        if (!KsaWorld.TryLatitudeLongitude(KsaWorld.PositionEcl(computer.Craft), out _, out double padLat,
+                                           out double padLon))
+        {
+            _say("could not read where this rocket stands, so no track was laid; it flies to the first target alone");
+            return;
+        }
+
+        double bearing = AimSpread.BearingDeg(leadLat, leadLon, padLat, padLon) + (_shot.TrackAcross ? 90.0 : 0.0);
+
+        for (int i = 1; i <= _shot.TrackTargets; i++)
+        {
+            var at = AimSpread.Along(leadLat, leadLon, bearing, i * _shot.TrackSpacingMetres, parent.MeanRadius);
+            if (computer.AddTarget(new AimSite(parent.Id, at.LatitudeDeg, at.LongitudeDeg, $"scenario target {i + 1}")))
+            {
+                continue;
+            }
+
+            _say($"target {i + 1} was refused; this flight goes to {computer.Targets.Count} place(s) "
+                 + "and the rest are scored as never released");
+            break;
+        }
+
+        computer.BalanceTargets();
+
+        _say($"{computer.DescribeTargets()}; laid {(_shot.TrackAcross ? "across" : "along")} the track "
+             + $"{_shot.TrackSpacingMetres / 1000.0:F0} km apart on a bearing of {bearing % 360.0:F1} deg from the "
+             + $"pad at {padLat:F3},{padLon:F3}; the booster flies to target {computer.LeadTarget + 1}, "
              + string.Join(", ", TargetLines(computer)));
     }
 

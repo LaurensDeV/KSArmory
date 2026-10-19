@@ -25,10 +25,20 @@ namespace KSArmory;
 /// target — and <see cref="Targets"/> is what a caller reads so
 /// that the single-target case needs no special handling anywhere.
 /// </param>
+/// <param name="TrackTargets">
+/// How many more targets the scenario lays out from the first, <see cref="TrackSpacingMetres"/> apart: uprange along
+/// the great circle to the launch site, or square to it under <see cref="TrackAcross"/>. Placed in the game, where the
+/// pad is known; the Earth turning under the flight bends the real ground track off that circle.
+/// </param>
 internal readonly record struct ShotRequest(double LatitudeDeg, double LongitudeDeg, double BarMetres,
                                             bool AimWasGiven = false,
-                                            IReadOnlyList<ShotRequest.Aim>? Extra = null)
+                                            IReadOnlyList<ShotRequest.Aim>? Extra = null,
+                                            int TrackTargets = 0, double TrackSpacingMetres = 0.0,
+                                            bool TrackAcross = false)
 {
+    /// <summary>Every target this shot will have, the ones laid along the track included.</summary>
+    public int TargetCount => Targets.Count + (Targets.Count > 0 ? Math.Max(0, TrackTargets) : 0);
+
     /// <summary>One named place, as the request carries it.</summary>
     internal readonly record struct Aim(double LatitudeDeg, double LongitudeDeg);
 
@@ -101,6 +111,38 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
     /// that refuses a request has to say which half of it was wrong, or the next attempt is a
     /// guess.
     /// </param>
+    /// <summary>
+    /// <c>track:6x100</c> -- six more targets 100 km apart uprange of the first -- or <c>across:6x100</c>, square to it.
+    /// False with no trouble for a segment that is not one at all.
+    /// </summary>
+    private static bool TryTrack(string segment, out int count, out double spacingMetres, out bool across,
+                                 out string trouble)
+    {
+        count = 0;
+        spacingMetres = 0.0;
+        trouble = "";
+        string s = segment.Trim();
+        across = s.StartsWith("across:", StringComparison.OrdinalIgnoreCase);
+        if (!across && !s.StartsWith("track:", StringComparison.OrdinalIgnoreCase)) return false;
+
+        string[] parts = s[(s.IndexOf(':') + 1)..].Split('x', 'X');
+        if (parts.Length != 2
+            || !int.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Integer,
+                             System.Globalization.CultureInfo.InvariantCulture, out count)
+            || !double.TryParse(parts[1].Trim(), System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out double km)
+            || count < 1 || !(km > 0.0) || !double.IsFinite(km))
+        {
+            trouble = $"expected {(across ? "across" : "track")}:<count>x<km> with a count of one or more and a "
+                      + $"positive spacing, got '{s}'";
+            count = 0;
+            return false;
+        }
+
+        spacingMetres = km * 1000.0;
+        return true;
+    }
+
     public static bool TryParse(string? arguments, out ShotRequest shot, out string trouble)
     {
         shot = Default;
@@ -112,6 +154,39 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
         // request's form -- so one segment parses down the single-target path and cannot behave
         // differently.
         string[] segments = arguments.Split(';', StringSplitOptions.RemoveEmptyEntries);
+
+        string trackTrouble = "";
+        if (segments.Length >= 2 && TryTrack(segments[1], out int count, out double spacing, out bool across,
+                                              out trackTrouble))
+        {
+            if (segments.Length > 2)
+            {
+                trouble = "a track is the first target and one track:<count>x<km>, nothing after it";
+                return false;
+            }
+
+            if (!TryParse(segments[0], out ShotRequest lead, out trouble)) return false;
+            if (!lead.AimWasGiven)
+            {
+                trouble = "a track needs the first target as <lat>,<lon>";
+                return false;
+            }
+
+            if (1 + count > TargetSet.MaxTargets)
+            {
+                trouble = $"no bus carries more than {TargetSet.MaxTargets} warheads; a track of {count} after the "
+                          + $"first is {1 + count} places";
+                return false;
+            }
+
+            shot = lead with { TrackTargets = count, TrackSpacingMetres = spacing, TrackAcross = across };
+            return true;
+        }
+        else if (trackTrouble.Length > 0)
+        {
+            trouble = trackTrouble;
+            return false;
+        }
 
         if (segments.Length > 1)
         {
