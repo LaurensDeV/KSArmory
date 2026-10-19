@@ -324,7 +324,20 @@ Headless, behind a flag. Per branch:
   behind its flags, and defect 2 behind its own. What is left is flown: step 6, with all five flags on. Then re-price C
   at the post-boost bus's 6,181 km, where its coast binds.
 - **B**: step 2's profile plus the post-boost bus's budget and acceleration; nothing else new.
-- **C**: first the engine risks below, then:
+- **C**: re-priced 2026-10-19 in the rig as an upper bound: the post-boost bus at 6,181 km with A and
+  `HopsResolveAfterTheirBurn`, its hops pushed at 1.8 m/s² for the 6.8 kN engine on 3.8 t, no turn onto a hop's line
+  or back onto the entry line, the rig's own hop overhead. Seven targets, every stop under 1 mm:
+
+  | Spacing | Nozzles | Engine-rate hops | ...costed along the hop, not per axis |
+  | --- | --- | --- | --- |
+  | 50 km | 7, 246 kg | 7, 228 kg | 7, 175 kg |
+  | 75 km | 5, the coast binds | 7, 342 kg | 7, 264 kg |
+  | 100 km | 4, the coast binds | 7, 456 kg; 6 on the honest plan | 7, 355 kg |
+  | 150 km | 3 | 5 of 7, curtailed | 6 of 7, curtailed; 5 on the honest plan |
+
+  So at 6,181 km C moves the post-boost bus from five stops at 75 km to seven at 75-100 km, where the tank binds
+  instead of the coast. It is worth building, and the turn each way per hop is the first thing its price leaves out.
+  First the engine risks below, then:
   - `Sim/HopBurn.cs` only if step 4 said open-loop leaves more than a pass: point (`BusTurn`, capped), burn re-solving
     every ~0.25 s with `BurnoutGuidance.TrySteer` **from the current position** (a ~90 m/s burn at ~1.8 m/s² carries the
     bus ~2 km off the hand-over reference and `BusTrim` nulls velocity only), stop by its own rule leaving ~1 m/s for
