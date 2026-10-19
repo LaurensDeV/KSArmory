@@ -19,16 +19,16 @@ internal static class LaserBeams
     // One beam is cut into this many pieces, so its width can follow the perspective along it.
     private const int Pieces = 48;
 
-    // The drawn radius where the beam leaves the 1.5 m telescope, and the least it narrows to.
-    // The COIL's 1.315 um is invisible; this is drawn for the operator, and drawn large.
-    private const double ExitRadiusMetres = 0.75;
-    private const double LeastRadiusMetres = 0.35;
+    // The drawn radius at the window and the least it narrows to. The COIL's 1.315 um is invisible;
+    // this is drawn for the operator, as a rod rather than the telescope's full 1.5 m.
+    private const double ExitRadiusMetres = 0.20;
+    private const double LeastRadiusMetres = 0.08;
 
     // A little over a tracer's 24, so it blooms over a daylit sky without whiting out.
     private const double Radiance = 32.0;
 
-    // A half-width past this many pixels is no wider on screen, and only costs the tiles it reaches.
-    private const double WidestHalfPixels = 300.0;
+    // Past this a beam passing the eye fills the picture, and its halo five times over.
+    private const double WidestHalfPixels = 24.0;
 
     private const double NearestW = 0.05;
     private const double StaleSeconds = 0.5;
@@ -84,20 +84,25 @@ internal static class LaserBeams
 
                 double4 h = camera.EgoToClipDouble(a);
                 double4 t = camera.EgoToClipDouble(b);
+
+                // Width is measured at whichever end is in front of the eye, before clipping moves it.
+                double3 at = h.W > NearestW ? a : b;
+                double4 centre = h.W > NearestW ? h : t;
                 if (!TracerLook.TryClipToFront(ref h, ref t, NearestW)) continue;
 
                 double radius = ExitRadiusMetres + ((LeastRadiusMetres - ExitRadiusMetres) * s0);
 
                 // Square to the beam and to the line of sight, so the width read off it is the one seen.
-                double3 across = Vec.Cross(to - from, a);
-                across = Vec.Len2(across) > 1e-12 ? Vec.Unit(across) : Vec.Unit(Vec.AnyPerpendicular(a));
-                double4 side = camera.EgoToClipDouble(a + (across * radius));
+                double3 across = Vec.Cross(to - from, at);
+                across = Vec.Len2(across) > 1e-12 ? Vec.Unit(across) : Vec.Unit(Vec.AnyPerpendicular(at));
+                double4 side = camera.EgoToClipDouble(at + (across * radius));
                 if (!(side.W > NearestW)) continue;
 
                 (double hx, double hy) = Pixel(h, width, height);
                 (double tx, double ty) = Pixel(t, width, height);
+                (double cx, double cy) = Pixel(centre, width, height);
                 (double sx, double sy) = Pixel(side, width, height);
-                double half = Math.Clamp(Math.Sqrt(((sx - hx) * (sx - hx)) + ((sy - hy) * (sy - hy))), 0.75,
+                double half = Math.Clamp(Math.Sqrt(((sx - cx) * (sx - cx)) + ((sy - cy) * (sy - cy))), 0.75,
                                          WidestHalfPixels);
                 if (!double.IsFinite(hx + hy + tx + ty + half)) continue;
 

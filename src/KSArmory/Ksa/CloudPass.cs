@@ -1675,9 +1675,8 @@ internal static class CloudPass
         return drew;
     }
 
-    // A beam's green. The halo spreads five half-widths, so its share is kept low: on a beam a few
-    // hundred pixels wide near the eye, more would wash the whole picture.
-    private static readonly float4 BeamColour = new(0.25f, 1.0f, 0.35f, 0.2f);
+    // A beam's green. The halo spreads five half-widths, so its share is kept low.
+    private static readonly float4 BeamColour = new(0.25f, 1.0f, 0.35f, 0.1f);
 
     // No grey rounds, and a w of one: the shader then keeps a segment's whole brightness to its tail.
     private static readonly float4 BeamUniform = new(0f, 0f, 0f, 1f);

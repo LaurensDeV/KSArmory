@@ -2117,7 +2117,7 @@ and `validate-parts.py`; the C# is the LITENING's profile with other numbers.
 - [ ] It parks with the window **sideways** (the mount's normal), not hidden. The real one stows
       the window behind the shell; nothing models a stow.
 - [ ] `SlewRateDeg = 30` is a guess, not a published number.
-- [ ] **Fire beam** draws a wide green column of light from the window to the spot, blooming and
+- [ ] **Fire beam** draws a green rod of light from the window to the spot, blooming and
       hidden behind terrain (the tracer pass); with the pass off, a thin orange gizmo line. The line beside the
       button counts the magazine down from 100 s only while firing, and not while paused.
 - [ ] Held on a craft, the line says `burning <part>` with its health falling; at the end that part
