@@ -102,8 +102,9 @@ internal sealed partial class IcbmComputer
 
     // Only for the craft being flown, only out to a margin short of what is coming, and never while
     // ANY flight in the world is being integrated -- NeedsShortSteps covers the burn and the trim,
-    // and WarpPolicy cannot slow the world at all while an auto-warp is running, so a warp started
-    // over the top of one is a warp nothing can rein in.
+    // _roundsInFlight every round in the air, its own warheads among them -- and WarpPolicy cannot slow
+    // the world at all while an auto-warp is running, so a warp started over the top of one is a warp
+    // nothing can rein in.
     //
     // Every flight, not this one. There is one world and one clock: a computer that checks only
     // itself hands the clock away while seven other rockets are still burning, and their longest
@@ -113,6 +114,7 @@ internal sealed partial class IcbmComputer
         => !KsaWorld.IsAutoWarpActive
         && !NeedsShortSteps
         && !AnythingElseNeedsShortSteps
+        && !_roundsInFlight
         && ReferenceEquals(Craft, KsaWorld.ControlledVehicle)
         && double.IsFinite(SecondsToTheNextThingThatMatters)
         && SecondsToTheNextThingThatMatters > IcbmProgram.WarpHoldLeadSeconds * 2.0;
@@ -184,6 +186,19 @@ internal sealed partial class IcbmComputer
         if (Config.WarpTheCoast && !_warpIsOurs && CanWarpTheCoast) TryWarpTheCoast();
 
         if (!_warpIsOurs) return;
+
+        // A round launched under the warp, its own or anyone's, is stepped at whatever rate KSA picked.
+        if (_roundsInFlight)
+        {
+            if (KsaWorld.IsAutoWarpActive)
+            {
+                Log.Info($"stopping the warp on {KsaWorld.DisplayName(Craft)}, rounds are in the air");
+                KsaWorld.StopAutoWarp();
+            }
+
+            _warpIsOurs = false;
+            return;
+        }
 
         if (!double.IsFinite(SecondsToTheNextThingThatMatters))
         {

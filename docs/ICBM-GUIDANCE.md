@@ -915,9 +915,14 @@ coast at 100x and takes a release probe's own miss from **50 m to 520**, with th
 harness reads the same constant, because the number and its measurement drifting apart across two
 files is exactly what it is there to stop.
 
-**It never starts while `NeedsShortSteps` is true** — the burn and the trim — which matters more
+**It never starts while `NeedsShortSteps` is true** — the burn and the trim, on any computer —
+**or while any round is in the air**, and a warp of its own stops when one appears. That matters more
 than it looks: `WarpPolicy` cannot slow the world at all while an auto-warp is running, so a warp
-begun over the top of one is a warp nothing can rein in.
+begun over the top of one is a warp nothing can rein in. Flown 2026-10-19 without the round check, on
+`PBB SCALE 8`: a bus whose walk had dropped two targets still had its plain gate to wait for, warped
+to it with every released warhead falling, and the world reached 56x against a warhead's 0.32 s step.
+Each frame's excess was discarded, the warheads lagged the world, and within a second every one was
+predicted thousands of kilometres off; nothing landed on a target.
 
 ### Automatic only if somebody said so
 

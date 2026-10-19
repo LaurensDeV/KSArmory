@@ -32,6 +32,9 @@ internal sealed partial class IcbmComputer
     // steps. Empty when nobody handed one in, which is every path but the roster's.
     private IReadOnlyList<IcbmComputer> _busyElsewhere = [];
 
+    // Whether any round in the world is in the air, which WarpPolicy has to be able to hold the world down for.
+    private bool _roundsInFlight;
+
     // Simulated seconds since the aim was last read. The reading cadence is gated by _measureDue
     // rather than by PredictIntervalSeconds, so it is not the half-second the interval nominally is
     // and every rate quoted per reading needs it.
@@ -795,7 +798,8 @@ internal sealed partial class IcbmComputer
     /// </param>
     public void Update(double simStep, double playerStep, IManualFire? release,
                        bool traceWarhead = false,
-                       IReadOnlyList<IcbmComputer>? busyElsewhere = null)
+                       IReadOnlyList<IcbmComputer>? busyElsewhere = null,
+                       bool roundsInFlight = false)
     {
         _release = release;
 
@@ -821,6 +825,7 @@ internal sealed partial class IcbmComputer
         }
 
         _busyElsewhere = busyElsewhere ?? [];
+        _roundsInFlight = roundsInFlight;
         _traceWanted = traceWarhead;
 
         // What the prediction is of. The bus cuts off above the air; the warheads it drops fly all

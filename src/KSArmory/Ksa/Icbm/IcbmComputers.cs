@@ -188,10 +188,12 @@ internal sealed class IcbmComputers(Config session)
             if (computer.NeedsShortSteps) _busy.Add(computer);
         }
 
+        weapons.FaithfulStep(out bool roundsInFlight);
+
         foreach (IcbmComputer computer in _computers.Values)
         {
             computer.Update(simStep, playerStep, weapons.GuidedFrom(computer.Craft)?.Weapon, traceWarhead,
-                            _busy);
+                            _busy, roundsInFlight);
         }
     }
 
