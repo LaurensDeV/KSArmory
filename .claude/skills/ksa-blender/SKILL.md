@@ -77,7 +77,9 @@ check a barrel points +Y before trusting any fit against it.
 **A boolean leaves two things behind.** The cutters' empty material slots, which a bake then trips
 over (`'NoneType' object has no attribute 'node_tree'`), and n-gons with collinear vertices along
 every cut edge, which triangulate into slivers of zero UV area. Reset the slots after applying, and
-triangulate the n-gons with `ngon_method="BEAUTY"` then `beautify_fill` before unwrapping.
+triangulate the n-gons with `ngon_method="BEAUTY"` before unwrapping. **Not `beautify_fill`** on the
+result: it flips edges as if the faces were flat, and across a sharp cut rim it builds faces that
+bridge the wall — on the YAL-1 shell, four square notches in the slot edge that every checker passed.
 
 **Check clearance against edges, never vertices.** A cylinder has vertices only at its ends, so a
 mast passing through a radar's sweep has none in the sweep's height band and a vertex test calls it
