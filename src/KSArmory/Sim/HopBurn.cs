@@ -23,21 +23,17 @@ internal sealed class HopBurn
     public const double ResolveEverySeconds = 2.0;
 
     /// <summary>
-    /// What turning onto a hop and back adds to its slot (s): twice the 9.0 s the post-boost bus took to settle a 164 deg
-    /// turn onto the entry airflow, every one of 48 flown on 2026-10-17 and 18, after <see cref="ClearSeconds"/>.
+    /// What an engine hop adds to its slot past <see cref="ReleaseItinerary.HopOverheadSeconds"/> and its burn (s): the
+    /// wait to clear, the two turns and the re-solve. The upper quartile of the time between releases less the burn is
+    /// 68.4 s over 86 engine hops flown at 12,902 km on 2026-10-19 (median 55.6), for the same reason that overhead is.
     /// </summary>
-    public const double TurnsSeconds = ClearSeconds + 18.0;
+    public const double TurnsSeconds = 27.0;
 
     /// <summary>
     /// How far the warhead just released must be from the bus before it turns (m): twice the 4.4 m its other warheads
     /// sweep about its centre -- tubes 2.64 m up the axis and a 1.8 m Mk 21 -- so the turn cannot carry them through it.
     /// </summary>
     public const double ClearMetres = 10.0;
-
-    /// <summary>
-    /// What waiting for <see cref="ClearMetres"/> adds to a hop's slot (s), at the Mk 21's 0.5 m/s separation kick.
-    /// </summary>
-    public const double ClearSeconds = 20.0;
 
     /// <summary>The longest either turn may take before the engine is given up on or the line is held where it got.</summary>
     public const double TurnCapSeconds = 60.0;
