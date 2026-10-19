@@ -73,6 +73,9 @@ internal sealed partial class IcbmComputer
                          ? Math.Max(0.0, Command.SecondsToCutoff)
                          : 0.0;
 
+        // Read before the coast to the release: carried there, the pad's arc leaves the air and passes the gate.
+        bool departureIsWorthObserving = AimCorrection.DepartureIsWorthObserving(DensityRatioAt(fromCci));
+
         double coasted = 0.0;
         if (Config.KickAtTheRelease)
         {
@@ -166,7 +169,7 @@ internal sealed partial class IcbmComputer
             // correction the trim has flown, `_trim.Done` rather than `!TrimIsFiring`, which an interlock re-closing lets
             // through mid-flight (ACCURACY-PLAN.md 3cl).
             if (Config.CorrectAim && state.HasAim && !TrimIsFiring
-                && AimCorrection.DepartureIsWorthObserving(DensityRatioAt(fromCci))
+                && departureIsWorthObserving
                 && (Program.IsBurning || (_measureDue && _trim.Done))
                 && !AimWaitsForTheSolids(state)
                 && !(Program.IsBurning && Program.AimSitsOutTheBurn))
