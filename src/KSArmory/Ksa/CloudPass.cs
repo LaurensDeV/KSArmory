@@ -157,7 +157,9 @@ internal static class CloudPass
         public ComputePipelineWrapper? Holes;
         public ComputePipelineWrapper? Leaks;
         public ComputePipelineWrapper? Tracers;
-        public ComputePipelineWrapper? Beams;
+        // One beam pipeline per weather image pair it was built against, as the clouds keep theirs.
+        public readonly List<(RenderImage? Colour, RenderImage? Distance, ComputePipelineWrapper Pipeline)>
+            Beams = [];
         public ComputePipelineWrapper? FireLight;
         public VkImageView FireLightDepth;
         public VkImageView FireLightNormal;
@@ -1731,7 +1733,36 @@ internal static class CloudPass
     {
         int count = LaserBeams.Count;
         if (count == 0) return false;
-        if (view.Beams is null && !BuildBeams(view, depth)) return false;
+
+        // KSA's weather images for the main view, read as the cloud pass reads them: into a layout a
+        // compute shader may sample through KSA's own tracked state, and stand-ins with none.
+        RenderImage? weatherColour = null, weatherDistance = null;
+        bool weather = ReferenceEquals(viewport, Program.MainViewport)
+                       && KsaWorld.TryWeatherClouds(out weatherColour, out weatherDistance)
+                       && weatherColour is not null && weatherDistance is not null;
+        if (!weather) weatherColour = weatherDistance = null;
+
+        ComputePipelineWrapper? pipeline = null;
+        foreach ((RenderImage? c, RenderImage? d, ComputePipelineWrapper p) in view.Beams)
+        {
+            if (ReferenceEquals(c, weatherColour) && ReferenceEquals(d, weatherDistance)) pipeline = p;
+        }
+
+        if (pipeline is null)
+        {
+            if (!BuildBeams(view, depth, weatherColour, weatherDistance, out pipeline)) return false;
+            if (view.Beams.Count >= MostPipelines) view.Beams.RemoveAt(0);
+            view.Beams.Add((weatherColour, weatherDistance, pipeline));
+        }
+
+        if (weather)
+        {
+            Span<VkImageMemoryBarrier2> two = stackalloc VkImageMemoryBarrier2[2];
+            BarrierBatch toSample = new(two);
+            toSample.Add(weatherColour!, ImageBarrierInfo.Presets.SampledReadC);
+            toSample.Add(weatherDistance!, ImageBarrierInfo.Presets.SampledReadC);
+            toSample.SubmitAndFlush(commandBuffer);
+        }
 
         LaserBeams.MarkPainted();
         bool drew = false;
@@ -1750,7 +1781,7 @@ internal static class CloudPass
                 A = new float4((float)from.X, (float)from.Y, (float)from.Z, (float)BeamExitRadius),
                 B = new float4((float)to.X, (float)to.Y, (float)to.Z,
                                (float)(burning ? -BeamFarRadius : BeamFarRadius)),
-                Strength = new float4(BeamLineStrength, BeamGlowShare, BeamImpact,
+                Strength = new float4(BeamLineStrength, weather ? BeamGlowShare : -BeamGlowShare, BeamImpact,
                                       (float)(BeamMuzzle * Math.Clamp(airA, 0.0, 1.0))),
                 Tile = new float4(tile.OriginX, tile.OriginY, (float)airA, (float)(open ? -Math.Max(airB, 1e-7) : airB)),
             };
@@ -1759,7 +1790,7 @@ internal static class CloudPass
             using (commandBuffer.TagRegion(BeamsTag))
             {
                 Hazard(commandBuffer);
-                view.Beams!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+                pipeline.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
                 commandBuffer.Dispatch(tile.GroupsX, tile.GroupsY, 1);
             }
 
@@ -1805,8 +1836,10 @@ internal static class CloudPass
         return x1 <= x0 || y1 <= y0 ? default : new Tile(x0, y0, (x1 - x0 + Group - 1) / Group, (y1 - y0 + Group - 1) / Group);
     }
 
-    private static bool BuildBeams(View view, IRenderImage depth)
+    private static bool BuildBeams(View view, IRenderImage depth, RenderImage? weatherColour,
+                                   RenderImage? weatherDistance, out ComputePipelineWrapper? pipeline)
     {
+        pipeline = null;
         if (!ModLibrary.TryGet<ShaderReference>(BeamShaderId, out var shader) || shader is null)
         {
             Warn($"no shader '{BeamShaderId}'; beams are drawn as lines");
@@ -1824,8 +1857,16 @@ internal static class CloudPass
             },
         ];
 
-        view.Beams = new ComputePipelineWrapper(
-            [view.Target], [depth], default, default, shader,
+        // With no weather a descriptor still cannot be left empty: the pass's own distance layer stands
+        // in, as it does for the clouds, and the push says not to read it.
+        IRenderImage[] weatherImages =
+        [
+            (IRenderImage?)weatherColour ?? view.LayerDistance,
+            (IRenderImage?)weatherDistance ?? view.LayerDistance,
+        ];
+
+        pipeline = new ComputePipelineWrapper(
+            [view.Target], [depth], weatherImages, default, shader,
             default, ranges, renderer.MaxFramesInFlight, renderer,
             "KSArmory.Beams", Program.PointClampedSampler, Program.LinearClampedSampler);
 

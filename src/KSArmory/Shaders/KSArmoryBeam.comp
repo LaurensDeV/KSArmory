@@ -6,22 +6,31 @@
 // energy, so a far beam thins to a thread instead of vanishing. One dispatch per beam from
 // CloudPass, over its own patch of screen. Derivation: docs/BEAM-RENDERING.md.
 //
-// It reads nothing but its push constants, the scene and the depth: a bad index into anything else
-// hangs the GPU, which on a driver that cannot reset it is a blue screen.
+// It reads its push constants, the scene, the depth and KSA's own weather images, all bound by the
+// pipeline, and indexes nothing: a bad index hangs the GPU, which on a driver that cannot reset it is
+// a blue screen. What lies behind a cloud is dimmed by the cloud's transmittance, since the clouds
+// write no depth; the cloud hides the beam but does not stop it (docs/BEAM-RENDERING.md).
 //
-// Bindings follow ComputePipelineWrapper's order: the storage image, then the depth it samples.
+// Bindings follow ComputePipelineWrapper's order: the storage image, the depth it samples, then the
+// weather's light and distance images -- stand-ins when there is no weather, which Strength.y says.
 
 layout (local_size_x = 8, local_size_y = 8) in;
 
 layout (set = 1, binding = 0, Rgba16f) uniform image2D sceneColor;
 layout (set = 1, binding = 1) uniform sampler2D sceneDepth;
 
+// KSA's weather as the cloud renderer drew it for the main view, at its low resolution: transmittance
+// in the light's alpha, and each pixel's cloud distance in kilometres. KSArmoryCloud.comp reads the same.
+layout (set = 1, binding = 2) uniform sampler2D weatherColor;
+layout (set = 1, binding = 3) uniform sampler2D weatherDistance;
+
 layout (push_constant) uniform PushConstants
 {
     mat4 InvViewProj;  // clip -> camera-relative world
     vec4 A;            // the beam's start, camera-relative, and its core radius there
     vec4 B;            // its end, and its core radius there -- negative while it burns what it is on
-    vec4 Strength;     // the line's brightness across its width, the glow's share, the impact's, the muzzle's
+    vec4 Strength;     // the line's brightness across its width, the glow's share -- negative with no
+                       // weather bound -- the impact's, the muzzle's
     vec4 Tile;         // the tile's first pixel, and the air density ratio at the start and the end --
                        // the end's negative when the beam meets nothing and fades out instead
 } pc;
@@ -60,6 +69,10 @@ const float ExtinctionPerMetre = 2.0e-5;
 
 // A beam that meets nothing fades over this share of its length rather than stopping.
 const float OpenEndShare = 0.15;
+
+// KSA's cloud opacity is drawn to look right over a sky, not to stop a megawatt beam: a cumulus is tens
+// of optical depths. Its transmittance raised to this keeps haze a haze and puts a deck's beam out.
+const float CloudOpticalDepths = 8.0;
 
 vec3 WorldAt(vec2 uv, float deviceZ)
 {
@@ -145,6 +158,19 @@ void main()
     float deviceZ = texelFetch(sceneDepth, at, 0).r;
     float tMax = deviceZ > 0.0 ? length(WorldAt(uv, deviceZ)) : 3.0e38;
 
+    // Where this pixel's cloud is and how much it lets through; past it, light is dimmed by that much.
+    float tCloud = 3.0e38, clear = 1.0;
+    if (pc.Strength.y >= 0.0)
+    {
+        float cloudKm = textureLod(weatherDistance, uv, 0.0).r;
+        float through = clamp(textureLod(weatherColor, uv, 0.0).a, 0.0, 1.0);
+        if (cloudKm > 0.0 && through < 0.999)
+        {
+            tCloud = cloudKm * 1000.0;
+            clear = pow(through, CloudOpticalDepths);
+        }
+    }
+
     vec3 a = pc.A.xyz;
     vec3 axis = pc.B.xyz - a;
     float len = length(axis);
@@ -182,15 +208,22 @@ void main()
         float w = mix(pc.A.w, abs(pc.B.w), clamp(u0 / len, 0.0, 1.0));
 
         float strength = pc.Strength.x * Phase(-c) * AlongBeam(clamp(u0, 0.0, len), len);
-        light += CoreColour * strength * Tube(max(w, least), h, s, t0, ta, tb);
-        light += GlowColour * strength * pc.Strength.y * Tube(max(w * GlowWidths, least), h, s, t0, ta, tb);
+        float wCore = max(w, least), wGlow = max(w * GlowWidths, least);
+        float glowShare = abs(pc.Strength.y);
+
+        // In front of the cloud whole; behind it, by what it lets through.
+        float tSplit = clamp(tCloud, ta, tb);
+        light += CoreColour * strength * (Tube(wCore, h, s, t0, ta, tSplit)
+                                          + clear * Tube(wCore, h, s, t0, tSplit, tb));
+        light += GlowColour * strength * glowShare * (Tube(wGlow, h, s, t0, ta, tSplit)
+                                                      + clear * Tube(wGlow, h, s, t0, tSplit, tb));
     }
 
-    light += GlowColour * pc.Strength.w
+    light += GlowColour * pc.Strength.w * (length(pc.A.xyz) > tCloud ? clear : 1.0)
              * Ball(dir, pc.A.xyz, MuzzleWidths * pc.A.w, LeastPixels * length(pc.A.xyz) * pixelAngle, tMax);
     if (pc.B.w < 0.0)
     {
-        light += ImpactColour * pc.Strength.z
+        light += ImpactColour * pc.Strength.z * (length(pc.B.xyz) > tCloud ? clear : 1.0)
                  * Ball(dir, pc.B.xyz, ImpactMetres, LeastPixels * length(pc.B.xyz) * pixelAngle, tMax);
     }
 
