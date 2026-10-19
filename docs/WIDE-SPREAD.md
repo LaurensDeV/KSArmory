@@ -223,6 +223,56 @@ Headless, behind a flag. Per branch:
 
 - **A** (chosen): free the arrival per stop through the five assumptions, each with a rig test that fails against the
   pinned form, and the walk's landing per warhead held against the pinned walk's at a spacing both fly.
+
+  **Built 2026-10-19, rig only, not passed.** Behind `IcbmConfig.HopsFreeTheirArrival`, off: a hop calls
+  `IcbmProgram.FreeTheHopArrival`, which on the next coast frame commits `TryCommitTheCheapestArrival` and falls back
+  to the pinned `ResolveCoastArc`; the reach is flown free-clock and priced per axis on the minimum-norm solve
+  (`DivertFootprint.TryAxisPrice(..., ArrivalClock.Free)`); and a slot keeps `(s/T)^1.2` of the measured reach
+  (`ReleaseItinerary.FreeSlotExponent`: the free along-track reach never fell faster than `(s/T)^1.156` over 4,549
+  pairs of epochs across 54 arcs, cross-track never faster than linear). The passes after a hop still re-solve pinned
+  to the hop's new arrival, which is the intent. `PastCutoffRig` mirrors all of it.
+
+  Measured in the rig, both buses on their own tanks (Heavy 134.3 kg, post-boost 500 kg), budget 1,000 so only the tank
+  bounds it, every walk flag on, targets laid uprange of each other along the track. Every free walk lands under 1 mm
+  but one (defect 2); the tank never runs dry, and every curtailment is `BeyondTheBudget` against the tank. Widest
+  spacing walked in full, every stop under a centimetre:
+
+  | Bus, range | Free | Pinned |
+  | --- | --- | --- |
+  | Heavy, 6,181 km, 6 targets | 40 km | 16 km |
+  | Heavy, 12,902 km, 6 targets | 60 km | 25 km |
+  | Post-boost, 6,181 km, 7 targets | 50 km | 3 stops at 50 km |
+  | Post-boost, 12,902 km, 7 targets | 100 km | 50 km |
+
+  A free hop costs 2-2.5x less than a pinned one, and at 12,902 km flies at or under its price.
+  `WideSpreadRigTests.AFreeArrivalWalksEveryStopWhereThePinnedOneFallsShort` pins the first, second and fourth rows:
+  at those spacings the pinned walk stops at 2, 2 and 4. The arrival moves 3-62 s earlier per hop.
+
+  These numbers are after `faf487e5`: the rig held the stack keep-out on after the first release, which the game does
+  not, and that was the cause of every kilometre-scale free miss seen before it.
+
+  **Two defects keep the step from passing:**
+
+  1. **The plan goes stale after a turning split**, in the game and the rig alike (`IcbmComputer.Reach.cs`,
+     `mayReplan`). Once a turning bus has split, only a plan with the same number of stops replaces the walker's; when
+     the re-priced one has fewer, the walker keeps the plan made before the split and turn, priced on the pre-turn nose
+     (axis-sum factor about 1.07 against the 1.47 flown). Free hops at 6,181 km then fly 1.3-1.6x the walker's price
+     but within ~5% of the fresh one: Heavy 6,181 km at 25 km, the fresh plan prices hop 1 at 14.7 (flown 15.0), the
+     walker held 10.4. Letting a smaller plan replace it after the split was tried and reverted. It is safe, since a
+     shrinking plan never moves the first release earlier, and the prices became honest, but walks got **shorter**
+     (Heavy 6,181 km at 60 km: 4 stops to 2, 46 kg used), because the planner values the tank at the bus's full mass:
+     88 m/s at the split against 128 by the later hops once warheads have gone. The fix: price the tank stop by stop in
+     kg as each release lightens the bus (an RV is 250 kg), then retry the shrink rule behind a research flag, the
+     predicate in `Sim/ReleaseLoop.cs` so the game and the rig share it.
+  2. **Post-boost 6,181 km, two targets 300 km apart: stop 2 lands 24.8 km out.** The hop flew at its real cost
+     (178 m/s by the first pass), then the aim bias ran away to 23.7 km over three passes and the next correction
+     wanted 48 m/s, past the 32 m/s one pass may spend. Not pricing: the fresh plan says one stop fits, so fixing
+     defect 1 avoids this cell, but the non-convergence is not understood. Suspect a shallow or drag-sensitive
+     cheapest arc: `TryCommitTheCheapestArrival` passes no `minArrivalDeg`, and the sweep runs at
+     `MinArrivalAngleDeg` 0.
+
+  Pass for A: flown hops at or under their price and every stop under a centimetre, so both defects first. Then
+  re-price C at the post-boost bus's 6,181 km, where its coast binds.
 - **B**: step 2's profile plus the post-boost bus's budget and acceleration; nothing else new.
 - **C**: first the engine risks below, then:
   - `Sim/HopBurn.cs` only if step 4 said open-loop leaves more than a pass: point (`BusTurn`, capped), burn re-solving

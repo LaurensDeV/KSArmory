@@ -157,7 +157,8 @@ internal sealed partial class IcbmComputer
 
         // Re-solved to the same committed arrival, which is what makes a hop a hop rather than a
         // new shot: every warhead of the walk arrives at one instant however far apart they land.
-        Program.CorrectCoastArc();
+        if (Config.HopsFreeTheirArrival) Program.FreeTheHopArrival();
+        else Program.CorrectCoastArc();
 
         // Resume, never Reset: Reset zeroes SpentMetresPerSecond and hands the whole budget back,
         // so a six-stop walk would price every hop as if it were the first.

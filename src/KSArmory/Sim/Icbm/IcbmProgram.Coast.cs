@@ -18,6 +18,14 @@ internal sealed partial class IcbmProgram
     /// </summary>
     public void CorrectCoastArc() => _resolveCoastArc = true;
 
+    /// <summary>
+    /// Ask for the next coast frame to commit the cheapest arc to the aim, moving the arrival, and the pinned one
+    /// where that is not cheaper: a hop under <see cref="IcbmConfig.HopsFreeTheirArrival"/>.
+    /// </summary>
+    public void FreeTheHopArrival() => _freeHopArrival = true;
+
+    private bool _freeHopArrival;
+
     private void ResolveCoastArc(in IcbmState state)
     {
         double remaining = CommittedArrivalFromNow;
@@ -82,6 +90,13 @@ internal sealed partial class IcbmProgram
 
     private IcbmCommand Coasting(in IcbmState state)
     {
+        if (_freeHopArrival)
+        {
+            _freeHopArrival = false;
+            _resolveCoastArc = false;
+            if (!TryCommitTheCheapestArrival(state)) ResolveCoastArc(state);
+        }
+
         if (_resolveCoastArc)
         {
             _resolveCoastArc = false;

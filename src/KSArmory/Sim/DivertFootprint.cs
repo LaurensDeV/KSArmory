@@ -283,10 +283,12 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
     /// </summary>
     /// <remarks>
     /// Pinned, a divert is the exactly-determined 3x3 the trim solves — the two ground rows and the clock — so
-    /// each column of its inverse is a cross product of the other two rows over the determinant.
+    /// each column of its inverse is a cross product of the other two rows over the determinant. Free, it is the
+    /// minimum-norm answer to the two ground rows alone, which is the velocity the cheapest arc asks for.
     /// </remarks>
     public static bool TryAxisPrice(BallisticBody body, ReleaseFocus.FlownSensitivity flown, double3 noseCci,
-                                    double3 rightCci, double3 downCci, out AxisPrice price)
+                                    double3 rightCci, double3 downCci, out AxisPrice price,
+                                    ArrivalClock clock = ArrivalClock.Pinned)
     {
         price = default;
 
@@ -299,13 +301,26 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
                             Vec.Dot(flown.VelocityZ, frame.Downrange));
         double3 cross = new(Vec.Dot(flown.VelocityX, frame.Cross), Vec.Dot(flown.VelocityY, frame.Cross),
                             Vec.Dot(flown.VelocityZ, frame.Cross));
-        double3 clock = flown.ArrivalSecondsPerMetrePerSecond;
+        double3 perAlong, perAcross;
+        if (clock == ArrivalClock.Free)
+        {
+            double aa = Vec.Dot(along, along), ac = Vec.Dot(along, cross), cc = Vec.Dot(cross, cross);
+            double gram = (aa * cc) - (ac * ac);
+            if (!(gram > 0.0) || !double.IsFinite(gram)) return false;
 
-        double det = Vec.Dot(along, Vec.Cross(cross, clock));
-        if (!(Math.Abs(det) > 0.0) || !double.IsFinite(det)) return false;
+            perAlong = ((along * cc) - (cross * ac)) / gram;
+            perAcross = ((cross * aa) - (along * ac)) / gram;
+        }
+        else
+        {
+            double3 slower = flown.ArrivalSecondsPerMetrePerSecond;
 
-        double3 perAlong = Vec.Cross(cross, clock) / det;
-        double3 perAcross = Vec.Cross(clock, along) / det;
+            double det = Vec.Dot(along, Vec.Cross(cross, slower));
+            if (!(Math.Abs(det) > 0.0) || !double.IsFinite(det)) return false;
+
+            perAlong = Vec.Cross(cross, slower) / det;
+            perAcross = Vec.Cross(slower, along) / det;
+        }
 
         double3 nose = Vec.Unit(noseCci), right = Vec.Unit(rightCci), down = Vec.Unit(downCci);
 

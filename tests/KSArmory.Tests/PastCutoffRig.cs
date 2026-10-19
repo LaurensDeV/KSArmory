@@ -596,7 +596,8 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
                                                                           ? ReleaseLoop.SplitNullReserveMetresPerSecond
                                                                           : 0.0)
                                          : PostBoostAim.MaxTrimMetresPerSecond,
-                                     HopAccelerationMetresPerSecond2: HopAcceleration),
+                                     HopAccelerationMetresPerSecond2: HopAcceleration,
+                                     FreeArrival: Config.HopsFreeTheirArrival),
             Program.Phase, false, TargetSet.MaxTargets, KSArmory.Warhead.LethalRadius(Warhead.ChargeKg), PlannedLead,
             ReachHold.Unflown, Config.PriceEachHopAtItsSlot, Config.PriceHopsAtWhatTheTrimPays,
             Config.PriceSlotsOnTheGateChord);
@@ -624,8 +625,10 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
             new ReleaseFocus.Air(new ImpactPredictor.Drag(DensityAt, Warhead), PredictStepSeconds, Body.SurfaceRadius,
                                  Config.PredictionStopsOnTheSurface, Config.PredictionStopsOnTheTerrain));
 
-        if (flown is null || !DivertFootprint.TryFrom(Body, flown, DivertFootprint.ArrivalClock.Pinned,
-                                                       fromTheRealState: true, out DivertFootprint footprint))
+        DivertFootprint.ArrivalClock clock = Config.HopsFreeTheirArrival ? DivertFootprint.ArrivalClock.Free
+                                                                         : DivertFootprint.ArrivalClock.Pinned;
+        if (flown is null || !DivertFootprint.TryFrom(Body, flown, clock, fromTheRealState: true,
+                                                       out DivertFootprint footprint))
         {
             _footprint = null;
             return;
@@ -633,7 +636,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
 
         Frame(out double3 nose, out double3 right, out double3 down);
         if (Config.PriceHopsAtWhatTheTrimPays
-            && DivertFootprint.TryAxisPrice(Body, flown, nose, right, down, out DivertFootprint.AxisPrice axes))
+            && DivertFootprint.TryAxisPrice(Body, flown, nose, right, down, out DivertFootprint.AxisPrice axes, clock))
         {
             footprint = footprint with { Axes = axes };
         }
@@ -648,7 +651,8 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     {
         _hopBurnSeconds = ReleaseLoop.HopBurnSeconds(_walker.Step.HopMetresPerSecond, HopAcceleration);
         _aim.Retarget(Config.CarryAimBiasAcrossHops);
-        Program.CorrectCoastArc();
+        if (Config.HopsFreeTheirArrival) Program.FreeTheHopArrival();
+        else Program.CorrectCoastArc();
         _trim.Resume();
         _postBoost.Reset();
         _trimAbandoned = false;

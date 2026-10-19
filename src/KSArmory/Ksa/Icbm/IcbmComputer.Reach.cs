@@ -136,7 +136,8 @@ internal sealed partial class IcbmComputer
                                                                         ? ReleaseLoop.SplitNullReserveMetresPerSecond
                                                                         : 0.0)
                                                               : PostBoostAim.MaxTrimMetresPerSecond,
-                                                          HopAccelerationMetresPerSecond2: HopAcceleration),
+                                                          HopAccelerationMetresPerSecond2: HopAcceleration,
+                                                          FreeArrival: Config.HopsFreeTheirArrival),
                                  Program.Phase, SalvoIsOver, TargetSet.MaxTargets,
                                  Warhead.LethalRadius(_warhead!.ChargeKg), _targets.LeadIndex,
                                  coasting ? ReachHold.Unflown : ReachHold.EpochUnmeasured,
@@ -210,6 +211,10 @@ internal sealed partial class IcbmComputer
         _reachLandingCcf = landingCcf;
     }
 
+    // A walk whose hops find their own arrival is priced on the reach that leaves it free.
+    private DivertFootprint.ArrivalClock ReachClock
+        => Config.HopsFreeTheirArrival ? DivertFootprint.ArrivalClock.Free : DivertFootprint.ArrivalClock.Pinned;
+
     private void FlyTheReach(in IcbmState state)
     {
         _sinceReachWall = 0.0;
@@ -248,8 +253,8 @@ internal sealed partial class IcbmComputer
             double ms = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
             if (flown is null
-                || !DivertFootprint.TryFrom(Body, flown, DivertFootprint.ArrivalClock.Pinned,
-                                            fromTheRealState: true, out DivertFootprint footprint))
+                || !DivertFootprint.TryFrom(Body, flown, ReachClock, fromTheRealState: true,
+                                            out DivertFootprint footprint))
             {
                 _reachFootprint = null;
                 Log.Debug($"reach on {KsaWorld.DisplayName(Craft)}: not priced -- a column did not come "
@@ -259,7 +264,8 @@ internal sealed partial class IcbmComputer
 
             if (Config.PriceHopsAtWhatTheTrimPays
                 && KsaWorld.TryControlFrameCci(Craft, parent, out double3 nose, out double3 right, out double3 down)
-                && DivertFootprint.TryAxisPrice(Body, flown, nose, right, down, out DivertFootprint.AxisPrice axes))
+                && DivertFootprint.TryAxisPrice(Body, flown, nose, right, down, out DivertFootprint.AxisPrice axes,
+                                                ReachClock))
             {
                 footprint = footprint with { Axes = axes };
             }
@@ -276,7 +282,7 @@ internal sealed partial class IcbmComputer
 
             Log.Debug($"reach on {KsaWorld.DisplayName(Craft)}: "
                       + $"{footprint.SemiMajorMetresPerMetrePerSecond:F0} x "
-                      + $"{footprint.SemiMinorMetresPerMetrePerSecond:F0} m per m/s pinned, "
+                      + $"{footprint.SemiMinorMetresPerMetrePerSecond:F0} m per m/s {footprint.Clock.ToString().ToLowerInvariant()}, "
                       + $"flown in {ms:F2} ms for a {flown.FlightSeconds:F0} s fall"
                       + (footprint.Axes.Known ? $", the trim paying up to {footprint.WorstAxisFactor():F2}x a divert's length" : ""));
         }

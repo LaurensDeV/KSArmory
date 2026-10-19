@@ -843,6 +843,7 @@ internal sealed partial class IcbmProgram
         ReferencePositionCci = Vec.Zero;
         SecondsSinceReference = 0.0;
         _resolveCoastArc = false;
+        _freeHopArrival = false;
         _coastArrivalFreed = false;
         CoastArrivalMovedSeconds = double.NaN;
         DownrangeCci = Vec.Zero;

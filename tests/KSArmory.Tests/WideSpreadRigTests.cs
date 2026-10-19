@@ -6,7 +6,8 @@ namespace KSArmory.Tests;
 
 /// <summary>
 /// <see cref="IcbmConfig.HopsSizeTheirOwnSlots"/> on walks wider than a 60 m/s budget reaches, all three walk flags on
-/// (<c>docs/WIDE-SPREAD.md</c> step 2).
+/// (<c>docs/WIDE-SPREAD.md</c> step 2), and <see cref="IcbmConfig.HopsFreeTheirArrival"/> on walks wider than a pinned
+/// arrival pays for (step 5).
 /// </summary>
 public class WideSpreadRigTests(ITestOutputHelper Out)
 {
@@ -135,6 +136,71 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
         Assert.False(rig.Curtailed);
         Assert.False(rig.RanDry);
         Assert.All(rig.Stops, stop => Assert.True(stop.LandedMetres < 0.01, $"landed {stop.LandedMetres:F3} m out"));
+    }
+
+    // Either bus on its own tank, a budget only the tank bounds, the targets laid uprange of each other along the track.
+    private PastCutoffRig Hops(bool postBoostBus, double rangeMetres, int targets, double spacingMetres, bool free)
+    {
+        IcbmProgram program = new(new IcbmConfig
+        {
+            Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, ArrivalPreference = 0.5, FlyAnyRange = true,
+            PulsesBelowTheFloor = false, SpendTheSplitReserveAfterTheFirstStop = true,
+            WalkStartsAtCutoff = true, HopsFlyTheirOwnCeiling = true, PriceSlotsOnTheGateChord = true,
+            HopsSizeTheirOwnSlots = true, TrimBudgetMetresPerSecond = 1_000.0, HopsFreeTheirArrival = free,
+        });
+
+        PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
+                                              Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21), DensityAt);
+        rig.ShoveMetresPerSecond = 1.0;
+        if (postBoostBus)
+        {
+            rig.ThrusterMetresPerSecond2 = Arsenal.PostBoostBus.TrimAccelerationMetresPerSecond2;
+            rig.BusMassKg = 3_800.0;
+            rig.PropellantKg = 500.0;
+            rig.JetExhaustVelocity = 2_912.0;
+        }
+        else
+        {
+            rig.ThrusterMetresPerSecond2 = 0.55;
+            rig.BusMassKg = 2_900.0;
+            rig.PropellantKg = 134.3;
+        }
+        for (int k = 0; k < targets; k++)
+        {
+            rig.PlannedTargets.Add((GameStackShortRangeTests.South(rangeMetres - k * spacingMetres), 1));
+        }
+        rig.PlannedLead = 0;
+
+        rig.Fly(GameStackShortRangeTests.South(rangeMetres));
+        Out.WriteLine($"{(postBoostBus ? "post-boost" : "Heavy")} {rangeMetres / 1_000.0:F0} km, {targets} at "
+                      + $"{spacingMetres / 1_000.0:F0} km, {(free ? "free" : "pinned")}: planned {rig.Plan.Stops} "
+                      + $"({rig.Plan.Hold}), flew {rig.Stops.Count}, curtailed {rig.Curtailed}, ran dry {rig.RanDry}, "
+                      + $"{rig.PropellantUsedKg:F1} kg used");
+        for (int k = 0; k < rig.Stops.Count; k++)
+        {
+            string priced = k < rig.Plan.Itinerary.Stops.Count ? $"{rig.Plan.Itinerary.Stops[k].HopMetresPerSecond:F2}" : "-";
+            Out.WriteLine($"  stop {k + 1}: landed {rig.Stops[k].LandedMetres:F4} m, divert "
+                          + $"{rig.Stops[k].DivertMetresPerSecond:F2} m/s, priced {priced}");
+        }
+
+        return rig;
+    }
+
+    [Theory]
+    [InlineData(false, 6_181_000.0, 6, 40_000.0)]
+    [InlineData(false, 12_902_000.0, 6, 60_000.0)]
+    [InlineData(true, 12_902_000.0, 7, 100_000.0)]
+    public void AFreeArrivalWalksEveryStopWhereThePinnedOneFallsShort(bool postBoostBus, double rangeMetres, int targets,
+                                                                      double spacingMetres)
+    {
+        PastCutoffRig pinned = Hops(postBoostBus, rangeMetres, targets, spacingMetres, free: false);
+        PastCutoffRig free = Hops(postBoostBus, rangeMetres, targets, spacingMetres, free: true);
+
+        Assert.True(pinned.Stops.Count < targets, $"the pinned walk flew all {targets} stops");
+        Assert.Equal(targets, free.Stops.Count);
+        Assert.False(free.Curtailed, "the free walk ended early");
+        Assert.False(free.RanDry, "the free walk emptied the tank");
+        Assert.All(free.Stops, stop => Assert.True(stop.LandedMetres < 0.01, $"landed {stop.LandedMetres:F3} m out"));
     }
 
     /// <summary>

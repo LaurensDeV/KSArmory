@@ -69,6 +69,13 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// </summary>
     public const double HopOverheadSeconds = 48.0;
 
+    /// <summary>
+    /// How fast a free arrival's reach falls with the time to go, as a power of the time ratio: the along-track
+    /// reach never fell faster than 1.156 over 4,549 pairs of epochs across 54 arcs, and across the track no faster
+    /// than linear (<c>docs/WIDE-SPREAD.md</c> step 5).
+    /// </summary>
+    public const double FreeSlotExponent = 1.2;
+
     // Slots and releases agree to well under a second by the third pass: a longer slot moves the release earlier,
     // where the reach is greater and the hop cheaper.
     private const int SlotPasses = 4;
@@ -154,6 +161,10 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// <see cref="IcbmConfig.HopsSizeTheirOwnSlots"/>: <see cref="SlotFor"/>. NaN gives every hop
     /// <paramref name="HopSeconds"/>.
     /// </param>
+    /// <param name="FreeArrival">
+    /// <see cref="IcbmConfig.HopsFreeTheirArrival"/>: each hop finds its own arrival, so a slot keeps
+    /// <see cref="FreeSlotExponent"/> of the measured reach rather than a share on either line from the pinned reach.
+    /// </param>
     /// <param name="HopsFlyTheirOwnCeiling">
     /// <see cref="IcbmConfig.HopsFlyTheirOwnCeiling"/>: a hop is bounded by the budget alone rather than by
     /// <see cref="BusTrim.MaxMetresPerSecond"/>. See <see cref="PassCeilingMetresPerSecond"/>.
@@ -169,7 +180,8 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
                                         bool HopsFlyTheirOwnCeiling = false,
                                         double TurnSeconds = 0.0,
                                         double ReachMeasuredMetresPerMetrePerSecond = double.NaN,
-                                        double HopAccelerationMetresPerSecond2 = double.NaN)
+                                        double HopAccelerationMetresPerSecond2 = double.NaN,
+                                        bool FreeArrival = false)
     {
         public bool SizesSlots => HopAccelerationMetresPerSecond2 > 0.0 && double.IsFinite(HopAccelerationMetresPerSecond2);
 
@@ -214,6 +226,7 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
             if (!PricesEachSlot || !(beforeArrivalSeconds >= 0.0) || !double.IsFinite(beforeArrivalSeconds)) return 1.0;
 
             double linear = Math.Min(1.0, beforeArrivalSeconds / ReachMeasuredAtSeconds);
+            if (FreeArrival) return Math.Pow(linear, FreeSlotExponent);
 
             double measured = ReachMeasuredMetresPerMetrePerSecond;
             double gate = GateSeconds;

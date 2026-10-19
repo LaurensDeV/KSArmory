@@ -225,6 +225,14 @@ internal sealed class IcbmConfig
     public bool HopsSizeTheirOwnSlots;
 
     /// <summary>
+    /// Whether each hop of a walk commits the cheapest arc to its target rather than the one arriving at the
+    /// committed instant, and the walk is priced on the free reach. Along the track a hop then costs 2.7x less at
+    /// 6,181 km and 5.8x less at 12,902; each warhead arrives at its own instant. <b>Off until flown</b>:
+    /// <c>docs/WIDE-SPREAD.md</c> step 5.
+    /// </summary>
+    public bool HopsFreeTheirArrival;
+
+    /// <summary>
     /// Whether the trim reserve kept beyond the budget for nulling the split may be spent on hops once a
     /// walk's first stop has let its warheads go. Flown paired on a 4 km six-target walk: 12 of 12 buses walked five stops
     /// against four for all 12 without it, every warhead within 5 mm. <c>docs/MIRV-TARGETS.md</c>.
