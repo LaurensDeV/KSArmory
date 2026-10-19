@@ -16,7 +16,8 @@ and the ground does the rest. The **ALE-47 dispensers**, one of flares and one o
 they throw decoys that take a missile's seeker away from the craft carrying them. Three sights come with them, and they are the
 same instrument on different mechanisms: an **EO director** on a mast, a **Rafael LITENING
 pod**, whose whole nose rolls about the pod's centreline while the sight nods within it, and the
-**YAL-1 nose turret**, that same roll-nod head scaled to a 1.5 m telescope and stacked on a 3 m node.
+**YAL-1 nose turret**, that same roll-nod head scaled to a 1.5 m telescope and stacked on a 3 m node —
+and the one sight that is also a weapon, burning through the part its megawatt beam is held on.
 
 ## Read this first
 
@@ -497,6 +498,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Aimpoint.cs` | what a round is shooting at — craft, component or coordinate |
 | `Sim/ThreatModel.cs` | CPA threat classification, priority, engagement envelope |
 | `Sim/RadarSignature.cs` | how large a contact looks, and how far that lets the set see it |
+| `Sim/BeamProfile.cs` | a high-energy laser an optical head fires down its own line of sight — power, aperture, burn-through fluence and a magazine of lasing seconds |
+| `Sim/Beam.cs` | what that beam does to the part it is held on — **diffraction and jitter set the spot, the air on the path thins it**, and the burn is a share of the part's health per second, calibrated to the ABL's 3–5 s at 100 km |
 | `Sim/Signature.cs` | how bright a thing looks to a seeker — heat in kW/sr off the thrust being made, and the lock strength a seeker would take on it, **over range squared for heat and to the fourth for radar** |
 | `Sim/Decoy.cs` | a flare or a chaff cloud in the air — **not a round**: nothing aims it, fuses on it or tracks it, so it is a point with a signature falling through the air, its stiff drag stepped semi-implicitly |
 | `Sim/SeekerLock.cs` | one seeker's choice between its target and the decoys around it — **each decoy judged once**, the first frame it outshines the target, so how often a flare works does not follow the frame rate; a radar seeker sees only chaff in its target's resolution cell, and a Doppler gate keeps even that out unless the target beams |

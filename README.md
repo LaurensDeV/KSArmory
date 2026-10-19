@@ -90,7 +90,8 @@ pod's centreline while the ball nods within it, and the picture is counter-rotat
 hangs from stays at the top of it.
 
 **YAL-1 nose turret** — the Airborne Laser's beam director: the LITENING's mechanism scaled to a
-1.5 m telescope behind a 1.8 m window, stacking on a 3 m node. It looks and tracks; it fires nothing.
+1.5 m telescope behind a 1.8 m window, stacking on a 3 m node. It tracks, and fires a megawatt beam
+that burns through whatever part it is held on: a few seconds at 100 km, with about twenty shots a load.
 
 And one piece of kit that shoots nothing:
 

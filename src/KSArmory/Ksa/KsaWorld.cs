@@ -4520,8 +4520,14 @@ internal static class KsaWorld
     /// </summary>
     public static bool TryRayCraftHit(double3 eye, double3 direction, Vehicle? exclude, double maxRange,
                                       out Vehicle? hitCraft, out double range)
+        => TryRayPartHit(eye, direction, exclude, maxRange, out hitCraft, out _, out range);
+
+    /// <summary><see cref="TryRayCraftHit"/>, also naming the part the ray met first.</summary>
+    public static bool TryRayPartHit(double3 eye, double3 direction, Vehicle? exclude, double maxRange,
+                                     out Vehicle? hitCraft, out Part? hitPart, out double range)
     {
         hitCraft = null;
+        hitPart = null;
         range = maxRange;
 
         try
@@ -4549,6 +4555,7 @@ internal static class KsaWorld
                     {
                         range = hit;
                         hitCraft = craft;
+                        hitPart = parts[i];
                     }
                 }
             }

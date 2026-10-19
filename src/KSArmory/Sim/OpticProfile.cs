@@ -151,5 +151,11 @@ public sealed class OpticProfile
     /// <summary>How far the laser returns from (m). Past it the beam is lasing at nothing.</summary>
     public float LaserRangeMetres = 20000f;
 
+    /// <summary>
+    /// A high-energy laser down the same line of sight, burning whatever part the spot lands on.
+    /// Null for a head whose laser only measures and designates.
+    /// </summary>
+    public BeamProfile? Beam;
+
     public double SlewRateRad => float.DegreesToRadians(SlewRateDeg);
 }

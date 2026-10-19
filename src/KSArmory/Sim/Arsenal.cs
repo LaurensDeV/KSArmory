@@ -1453,9 +1453,10 @@ public static class Arsenal
 
         MaxMagnification = 53f,
 
-        // The tracking and beacon illuminators leave through this window.
+        // The tracking and beacon illuminators leave through this window, and so does the COIL.
         HasLaser = true,
         LaserRangeMetres = 300000f,
+        Beam = new BeamProfile(),
     };
 
     // ---- Countermeasures -------------------------------------------------

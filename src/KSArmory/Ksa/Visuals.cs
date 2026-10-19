@@ -48,6 +48,21 @@ internal static class Visuals
     /// Every decoy in the air as a sphere sized by its signature. Placed off the craft that threw it,
     /// because both are end-of-step samples and so their difference carries none of the frame's motion.
     /// </summary>
+    // The COIL's 1.315 um is invisible; drawn so the operator can see what is being lased.
+    private static readonly float4 BeamColour = new(1.0f, 0.35f, 0.15f, 0.9f);
+    private static readonly float4 BurnColour = new(1.0f, 0.85f, 0.5f, 1.0f);
+
+    public static void DrawBeam(OpticalHead head)
+    {
+        if (!head.BeamOn || head.Platform is not { } craft || !KsaWorld.IsAlive(craft)) return;
+        if (!KsaWorld.TryVehicleEgo(craft, out double3 craftEgo)) return;
+
+        double3 from = craftEgo + (head.BeamFromEcl - head.PlatformEcl);
+        double3 to = craftEgo + (head.BeamToEcl - head.PlatformEcl);
+        KsaWorld.DrawLineEgo(from, to, BeamColour);
+        KsaWorld.DrawSphereEgo(to, head.Burning is null ? 0.4f : 0.8f, BurnColour);
+    }
+
     public static void DrawDecoys(IReadOnlyList<Decoy> decoys)
     {
         for (int i = 0; i < decoys.Count; i++)

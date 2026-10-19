@@ -17,6 +17,7 @@ namespace KSArmory;
 internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalHead
 {
     private readonly OpticConfig _policy = policy;
+    private readonly Config _config = config;
 
     private readonly List<(Part, OpticProfile)> _scratch = [];
 
@@ -239,6 +240,9 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
             Sensor = Catalogue.SensorNamed(Profile.Sensor);
             OpticPart = OpticParts.FindHead(found.Part, found.Profile);
             RollPart = OpticParts.FindRoll(found.Part, found.Profile);
+
+            // Filled once, when first crewed, and not refilled by finding the part again.
+            if (double.IsNaN(MagazineSecondsLeft)) MagazineSecondsLeft = Profile.Beam?.MagazineSeconds ?? 0.0;
         }
         else
         {
@@ -286,7 +290,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         }
 
         UpdateMask(platform);
-        UpdateLaser(platform);
+        UpdateLaser(platform, dt);
 
         if (OpticPart is not { } head || !_driveWorks) return;
 
@@ -354,17 +358,23 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
     // Along the line of sight the picture is centred on, to the first craft or ground it meets.
     // Its own craft is left out of the cast: MASK has already said whether that is in the way.
-    private void UpdateLaser(Vehicle platform)
+    private void UpdateLaser(Vehicle platform, double dt)
     {
         Spot = null;
+        Burning = null;
+        BeamOn = false;
         LaserInhibited = LaserWanted && Masked;
 
         if (!LaserWanted || LaserInhibited) return;
         if (!LaserCode.IsValid(_policy.LaserCode)) return;
         if (!TryOpticViewEcl(out double3 eye, out double3 forward)) return;
 
+        bool firing = Profile.Beam is not null && MagazineSecondsLeft > 0.0;
+        if (firing) MagazineSecondsLeft = Math.Max(0.0, MagazineSecondsLeft - Math.Max(dt, 0.0));
+
         double reach = Profile.LaserRangeMetres;
-        bool onCraft = KsaWorld.TryRayCraftHit(eye, forward, platform, reach, out Vehicle? craft, out double range);
+        bool onCraft = KsaWorld.TryRayPartHit(eye, forward, platform, reach, out Vehicle? craft, out Part? part,
+                                              out double range);
 
         if (KsaWorld.TryRayGround(eye, forward, onCraft ? range : reach, out Celestial? body, out double ground)
             && (!onCraft || ground < range))
@@ -383,6 +393,54 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         Spot = new LaserSpot(platform, _policy.LaserCode, at, velocity, range);
         SpotOn = onCraft ? KsaWorld.DisplayName(craft!) : "the ground";
         LaserDesignators.Add(Spot.Value);
+
+        if (!firing) return;
+
+        BeamOn = true;
+        BeamFromEcl = eye;
+        BeamToEcl = at;
+        Burning = onCraft && part is not null ? part : null;
+        if (Burning is not null) Burn(platform, craft!, part!, eye, at, range, dt);
+    }
+
+    /// <summary>Seconds of beam left in the magazine; nothing for a head with no beam.</summary>
+    public double MagazineSecondsLeft { get; private set; } = double.NaN;
+
+    /// <summary>Whether the beam is firing and landing somewhere this frame.</summary>
+    public bool BeamOn { get; private set; }
+
+    /// <summary>The part the beam is on this frame, or null: not firing, or landing on the ground.</summary>
+    public Part? Burning { get; private set; }
+
+    /// <summary>Where the beam leaves and lands this frame, from one sample of the platform.</summary>
+    public double3 BeamFromEcl { get; private set; }
+
+    public double3 BeamToEcl { get; private set; }
+
+    private readonly HashSet<Part> _burntThrough = new(ReferenceEqualityComparer.Instance);
+
+    // Spends the struck part's health for the dwell this step. A part burnt through goes to the
+    // engine's failure queue once, as a shell's struck part does, or takes the craft with it when
+    // parts are not damaged one by one.
+    private void Burn(Vehicle platform, Vehicle craft, Part part, double3 eye, double3 at, double range, double dt)
+    {
+        if (!(dt > 0.0) || _burntThrough.Contains(part)) return;
+
+        double share = Beam.HealthPerSecond(Profile.Beam!, range, KsaWorld.AirDensityRatioAt(platform, eye),
+                                            KsaWorld.AirDensityRatioAt(platform, at)) * dt;
+        if (!PartHealth.World.Hit(part, share, _config.DamageScale)) return;
+
+        _burntThrough.Add(part);
+        KsaWorld.WaitForVehicleSolvers();
+
+        if (_config.DamageIndividualParts && KsaWorld.TryQueuePartFailure(craft, [part]))
+        {
+            Log.Info($"beam burnt through {part.Id} on {KsaWorld.DisplayName(craft)} at {Distance.Say(range)}");
+            return;
+        }
+
+        Log.Info($"beam destroyed {KsaWorld.DisplayName(craft)} at {Distance.Say(range)}");
+        KsaWorld.Destroy(craft, blastSeverity: 50f);
     }
 
     /// <summary>Clears the refusal latches, because a new craft deserves a fresh assessment.</summary>

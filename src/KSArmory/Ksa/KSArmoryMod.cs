@@ -548,6 +548,7 @@ public sealed class KSArmoryMod
             if (KsaWorld.InFlight)
             {
                 using (_budget.Measure("shells")) foreach (WeaponSystems.Entry e in _roster.All) Visuals.DrawShellStream(e.Weapon);
+                if (_heads is not null) foreach (OpticalHeads.Entry e in _heads.All) Visuals.DrawBeam(e.Head);
             }
 
             // Outside the debug overlay switch, and deliberately: this is a sight the operator

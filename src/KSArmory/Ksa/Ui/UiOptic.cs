@@ -139,16 +139,33 @@ internal sealed partial class Ui
         }
         else
         {
-            if (Toggle(policy.Lasing ? "Stop laser" : "Fire laser", policy.Lasing)) policy.Lasing = !policy.Lasing;
-            Tip("Measures the distance to whatever the crosshair is on, and marks it for laser-guided "
-                + "weapons. It will not fire through your own craft.");
+            bool beam = head.Profile.Beam is not null;
+            string verb = beam ? "beam" : "laser";
+            if (Toggle(policy.Lasing ? $"Stop {verb}" : $"Fire {verb}", policy.Lasing)) policy.Lasing = !policy.Lasing;
+            Tip(beam
+                ? "Holds a megawatt beam on whatever the crosshair is on, burning through the part it lands on. "
+                  + "It also ranges and marks the spot for laser-guided weapons, and will not fire through "
+                  + "your own craft."
+                : "Measures the distance to whatever the crosshair is on, and marks it for laser-guided "
+                  + "weapons. It will not fire through your own craft.");
+            if (beam) DrawMagazine(head);
             if (!policy.Lasing) return;
         }
 
         ImGui.SameLine();
         if (head.LaserInhibited) ImGui.TextColored(Amber, "blocked by your own craft");
+        else if (head.Burning is { } part)
+            ImGui.TextColored(Amber, $"burning {part.Id} on {head.SpotOn}: {PartHealth.World.Of(part):P0} left");
         else if (head.Spot is { } spot) ImGui.Text($"{Distance.Say(spot.RangeMetres)} to {head.SpotOn}");
         else ImGui.TextDisabled($"nothing within {Distance.Say(head.Profile.LaserRangeMetres)}");
+    }
+
+    private static void DrawMagazine(OpticalHead head)
+    {
+        ImGui.SameLine();
+        double left = head.MagazineSecondsLeft;
+        if (left > 0.0) ImGui.TextDisabled($"{left:F0} s of beam left");
+        else ImGui.TextColored(Amber, "beam magazine empty");
     }
 
     private static void DrawLaserCode(OpticConfig policy)
