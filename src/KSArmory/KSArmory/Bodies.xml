@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  What a nuclear burst needs to know about a body that KSA does not declare, keyed by the body's Id.
+  What a nuclear burst or a beam needs to know about a body that KSA does not declare, keyed by the body's Id.
   Read by KSArmory from the KSArmory/ folder of every mod, so a solar-system mod describes its own
   bodies the same way; a body with no entry has no magnetic field and a dim, uncoloured airglow.
   docs/NUCLEAR-ALTITUDE.md, "Planet-agnostic by construction".
@@ -12,13 +12,15 @@
   Gamma            the air's ratio of specific heats (1.4 by default)
   Surface          whether there is ground at all (true by default)
   XRayOpacity      X-ray stopping per kilogram against nitrogen and oxygen's (1 by default)
+  ThinCloud        Ids of the cloud layers a beam passes through, comma-separated (none by default)
 
   Fields are the published surface-equator values.
 -->
 <Bodies>
   <Body Id="Mercury" FieldTesla="3e-7" />
   <Body Id="Venus" Airglow="CarbonDioxide" Gamma="1.29" Condensation="false" />
-  <Body Id="Earth" FieldTesla="3.1e-5" FieldTiltDeg="0" Airglow="OxygenNitrogen" Condensation="true" Gamma="1.4" />
+  <Body Id="Earth" FieldTesla="3.1e-5" FieldTiltDeg="0" Airglow="OxygenNitrogen" Condensation="true" Gamma="1.4"
+        ThinCloud="EarthClouds2" />
   <Body Id="Mars" Airglow="CarbonDioxide" Gamma="1.29" Condensation="false" />
   <Body Id="Jupiter" FieldTesla="4.2e-4" Airglow="Hydrogen" Surface="false" Gamma="1.45" XRayOpacity="0.01" />
   <Body Id="Saturn" FieldTesla="2.1e-5" Airglow="Hydrogen" Surface="false" Gamma="1.45" XRayOpacity="0.01" />

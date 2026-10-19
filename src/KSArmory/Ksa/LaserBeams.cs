@@ -16,7 +16,7 @@ internal static class LaserBeams
     private const double StaleSeconds = 0.5;
 
     private readonly record struct Firing(Vehicle Craft, double3 From, double3 To, double AirAtStart, double AirAtEnd,
-                                          bool Burning, bool OpenEnded);
+                                          bool Burning, bool OpenEnded, bool InCloud, double3 Up);
 
     private static readonly List<Firing> _beams = [];
     private static readonly System.Diagnostics.Stopwatch _sinceCollected = new();
@@ -37,10 +37,13 @@ internal static class LaserBeams
     {
         if (!head.BeamOn || head.Platform is not { } craft || !KsaWorld.IsAlive(craft)) return;
 
+        double3 up = KsaWorld.ParentBody(craft) is { } body ? Vec.Unit(head.BeamToEcl - body.GetPositionEcl()) : Vec.Zero;
+
         _beams.Add(new Firing(craft, head.BeamFromEcl - head.PlatformEcl, head.BeamToEcl - head.PlatformEcl,
                               Air(KsaWorld.AirDensityRatioAt(craft, head.BeamFromEcl)),
                               Air(KsaWorld.AirDensityRatioAt(craft, head.BeamToEcl)),
-                              head.Burning is not null, head.Spot is null));
+                              head.Burning is not null, head.Spot is null && !head.InCloud, head.InCloud,
+                              Vec.IsFinite(up) ? up : Vec.Zero));
     }
 
     private static double Air(double ratio) => double.IsFinite(ratio) ? Math.Max(ratio, 0.0) : 0.0;
@@ -49,14 +52,16 @@ internal static class LaserBeams
 
     /// <summary>
     /// One beam's ends, relative to the camera drawing this frame, the air density ratio at each, whether
-    /// it is burning what it lands on, and whether it lands on nothing at all.
+    /// it is burning what it lands on, whether it lands on nothing at all, whether it ends in cloud, and
+    /// which way is up where it ends -- zero where there is no body to say.
     /// </summary>
     public static bool TryAt(int index, out double3 fromEgo, out double3 toEgo, out double airAtStart,
-                             out double airAtEnd, out bool burning, out bool openEnded)
+                             out double airAtEnd, out bool burning, out bool openEnded, out bool inCloud,
+                             out double3 up)
     {
-        fromEgo = toEgo = Vec.Zero;
+        fromEgo = toEgo = up = Vec.Zero;
         airAtStart = airAtEnd = 0.0;
-        burning = openEnded = false;
+        burning = openEnded = inCloud = false;
 
         Firing beam = _beams[index];
         if (!KsaWorld.TryVehicleEgo(beam.Craft, out double3 craftEgo)) return false;
@@ -67,6 +72,8 @@ internal static class LaserBeams
         airAtEnd = beam.AirAtEnd;
         burning = beam.Burning;
         openEnded = beam.OpenEnded;
+        inCloud = beam.InCloud;
+        up = beam.Up;
         return Vec.IsFinite(fromEgo) && Vec.IsFinite(toEgo);
     }
 }

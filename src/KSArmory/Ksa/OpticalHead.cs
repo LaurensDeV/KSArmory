@@ -363,6 +363,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         Spot = null;
         Burning = null;
         BeamOn = false;
+        InCloud = false;
         LaserInhibited = LaserWanted && Masked;
 
         if (!LaserWanted || LaserInhibited) return;
@@ -373,6 +374,9 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         if (firing) ChemicalSecondsLeft = Math.Max(0.0, ChemicalSecondsLeft - Math.Max(dt, 0.0));
 
         double reach = Profile.LaserRangeMetres;
+        bool clouded = KsaWorld.TryCloudEntry(platform, eye, forward, reach, out double cloud);
+        if (clouded) reach = cloud;
+
         bool onCraft = KsaWorld.TryRayPartHit(eye, forward, platform, reach, out Vehicle? craft, out Part? part,
                                               out double range);
 
@@ -384,7 +388,9 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         }
         else if (!onCraft)
         {
-            // Nothing in reach, but a beam fired at the sky is still a beam: drawn out to its range.
+            // Nothing in reach, but a beam fired at the sky is still a beam: drawn out to its range, or
+            // into the cloud that stops it. A spot on a cloud designates nothing.
+            InCloud = clouded;
             if (firing)
             {
                 BeamOn = true;
@@ -427,6 +433,9 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     public double3 BeamFromEcl { get; private set; }
 
     public double3 BeamToEcl { get; private set; }
+
+    /// <summary>Whether the laser ends in cloud this frame, which a beam glows in rather than crossing.</summary>
+    public bool InCloud { get; private set; }
 
     private readonly HashSet<Part> _burntThrough = new(ReferenceEqualityComparer.Instance);
 

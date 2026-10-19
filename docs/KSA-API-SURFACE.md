@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-318 types and 859 members across 11 assemblies.
+328 types and 876 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -149,6 +149,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.doubleQuat Conjugate(Brutal.Numerics.doubleQuat)`
 - `Brutal.Numerics.doubleQuat CreateFromAxisAngle(Brutal.Numerics.double3, double)`
 - `Brutal.Numerics.doubleQuat CreateFromRotationMatrix(Brutal.Numerics.double4x4)`
+- `Brutal.Numerics.doubleQuat CreateFromYawPitchRoll(double, double, double)`
 - `Brutal.Numerics.doubleQuat get_Identity()`
 - `Brutal.Numerics.doubleQuat op_Multiply(Brutal.Numerics.doubleQuat, Brutal.Numerics.doubleQuat)`
 - `double W`
@@ -473,6 +474,36 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+## Brutal.Ktx
+
+### Brutal.KtxApi.Abstractions.KtxTextureExtensions
+
+- `Brutal.KtxApi.KtxErrorCode GetImageData(Brutal.KtxApi.KtxTexture2Handle, uint, uint, uint, ref System.Span`1<byte>)`
+
+### Brutal.KtxApi.KtxErrorCode
+
+*referenced as a type only*
+
+### Brutal.KtxApi.KtxTexture2
+
+- `Brutal.KtxApi.KtxErrorCode CreateFromNamedFile(System.ReadOnlySpan`1<byte>, Brutal.KtxApi.KtxTextureCreateFlagBits, ref Brutal.KtxApi.KtxTexture2Handle)`
+- `Brutal.KtxApi.VkFormat GetVkFormat(Brutal.KtxApi.KtxTexture2Handle)`
+- `void Destroy(Brutal.KtxApi.KtxTexture2Handle)`
+
+### Brutal.KtxApi.KtxTexture2Handle
+
+- `uint get_BaseWidth()`
+- `uint get_NumFaces()`
+- `uint get_NumLevels()`
+
+### Brutal.KtxApi.KtxTextureCreateFlagBits
+
+*referenced as a type only*
+
+### Brutal.KtxApi.VkFormat
+
+*referenced as a type only*
+
 ## Brutal.ShaderC
 
 ### Brutal.ShaderCApi.CompileOptions
@@ -649,6 +680,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.AstronomicalTemplate
 
+- `KSA.CloudsReference CloudsReference`
 - `KSA.HapkeScatteringReference ScatteringReference`
 - `KSA.TextureReference DiffuseReference`
 
@@ -673,6 +705,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.VulkanApi.Abstractions.DescriptorSetLayoutEx GetAtmosphereLutsDescriptorSetLayout()`
 - `Brutal.VulkanApi.VkDescriptorSet GetAtmosphereLutsDescriptorSet(int)`
+
+### KSA.AtmosphericBody
+
+- `bool RenderClouds`
 
 ### KSA.AttitudeControlSystem
 
@@ -775,6 +811,18 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.CelestialTemplate
 
 *referenced as a type only*
+
+### KSA.CloudLayerReference
+
+- `KSA.DistanceReference get_BottomAltitude()`
+- `KSA.DistanceReference get_TopAltitude()`
+- `KSA.Vector3Reference RotationSpeed`
+- `KSA.VolumetricCloudReference VolumetricCloud`
+- `string get_Id()`
+
+### KSA.CloudsReference
+
+- `System.Collections.Generic.List`1<KSA.CloudLayerReference> Layers`
 
 ### KSA.ClusterChannelWrapper
 
@@ -1927,6 +1975,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.ViewportType
 
 *referenced as a type only*
+
+### KSA.VolumetricCloudReference
+
+- `KSA.TextureReference Texture`
 
 ### KSA.VolumetricTrailRenderer
 

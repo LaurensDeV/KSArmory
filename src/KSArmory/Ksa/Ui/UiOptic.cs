@@ -157,6 +157,7 @@ internal sealed partial class Ui
         else if (head.Burning is { } part)
             ImGui.TextColored(Amber, $"burning {part.Id} on {head.SpotOn}: {PartHealth.World.Of(part):P0} left");
         else if (head.Spot is { } spot) ImGui.Text($"{Distance.Say(spot.RangeMetres)} to {head.SpotOn}");
+        else if (head.InCloud) ImGui.TextColored(Amber, "stopped by cloud");
         else ImGui.TextDisabled($"nothing within {Distance.Say(head.Profile.LaserRangeMetres)}");
     }
 

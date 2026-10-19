@@ -401,7 +401,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/ScorchFootprint.cs` | how far a scorch mark reaches downwind, across and upwind, in patch radii — **the shader's own constants restated**, so the box the cloud pass dispatches a mark over never crops it; `ScorchFootprintTests` compares the two |
 | `Sim/AmbientAir.cs` | the air at a point as density and pressure **against fixed physical references**, not a body's own sea level -- so a threshold calibrated in Earth's air holds on any body -- with a flag for air that could not be read, never a silent sea level |
 | `Sim/BodyAir.cs` | a body's air as numbers, **mirroring KSA's isothermal model exactly** -- `ρ(h)·H` with the declared scale height for the column, one sound speed per body -- so nothing downstream knows which planet it is on |
-| `Sim/BodyTraits.cs` | what a burst needs about a body that KSA does not declare -- field, airglow, condensation, γ, surface, X-ray opacity -- **the neutral answer by default**, never Earth's |
+| `Sim/BodyTraits.cs` | what a burst or a beam needs about a body that KSA does not declare -- field, airglow, condensation, γ, surface, X-ray opacity, which cloud layers are too thin to stop a beam -- **the neutral answer by default**, never Earth's |
 | `Sim/BodyReader.cs` | a mod's `KSArmory/Bodies.xml` read -- text in, and **told from a weapon pack by its root**, since the pack reader would refuse it on every load |
 | `Sim/BodyCatalogue.cs` | every mod's body entries, a later mod restating a body, and the audit that finds an entry naming no body in the system |
 | `Sim/BurstSetting.cs` | what a burst went off on or in — **land, the sea's surface, or under it** — which decides whether it lifts dirt or spray, burns the ground, or raises no column at all; anything unreadable is land, which is what every burst was before. And how high over it the burst stood, over the sea where there is sea |
@@ -500,6 +500,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/RadarSignature.cs` | how large a contact looks, and how far that lets the set see it |
 | `Sim/BeamProfile.cs` | a high-energy laser an optical head fires down its own line of sight — power, aperture, burn-through fluence and the seconds of lasing its load of chemicals gives |
 | `Sim/Beam.cs` | what that beam does to the part it is held on — **diffraction and jitter set the spot, the air on the path thins it**, and the burn is a share of the part's health per second, calibrated to the ABL's 3–5 s at 100 km |
+| `Sim/CloudCover.cs` | where a beam first enters cloud thick enough to stop it — **overcast only**, coverage 0.8 and over, because KSA's coverage map places cloud fields and not the puffs inside them, so broken cloud would stop a beam in a visible gap; up to a top that rises with the coverage |
+| `Sim/CoverageCube.cs` | a cloud layer's coverage map as KSA's renderer samples it — a BC4 cubemap in Vulkan's face order, kept compressed and decoded per texel |
 | `Sim/Signature.cs` | how bright a thing looks to a seeker — heat in kW/sr off the thrust being made, and the lock strength a seeker would take on it, **over range squared for heat and to the fourth for radar** |
 | `Sim/Decoy.cs` | a flare or a chaff cloud in the air — **not a round**: nothing aims it, fuses on it or tracks it, so it is a point with a signature falling through the air, its stiff drag stepped semi-implicitly |
 | `Sim/SeekerLock.cs` | one seeker's choice between its target and the decoys around it — **each decoy judged once**, the first frame it outshines the target, so how often a flare works does not follow the frame rate; a radar seeker sees only chaff in its target's resolution cell, and a Doppler gate keeps even that out unless the target beams |
@@ -654,6 +656,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/ShellTracers.cs` | every gun round each frame, the tracers and the rest, **resolved and projected when the pass records** through the call that places a round's body, so a tracer sits where the round is; collected after the step, so they stay up with the UI hidden |
 | `Shaders/KSArmoryTracer.comp` | every gun round on screen in one dispatch — a tracer **added into the scene before bloom** with a hot core and a halo, the rest as dim grey light with none, all depth-tested; each workgroup gathers the segments reaching its tile first. Without the pass, `Visuals.DrawShellStream`'s lines are the fallback |
 | `Ksa/LaserBeams.cs` | the high-energy beams firing this frame, held as offsets from the craft firing them and anchored on where it is drawn when the pass records, as the gizmo line is; that line is only the fallback |
+| `Ksa/CloudLayers.cs` | a body's cloud layers for `CloudCover` — each coverage map read off disk once, on a worker, **through the game's own libktx**, and turned by the layer's drift exactly as `CloudLayerRenderData` turns it. Thin layers `Bodies.xml` names are left out, and a map not yet in stops nothing |
 | `Shaders/KSArmoryBeam.comp` | a beam as the light it scatters toward the eye — **a gaussian tube integrated per pixel along the view ray in closed form**, clipped to its ends and the depth buffer, never narrower than a pixel with its energy kept, brighter looking down it; one dispatch per beam. `docs/BEAM-RENDERING.md` has the derivation |
 | `Ksa/FlakPuff.cs` | the black smoke a gun shell leaves where it burst in the air, **sized off the charge by its cube root** from the 5"/54's, and none where there is no air |
 | `Ksa/Ui/DirectorWindow.cs` | a director's camera window drawn by the mod — KSA's picture of the leased viewport with zoom, sensor mode and tracking laid over it. **KSA's own window round it is taken off by reflection** (`KsaWorld.TryHideViewportWindow`), and where that fails KSA's stays and this draws nothing |
@@ -690,7 +693,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/SettingsStore.cs` | per-craft settings across sessions, in JSON inside the save — `systems.json` and `ballistic.json` |
 | `Ksa/Log.cs` | the mod's own log file, which is the only debugging channel it has |
 | `src/KSArmory/KSArmory*.xml` | the parts, the warhead effects and the sounds — at the mod root, mirroring Core. **No character**: a mod's character ends up on kittens in nearly every save, which then cannot load without it — `tools/repair-saves.py` re-dresses them |
-| `src/KSArmory/KSArmory/Bodies.xml` | **what KSA's current bodies are, as data** -- fields, airglow, condensation -- so a custom solar system gains them by adding lines, not code |
+| `src/KSArmory/KSArmory/Bodies.xml` | **what KSA's current bodies are, as data** -- fields, airglow, condensation, thin cloud -- so a custom solar system gains them by adding lines, not code |
 | `src/KSArmory/KSArmory/Weapons.xml` | **this mod's own weapons, as data** — read by `PackScan`'s convention like any pack's, not by KSA |
 | `src/KSArmory/Meshes/`, `Textures/` | art. `KSArmory_MeshAtlas.glb` is generated — rebuild with `tools/model/build.sh`; every other atlas is **authored**, and its `.blend` is not in this repository |
 | `src/KSArmory/Sounds/` | the cannon, cut from a recording by `tools/cut-cannon.py`; the Mk 42's gunshot, cut from its recording by `tools/mk42-sounds.py`; the M197's loop and tail, by `tools/m197-sounds.py`. A warhead's burst is KSA's own explosion, sound and all |
@@ -706,7 +709,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 859 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 876 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1308,7 +1311,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 318 types this mod actually uses.
+defining the 328 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —

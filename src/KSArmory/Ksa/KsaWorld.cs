@@ -1892,6 +1892,22 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>How far along a ray from a craft the body under it has cloud thick enough to stop a beam.</summary>
+    public static bool TryCloudEntry(Vehicle platform, double3 originEcl, double3 directionEcl, double reach,
+                                     out double distance)
+    {
+        distance = double.PositiveInfinity;
+        try
+        {
+            return ParentBody(platform) is { } body
+                   && CloudLayers.TryEntry(body, originEcl, directionEcl, reach, out distance);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>Whether something is running and every running engine is a solid; false if unreadable.</summary>
     public static bool OnlySolidsRunning(Vehicle craft)
     {
