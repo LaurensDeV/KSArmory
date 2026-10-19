@@ -148,7 +148,7 @@ internal sealed partial class Ui
                   + "your own craft."
                 : "Measures the distance to whatever the crosshair is on, and marks it for laser-guided "
                   + "weapons. It will not fire through your own craft.");
-            if (beam) DrawMagazine(head);
+            if (beam) DrawChemicals(head);
             if (!policy.Lasing) return;
         }
 
@@ -160,12 +160,12 @@ internal sealed partial class Ui
         else ImGui.TextDisabled($"nothing within {Distance.Say(head.Profile.LaserRangeMetres)}");
     }
 
-    private static void DrawMagazine(OpticalHead head)
+    private static void DrawChemicals(OpticalHead head)
     {
         ImGui.SameLine();
-        double left = head.MagazineSecondsLeft;
-        if (left > 0.0) ImGui.TextDisabled($"{left:F0} s of beam left");
-        else ImGui.TextColored(Amber, "beam magazine empty");
+        double left = head.ChemicalSecondsLeft;
+        if (left > 0.0) ImGui.TextDisabled($"{left:F0} s of laser chemicals left");
+        else ImGui.TextColored(Amber, "laser chemicals spent");
     }
 
     private static void DrawLaserCode(OpticConfig policy)

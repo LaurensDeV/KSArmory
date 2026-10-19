@@ -980,7 +980,7 @@ internal sealed class Bridge : IViewPose
                 e.Head.Designate(Aimpoint.OnVehicle(watched, KsaWorld.PositionEcl(watched), KsaWorld.VelocityEcl(watched),
                                                     KsaWorld.MeanRadius(watched)), KsaWorld.DisplayName(watched));
             }
-            if (command.Flag("refill", false)) e.Head.RefillBeam();
+            if (command.Flag("refill", false)) e.Head.RefillChemicals();
             if (command.Has("code") && LaserCode.IsValid((int)command.Number("code", 0))) p.LaserCode = (int)command.Number("code", 0);
 
             Dictionary<string, object?> row = new()
@@ -997,7 +997,7 @@ internal sealed class Bridge : IViewPose
             if (e.Head.Profile.Beam is not null)
             {
                 row["beam_on"] = e.Head.BeamOn;
-                row["beam_s_left"] = e.Head.MagazineSecondsLeft;
+                row["beam_s_left"] = e.Head.ChemicalSecondsLeft;
                 row["beam_range_m"] = e.Head.BeamOn ? Vec.Len(e.Head.BeamToEcl - e.Head.BeamFromEcl) : null;
                 row["burning"] = e.Head.Burning is { } part ? $"{part.Id} {PartHealth.World.Of(part):P0} left" : null;
             }

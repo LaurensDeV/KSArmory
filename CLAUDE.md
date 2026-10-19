@@ -498,7 +498,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Aimpoint.cs` | what a round is shooting at — craft, component or coordinate |
 | `Sim/ThreatModel.cs` | CPA threat classification, priority, engagement envelope |
 | `Sim/RadarSignature.cs` | how large a contact looks, and how far that lets the set see it |
-| `Sim/BeamProfile.cs` | a high-energy laser an optical head fires down its own line of sight — power, aperture, burn-through fluence and a magazine of lasing seconds |
+| `Sim/BeamProfile.cs` | a high-energy laser an optical head fires down its own line of sight — power, aperture, burn-through fluence and the seconds of lasing its load of chemicals gives |
 | `Sim/Beam.cs` | what that beam does to the part it is held on — **diffraction and jitter set the spot, the air on the path thins it**, and the burn is a share of the part's health per second, calibrated to the ABL's 3–5 s at 100 km |
 | `Sim/Signature.cs` | how bright a thing looks to a seeker — heat in kW/sr off the thrust being made, and the lock strength a seeker would take on it, **over range squared for heat and to the fourth for radar** |
 | `Sim/Decoy.cs` | a flare or a chaff cloud in the air — **not a round**: nothing aims it, fuses on it or tracks it, so it is a point with a signature falling through the air, its stiff drag stepped semi-implicitly |

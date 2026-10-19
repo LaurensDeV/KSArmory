@@ -242,7 +242,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
             RollPart = OpticParts.FindRoll(found.Part, found.Profile);
 
             // Filled once, when first crewed, and not refilled by finding the part again.
-            if (double.IsNaN(MagazineSecondsLeft)) MagazineSecondsLeft = Profile.Beam?.MagazineSeconds ?? 0.0;
+            if (double.IsNaN(ChemicalSecondsLeft)) ChemicalSecondsLeft = Profile.Beam?.ChemicalSeconds ?? 0.0;
         }
         else
         {
@@ -369,8 +369,8 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         if (!LaserCode.IsValid(_policy.LaserCode)) return;
         if (!TryOpticViewEcl(out double3 eye, out double3 forward)) return;
 
-        bool firing = Profile.Beam is not null && MagazineSecondsLeft > 0.0;
-        if (firing) MagazineSecondsLeft = Math.Max(0.0, MagazineSecondsLeft - Math.Max(dt, 0.0));
+        bool firing = Profile.Beam is not null && ChemicalSecondsLeft > 0.0;
+        if (firing) ChemicalSecondsLeft = Math.Max(0.0, ChemicalSecondsLeft - Math.Max(dt, 0.0));
 
         double reach = Profile.LaserRangeMetres;
         bool onCraft = KsaWorld.TryRayPartHit(eye, forward, platform, reach, out Vehicle? craft, out Part? part,
@@ -411,11 +411,11 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         if (Burning is not null) Burn(platform, craft!, part!, eye, at, range, dt);
     }
 
-    /// <summary>Seconds of beam left in the magazine; nothing for a head with no beam.</summary>
-    public double MagazineSecondsLeft { get; private set; } = double.NaN;
+    /// <summary>Seconds of lasing left in the chemicals aboard; nothing for a head with no beam.</summary>
+    public double ChemicalSecondsLeft { get; private set; } = double.NaN;
 
-    /// <summary>A full magazine again, for a test that needs to fire longer than one load.</summary>
-    public void RefillBeam() => MagazineSecondsLeft = Profile.Beam?.MagazineSeconds ?? 0.0;
+    /// <summary>A full load of chemicals again, for a test that needs to fire longer than one load.</summary>
+    public void RefillChemicals() => ChemicalSecondsLeft = Profile.Beam?.ChemicalSeconds ?? 0.0;
 
     /// <summary>Whether the beam is firing and landing somewhere this frame.</summary>
     public bool BeamOn { get; private set; }

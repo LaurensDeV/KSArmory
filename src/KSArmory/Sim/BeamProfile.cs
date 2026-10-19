@@ -2,7 +2,7 @@ namespace KSArmory;
 
 /// <summary>
 /// A high-energy laser an optical head fires along its own line of sight: what it puts out, through
-/// what aperture, and how long its magazine lasts. An <see cref="OpticProfile"/> without one only
+/// what aperture, and how long its load of chemicals lasts. An <see cref="OpticProfile"/> without one only
 /// designates.
 /// </summary>
 public sealed class BeamProfile
@@ -26,6 +26,9 @@ public sealed class BeamProfile
     /// <summary>What the air takes out per metre at sea-level density, scaled by the density on the path.</summary>
     public float ExtinctionPerMetre = 2.0e-5f;
 
-    /// <summary>Seconds of lasing a full load of chemicals gives: about twenty 5 s shots.</summary>
-    public float MagazineSeconds = 100f;
+    /// <summary>
+    /// Seconds of lasing a full load of chemicals gives: about twenty 5 s shots. A COIL burns chlorine,
+    /// hydrogen peroxide and iodine to make its light, so what runs out is those, not a battery.
+    /// </summary>
+    public float ChemicalSeconds = 100f;
 }
