@@ -632,7 +632,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
                                      HopTurnSeconds: EngineHops ? HopBurn.TurnsSeconds : 0.0),
             Program.Phase, false, TargetSet.MaxTargets, KSArmory.Warhead.LethalRadius(Warhead.ChargeKg), PlannedLead,
             ReachHold.Unflown, Config.PriceEachHopAtItsSlot, Config.PriceHopsAtWhatTheTrimPays,
-            Config.PriceSlotsOnTheGateChord, _later, EngineHops);
+            Config.PriceSlotsOnTheGateChord, _later, EngineHops, Config.FreeHopsCountTheArrivalTheyMove);
         _reach = reach;
 
         bool mayReplan = ReleaseLoop.MayReplan(Program.TurnsAtTheSplit, _didSplit, reach.Flown.Stops, _walker.Walk.Stops,

@@ -155,7 +155,8 @@ internal sealed partial class IcbmComputer
                                  Warhead.LethalRadius(_warhead!.ChargeKg), _targets.LeadIndex,
                                  coasting ? ReachHold.Unflown : ReachHold.EpochUnmeasured,
                                  Config.PriceEachHopAtItsSlot, Config.PriceHopsAtWhatTheTrimPays,
-                                 Config.PriceSlotsOnTheGateChord, _reachLater, HopsBurnTheEngine);
+                                 Config.PriceSlotsOnTheGateChord, _reachLater, HopsBurnTheEngine,
+                                 Config.FreeHopsCountTheArrivalTheyMove);
 
         // Held rather than re-read, and only replaced by a plan that has stops. A frame whose
         // footprint did not come down would otherwise take the walk away on the approach to the

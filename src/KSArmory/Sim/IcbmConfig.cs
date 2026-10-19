@@ -248,6 +248,13 @@ internal sealed class IcbmConfig
     public bool FreeHopsMeasureTheirSlots;
 
     /// <summary>
+    /// Whether a free walk counts the arrival each hop moves: an uprange hop commits an earlier arrival, so every later
+    /// stop is nearer it than its slots alone say, and dearer. Flown at 12,902 km 400 km apart, the arrival moved about
+    /// 80 s a hop and the last hop flew 1.42x its price. <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c> step 5.
+    /// </summary>
+    public bool FreeHopsCountTheArrivalTheyMove;
+
+    /// <summary>
     /// Whether a plan with fewer stops may replace the walker's once a turning bus has split. Fewer stops never move the
     /// first release earlier, which is what the split was timed on. <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c>
     /// step 5.

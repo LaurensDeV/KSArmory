@@ -111,11 +111,16 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// This hop's share of the measured reach at later epochs under a free arrival; null takes
     /// <see cref="FreeSlotExponent"/>.
     /// </param>
+    /// <param name="ArrivalShiftSeconds">
+    /// How much later the arrival comes once this hop is flown free, negative for earlier
+    /// (<see cref="IcbmConfig.FreeHopsCountTheArrivalTheyMove"/>): every later stop's time to go moves with it.
+    /// </param>
     internal readonly record struct Target(int Warheads, double ReachMetres,
                                            double HopMetres = double.NaN,
                                            double HopMetresPerSecond = double.NaN,
                                            double HopLengthMetres = double.NaN,
-                                           SlotCurve? Slots = null);
+                                           SlotCurve? Slots = null,
+                                           double ArrivalShiftSeconds = 0.0);
 
     /// <summary>
     /// One hop's share of the reach it was measured with, at epochs measured for it
@@ -463,8 +468,22 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
         double spent = Math.Max(0.0, bus.SpentMetresPerSecond);
         double gate = bus.GateFor(n);
 
+        // Seconds before the arrival as it will be at each stop: a free hop moves it, by its own shift.
+        double[] shifts = new double[n];
+        for (int k = 1; k < n; k++)
+        {
+            double shift = targets[taken[k].Target].ArrivalShiftSeconds;
+            shifts[k] = double.IsFinite(shift) ? shift : 0.0;
+        }
+
         double[] befores = new double[n];
         for (int k = 0; k < n; k++) befores[k] = BeforeArrivalSeconds(k, n, gate, bus.HopSeconds);
+        double moved = 0.0;
+        for (int k = n - 1; k > 0; k--)
+        {
+            moved += shifts[k];
+            befores[k - 1] -= moved;
+        }
 
         double[]? slots = null;
         if (bus.SizesSlots && n > 1)
@@ -485,14 +504,14 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
                     double price = HopOnto(to, bus,
                                            ReachAtSlot(reachMetresPerMetrePerSecond, k, befores[k], bus, to.Slots));
                     slots[k] = bus.SlotFor(price, masses[k]);
-                    total += slots[k];
+                    total += slots[k] - shifts[k];
                 }
 
                 double at = bus.GateForSlots(total);
                 befores[n - 1] = at;
                 for (int k = n - 2; k >= 0; k--)
                 {
-                    at += slots[k + 1];
+                    at += slots[k + 1] - shifts[k + 1];
                     befores[k] = at;
                 }
             }

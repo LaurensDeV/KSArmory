@@ -168,6 +168,7 @@ RESEARCH = (
     "WalkShrinksAfterTheSplit",
     "HopsResolveAfterTheirBurn",
     "HopsBurnTheEngine",
+    "FreeHopsCountTheArrivalTheyMove",
     "HoldPointsLoosely",
     "JetsThroughTheKeyboardClear",
     "KickAtTheRelease",
