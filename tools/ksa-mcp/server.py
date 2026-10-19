@@ -356,12 +356,13 @@ TOOLS = {
     "ksa_clear": ("Forget every cloud, mark and flash.", {}, [], lambda a: [_text(json.dumps(send("clear")))]),
     "ksa_camera": ("Hold the view on the newest burst: a preset (side, under, overhead, far, downwind), or "
                    "azimuth from across the wind, elevation, distance (0 = default), aim as a fraction of "
-                   "the cloud's top. release=true hands the view back.",
+                   "the cloud's top. at_craft holds it on a named craft instead, distance_m out with aim in metres "
+                   "above it. release=true hands the view back.",
                    {"preset": {"type": "string", "enum": list(PRESETS)}, "azimuth_deg": _num("deg"),
                     "elevation_deg": _num("deg"), "distance_m": _num("m"), "aim": _num("0..1"),
                     "turn_deg": _num("deg to turn the view from the burst; 180 looks away"),
                     "orbit_deg_s": _num("deg a second the view circles the burst, paused or not"),
-                    "release": {"type": "boolean"}}, [],
+                    "at_craft": {"type": "string"}, "release": {"type": "boolean"}}, [],
                    lambda a: [_text(json.dumps(send("camera", **{**PRESETS.get(a.pop("preset", ""), {}), **a})))]),
     "ksa_site": ("Set a craft (the flown one unless craft names another) down at a latitude and longitude, on its "
                  "body or a named one, and clear the clouds. Over the sea it lands on the seabed. Returns the sun's "

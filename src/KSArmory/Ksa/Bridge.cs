@@ -40,6 +40,7 @@ internal sealed class Bridge : IViewPose
     private double _orbitDegPerSecond;
     private KsaWorld.MainView _saved;
     private Vehicle? _posedFrom;
+    private Vehicle? _poseAnchor;
 
     private static readonly string[] ShaderIds =
         ["KSArmoryCloudCompute", "KSArmoryCloudResolveCompute", "KSArmoryShockCompute",
@@ -212,6 +213,12 @@ internal sealed class Bridge : IViewPose
             }
 
             if (_pose is not { } pose || _posedFrom is not { } craft || !KsaWorld.IsAlive(craft)) return;
+
+            if (_poseAnchor is { } anchor)
+            {
+                if (KsaWorld.IsAlive(anchor)) HoldOnCraft(craft, anchor, pose);
+                return;
+            }
 
             CloudWatch.Update(craft, pose);
         }
@@ -1325,6 +1332,7 @@ internal sealed class Bridge : IViewPose
             if (_pose is null) return Done();
 
             _pose = null;
+            _poseAnchor = null;
             KsaWorld.TryHandBackMainView(_saved, _posedFrom, out _, out _);
             _posedFrom = null;
             return Done();
@@ -1338,12 +1346,40 @@ internal sealed class Bridge : IViewPose
             _posedFrom = craft;
         }
 
+        _poseAnchor = null;
+        if (command.String("at_craft") is { Length: > 0 } named)
+        {
+            if (CraftNamed(named) is not { } anchor) return Failed("no such craft to look from");
+            _poseAnchor = anchor;
+        }
+
         _pose = new CloudWatch.Pose(command.Number("azimuth_deg", 0.0), command.Number("elevation_deg", 14.0),
                                     command.Number("distance_m", 0.0), command.Number("aim", 0.45),
                                     command.Number("turn_deg", 0.0));
         _orbitDegPerSecond = command.Number("orbit_deg_s", 0.0);
 
         return Done(new() { ["held"] = true });
+    }
+
+    // The view held distance_m from a craft at azimuth_deg round and elevation_deg up, looking at the
+    // point aim metres above it -- for framing something that is not a burst, such as a beam.
+    private static void HoldOnCraft(Vehicle followed, Vehicle anchor, CloudWatch.Pose pose)
+    {
+        double3 at = KsaWorld.PositionEcl(anchor);
+        double3 up = KsaWorld.LocalUp(anchor);
+        double3 east = Vec.Unit(Vec.AnyPerpendicular(up));
+        double3 north = Vec.Cross(up, east);
+
+        double azimuth = double.DegreesToRadians(pose.AzimuthDeg);
+        double elevation = double.DegreesToRadians(pose.ElevationDeg);
+        double distance = pose.DistanceMetres > 0.0 ? pose.DistanceMetres : 200.0;
+
+        double3 facing = (east * Math.Cos(azimuth)) + (north * Math.Sin(azimuth));
+        double3 eye = at + (facing * (distance * Math.Cos(elevation))) + (up * (distance * Math.Sin(elevation)));
+        double3 look = (at + (up * pose.AimAt)) - eye;
+        if (!Vec.IsFinite(look) || Vec.Len2(look) < 1.0) return;
+
+        KsaWorld.TryLookFromMainViewport(eye - KsaWorld.PositionEcl(followed), Vec.Unit(look), up, 50.0);
     }
 
     // The craft set down somewhere else on its body, or another -- which is also how a scene is had
