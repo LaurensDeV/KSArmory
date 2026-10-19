@@ -75,6 +75,39 @@ internal sealed partial class IcbmComputer
                         : _hopBurn.Said));
     }
 
+    private int _watchedRelease;
+    private double _watchedSeconds, _leftAtMetres, _closestMetres;
+
+    // How near the last warhead released came to its bus in the minute after it left: under where it started, the bus
+    // flew back through it.
+    private void WatchTheReleased(double simStep)
+    {
+        if (_sentTo.Count > _watchedRelease)
+        {
+            if (_watchedRelease > 0) SayTheClosest();
+            _watchedRelease = _sentTo.Count;
+            _watchedSeconds = 0.0;
+            _leftAtMetres = ReleasedMetres;
+            _closestMetres = double.PositiveInfinity;
+            return;
+        }
+
+        if (_watchedRelease == 0 || !double.IsFinite(_watchedSeconds)) return;
+
+        _watchedSeconds += simStep;
+        if (double.IsFinite(ReleasedMetres)) _closestMetres = Math.Min(_closestMetres, ReleasedMetres);
+        if (_watchedSeconds >= 60.0) SayTheClosest();
+    }
+
+    private void SayTheClosest()
+    {
+        if (!double.IsFinite(_watchedSeconds)) return;
+
+        Log.Info($"released warhead {_watchedRelease} on {KsaWorld.DisplayName(Craft)}: left {_leftAtMetres:F1} m from "
+                 + $"the bus, closest {_closestMetres:F1} m in the {_watchedSeconds:F0} s after");
+        _watchedSeconds = double.NaN;
+    }
+
     // Against the bus in the same frame: the round's own ecliptic position is a step of ~30 km/s from the craft's.
     private double ReleasedMetres => _sentTo.Count > 0 ? Vec.Len(_sentTo[^1].Round.OffsetFromPlatform) : double.NaN;
 

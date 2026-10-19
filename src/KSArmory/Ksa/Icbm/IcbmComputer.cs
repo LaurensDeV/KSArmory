@@ -609,6 +609,7 @@ internal sealed partial class IcbmComputer
         _hopRound = -1;
         ResetTheHop();
         _sentTo.Clear();
+        _watchedRelease = 0;
         _wentTo.Clear();
         _saidWalk = "";
 
@@ -1031,6 +1032,7 @@ internal sealed partial class IcbmComputer
 
         DriveTurn(simStep, state);
         DriveHop(simStep, state);
+        WatchTheReleased(simStep);
         if (_hopBurn.Holds)
         {
             if (_trim.Firing != TrimAxes.None) VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
