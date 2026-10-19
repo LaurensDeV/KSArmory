@@ -51,9 +51,9 @@ public class StopByStopPlanTests
     {
         ReleaseItinerary.Bus bus = Bus(double.PositiveInfinity, TankKg) with { HopAccelerationMetresPerSecond2 = 0.5 };
 
-        Assert.Equal(ReleaseItinerary.HopOverheadSeconds + 40.0, bus.SlotFor(20.0), 9);
-        Assert.Equal(ReleaseItinerary.HopOverheadSeconds + 20.0, bus.SlotFor(20.0, MassKg / 2.0), 9);
-        Assert.Equal(ReleaseItinerary.HopOverheadSeconds + 40.0, (bus with { TankKg = double.NaN }).SlotFor(20.0, MassKg / 2.0), 9);
+        Assert.Equal(ReleaseItinerary.HopOverheadSeconds + 80.0, bus.SlotFor(40.0), 9);
+        Assert.Equal(ReleaseItinerary.HopOverheadSeconds + 40.0, bus.SlotFor(40.0, MassKg / 2.0), 9);
+        Assert.Equal(ReleaseItinerary.HopOverheadSeconds + 80.0, (bus with { TankKg = double.NaN }).SlotFor(40.0, MassKg / 2.0), 9);
     }
 
     // What the trim pays for an along-track kilometre at 6,181 km against the time to go, free clock, the nose held

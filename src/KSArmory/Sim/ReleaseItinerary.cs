@@ -64,10 +64,11 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     public const double SingleTargetMetresPerSecond = 16.1;
 
     /// <summary>
-    /// What a hop after the first takes besides its divert burn: <see cref="MedianHopSeconds"/>' clearance and four
-    /// correction passes, without the separation null only the first stop pays.
+    /// What a hop after the first takes besides its divert burn: the upper quartile of 150 hops over 8 m/s flown on
+    /// 2026-10-17 and 18, each the time between releases less its divert at the measured thruster acceleration
+    /// (median 35.8 s, p90 44.7). Upper, because a slot planned long prices its hop later and so dearer.
     /// </summary>
-    public const double HopOverheadSeconds = 48.0;
+    public const double HopOverheadSeconds = 41.0;
 
     /// <summary>
     /// How fast a free arrival's reach falls with the time to go, as a power of the time ratio: the along-track
