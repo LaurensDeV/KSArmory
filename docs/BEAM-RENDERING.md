@@ -62,15 +62,38 @@ because it is drawn to look right against a sky, and a cumulus is tens of optica
 at KSA's own value the beam stayed saturated through the thick of a deck. Haze at 0.95 still lets
 two-thirds through. Flown up through broken cumulus, the beam went out where it entered the deck and
 showed again in the gap above. Other views and a world with no weather bind the pass's own distance
-layer as a stand-in, and a negative glow share in the push says not to read it.
+layer as a stand-in, and the push's `A.w` says not to read it.
 
-**Not stopped by them, and no glow.** A cloud stops a real beam within metres and glows where it
-enters. The first try at that read KSA's weather layers in the beam shader, as `KSArmoryCloud.comp`
-does — the layer buffers bound in the pass's own set and each layer's coverage map read through the
-bindless texture array by the id the buffer carries. **Flying it was followed by a 0x116
-VIDEO_TDR_FAILURE on the developer's machine**, the GPU hung and the driver unable to reset it. A wrong
-binding or a placeholder buffer makes that id garbage, and an out-of-range bindless index is exactly
-such a hang. So nothing the beam shader reads is indexed by a number from somewhere else.
+**Stopped by overcast, and glowing where it enters.** A cloud deck stops a real beam within metres,
+and the light it scatters lights the cloud base from below. That is decided on the CPU, because it has
+to cut the damage as well as the drawing: `Ksa/CloudLayers.cs` reads each layer's coverage map off disk
+once, through the game's own libktx (Earth's are zstd-packed BC4 cubemaps, read at 2048 a face, about
+5 km a texel), and turns it by the layer's drift exactly as `CloudLayerRenderData.UpdateCommonFrameData`
+does. `Sim/CloudCover.cs` marches the beam through each layer's shell and stops it at the first point
+over the threshold, below a top that rises with the coverage. A coverage grid round a craft against the
+view from 1,500 km up matched band for band.
+
+The map places cloud *fields*, not the puffs in them: those are KSA's detail tiles and GPU noise, which
+would need its private tiling frame read by reflection and still miss by hundreds of metres. Under
+broken cumulus the map read 0.7 everywhere, gaps and all, so a threshold there stopped the beam in
+clear sky. It is **0.8** -- overcast, which read 0.8-0.9 -- and broken cloud is left to the hiding
+above. Cirrus is a few optical depths, not tens, so a body's thin layers are named in `Bodies.xml`
+(`ThinCloud`) and stop nothing.
+
+The glow is a 40 m core and a halo of light in the cloud just above its base: falling away over 400 m
+across, exponentially rather than as a gaussian so it has a tail and no rim, over 150 m up into the cloud,
+and none below, so from underneath its bottom is flat and from afar it is a lit patch on the ceiling
+rather than a ball under it. It is integrated along each pixel's ray by midpoints and masked by the
+drawn cloud's opacity there, so it lights the cloud KSA drew and not the gaps. The tile it is drawn
+over is sized at the nearest the halo comes to the eye, since a disc's near side is the larger.
+
+**Never through a bindless index.** The first try at a cloud stop read KSA's weather layers in the beam
+shader, as `KSArmoryCloud.comp` does — the layer buffers bound in the pass's own set and each layer's
+coverage map read through the bindless texture array by the id the buffer carries. **Flying it was
+followed by a 0x116 VIDEO_TDR_FAILURE on the developer's machine**, the GPU hung and the driver unable to
+reset it. A wrong binding or a placeholder buffer makes that id garbage, and an out-of-range bindless
+index is exactly such a hang. So nothing the beam shader reads is indexed by a number from somewhere
+else, and the stop is the CPU's.
 
 ## Why not the others
 

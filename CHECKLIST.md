@@ -2129,8 +2129,13 @@ and `validate-parts.py`; the C# is the LITENING's profile with other numbers.
       23 m out, on the ground the depth buffer shows.
 - [x] A deck in front of it hides it: fired up through broken cumulus and watched from 4 km, it
       climbed in front of the far clouds, went out where it entered the deck and showed again in the
-      gap above. It is hidden, not stopped: the stretch past the deck is still drawn where the eye
-      sees it through a gap, and the cloud does not glow.
+      gap above. Broken cloud only hides it: past a puff it still flies on.
+- [x] Overcast stops the beam (the panel's "stopped by cloud" line is unseen). Fired up at
+      27.9N 81.9W by day and 30N 112E by night, it ended 1.93 and 1.96 km up at the deck's base, a
+      white-green core with a halo flat along the cloud base: a soft disc on the ceiling from 9 km, and
+      at night a green patch following the drawn cloud, dark in its gaps. Earth's cirrus, `ThinCloud`,
+      stops nothing.
+- [ ] A target above an overcast is safe from a beam fired from under it, and one under it from above.
 - [ ] It will not fire through its own airframe (the laser's MASK). Not reachable on a turret stacked
       on top of a tank, whose nod stops 30° below the horizon; it wants one mounted lower on a hull.
 
