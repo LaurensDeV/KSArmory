@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(./tools/test.sh)",
+      "Bash(./tools/test.sh *)",
+      "Bash(./tools/build.sh)",
+      "Bash(./tools/build.sh *)",
+      "Bash(./tools/check-all.sh)",
+      "Bash(./tools/check-all.sh *)",
+      "Bash(./tools/check-docs.sh)",
+      "Bash(./tools/check-docs.sh *)",
+      "Bash(./tools/ksa-user-dir.sh)",
+      "Bash(./tools/check-comments.sh)",
+      "Bash(./tools/check-comments.sh *)",
+      "Bash(./tools/api-surface.sh --check)",
+      "Bash(./tools/check-tunables.py)",
+      "Bash(./tools/model/checkmesh.py *)",
+      "Bash(./tools/validate-parts.py)",
+      "Bash(./tools/validate-parts.py *)",
+      "Bash(./tools/check-studies.py --check)",
+      "Bash(./tools/check-shaders.sh)",
+      "Bash(./tools/check-boundary.sh)",
+      "Bash(./tools/pack-api.py --check)",
+      "mcp__Blender__get_screenshot_of_area_as_image"
+    ]
+  }
+}
