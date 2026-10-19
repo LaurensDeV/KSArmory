@@ -2127,6 +2127,10 @@ and `validate-parts.py`; the C# is the LITENING's profile with other numbers.
       breaks off (or the whole craft goes, with per-part damage off). Logged as `beam burnt through`.
 - [x] The ground stops it: nodded 10° and 25° below the horizon on the pad, the beam ended 27 m and
       23 m out, on the ground the depth buffer shows.
+- [x] A deck in front of it hides it: fired up through broken cumulus and watched from 4 km, it
+      climbed in front of the far clouds, went out where it entered the deck and showed again in the
+      gap above. It is hidden, not stopped: the stretch past the deck is still drawn where the eye
+      sees it through a gap, and the cloud does not glow.
 - [ ] It will not fire through its own airframe (the laser's MASK). Not reachable on a turret stacked
       on top of a tank, whose nod stops 30° below the horizon; it wants one mounted lower on a hull.
 

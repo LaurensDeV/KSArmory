@@ -52,16 +52,25 @@ sky therefore fades as it climbs rather than stopping at its 300 km cast, and on
 also fades over the last 15% of its length. Seen down its length the `1/sin θ` term is held to three
 times the side-on brightness and the phase to four, because uncapped they white out the picture.
 
-## Clouds: tried, and taken out
+## Clouds
 
-A cloud stops a real beam within metres and glows where it enters. That was built by reading KSA's
-weather layers in the beam shader, as `KSArmoryCloud.comp` does — the layer buffers bound in the pass's
-own set and each layer's coverage map read through the bindless texture array by the id the buffer
-carries. **Flying it was followed by a 0x116 VIDEO_TDR_FAILURE on the developer's machine**, the GPU
-hung and the driver unable to reset it. A wrong binding or a placeholder buffer makes that id garbage,
-and an out-of-range bindless index is exactly such a hang. The shader now reads its push constants,
-the scene and the depth and nothing else. Clouds come back only with the coverage read somewhere a bad
-id cannot reach the GPU — the CPU, or the cloud pass's own already-proven bindings.
+**Hidden behind them.** KSA's cloud renderer hands over, for the main view, one distance (km) and
+one transmittance per pixel for all its layers together. The beam pipeline binds those two images
+— plain sampled images, nothing indexed — and splits each pixel's tube integral at that distance:
+whole in front, times the transmittance behind. The transmittance is raised to the eighth power first,
+because it is drawn to look right against a sky, and a cumulus is tens of optical depths to a beam:
+at KSA's own value the beam stayed saturated through the thick of a deck. Haze at 0.95 still lets
+two-thirds through. Flown up through broken cumulus, the beam went out where it entered the deck and
+showed again in the gap above. Other views and a world with no weather bind the pass's own distance
+layer as a stand-in, and a negative glow share in the push says not to read it.
+
+**Not stopped by them, and no glow.** A cloud stops a real beam within metres and glows where it
+enters. The first try at that read KSA's weather layers in the beam shader, as `KSArmoryCloud.comp`
+does — the layer buffers bound in the pass's own set and each layer's coverage map read through the
+bindless texture array by the id the buffer carries. **Flying it was followed by a 0x116
+VIDEO_TDR_FAILURE on the developer's machine**, the GPU hung and the driver unable to reset it. A wrong
+binding or a placeholder buffer makes that id garbage, and an out-of-range bindless index is exactly
+such a hang. So nothing the beam shader reads is indexed by a number from somewhere else.
 
 ## Why not the others
 
