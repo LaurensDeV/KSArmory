@@ -43,6 +43,26 @@ window, and an incandescent ball where it burns — a target glows by its own te
 beam's colour. The balls are gaussians integrated the same way, so each has an edge the dispatch's
 patch can contain; a `1/d²` point's in-scatter falls only as `1/h` and would show the patch.
 
+## Along the beam
+
+What it scatters follows the air: the density ratio is read at both ends on the CPU and blended
+log-linearly between them in the shader, which is exact for a straight climb through an exponential
+atmosphere, times what the air has already taken out of the beam (`exp(−k·ρ̄·u)`). A beam fired at the
+sky therefore fades as it climbs rather than stopping at its 300 km cast, and one that meets nothing
+also fades over the last 15% of its length. Seen down its length the `1/sin θ` term is held to three
+times the side-on brightness and the phase to four, because uncapped they white out the picture.
+
+## Clouds: tried, and taken out
+
+A cloud stops a real beam within metres and glows where it enters. That was built by reading KSA's
+weather layers in the beam shader, as `KSArmoryCloud.comp` does — the layer buffers bound in the pass's
+own set and each layer's coverage map read through the bindless texture array by the id the buffer
+carries. **Flying it was followed by a 0x116 VIDEO_TDR_FAILURE on the developer's machine**, the GPU
+hung and the driver unable to reset it. A wrong binding or a placeholder buffer makes that id garbage,
+and an out-of-range bindless index is exactly such a hang. The shader now reads its push constants,
+the scene and the depth and nothing else. Clouds come back only with the coverage read somewhere a bad
+id cannot reach the GPU — the CPU, or the cloud pass's own already-proven bindings.
+
 ## Why not the others
 
 - **Camera-facing ribbon:** collapses looking along the beam — exactly the view from beside the

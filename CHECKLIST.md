@@ -2123,7 +2123,7 @@ and `validate-parts.py`; the C# is the LITENING's profile with other numbers.
       brightest looking back along it toward the turret, and dims in thin air. With the pass off, a thin
       orange gizmo line. The line beside the
       button counts the magazine down from 100 s only while firing, and not while paused.
-- [ ] Held on a craft, the line says `burning <part>` with its health falling; at the end that part
+- [x] Held on a craft, the line says `burning <part>` with its health falling; at the end that part
       breaks off (or the whole craft goes, with per-part damage off). Logged as `beam burnt through`.
 - [ ] It will not fire through its own airframe (the laser's MASK), and the ground stops it.
 
