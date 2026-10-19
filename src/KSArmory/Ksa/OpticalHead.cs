@@ -384,6 +384,14 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         }
         else if (!onCraft)
         {
+            // Nothing in reach, but a beam fired at the sky is still a beam: drawn out to its range.
+            if (firing)
+            {
+                BeamOn = true;
+                BeamFromEcl = eye;
+                BeamToEcl = eye + (Vec.Unit(forward) * reach);
+            }
+
             return;
         }
 
@@ -405,6 +413,9 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
     /// <summary>Seconds of beam left in the magazine; nothing for a head with no beam.</summary>
     public double MagazineSecondsLeft { get; private set; } = double.NaN;
+
+    /// <summary>A full magazine again, for a test that needs to fire longer than one load.</summary>
+    public void RefillBeam() => MagazineSecondsLeft = Profile.Beam?.MagazineSeconds ?? 0.0;
 
     /// <summary>Whether the beam is firing and landing somewhere this frame.</summary>
     public bool BeamOn { get; private set; }

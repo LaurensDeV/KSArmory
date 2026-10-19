@@ -1706,7 +1706,7 @@ internal static class CloudPass
         public float4 A;           // the start, camera-relative, and the core radius there
         public float4 B;           // the end, and the core radius there, negative while it burns
         public float4 Strength;    // across-width brightness, glow share, impact, muzzle
-        public float4 Tile;        // the tile's first pixel, the haze's g, the phase's cap
+        public float4 Tile;        // the tile's first pixel, the air at the start and at the end, negative for an open end
     }
 
     // The core's drawn radius at the window and at the far end (m). The COIL is invisible; this is
@@ -1714,20 +1714,12 @@ internal static class CloudPass
     private const double BeamExitRadius = 0.20;
     private const double BeamFarRadius = 0.08;
 
-    // Brightness across the beam's width, which a scattering beam keeps however wide it is: a 0.2 m core
-    // side-on at full air peaks near 56, a little over a tracer's 24 once bloomed.
+    // Brightness across the beam's width, which a scattering beam keeps however wide it is, at sea-level
+    // air: a 0.2 m core side-on peaks near 56 here and 14 after the shader's exposure.
     private const float BeamLineStrength = 20f;
     private const float BeamGlowShare = 0.6f;
     private const float BeamImpact = 40f;
     private const float BeamMuzzle = 6f;
-
-    // Haze's forward scattering, and the most it may brighten a beam seen looking down it.
-    private const float BeamHazeG = 0.7f;
-    private const float BeamPhaseCap = 12f;
-
-    // A thread's share of the beam where there is no air, which really scatters none: kept so the
-    // operator can see where it points in space.
-    private const double BeamVacuumShare = 0.12;
 
     // The shader's widest reach from the axis, in core radii: the glow's six, three of its sigmas.
     private const double BeamReachInRadii = 18.0;
@@ -1746,21 +1738,21 @@ internal static class CloudPass
 
         for (int i = 0; i < count; i++)
         {
-            if (!LaserBeams.TryAt(i, out double3 from, out double3 to, out double air, out bool burning)) continue;
+            if (!LaserBeams.TryAt(i, out double3 from, out double3 to, out double airA, out double airB,
+                                  out bool burning, out bool open)) continue;
 
             Tile tile = BeamTile(camera, from, to, width, height);
             if (tile.Empty) continue;
 
-            double share = BeamVacuumShare + ((1.0 - BeamVacuumShare) * Math.Clamp(air, 0.0, 1.0));
             BeamPush push = new()
             {
                 InvViewProj = camera.VPInv.viewProjection,
                 A = new float4((float)from.X, (float)from.Y, (float)from.Z, (float)BeamExitRadius),
                 B = new float4((float)to.X, (float)to.Y, (float)to.Z,
                                (float)(burning ? -BeamFarRadius : BeamFarRadius)),
-                Strength = new float4((float)(BeamLineStrength * share), BeamGlowShare, BeamImpact,
-                                      (float)(BeamMuzzle * share)),
-                Tile = new float4(tile.OriginX, tile.OriginY, BeamHazeG, BeamPhaseCap),
+                Strength = new float4(BeamLineStrength, BeamGlowShare, BeamImpact,
+                                      (float)(BeamMuzzle * Math.Clamp(airA, 0.0, 1.0))),
+                Tile = new float4(tile.OriginX, tile.OriginY, (float)airA, (float)(open ? -Math.Max(airB, 1e-7) : airB)),
             };
 
             using (commandBuffer.TagRegion(GpuTag))

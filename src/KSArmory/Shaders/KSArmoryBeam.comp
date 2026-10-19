@@ -6,6 +6,9 @@
 // energy, so a far beam thins to a thread instead of vanishing. One dispatch per beam from
 // CloudPass, over its own patch of screen. Derivation: docs/BEAM-RENDERING.md.
 //
+// It reads nothing but its push constants, the scene and the depth: a bad index into anything else
+// hangs the GPU, which on a driver that cannot reset it is a blue screen.
+//
 // Bindings follow ComputePipelineWrapper's order: the storage image, then the depth it samples.
 
 layout (local_size_x = 8, local_size_y = 8) in;
@@ -19,7 +22,8 @@ layout (push_constant) uniform PushConstants
     vec4 A;            // the beam's start, camera-relative, and its core radius there
     vec4 B;            // its end, and its core radius there -- negative while it burns what it is on
     vec4 Strength;     // the line's brightness across its width, the glow's share, the impact's, the muzzle's
-    vec4 Tile;         // the tile's first pixel, the haze's asymmetry g, and the brightest the phase may make it
+    vec4 Tile;         // the tile's first pixel, and the air density ratio at the start and the end --
+                       // the end's negative when the beam meets nothing and fades out instead
 } pc;
 
 const vec3 CoreColour = vec3(0.55, 1.0, 0.6);
@@ -39,6 +43,23 @@ const float ImpactMetres = 0.6;
 const float LeastPixels = 0.8;
 
 const float SqrtPi = 1.7724539;
+
+// Seen down its length a beam's light grows without bound, which is real and whites out the picture:
+// held to this many times its side-on brightness.
+const float MostEndOn = 3.0;
+
+// The whole beam's brightness against the push's numbers, tuned by eye against a daylit pad.
+const float Exposure = 0.25;
+
+// Haze's forward scattering, and the most it may brighten a beam seen looking down it.
+const float HazeG = 0.7;
+const float MostPhase = 4.0;
+
+// What the air takes out of the beam per metre at sea-level density (BeamProfile.ExtinctionPerMetre).
+const float ExtinctionPerMetre = 2.0e-5;
+
+// A beam that meets nothing fades over this share of its length rather than stopping.
+const float OpenEndShare = 0.15;
 
 vec3 WorldAt(vec2 uv, float deviceZ)
 {
@@ -64,7 +85,7 @@ float Tube(float w, float h, float s, float t0, float ta, float tb)
 {
     float across = exp(-(h * h) / (w * w)) / (w * SqrtPi);
     float along = 0.5 * (Erf(s * (tb - t0) / w) - Erf(s * (ta - t0) / w));
-    return across * along / s;
+    return across * min(along / s, MostEndOn);
 }
 
 // A glowing ball of radius r at p, seen along the ray up to tMax: a gaussian blob integrated through,
@@ -79,14 +100,33 @@ float Ball(vec3 dir, vec3 p, float r, float least, float tMax)
     return (r * r) / (rr * rr) * exp(-h2 / (rr * rr)) * along;
 }
 
+// How much a beam scatters a distance u along it, against at its start: the air there -- which falls
+// away exponentially as the beam climbs, so the log-linear blend of the two ends' densities is exact for
+// a straight climb -- times what the air has left of the beam getting there, and the open end's fade.
+float AlongBeam(float u, float len)
+{
+    float rhoA = max(pc.Tile.z, 0.0);
+    float rhoB = max(abs(pc.Tile.w), 0.0);
+    float f = clamp(u / len, 0.0, 1.0);
+    float rho = rhoA > 1.0e-6 && rhoB > 1.0e-6 ? rhoA * pow(rhoB / rhoA, f) : mix(rhoA, rhoB, f);
+
+    // The mean density over [0, u] of that same exponential, for the beam's own extinction.
+    float mean = abs(rhoB - rhoA) > 1.0e-4 * max(rhoA, rhoB) && rhoA > 1.0e-6 && rhoB > 1.0e-6
+               ? (rho - rhoA) / log(rhoB / rhoA) / max(f, 1.0e-6) : rho;
+    float transmitted = exp(-ExtinctionPerMetre * mean * u);
+
+    float open = pc.Tile.w < 0.0 ? 1.0 - smoothstep(1.0 - OpenEndShare, 1.0, f) : 1.0;
+    return rho * transmitted * open;
+}
+
 // Haze scatters forward: a beam seen looking back along it toward its source is far brighter than
 // one seen side-on. Rayleigh and Henyey-Greenstein, each one at ninety degrees, and capped.
 float Phase(float cosTheta)
 {
-    float g = pc.Tile.z;
+    float g = HazeG;
     float rayleigh = 1.0 + cosTheta * cosTheta;
     float hg = pow(1.0 + g * g, 1.5) / pow(1.0 + g * g - 2.0 * g * cosTheta, 1.5);
-    return min(0.3 * rayleigh + 0.7 * hg, pc.Tile.w);
+    return min(0.3 * rayleigh + 0.7 * hg, MostPhase);
 }
 
 void main()
@@ -108,7 +148,7 @@ void main()
     vec3 a = pc.A.xyz;
     vec3 axis = pc.B.xyz - a;
     float len = length(axis);
-    if (len <= 0.0) return;
+    if (!(len > 0.0)) return;
     axis /= len;
 
     float c = dot(dir, axis);
@@ -132,17 +172,16 @@ void main()
     vec3 light = vec3(0.0);
     if (tb > ta)
     {
-        // The nearest point of the ray to the axis, and how far apart they are there.
+        // The nearest point of the ray to the axis, and how far apart they are there. Off the unbounded
+        // axis: the beam's ends are already the bounds of [ta, tb].
         float t0 = (dot(dir, a) - c * aOnAxis) / (s * s);
-        // Off the unbounded axis: the ends are already the bounds of [ta, tb].
         float u0 = t0 * c - aOnAxis;
         float h = length(dir * t0 - (a + axis * u0));
 
-        float tNear = clamp(t0, ta, tb);
-        float least = LeastPixels * tNear * pixelAngle;
+        float least = LeastPixels * clamp(t0, ta, tb) * pixelAngle;
         float w = mix(pc.A.w, abs(pc.B.w), clamp(u0 / len, 0.0, 1.0));
 
-        float strength = pc.Strength.x * Phase(-c);
+        float strength = pc.Strength.x * Phase(-c) * AlongBeam(clamp(u0, 0.0, len), len);
         light += CoreColour * strength * Tube(max(w, least), h, s, t0, ta, tb);
         light += GlowColour * strength * pc.Strength.y * Tube(max(w * GlowWidths, least), h, s, t0, ta, tb);
     }
@@ -159,5 +198,5 @@ void main()
     if (max(light.r, max(light.g, light.b)) < 1.0e-4) return;
 
     vec4 was = imageLoad(sceneColor, at);
-    imageStore(sceneColor, at, vec4(was.rgb + light, was.a));
+    imageStore(sceneColor, at, vec4(was.rgb + light * Exposure, was.a));
 }
