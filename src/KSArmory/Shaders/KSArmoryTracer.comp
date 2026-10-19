@@ -29,7 +29,7 @@ layout (push_constant) uniform PushConstants
 {
     ivec4 FirstCountOrigin;  // first segment, how many, the dispatch's first pixel
     vec4 Colour;             // the core's colour, and the halo's share of it
-    vec4 BallColour;         // a round with no tracer's colour; w over zero is the tail's share instead
+    vec4 BallColour;         // a round with no tracer's colour
 } pc;
 
 // Past this many streaks through one 16-pixel tile the rest are not drawn there; it is already solid.
@@ -110,7 +110,7 @@ void main()
         }
 
         float halo = exp(-(d * d) / (2.0 * halfW * halfW * HaloWidths * HaloWidths * 0.25));
-        float along = mix(1.0, pc.BallColour.w > 0.0 ? pc.BallColour.w : TailShare, t);
+        float along = mix(1.0, TailShare, t);
 
         light += s.Head.w * along * (core + pc.Colour.w * halo);
     }

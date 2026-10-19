@@ -2117,8 +2117,11 @@ and `validate-parts.py`; the C# is the LITENING's profile with other numbers.
 - [ ] It parks with the window **sideways** (the mount's normal), not hidden. The real one stows
       the window behind the shell; nothing models a stow.
 - [ ] `SlewRateDeg = 30` is a guess, not a published number.
-- [ ] **Fire beam** draws a green rod of light from the window to the spot, blooming and
-      hidden behind terrain (the tracer pass); with the pass off, a thin orange gizmo line. The line beside the
+- [ ] **Fire beam** draws a green beam from the window to the spot (`KSArmoryBeam.comp`): a whitish
+      core in a green glow, a glow at the window and an orange-white spot on what it burns. It fades
+      into terrain rather than ending on it, thins to a faint thread far away instead of vanishing, is
+      brightest looking back along it toward the turret, and dims in thin air. With the pass off, a thin
+      orange gizmo line. The line beside the
       button counts the magazine down from 100 s only while firing, and not while paused.
 - [ ] Held on a craft, the line says `burning <part>` with its health falling; at the end that part
       breaks off (or the whole craft goes, with per-part damage off). Logged as `beam burnt through`.

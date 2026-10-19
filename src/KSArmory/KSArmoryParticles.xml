@@ -600,5 +600,6 @@
     <Shader Id="KSArmoryHoleCompute" Path="Shaders/KSArmoryHole.comp" />
     <Shader Id="KSArmoryLeakCompute" Path="Shaders/KSArmoryLeak.comp" />
     <Shader Id="KSArmoryTracerCompute" Path="Shaders/KSArmoryTracer.comp" />
+    <Shader Id="KSArmoryBeamCompute" Path="Shaders/KSArmoryBeam.comp" />
 
 </Assets>

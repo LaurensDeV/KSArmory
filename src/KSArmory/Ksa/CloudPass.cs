@@ -44,6 +44,7 @@ internal static class CloudPass
     private const string HoleShaderId = "KSArmoryHoleCompute";
     private const string LeakShaderId = "KSArmoryLeakCompute";
     private const string TracerShaderId = "KSArmoryTracerCompute";
+    private const string BeamShaderId = "KSArmoryBeamCompute";
 
     // KSArmoryFireLight.comp's workgroup.
     private const int FireLightGroupX = 16;
@@ -78,6 +79,7 @@ internal static class CloudPass
     private static readonly ProfilerTag HolesTag = new("KSArmory Cloud: holes"u8);
     private static readonly ProfilerTag LeaksTag = new("KSArmory Cloud: leaks"u8);
     private static readonly ProfilerTag TracersTag = new("KSArmory Cloud: tracers"u8);
+    private static readonly ProfilerTag BeamsTag = new("KSArmory Cloud: beams"u8);
 
     private static readonly List<(float Kind, double Brightness, Push Push)> _sky = [];
 
@@ -155,6 +157,7 @@ internal static class CloudPass
         public ComputePipelineWrapper? Holes;
         public ComputePipelineWrapper? Leaks;
         public ComputePipelineWrapper? Tracers;
+        public ComputePipelineWrapper? Beams;
         public ComputePipelineWrapper? FireLight;
         public VkImageView FireLightDepth;
         public VkImageView FireLightNormal;
@@ -410,6 +413,7 @@ internal static class CloudPass
                 Holes(commandBuffer, viewport, plain, view, depth, frameIndex, width, height, ref painted);
                 Streams(commandBuffer, viewport, plain, view, depth, frameIndex, width, height, ref painted);
                 Tracers(commandBuffer, viewport, plain, view, depth, frameIndex, width, height);
+                Beams(commandBuffer, viewport, plain, view, depth, width, height);
                 return;
             }
 
@@ -654,6 +658,7 @@ internal static class CloudPass
             if (_order.Count == 0)
             {
                 bool traced = Tracers(commandBuffer, viewport, camera, view, depth, frameIndex, width, height);
+                traced |= Beams(commandBuffer, viewport, camera, view, depth, width, height);
                 Flash(commandBuffer, viewport, camera, width, height, marks > 0 || traced);
                 return;
             }
@@ -779,6 +784,7 @@ internal static class CloudPass
             // After the clouds, which composite over whatever is in the image and would hide a
             // tracer in front of one; before the whiteout, which covers everything.
             Tracers(commandBuffer, viewport, camera, view, depth, frameIndex, width, height);
+            Beams(commandBuffer, viewport, camera, view, depth, width, height);
 
             Flash(commandBuffer, viewport, camera, width, height, hazard: true);
         }
@@ -1615,7 +1621,7 @@ internal static class CloudPass
         public int OriginX;            // the dispatch's first pixel
         public int OriginY;
         public float4 Colour;          // the core's colour, and the halo's share of it
-        public float4 BallColour;      // a round with no tracer's; w over zero holds a segment's brightness to its tail
+        public float4 BallColour;      // a round with no tracer's
     }
 
     // KSArmoryTracer.comp's workgroup.
@@ -1660,31 +1666,8 @@ internal static class CloudPass
         Span<ShellTracers.Segment> all = _tracerMemory.AsSpan<ShellTracers.Segment>();
         Span<ShellTracers.Segment> mine = all.Slice(first, ShellTracers.MostPerView);
 
-        // The shells take the slot's front and the beams its last run, each dispatched in its own colour.
-        int beamsAt = ShellTracers.MostPerView - LaserBeams.MostSegments;
-        int count = ShellTracers.Build(camera, width, height, mine[..beamsAt],
+        int count = ShellTracers.Build(camera, width, height, mine,
                                        out int minX, out int minY, out int maxX, out int maxY);
-        bool drew = DispatchTracers(commandBuffer, viewport, view, first, count, width, height,
-                                    minX, minY, maxX, maxY, TracerColour, BallColour);
-
-        LaserBeams.MarkPainted();
-        count = LaserBeams.Build(camera, width, height, mine[beamsAt..], out minX, out minY, out maxX, out maxY);
-        drew |= DispatchTracers(commandBuffer, viewport, view, first + beamsAt, count, width, height,
-                                minX, minY, maxX, maxY, BeamColour, BeamUniform);
-
-        return drew;
-    }
-
-    // A beam's green. The halo spreads five half-widths, so its share is kept low.
-    private static readonly float4 BeamColour = new(0.25f, 1.0f, 0.35f, 0.1f);
-
-    // No grey rounds, and a w of one: the shader then keeps a segment's whole brightness to its tail.
-    private static readonly float4 BeamUniform = new(0f, 0f, 0f, 1f);
-
-    private static bool DispatchTracers(CommandBuffer commandBuffer, IViewport viewport, View view, int first,
-                                        int count, int width, int height, int minX, int minY, int maxX, int maxY,
-                                        float4 colour, float4 ballColour)
-    {
         if (count == 0) return false;
 
         minX = Math.Clamp(minX, 0, width);
@@ -1699,8 +1682,8 @@ internal static class CloudPass
             Count = count,
             OriginX = minX,
             OriginY = minY,
-            Colour = colour,
-            BallColour = ballColour,
+            Colour = TracerColour,
+            BallColour = BallColour,
         };
 
         using (commandBuffer.TagRegion(GpuTag))
@@ -1712,6 +1695,147 @@ internal static class CloudPass
             commandBuffer.Dispatch((maxX - minX + TracerGroup - 1) / TracerGroup,
                                    (maxY - minY + TracerGroup - 1) / TracerGroup, 1);
         }
+
+        return true;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    private struct BeamPush
+    {
+        public float4x4 InvViewProj;
+        public float4 A;           // the start, camera-relative, and the core radius there
+        public float4 B;           // the end, and the core radius there, negative while it burns
+        public float4 Strength;    // across-width brightness, glow share, impact, muzzle
+        public float4 Tile;        // the tile's first pixel, the haze's g, the phase's cap
+    }
+
+    // The core's drawn radius at the window and at the far end (m). The COIL is invisible; this is
+    // drawn for the operator, at the scale of the 1.5 m telescope it leaves.
+    private const double BeamExitRadius = 0.20;
+    private const double BeamFarRadius = 0.08;
+
+    // Brightness across the beam's width, which a scattering beam keeps however wide it is: a 0.2 m core
+    // side-on at full air peaks near 56, a little over a tracer's 24 once bloomed.
+    private const float BeamLineStrength = 20f;
+    private const float BeamGlowShare = 0.6f;
+    private const float BeamImpact = 40f;
+    private const float BeamMuzzle = 6f;
+
+    // Haze's forward scattering, and the most it may brighten a beam seen looking down it.
+    private const float BeamHazeG = 0.7f;
+    private const float BeamPhaseCap = 12f;
+
+    // A thread's share of the beam where there is no air, which really scatters none: kept so the
+    // operator can see where it points in space.
+    private const double BeamVacuumShare = 0.12;
+
+    // The shader's widest reach from the axis, in core radii: the glow's six, three of its sigmas.
+    private const double BeamReachInRadii = 18.0;
+
+    // THE HIGH-ENERGY BEAMS, as the light they scatter: KSArmoryBeam.comp. One dispatch per beam over
+    // the patch of screen it and its glow can reach.
+    private static bool Beams(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
+                              IRenderImage depth, int width, int height)
+    {
+        int count = LaserBeams.Count;
+        if (count == 0) return false;
+        if (view.Beams is null && !BuildBeams(view, depth)) return false;
+
+        LaserBeams.MarkPainted();
+        bool drew = false;
+
+        for (int i = 0; i < count; i++)
+        {
+            if (!LaserBeams.TryAt(i, out double3 from, out double3 to, out double air, out bool burning)) continue;
+
+            Tile tile = BeamTile(camera, from, to, width, height);
+            if (tile.Empty) continue;
+
+            double share = BeamVacuumShare + ((1.0 - BeamVacuumShare) * Math.Clamp(air, 0.0, 1.0));
+            BeamPush push = new()
+            {
+                InvViewProj = camera.VPInv.viewProjection,
+                A = new float4((float)from.X, (float)from.Y, (float)from.Z, (float)BeamExitRadius),
+                B = new float4((float)to.X, (float)to.Y, (float)to.Z,
+                               (float)(burning ? -BeamFarRadius : BeamFarRadius)),
+                Strength = new float4((float)(BeamLineStrength * share), BeamGlowShare, BeamImpact,
+                                      (float)(BeamMuzzle * share)),
+                Tile = new float4(tile.OriginX, tile.OriginY, BeamHazeG, BeamPhaseCap),
+            };
+
+            using (commandBuffer.TagRegion(GpuTag))
+            using (commandBuffer.TagRegion(BeamsTag))
+            {
+                Hazard(commandBuffer);
+                view.Beams!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+                commandBuffer.Dispatch(tile.GroupsX, tile.GroupsY, 1);
+            }
+
+            drew = true;
+        }
+
+        return drew;
+    }
+
+    // The screen a beam and its glow can reach: both ends, clipped to the front of the eye, widened by
+    // the glow's reach as it projects at each end. The whole screen where that cannot be worked out.
+    private static Tile BeamTile(Camera camera, double3 from, double3 to, int width, int height)
+    {
+        Tile whole = new(0, 0, (width + Group - 1) / Group, (height + Group - 1) / Group);
+
+        double4 a = camera.EgoToClipDouble(from);
+        double4 b = camera.EgoToClipDouble(to);
+        if (!TracerLook.TryClipToFront(ref a, ref b, 0.05)) return default;
+
+        double reach = Math.Max(BeamExitRadius, BeamFarRadius) * BeamReachInRadii;
+        double left = double.MaxValue, top = double.MaxValue, right = double.MinValue, bottom = double.MinValue;
+
+        foreach (double4 end in (ReadOnlySpan<double4>)[a, b])
+        {
+            double x = ((end.X / end.W * 0.5) + 0.5) * width;
+            double y = ((end.Y / end.W * 0.5) + 0.5) * height;
+
+            // Metres to pixels at this end's depth: the projection's scale, off its focal length.
+            double perMetre = height / (2.0 * Math.Tan(camera.GetFieldOfView() * 0.5) * end.W);
+            double margin = (reach * perMetre) + (2 * Group);
+            if (!double.IsFinite(x + y + margin)) return whole;
+
+            left = Math.Min(left, x - margin);
+            top = Math.Min(top, y - margin);
+            right = Math.Max(right, x + margin);
+            bottom = Math.Max(bottom, y + margin);
+        }
+
+        int x0 = Math.Clamp((int)Math.Floor(left), 0, width);
+        int y0 = Math.Clamp((int)Math.Floor(top), 0, height);
+        int x1 = Math.Clamp((int)Math.Ceiling(right), 0, width);
+        int y1 = Math.Clamp((int)Math.Ceiling(bottom), 0, height);
+        return x1 <= x0 || y1 <= y0 ? default : new Tile(x0, y0, (x1 - x0 + Group - 1) / Group, (y1 - y0 + Group - 1) / Group);
+    }
+
+    private static bool BuildBeams(View view, IRenderImage depth)
+    {
+        if (!ModLibrary.TryGet<ShaderReference>(BeamShaderId, out var shader) || shader is null)
+        {
+            Warn($"no shader '{BeamShaderId}'; beams are drawn as lines");
+            return false;
+        }
+
+        Renderer renderer = Program.GetRenderer();
+        VkPushConstantRange[] ranges =
+        [
+            new VkPushConstantRange
+            {
+                Offset = (ByteSize32)0,
+                Size = (ByteSize32)Marshal.SizeOf<BeamPush>(),
+                StageFlags = VkShaderStageFlags.ComputeBit,
+            },
+        ];
+
+        view.Beams = new ComputePipelineWrapper(
+            [view.Target], [depth], default, default, shader,
+            default, ranges, renderer.MaxFramesInFlight, renderer,
+            "KSArmory.Beams", Program.PointClampedSampler, Program.LinearClampedSampler);
 
         return true;
     }

@@ -1,0 +1,163 @@
+#version 450
+
+// A high-energy beam as the light it scatters toward the eye: per pixel, a gaussian tube integrated
+// in closed form along the view ray, clipped to the beam's ends and to the depth buffer. Width is
+// exact at any range, and once the beam is under a pixel it is drawn a pixel wide with the same
+// energy, so a far beam thins to a thread instead of vanishing. One dispatch per beam from
+// CloudPass, over its own patch of screen. Derivation: docs/BEAM-RENDERING.md.
+//
+// Bindings follow ComputePipelineWrapper's order: the storage image, then the depth it samples.
+
+layout (local_size_x = 8, local_size_y = 8) in;
+
+layout (set = 1, binding = 0, Rgba16f) uniform image2D sceneColor;
+layout (set = 1, binding = 1) uniform sampler2D sceneDepth;
+
+layout (push_constant) uniform PushConstants
+{
+    mat4 InvViewProj;  // clip -> camera-relative world
+    vec4 A;            // the beam's start, camera-relative, and its core radius there
+    vec4 B;            // its end, and its core radius there -- negative while it burns what it is on
+    vec4 Strength;     // the line's brightness across its width, the glow's share, the impact's, the muzzle's
+    vec4 Tile;         // the tile's first pixel, the haze's asymmetry g, and the brightest the phase may make it
+} pc;
+
+const vec3 CoreColour = vec3(0.55, 1.0, 0.6);
+const vec3 GlowColour = vec3(0.12, 1.0, 0.25);
+
+// Hot metal, not the beam's colour: what a target glows with is its own temperature.
+const vec3 ImpactColour = vec3(1.0, 0.62, 0.28);
+
+// The glow is the same tube this many times wider.
+const float GlowWidths = 6.0;
+
+// The glow at the window, in core radii, and the incandescent spot on what the beam burns (m).
+const float MuzzleWidths = 4.0;
+const float ImpactMetres = 0.6;
+
+// The least a tube is drawn across, in pixels; narrower, it is spread to this with its energy kept.
+const float LeastPixels = 0.8;
+
+const float SqrtPi = 1.7724539;
+
+vec3 WorldAt(vec2 uv, float deviceZ)
+{
+    vec4 clip = vec4(uv * 2.0 - 1.0, deviceZ, 1.0);
+    vec4 p = pc.InvViewProj * clip;
+    return p.xyz / p.w;
+}
+
+// Abramowitz and Stegun 7.1.26, |error| < 1.5e-7.
+float Erf(float x)
+{
+    float s = sign(x);
+    x = abs(x);
+    float t = 1.0 / (1.0 + 0.3275911 * x);
+    float y = 1.0 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592)
+                    * t * exp(-x * x);
+    return s * y;
+}
+
+// A tube of radius w, its width-integrated brightness one, crossed by the ray between ta and tb:
+// the ray meets the axis's nearest point at t0, at distance h, at sin(angle) s.
+float Tube(float w, float h, float s, float t0, float ta, float tb)
+{
+    float across = exp(-(h * h) / (w * w)) / (w * SqrtPi);
+    float along = 0.5 * (Erf(s * (tb - t0) / w) - Erf(s * (ta - t0) / w));
+    return across * along / s;
+}
+
+// A glowing ball of radius r at p, seen along the ray up to tMax: a gaussian blob integrated through,
+// so it has an edge a dispatch's patch can contain, and stops at whatever surface is in the way.
+// Under a pixel it is spread to one with its energy kept.
+float Ball(vec3 dir, vec3 p, float r, float least, float tMax)
+{
+    float rr = max(r, least);
+    float tp = dot(dir, p);
+    float h2 = max(dot(p, p) - tp * tp, 0.0);
+    float along = 0.5 * (Erf((tMax - tp) / rr) - Erf(-tp / rr));
+    return (r * r) / (rr * rr) * exp(-h2 / (rr * rr)) * along;
+}
+
+// Haze scatters forward: a beam seen looking back along it toward its source is far brighter than
+// one seen side-on. Rayleigh and Henyey-Greenstein, each one at ninety degrees, and capped.
+float Phase(float cosTheta)
+{
+    float g = pc.Tile.z;
+    float rayleigh = 1.0 + cosTheta * cosTheta;
+    float hg = pow(1.0 + g * g, 1.5) / pow(1.0 + g * g - 2.0 * g * cosTheta, 1.5);
+    return min(0.3 * rayleigh + 0.7 * hg, pc.Tile.w);
+}
+
+void main()
+{
+    ivec2 size = imageSize(sceneColor);
+    ivec2 at = ivec2(gl_GlobalInvocationID.xy) + ivec2(pc.Tile.xy);
+    if (at.x >= size.x || at.y >= size.y) return;
+
+    vec2 uv = (vec2(at) + 0.5) / vec2(size);
+    vec3 dir = normalize(WorldAt(uv, 1.0));
+
+    // How wide one pixel is, as an angle: the next pixel's ray against this one.
+    float pixelAngle = length(normalize(WorldAt(uv + vec2(0.0, 1.0 / float(size.y)), 1.0)) - dir);
+
+    // Reverse-Z: zero is the sky, where nothing stops the ray.
+    float deviceZ = texelFetch(sceneDepth, at, 0).r;
+    float tMax = deviceZ > 0.0 ? length(WorldAt(uv, deviceZ)) : 3.0e38;
+
+    vec3 a = pc.A.xyz;
+    vec3 axis = pc.B.xyz - a;
+    float len = length(axis);
+    if (len <= 0.0) return;
+    axis /= len;
+
+    float c = dot(dir, axis);
+    float s = max(sqrt(max(1.0 - c * c, 0.0)), 1.0e-3);
+    float aOnAxis = dot(a, axis);
+
+    // The stretch of the ray that lies alongside the beam, and in front of the eye and the scene.
+    float ta = 0.0, tb = tMax;
+    if (abs(c) > 1.0e-6)
+    {
+        float t1 = aOnAxis / c, t2 = (aOnAxis + len) / c;
+        ta = max(ta, min(t1, t2));
+        tb = min(tb, max(t1, t2));
+    }
+    else
+    {
+        float u = -aOnAxis;
+        if (u < 0.0 || u > len) tb = -1.0;
+    }
+
+    vec3 light = vec3(0.0);
+    if (tb > ta)
+    {
+        // The nearest point of the ray to the axis, and how far apart they are there.
+        float t0 = (dot(dir, a) - c * aOnAxis) / (s * s);
+        // Off the unbounded axis: the ends are already the bounds of [ta, tb].
+        float u0 = t0 * c - aOnAxis;
+        float h = length(dir * t0 - (a + axis * u0));
+
+        float tNear = clamp(t0, ta, tb);
+        float least = LeastPixels * tNear * pixelAngle;
+        float w = mix(pc.A.w, abs(pc.B.w), clamp(u0 / len, 0.0, 1.0));
+
+        float strength = pc.Strength.x * Phase(-c);
+        light += CoreColour * strength * Tube(max(w, least), h, s, t0, ta, tb);
+        light += GlowColour * strength * pc.Strength.y * Tube(max(w * GlowWidths, least), h, s, t0, ta, tb);
+    }
+
+    light += GlowColour * pc.Strength.w
+             * Ball(dir, pc.A.xyz, MuzzleWidths * pc.A.w, LeastPixels * length(pc.A.xyz) * pixelAngle, tMax);
+    if (pc.B.w < 0.0)
+    {
+        light += ImpactColour * pc.Strength.z
+                 * Ball(dir, pc.B.xyz, ImpactMetres, LeastPixels * length(pc.B.xyz) * pixelAngle, tMax);
+    }
+
+    if (!all(greaterThanEqual(light, vec3(0.0))) || any(isinf(light)) || any(isnan(light))) return;
+    if (max(light.r, max(light.g, light.b)) < 1.0e-4) return;
+
+    vec4 was = imageLoad(sceneColor, at);
+    imageStore(sceneColor, at, vec4(was.rgb + light, was.a));
+}
