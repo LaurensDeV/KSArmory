@@ -171,12 +171,12 @@ internal sealed partial class IcbmComputer
     // line that matters: it leaves the flight releasing everything at the lead, and without this it
     // does so under a log full of lines announcing the walk it no longer is.
     //
-    // Compared with its numbers collapsed, like the trim's: the reach is re-flown every few seconds
+    // Compared with its numbers collapsed but the stop count, like the trim's: the reach is re-flown every few seconds
     // and the cost moves with it, so comparing whole sentences writes a line a frame.
     private void SayTheWalkIfItChanged()
     {
         string now = _walker.Walk.Say();
-        string shape = WithoutNumbers(now);
+        string shape = $"{_walker.Walk.Stops} {WithoutNumbers(now)}";
         if (shape == _saidWalk) return;
 
         _saidWalk = shape;
