@@ -2109,7 +2109,7 @@ maps are all unproven paths.
 **Never flown.** The art is authored, baked into one 2048 atlas and checked by `checkmesh.py`
 and `validate-parts.py`; the C# is the LITENING's profile with other numbers.
 
-- [ ] `YAL-1 Nose Turret` appears under **Sensors** and stacks on a 3 m node like the CIWS.
+- [ ] `YAL-1 Nose Turret` appears under **Weapons** and stacks on a 3 m node like the CIWS.
 - [ ] **It points forward.** The base subpart carries a quarter turn about Z so its own +Y is the
       stack axis. If the turret lies sideways or faces into the stack, that sign is wrong.
 - [ ] The shell rolls about the stack axis and the ball nods in its slot, never through the shell.

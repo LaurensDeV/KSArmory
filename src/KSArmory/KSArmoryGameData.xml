@@ -417,7 +417,7 @@
   </PartGameData>
 
   <PartGameData Id="KSArmory_Prefab_Yal1Turret" DisplayName="YAL-1 Nose Turret">
-    <EditorTag Value="Sensors" />
+    <EditorTag Value="Weapons" />
     <Diameter M="3" />
 
     <!-- Stacks, like the CIWS: no Radial tag and no ToSurface flag. -->
