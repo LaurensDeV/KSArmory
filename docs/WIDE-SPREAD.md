@@ -387,6 +387,33 @@ Headless, behind a flag. Per branch:
   the track the post-boost bus on its engine reaches seven targets 100 km apart in millimetres, against 4.5 km for
   six on the Heavy bus's shipped settings.
 
+  **Flown at 12,902 km to Botswana, 2026-10-19**, targets along the track from each pad (`mirv:...;track:6xKM`),
+  arms as above:
+
+  - **200 km apart** (`~/shots/2026-10-19-engine-12900`): every nozzle bus walked 7, 28 of 28 within 18 cm; the
+    engine buses 26 of 28 within 5 cm, but the first warhead on buses 2 and 6 landed 104 km out. Not the split and not
+    the engine: on the pad the aim loop accepted a 250 km reading departed from the pad's solved cutoff, because its
+    density gate was asked about that departure *coasted to the release*, which is out of the air. The loop ran to its
+    300 km clamp on all four engine buses and, best while clamped, froze there on two; the nozzle arm's earlier walk
+    gate happened to keep its coast in the air. Fixed in `a9de731a`; both rigs already gated on the cutoff itself.
+  - **300 km apart, the fix in** (`-300`): **every engine bus walked all seven, 28 of 28 within 2.1 cm**, 24 hops of
+    41-61 m/s burnt 19-23 s, each stopped with 0.99-1.07 m/s for the nozzles, 281-291 kg of the 500 kg tank spent.
+    The nozzle buses walked four, within 16 cm. No bus touched the clamp; the same 254 km pad reading was refused.
+  - **400 km apart, engine on all eight** (`-400`): four walked all seven (28 within 0.42 m); four were curtailed at
+    the seventh hop, the tank 8 m/s short of it, and the stop-6 target took that warhead, released 424 s before
+    arrival and landing 1.13-1.28 km out (inside the 5 km bar, a thousand times the rest).
+
+  **What the 400 km night says is open:** every bus planned seven at about 377 m/s, and the hops flew dearer than
+  priced by a factor growing stop by stop, 1.00, 1.09, 1.18, 1.29, 1.42 (bus 5: 54.9 to 86.4 flown on 55.1 to 64.1
+  priced; it was already 1.25 on the last hop at 300 km). The stops were not late -- 69-94 s apart against a slot of
+  about 115 -- but each free hop committed an arrival about 80 s earlier (92, 88, 83, 79, 77 s on bus 5), so the
+  time to go fell by about 165 s a stop and each later hop was flown nearer arrival than it was priced at. The rig
+  does not reproduce it: at 400 km it plans five, honestly, and flies 0.89-0.94 of each price with the arrival moving
+  about 35 s a hop. The game's hops are also half the rig's (55 against 107 m/s priced at 400 km), so the rig's
+  geometry (targets on a meridian, `GameStack`) is not this flight's (Cape Canaveral to Botswana along a 291 deg
+  track); reproducing the night needs the flown geometry in the rig first. Separately, a curtailed walk's leftover
+  warhead releases late and lands a kilometre out, where every walked stop lands in centimetres.
+
   What C was planned with, kept for the reasoning:
   - `Sim/HopBurn.cs` only if step 4 said open-loop leaves more than a pass: point (`BusTurn`, capped), burn re-solving
     every ~0.25 s with `BurnoutGuidance.TrySteer` **from the current position** (a ~90 m/s burn at ~1.8 m/s² carries the
@@ -432,7 +459,7 @@ flags), alternating seat by seat (`~/shots/2026-10-19-wide50`, `-wide50b`).
 - **Both arms walked three of the seven** (one honest bus four). Every bus planned five at cutoff at 952 m/s, then cut
   to three before the split, which is the last re-plan the stale arm gets: hops priced 76.8 and 116.4 against 68 and
   75 flown, so the coast on 0.40 m/s2 nozzles binds -- what C's engine is for. The cut from five to three wrote no
-  line; `SayTheWalkIfItChanged` should name it.
+  line, because the stop count was collapsed with the other numbers; `39b342b6` keeps it, not yet seen in flight.
 
 For C, first:
 
