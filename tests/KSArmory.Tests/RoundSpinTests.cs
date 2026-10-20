@@ -15,9 +15,19 @@ public class RoundSpinTests
     }
 
     [Fact]
+    public void TheMotorsLightOnlyOnceTheRoundIsClearOfTheBus()
+    {
+        Assert.Equal(0.0, Spin.RollRadAt(Spin.IgnitionSeconds));
+        Assert.False(Spin.Burning(Spin.IgnitionSeconds - 0.01));
+        Assert.True(Spin.Burning(Spin.IgnitionSeconds + 0.01));
+        Assert.False(Spin.Burning(Spin.IgnitionSeconds + Spin.SpinUpSeconds));
+        Assert.True(Spin.IgnitionSeconds * Arsenal.ReentryVehicleMk21.LaunchSpeed >= 1.0);
+    }
+
+    [Fact]
     public void TheRollIsContinuousWhereTheMotorsBurnOut()
     {
-        double t = Spin.SpinUpSeconds;
+        double t = Spin.IgnitionSeconds + Spin.SpinUpSeconds;
         Assert.Equal(Spin.RollRadAt(t - 1e-9), Spin.RollRadAt(t + 1e-9), 6);
     }
 
@@ -25,7 +35,7 @@ public class RoundSpinTests
     public void TheRateClimbsAcrossTheBurnThenHolds()
     {
         double rate = double.DegreesToRadians(Spin.RateDegPerSecond);
-        double early = (Spin.RollRadAt(0.11) - Spin.RollRadAt(0.10)) / 0.01;
+        double early = (Spin.RollRadAt(Spin.IgnitionSeconds + 0.11) - Spin.RollRadAt(Spin.IgnitionSeconds + 0.10)) / 0.01;
         double late = (Spin.RollRadAt(30.0) - Spin.RollRadAt(29.0)) / 1.0;
 
         Assert.True(Math.Abs(early) < Math.Abs(rate) * 0.5, $"{early} rad/s a tenth of a second in");

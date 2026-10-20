@@ -96,18 +96,6 @@ internal static class DebrisShell
         return Math.Clamp((Math.Log10(FieldLetsGoAbove) - Math.Log10(airRatio)) / span, 0.0, 1.0);
     }
 
-    /// <summary>
-    /// Which way the field runs at a point, as a unit direction, for a dipole on the spin axis: along
-    /// <c>3(a.u)u - a</c>. Horizontal over the equator and vertical at the poles; its sign says nothing.
-    /// </summary>
-    public static double3 FieldDirection(double3 up, double3 axis)
-    {
-        double3 u = Vec.Unit(up);
-        double3 a = Vec.Unit(axis);
-        double3 field = (u * (3.0 * Vec.Dot(a, u))) - a;
-        return Vec.Len2(field) > 1.0e-12 ? Vec.Unit(field) : a;
-    }
-
     private static double Smooth(double x)
     {
         double t = Math.Clamp(x, 0.0, 1.0);

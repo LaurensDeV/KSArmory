@@ -91,6 +91,14 @@ NAMES=("${NAMES[@]}")
 [[ ${#NAMES[@]} -gt 0 ]] || { echo "error: no assemblies in $DLL_DIR" >&2; exit 1; }
 
 SRC="$TARGET/current/src"
+# A folder for an assembly the mirror no longer holds is a renamed or dropped one, and left in
+# place it reads as current source.
+for dir in "$SRC"/*/; do
+    [[ -d "$dir" ]] || continue
+    name="$(basename "$dir")"
+    [[ -f "$DLL_DIR/$name.dll" ]] || { echo "removing src/$name: not in current/dll"; rm -rf "$dir"; }
+done
+
 echo "decompiling ${#NAMES[@]} assemblies with $(ilspycmd --version | head -1)"
 echo
 failures=0

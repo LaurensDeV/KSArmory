@@ -21,7 +21,7 @@ public class DebrisBubbleTests(ITestOutputHelper output)
     [Fact]
     public void StarfishIsTheCalibration()
     {
-        double tesla = DebrisBubble.FieldTesla(3.1e-5, Radius, Over(16.7, 400_000), Axis);
+        double tesla = new MagneticDipole(Vec.Zero, Axis, 3.1e-5, Radius).Tesla(Over(16.7, 400_000));
         double r = DebrisBubble.EqualVolumeRadius(1.4e9, tesla);
         double along = r * Math.Pow(DebrisBubble.Stretch, 2.0 / 3.0);
         output.WriteLine($"Starfish: {tesla * 1e9:F0} nT, equal volume {r / 1000:F0} km, {2 * along / 1000:F0} by {2 * r / Math.Cbrt(DebrisBubble.Stretch) / 1000:F0} km");
@@ -41,7 +41,7 @@ public class DebrisBubbleTests(ITestOutputHelper output)
     [Fact]
     public void TheFieldTakesOverFromTheAirHighUp()
     {
-        double tesla = DebrisBubble.FieldTesla(3.1e-5, Radius, Over(16.7, 150_000), Axis);
+        double tesla = new MagneticDipole(Vec.Zero, Axis, 3.1e-5, Radius).Tesla(Over(16.7, 150_000));
         Assert.True(DebrisBubble.FieldShare(tesla, Earth.PressureAt(100_000)) < 0.05);
         Assert.InRange(DebrisBubble.FieldShare(tesla, Earth.PressureAt(150_000)), 0.1, 0.9);
         Assert.Equal(1.0, DebrisBubble.FieldShare(tesla, Earth.PressureAt(200_000)));

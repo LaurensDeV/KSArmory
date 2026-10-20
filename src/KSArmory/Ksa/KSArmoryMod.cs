@@ -181,6 +181,8 @@ public sealed class KSArmoryMod
         // the flight scene across it. A refusal costs one reload's worth of stale rounds.
         WorldReloadHook.Install();
 
+        DoseRateHook.Install();
+
         PlanetMapHook.Install(() => _ui?.PlanetMap);
 
         GroundTrackHook.Install((window, at, size, cropMin, cropMax) =>
@@ -1058,6 +1060,8 @@ public sealed class KSArmoryMod
         AttitudeHook.Remove();
         PreRenderHook.Remove();
         WorldReloadHook.Remove();
+        DoseRateHook.Remove();
+        Radioactivity.Clear();
         GroundTrackHook.Remove();
         PlanetMapHook.Remove();
         SaveHook.Remove();
@@ -1507,6 +1511,8 @@ public sealed class KSArmoryMod
         AttitudeHook.Remove();
         PreRenderHook.Remove();
         WorldReloadHook.Remove();
+        DoseRateHook.Remove();
+        Radioactivity.Clear();
         GroundTrackHook.Remove();
         PlanetMapHook.Remove();
         SaveHook.Remove();

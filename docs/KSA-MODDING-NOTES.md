@@ -2,7 +2,7 @@
 
 Everything here comes out of the shipped assemblies of **KSA build 2026.9.10.5438**, read with
 `tools/apidump`, or out of the StarMap sources, and was rechecked against **2026.9.22.5482**
-and again against **2026.10.7.5541**, **2026.10.10.5554** and **2026.10.13.5602** wherever those builds changed a type this mod uses. KSA is pre-release and unofficially moddable:
+and again against **2026.10.7.5541**, **2026.10.10.5554**, **2026.10.13.5602** and **2026.10.19.5638** wherever those builds changed a type this mod uses. KSA is pre-release and unofficially moddable:
 none of this is documented by RocketWerkz, and **it will drift between game builds**. Re-run
 the dumper rather than trusting this file after an update.
 
@@ -15,7 +15,7 @@ the dumper rather than trusting this file after an update.
 | Physics | **BepuPhysics v2** |
 | Game assembly | `KSA.dll` (~1100 public types in the `KSA` namespace) |
 | UI | Dear ImGui via `Brutal.ImGui.dll`, namespace `Brutal.ImGuiApi` |
-| Maths | `Brutal.Core.Numerics` — `double3`, `float3`, `float4`, `doubleQuat`, System.Numerics-style statics |
+| Maths | `Brutal.Numerics` — `double3`, `float3`, `float4`, `doubleQuat`, System.Numerics-style statics |
 | Code mod loader | **StarMap** (community) — <https://github.com/StarMapLoader/StarMap> |
 | Patching | Harmony (`Lib.Harmony` 2.4.2) |
 

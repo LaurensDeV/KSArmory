@@ -499,7 +499,7 @@ quotes them. What it found, most noticeable first, and not built:
   inverse-square fall-off, and the kill radius against a spacecraft runs to kilometres or tens at a
   megatonne. The mod's blast damage applies there unchanged. A fluence threshold per part, line of
   sight only. G&D ch. II and VIII.
-- ~~**The aurora**~~ **built on 2026-09-25**, on a dipole along the spin axis (`Sim/Aurora.cs`).
+- ~~**The aurora**~~ **built on 2026-09-25**, and moved onto KSA's own field and look on 2026-10-20 (`Sim/Aurora.cs`, `Sim/MagneticDipole.cs`).
   **The radiation belts** are not: trapped electrons that degraded about a third of low-orbit
   satellites after Starfish, as a dose per orbit through the shell the burst's field line fills.
 - **High-altitude EMP**: an E1 pulse to about 50 kV/m over everything in line of sight, `sqrt(2Rh)`

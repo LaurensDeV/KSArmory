@@ -199,12 +199,18 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     /// epochs, falling, which gives each free hop its own <see cref="ReleaseItinerary.Target.Slots"/>. Null, or any
     /// footprint without its axes, leaves every hop on <see cref="ReleaseItinerary.FreeSlotExponent"/>.
     /// </param>
+    /// <param name="countArrivalShift">
+    /// <see cref="IcbmConfig.FreeHopsCountTheArrivalTheyMove"/>: each free hop carries the arrival it moves, read off the
+    /// footprint's axes at its own epoch. The shift shrinks as the time to go does, so this overstates it, and the price,
+    /// for every later stop.
+    /// </param>
     public static ReachDisplay For(DivertFootprint? footprint, IReadOnlyList<Placed>? placed,
                                    in ReleaseItinerary.Bus means, IcbmPhase phase, bool salvoAway,
                                    int maxTargets, double spacingMetres, int lead,
                                    ReachHold unpriced, bool pricePerSlot = false,
                                    bool priceAtTheTrim = false, bool chordFromTheGate = false,
-                                   IReadOnlyList<DivertFootprint>? later = null, bool engineHops = false)
+                                   IReadOnlyList<DivertFootprint>? later = null, bool engineHops = false,
+                                   bool countArrivalShift = false)
     {
         int targets = placed?.Count ?? 0;
 
@@ -248,7 +254,11 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
                 seconds, epochs.Select(f => pays(f, along, cross)).ToArray());
         }
 
-        Walk walk = Order(placed, lead, hopMetres, slots);
+        Func<double, double, double>? shift = countArrivalShift && bus.FreeArrival && reach.Axes.Known
+            ? reach.ArrivalShiftSeconds
+            : null;
+
+        Walk walk = Order(placed, lead, hopMetres, slots, shift);
         ReleaseItinerary itinerary = ReleaseItinerary.Plan(walk.Set, bus, atEachSlot);
 
         // Planned off the same ordered set the ring is drawn from, rather than built again beside
@@ -552,7 +562,8 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     /// <param name="slots">A hop's own <see cref="ReleaseItinerary.Target.Slots"/>; null leaves it unset.</param>
     public static Walk Order(IReadOnlyList<Placed>? placed, int lead,
                              Func<double, double, double>? hopMetres = null,
-                             Func<double, double, ReleaseItinerary.SlotCurve?>? slots = null)
+                             Func<double, double, ReleaseItinerary.SlotCurve?>? slots = null,
+                             Func<double, double, double>? shift = null)
     {
         if (placed is null || placed.Count == 0) return new Walk([], 0.0, 0.0, 0);
 
@@ -623,7 +634,8 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
                 ? new ReleaseItinerary.Target(to.Warheads, order.Count - k, length)
                 : new ReleaseItinerary.Target(to.Warheads, order.Count - k, hopMetres(along - atAlong, cross - atCross),
                                               HopLengthMetres: length,
-                                              Slots: slots?.Invoke(along - atAlong, cross - atCross));
+                                              Slots: slots?.Invoke(along - atAlong, cross - atCross),
+                                              ArrivalShiftSeconds: shift?.Invoke(along - atAlong, cross - atCross) ?? 0.0);
 
             atAlong = along;
             atCross = cross;

@@ -54,7 +54,14 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
     /// The velocity change per metre of landing along and across the track, resolved on the bus's nose, right and
     /// down, with the arrival pinned.
     /// </summary>
-    internal readonly record struct AxisPrice(double3 PerMetreAlong, double3 PerMetreAcross)
+    /// <param name="ArrivalSecondsPerMetreAlong">
+    /// How much later the arrival comes per metre the landing moves along the track, on a free arrival's cheapest arc;
+    /// zero pinned, where the clock is held.
+    /// </param>
+    /// <param name="ArrivalSecondsPerMetreAcross"><inheritdoc cref="ArrivalSecondsPerMetreAlong"/></param>
+    internal readonly record struct AxisPrice(double3 PerMetreAlong, double3 PerMetreAcross,
+                                              double ArrivalSecondsPerMetreAlong = 0.0,
+                                              double ArrivalSecondsPerMetreAcross = 0.0)
     {
         public bool Known => Vec.IsFinite(PerMetreAlong) && Vec.IsFinite(PerMetreAcross)
                              && (Vec.Len2(PerMetreAlong) > 0.0 || Vec.Len2(PerMetreAcross) > 0.0);
@@ -251,6 +258,14 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
     }
 
     /// <summary>
+    /// How much later a free divert this far makes the arrival, negative for earlier: about 0.23 s per km uprange at
+    /// 12,902 km, which is 92 s on a 400 km hop. Zero where the axes are not known or the clock is pinned.
+    /// </summary>
+    public double ArrivalShiftSeconds(double alongMetres, double crossMetres)
+        => Axes.Known ? (Axes.ArrivalSecondsPerMetreAlong * alongMetres) + (Axes.ArrivalSecondsPerMetreAcross * crossMetres)
+                      : 0.0;
+
+    /// <summary>
     /// What one engine pushing along the divert pays to move the landing this far: the velocity change's length, or
     /// <see cref="CostMetresPerSecond"/> where the axes are not known.
     /// </summary>
@@ -332,10 +347,14 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
         }
 
         double3 nose = Vec.Unit(noseCci), right = Vec.Unit(rightCci), down = Vec.Unit(downCci);
+        double3 later = flown.ArrivalSecondsPerMetrePerSecond;
+        bool free = clock == ArrivalClock.Free && Vec.IsFinite(later);
 
         price = new AxisPrice(new double3(Vec.Dot(perAlong, nose), Vec.Dot(perAlong, right), Vec.Dot(perAlong, down)),
                               new double3(Vec.Dot(perAcross, nose), Vec.Dot(perAcross, right),
-                                          Vec.Dot(perAcross, down)));
+                                          Vec.Dot(perAcross, down)),
+                              free ? Vec.Dot(later, perAlong) : 0.0,
+                              free ? Vec.Dot(later, perAcross) : 0.0);
         return price.Known;
     }
 

@@ -71,6 +71,12 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     public const double HopOverheadSeconds = 41.0;
 
     /// <summary>
+    /// What the nozzles spend at a stop of an engine walk besides its hop (m/s): the upper quartile of 192 stops flown at
+    /// 12,902 km on 2026-10-19 (median 2.90).
+    /// </summary>
+    public const double EnginePassesMetresPerSecond = 3.04;
+
+    /// <summary>
     /// How fast a free arrival's reach falls with the time to go, as a power of the time ratio: the along-track
     /// reach never fell faster than 1.156 over 4,549 pairs of epochs across 54 arcs, and across the track no faster
     /// than linear (<c>docs/WIDE-SPREAD.md</c> step 5).
@@ -111,11 +117,16 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// This hop's share of the measured reach at later epochs under a free arrival; null takes
     /// <see cref="FreeSlotExponent"/>.
     /// </param>
+    /// <param name="ArrivalShiftSeconds">
+    /// How much later the arrival comes once this hop is flown free, negative for earlier
+    /// (<see cref="IcbmConfig.FreeHopsCountTheArrivalTheyMove"/>): every later stop's time to go moves with it.
+    /// </param>
     internal readonly record struct Target(int Warheads, double ReachMetres,
                                            double HopMetres = double.NaN,
                                            double HopMetresPerSecond = double.NaN,
                                            double HopLengthMetres = double.NaN,
-                                           SlotCurve? Slots = null);
+                                           SlotCurve? Slots = null,
+                                           double ArrivalShiftSeconds = 0.0);
 
     /// <summary>
     /// One hop's share of the reach it was measured with, at epochs measured for it
@@ -236,6 +247,11 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// <param name="MassKg">The bus now, with every warhead the plan sends still aboard.</param>
     /// <param name="TankExhaustVelocity">The trim's exhaust velocity on its dearest axis.</param>
     /// <param name="StoreMassKg">What each warhead takes off the bus as it leaves.</param>
+    /// <param name="PassesMetresPerSecondPerStop">
+    /// What the nozzles spend at each stop besides its hop -- the passes, the trim, the metre a second an engine hop
+    /// leaves them -- charged to the tank under <see cref="PricesTheTank"/>; <see cref="EnginePassesMetresPerSecond"/>
+    /// for an engine walk.
+    /// </param>
     /// <param name="HopTurnSeconds">
     /// What a hop's turns add to its slot, where a hop is turned onto -- <see cref="HopBurn.TurnsSeconds"/> for one flown
     /// on the engine.
@@ -257,7 +273,8 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
                                         double MassKg = double.NaN,
                                         double TankExhaustVelocity = double.NaN,
                                         double StoreMassKg = 0.0,
-                                        double HopTurnSeconds = 0.0)
+                                        double HopTurnSeconds = 0.0,
+                                        double PassesMetresPerSecondPerStop = 0.0)
     {
         public bool PricesTheTank => TankKg >= 0.0 && MassKg > TankKg && TankExhaustVelocity > 0.0
                                      && double.IsFinite(MassKg) && double.IsFinite(TankExhaustVelocity);
@@ -463,8 +480,22 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
         double spent = Math.Max(0.0, bus.SpentMetresPerSecond);
         double gate = bus.GateFor(n);
 
+        // Seconds before the arrival as it will be at each stop: a free hop moves it, by its own shift.
+        double[] shifts = new double[n];
+        for (int k = 1; k < n; k++)
+        {
+            double shift = targets[taken[k].Target].ArrivalShiftSeconds;
+            shifts[k] = double.IsFinite(shift) ? shift : 0.0;
+        }
+
         double[] befores = new double[n];
         for (int k = 0; k < n; k++) befores[k] = BeforeArrivalSeconds(k, n, gate, bus.HopSeconds);
+        double moved = 0.0;
+        for (int k = n - 1; k > 0; k--)
+        {
+            moved += shifts[k];
+            befores[k - 1] -= moved;
+        }
 
         double[]? slots = null;
         if (bus.SizesSlots && n > 1)
@@ -485,14 +516,14 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
                     double price = HopOnto(to, bus,
                                            ReachAtSlot(reachMetresPerMetrePerSecond, k, befores[k], bus, to.Slots));
                     slots[k] = bus.SlotFor(price, masses[k]);
-                    total += slots[k];
+                    total += slots[k] - shifts[k];
                 }
 
                 double at = bus.GateForSlots(total);
                 befores[n - 1] = at;
                 for (int k = n - 2; k >= 0; k--)
                 {
-                    at += slots[k + 1];
+                    at += slots[k + 1] - shifts[k + 1];
                     befores[k] = at;
                 }
             }
@@ -509,13 +540,14 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
             spent += hop;
 
             bool paid = Within(spent, bus.BudgetAt(k));
-            if (bus.PricesTheTank && k > 0)
+            if (bus.PricesTheTank)
             {
-                mass -= taken[k - 1].Warheads * Math.Max(0.0, bus.StoreMassKg);
-                double kg = bus.HopKg(hop, mass);
+                if (k > 0) mass -= taken[k - 1].Warheads * Math.Max(0.0, bus.StoreMassKg);
+                double kg = (k > 0 ? bus.HopKg(hop, mass) : 0.0)
+                            + bus.HopKg(Math.Max(0.0, bus.PassesMetresPerSecondPerStop), mass);
                 burnt += kg;
                 mass -= kg;
-                paid &= burnt <= bus.TankKg + 1e-9;
+                if (k > 0) paid &= burnt <= bus.TankKg + 1e-9;
             }
 
             stops[k] = new Stop(taken[k].Target, taken[k].Warheads, before,

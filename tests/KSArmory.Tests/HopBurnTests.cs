@@ -139,4 +139,39 @@ public class HopBurnTests
         Assert.Equal(HopBurn.Stage.Pointing, burn.Now);
         Assert.Equal(Hop, turned.LineCci);
     }
+
+    // A bus braking for an uprange hop: the line points back along its track, where the stack it shed is.
+    [Fact]
+    public void ABurnBackAtTheStackPassesThroughItAndOneAcrossItDoesNot()
+    {
+        double3 back = new(-1, 0, 0);
+        double behind = HopBurn.ClosestToTheStackMetres(new double3(40, 0, 0), new double3(0.7, 0, 0), back, 1.7, 55.0);
+        double beside = HopBurn.ClosestToTheStackMetres(new double3(0, 40, 0), new double3(0, 0.7, 0), back, 1.7, 55.0);
+        double past = HopBurn.ClosestToTheStackMetres(new double3(-40, 0, 0), new double3(-0.7, 0, 0), back, 1.7, 55.0);
+
+        Assert.True(behind < 1.0, $"{behind:F1} m");
+        Assert.True(beside >= 40.0, $"{beside:F1} m");
+        Assert.Equal(40.0, past, 6);
+    }
+
+    [Fact]
+    public void ABurnHoldsWhileTheStackIsInItsPathAndGoesAnywayAtTheCap()
+    {
+        var burn = new HopBurn();
+        burn.Begin(Entry);
+
+        for (double t = 0.0; t < HopBurn.StackHoldCapSeconds - 1.0; t += 0.5)
+        {
+            burn.Update(0.5, Hop * 100.0, Entry, 1.7, HopBurn.ClearMetres, stackInTheWay: true);
+            Assert.Equal(HopBurn.Stage.Pending, burn.Now);
+        }
+
+        for (int k = 0; k < 4 && burn.Now == HopBurn.Stage.Pending; k++)
+        {
+            burn.Update(0.5, Hop * 100.0, Entry, 1.7, HopBurn.ClearMetres, stackInTheWay: true);
+        }
+
+        Assert.Equal(HopBurn.Stage.Pointing, burn.Now);
+        Assert.True(burn.HeldForTheStackSeconds >= HopBurn.StackHoldCapSeconds);
+    }
 }

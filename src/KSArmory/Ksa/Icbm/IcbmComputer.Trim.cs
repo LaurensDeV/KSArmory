@@ -170,7 +170,7 @@ internal sealed partial class IcbmComputer
         }
 
         // The turn's jets and the trim's are kept apart: the trim's acceleration estimate assumes a steady frame.
-        _mayTrim = plan.MayTrim && !Turning;
+        _mayTrim = plan.MayTrim && !Turning && !HopWaitsForItsWarhead;
 
         _trim.Begin();
 

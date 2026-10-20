@@ -248,6 +248,28 @@ internal sealed class IcbmConfig
     public bool FreeHopsMeasureTheirSlots;
 
     /// <summary>
+    /// Whether a free walk counts the arrival each hop moves: an uprange hop commits an earlier arrival, so every later
+    /// stop is nearer it than its slots alone say, and dearer. Flown at 12,902 km 400 km apart, the arrival moved about
+    /// 80 s a hop and the last hop flew 1.42x its price. <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c> step 5.
+    /// </summary>
+    public bool FreeHopsCountTheArrivalTheyMove;
+
+    /// <summary>
+    /// Whether a hop flown on the nozzles holds until the warhead just released is <see cref="HopBurn.ClearMetres"/> away,
+    /// as an engine hop does. Without it the trim fires 25 ms after the release and the bus, pushed back along the line
+    /// the warhead left on at 0.5 m/s, passes through it, seen on 2026-10-19. <b>Off until flown</b>: the wait is
+    /// about 20 s a stop that <see cref="ReleaseItinerary.HopOverheadSeconds"/> was not measured with.
+    /// </summary>
+    public bool HopsWaitForTheirWarhead;
+
+    /// <summary>
+    /// Whether an engine hop holds while its burn would carry the bus inside its spent stack's keep-out, for at most
+    /// <see cref="HopBurn.StackHoldCapSeconds"/>. Every first hop flown on 2026-10-19 with the stack under 190 m away was
+    /// knocked off its line, and the nozzles then flew it at several times the cost. <b>Off until flown</b>.
+    /// </summary>
+    public bool EngineHopsClearTheStack;
+
+    /// <summary>
     /// Whether a plan with fewer stops may replace the walker's once a turning bus has split. Fewer stops never move the
     /// first release earlier, which is what the split was timed on. <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c>
     /// step 5.

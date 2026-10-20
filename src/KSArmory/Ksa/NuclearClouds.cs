@@ -238,15 +238,19 @@ internal static class NuclearClouds
         public required double3 BurstCcf;
         public required double3 FootCcf;
         public required double3 EastCcf;
+        public required double3 DipoleCentreCcf;
         public double SinLatitude;
         public double ChargeKg;
         public double Age;
+        public double? Leaving;
     }
 
     private static readonly List<Curtain> _curtains = [];
 
-    // How many auroral curtains are drawn at once; each is a full-screen dispatch, and a burst makes two.
-    private const int MaxCurtains = 4;
+    // Two curtains a burst, one at each end of its field line. Past this many the oldest burst's fade out
+    // over LeaveSeconds rather than vanish, so SkyDispatch.MostOf has room for them while they go.
+    private const int MaxCurtains = 8;
+    private const double LeaveSeconds = 3.0;
 
     /// <summary>How many auroral curtains are glowing. Bounds <see cref="TryAurora"/>.</summary>
     public static int AuroraCount => _curtains.Count;
@@ -255,10 +259,11 @@ internal static class NuclearClouds
     /// One curtain: where its foot is on the ground, which way its arc runs, the sine of its magnetic
     /// latitude, how bright it is and how old, and the body it is over.
     /// </summary>
-    public static bool TryAurora(int index, out double3 footEcl, out double3 eastEcl, out double sinLatitude,
-                                 out double nits, out double age, out object? body)
+    public static bool TryAurora(int index, out double3 footEcl, out double3 eastEcl, out double3 dipoleCentreEcl,
+                                 out double sinLatitude, out double nits, out double age, out object? body)
     {
         footEcl = default;
+        dipoleCentreEcl = default;
         eastEcl = default;
         sinLatitude = 0.0;
         nits = 0.0;
@@ -272,9 +277,11 @@ internal static class NuclearClouds
             body = c.Body;
             age = c.Age;
             sinLatitude = c.SinLatitude;
-            footEcl = c.Body.GetPositionEcl() + (c.FootCcf * c.Body.MeanRadius).Transform(c.Body.GetCce2Ccf().Inverse());
+            footEcl = c.Body.GetPositionEcl() + c.FootCcf.Transform(c.Body.GetCce2Ccf().Inverse());
+            dipoleCentreEcl = c.Body.GetPositionEcl() + c.DipoleCentreCcf.Transform(c.Body.GetCce2Ccf().Inverse());
             eastEcl = Vec.Unit(c.EastCcf.Transform(c.Body.GetCce2Ccf().Inverse()));
-            nits = Aurora.Strength(MushroomCloud.KilotonsFor(c.ChargeKg), c.Age);
+            nits = Aurora.Strength(MushroomCloud.KilotonsFor(c.ChargeKg), c.Age)
+                   * (c.Leaving is { } gone ? Math.Clamp(1.0 - (gone / LeaveSeconds), 0.0, 1.0) : 1.0);
 
             return Vec.IsFinite(footEcl) && Vec.IsFinite(eastEcl) && nits > 0.0;
         }
@@ -318,20 +325,26 @@ internal static class NuclearClouds
     // Both ends of a burst's field line, as curtains to draw.
     private static void Light(Celestial body, double3 burstCcf, double chargeKg)
     {
-        double3 axis = body.GetRotationAxisCce().Transform(body.GetCce2Ccf());
+        MagneticDipole field = KsaWorld.DipoleOf(body);
+        double footRadius = body.MeanRadius + Aurora.BottomAltitude(KsaWorld.BodyAirOf(body));
         Span<double3> feet = stackalloc double3[2];
-        int count = Aurora.Footpoints(burstCcf, axis, body.MeanRadius, Aurora.BottomAltitude(KsaWorld.BodyAirOf(body)), feet);
+        int count = field.Footpoints(burstCcf, footRadius, feet);
 
         for (int i = 0; i < count; i++)
         {
-            if (_curtains.Count >= MaxCurtains) _curtains.RemoveAt(0);
+            if (_curtains.Count(c => c.Leaving is null) >= MaxCurtains)
+            {
+                _curtains.First(c => c.Leaving is null).Leaving = 0.0;
+            }
+
             _curtains.Add(new Curtain
             {
                 Body = body,
                 BurstCcf = burstCcf,
                 FootCcf = feet[i],
-                EastCcf = Aurora.EastAt(feet[i], axis),
-                SinLatitude = Vec.Dot(feet[i], Vec.Unit(axis)),
+                EastCcf = field.EastAt(feet[i]),
+                DipoleCentreCcf = field.Centre,
+                SinLatitude = field.SinLatitude(feet[i]),
                 ChargeKg = chargeKg,
             });
         }
@@ -341,7 +354,7 @@ internal static class NuclearClouds
             Log.Info($"nuclear burst over the air: its debris runs along the field and lights an aurora at "
                      + $"{count} end(s) of its field line"
                      + (count > 1
-                            ? $", the far one {Vec.AngleBetween(feet[0], feet[1]) * body.MeanRadius / 1000.0:F0} km away"
+                            ? $", the far one {Vec.AngleBetween(feet[0], feet[1]) * body.MeanRadius / 1000.0:F0} km away, on L {field.L(burstCcf):F2}"
                             : string.Empty));
         }
     }
@@ -691,12 +704,12 @@ internal static class NuclearClouds
         try
         {
             body = cloud.Body;
-            double3 axis = cloud.Body.GetRotationAxisCce().Transform(cloud.Body.GetCce2Ccf());
-            double3 fieldCcf = DebrisShell.FieldDirection(cloud.Up, axis);
+            MagneticDipole field = KsaWorld.DipoleOf(cloud.Body);
+            double3 fieldCcf = field.Exists ? field.FieldDirection(cloud.BurstCcf) : cloud.Up;
             fieldEcl = Vec.Unit(fieldCcf.Transform(cloud.Body.GetCce2Ccf().Inverse()));
 
             BodyAir air = KsaWorld.BodyAirOf(cloud.Body);
-            double tesla = DebrisBubble.FieldTesla(air.Traits.FieldTesla, cloud.Body.MeanRadius, cloud.BurstCcf, axis);
+            double tesla = field.Tesla(cloud.BurstCcf);
             if (DebrisBubble.FieldShare(tesla, cloud.BurstAir.Pascals) >= 0.5)
             {
                 DebrisBubble.Look bubble = DebrisBubble.At(cloud.ChargeKg, cloud.Age, tesla);
@@ -880,6 +893,13 @@ internal static class NuclearClouds
             double3 groundCcf = burstCcf - (up * height);
             double coupling = MushroomCloud.GroundCoupling(kt, height);
 
+            // Each warhead its own source even inside one burst: doses add.
+            double overGround = hasAir ? height : Math.Max(KsaWorld.HeightAboveTerrain(body, burstEcl), 0.0);
+            double3 fallGround = burstCcf - (up * overGround);
+            Radioactivity.Begin(body, burstEcl, burstCcf, fallGround, up, DownwindAt(fallGround),
+                                chargeKg, MushroomCloud.GroundCoupling(kt, overGround), hasAir,
+                                hasAir && MushroomCloud.IsThin(airRatio));
+
             // A burst inside one still going off is the SAME EVENT (MushroomCloud.IsTheSameBurst): six
             // warheads of a bus land metres apart in one frame, and the truth is one burst of the combined
             // yield. Its yield is added to everything that burst started -- the fireball's light, the glow,
@@ -1036,10 +1056,14 @@ internal static class NuclearClouds
     {
         if (!double.IsFinite(dtSim)) return;
 
+        Radioactivity.Update(dtSim);
+
         for (int i = _curtains.Count - 1; i >= 0; i--)
         {
-            _curtains[i].Age += Math.Max(dtSim, 0.0);
-            if (_curtains[i].Age >= Aurora.LifeSeconds) _curtains.RemoveAt(i);
+            Curtain c = _curtains[i];
+            c.Age += Math.Max(dtSim, 0.0);
+            if (c.Leaving is { } gone) c.Leaving = gone + Math.Max(dtSim, 0.0);
+            if (c.Age >= Aurora.LifeSeconds || c.Leaving >= LeaveSeconds) _curtains.RemoveAt(i);
         }
 
         for (int i = _waves.Count - 1; i >= 0; i--)
@@ -1119,6 +1143,7 @@ internal static class NuclearClouds
         _glows.Clear();
         _waves.Clear();
         _curtains.Clear();
+        Radioactivity.Clear();
         _watch = null;
         BurstFlash.Reset();
         BurstSound.Clear();

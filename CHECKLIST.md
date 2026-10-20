@@ -123,6 +123,47 @@ Four things changed shape and need watching, worst first:
 
 Also unflown on this build: everything the previous retarget listed as unwatched, and the turret.
 
+**Retargeted to KSA `2026.10.19.5638` — eight assemblies renamed, no member moved, and not yet
+flown.** `Brutal.Core.Numerics`, `Common`, `Strings` and five siblings lost their `Core.` (`Common`
+became `Brutal.Core`); the types and namespaces are identical, so only the references moved, and a mod
+built against the old names cannot load. That includes **StarMap 0.4.7 itself**, which throws
+`Could not load file or assembly 'Brutal.Core.Numerics'` before starting the game
+(StarMapLoader/StarMap#91, open). Flown instead on 0.4.7 rebuilt against 5638, with a type-load
+failure in one mod skipping that mod rather than ending the process, and ModMenu 0.2.2 rebuilt the same
+way; the originals are in `StarMap-0.4.7-original/` and `mods-backup/`. ModMenu and KSACars reference the
+old names too. Every contract in the upgrade skill reads the same; no XML element or attribute the mod
+writes moved. Once a StarMap that loads 5638 is installed:
+
+- [x] **`head-on`** **PASS**, flown 2026-10-20 on a locally rebuilt StarMap 0.4.7 and ModMenu 0.2.2
+      (see above): the AIM-9J burst 15 m from the drone and broke 7 parts off it, the far-launcher draw
+      hook fired, and the stamp read `built for KSA 2026.10.19.5638, running 2026.10.19.5638 - reporting on`.
+- [x] **Also flown 2026-10-20 on 5638:** `gunnery` (Mk 42) PASS, 4 of 4 drones, every burst inside the
+      lethal radius; the Phalanx PASS on `gunnery:4,overhead,5,250,500,0,burn`, 4 of 4, 12 bursts inside
+      2.7 m; the M197 on the same geometry hit all four, then lost its gun to the last drone's wreckage
+      falling on the mount and timed out waiting; `drop` PASS 0 m from the ring, the chase taken and handed
+      back; a photographed 0.3 kt burst with fireball, front, column, rings, skirt and scorch drawn; flares
+      and chaff thrown and drawn; the LITENING pod in a camera window and the main view, centred on its
+      target. **The default `gunnery` geometry cannot test the short guns** — drones pass 3 km off against
+      a 1,486 m envelope, and an unpowered drone sent closer is dragged to half speed and falls short.
+- [ ] **The HARM homes on a radar.** Two fired from the vertical rocket on `GUIDED MISSILE TEST - CHAFF`
+      landed 2.07 and 2.60 km off; the bridge's `fire` ignores `at_craft` on a launcher that does not
+      train, and a vertical launch at a radar 1.8 km away is no test. Fly it off something flying level.
+- [ ] **The sight's reticle and bracket paint** over the pod's picture — the bridge's captures leave out
+      the UI layer they are drawn on.
+- [ ] **A split leaves the staging list where it was.** `SequenceList.Add` no longer advances
+      `ActiveSequence` when a rebuild finds a new low-numbered sequence; it marks it `Activated`
+      instead. `LauncherSeparation` skips activated sequences — fly a MIRV shot and a rail drop and
+      read the stage counts.
+- [ ] **KSA's own aurora** now draws from a declared field (`docs/BLOCKED-ON-KSA.md`). Look at a
+      high burst's aurora beside it.
+- [ ] **A burst reads on KSA's Radiation gauge** (`docs/NUCLEAR-RADIATION.md`). Hold a craft about 2 km
+      from a 20 kt surface burst: the gauge pegs for a few seconds, drops, then reads fallout once it
+      arrives, more downwind than up. A burst at 400 km should log a belt filled at L ~1.1 and show in
+      the map's Magnetospheres overlay, and the orbit-average digits should move. Reload: the belt goes.
+- [ ] **A landed craft's acceleration** no longer jumps when the physics bubble snaps its origin
+      (`PhysicsBubble._snappedVelocityDeltaPhys`); `AccelerationEstimate` reads it. Gunnery against a
+      grounded target should be no worse.
+
 **Retargeted to KSA `2026.10.13.5602` — two renames, one data drift, and two flight-model changes
 that compile clean.** `Vehicle.Ctrl2Body` is `Helm2Body` (same expression), and the static
 `ExplosionVolumeSystem` became `Program.Instance.ExplosionVolumes`. Core's conflagration fireball

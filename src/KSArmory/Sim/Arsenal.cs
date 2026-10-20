@@ -807,6 +807,9 @@ public static class Arsenal
         {
             RateDegPerSecond = -180.0,
             SpinUpSeconds = 0.6,
+
+            // About a metre clear of the bus at the Mk 21's 0.5 m/s kick, where the light-up can be seen apart from it.
+            IgnitionSeconds = 2.0,
             Nozzles =
             [
                 new SpinNozzle(new(-0.876,  0.10607,  0.10607), new(-0.70711, -0.5,  0.5)),

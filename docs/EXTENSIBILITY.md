@@ -133,7 +133,7 @@ and attributes every diagnostic, which is the whole of what this mod knows about
 
 - **A string signature means a pack needs no KSA assemblies to build.** This is the property worth
   protecting above all others. `LauncherProfile.Tubes` is `Tube[]` over `double3` from
-  `Brutal.Core.Numerics.dll`, so a pack constructing profiles in C# inherits KSArmory's own
+  `Brutal.Numerics.dll`, so a pack constructing profiles in C# inherits KSArmory's own
   licensing friction — the assemblies are RocketWerkz's, must not be redistributed, and getting
   them is the step `tools/doctor.sh` exists for. A pack that passes text references `KSArmory.dll`
   and `StarMap.API.dll` and nothing else, and `StarMap.API.dll` ships with the loader. **A weapon

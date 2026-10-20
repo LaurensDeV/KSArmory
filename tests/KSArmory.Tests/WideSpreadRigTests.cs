@@ -141,7 +141,7 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
 
     // Either bus on its own tank, a budget only the tank bounds, the targets laid uprange of each other along the track.
     private PastCutoffRig Hops(bool postBoostBus, double rangeMetres, int targets, double spacingMetres, bool free,
-                               bool remade = false, bool resolve = false, bool engine = false)
+                               bool remade = false, bool resolve = false, bool engine = false, bool shift = false)
     {
         IcbmProgram program = new(new IcbmConfig
         {
@@ -150,7 +150,7 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
             WalkStartsAtCutoff = true, HopsFlyTheirOwnCeiling = true, PriceSlotsOnTheGateChord = true,
             HopsSizeTheirOwnSlots = true, TrimBudgetMetresPerSecond = 1_000.0, HopsFreeTheirArrival = free,
             PriceTheTankStopByStop = remade, FreeHopsMeasureTheirSlots = remade, WalkShrinksAfterTheSplit = remade,
-            HopsResolveAfterTheirBurn = resolve, HopsBurnTheEngine = engine,
+            HopsResolveAfterTheirBurn = resolve, HopsBurnTheEngine = engine, FreeHopsCountTheArrivalTheyMove = shift,
         });
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,

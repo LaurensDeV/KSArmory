@@ -206,6 +206,12 @@ public static class ChaseView
     }
 
     /// <summary>
+    /// The axis KSA's fixed camera crosses a view against, for anything it follows that is not a vehicle or a
+    /// celestial: ecliptic +Z. What every chase pose leans off -- see <see cref="LeanOffAxis"/>.
+    /// </summary>
+    public static readonly double3 EngineAxisEcl = new(0, 0, 1);
+
+    /// <summary>
     /// Tilts a view direction away from the axis the engine's camera cannot cross.
     ///
     /// <para>KSA's fixed camera builds its basis by crossing the view with that axis and

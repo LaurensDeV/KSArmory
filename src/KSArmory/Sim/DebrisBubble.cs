@@ -41,20 +41,6 @@ internal static class DebrisBubble
 
     private const double Mu0 = 4.0e-7 * Math.PI;
 
-    /// <summary>
-    /// The field (T) at a point <paramref name="fromCentre"/> from a body's centre, for a dipole on the
-    /// spin axis of <paramref name="surfaceTesla"/> at the surface equator: <c>B₀(R/r)³√(1+3sin²λ)</c>.
-    /// </summary>
-    public static double FieldTesla(double surfaceTesla, double bodyRadius, double3 fromCentre, double3 axis)
-    {
-        double r = Vec.Len(fromCentre);
-        if (!(surfaceTesla > 0.0) || !(r > 0.0) || !(bodyRadius > 0.0)) return 0.0;
-
-        double sinLat = Vec.Dot(fromCentre / r, Vec.Unit(axis));
-        double ratio = bodyRadius / r;
-        return surfaceTesla * ratio * ratio * ratio * Math.Sqrt(1.0 + (3.0 * sinLat * sinLat));
-    }
-
     /// <summary>The equal-volume radius (m) the field holds the debris at; infinite with no field.</summary>
     public static double EqualVolumeRadius(double chargeKg, double fieldTesla)
     {

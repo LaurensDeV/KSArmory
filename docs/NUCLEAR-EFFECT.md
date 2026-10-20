@@ -727,25 +727,21 @@ falling as the inverse square of the distance from it, and none where the planet
 400 km, from the ground under it: a faint lavender cast by day, and by night a deep red sky with the
 trees in silhouette a minute on. **And its charged debris lights an aurora at both ends of its field line** (`Aurora`). A burst above
 about 70 km throws out ionised debris and electrons that cannot cross the magnetic field and spiral
-along it; where the line comes back down to 100 km they light the air. KSA has no field, so it is a
-dipole on the spin axis: the burst sets its line's `L`, and the line comes down on the burst's own
-meridian at the latitude that solves `r = L R cos²λ` -- once near the burst, once at the conjugate
-point in the other hemisphere. Teak, 77 km over Johnston Island at 17° N, comes down at 16.4° N and
-16.4° S, 3,637 km apart, which is where Samoa saw it in 1958. Each end is four arcs 50 km apart,
-running magnetic east-west, and each arc is a sheet standing on the field lines through it -- so it
-leans as the field does, about 60° off vertical at Samoa's latitude where the dip is 30°, and its rays
-are field-aligned without being told to be. A real arc is a few hundred metres thick (median 230 m), so
-a sheet is drawn where the ray crosses it, found between two steps, adding the path through it capped
-at four times square-on; sampling a slab that thin would need thousands of taps a pixel. The colours
-sit where the atmosphere puts them: a sharp lower border at 100 km with a pink nitrogen fringe under it,
-the green of 557.7 nm brightest just above it and reaching up a ray-by-ray height, so the tops are
-ragged, and the red of 630 nm about 230 km. The red's upper state lives two minutes, so it keeps only
-a trace of the rays and smears into a haze round the arcs, which is also what makes a display seen from
-far off read red -- Teak's and Starfish's conjugate aurorae were both reported deep red. It moves on
-the measured scales: folds drifting a kilometre or two a second, rays about a kilometre a second, curls
-under 10 km running faster, and patches pulsing over seconds; the tens-of-hertz flicker is left out,
-since at a game's frame rate it would strobe.
-What it still lacks is the radiation belts -- see `docs/NUCLEAR-NEXT.md`.
+along it; where the line comes back down to 100 km they light the air. The field is KSA's own
+(`Sim/MagneticDipole.cs`): a tilted dipole off the planet's centre, its feet found by walking the
+burst's field line down to the border's sphere about the planet, since off the centre that is not a
+sphere about the dipole. On a centred field Teak at 77 km over Johnston Island at 17° N comes down at
+16.4° N and 16.4° S, 3,637 km apart, which is where Samoa saw it in 1958; KSA's offset moves those
+feet by hundreds of kilometres. Each end is drawn as KSA draws its own aurora (`AuroraMarch.glsl`), cut
+to a patch 900 km long: two arcs at -0.4 and +0.5 of a 100 km half width over a diffuse glow, folded,
+with rays a few kilometres apart along the field lines that carry the green higher and the red
+stronger, green peaking 15 km over the border and red from about 210 km, in KSA's own colours, and
+nothing on the day side, in KSA's own emission units, so a brightness of one is its natural aurora: a
+megatonne's is one, rising as the fourth root of the yield. Each arc is a Gaussian band a tenth of the
+half width across, standing on the field lines so it leans as the field does, and integrated exactly
+between two steps on the distance to it, so a band thinner than the step is neither missed nor drawn as
+a hard line; where a pixel spans more than a ray cell the rays fade to their mean, as KSA's do.
+A burst above the air also fills a radiation belt in KSA's own model -- see `docs/NUCLEAR-RADIATION.md`.
 
 ## The airless burst, which is a different effect rather than the same one degraded
 

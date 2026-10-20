@@ -23,21 +23,17 @@ internal sealed class HopBurn
     public const double ResolveEverySeconds = 2.0;
 
     /// <summary>
-    /// What turning onto a hop and back adds to its slot (s): twice the 9.0 s the post-boost bus took to settle a 164 deg
-    /// turn onto the entry airflow, every one of 48 flown on 2026-10-17 and 18, after <see cref="ClearSeconds"/>.
+    /// What an engine hop adds to its slot past <see cref="ReleaseItinerary.HopOverheadSeconds"/> and its burn (s): the
+    /// wait to clear, the two turns and the re-solve. The upper quartile of the time between releases less the burn is
+    /// 68.4 s over 86 engine hops flown at 12,902 km on 2026-10-19 (median 55.6), for the same reason that overhead is.
     /// </summary>
-    public const double TurnsSeconds = ClearSeconds + 18.0;
+    public const double TurnsSeconds = 27.0;
 
     /// <summary>
     /// How far the warhead just released must be from the bus before it turns (m): twice the 4.4 m its other warheads
     /// sweep about its centre -- tubes 2.64 m up the axis and a 1.8 m Mk 21 -- so the turn cannot carry them through it.
     /// </summary>
     public const double ClearMetres = 10.0;
-
-    /// <summary>
-    /// What waiting for <see cref="ClearMetres"/> adds to a hop's slot (s), at the Mk 21's 0.5 m/s separation kick.
-    /// </summary>
-    public const double ClearSeconds = 20.0;
 
     /// <summary>The longest either turn may take before the engine is given up on or the line is held where it got.</summary>
     public const double TurnCapSeconds = 60.0;
@@ -92,6 +88,7 @@ internal sealed class HopBurn
         AskedMetresPerSecond = double.NaN;
         BurnSeconds = 0.0;
         TurnedSeconds = 0.0;
+        HeldForTheStackSeconds = 0.0;
         LeftMetresPerSecond = double.NaN;
         Said = "";
         _turn.Reset();
@@ -104,13 +101,53 @@ internal sealed class HopBurn
         Now = Stage.Idle;
     }
 
+    /// <summary>The longest a burn waits for its spent stack to leave the path (s), after which it is flown anyway.</summary>
+    public const double StackHoldCapSeconds = 240.0;
+
+    /// <summary>How long the burn has waited for its stack this hop.</summary>
+    public double HeldForTheStackSeconds { get; private set; }
+
+    /// <summary>
+    /// How near the bus comes to its spent stack if it burns now (m): pushed at <paramref name="accelerationMetresPerSecond2"/>
+    /// along <paramref name="lineCci"/> until <paramref name="metresPerSecond"/> is gained, then coasting for
+    /// <paramref name="coastSeconds"/>, in the stack's frame. Of 72 first hops flown on 2026-10-19, all 11 burnt with the
+    /// stack 36-187 m away were knocked off their line, and none of the 61 from 209 m or more.
+    /// </summary>
+    /// <param name="fromStackCci">The bus less the stack, now.</param>
+    /// <param name="relativeCci">The bus's velocity less the stack's.</param>
+    public static double ClosestToTheStackMetres(double3 fromStackCci, double3 relativeCci, double3 lineCci,
+                                                 double accelerationMetresPerSecond2, double metresPerSecond,
+                                                 double coastSeconds = 120.0)
+    {
+        if (!Vec.IsFinite(fromStackCci) || !Vec.IsFinite(relativeCci) || !(Vec.Len2(lineCci) > 0.0)) return double.NaN;
+
+        double3 line = Vec.Unit(lineCci);
+        double a = accelerationMetresPerSecond2 > 0.0 ? accelerationMetresPerSecond2 : 0.0;
+        double burn = a > 0.0 && metresPerSecond > 0.0 ? metresPerSecond / a : 0.0;
+        double end = burn + Math.Max(0.0, coastSeconds);
+        double closest = Vec.Len(fromStackCci);
+
+        for (double t = 0.25; t <= end; t += 0.25)
+        {
+            double pushed = Math.Min(t, burn);
+            double3 at = fromStackCci + (relativeCci * t) + (line * (a * pushed * ((0.5 * pushed) + (t - pushed))));
+            closest = Math.Min(closest, Vec.Len(at));
+        }
+
+        return closest;
+    }
+
     /// <summary>One frame.</summary>
     /// <param name="toGainCci">The velocity the arc asks for less the bus's own, now.</param>
     /// <param name="noseCci">The nose the engine reports; zero is a frame that would not resolve.</param>
     /// <param name="accelerationMetresPerSecond2">What the engine pushes the bus at now.</param>
     /// <param name="releasedMetres">How far the warhead just released is from the bus; NaN where none is.</param>
+    /// <param name="stackInTheWay">
+    /// Whether the burn's path passes inside the spent stack's keep-out (<see cref="ClosestToTheStackMetres"/>); held
+    /// for at most <see cref="StackHoldCapSeconds"/>.
+    /// </param>
     public Decision Update(double stepSeconds, double3 toGainCci, double3 noseCci, double accelerationMetresPerSecond2,
-                           double releasedMetres = double.NaN)
+                           double releasedMetres = double.NaN, bool stackInTheWay = false)
     {
         double toGain = Vec.Len(toGainCci);
 
@@ -125,6 +162,12 @@ internal sealed class HopBurn
                 }
 
                 if (releasedMetres < ClearMetres) return Holding();
+
+                if (stackInTheWay && HeldForTheStackSeconds < StackHoldCapSeconds)
+                {
+                    HeldForTheStackSeconds += Math.Max(0.0, stepSeconds);
+                    return Holding();
+                }
 
                 _lineCci = Vec.Unit(toGainCci);
                 _turn.Begin(_lineCci, TurnCapSeconds);

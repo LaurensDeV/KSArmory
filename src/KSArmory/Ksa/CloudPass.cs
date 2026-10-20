@@ -588,16 +588,19 @@ internal static class CloudPass
 
             for (int i = 0; i < NuclearClouds.AuroraCount; i++)
             {
-                if (!NuclearClouds.TryAurora(i, out double3 footEcl, out double3 eastEcl, out double sinLatitude,
-                                             out double nits, out double age, out object? over)) continue;
+                if (!NuclearClouds.TryAurora(i, out double3 footEcl, out double3 eastEcl, out double3 dipoleEcl,
+                                             out double sinLatitude, out double nits, out double age,
+                                             out object? over)) continue;
                 if (!ReferenceEquals(over, camera.NearbyCelestial)) continue;
 
                 double3 foot = footEcl - camera.PositionEcl;
-                if (!Vec.IsFinite(foot)) continue;
+                double3 dipole = dipoleEcl - camera.PositionEcl;
+                if (!Vec.IsFinite(foot) || !Vec.IsFinite(dipole)) continue;
 
                 _sky.Add((SkyDispatch.Aurora, nits, new Push
                 {
                     InvViewProj = camera.VPInv.viewProjection,
+                    AgeStrengthWind = new float4((float)dipole.X, (float)dipole.Y, (float)dipole.Z, 0f),
                     CentreRadius = new float4((float)foot.X, (float)foot.Y, (float)foot.Z, -(float)nits),
                     FireSun = new float4((float)Aurora.BottomAltitude(KsaWorld.BodyAirOf(camera.NearbyCelestial)),
                                          (float)Aurora.TopAltitude(KsaWorld.BodyAirOf(camera.NearbyCelestial)),

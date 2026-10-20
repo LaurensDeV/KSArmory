@@ -9,9 +9,9 @@ public readonly record struct SpinNozzle(double3 MouthBody, double3 ExhaustBody)
 /// The spin a round's own motors give it as it leaves -- <b>drawn only</b>: a released round is flown as a
 /// point, so nothing here can move where it lands.
 ///
-/// <para>The motors burn for <see cref="SpinUpSeconds"/> and the rate climbs evenly to
-/// <see cref="RateDegPerSecond"/> across that burn, then holds. The roll is a closed form of the round's
-/// age, so a frame of any length turns the body by exactly the difference between two ages.</para>
+/// <para>The motors light <see cref="IgnitionSeconds"/> after release, burn for <see cref="SpinUpSeconds"/>, and the
+/// rate climbs evenly to <see cref="RateDegPerSecond"/> across that burn, then holds. The roll is a closed form of the
+/// round's age, so a frame of any length turns the body by exactly the difference between two ages.</para>
 /// </summary>
 public sealed class RoundSpin
 {
@@ -23,9 +23,13 @@ public sealed class RoundSpin
 
     public required SpinNozzle[] Nozzles { get; init; }
 
+    /// <summary>How long after release the motors light (s), so they fire once the round is clear of what let it go.</summary>
+    public double IgnitionSeconds { get; init; }
+
     /// <summary>How far the body has rolled about its nose since release, in radians.</summary>
-    public double RollRadAt(double age)
+    public double RollRadAt(double sinceRelease)
     {
+        double age = sinceRelease - Math.Max(0.0, IgnitionSeconds);
         if (!double.IsFinite(age) || age <= 0.0) return 0.0;
 
         double rate = double.DegreesToRadians(RateDegPerSecond);
@@ -36,6 +40,10 @@ public sealed class RoundSpin
                    : rate * (age - (0.5 * SpinUpSeconds));
     }
 
-    /// <summary>Whether the motors are still burning at this age.</summary>
-    public bool Burning(double age) => age >= 0.0 && age < SpinUpSeconds;
+    /// <summary>Whether the motors are burning at this age.</summary>
+    public bool Burning(double sinceRelease)
+    {
+        double age = sinceRelease - Math.Max(0.0, IgnitionSeconds);
+        return age >= 0.0 && age < SpinUpSeconds;
+    }
 }
