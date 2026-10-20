@@ -1,6 +1,6 @@
 # Finding targets for the directors: an infrared search part
 
-**A plan, not a record.** Tick each step as it lands; nothing below step 0 is built.
+**A plan, not a record.** Tick each step as it lands. Steps 0 and 4b are built; the rest is not.
 
 ## Why
 
@@ -28,7 +28,8 @@ launcher on their own part) has been handed to them.
 - [x] `SensorProfile.CuedOnly`; the YAL-1, LITENING and EO sets carry it; a launcher cues the
       director on its own part.
 - [x] The YAL-1 laser is a `LauncherProfile` with `FiresBeam`; shift-click reaches every director.
-- [ ] Flown (CHECKLIST 7.6c-2), then committed.
+- [x] Committed and on `dev` (feb8cf6e, with the shift-click fix 29be7514).
+- [ ] Flown (CHECKLIST 7.6c-2).
 
 ### 1. The detection law, in `Sim/` — about half a day
 - `Sim/InfraredSearch.cs`: `Sees(intensityKwPerSr, rangeMetres, meanAirRatio, lookingDown, profile)`.
@@ -120,3 +121,58 @@ locks on, without seeing the target itself.
    works.
 3. **Does a director's own set feed the craft's picture?** It holds only what it was handed, so it
    would add nothing new. Proposed: no.
+
+## Handoff: how to resume in a fresh session
+
+**Start here.** Read this file, then CLAUDE.md's *And it finds nothing by itself* and the director
+paragraphs around it, then `docs/FRAMES-AND-EPOCHS.md` before touching anything that compares
+positions. Work on a branch off `dev`; commit to `dev`, never `main`.
+
+**What exists to build on.**
+- `Sim/Signature.cs` — heat in kW/sr: `HeatOfCraft(thrust, throttle)` (0.04 kW/sr per kN, 1 kW/sr
+  for an airframe with its engines out), `HeatOfRound(burning)`. The detection law reads these and
+  nothing else, so seekers, flares and the IRST cannot disagree about brightness.
+- `Ksa/Radar.cs` — the scan every set runs: range and cone (`ThreatModel.TryAssess`), terrain masking,
+  IFF, wreckage, `CuedOnly`. Step 2 adds a heat test beside the range test, not a second scanner.
+- `Sim/SensorProfile.cs` — where `Infrared`, `IrThresholdWPerM2` and `LookDownPenalty` go; every new
+  field needs a control or an exemption in `tools/check-tunables.py`.
+- `Ksa/OpticalHeads.cs` — the shape to copy for a roster of standalone sets (step 3): crewed with
+  the craft, followed across a split by part reference, never by ordinal.
+- `Ksa/Armaments.cs` — the shape to copy for the per-craft picture (step 4): derived every frame,
+  never pinned.
+- `Ksa/OpticalHead.AimPartFrame` and `Sim/OpticHold.cs` — the director's rung order. The picture's
+  contact goes below the launcher's cue, under the tracking switch.
+- `WeaponSystem.UpdateBeamFireControl` — where the laser picks its target; the picture is its
+  fallback when nothing is designated.
+
+**Order.** Steps 1 → 2 → 3 → 4 are code and can be done and tested headlessly before any art exists:
+register the IRST against a placeholder part Id only once step 5 declares the real one. Step 5 is the
+art and needs a person: model in Blender per `.claude/skills/ksa-blender/SKILL.md`, show the
+blockout, and **wait for sign-off on the geometry before unwrapping or baking**. Step 7 is flying it,
+per `.claude/skills/verify-in-game/SKILL.md`; a `fix` or `feat` is not called done until then.
+
+**The part, for the modeller.** A low dome on a short faceted plinth, about 0.5 m across, that
+surface-attaches (`ToSurface`), so several can ring a hull for all-round cover, as the YAL-1's six
+did. One forward cone of about 120° per unit, out of its mounting face (`BoresightMode.MountNormal`).
+No moving parts, so one body and one collider. Reference:
+- the YAL-1's own sensors were small domed infrared windows along the forward fuselage, one each side
+  below the ranging fairing and one under the nose turret — Lockheed Martin, derived from the F-14's
+  AN/AAS-42 ([Boeing, 2001](https://boeing.mediaroom.com/2001-07-11-Team-Airborne-Laser-Delivers-Infrared-Sensors-for-Lab-Testing-and-Aircraft-Integration));
+- the aircraft: [YAL-1A](https://commons.wikimedia.org/wiki/File:YAL-1A_Airborne_Laser_unstowed.jpg),
+  [all photos](https://commons.wikimedia.org/wiki/Category:00-0001_(aircraft));
+- shapes of the class: [IRST category](https://commons.wikimedia.org/wiki/Category:Infra-red_search_and_track),
+  the [F-35's flush window](https://commons.wikimedia.org/wiki/File:Close_up_of_first_DOD_F-35_at_its_new_home.jpg),
+  and IRST21 in a [Super Hornet's tank nose](https://commons.wikimedia.org/wiki/File:VX-9_FA-18F_with_AIM-174_missiles.jpg),
+  which is the later pod variant.
+
+**Open decisions — settle before step 1** (the proposed answers are in *Decisions to make* above):
+range carried but drawn as a bearing; no visual range for sensorless craft; directors do not feed the
+picture.
+
+**Traps already known.**
+- A `Sim/` entry point takes both positions and both velocities, never a relative velocity worked out
+  in `Ksa/`, and is tested for invariance under a shared velocity.
+- `WeaponSurvey.Match` takes the first component entry for a part Id, so the IRST gets exactly one.
+- An IRST does not transmit: `Emits` stays false, so `RadarSilent` and anti-radiation rounds ignore it.
+- A shipped part's subpart list is append-only and its Id is never renamed; get both right before the
+  first commit that declares it.
