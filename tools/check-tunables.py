@@ -87,6 +87,8 @@ EXEMPT = {
     "SensorProfile.CuedOnly":
         "whether a set can find anything by itself is what kind of instrument it is -- a telescope "
         "does not become a search set because somebody ticked a box",
+    "SensorProfile.Infrared":
+        "whether a set finds contacts by heat or by transmitting is what kind of instrument it is",
     "SensorProfile.Scope":
         "what picture the set puts in front of the operator is what kind of instrument it is -- "
         "a seeker head has none and an anti-radiation seeker's is a list of emitters, and neither "

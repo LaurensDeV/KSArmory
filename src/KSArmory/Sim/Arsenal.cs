@@ -1378,6 +1378,28 @@ public static class Arsenal
     };
 
     /// <summary>
+    /// An infrared search set, after the six the YAL-1 carried along its forward fuselage: passive, a
+    /// 120 deg cone out of its mounting face, so several ring a hull for all-round cover.
+    /// </summary>
+    public static readonly SensorProfile InfraredSearchSet = new()
+    {
+        Name = "Irst",
+        DisplayName = "IRST",
+        Infrared = true,
+        Scope = ScopePresentation.Search,
+        LookDownPenalty = 10f,
+
+        // A ceiling only: the heat decides. A 1 MN booster in thin air is seen at about 250 km.
+        Range = 400000f,
+        ConeDeg = 60f,
+
+        BoresightSource = BoresightMode.MountNormal,
+        ThreatRadius = 8000f,
+        ThreatHorizonSeconds = 40f,
+        LockSeconds = 1.0f,
+    };
+
+    /// <summary>
     /// A Rafael LITENING pod. Geometry from <c>tools/model/import-litening.py</c>.
     ///
     /// <para>The first <see cref="GimbalKind.RollNod"/> head, and the reason that enum exists. Its
@@ -1559,7 +1581,7 @@ public static class Arsenal
     public static readonly IReadOnlyList<SensorProfile> Sensors =
         [SeekerHeadAim9, SeekerHeadAim120, SeekerHeadAgm88, SearchRadarVps2,
          BombSight, EoSensor, PodSensor, BeamDirectorSensor, BusDesignation, FireControlMk68,
-         TurretSight];
+         TurretSight, InfraredSearchSet];
 
     /// <summary>
     /// Optical heads. Most are parts in their own right; one rides a launcher's turret, and

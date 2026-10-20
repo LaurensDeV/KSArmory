@@ -155,6 +155,23 @@ public sealed class SensorProfile
     /// </summary>
     public bool CuedOnly;
 
+    /// <summary>
+    /// Finds contacts by their heat (<see cref="InfraredSearch"/>) rather than by range and size;
+    /// <see cref="Range"/> is then only a ceiling. Passive, so leave <see cref="Emits"/> false.
+    ///
+    /// <para>EXEMPT: what kind of instrument this is, as <see cref="Scope"/> is.</para>
+    /// </summary>
+    public bool Infrared;
+
+    /// <summary>The least irradiance an <see cref="Infrared"/> set detects (W/m²).</summary>
+    public float IrThresholdWPerM2 = 6.0e-7f;
+
+    /// <summary>
+    /// What the threshold is multiplied by for a contact seen against the ground rather than the sky.
+    /// One is no penalty.
+    /// </summary>
+    public float LookDownPenalty = 1f;
+
     // ---- What the set can tell targets apart by ------------------------------
     //
     // Each is off at its default, so a set that says nothing about them does not tell targets apart
