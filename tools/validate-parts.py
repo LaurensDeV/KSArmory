@@ -1678,6 +1678,51 @@ def check_optic_geometry(profile="EoDirector"):
     return problems, checked
 
 
+def check_search_set_heads():
+    """Verifies a search set's head pivot agrees between Sim/Arsenal.cs and the asset XML.
+
+    The head's mesh is exported centred on the pivot, the XML puts it back there, and the C# writes
+    the same point back each frame. Disagreeing, the head jumps from where the editor drew it to
+    where the mod puts it on the first frame, and the window shows it off centre.
+    """
+    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    problems = checked = 0
+    for name in registered(text, "SearchSets"):
+        found = _as_match(profile_block(text, name))
+        if found is None:
+            print(f"  MISSING Arsenal.{name}", file=sys.stderr)
+            problems += 1
+            continue
+        block = found.group(1)
+        marker = re.search(r'HeadMarker\s*=\s*"([^"]+)"', block)
+        if marker is None:
+            continue
+        checked += 1
+        pivot = re.search(r"HeadPivot\s*=\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)", block)
+        part_id = re.search(r'PartId\s*=\s*"([^"]+)"', block).group(1)
+        placed = None
+        for path in sorted(MOD.glob("KSArmory*.xml")):
+            for part in ET.parse(path).getroot().findall("Part"):
+                if part.get("Id") != part_id:
+                    continue
+                for sub in part.findall("SubPart"):
+                    if marker.group(1).lower() in (sub.get("Id") or "").lower():
+                        position = sub.find("Transform/Position")
+                        placed = [float(position.get(axis, "0")) for axis in "XYZ"] if position is not None else [0.0] * 3
+        if pivot is None or placed is None:
+            print(f"  MISSING Arsenal.{name}.HeadPivot or the <SubPart> its marker names", file=sys.stderr)
+            problems += 1
+            continue
+        want = [float(v) for v in pivot.groups()]
+        if any(abs(a - b) > 5e-4 for a, b in zip(want, placed)):
+            print(f"  STALE Arsenal.{name}.HeadPivot = {tuple(want)}, the XML puts the head at {tuple(placed)}",
+                  file=sys.stderr)
+            problems += 1
+    if problems == 0 and checked:
+        print(f"  search-set heads: {checked} pivot(s) match the XML")
+    return problems, checked
+
+
 def check_registered_part_ids():
     """Verifies every registered LauncherProfile.PartId is declared in the asset XML.
 
@@ -1840,6 +1885,11 @@ def main():
         p, c = check_optic_geometry(optic)
         problems += p
         checked += c
+
+    print("checking every search set's head pivot against the XML")
+    p, c = check_search_set_heads()
+    problems += p
+    checked += c
 
     print("checking every hinged blade's resting seat against FinMixer and the hinge station")
     p, c = check_hinged_blade_seats("NukeB61", "KSArmory_Prefab_NukeRack",
