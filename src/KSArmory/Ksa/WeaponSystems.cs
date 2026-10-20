@@ -220,6 +220,9 @@ internal sealed class WeaponSystems(Config config)
     /// <summary>The director crewed on a part, which the launcher on it cues.</summary>
     public Func<Part, OpticalHead?>? DirectorFor { get; set; }
 
+    /// <summary>The contact a craft's picture hands out, for a beam with nothing designated.</summary>
+    public Func<Vehicle?, object?>? PictureFor { get; set; }
+
     /// <summary>
     /// Whether anything on this craft is transmitting — the only thing an anti-radiation round can
     /// home on.
@@ -499,7 +502,7 @@ internal sealed class WeaponSystems(Config config)
                     _config.AdoptRules(policy.Iff);
                 }
 
-                WeaponSystem system = new(_config, policy, ordinal, IsEmitting) { DirectorFor = DirectorFor };
+                WeaponSystem system = new(_config, policy, ordinal, IsEmitting) { DirectorFor = DirectorFor, PictureFor = PictureFor };
 
                 // Pinned on creation, so ResolvePlatform leaves it alone. Without this every
                 // system would independently elect the craft being flown and they would all pile

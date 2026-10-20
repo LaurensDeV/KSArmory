@@ -1,6 +1,7 @@
 # Finding targets for the directors: an infrared search part
 
-**A plan, not a record.** Tick each step as it lands. Steps 0 and 4b are built; the rest is not.
+**A plan, not a record.** Tick each step as it lands. Steps 0–4 and 4b are built; none is flown, and the
+part (step 5) is not declared, so nothing in game carries an IRST yet.
 
 ## Why
 
@@ -48,18 +49,28 @@ launcher on their own part) has been handed to them.
   - no air at all: range limited by the threshold alone.
 - Invariance test: the answer moves with neither craft's ecliptic velocity (CLAUDE.md, *a `Sim/` entry
   point differences its own inputs*).
+- [x] Built. **The extinction is not linear in density**: no constant then gives both a fighter at 60 km
+  from 10 km up and an idling craft at sea level at a few. It is 0.4/km at sea level times the density
+  ratio to the fourth (water vapour's scale height is about a quarter of the air's), taken as the
+  log-mean along the path. Threshold 6e-7 W/m², look-down x10: fighter 65 km, 1 MN booster 250 km,
+  engines out 8 km (5 km looked down on), fighter in vacuum 82 km. The law takes no velocity, so the
+  invariance test translates every position instead.
 
 ### 2. A set that scans by heat — about half a day
 - `Ksa/Radar.cs` asks `InfraredSearch.Sees` instead of `ThreatModel`'s range test when the profile is
   `Infrared`; IFF, terrain masking and wreckage rules are unchanged. `Emits` stays false, so an
   anti-radiation round cannot home on it and `RadarSilent` does not apply.
 - The contact's heat is read from the craft's live thrust (`KsaWorld`), as the seekers already do.
+- [x] Built: `IContact.HeatKwPerSr`, asked after range and cone; `Radar.TooFaint` counts the rest.
 
 ### 3. A roster for standalone search sets — about a day
 - Today a set only exists inside a launcher or a director. `Ksa/SearchSets.cs`: one `Radar` per IRST
   part fitted, crewed with the craft and followed across a split, the way `Ksa/OpticalHeads.cs` is.
 - `ComponentProfile` with `Role = Sensor` for the part; a craft carrying only IRSTs is an observation
   post, not a weapons system.
+- [x] Built: `SearchSetProfile` and `Arsenal.SearchSets` (empty until step 5), `Ksa/SearchSets.cs`. Keyed
+  on the `Part` itself rather than crewed and handed over: a set carries no settings and no magazine.
+  Its side is its craft's (`TeamRoster.For`), so a craft with only IRSTs has no flag to set.
 
 ### 4. One picture per craft — about a day
 - `Ksa/CraftPicture.cs`, derived every frame and never pinned (the `Armaments` reasoning): the union of
@@ -71,6 +82,11 @@ launcher on their own part) has been handed to them.
   - a director with **Track** on, after a shift-click and its own launcher's cue
     (`OpticalHead.AimPartFrame`, and the rung order in `Sim/OpticHold.cs`);
   - the laser weapon's target when it has no designation (`WeaponSystem.UpdateBeamFireControl`).
+- [x] Built. The picture hands out a **handle**, which the taker's own cued-only set scans and judges on
+  its own IFF: `OpticalHead.Pictured` becomes its set's cue under **Track** below a designation and the
+  launcher's cue, and `WeaponSystem.CuedHandle` falls back to it for a beam on auto-engage. A launcher
+  radar counts when its set is `Searches` (not cued-only, a search scope). A director's set beyond its
+  own range still holds nothing, which is honest: a LITENING does not see what the IRST sees at 65 km.
 
 ### 4b. Laser spot search — built, not flown
 Somebody else marks a target with a coded laser — a mast director on the ground, a drone, another
@@ -111,7 +127,7 @@ locks on, without seeing the target itself.
 - The Pantsir's director still follows the Pantsir's radar.
 - CHECKLIST entries ticked with the numbers seen.
 
-## Decisions to make before step 1
+## Decisions to make before step 1 — settled 2026-10-20, all as proposed
 
 1. **Bearing only, or range too?** A real IRST gives a direction; range comes from a laser ranger or a
    radar. The mod knows the range anyway. Proposed: the track carries it, and the scope draws an IRST

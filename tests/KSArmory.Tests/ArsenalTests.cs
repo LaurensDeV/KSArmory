@@ -355,6 +355,20 @@ public class ArsenalTests
     /// nothing in any log and nothing on screen but a part that does nothing.</para>
     /// </summary>
     [Fact]
+    public void EverySearchSetIsASensorComponentSearchingWithARegisteredSet()
+    {
+        foreach (SearchSetProfile set in Arsenal.SearchSets)
+        {
+            Assert.Contains(Catalogue.Components, c => c.PartId == set.PartId && c.Role == WeaponRole.Sensor);
+
+            SensorProfile? sensor = Catalogue.TrySensorNamed(set.Sensor);
+            Assert.NotNull(sensor);
+            Assert.False(sensor.CuedOnly, $"{set.DisplayName} searches with a set that finds nothing by itself");
+            Assert.Equal(ScopePresentation.Search, sensor.Scope);
+        }
+    }
+
+    [Fact]
     public void EveryRegisteredLauncherIsAlsoARecognisedComponent()
     {
         foreach (LauncherProfile launcher in Catalogue.Launchers)

@@ -38,6 +38,7 @@ public sealed class KSArmoryMod
     // One head per optical director fitted. Crewed independently of the weapons: a craft with a
     // director and no armament gets one, and a craft with a launcher and no director gets none.
     private OpticalHeads? _heads;
+    private SearchSets? _searchSets;
     private readonly List<OpticalHeads.Entry> _lockEntries = [];
     private readonly List<OpticalHead> _lockHeads = [];
     private Countermeasures? _countermeasures;
@@ -113,6 +114,7 @@ public sealed class KSArmoryMod
 
     // What each craft's weapons are doing between them, as against what each is doing alone.
     private readonly Armaments _armaments = new();
+    private readonly CraftPicture _picture = new();
     private readonly TravelSweeps _travel = new();
 
     // Development tool: pick a craft up and set it down somewhere else.
@@ -232,6 +234,9 @@ public sealed class KSArmoryMod
         _roster = new WeaponSystems(_config);
         _heads = new OpticalHeads(_config);
         _roster.DirectorFor = part => _heads.OnPart(part);
+        _searchSets = new SearchSets(_config);
+        _roster.PictureFor = _picture.BestFor;
+        _heads.PictureFor = _picture.BestFor;
         _countermeasures = new Countermeasures();
         _icbms = new IcbmComputers(_config);
         _motors = new MotorSound(_config);
@@ -391,7 +396,9 @@ public sealed class KSArmoryMod
         // and writing the outgoing session's over them first is how a reload stops restoring them.
         _roster?.Discard();
         _armaments.Clear();
+        _picture.Clear();
         _heads?.Clear();
+        _searchSets?.Clear();
         _countermeasures?.Discard();
         _icbms?.Clear();
         KsaWorld.Wreckage.Clear();
@@ -725,6 +732,7 @@ public sealed class KSArmoryMod
         }
 
         using (_budget.Measure("dispsync")) _countermeasures?.Sync(KsaWorld.Vehicles);
+        using (_budget.Measure("setsync")) _searchSets?.Sync(KsaWorld.Vehicles);
 
         _roster.RetireDestroyed();
         _roster.ShareStationSettings();
@@ -733,6 +741,7 @@ public sealed class KSArmoryMod
         using (_budget.Measure("sample")) foreach (WeaponSystems.Entry e in _roster.All) e.Weapon.SampleWorld();
         using (_budget.Measure("travel")) _travel.Step(_roster.All, _ui?.Focused);
         using (_budget.Measure("headsample")) _heads?.SampleWorld();
+        using (_budget.Measure("setsample")) _searchSets?.SampleWorld();
 
         // Gate on the step the engine applied, not on the pause flag. Universe.IsPaused() is
         // `simulationSpeed == 0.0`, a statement about the setting rather than about whether the
@@ -786,7 +795,11 @@ public sealed class KSArmoryMod
                 // Which craft is on which side, before anything reads it. Same pass and the same
                 // reason as the airborne census: it is what exists, not something per system --
                 // and the rounds collected below carry their shooter's side out of it.
-                using (_budget.Measure("teams")) CollectTeams();
+                using (_budget.Measure("teams"))
+                {
+                    CollectTeams();
+                    _searchSets?.AdoptTeams();
+                }
 
                 // Gathered once, not once per system: every crewed system scans the same sky, and
                 // building this per system would be quadratic in how many are in the world.
@@ -822,6 +835,11 @@ public sealed class KSArmoryMod
                 // 0.32 s while an 8.33 ms frame (0.13 s) is not. The head then under-advances on
                 // alternate frames, in step with the display's pacing -- which is a shake in the
                 // picture that appears above about 13x and nowhere below it.
+                // After every launcher radar has scanned and before the heads aim, so a director takes
+                // this step's picture; a beam weapon, stepped in the fire loop above, takes the last one.
+                using (_budget.Measure("search sets")) _searchSets?.Update(dtSim, _airborne);
+                using (_budget.Measure("picture")) _picture.Refresh(_roster.All, _searchSets?.All ?? []);
+
                 using (_budget.Measure("heads")) _heads?.Update(dtSim, _airborne);
 
                 // On the simulated step and unclamped, for the same reason the heads are: the
@@ -1058,8 +1076,11 @@ public sealed class KSArmoryMod
         _icbms?.WriteDown();
         _roster?.Clear();
         _armaments.Clear();
+        _picture.Clear();
         _heads?.Clear();
         _heads = null;
+        _searchSets?.Clear();
+        _searchSets = null;
         _countermeasures?.Discard();
         _countermeasures = null;
         _icbms?.Clear();
@@ -1509,8 +1530,11 @@ public sealed class KSArmoryMod
         _icbms?.WriteDown();
         _roster?.Clear();
         _armaments.Clear();
+        _picture.Clear();
         _heads?.Clear();
         _heads = null;
+        _searchSets?.Clear();
+        _searchSets = null;
         _countermeasures?.Discard();
         _countermeasures = null;
         _icbms?.Clear();

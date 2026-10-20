@@ -505,11 +505,14 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/BeamTrigger.cs` | when a beam weapon lases — **a press holds it on for one dwell, auto-engage for as long as it asks**, and the dwell runs down only while the director is on target, so a press made while it slews waits rather than lasing at nothing |
 | `Sim/CloudCover.cs` | where a beam first enters cloud thick enough to stop it — **overcast only**, coverage 0.8 and over, because KSA's coverage map places cloud fields and not the puffs inside them, so broken cloud would stop a beam in a visible gap; up to a top that rises with the coverage |
 | `Sim/CoverageCube.cs` | a cloud layer's coverage map as KSA's renderer samples it — a BC4 cubemap in Vulkan's face order, kept compressed and decoded per texel |
+| `Sim/InfraredSearch.cs` | whether a passive infrared set sees a contact — **its heat over range squared, thinned by the air as the density ratio to the fourth**, after water vapour's scale height, against a threshold raised for a contact seen against the ground |
 | `Sim/Signature.cs` | how bright a thing looks to a seeker — heat in kW/sr off the thrust being made, and the lock strength a seeker would take on it, **over range squared for heat and to the fourth for radar** |
 | `Sim/Decoy.cs` | a flare or a chaff cloud in the air — **not a round**: nothing aims it, fuses on it or tracks it, so it is a point with a signature falling through the air, its stiff drag stepped semi-implicitly |
 | `Sim/SeekerLock.cs` | one seeker's choice between its target and the decoys around it — **each decoy judged once**, the first frame it outshines the target, so how often a flare works does not follow the frame rate; a radar seeker sees only chaff in its target's resolution cell, and a Doppler gate keeps even that out unless the target beams |
 | `Sim/ChaffNotch.cs` | a tracking set losing a beaming target to chaff beside it — **notching**: both in the Doppler notch and a bigger return in the target's cell, decided by geometry rather than rolled; the track takes seconds to find again, and an optical channel then holds it until the target leaves the notch |
 | `Sim/Dispenser.cs` | a dispenser's magazine and the salvo it is working through, on simulated time — **one kind per part**, so the loadout is chosen by what is fitted; every dispenser of a load throws on each press, so a symmetric pair throws either side of the craft, and **auto-dispense** throws flares for a heat seeker coming for the craft, chaff for a radar one, both for anything else |
+| `Sim/SearchSetProfile.cs` | a part that is a search set and nothing else — an IRST bolted to a hull |
+| `Sim/PictureChoice.cs` | one craft's picture from every set searching aboard it — **each contact once, a threat before a passer-by, and never a friendly handed out** |
 | `Sim/TrackState.cs` | one contact, as the threat model sees it |
 | `Sim/WatchChoice.cs` | which contact a director keeps looking at — **the one it holds until another is clearly more urgent**, because two near-equal contacts swap places on noise and the head of the list swings between them |
 | `Sim/Wreckage.cs` | what this mod's warheads broke off a craft — **wreckage, not targets**, recognised by the name the engine gives a piece, because the engine keeps no other record of where it came from |
@@ -563,6 +566,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/WeaponSystems.cs` | one system per weapon fitted, crewed with the craft and followed across a split |
 | `Ksa/WeaponSystem.cs` | fire control, salvo logic, warhead effects, drives |
 | `Ksa/WeaponSystemRoles.cs` | **the slices consumers take** — effects, sights and cameras get a role, not the whole system |
+| `Ksa/SearchSets.cs` | one set per search part fitted — **keyed on the part itself**, because it carries no settings and no magazine, so a split needs no handover; its side is its craft's |
+| `Ksa/CraftPicture.cs` | the merged picture per craft — **derived every frame, as `Armaments` is**, and it hands out a handle, never a position: a director under **Track** and a beam on auto-engage take it below anything more specific |
 | `Ksa/Armaments.cs` | one coordinator per craft — **derived every frame, never pinned**, because it carries nothing a split could lose |
 | `Ksa/Radar.cs` | cone search, CPA threat model, lock |
 | `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |

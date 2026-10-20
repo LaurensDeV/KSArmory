@@ -1130,6 +1130,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// </summary>
     public Func<Part, OpticalHead?>? DirectorFor { get; set; }
 
+    /// <summary>The contact this craft's picture hands out, taken by a beam on auto-engage.</summary>
+    public Func<Vehicle?, object?>? PictureFor { get; set; }
+
     private OpticalHead? _beamHead;
     private readonly BeamTrigger _beam = new();
 
@@ -1214,6 +1217,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     {
         if (Designation.Kind == AimpointKind.Vehicle) return Designation.Handle;
         if (Profile.FiresBeam && _beamHead?.Designation is { Kind: AimpointKind.Vehicle } head) return head.Handle;
+        if (Profile.FiresBeam && _policy.AutoEngage) return PictureFor?.Invoke(Platform);
         return null;
     }
 

@@ -1590,6 +1590,9 @@ public static class Arsenal
     public static readonly IReadOnlyList<OpticProfile> Optics =
         [EoDirector, PantsirDirector, Litening, Yal1Turret];
 
+    /// <summary>Parts that only search. Empty until the IRST's part is declared.</summary>
+    public static readonly IReadOnlyList<SearchSetProfile> SearchSets = [];
+
     public static readonly IReadOnlyList<DecoyProfile> Decoys = [FlareMju7, ChaffRr170];
     public static readonly IReadOnlyList<DispenserProfile> Dispensers = [Ale47Flare, Ale47Chaff];
 

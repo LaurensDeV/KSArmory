@@ -197,6 +197,19 @@ public static class Catalogue
         return null;
     }
 
+    /// <summary>The search set a part Id names, or null if it names none.</summary>
+    public static SearchSetProfile? SearchSetForPart(string? partId)
+    {
+        if (string.IsNullOrEmpty(partId)) return null;
+
+        foreach (SearchSetProfile s in Arsenal.SearchSets)
+        {
+            if (s.PartId == partId) return s;
+        }
+
+        return null;
+    }
+
     /// <summary>The dispenser a part Id names, or null if it names none.</summary>
     public static DispenserProfile? DispenserForPart(string? partId)
     {

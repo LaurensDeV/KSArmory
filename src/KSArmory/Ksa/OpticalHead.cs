@@ -267,6 +267,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         Radar.Sensor = Sensor;
         Radar.Cue = Designation.Kind == AimpointKind.Vehicle ? Designation.Handle
                     : _cue.Kind == AimpointKind.Vehicle ? _cue.Handle
+                    : _policy.Tracking ? Pictured
                     : null;
         Radar.Scan(platform, SensorBoresight, dt, airborne);
 
@@ -789,6 +790,12 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         _cueAimed = _cue;
         return true;
     }
+
+    /// <summary>
+    /// What the craft's picture hands this head, held only under the tracking switch and below a
+    /// designation and its launcher's cue.
+    /// </summary>
+    public object? Pictured { get; set; }
 
     /// <summary>The laser spot this head's tracker has found this step, or null.</summary>
     public double3? FoundSpot { get; private set; }
