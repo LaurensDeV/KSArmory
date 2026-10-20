@@ -1659,11 +1659,11 @@ public static class Arsenal
             DisplayName = Yal1Beam.DisplayName,
 
             // One entry: the survey takes the first that names a part. The director is the part
-            // itself, so it is declared here as the Pantsir declares the one on its turret.
+            // itself, so it is declared here as the Pantsir declares the one on its turret. Its set
+            // is the director's, whose row already says what it watches, so no Sensor row.
             Provides =
             [
                 new(WeaponRole.Camera, Yal1Turret.DisplayName),
-                new(WeaponRole.Sensor, BeamDirectorSensor.DisplayName),
                 new(WeaponRole.FireControl, "YAL-1 fire control"),
             ],
         },
