@@ -66,7 +66,7 @@ A pack that needs to build definitions at runtime can ship an assembly instead, 
 until KSArmory is up and shares KSArmory's assembly out of *its* load context, both by default.
 
 `Register` takes **text**, not profiles, and that is worth preserving: constructing a
-`LauncherProfile` in C# needs `double3` from `Brutal.Core.Numerics`, which is RocketWerkz's and not
+`LauncherProfile` in C# needs `double3` from `Brutal.Numerics`, which is RocketWerkz's and not
 redistributable, so a pack that built one would need a KSA install to compile. Passing a string
 needs `KSArmory.dll` and `StarMap.API.dll` and nothing else.
 

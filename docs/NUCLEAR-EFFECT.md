@@ -727,8 +727,8 @@ falling as the inverse square of the distance from it, and none where the planet
 400 km, from the ground under it: a faint lavender cast by day, and by night a deep red sky with the
 trees in silhouette a minute on. **And its charged debris lights an aurora at both ends of its field line** (`Aurora`). A burst above
 about 70 km throws out ionised debris and electrons that cannot cross the magnetic field and spiral
-along it; where the line comes back down to 100 km they light the air. KSA has no field, so it is a
-dipole on the spin axis: the burst sets its line's `L`, and the line comes down on the burst's own
+along it; where the line comes back down to 100 km they light the air. The field is a
+dipole on the spin axis, not the tilted one KSA declares: the burst sets its line's `L`, and the line comes down on the burst's own
 meridian at the latitude that solves `r = L R cos²λ` -- once near the burst, once at the conjugate
 point in the other hemisphere. Teak, 77 km over Johnston Island at 17° N, comes down at 16.4° N and
 16.4° S, 3,637 km apart, which is where Samoa saw it in 1958. Each end is four arcs 50 km apart,

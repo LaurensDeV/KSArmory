@@ -244,7 +244,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ## Environment
 
 - **KSA install**: `/mnt/c/Program Files/Kitten Space Agency` (Windows game, WSL dev)
-- **KSA build these notes were taken against**: `2026.10.13.5602`
+- **KSA build these notes were taken against**: `2026.10.19.5638`
 - The system `dotnet` is 8.0 and **cannot build this** — the mod targets **net10.0**
   (`error NETSDK1045`). A .NET 10 SDK is installed at `~/.dotnet`.
   **Use `tools/build.sh` / `tools/test.sh`**, which source `tools/env.sh` to fix PATH. Bare
@@ -393,13 +393,13 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/DebrisShell.cs` | what a burst in air too thin for a mushroom leaves -- **its debris as light, not as a cloud**: white-hot and filling the ball, cooling into a red, rim-bright shell gone in three minutes, stretched along the field line where the air is thin enough for the field to hold it |
 | `Sim/DebrisBubble.cs` | what a burst above the air leaves instead: **its debris held by the field**, at the equal-volume radius where the field's pressure stops it, stretched 2.7:1 along the field and collapsed within 16 s — the kinetic share fitted on Starfish, which it then draws at 1,833 by 679 km against 1,840 by 680; ballistic on a body with no field |
 | `Sim/RedWave.cs` | the red sphere a burst 60 km up or higher sends through the thermosphere — **Teak's, 965 km across at six minutes** — at 1.35 km/s with oxygen's red trailing 150 km behind the front, glowing only where the air is thin enough that the red is not quenched: a density, about 150 km on Earth. Its own sky dispatch, drawn in closed form, and a Display switch |
-| `Sim/Aurora.cs` | the aurora a burst above the atmosphere lights **at both ends of its own field line** — near the burst and at the magnetic conjugate point in the other hemisphere, on a dipole along the spin axis because KSA has no field; Teak's comes down over Samoa |
+| `Sim/Aurora.cs` | the aurora a burst above the atmosphere lights **at both ends of its own field line** — near the burst and at the magnetic conjugate point in the other hemisphere, on a dipole along the spin axis rather than the tilted one KSA declares (`docs/BLOCKED-ON-KSA.md`); Teak's comes down over Samoa |
 | `Sim/SkyDispatch.cs` | the kinds of full-screen dispatch a burst's sky is drawn with -- **and what each puts in `FireSun.w`**, which the scorch-mark branch would otherwise read as its own and offset off the screen, as it did every northern aurora |
 | `Sim/CloudFlags.cs` | the cloud dispatch's packed flag float — spray, weather, first, **dryness in sevenths** and the front's radius — **exact to 262,143 m**, because every term is an integer under 2^24 and the shader divides by powers of two with nothing added |
 | `Sim/ScorchFootprint.cs` | how far a scorch mark reaches downwind, across and upwind, in patch radii — **the shader's own constants restated**, so the box the cloud pass dispatches a mark over never crops it; `ScorchFootprintTests` compares the two |
 | `Sim/AmbientAir.cs` | the air at a point as density and pressure **against fixed physical references**, not a body's own sea level -- so a threshold calibrated in Earth's air holds on any body -- with a flag for air that could not be read, never a silent sea level |
 | `Sim/BodyAir.cs` | a body's air as numbers, **mirroring KSA's isothermal model exactly** -- `ρ(h)·H` with the declared scale height for the column, one sound speed per body -- so nothing downstream knows which planet it is on |
-| `Sim/BodyTraits.cs` | what a burst needs about a body that KSA does not declare -- field, airglow, condensation, γ, surface, X-ray opacity -- **the neutral answer by default**, never Earth's |
+| `Sim/BodyTraits.cs` | what a burst needs about a body, read from `Bodies.xml` rather than the game -- field, airglow, condensation, γ, surface, X-ray opacity -- **the neutral answer by default**, never Earth's |
 | `Sim/BodyReader.cs` | a mod's `KSArmory/Bodies.xml` read -- text in, and **told from a weapon pack by its root**, since the pack reader would refuse it on every load |
 | `Sim/BodyCatalogue.cs` | every mod's body entries, a later mod restating a body, and the audit that finds an entry naming no body in the system |
 | `Sim/BurstSetting.cs` | what a burst went off on or in — **land, the sea's surface, or under it** — which decides whether it lifts dirt or spray, burns the ground, or raises no column at all; anything unreadable is land, which is what every burst was before. And how high over it the burst stood, over the sea where there is sea |
@@ -896,10 +896,11 @@ neither of them is longer than a page.
    the count, or repair the saves with `tools/repair-saves.py`;
    `docs/KSA-MODDING-NOTES.md` has the loop.
 
-   **Nor is a shipped `<Part>` Id renameable.** A save names it (`PartRef InstanceOf`), and loading
-   one throws `PartTemplate is null` from `PartInstance.GetTemplate` — also terminating the game.
-   A save names each subpart's template the same way (`SubPartRef InstanceOf`), so treat those as
-   fixed too until a rename of one alone has been loaded.
+   **Nor is a shipped `<Part>` Id renameable.** A save names it (`PartRef InstanceOf`), and
+   `CelestialSystem.DeserializeSave` drops any craft naming a part that no longer exists, with an
+   on-screen alert — so the player's craft is gone from the world, and the next save makes that
+   permanent. A save names each subpart's template the same way (`SubPartRef InstanceOf`), which
+   that check does not walk, so treat those as fixed too until a rename of one alone has been loaded.
 
    **A drive finds its subpart by the Id the `<Part>` gives it**, not the `<SubPart>` template's Id:
    the CIWS's marker is `Ciws_Turret`, from `KSArmory_Ciws_Turret`. The template's spelling matches
@@ -1231,7 +1232,7 @@ change 2 for what that leaves unproven.
 
 ## CI and releases
 
-Building needs KSA's own assemblies — `KSA.dll`, `Brutal.Core.Numerics.dll` and friends — and
+Building needs KSA's own assemblies — `KSA.dll`, `Brutal.Numerics.dll` and friends — and
 the tests need them too, for `double3`. They are RocketWerkz's copyrighted files and **must
 never be committed here or published anywhere**.
 

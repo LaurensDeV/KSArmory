@@ -123,6 +123,26 @@ Four things changed shape and need watching, worst first:
 
 Also unflown on this build: everything the previous retarget listed as unwatched, and the turret.
 
+**Retargeted to KSA `2026.10.19.5638` — eight assemblies renamed, no member moved, and not yet
+flown.** `Brutal.Core.Numerics`, `Common`, `Strings` and five siblings lost their `Core.` (`Common`
+became `Brutal.Core`); the types and namespaces are identical, so only the references moved, and a mod
+built against the old names cannot load. That includes **StarMap 0.4.7 itself**, which throws
+`Could not load file or assembly 'Brutal.Core.Numerics'` before starting the game
+(StarMapLoader/StarMap#91, open), so nothing here could be flown. ModMenu and KSACars reference the
+old names too. Every contract in the upgrade skill reads the same; no XML element or attribute the mod
+writes moved. Once a StarMap that loads 5638 is installed:
+
+- [ ] **`head-on`**, and the stamp reading `built for KSA 2026.10.19.5638, running 2026.10.19.5638`.
+- [ ] **A split leaves the staging list where it was.** `SequenceList.Add` no longer advances
+      `ActiveSequence` when a rebuild finds a new low-numbered sequence; it marks it `Activated`
+      instead. `LauncherSeparation` skips activated sequences — fly a MIRV shot and a rail drop and
+      read the stage counts.
+- [ ] **KSA's own aurora** now draws from a declared field (`docs/BLOCKED-ON-KSA.md`). Look at a
+      high burst's aurora beside it.
+- [ ] **A landed craft's acceleration** no longer jumps when the physics bubble snaps its origin
+      (`PhysicsBubble._snappedVelocityDeltaPhys`); `AccelerationEstimate` reads it. Gunnery against a
+      grounded target should be no worse.
+
 **Retargeted to KSA `2026.10.13.5602` — two renames, one data drift, and two flight-model changes
 that compile clean.** `Vehicle.Ctrl2Body` is `Helm2Body` (same expression), and the static
 `ExplosionVolumeSystem` became `Program.Instance.ExplosionVolumes`. Core's conflagration fireball

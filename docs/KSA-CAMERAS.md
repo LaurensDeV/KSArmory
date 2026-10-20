@@ -20,7 +20,7 @@ moved with it. A citation is still a pointer rather than a proof: check before r
 Grounded **only** in the decompiled engine at
 `../ksa-game-assemblies/current/src`.
 All citations are relative to that root. Nothing here is taken from any mod's own code or docs.
-Build: **2026.10.13.5602**. Line numbers move on every KSA update, so a citation that does not land
+Build: **2026.10.19.5638**. Line numbers move on every KSA update, so a citation that does not land
 on what it claims means this file is behind the corpus, not that the corpus is wrong.
 
 > **Its citations and its viewport sections are against 2026.8.22.5348, and section 2 in particular
@@ -30,8 +30,11 @@ on what it claims means this file is behind the corpus, not that the corpus is w
 > `Camera.GetEffectiveNearbyCelestial` and made `FixedController` skip character-portrait viewports,
 > and 2026.10.10.5554 left `Camera.cs`, `FixedController.cs` and `Viewport.cs` alone and moved
 > `Program.cs` two lines past line 2198, and 2026.10.13.5602 left all three alone again and kept
-> `Program.OnFrame`'s order while moving its lines — so the claims below were rechecked against all
-> five and the citations were not. One claim the later build adds to: a mouse button other than the left
+> `Program.OnFrame`'s order while moving its lines, and 2026.10.19.5638 kept `Program.OnFrame`
+> byte-identical, left `Viewport.cs` alone and changed `Camera.cs` and `FixedController.cs` only by
+> inlining — so the claims below were rechecked against all six and the citations were not. That
+> build adds one: a save whose camera followed something no longer in the system now follows the first
+> craft, or the home body, where it used to follow nothing. One claim the later build adds to: a mouse button other than the left
 > can now be bound to an input action, and `Program.OnMouseButton` dispatches that binding before
 > the controller sees the press.
 > 2026.9.4.5400 replaced the `Viewport` class with `IViewport` / `ViewportBase` /
@@ -453,7 +456,7 @@ stay attached to a rotating body a mod must still rewrite both **every frame**, 
 
 1. **`CameraRotation` defaults to `double3.Zero`.** `Cross(zero, up)` is zero,
    `.Normalized()` → `Double3Ex.Normalized` (`KSA/KSA/Double3Ex.cs:18-21`) → `double3.Normalize`
-   (`Brutal.Core.Numerics/Brutal.Numerics/double3.cs:722-727`), which **throws `DivideByZeroException`
+   (`Brutal.Numerics/Brutal.Numerics/double3.cs:722-727`), which **throws `DivideByZeroException`
    on a zero-length vector**. It does not produce NaN. With no try/catch in the frame loop (§1) this is
    a hard crash on the first frame after `SetCameraMode(Fixed)` with a non-null `Following`. Set
    `CameraRotation` **before** setting the mode.

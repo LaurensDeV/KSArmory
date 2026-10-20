@@ -28,7 +28,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `double GetMaxLastTickTime()`
 - `void Wait()`
 
-## Brutal.Core.Common
+## Brutal.Core
 
 ### Brutal.ByteSize
 
@@ -52,157 +52,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### Brutal.Pointers.Ptr
 
 *referenced as a type only*
-
-## Brutal.Core.Numerics
-
-### Brutal.Numerics.Pack
-
-*referenced as a type only*
-
-### Brutal.Numerics.Pack+Float
-
-*referenced as a type only*
-
-### Brutal.Numerics.Unpack
-
-*referenced as a type only*
-
-### Brutal.Numerics.Unpack+Float
-
-*referenced as a type only*
-
-### Brutal.Numerics.byte4
-
-- `void .ctor(byte, byte, byte, byte)`
-
-### Brutal.Numerics.double2
-
-- `double X`
-- `double Y`
-
-### Brutal.Numerics.double3
-
-- `Brutal.Numerics.double3 Cross(Brutal.Numerics.double3, Brutal.Numerics.double3)`
-- `Brutal.Numerics.double3 Unpack(ref Brutal.Numerics.float3, Float)`
-- `Brutal.Numerics.double3 get_One()`
-- `Brutal.Numerics.double3 get_UnitX()`
-- `Brutal.Numerics.double3 get_UnitY()`
-- `Brutal.Numerics.double3 get_UnitZ()`
-- `Brutal.Numerics.double3 get_Zero()`
-- `Brutal.Numerics.double3 op_Addition(Brutal.Numerics.double3, Brutal.Numerics.double3)`
-- `Brutal.Numerics.double3 op_Division(Brutal.Numerics.double3, double)`
-- `Brutal.Numerics.double3 op_Multiply(Brutal.Numerics.double3, double)`
-- `Brutal.Numerics.double3 op_Subtraction(Brutal.Numerics.double3, Brutal.Numerics.double3)`
-- `Brutal.Numerics.double3 op_UnaryNegation(Brutal.Numerics.double3)`
-- `bool Equals(Brutal.Numerics.double3)`
-- `double Dot(Brutal.Numerics.double3, Brutal.Numerics.double3)`
-- `double Length()`
-- `double LengthSquared()`
-- `double X`
-- `double Y`
-- `double Z`
-- `void .ctor(double, double, double)`
-
-### Brutal.Numerics.double4
-
-- `double W`
-- `double X`
-- `double Y`
-- `double Z`
-- `void .ctor(double, double, double, double)`
-
-### Brutal.Numerics.double4x4
-
-- `Brutal.Numerics.double4x4 CreateFromQuaternion(Brutal.Numerics.doubleQuat)`
-- `Brutal.Numerics.double4x4 CreateScale(Brutal.Numerics.double3)`
-- `Brutal.Numerics.double4x4 CreateTranslation(Brutal.Numerics.double3)`
-- `Brutal.Numerics.double4x4 Unpack(ref Brutal.Numerics.float4x4)`
-- `Brutal.Numerics.double4x4 get_Identity()`
-- `Brutal.Numerics.double4x4 op_Multiply(Brutal.Numerics.double4x4, Brutal.Numerics.double4x4)`
-- `bool Invert(Brutal.Numerics.double4x4, ref Brutal.Numerics.double4x4)`
-- `double get_M11()`
-- `double get_M12()`
-- `double get_M13()`
-- `double get_M14()`
-- `double get_M21()`
-- `double get_M22()`
-- `double get_M23()`
-- `double get_M24()`
-- `double get_M31()`
-- `double get_M32()`
-- `double get_M33()`
-- `double get_M34()`
-- `double get_M41()`
-- `double get_M42()`
-- `double get_M43()`
-- `double get_M44()`
-- `void .ctor(double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double)`
-- `void set_M41(double)`
-- `void set_M42(double)`
-- `void set_M43(double)`
-- `void set_M44(double)`
-
-### Brutal.Numerics.doubleQuat
-
-- `Brutal.Numerics.double3 op_Multiply(Brutal.Numerics.doubleQuat, Brutal.Numerics.double3)`
-- `Brutal.Numerics.doubleQuat Concatenate(Brutal.Numerics.doubleQuat, Brutal.Numerics.doubleQuat)`
-- `Brutal.Numerics.doubleQuat Conjugate(Brutal.Numerics.doubleQuat)`
-- `Brutal.Numerics.doubleQuat CreateFromAxisAngle(Brutal.Numerics.double3, double)`
-- `Brutal.Numerics.doubleQuat CreateFromRotationMatrix(Brutal.Numerics.double4x4)`
-- `Brutal.Numerics.doubleQuat get_Identity()`
-- `Brutal.Numerics.doubleQuat op_Multiply(Brutal.Numerics.doubleQuat, Brutal.Numerics.doubleQuat)`
-- `double W`
-- `double X`
-- `double Y`
-- `double Z`
-
-### Brutal.Numerics.float2
-
-- `Brutal.Numerics.float2 Clamp(Brutal.Numerics.float2, Brutal.Numerics.float2, Brutal.Numerics.float2)`
-- `Brutal.Numerics.float2 get_One()`
-- `Brutal.Numerics.float2 get_Zero()`
-- `Brutal.Numerics.float2 op_Addition(Brutal.Numerics.float2, Brutal.Numerics.float2)`
-- `Brutal.Numerics.float2 op_Division(Brutal.Numerics.float2, Brutal.Numerics.float2)`
-- `Brutal.Numerics.float2 op_Multiply(Brutal.Numerics.float2, float)`
-- `Brutal.Numerics.float2 op_Subtraction(Brutal.Numerics.float2, Brutal.Numerics.float2)`
-- `Brutal.Numerics.float2 op_UnaryNegation(Brutal.Numerics.float2)`
-- `float X`
-- `float Y`
-- `void .ctor(float, float)`
-
-### Brutal.Numerics.float3
-
-- `Brutal.Numerics.float3 Pack(ref Brutal.Numerics.double3, Float)`
-- `Brutal.Numerics.float3 get_Zero()`
-- `Brutal.Numerics.float3 op_Multiply(Brutal.Numerics.float3, float)`
-- `float X`
-- `float Y`
-- `float Z`
-- `void .ctor(float, float, float)`
-
-### Brutal.Numerics.float4
-
-- `float W`
-- `float X`
-- `float Y`
-- `float Z`
-- `void .ctor(float, float, float, float)`
-
-### Brutal.Numerics.float4x4
-
-- `Brutal.Numerics.float4x4 Pack(ref Brutal.Numerics.double4x4)`
-- `Brutal.Numerics.float4x4 get_Identity()`
-
-### Brutal.Numerics.floatQuat
-
-*referenced as a type only*
-
-### Brutal.Numerics.int2
-
-- `Brutal.Numerics.int2 get_Zero()`
-- `int X`
-- `int Y`
-- `void .ctor(int, int)`
 
 ## Brutal.Glfw
 
@@ -472,6 +321,157 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### Brutal.ImGuiApi.ImTextureRef
 
 *referenced as a type only*
+
+## Brutal.Numerics
+
+### Brutal.Numerics.Pack
+
+*referenced as a type only*
+
+### Brutal.Numerics.Pack+Float
+
+*referenced as a type only*
+
+### Brutal.Numerics.Unpack
+
+*referenced as a type only*
+
+### Brutal.Numerics.Unpack+Float
+
+*referenced as a type only*
+
+### Brutal.Numerics.byte4
+
+- `void .ctor(byte, byte, byte, byte)`
+
+### Brutal.Numerics.double2
+
+- `double X`
+- `double Y`
+
+### Brutal.Numerics.double3
+
+- `Brutal.Numerics.double3 Cross(Brutal.Numerics.double3, Brutal.Numerics.double3)`
+- `Brutal.Numerics.double3 Unpack(ref Brutal.Numerics.float3, Float)`
+- `Brutal.Numerics.double3 get_One()`
+- `Brutal.Numerics.double3 get_UnitX()`
+- `Brutal.Numerics.double3 get_UnitY()`
+- `Brutal.Numerics.double3 get_UnitZ()`
+- `Brutal.Numerics.double3 get_Zero()`
+- `Brutal.Numerics.double3 op_Addition(Brutal.Numerics.double3, Brutal.Numerics.double3)`
+- `Brutal.Numerics.double3 op_Division(Brutal.Numerics.double3, double)`
+- `Brutal.Numerics.double3 op_Multiply(Brutal.Numerics.double3, double)`
+- `Brutal.Numerics.double3 op_Subtraction(Brutal.Numerics.double3, Brutal.Numerics.double3)`
+- `Brutal.Numerics.double3 op_UnaryNegation(Brutal.Numerics.double3)`
+- `bool Equals(Brutal.Numerics.double3)`
+- `double Dot(Brutal.Numerics.double3, Brutal.Numerics.double3)`
+- `double Length()`
+- `double LengthSquared()`
+- `double X`
+- `double Y`
+- `double Z`
+- `void .ctor(double, double, double)`
+
+### Brutal.Numerics.double4
+
+- `double W`
+- `double X`
+- `double Y`
+- `double Z`
+- `void .ctor(double, double, double, double)`
+
+### Brutal.Numerics.double4x4
+
+- `Brutal.Numerics.double4x4 CreateFromQuaternion(Brutal.Numerics.doubleQuat)`
+- `Brutal.Numerics.double4x4 CreateScale(Brutal.Numerics.double3)`
+- `Brutal.Numerics.double4x4 CreateTranslation(Brutal.Numerics.double3)`
+- `Brutal.Numerics.double4x4 Unpack(ref Brutal.Numerics.float4x4)`
+- `Brutal.Numerics.double4x4 get_Identity()`
+- `Brutal.Numerics.double4x4 op_Multiply(Brutal.Numerics.double4x4, Brutal.Numerics.double4x4)`
+- `bool Invert(Brutal.Numerics.double4x4, ref Brutal.Numerics.double4x4)`
+- `double get_M11()`
+- `double get_M12()`
+- `double get_M13()`
+- `double get_M14()`
+- `double get_M21()`
+- `double get_M22()`
+- `double get_M23()`
+- `double get_M24()`
+- `double get_M31()`
+- `double get_M32()`
+- `double get_M33()`
+- `double get_M34()`
+- `double get_M41()`
+- `double get_M42()`
+- `double get_M43()`
+- `double get_M44()`
+- `void .ctor(double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double)`
+- `void set_M41(double)`
+- `void set_M42(double)`
+- `void set_M43(double)`
+- `void set_M44(double)`
+
+### Brutal.Numerics.doubleQuat
+
+- `Brutal.Numerics.double3 op_Multiply(Brutal.Numerics.doubleQuat, Brutal.Numerics.double3)`
+- `Brutal.Numerics.doubleQuat Concatenate(Brutal.Numerics.doubleQuat, Brutal.Numerics.doubleQuat)`
+- `Brutal.Numerics.doubleQuat Conjugate(Brutal.Numerics.doubleQuat)`
+- `Brutal.Numerics.doubleQuat CreateFromAxisAngle(Brutal.Numerics.double3, double)`
+- `Brutal.Numerics.doubleQuat CreateFromRotationMatrix(Brutal.Numerics.double4x4)`
+- `Brutal.Numerics.doubleQuat get_Identity()`
+- `Brutal.Numerics.doubleQuat op_Multiply(Brutal.Numerics.doubleQuat, Brutal.Numerics.doubleQuat)`
+- `double W`
+- `double X`
+- `double Y`
+- `double Z`
+
+### Brutal.Numerics.float2
+
+- `Brutal.Numerics.float2 Clamp(Brutal.Numerics.float2, Brutal.Numerics.float2, Brutal.Numerics.float2)`
+- `Brutal.Numerics.float2 get_One()`
+- `Brutal.Numerics.float2 get_Zero()`
+- `Brutal.Numerics.float2 op_Addition(Brutal.Numerics.float2, Brutal.Numerics.float2)`
+- `Brutal.Numerics.float2 op_Division(Brutal.Numerics.float2, Brutal.Numerics.float2)`
+- `Brutal.Numerics.float2 op_Multiply(Brutal.Numerics.float2, float)`
+- `Brutal.Numerics.float2 op_Subtraction(Brutal.Numerics.float2, Brutal.Numerics.float2)`
+- `Brutal.Numerics.float2 op_UnaryNegation(Brutal.Numerics.float2)`
+- `float X`
+- `float Y`
+- `void .ctor(float, float)`
+
+### Brutal.Numerics.float3
+
+- `Brutal.Numerics.float3 Pack(ref Brutal.Numerics.double3, Float)`
+- `Brutal.Numerics.float3 get_Zero()`
+- `Brutal.Numerics.float3 op_Multiply(Brutal.Numerics.float3, float)`
+- `float X`
+- `float Y`
+- `float Z`
+- `void .ctor(float, float, float)`
+
+### Brutal.Numerics.float4
+
+- `float W`
+- `float X`
+- `float Y`
+- `float Z`
+- `void .ctor(float, float, float, float)`
+
+### Brutal.Numerics.float4x4
+
+- `Brutal.Numerics.float4x4 Pack(ref Brutal.Numerics.double4x4)`
+- `Brutal.Numerics.float4x4 get_Identity()`
+
+### Brutal.Numerics.floatQuat
+
+*referenced as a type only*
+
+### Brutal.Numerics.int2
+
+- `Brutal.Numerics.int2 get_Zero()`
+- `int X`
+- `int Y`
+- `void .ctor(int, int)`
 
 ## Brutal.ShaderC
 

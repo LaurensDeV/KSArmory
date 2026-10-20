@@ -14,7 +14,7 @@ namespace KSArmory;
 /// magnetic conjugate point. Starfish Prime did the same, and its trapped electrons made a radiation
 /// belt that lasted years.</para>
 ///
-/// <para><b>The field is a dipole on the spin axis</b>, because KSA has none: a field line is
+/// <para><b>The field is a dipole on the spin axis</b>, not the tilted one KSA declares: a field line is
 /// <c>r = L R cos²λ</c> in magnetic latitude λ, so a burst sets its line's <c>L</c> and the line meets
 /// the aurora's altitude at the latitude that solves it, north and south, on the burst's own meridian.
 /// The brightness is drawn, not measured.</para>

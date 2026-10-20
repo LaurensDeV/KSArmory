@@ -17,8 +17,8 @@ internal enum Airglow
 }
 
 /// <summary>
-/// What a burst needs to know about a body that KSA does not declare: its magnetic field, what its air
-/// is made of, whether water condenses in it, and whether it has a surface. Read from
+/// What a burst needs to know about a body: its magnetic field, what its air is made of, whether
+/// water condenses in it, and whether it has a surface. Read not from the game but from
 /// <c>KSArmory/Bodies.xml</c> in any mod (<see cref="BodyReader"/>), keyed by the body's Id, so a custom
 /// solar system gains these by adding lines rather than code.
 ///

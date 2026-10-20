@@ -108,7 +108,7 @@ folder of definitions in it and no code; KSArmory reads that folder inside every
 holds no list of packs. `KSArmory-example-mod` is a complete worked example — a Mk 82 bomb rack, which
 used to ship here — and `docs/WEAPON-PACKS.md` is the reference.
 
-> Built against KSA build `2026.10.13.5602`. KSA is pre-release and has no official code-modding
+> Built against KSA build `2026.10.19.5638`. KSA is pre-release and has no official code-modding
 > API; this uses the community [StarMap](https://github.com/StarMapLoader/StarMap) loader and
 > may need updating when the game does. The community
 > [wiki](https://kittenspaceagency.wiki.gg/) is a useful reference for the game itself.
@@ -131,7 +131,7 @@ Borea also installs updates when a new release appears.
 
 ### By hand
 
-You need **Kitten Space Agency**, built against build `2026.10.13.5602`. A different build may
+You need **Kitten Space Agency**, built against build `2026.10.19.5638`. A different build may
 need a rebuild of the mod. **Windows and Linux both work**: the mod is a portable .NET assembly
 with no native code, so one release archive covers both. You also need
 **[StarMap](https://github.com/StarMapLoader/StarMap/releases)**, the community mod loader. KSA has
@@ -499,7 +499,7 @@ merge rather than a squash, because the changelog is built from the individual c
 Worth knowing up front: **most of this repository is testable without launching the game.**
 Everything under `src/KSArmory/Sim/` is free of KSA types by construction, so guidance, threat
 classification, tube geometry and the fuse can all be worked on headlessly. Building it still
-needs KSA's assemblies — `double3` comes from `Brutal.Core.Numerics.dll` — which is what
+needs KSA's assemblies — `double3` comes from `Brutal.Numerics.dll` — which is what
 `./tools/doctor.sh` checks for first.
 
 The rest of this section is the longer version.

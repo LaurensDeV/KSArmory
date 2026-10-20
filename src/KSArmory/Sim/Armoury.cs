@@ -12,7 +12,7 @@ namespace KSArmory;
 /// with it, both by default.</para>
 ///
 /// <para><b>Text, not profiles.</b> Constructing a <see cref="LauncherProfile"/> means referencing
-/// <c>Brutal.Core.Numerics</c> for <c>double3</c>, which is RocketWerkz's to distribute and not
+/// <c>Brutal.Numerics</c> for <c>double3</c>, which is RocketWerkz's to distribute and not
 /// ours — so a pack that builds one inherits this repository's whole assembly problem. A pack that
 /// passes a string needs <c>KSArmory.dll</c> and <c>StarMap.API.dll</c> and nothing else, and the
 /// loader ships the second. Keep it that way.</para>

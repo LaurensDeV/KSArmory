@@ -42,7 +42,7 @@ slipping through. If you are fixing guidance, threat classification, tube geomet
 you never have to launch KSA.
 
 You do still need its assemblies to *build* that half: `double3` comes from
-`Brutal.Core.Numerics.dll` and appears throughout `Sim/`, so the test project references it and
+`Brutal.Numerics.dll` and appears throughout `Sim/`, so the test project references it and
 `tools/test.sh` errors out without it.
 
 ### Getting KSA's assemblies

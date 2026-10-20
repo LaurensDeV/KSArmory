@@ -8,7 +8,7 @@ Each entry cites what the decompiled corpus says, so a claim can be rechecked af
 rather than taken on trust. **Recheck this file when the game moves** — the whole point of it is
 that some of these will quietly become possible.
 
-Findings are against KSA **2026.10.13.5602**. Paths are relative to
+Findings are against KSA **2026.10.19.5638**. Paths are relative to
 `../ksa-game-assemblies/current/src`.
 
 ## Recheck after a KSA update
@@ -55,6 +55,15 @@ happen rather than a member that moved.
 - [ ] **KSA's destroy runs warm the first time it is called** -- its assemblies compiled ahead
   (ReadyToRun), or a debris split that no longer does first-time work -- **delete
   `JitWarmup.EngineTypes` the day it does**; see the entry below
+
+**Rechecked against 2026.10.19.5638: one entry moved, the rest is still blocked.** KSA now declares a
+magnetic field on its bodies, which half-answers *A body's magnetic field and what its air is made of*
+below. A camera window gets a terrain depth pre-pass and the radiation belts, and still no clouds or ocean;
+`PhysicsStates.ComputeDrag` and the buoyancy's `MassToGeometryAsmb` are unchanged, `Program.PrepareFrame`
+and `OnFrame` are byte-identical, `DistanceReference.IsValid` still wants 100 km, `IsGroundSurfaceFor`
+still takes a static handle, `KSA.dll` is still IL-only, and StarMap changed only its restart prompt.
+Citations were not re-derived for this build; where the text above and below gives no other, they are
+against 2026.10.13.5602.
 
 **Rechecked against 2026.10.13.5602: one entry moved, the rest is still blocked.** A camera window's
 terrain is now drawn unshadowed rather than through the main view's cascades. `PhysicsStates.cs`,
@@ -818,8 +827,13 @@ lines later anyway.
 **Wanted.** Every body's magnetic field, and its air's composition, for the aurora and the debris a
 high burst leaves (the field holds it) and for the colour its excited air glows.
 
-**What stops it.** KSA declares neither. An atmosphere is a sea-level pressure, a density, a scale height
-and a boundary, isothermal, and nothing else.
+**What stops it.** KSA declares the field and not the composition. `AstronomicalTemplate.MagnetosphereReference`
+(`KSA/KSA/MagnetosphereReference.cs`) is an eccentric, tilted dipole: a pole latitude and longitude, an
+offset of the centre, the equatorial field in µT, radiation belts and an aurora band in `L`, with
+`ToMag`/`FromMag` between the body's fixed frame and the dipole's. Core gives Earth a 30 µT dipole toward
+80.7° N 72.7° W centred about 570 km off, and several other bodies one too. KSA draws its own aurora from it
+(`AuroraRenderer`). An atmosphere is still a sea-level pressure, a density, a scale height and a boundary,
+isothermal, and nothing else.
 
 **What the mod does instead.** `KSArmory/Bodies.xml` in any mod, keyed by body Id (`Sim/BodyReader.cs`),
 carries the field, the airglow, whether water condenses, γ and whether there is a surface; KSA's own
@@ -827,8 +841,11 @@ bodies ship with entries, and a body with none gets no field and a neutral glow.
 isothermal model is mirrored exactly in `Sim/BodyAir.cs`, so if KSA ever gives air a temperature profile
 every altitude law has to follow it.
 
-**What would unblock it.** A field and a composition on the body template. Then its values win and the
-file becomes the fallback.
+**What would unblock it.** A composition on the body template. The field is there to be read now:
+`Sim/Aurora.cs` still puts the dipole on the spin axis with `Bodies.xml`'s `FieldTesla` as its strength
+(`FieldTiltDeg` and `FieldAzimuthDeg` are read and nothing uses them), so Teak's aurora comes down where a centred, untilted field puts it rather
+than where KSA's own would. Reading the template's dipole, offset included, ahead of the file is this mod's
+work, not KSA's.
 
 ## Drawing a shape the gizmo renderer does not have
 
