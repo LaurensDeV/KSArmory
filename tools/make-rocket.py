@@ -17,7 +17,6 @@ GeoSat FAT this way and compares it, part by part, to the craft the game saved.
     ./tools/make-rocket.py --out DIR --name "My Rocket" --stage A2x4:LF3W6HBx2 --stage A3:LF3W3HB --srb 4
     ./tools/make-rocket.py --out DIR --name "Bus Early" --stage A2x4:LF3W6HBx2 --stage A3:LF3W3HB --bus-after 1
     ./tools/make-rocket.py --out DIR --name "Solid Core" --solid-core 1 --stage A3:LF3W3HB
-    ./tools/make-rocket.py --out DIR --name "PBB Liquid2" --bus postboost --stage A2x4:LF3W6HBx2 --stage A3:LF3W3HB
     ./tools/make-rocket.py --check-reference
     ./tools/make-rocket.py --validate DIR/*/vehicle.xml
 
@@ -94,14 +93,12 @@ SOLID_SEGMENT = "CorePropulsionC_Prefab_SRBESegmentLargeA"
 SOLID_MOTOR = "CorePropulsionC_Prefab_SRBEThrustAssemblyA"
 
 # What each bus carries: its tanks full of MMH/NTO, the mixture GeoSat FAT saves, and its mass all in.
-# The post-boost bus's 499.7 kg is its 0.5912 m3 inside at the MIRV bus's 845 kg/m3.
+# The Heavy MIRV Bus's 499.7 kg is its 0.5912 m3 inside at 845 kg/m3.
 BUS_MIXTURE = [("MMH(l)", 0.3846), ("N2O4(l)", 0.6154)]
 BUSES = {
-    "mirv": dict(pid="KSArmory_Prefab_MirvBus", tanks={"MirvPropellant": 134.2775}, roles="Thruster",
-                 mass=2750 + 134.3 + 16),  # declared lump, propellant, sphere tank structure
-    "postboost": dict(pid="KSArmory_Prefab_PostBoostBus",
-                      tanks={"PostBoostPropellant": 499.66}, roles="Engine Thruster",
-                      mass=3450 + 499.66 + 38.4),
+    "mirv": dict(pid="KSArmory_Prefab_MirvBus",
+                 tanks={"MirvPropellant": 499.66}, roles="Engine Thruster",
+                 mass=3450 + 499.66 + 38.4),  # declared lump, propellant, sphere tank structure
 }
 BUS_PARTS = {b["pid"] for b in BUSES.values()}
 BUS_CHARGE_J = 50000

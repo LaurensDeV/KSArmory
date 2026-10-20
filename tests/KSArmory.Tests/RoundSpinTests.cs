@@ -5,7 +5,7 @@ namespace KSArmory.Tests;
 
 public class RoundSpinTests
 {
-    private static readonly RoundSpin Spin = Arsenal.PostBoostBus.ReleaseSpin!;
+    private static readonly RoundSpin Spin = Arsenal.MirvBus.ReleaseSpin!;
 
     [Fact]
     public void NothingRollsBeforeRelease()
@@ -74,5 +74,9 @@ public class RoundSpinTests
     }
 
     [Fact]
-    public void OnlyTheBusWhoseRvsCarrySpinMotorsSpinsThem() => Assert.Null(Arsenal.MirvBus.ReleaseSpin);
+    public void OnlyTheBusWhoseRvsCarrySpinMotorsSpinsThem()
+    {
+        foreach (LauncherProfile launcher in Arsenal.Launchers)
+            Assert.True((launcher.ReleaseSpin is not null) == ReferenceEquals(launcher, Arsenal.MirvBus), launcher.DisplayName);
+    }
 }

@@ -338,8 +338,7 @@ public class ArsenalTests
         foreach (ComponentProfile component in Catalogue.Components)
         {
             List<SurveyedPart> parts = [new SurveyedPart(component.PartId, default, doubleQuat.Identity)];
-            bool isBus = component.PartId == Arsenal.MirvBus.PartId
-                         || component.PartId == Arsenal.PostBoostBus.PartId;
+            bool isBus = component.PartId == Arsenal.MirvBus.PartId;
 
             Assert.True(isBus == WeaponSurvey.Survey(parts, Catalogue.Components).HasGuidance,
                         $"{component.DisplayName} gets a ballistic computer only if it is a bus");

@@ -160,26 +160,8 @@
   </PbrMaterial>
 
   <!--
-    The MIRV bus atlas and its one material.
-
-    Three bodies share a single unwrap: the bus, one reentry vehicle and one RCS nozzle. The RV is
-    instanced six times and the nozzle sixteen, so one unwrap covers twenty-three placements — the
-    argument for a material per part rather than per body, at its strongest here.
-
-    Authored in Blender over MCP. The bands, the joint lines and the scorched RV nose are painted
-    texels rather than geometry.
-  -->
-  <MeshAtlas Path="Meshes/KSArmory_MirvBus.glb" />
-
-  <PbrMaterial Id="KSArmory_MirvBus_Material">
-    <Diffuse Path="Textures/KSArmory_MirvBus_Diffuse.png" Category="Vessel" />
-    <Normal Path="Textures/KSArmory_MirvBus_Normal.png" Category="Vessel" />
-    <AoRoughMetal Path="Textures/KSArmory_MirvBus_PBR.png" Category="Vessel" />
-  </PbrMaterial>
-
-  <!--
-    The post-boost bus atlas: the bus, its main engine, its RCS nozzle and its RV, which is the MIRV
-    bus's in outline with two spin nozzles cut into its base.
+    The Heavy MIRV Bus atlas and its one material: the bus, its main engine, its RCS nozzle and its
+    RV, an Mk 21 in outline with two spin nozzles cut into its base.
   -->
   <MeshAtlas Path="Meshes/KSArmory_PostBoostBus.glb" />
 
@@ -320,43 +302,6 @@
         <Mesh Id="KSArmory_Subpart_Fins_VM" />
       </MeshView>
     </SubPart>
-
-  <!--
-    MIRV bus. Nothing here articulates: the bus is rigid, and the only thing that moves is a
-    reentry vehicle leaving. The RCS nozzles are separate subparts because that is the unit KSA's
-    own thruster declaration attaches to - see KSArmory_MirvRcs_SubPart in the GameData.
-  -->
-  <SubPart Id="KSArmory_MirvBus_SubPart">
-    <PartModel Id="KSArmory_Subpart_MirvBus_Model">
-      <Mesh Id="KSArmory_Subpart_MirvBus" />
-      <Material Id="KSArmory_MirvBus_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_MirvBus_VM" />
-    </MeshView>
-  </SubPart>
-
-  <!-- One reentry vehicle, instanced six times. Its mesh is centred on its own origin. -->
-  <SubPart Id="KSArmory_MirvRv_SubPart">
-    <PartModel Id="KSArmory_Subpart_MirvRv_Model">
-      <Mesh Id="KSArmory_Subpart_Rv" />
-      <Material Id="KSArmory_MirvBus_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Rv_VM" />
-    </MeshView>
-  </SubPart>
-
-  <!-- One attitude-control nozzle, instanced twenty times. Fires along its own -X. -->
-  <SubPart Id="KSArmory_MirvRcs_SubPart">
-    <PartModel Id="KSArmory_Subpart_MirvRcs_Model">
-      <Mesh Id="KSArmory_Subpart_RcsNozzle" />
-      <Material Id="KSArmory_MirvBus_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_RcsNozzle_VM" />
-    </MeshView>
-  </SubPart>
 
   <SubPart Id="KSArmory_PostBoostBus_SubPart">
     <PartModel Id="KSArmory_Subpart_PostBoostBus_Model">
@@ -1509,242 +1454,19 @@
   </Part>
 
   <!--
-    Heavy ICBM MIRV bus: a post-boost vehicle carrying six reentry vehicles, on a 3 m stack node.
+    Heavy MIRV Bus: seven reentry vehicles on a 3 m stack node, diverting on an axial main engine
+    with twenty nozzles for attitude. docs/POSTBOOST-BUS.md.
 
-    It STACKS rather than surface-attaching, like the CIWS. A connector with no <Flags> is a node
-    connector; ToSurface is the opt-in for radial. One connector, at the bottom - nothing stacks on
-    top of a warhead section, because the shroud that would cover it is not a part.
-
-    Twenty-three bodies from three meshes. The bus is rigid; the six RVs are the rounds, released
-    from their mounting rings, which stay behind; the sixteen nozzles are real KSA thrusters and
-    carry their combustion chemistry in the GameData rather than here.
-
-    Geometry generated and verified against the repository's own Rx*Ry*Rz reading of <Rotation> -
-    the RV cant is not a single-axis turn, so X is the seat azimuth and Z the 6 degrees of cant.
-    Keep in step with Arsenal.MirvBus.Tubes.
-
-    +X is up the stack, +Y the drive direction.
-  -->
-  <Part Id="KSArmory_Prefab_MirvBus">
-
-    <SubPart Id="KSArmory_Mirv_Bus" InstanceOf="KSArmory_MirvBus_SubPart" />
-
-    <!-- Six RVs on an 0.86 bolt circle, parallel: a canted release spreads the group by an
-         amount the bus's own drifting attitude decides, and nothing aboard can correct it. -->
-    <SubPart Id="KSArmory_Mirv_Rv00" InstanceOf="KSArmory_MirvRv_SubPart">
-      <Transform>
-        <Position X="1.74010" Y="0.86000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rv01" InstanceOf="KSArmory_MirvRv_SubPart">
-      <Transform>
-        <Position X="1.74010" Y="0.43000" Z="0.74478" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rv02" InstanceOf="KSArmory_MirvRv_SubPart">
-      <Transform>
-        <Position X="1.74010" Y="-0.43000" Z="0.74478" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rv03" InstanceOf="KSArmory_MirvRv_SubPart">
-      <Transform>
-        <Position X="1.74010" Y="-0.86000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rv04" InstanceOf="KSArmory_MirvRv_SubPart">
-      <Transform>
-        <Position X="1.74010" Y="-0.43000" Z="-0.74478" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rv05" InstanceOf="KSArmory_MirvRv_SubPart">
-      <Transform>
-        <Position X="1.74010" Y="0.43000" Z="-0.74478" />
-      </Transform>
-    </SubPart>
-
-    <!--
-      Four clusters of five, each a cross of four square to the pad with one standing out of it:
-      axial fore and aft for pitch, yaw and dV, two tangential for roll, one radial for translation.
-
-      The roll pair is exactly tangential rather than canted. A cant costs roll authority as its
-      cosine, and costs translation outright: KSA flags a nozzle for a lateral axis on a thrust
-      component over 0.5, so a tangential bell on a cluster clocked 45 degrees between two axes
-      clears it on both, where a canted one clears only the axis it leans towards.
-    -->
-    <SubPart Id="KSArmory_Mirv_Rcs00" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.42000" Y="1.10309" Z="1.10309" />
-        <Rotation Z="-3.14159" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rcs01" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.18000" Y="1.10309" Z="1.10309" />
-        <!-- no rotation: fires straight aft -->
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rcs02" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.30000" Y="1.01823" Z="1.18794" />
-        <!-- fires along -Y+Z -->
-        <Rotation Y="0.78540" Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rcs03" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.30000" Y="1.18794" Z="1.01823" />
-        <!-- fires along +Y-Z -->
-        <Rotation Y="-0.78540" Z="-1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rcs04" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.42000" Y="-1.10309" Z="1.10309" />
-        <Rotation Z="-3.14159" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rcs05" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.18000" Y="-1.10309" Z="1.10309" />
-        <!-- no rotation: fires straight aft -->
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rcs06" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.30000" Y="-1.18794" Z="1.01823" />
-        <!-- fires along -Y-Z -->
-        <Rotation Y="-0.78540" Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rcs07" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.30000" Y="-1.01823" Z="1.18794" />
-        <!-- fires along +Y+Z -->
-        <Rotation Y="0.78540" Z="-1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rcs08" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.42000" Y="-1.10309" Z="-1.10309" />
-        <Rotation Z="-3.14159" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rcs09" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.18000" Y="-1.10309" Z="-1.10309" />
-        <!-- no rotation: fires straight aft -->
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rcs10" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.30000" Y="-1.01823" Z="-1.18794" />
-        <!-- fires along +Y-Z -->
-        <Rotation Y="-0.78540" Z="-1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rcs11" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.30000" Y="-1.18794" Z="-1.01823" />
-        <!-- fires along -Y+Z -->
-        <Rotation Y="0.78540" Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rcs12" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.42000" Y="1.10309" Z="-1.10309" />
-        <Rotation Z="-3.14159" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rcs13" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.18000" Y="1.10309" Z="-1.10309" />
-        <!-- no rotation: fires straight aft -->
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rcs14" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.30000" Y="1.18794" Z="-1.01823" />
-        <!-- fires along +Y+Z -->
-        <Rotation Y="0.78540" Z="-1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rcs15" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.30000" Y="1.01823" Z="-1.18794" />
-        <!-- fires along -Y-Z -->
-        <Rotation Y="-0.78540" Z="1.57080" />
-      </Transform>
-    </SubPart>
-
-    <!--
-      One radial jet per cluster, firing straight out of the pad. Without it the bus can turn but
-      cannot shove itself sideways, and the correction a steep arrival needs is lateral.
-
-      KSA flags a nozzle for translation on a thrust component over 0.5 of a control-frame axis -
-      a 60 degree half-cone - so one bell sitting 45 degrees between two axes serves both, and a
-      lateral command fires the two clusters facing it.
-
-      It seats on the cluster centre, where the other four bells already converge, so their roots
-      merge. That is the seat rather than a mistake: the centre is the only place a fifth bell is
-      exactly on the bisector, and only an exactly radial thrust carries no roll torque.
-    -->
-    <SubPart Id="KSArmory_Mirv_Rcs16" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.30000" Y="1.12430" Z="1.12430" />
-        <!-- fires out along +Y+Z -->
-        <Rotation Y="0.78540" Z="-1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rcs17" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.30000" Y="-1.12430" Z="1.12430" />
-        <!-- fires out along -Y+Z -->
-        <Rotation Y="0.78540" Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rcs18" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.30000" Y="-1.12430" Z="-1.12430" />
-        <!-- fires out along -Y-Z -->
-        <Rotation Y="-0.78540" Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Mirv_Rcs19" InstanceOf="KSArmory_MirvRcs_SubPart">
-      <Transform>
-        <Position X="0.30000" Y="1.12430" Z="-1.12430" />
-        <!-- fires out along +Y-Z -->
-        <Rotation Y="-0.78540" Z="-1.57080" />
-      </Transform>
-    </SubPart>
-
-    <!-- Node attach at the mounting face. No ToSurface flag: this one stacks. -->
-    <Connector Id="_mirvConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation X="3.14159" Z="3.14159" />
-      </Transform>
-    </Connector>
-
-  </Part>
-
-  <!--
-    Heavy post-boost bus: seven reentry vehicles on a 3 m stack node, diverting on an axial main
-    engine with the MIRV bus's twenty nozzles kept for attitude. docs/POSTBOOST-BUS.md.
+    It STACKS: a connector with no <Flags> is a node connector, and nothing stacks on a warhead
+    section, so it has the one.
 
     +X is up the stack. The bell fires along -X, so it thrusts up the stack.
   -->
-  <Part Id="KSArmory_Prefab_PostBoostBus">
+  <Part Id="KSArmory_Prefab_MirvBus">
     <SubPart Id="KSArmory_PostBoost_Bus" InstanceOf="KSArmory_PostBoostBus_SubPart" />
 
-    <!-- Mount face on the gimbal point; the bell fires along -X, so it thrusts up the stack. -->
-    <SubPart Id="KSArmory_PostBoost_Engine" InstanceOf="KSArmory_PostBoostEngine_SubPart">
-      <Transform>
-        <Position X="0.80000" />
-      </Transform>
-    </SubPart>
-
-    <!-- Seven RVs: the MIRV bus's 0.86 m ring plus one on the axis, all parallel.
-         Keep in step with Arsenal.PostBoostBus.Tubes. -->
+    <!-- Seven RVs: an 0.86 m ring and one on the axis (appended below), all parallel, because a canted release spreads
+         the group by an amount the bus's drifting attitude decides. Keep in step with Arsenal.MirvBus.Tubes. -->
     <SubPart Id="KSArmory_PostBoost_Mirv_Rv00" InstanceOf="KSArmory_PostBoostRv_SubPart">
       <Transform>
         <Position X="2.14000" Y="0.86000" Z="0.00000" />
@@ -1775,14 +1497,10 @@
         <Position X="2.14000" Y="0.43000" Z="-0.74478" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Mirv_Rv06" InstanceOf="KSArmory_PostBoostRv_SubPart">
-      <Transform>
-        <Position X="2.14000" Y="0.00000" Z="0.00000" />
-      </Transform>
-    </SubPart>
 
-    <!-- The MIRV bus's twenty nozzles, each moved only along its own thrust line onto its pad face,
-         so every lever arm about the ring plane matches it. -->
+    <!-- Four clusters of five: axial fore and aft for pitch, yaw and dV, two exactly tangential for roll,
+         one radial for translation. KSA enrols a nozzle for a lateral axis on a thrust component over
+         0.5, so a tangential bell clocked 45 degrees serves both axes where a canted one serves one. -->
     <SubPart Id="KSArmory_PostBoost_Rcs00" InstanceOf="KSArmory_PostBoostRcs_SubPart">
       <Transform>
         <Position X="0.67000" Y="1.10309" Z="1.10309" />
@@ -1900,8 +1618,24 @@
       </Transform>
     </SubPart>
 
+    <!-- Appended after the 27 the six-RV bus carried under this Id, in its order: a save pairs
+         subparts by position (docs/KSA-MODDING-NOTES.md), so nothing before here may move. -->
+    <!-- The seventh RV, on the axis. -->
+    <SubPart Id="KSArmory_PostBoost_Mirv_Rv06" InstanceOf="KSArmory_PostBoostRv_SubPart">
+      <Transform>
+        <Position X="2.14000" Y="0.00000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!-- Mount face on the gimbal point; the bell fires along -X, so it thrusts up the stack. -->
+    <SubPart Id="KSArmory_PostBoost_Engine" InstanceOf="KSArmory_PostBoostEngine_SubPart">
+      <Transform>
+        <Position X="0.80000" />
+      </Transform>
+    </SubPart>
+
     <!-- Node attach at the mounting face. No ToSurface flag: this one stacks. -->
-    <Connector Id="_postBoostConnectorBase">
+    <Connector Id="_mirvConnectorBase">
       <Transform>
         <Position X="0.00000" />
         <Rotation X="3.14159" Z="3.14159" />

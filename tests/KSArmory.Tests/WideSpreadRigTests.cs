@@ -109,7 +109,7 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
 
     // The post-boost bus on its nozzles alone: 0.40 m/s² forward, 3.8 t wet, 500 kg at 2,912 m/s (docs/POSTBOOST-BUS.md).
     [Fact]
-    public void ThePostBoostBusWalksSevenTargetsFiftyKilometresApartOnItsNozzles()
+    public void TheHeavyMirvBusWalksSevenTargetsFiftyKilometresApartOnItsNozzles()
     {
         IcbmProgram program = new(new IcbmConfig
         {
@@ -121,7 +121,7 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
                                               Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21), DensityAt);
-        rig.ThrusterMetresPerSecond2 = Arsenal.PostBoostBus.TrimAccelerationMetresPerSecond2;
+        rig.ThrusterMetresPerSecond2 = Arsenal.MirvBus.TrimAccelerationMetresPerSecond2;
         rig.ShoveMetresPerSecond = 1.0;
         rig.BusMassKg = 3_800.0;
         rig.PropellantKg = 500.0;
@@ -158,12 +158,12 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
         rig.ShoveMetresPerSecond = 1.0;
         if (postBoostBus)
         {
-            rig.ThrusterMetresPerSecond2 = Arsenal.PostBoostBus.TrimAccelerationMetresPerSecond2;
+            rig.ThrusterMetresPerSecond2 = Arsenal.MirvBus.TrimAccelerationMetresPerSecond2;
             rig.BusMassKg = 3_800.0;
             rig.PropellantKg = 500.0;
             rig.JetExhaustVelocity = 2_912.0;
-            rig.EngineThrustNewtons = Arsenal.PostBoostBus.HopEngineThrustNewtons;
-            rig.EngineExhaustVelocity = Arsenal.PostBoostBus.HopEngineExhaustVelocity;
+            rig.EngineThrustNewtons = Arsenal.MirvBus.HopEngineThrustNewtons;
+            rig.EngineExhaustVelocity = Arsenal.MirvBus.HopEngineExhaustVelocity;
         }
         else
         {

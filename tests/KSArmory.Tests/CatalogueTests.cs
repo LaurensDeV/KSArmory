@@ -89,11 +89,10 @@ public class CatalogueTests
         // The ballistic computer releases through the launcher that answers yes, so a second
         // launcher on the same craft answering yes would hand the warheads' release to a rail.
         Assert.True(Catalogue.ProvidesGuidance(Arsenal.MirvBus.PartId));
-        Assert.True(Catalogue.ProvidesGuidance(Arsenal.PostBoostBus.PartId));
 
         foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
-            if (ReferenceEquals(launcher, Arsenal.MirvBus) || ReferenceEquals(launcher, Arsenal.PostBoostBus)) continue;
+            if (ReferenceEquals(launcher, Arsenal.MirvBus)) continue;
             Assert.False(Catalogue.ProvidesGuidance(launcher.PartId), launcher.DisplayName);
         }
 

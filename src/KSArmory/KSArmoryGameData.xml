@@ -492,188 +492,13 @@
     </Collider>
   </PartGameData>
 
-  <!--
-    One attitude-control nozzle, declared once and inherited by all twenty instances: KSA keys
-    SubPartGameData on the subpart *definition*, not on the instance.
-
-    This is the first thing in this mod that uses KSA's own simulation rather than replacing it.
-    Registering a NEW module type needs Harmony patching into internal update lists, which is why
-    rounds are self-simulated - but RocketThrusterController, Combustor and DeLavalNozzle are
-    modules the engine already registers, so declaring them is reuse, not registration.
-
-    Cribbed from CorePropulsionB_Subpart_RCSSetAThrusterSmallA, with FxExitDiameter changed to
-    match the modelled bell. MMH_NTO at 1.6 is Core's own reaction Id and happens to be exactly
-    what a real post-boost vehicle burns.
-
-    FeedsFrom Parent means the craft's service plumbing supplies it, so the vehicle needs a service
-    propellant tank somewhere - the same as any Core RCS set, which ships no tank either.
-  -->
-  <SubPartGameData Id="KSArmory_MirvRcs_SubPart">
-    <RocketThrusterController Id="MirvACS">
-      <RocketReference Id="Thruster" />
-    </RocketThrusterController>
-    <Rocket Id="Thruster">
-      <Core Id="Chamber" />
-      <Nozzle Id="Nozzle" />
-    </Rocket>
-    <Combustor Id="Chamber">
-      <FeedsFrom Parent="true" />
-      <Plumbing>Service</Plumbing>
-      <Reaction Id="MMH_NTO">
-        <MixtureRatio>1.6</MixtureRatio>
-      </Reaction>
-      <MaxPressure Bar="7" />
-      <ThermalEfficiency Value="0.95" />
-      <!--
-        KSA's floor, and it buys pointing rather than thrust. KSA's attitude tracker
-        will not fire inside a dead zone of 0.5*AngleDeadband + AngleTurnaround, and the turnaround
-        is ten times the rate bit, which is one minimum impulse over the vehicle's inertia. Minimum
-        impulse is thrust x lever arm x this, so shortening it makes the quantum finer without
-        costing any peak authority.
-
-        Measured on the separated bus at Core's value: a 22.11 degree band against a nose whose
-        drift is the largest error left in the shot. CombustorTemplate clamps up to 1 ms at load,
-        so this is as far as the lever goes; the residue is 0.5*AngleDeadband, about 6.4.
-      -->
-      <MinimumPulseTime Seconds="0.001" />
-    </Combustor>
-    <DeLavalNozzle Id="Nozzle">
-      <!--
-        An attitude thruster, sized as one: 0.4 m of exit is a main-engine bell on a 3-tonne bus
-        and the drawn bell beside it is 0.11 m. 0.13 m is about 394 N.
-
-        Flown, it is worth about 1.3 km and nothing else found this year comes close - five shots
-        at 0.4 m land 1.31-1.91 km where four at 0.13 land 0.05-0.43, two distributions that do
-        not overlap. That is far more than the pointing band accounts for, and why it is not
-        understood is written up in docs/MIRV-NEXT.md.
-
-        It is safe on its own: no shot without an arrival floor has ever put the bus into the
-        spent stack, at either size. What collides is a floor plus a bus that cannot shove itself
-        clear, and that is a separation problem rather than a reason to carry a bigger nozzle.
-      -->
-      <ExitDiameter M="0.13" />
-      <FxExitDiameter M="0.11" />
-      <AreaRatio Value="40" />
-      <FlowEfficiency Value="1" />
-      <ExpansionEfficiency Value="0.70" />
-      <!-- The bell exit, in the nozzle subpart's own frame. It fires along its own -X. -->
-      <ExhaustLocation X="-0.090" Y="0.0" Z="0.0" />
-      <ExhaustDirection X="-1.0" Y="0.0" Z="0.0" />
-      <ReactionPlume Default="true">
-        <VolumetricExhaust Id="RCS" />
-      </ReactionPlume>
-      <SoundEvent Action="On" SoundId="DefaultRcsThruster" />
-    </DeLavalNozzle>
-  </SubPartGameData>
-
-  <PartGameData Id="KSArmory_Prefab_MirvBus" DisplayName="Heavy MIRV Bus">
-    <EditorTag Value="Weapons" />
-    <Diameter M="3" />
-
-    <!--
-      A post-boost vehicle carries its own propellant: it separates from the stack and then has to
-      fly for the whole deployment, with nothing upstream left to draw from. So the twenty nozzles
-      feed from a tank on this part rather than through the mounting connector - the same shape as
-      the kitten jetpack, which is the other self-contained thruster set in the game.
-
-      MMH/NTO. The sphere holds 134 kg at KSA's own storage densities - MMH is 505 kg/m3 in
-      Volatiles.xml, not 880 - which is a Minuteman-class post-boost load.
-    -->
-    <Tank Id="MirvPropellant">
-      <SphericalTank>
-        <LocationAsmb X="0.42" Y="0" Z="0" />
-        <Material Id="Aluminum.2014(s)" />
-        <OuterRadius M="0.34" />
-        <WallThickness Mm="4" />
-        <RoleAffinity>Thruster</RoleAffinity>
-      </SphericalTank>
-    </Tank>
-
-    <!--
-      FeedsFrom on the subpart's Combustor is only half the declaration: the part has to say what
-      supplies it, or KSA logs "no ConsumerFeedWiring wiring for it" at load and nothing fires.
-
-      Id matches the Combustor's, and there is deliberately no SubPartId - one entry covers all
-      twenty instances of the nozzle, exactly as Core's own RCS sets do.
-    -->
-    <ConsumerFeedWiring Id="Chamber">
-      <FeedsFrom Container="MirvPropellant" />
-    </ConsumerFeedWiring>
-
-    <!--
-      A post-boost vehicle flies itself: that is the whole job, and it starts at the moment it
-      stops being attached to anything that has a command pod. Without <Control /> the twenty
-      thrusters answer to the stack below and go dead on separation, which is exactly backwards.
-
-      Its own battery for the same reason - a bus is under power from separation to the last
-      warhead, with nothing upstream left to draw from.
-    -->
-    <Control />
-    <Battery>
-      <MaximumCapacity J="50000" />
-    </Battery>
-
-    <!--
-      No Radial or NoFaceSnapping tag and no ToSurface flag on the connector: this part STACKS.
-      It mates with the top node of any 3 m tank, decoupler or adapter.
-    -->
-    <Connector Id="_mirvConnectorBase" />
-
-    <!--
-      Six Mk 21-class RVs on a post-boost vehicle, structure only: the propellant is the tank
-      above rather than this.
-
-      Peacekeeper's throw weight is 3,950 kg for ten RVs and their bus, and its Stage IV runs
-      about 1,450 kg loaded. That puts an Mk 21 near 250 kg, so six on that bus is about 2,950 kg
-      all in: 2,750 here, and the tank carries the rest.
-    -->
-    <SolidSphereMass>
-      <Mass Kg="2750" />
-      <Radius M="1.20" />
-      <!--
-        Seated in the plane of the thruster ring rather than the loaded centroid near X = 1.77.
-        KSA enrols a nozzle in a rotation axis on a torque efficiency over 0.1 and then sums the
-        whole enrolled set into MinRotationalImpulse, which sets the attitude deadband - so an
-        axial offset between the ring and the centre of mass turns all twelve non-axial nozzles
-        into pitch and yaw actuators and coarsens the quantum that aims the release. At X = 0.30
-        their axial lever arm is zero and only the axial pair can pitch: 4.412 against 5.685.
-
-        It is a choice inside a mass model that is already approximate. The six RVs' 250 kg each is
-        part of this lump, and it comes off as they leave (IcbmConfig.ShedWarheadMass, on), scaled in
-        place so the lump stays on the ring (Ksa/StoreMass.cs).
-      -->
-      <LocationAsmb X="0.30" />
-    </SolidSphereMass>
-
-    <!--
-      Two boxes rather than the atlas's single _ColPrim_ cylinder: most of the volume around the
-      warheads is empty air, and a box pair says so for nothing. The RCS bells reach radius 1.71
-      and are deliberately outside both - small protrusions are not worth colliding.
-    -->
-    <Collider Id="KSArmory_MirvCollider">
-      <!-- Bus, resting on the mounting face at X = 0. -->
-      <Box Id="KSArmory_MirvBusCollider">
-        <LocationAsmb X="0.39" Y="0" Z="0" />
-        <Collider2Asmb X="0" Y="0" Z="0" />
-        <LengthX M="0.78" />
-        <LengthY M="3.00" />
-        <LengthZ M="3.00" />
-      </Box>
-      <!-- The warhead cluster: RV tips reach radius 1.06 and X 2.63. -->
-      <Box Id="KSArmory_MirvWarheadCollider">
-        <LocationAsmb X="1.705" Y="0" Z="0" />
-        <Collider2Asmb X="0" Y="0" Z="0" />
-        <LengthX M="1.85" />
-        <LengthY M="2.20" />
-        <LengthZ M="2.20" />
-      </Box>
-    </Collider>
-  </PartGameData>
-
-
   <SubPartGameData Id="KSArmory_PostBoostRcs_SubPart">
-    <!-- KSArmory_MirvRcs_SubPart's tuned values; only the exhaust point follows this bell. -->
-    <RocketThrusterController Id="PostBoostACS">
+    <!--
+      Declared once for all twenty instances: KSA keys SubPartGameData on the template, not the instance.
+      Exit 0.13 m is an attitude thruster's, about 394 N; flown at 0.4 m the old bus landed 1.31-1.91 km
+      off against 0.05-0.43 at 0.13 (docs/MIRV-NEXT.md).
+    -->
+    <RocketThrusterController Id="MirvACS">
       <RocketReference Id="Thruster" />
     </RocketThrusterController>
     <Rocket Id="Thruster"><Core Id="Chamber" /><Nozzle Id="Nozzle" /></Rocket>
@@ -683,6 +508,8 @@
       <Reaction Id="MMH_NTO"><MixtureRatio>1.6</MixtureRatio></Reaction>
       <MaxPressure Bar="7" />
       <ThermalEfficiency Value="0.95" />
+      <!-- KSA's floor (CombustorTemplate clamps to 1 ms): a shorter pulse is a finer attitude quantum
+           at no cost in peak authority. -->
       <MinimumPulseTime Seconds="0.001" />
     </Combustor>
     <DeLavalNozzle Id="Nozzle">
@@ -722,16 +549,16 @@
     </DeLavalNozzle>
   </SubPartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_PostBoostBus" DisplayName="Heavy Post-Boost Bus">
+  <PartGameData Id="KSArmory_Prefab_MirvBus" DisplayName="Heavy MIRV Bus">
     <EditorTag Value="Weapons" />
     <Diameter M="3" />
 
     <!--
-      Not drawn, so only its volume and centre matter: 0.591 m3, about 500 kg at the MIRV bus's
+      Not drawn, so only its volume and centre matter: 0.591 m3, about 500 kg of MMH/NTO at
       843 kg/m3, on the axis just above the thruster ring so the centre of mass stays near the ring
       however full it is. A placeholder until docs/POSTBOOST-BUS.md settles the size.
     -->
-    <Tank Id="PostBoostPropellant">
+    <Tank Id="MirvPropellant">
       <SphericalTank>
         <LocationAsmb X="0.72" Y="0.00" Z="0.00" />
         <Material Id="Aluminum.2014(s)" />
@@ -743,10 +570,10 @@
     </Tank>
 
     <ConsumerFeedWiring Id="Chamber">
-      <FeedsFrom Container="PostBoostPropellant" />
+      <FeedsFrom Container="MirvPropellant" />
     </ConsumerFeedWiring>
     <ConsumerFeedWiring Id="ThrustChamber" SubPartId="KSArmory_PostBoost_Engine">
-      <FeedsFrom Container="PostBoostPropellant" />
+      <FeedsFrom Container="MirvPropellant" />
     </ConsumerFeedWiring>
     <RocketEngineController Id="PostBoostEngine">
       <RocketReference Id="Engine" SubPartId="KSArmory_PostBoost_Engine" />
@@ -756,12 +583,15 @@
       <Gimbal><MaxAngleY Degrees="5" /><MaxAngleZ Degrees="5" /><ConstrainToCircle Value="false" /></Gimbal>
     </SubPart>
 
+    <!-- A bus flies itself from separation to the last warhead: without its own Control the nozzles
+         answer to the stack below and go dead on separation. -->
     <Control />
     <Battery><MaximumCapacity J="50000" /></Battery>
-    <Connector Id="_postBoostConnectorBase" />
+    <Connector Id="_mirvConnectorBase" />
 
     <!-- Seven RVs at 250 kg and about 1,700 kg of structure and engine; the tanks carry the rest.
-         Seated in the RCS ring plane for the reason KSArmory_Prefab_MirvBus gives. -->
+         Seated in the RCS ring plane: an axial offset enrols the non-axial nozzles in pitch and yaw
+         and coarsens the attitude quantum that aims the release. -->
     <SolidSphereMass>
       <Mass Kg="3450" />
       <Radius M="1.20" />

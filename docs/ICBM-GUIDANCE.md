@@ -1307,10 +1307,9 @@ it are `docs/MIRV-TARGETS.md`; what is open is `docs/ICBM-OUTSTANDING.md` (4.5, 
 
 ### What the player gets
 
-A MIRV rocket carries six reentry vehicles on the Heavy MIRV Bus, seven on the post-boost bus. With one
+A MIRV rocket carries seven reentry vehicles on the Heavy MIRV Bus. With one
 target all of them go to it and land within a few millimetres of each other (`docs/ACCURACY-PLAN.md` 3en).
-The player can pick **up to seven targets** (`TargetSet.MaxTargets`; on a six-RV bus a seventh gets
-nothing), and the bus flies between releases so each warhead falls on its own.
+The player can pick **up to seven targets** (`TargetSet.MaxTargets`, one per RV), and the bus flies between releases so each warhead falls on its own.
 
 From the player's side:
 

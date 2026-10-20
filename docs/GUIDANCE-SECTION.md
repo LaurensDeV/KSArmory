@@ -43,8 +43,8 @@ carrying a guidance section and no weapon has the second alone. So, **as built**
 - `IsWeaponSystem` is left as it is, because the launchers are honest about what they carry.
 
 The Pantsir, the rails, the guns and the B61 rack have no computer, and no other roster moved.
-`ArsenalTests.OnlyABusIsGivenABallisticComputer` pins which parts confer one -- the MIRV bus and the
-post-boost bus -- and has to change when the ring takes the role over.
+`ArsenalTests.OnlyABusIsGivenABallisticComputer` pins which part confers one -- the Heavy MIRV Bus --
+and has to change when the ring takes the role over.
 
 ## Where it goes in the stack, and why that is not a detail
 
@@ -140,6 +140,10 @@ inside it. `KSArmoryGameData.xml` anchors the bus to exactly that stage:
 2,750 kg  =  6 x Mk 21 @ 250 kg  +  1,260 kg dry Stage IV
              1,450 kg loaded Stage IV - 190 kg propellant
 ```
+
+**This split was worked against the six-RV bus, which has been replaced.** The Heavy MIRV Bus now under
+`KSArmory_Prefab_MirvBus` declares 3,450 kg for seven RVs and its structure, so the
+numbers below have to be re-derived on it before the ring is built.
 
 So a 450 kg ring bolted underneath counts the guidance twice, and the post-boost assembly comes out
 28% heavier than the vehicle its mass model was calibrated against. The ring's mass is a **split of

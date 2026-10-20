@@ -1,20 +1,25 @@
 # A post-boost bus with a main engine
 
-**A plan, not a record.** What a second MIRV bus with an axial engine and a bigger tank would buy, how big to make it,
-and what the guidance needs before it can fly one. The art is on `dev` (`KSArmory_PostBoostBus.glb`, carrying its own
-RV with two spin nozzles in a dished base). It is declared as `KSArmory_Prefab_PostBoostBus` and registered as
-`Arsenal.PostBoostBus`; the guidance flies it exactly as the old bus, on its nozzles, and nothing commands its engine.
+**A plan, not a record.** What a MIRV bus with an axial engine and a bigger tank buys, how big to make it,
+and what the guidance needs before it can fly one. This bus is now the **Heavy MIRV Bus**, the only one: the art is
+`KSArmory_PostBoostBus.glb`, carrying its own RV with two spin nozzles in a dished base, declared under the six-RV
+bus's own Id, `KSArmory_Prefab_MirvBus`, and registered as `Arsenal.MirvBus`. The guidance flies it on its nozzles
+unless `IcbmConfig.HopsBurnTheEngine` lights the engine.
 
-## Why a second part
+It took the old Id so a save carrying the old bus loads as this one. A save pairs subparts by position, so the old
+bus's 27 come first in its order and the engine and the seventh RV are appended; its tank, thruster controller and
+connector keep the old Ids, so their saved state still applies. A save that carried this bus under its interim Id,
+`KSArmory_Prefab_PostBoostBus`, loses that craft.
 
-The Heavy MIRV Bus (`KSArmory_Prefab_MirvBus`) diverts on twenty small nozzles from one 134 kg MMH/NTO sphere, and the
-guidance spends at most 60 m/s of it (`PostBoostAim.MaxTrimMetresPerSecond`; ~70 on a walk with the split reserve).
-That caps six targets at about 4.5 km apart on the shipped schedule and about 6 km with the walk from cutoff
+## Why it replaced the old bus
+
+The old six-RV bus diverted on twenty small nozzles from one 134 kg MMH/NTO sphere, and the
+guidance spent at most 60 m/s of it (`PostBoostAim.MaxTrimMetresPerSecond`; ~70 on a walk with the split reserve).
+That capped six targets at about 4.5 km apart on the shipped schedule and about 6 km with the walk from cutoff
 (`ICBM-OUTSTANDING.md` 4.12) -- inside a Mk 21's 6 km blast radius, so barely separate targets at all.
 
 A real post-boost vehicle diverts on an axial engine and keeps its small thrusters for attitude and the last
-correction. A second part rather than a reworked one, because a shipped part's subpart list is append-only and its Id
-is fixed: old saves keep the old bus, and "replacing" it later is changing what new designs carry.
+correction.
 
 ## What spacing costs
 

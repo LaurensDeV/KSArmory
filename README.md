@@ -74,8 +74,8 @@ rest. One B61-12 on a rack that surface-attaches to an aircraft, and a sight tha
 the bomb will land in — flown rather than solved, so the ring sits wherever the round will actually
 go. It ships at the bottom of the real yield range.
 
-**MIRV bus** — six Mk 21 reentry vehicles on a post-boost vehicle that stacks on a 3 m node.
-Nothing on it moves and nothing about it aims: the ballistic computer flies the whole stack, cuts
+**Heavy MIRV Bus** — seven Mk 21 reentry vehicles on a post-boost vehicle that stacks on a 3 m node.
+Nothing on it aims: the ballistic computer flies the whole stack, cuts
 the engines on the solution, trims the bus back onto it with its own thrusters, and then lets the
 warheads go one at a time. See [`docs/ICBM-GUIDANCE.md`](docs/ICBM-GUIDANCE.md).
 

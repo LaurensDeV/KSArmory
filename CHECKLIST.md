@@ -2900,6 +2900,16 @@ stack wait holds only the split. `docs/MIRV-TARGETS.md`, "six stops to the groun
 
 `KSArmory_Prefab_PostBoostBus`, flown on its nozzles as the old bus; nothing commands its engine. `docs/POSTBOOST-BUS.md`.
 
+Since 2026-10-20 it is the **Heavy MIRV Bus**, the only bus, under the six-RV bus's Id `KSArmory_Prefab_MirvBus`,
+with the old bus's 27 subparts first in their order and the engine and seventh RV appended.
+
+- [ ] It shows in the editor as "Heavy MIRV Bus", and no other bus is listed.
+- [ ] A save carrying the old bus (`tools/scenario.sh mirv`'s, a shot-batch save) loads with nothing thrown, and the
+      rocket carries the new bus: seven RVs, the engine, its propellant carried over.
+- [ ] That rocket flies a shot from the loaded save.
+- [ ] Saves made with the interim `KSArmory_Prefab_PostBoostBus` (`TEST PBB GeoSat FAT`, `PBB SCALE 8`) lose that craft
+      and are rebuilt with `tools/make-rocket.py`.
+
 - [x] One target at 6,180 km on `TEST PBB GeoSat FAT`: 7 of 7, twice, 3.8 and 6.2 mm worst; the engine idle pad to impact.
 - [x] Seven targets 2.5 km apart: each warhead on its own target, worst 5.6 mm.
 - [x] Each RV's base motors light for 0.6 s on release and spin it at half a turn a second.

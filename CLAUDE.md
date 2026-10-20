@@ -579,7 +579,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/OpticalHead.cs` | **one director** — its own sensor, its own aim, no weapon involved |
 | `Ksa/OpticalHeads.cs` | one head per director fitted, crewed with the craft and followed across a split, and handed its craft's picture |
 | `Ksa/TravelSweeps.cs` | sweeps each gun's travel against its own craft with the engine's part ray casts — **50 rays and 1 ms a frame across every mount**, the craft on the panel first, and only once a craft has kept its shape for 60 frames, so a break-up is swept once. Other mounts are left out, since their barrels move |
-| `Ksa/StoreMass.cs` | a launcher or dispenser part made lighter by what it has fired, through KSA's own per-part mass slot and in `AttitudeHook`'s window — **scaled where the part declares it, never moved to the tube**, because the MIRV bus's mass sits on its thruster ring on purpose. Not saved, which matches a magazine |
+| `Ksa/StoreMass.cs` | a launcher or dispenser part made lighter by what it has fired, through KSA's own per-part mass slot and in `AttitudeHook`'s window — **scaled where the part declares it, never moved to the tube**, because the bus's mass sits on its thruster ring on purpose. Not saved, which matches a magazine |
 | `Ksa/Countermeasures.cs` | every dispenser fitted and every decoy in the air — **stepped after the airborne sample and before any round**, so a seeker reads a decoy as it reads a craft, at the end of the step it integrates |
 | `Ksa/InstalledPacks.cs` | reads those folders and registers what is in them — **what lets a pack be assets only** |
 | `Ksa/DeclaredParts.cs` | the part library as that seam — off `PartTemplate`, because the question is what was *declared*, not what is on a craft |
@@ -602,7 +602,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Icbm/IcbmComputer.Kick.cs` | the separation kick each warhead is thrown with, and the release probe it is solved against |
 | `Ksa/Icbm/IcbmComputer.Prediction.cs` | the flown impact prediction the aim correction reads |
 | `Ksa/Icbm/IcbmComputer.Reach.cs` | the divert footprint flown, pinned at the epoch, and read back as offsets and axes for the panel and the overlay |
-| `Ksa/Icbm/IcbmComputers.cs` | one per craft carrying a part that provides `Guidance` — **the two buses alone today**, so a Pantsir or a rail gets none — crewed and forgotten with it |
+| `Ksa/Icbm/IcbmComputers.cs` | one per craft carrying a part that provides `Guidance` — **the Heavy MIRV Bus alone today**, so a Pantsir or a rail gets none — crewed and forgotten with it |
 | `Ksa/AttitudeHook.cs` | **one of the eleven places this mod patches the game** — the only window in which an attitude command survives |
 | `Ksa/PreRenderHook.cs` | the second — **a step before the render on a frame that draws no UI**, because StarMap has no hook that is both |
 | `Ksa/WorldReloadHook.cs` | the third — **that a save was loaded**, which nothing else can tell: the mod never leaves the flight scene across one |
@@ -746,7 +746,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/ICBM-OUTSTANDING.md` | **a plan, not a record** — everything still open for the ballistic computer and the bus, ranked into tiers with the evidence for each, a **release gate** for merging `dev` into `main`, and the order of work; read it before picking up ICBM/MIRV work |
 | `docs/AFC-COMPARISON.md` | **a plan, not a record** — what the AdvancedFlightComputer mod does that the ballistic computer could take, ranked, each with what was read and what to measure first; nothing in it is built |
 | `docs/RV-POINTING.md` | **a record** — one turn of the bus after the split so every RV leaves nose-along its entry airflow: step 0, the two timing faults, both paired nights and the one declared cell that missed; how it works now is `docs/ICBM-GUIDANCE.md` |
-| `docs/POSTBOOST-BUS.md` | **a plan, not a record** — a second MIRV bus with an axial engine: what spacing costs, the tank and engine that buy it, and the guidance work before it flies. The art is in; nothing declares it |
+| `docs/POSTBOOST-BUS.md` | **a plan, not a record** — the Heavy MIRV Bus, which has an axial engine: what spacing costs, the tank and engine that buy it, and the guidance work before the engine flies |
 | `docs/METRE-LEVEL.md` | **a record, largely superseded** — the 2026-09 route from a kilometre to a metre as a ladder of arrival angles; its own header lists what is now wrong in it, and §5b's model of sim rate against frame time is the part still current |
 | `docs/GUIDANCE-SECTION.md` | **a plan, half built** — the ballistic computer as a part you bolt on. The `Guidance` role, distinct from `FireControl`, is built and the bus provides it; the 3 m interstage ring that would take it over is not, and its mass is a split of the bus's rather than an addition to it |
 | `docs/BEAM-RENDERING.md` | how a high-energy beam is drawn — what makes one visible in air, the closed-form tube integral the shader uses, and why not a ribbon or screen-space segments |

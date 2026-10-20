@@ -717,79 +717,32 @@ public static class Arsenal
 
     // ---- Launchers ------------------------------------------------------
     /// <summary>
-    /// A heavy ICBM's post-boost vehicle, with six reentry vehicles on it.
+    /// The Heavy MIRV Bus: seven reentry vehicles, an axial main engine to divert on, and twenty
+    /// nozzles for attitude. <c>docs/POSTBOOST-BUS.md</c>.
     ///
-    /// <para><b>MIRV deployment is tube release.</b> Six tubes, one RV apiece, all pointing along
-    /// the bus's own axis on an 0.86 m bolt circle. They are deliberately not canted: a cone gives
-    /// every warhead its own vector and a spread the bus's drifting attitude decides, and the
-    /// aiming a real post-boost vehicle does is manoeuvring between releases rather than ejection.
-    /// No new mechanism was needed for any of it; it is the bomb rack with six tubes and a stack
-    /// node instead of a pylon.</para>
+    /// <para><b>MIRV deployment is tube release.</b> One RV a tube, all parallel along the bus's own
+    /// axis: a cone gives every warhead a spread the bus's drifting attitude decides, and a real bus
+    /// aims by manoeuvring between releases rather than by ejection.</para>
     ///
-    /// <para>Nothing trains: no <see cref="LauncherProfile.TurretMarker"/> and no
-    /// <see cref="LauncherProfile.PodsMarker"/>, so <see cref="LauncherProfile.Trains"/> is false
-    /// and fire control cannot deadlock waiting for a drive that will never move. The bus is aimed
-    /// by flying it, which is what its RCS is for.</para>
-    ///
-    /// <para>Tube geometry generated from the Blender source and verified against the
-    /// repository's own reading of <c>&lt;Rotation&gt;</c>. Keep in step with
+    /// <para>Nothing trains, so <see cref="LauncherProfile.Trains"/> is false and fire control cannot
+    /// wait on a drive; the bus is aimed by flying it. The guidance flies it on the nozzles alone
+    /// unless <see cref="IcbmConfig.HopsBurnTheEngine"/> lights the engine. Keep the tubes in step with
     /// <c>KSArmory_Prefab_MirvBus</c> in the asset XML.</para>
     /// </summary>
     public static readonly LauncherProfile MirvBus = new()
     {
         PartId = "KSArmory_Prefab_MirvBus",
-        DisplayName = "MIRV bus",
+        DisplayName = "Heavy MIRV Bus",
         Munition = "MK21",
         Sensor = "MIRVBUS",
 
-        // About 250 kg an Mk 21 (KSArmoryGameData.xml), shed as each leaves (IcbmConfig.ShedWarheadMass).
-        StoreMassKg = 250f,
-
-        // Flown: the twenty nozzles' measured acceleration (ReleaseItinerary.MedianHopSeconds).
-        TrimAccelerationMetresPerSecond2 = 0.56,
-
-        // ve 2,906 m/s, a lateral m/s costing 1.41x an axial one: 101 m/s against 143 (docs/ICBM-GUIDANCE.md).
-        TrimWorstAxisExhaustVelocity = 2_906.0 / 1.414,
-        TubeArmamentLabel = "Warheads",
-        Tubes =
-        [
-            new(new(2.64010,   0.86000,   0.00000), new(1.00000, 0.00000, 0.00000)),
-            new(new(2.64010,   0.43000,   0.74478), new(1.00000, 0.00000, 0.00000)),
-            new(new(2.64010,  -0.43000,   0.74478), new(1.00000, 0.00000, 0.00000)),
-            new(new(2.64010,  -0.86000,   0.00000), new(1.00000, 0.00000, 0.00000)),
-            new(new(2.64010,  -0.43000,  -0.74478), new(1.00000, 0.00000, 0.00000)),
-            new(new(2.64010,   0.43000,  -0.74478), new(1.00000, 0.00000, 0.00000)),
-        ],
-        MuzzleForwardOffset = 0.0,
-        LaunchAlongTube = true,
-        EjectAwayFromMount = 0f,
-        LaunchLoft = 0f,
-        MuzzleOffset = 0f,
-
-        SettleSeconds = 0f,
-    };
-
-    /// <summary>
-    /// A heavy post-boost bus: seven reentry vehicles, an axial main engine to divert on, and the
-    /// MIRV bus's twenty nozzles for attitude. <c>docs/POSTBOOST-BUS.md</c>.
-    ///
-    /// <para>The guidance flies it exactly as it flies <see cref="MirvBus"/>, on the nozzles
-    /// alone; nothing yet lights the engine. Keep the tubes in step with
-    /// <c>KSArmory_Prefab_PostBoostBus</c> in the asset XML.</para>
-    /// </summary>
-    public static readonly LauncherProfile PostBoostBus = new()
-    {
-        PartId = "KSArmory_Prefab_PostBoostBus",
-        DisplayName = "Post-boost bus",
-        Munition = "MK21",
-        Sensor = "MIRVBUS",
-
+        // About 250 kg an Mk 21, shed as each leaves (IcbmConfig.ShedWarheadMass).
         StoreMassKg = 250f,
 
         // The four forward nozzles, 7.92 m/s in 20 s on the bridge (docs/POSTBOOST-BUS.md).
         TrimAccelerationMetresPerSecond2 = 0.40,
 
-        // The Heavy bus's nozzles at the 2,912 m/s measured on this one.
+        // ve 2,912 m/s measured on this bus, a lateral m/s costing 1.41x an axial one (docs/ICBM-GUIDANCE.md).
         TrimWorstAxisExhaustVelocity = 2_912.0 / 1.414,
 
         // 2.27 kg/s at 2,996 m/s, both measured on the bridge (docs/POSTBOOST-BUS.md).
@@ -835,6 +788,7 @@ public static class Arsenal
 
         SettleSeconds = 0f,
     };
+
     /// <summary>
     /// A single LAU-7 launch rail carrying one AIM-9J, attached to the side of whatever it is
     /// bolted to.
@@ -1578,7 +1532,7 @@ public static class Arsenal
     // ---- Registry -------------------------------------------------------
 
     public static readonly IReadOnlyList<LauncherProfile> Launchers =
-        [SidewinderRail, AmraamRail, HarmRail, Ciws, NukeRack, MirvBus, PostBoostBus, Mk42, M197, Yal1Beam];
+        [SidewinderRail, AmraamRail, HarmRail, Ciws, NukeRack, MirvBus, Mk42, M197, Yal1Beam];
     public static readonly IReadOnlyList<MunitionProfile> Munitions =
         [Missile9J, Missile120C, MissileAgm88, Cannon20Mm, NukeB61, ReentryVehicleMk21,
          Shell5In54];
@@ -1782,18 +1736,6 @@ public static class Arsenal
                 new(WeaponRole.FireControl, "Warhead deployment"),
 
                 // The bus's own, because nothing else can carry it yet: docs/GUIDANCE-SECTION.md.
-                new(WeaponRole.Guidance, "Ballistic computer"),
-            ],
-        },
-        new ComponentProfile
-        {
-            PartId = PostBoostBus.PartId,
-            Role = WeaponRole.Launcher,
-            DisplayName = PostBoostBus.DisplayName,
-            Provides =
-            [
-                new(WeaponRole.Sensor, BusDesignation.DisplayName),
-                new(WeaponRole.FireControl, "Warhead deployment"),
                 new(WeaponRole.Guidance, "Ballistic computer"),
             ],
         },

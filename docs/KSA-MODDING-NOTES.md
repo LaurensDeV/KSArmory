@@ -643,7 +643,8 @@ refuse the save — it terminates. There is no version field, no name match and 
 same positional pairing means a **reorder** silently applies one subpart's saved state to
 another.
 
-Craft files in the vehicle library are unaffected: they store no `<SubPartRef>` at all.
+A craft file in the vehicle library can carry `<SubPartRef>` too -- every design `tools/make-rocket.py`
+writes does -- so treat a design like a save.
 
 **So a shipped part's subpart list is append-only.** Before removing one, either accept that
 existing saves die, or leave the `<SubPart>` declared as an inert stub to hold the count.

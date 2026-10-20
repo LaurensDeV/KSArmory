@@ -907,8 +907,7 @@ LAUNCHER_GEOMETRY = {
     "NukeRack": (None, "nuclear rack"),       # beam generated, round authored -- as above
     "AmraamRail": (None, "AMRAAM rail"),      # authored -- see AUTHORED_LAUNCHERS below
     "HarmRail": (None, "HARM rail"),          # authored, as above
-    "MirvBus": (None, "MIRV bus"),            # authored, clustered -- CLUSTER_LAUNCHERS
-    "PostBoostBus": (None, "post-boost bus"), # authored, clustered -- CLUSTER_LAUNCHERS
+    "MirvBus": (None, "Heavy MIRV Bus"),      # authored, clustered -- CLUSTER_LAUNCHERS
     "Mk42": (None, "Mk 42 mount"),            # authored gun -- AUTHORED_GUNS below
     "M197": (None, "M197 chin turret"),       # authored gun -- AUTHORED_GUNS below
     "Yal1Beam": (None, "YAL-1 laser"),        # fires the director on its part; nothing of its own
@@ -1175,10 +1174,8 @@ def check_authored_launcher_geometry(profile, part_id, seat_id, mesh_id, munitio
 #
 #   profile -> (part Id, seat Id prefix, round's mesh Id, munition profile, count, label)
 CLUSTER_LAUNCHERS = {
-    "MirvBus": ("KSArmory_Prefab_MirvBus", "KSArmory_Mirv_Rv",
-                "KSArmory_Subpart_Rv", "ReentryVehicleMk21", 6, "MIRV bus"),
-    "PostBoostBus": ("KSArmory_Prefab_PostBoostBus", "KSArmory_PostBoost_Mirv_Rv",
-                     "KSArmory_Subpart_PostBoostRv", "ReentryVehicleMk21", 7, "post-boost bus"),
+    "MirvBus": ("KSArmory_Prefab_MirvBus", "KSArmory_PostBoost_Mirv_Rv",
+                "KSArmory_Subpart_PostBoostRv", "ReentryVehicleMk21", 7, "Heavy MIRV Bus"),
 }
 
 
@@ -1758,7 +1755,6 @@ def check_registered_part_ids():
 
 # Stacking parts left unsized, each with why. Anything added here nests into the tank it sits on.
 UNSIZED_STACK_CONNECTORS = {
-    "KSArmory_Prefab_MirvBus": "moving it changes the flown ICBM stack; the owner decides",
 }
 
 
