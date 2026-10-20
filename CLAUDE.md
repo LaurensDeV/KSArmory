@@ -512,6 +512,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/ChaffNotch.cs` | a tracking set losing a beaming target to chaff beside it — **notching**: both in the Doppler notch and a bigger return in the target's cell, decided by geometry rather than rolled; the track takes seconds to find again, and an optical channel then holds it until the target leaves the notch |
 | `Sim/Dispenser.cs` | a dispenser's magazine and the salvo it is working through, on simulated time — **one kind per part**, so the loadout is chosen by what is fitted; every dispenser of a load throws on each press, so a symmetric pair throws either side of the craft, and **auto-dispense** throws flares for a heat seeker coming for the craft, chaff for a radar one, both for anything else |
 | `Sim/SearchSetProfile.cs` | a part that is a search set and nothing else — an IRST bolted to a hull |
+| `Sim/SearchHead.cs` | where a search set's head looks — **at what its set holds, inside its travel, or sweeping a figure of eight**, each set at its own phase; drawn only, because the set sees its whole cone whichever way the head points |
 | `Sim/PictureChoice.cs` | one craft's picture from every set searching aboard it — **each contact once, a threat before a passer-by, and never a friendly handed out** |
 | `Sim/TrackState.cs` | one contact, as the threat model sees it |
 | `Sim/WatchChoice.cs` | which contact a director keeps looking at — **the one it holds until another is clearly more urgent**, because two near-equal contacts swap places on noise and the head of the list swings between them |
@@ -566,7 +567,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/WeaponSystems.cs` | one system per weapon fitted, crewed with the craft and followed across a split |
 | `Ksa/WeaponSystem.cs` | fire control, salvo logic, warhead effects, drives |
 | `Ksa/WeaponSystemRoles.cs` | **the slices consumers take** — effects, sights and cameras get a role, not the whole system |
-| `Ksa/SearchSets.cs` | one set per search part fitted — **keyed on the part itself**, because it carries no settings and no magazine, so a split needs no handover; its side is its craft's |
+| `Ksa/SearchSets.cs` | one set per search part fitted — **keyed on the part itself**, because it carries no settings and no magazine, so a split needs no handover; its side is its craft's; and its head turned behind the glass |
 | `Ksa/CraftPicture.cs` | the merged picture per craft — **derived every frame, as `Armaments` is**, and it hands out a handle, never a position: a director under **Track** and a beam on auto-engage take it below anything more specific |
 | `Ksa/Armaments.cs` | one coordinator per craft — **derived every frame, never pinned**, because it carries nothing a split could lose |
 | `Ksa/Radar.cs` | cone search, CPA threat model, lock |

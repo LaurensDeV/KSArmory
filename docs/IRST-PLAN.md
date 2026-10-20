@@ -107,16 +107,21 @@ locks on, without seeing the target itself.
   search on, swings onto it unaided.
 
 ### 5. The part — art first, a few sessions
-- Modelled in Blender per `.claude/skills/ksa-blender/SKILL.md`, after the Typhoon's PIRATE: a **ball
-  window looking forward out of a low teardrop fairing**: a 17 cm ball raised on a chin in a cowl raked
-  30° to face forward and up, behind a 10 mm rolled rim; convex flanks; and a foot 22 mm below the
-  mounting face so the hull hides the gap on a curved tank, which also lets the tail sink into the
-  skin. About 0.6 m long, 0.25 m wide and 0.21 m tall. Surface-attaching, so several turned different ways ring a hull for
-  all-round cover — the YAL-1's own layout. Geometry signed off before any unwrap or bake.
+- Modelled in Blender per `.claude/skills/ksa-blender/SKILL.md`, after the Typhoon's PIRATE: **a glass
+  dome over a sensor head that turns**, seated in a cowl raked 30° to face forward and up, in a convex
+  teardrop fairing whose foot is buried 22 mm below the mounting face so the hull hides the gap on a
+  curved tank. About 0.44 m long, 0.25 m wide and 0.23 m tall, the origin mid-footprint. Three
+  subparts: the body, the head (a lens on a yoke, turning about the dome's centre) and the glass, a
+  `PartModelGlass` — KSA draws that at a fixed 0.75 opacity, so the head shows dimly, as through tinted
+  glass. Surface-attaching, so several turned different ways ring a hull for all-round cover — the
+  YAL-1's own layout. Geometry signed off before any unwrap or bake.
+  - The head looks at what its set holds, or sweeps a figure of eight across its field
+    (`Sim/SearchHead.cs`), each set at its own phase. Drawn only: the set sees its whole cone.
   - A first blockout, a dome standing on a bolted octagonal plinth, was rejected: no airborne IRST
     looks like that, only a ship's deck mount does. A second, a ball in front of a fairing on a flat
     doubler, scored 4/10 for realism with three reviewers: the cowl stopped behind the ball, the
-    flanks were concave, and a flat plate floats off a curved hull.
+    flanks were concave, and a flat plate floats off a curved hull. A solid ball in a raked cowl
+    scored 5/10; a glass dome with the sensor visible behind it is how the real ones look.
 - Declared in `KSArmoryAssets.xml` / `KSArmoryGameData.xml`; registered as a `SensorProfile` with a
   forward cone of about 120° along the part's +Y (`BoresightMode.PartForward`) and a `ComponentProfile`; `validate-parts.py` and `checkmesh.py` clean.
 - Optional later: a pod form, a 2.5 m pylon store, for fighters.

@@ -19,7 +19,22 @@ internal sealed class SearchSet
         Part = part;
         Profile = profile;
         Radar = new Radar(config, SensorPolicy);
+        _scanSeconds = SearchHead.PhaseSeconds(profile, System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(part));
     }
+
+    private readonly PointingDrive _head = new();
+
+    // The head's clock. The engine's step carries the display's frame pacing, which would turn it
+    // three times as far on alternate frames.
+    private readonly SmoothedStep _headStep = new();
+
+    private double _scanSeconds;
+
+    // Latched, as a director's is: a refused write is not retried every frame.
+    private bool _headWorks = true;
+
+    /// <summary>Where the head is looking, in the part's frame.</summary>
+    public double3 HeadDirection => _head.Direction;
 
     public Part Part { get; }
 
@@ -59,6 +74,63 @@ internal sealed class SearchSet
 
         Radar.Sensor = Sensor;
         Radar.Scan(craft, Boresight, dt, airborne);
+
+        TurnHead(craft, dt);
+    }
+
+    private void TurnHead(Vehicle craft, double dt)
+    {
+        if (!_headWorks || Profile.HeadMarker is not { } marker) return;
+        if (FindSubPart(marker) is not { } head) return;
+
+        double step = _headStep.Next(dt);
+        _scanSeconds += step;
+
+        double3? toContact = null;
+        if (Radar.Watched is { } watched
+            && LauncherPart.TryPartPointEcl(craft, Part, Profile.HeadPivot, KsaWorld.PositionEcl(craft), out double3 pivotEcl)
+            && LauncherPart.TryDirectionToPartFrame(craft, Part, watched.PositionEcl - pivotEcl, out double3 partFrame))
+        {
+            toContact = partFrame;
+        }
+
+        double3 command = SearchHead.Command(Profile, toContact, _scanSeconds);
+        _head.Update(step, command, double.DegreesToRadians(Profile.HeadSlewDegPerSecond));
+
+        try
+        {
+            head.Asmb2ParentAsmb = OpticGeometry.Rotation(OpticGeometry.MountNormal, _head.Direction);
+            head.PositionParentAsmb = Profile.HeadPivot;
+
+            // Part caches its matrices; without this the new value is stored and ignored.
+            head.ResetCachedPosMatrixValues();
+        }
+        catch (Exception e)
+        {
+            _headWorks = false;
+            Log.Warn($"{Profile.DisplayName} head transform refused, holding it still: {e.Message}");
+        }
+    }
+
+    private Part? FindSubPart(string marker)
+    {
+        try
+        {
+            ReadOnlySpan<Part> subParts = Part.SubParts;
+            for (int i = 0; i < subParts.Length; i++)
+            {
+                if (subParts[i] is { } sub && sub.Id is { } id && id.Contains(marker, StringComparison.OrdinalIgnoreCase))
+                {
+                    return sub;
+                }
+            }
+        }
+        catch
+        {
+            // Part tree mid-rebuild.
+        }
+
+        return null;
     }
 }
 
