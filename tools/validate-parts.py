@@ -16,6 +16,12 @@ else in the toolchain would notice a rename.
 
     ./tools/validate-parts.py
     KSA_DIR=/path/to/KSA ./tools/validate-parts.py
+    ./tools/validate-parts.py --mod-root ../MyWeaponPack
+
+--mod-root checks a weapon pack instead: its mod.toml, the same four checks on its asset XML, and its
+KSArmory/*.xml against the parts it declares -- each PartId declared, each drive marker selecting one
+subpart, each round's body on its own launcher. The attributes themselves are KSArmory's reader's to
+judge, in game.
 
 Exits non-zero if anything is unresolved or the XML is malformed.
 """
@@ -80,7 +86,7 @@ def atlas_mesh_names(glb_path):
     return {m.get("name") for m in gltf.get("meshes", [])}
 
 
-def check_file(path, core_subparts, core_materials, core_substances):
+def check_file(path, core_subparts, core_materials, core_substances, own_prefixes=("KSArmory_",)):
     """Returns (problems, references checked) for one asset XML."""
     problems = checked = 0
 
@@ -145,7 +151,7 @@ def check_file(path, core_subparts, core_materials, core_substances):
         # instancing a KSArmory_* template that does not exist kills the game on load with
         # "PartTemplate is null", and detecting that needs no Core: a name used here is declared
         # here.
-        if source.startswith("KSArmory_") and source not in local_subparts:
+        if source.startswith(own_prefixes) and source not in local_subparts:
             print(f"  UNDECLARED SubPart InstanceOf=\"{source}\" - no such template in this file",
                   file=sys.stderr)
             problems += 1
@@ -1711,7 +1717,7 @@ UNSIZED_STACK_CONNECTORS = {
 }
 
 
-def check_stacking_connectors_sized():
+def check_stacking_connectors_sized(asset_paths=None, gamedata_paths=None):
     """Verifies every stacking connector declares a Scale equal to its part's diameter.
 
     Scale is a node's size, and KSA lets a part mate a tank's Internal node -- the nested one just
@@ -1720,11 +1726,11 @@ def check_stacking_connectors_sized():
     3 m part sinks onto that nested node: 8 cm into a 2 m tank and 24.5 cm into a 3 m one, with
     nothing reporting it.
     """
-    assets = ET.parse(MOD / "KSArmoryAssets.xml").getroot()
-    gamedata = ET.parse(MOD / "KSArmoryGameData.xml").getroot()
+    assets = [ET.parse(path).getroot() for path in asset_paths or [MOD / "KSArmoryAssets.xml"]]
+    gamedata = [ET.parse(path).getroot() for path in gamedata_paths or [MOD / "KSArmoryGameData.xml"]]
 
     diameters, surface = {}, set()
-    for data in gamedata.iter("PartGameData"):
+    for data in (d for root in gamedata for d in root.iter("PartGameData")):
         part = data.get("Id")
         diameter = data.find("Diameter")
         if diameter is not None:
@@ -1735,7 +1741,7 @@ def check_stacking_connectors_sized():
                 surface.add((part, connector.get("Id")))
 
     problems = checked = 0
-    for part in assets.iter("Part"):
+    for part in (p for root in assets for p in root.iter("Part")):
         part_id = part.get("Id")
         for connector in part.findall("Connector"):
             if (part_id, connector.get("Id")) in surface:
@@ -1757,6 +1763,211 @@ def check_stacking_connectors_sized():
     return problems, checked
 
 
+# The markers fire control drives an assembly through. Each has to select one subpart: LauncherPart
+# takes the first substring hit, so two hits drive whichever the XML lists first.
+PACK_DRIVE_MARKERS = {
+    "Launcher": ("TurretMarker", "PodsMarker", "GunsMarker", "RadarMarker", "OpticBaseMarker"),
+    "Optic": ("BaseMarker", "HeadMarker", "RollMarker"),
+}
+
+
+def pack_asset_paths(root):
+    """The asset XMLs a pack's mod.toml lists, and the problems with that list."""
+    toml = root / "mod.toml"
+    if not toml.is_file():
+        print(f"  MISSING mod.toml in {root}", file=sys.stderr)
+        return [], 1, 1
+
+    listed = re.findall(r'"([^"]+\.xml)"', toml.read_text())
+    problems, checked, paths = 0, 0, []
+    for name in listed:
+        checked += 1
+        path = root / name
+        if Path(name).parts[0] == "KSArmory":
+            print(f"  LISTED {name} -- a weapon file in mod.toml's assets is handed to KSA's own "
+                  f"loader and parsed by the wrong reader", file=sys.stderr)
+            problems += 1
+        elif not exists_case_exact(path):
+            print(f"  MISSING {name} -- listed in mod.toml, not on disk", file=sys.stderr)
+            problems += 1
+        else:
+            paths.append(path)
+
+    for path in sorted(root.glob("*.xml")):
+        checked += 1
+        if path.name not in listed:
+            print(f"  UNDECLARED {path.name} -- present but not in mod.toml's assets, so KSA "
+                  f"never loads it", file=sys.stderr)
+            problems += 1
+
+    return paths, problems, checked
+
+
+def pack_parts(asset_roots):
+    """Part Id -> its subpart instance Ids, and every subpart template Id, across a pack's assets."""
+    parts, templates = {}, set()
+    for root in asset_roots:
+        for part in root.iter("Part"):
+            parts[part.get("Id")] = [sub.get("Id") for sub in part.iter("SubPart") if sub.get("Id")]
+        for sub in root.iter("SubPart"):
+            if sub.get("InstanceOf") is None and sub.get("Id"):
+                templates.add(sub.get("Id"))
+    return parts, templates
+
+
+def check_pack_weapons(root, asset_roots, core_subparts, own_prefixes):
+    """A pack's weapon files against the parts it declares.
+
+    The reader inside KSArmory checks every attribute, but only in game and only against names: it
+    cannot see a part, so a PartId nothing declares or a marker matching no subpart loads cleanly and
+    fails silently in flight.
+    """
+    parts, templates = pack_parts(asset_roots)
+    problems = checked = 0
+
+    files = sorted((root / "KSArmory").glob("*.xml"))
+    if not files:
+        print(f"  no weapon files in {root / 'KSArmory'} -- KSArmory will find nothing here",
+              file=sys.stderr)
+        return 1, 1
+
+    for path in files:
+        try:
+            pack = ET.parse(path).getroot()
+        except ET.ParseError as exc:
+            print(f"  MALFORMED {path.relative_to(root)}: {exc}", file=sys.stderr)
+            problems += 1
+            continue
+        if pack.tag == "Bodies":
+            continue
+        print(f"  weapons: {path.relative_to(root)}")
+
+        rounds = {m.get("Name"): m for m in pack.iter("Munition")}
+
+        for el in [*pack.iter("Launcher"), *pack.iter("Optic")]:
+            part_id = el.get("PartId")
+            checked += 1
+            if part_id not in parts:
+                print(f"  UNDECLARED {el.tag} PartId=\"{part_id}\" -- no <Part> with that Id in the "
+                      f"pack's assets, so nothing in game ever matches it", file=sys.stderr)
+                problems += 1
+                continue
+            subparts = parts[part_id]
+
+            for field in PACK_DRIVE_MARKERS[el.tag]:
+                marker = el.get(field)
+                if marker is None:
+                    continue
+                checked += 1
+                hits = [sub for sub in subparts if marker.lower() in sub.lower()]
+                if len(hits) != 1:
+                    found = ", ".join(sorted(hits)) or "nothing"
+                    print(f"  {part_id} {field}=\"{marker}\" matches {found} -- it needs exactly "
+                          f"one subpart, or the drive moves nothing or the first one listed",
+                          file=sys.stderr)
+                    problems += 1
+
+            # Only this pack's own rounds; a qualified name is somebody else's and has its own art.
+            for attribute in ("Munition", "GunMunition"):
+                key = el.get(attribute)
+                if key is None or ":" in key or key not in rounds:
+                    continue
+                problems_here, checked_here = _check_pack_round(
+                    el.get("DisplayName") or part_id, subparts, rounds[key], attribute, templates,
+                    core_subparts, own_prefixes)
+                problems += problems_here
+                checked += checked_here
+
+    return problems, checked
+
+
+def _check_pack_round(launcher, subparts, round_el, attribute, templates, core_subparts, own_prefixes):
+    problems = checked = 0
+    name = round_el.get("Name")
+
+    def matching(marker):
+        return {sub for sub in subparts if marker.lower() in sub.lower()}
+
+    # A tube round's body is a subpart of the launcher; a gun round's is a template drawn per shell.
+    if attribute == "Munition":
+        body, fin = round_el.get("BodyMarker"), round_el.get("FinMarker")
+        for field, marker in (("BodyMarker", body), ("FinMarker", fin)):
+            if marker is None:
+                continue
+            checked += 1
+            if not matching(marker):
+                print(f"  {name}.{field}=\"{marker}\" matches no subpart of '{launcher}' -- the "
+                      f"round is released invisibly", file=sys.stderr)
+                problems += 1
+        if body and fin:
+            checked += 1
+            both = matching(body) & matching(fin)
+            if both:
+                print(f"  {name}: BodyMarker \"{body}\" and FinMarker \"{fin}\" both match "
+                      f"{', '.join(sorted(both))} -- those are collected as round bodies too",
+                      file=sys.stderr)
+                problems += 1
+
+    model = round_el.get("BodyModel")
+    if model is not None:
+        checked += 1
+        # Offline, a name outside the pack's own prefix may be Core's, which cannot be seen.
+        unseen = core_subparts is None and not model.startswith(own_prefixes)
+        if not unseen and model not in templates | (core_subparts or set()):
+            print(f"  {name}.BodyModel=\"{model}\" is no subpart template -- its shells draw as "
+                  f"streaks only", file=sys.stderr)
+            problems += 1
+
+    return problems, checked
+
+
+def validate_pack(root, core_subparts, core_materials, core_substances):
+    """Everything about a weapon pack that can be checked without the game running."""
+    problems = checked = 0
+    print(f"checking {root / 'mod.toml'}")
+    paths, p, c = pack_asset_paths(root)
+    problems += p
+    checked += c
+
+    asset_roots, gamedata_paths, part_paths = [], [], []
+    for path in paths:
+        try:
+            parsed = ET.parse(path).getroot()
+        except ET.ParseError as exc:
+            print(f"  MALFORMED {path.name}: {exc}", file=sys.stderr)
+            problems += 1
+            continue
+        asset_roots.append(parsed)
+        if any(True for _ in parsed.iter("PartGameData")):
+            gamedata_paths.append(path)
+        if any(True for _ in parsed.iter("Part")):
+            part_paths.append(path)
+
+    # The pack's own Ids, by the prefixes its parts carry; a template under one has to be declared here.
+    own = tuple(sorted({el.get("Id").split("_")[0] + "_"
+                        for r in asset_roots for el in r.iter("Part") if "_" in (el.get("Id") or "")}))
+    own = own or ("\0",)
+
+    for path in paths:
+        print(f"checking {path.name}")
+        p, c = check_file(path, core_subparts, core_materials, core_substances, own)
+        problems += p
+        checked += c
+
+    if part_paths and gamedata_paths:
+        print("checking every stacking connector is sized to its part")
+        p, c = check_stacking_connectors_sized(part_paths, gamedata_paths)
+        problems += p
+        checked += c
+
+    print("checking the weapon definitions against the parts")
+    p, c = check_pack_weapons(root, asset_roots, core_subparts, own)
+    problems += p
+    checked += c
+
+    return problems, checked
+
+
 def main():
     # Without the game installed, everything that depends only on the mod's own files can still
     # be checked -- and on Linux that includes case, which is the difference between a mod that
@@ -1765,7 +1976,10 @@ def main():
         description="Check the part XML, the launch geometry and the registry against each other.")
     parser.add_argument("--offline", action="store_true",
                         help="skip the checks that need KSA's Core assets")
-    offline = parser.parse_args().offline
+    parser.add_argument("--mod-root", type=Path, metavar="DIR",
+                        help="check a weapon pack's folder instead of KSArmory's own")
+    args = parser.parse_args()
+    offline = args.offline
 
     if offline:
         print("offline: skipping the checks that need KSA's Core assets\n")
@@ -1782,6 +1996,16 @@ def main():
         core_substances = declared.get("Substance", set())
         print(f"  {len(core_subparts)} subparts, {len(core_materials)} materials, "
               f"{len(core_substances)} substances declared\n")
+
+    if args.mod_root is not None:
+        problems, checked = validate_pack(args.mod_root.resolve(), core_subparts, core_materials,
+                                          core_substances)
+        print()
+        if problems:
+            print(f"FAILED: {problems} problem(s) across {checked} reference(s)", file=sys.stderr)
+            return 1
+        print(f"OK: {checked} reference(s) resolve")
+        return 0
 
     files = sorted(MOD.glob("KSArmory*.xml"))
     if not files:

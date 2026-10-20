@@ -6,8 +6,8 @@ name.** It looks in the same place inside every installed mod and reads what is 
 installing one is nothing but installing a mod.
 
 > **Status.** Everything described here is implemented and covered by tests, and a pack has been
-> registered in game — `CHECKLIST.md` 1.3 records what that flight did and did not reach. The two
-> things named at the end are not built. `KSArmory.Armoury.Schema` is `1`.
+> registered in game — `CHECKLIST.md` 1.3 records what that flight did and did not reach. The one
+> thing named at the end is not built. `KSArmory.Armoury.Schema` is `1`.
 
 **There is a complete worked example**: `KSArmory-example-mod` is this whole document as a folder
 you can copy — a bomb rack, its art and its definitions, with no code in it at all. Everything
@@ -346,6 +346,18 @@ profile, so a launcher naming it would load, fly, and throw a weapon you never s
 
 ## When something does not appear
 
+**Before launching the game**, run KSArmory's validator over your folder:
+
+```bash
+./tools/validate-parts.py --mod-root ../MyWeaponPack     # add --offline without a KSA install
+```
+
+It checks what the game would otherwise fail on silently: `mod.toml` listing a file that is not
+there or a weapon file it should not, a texture or mesh path that differs only in case, a `PartId`
+no `<Part>` declares, a drive marker matching no subpart or more than one, and a round's body or fin
+marker matching nothing on the launcher that carries it. It does not judge attributes; KSArmory's
+reader does that in game, and the log below is where it says so.
+
 Everything refused is written to `<KSA user dir>/Logs/KSArmory.log`, one line per fault, naming
 your pack, the definition and what was wrong. Check in this order:
 
@@ -405,6 +417,4 @@ files have to agree.
 
 Named so you do not go looking:
 
-- **No offline validator.** `tools/validate-parts.py` checks KSArmory's own art and does not yet
-  take a `--mod-root`.
 - **No in-game list.** Refusals are in the log; there is no panel window showing them.

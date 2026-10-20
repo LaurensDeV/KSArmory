@@ -287,6 +287,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/test.sh                            # guidance + fuse tests; needs the assemblies, not the game
 ./tools/test.sh --studies                  # ...the instruments instead -- what a push does not wait for
 ./tools/validate-parts.py                  # part XML, launch geometry, registered PartIds; runs in deploy.sh
+./tools/validate-parts.py --mod-root ../MyWeaponPack   # ...or a weapon pack's folder, against its own parts
 ./tools/pack-api.py --check                # has the API weapon packs bind to moved?
 ./tools/check-studies.py --check           # has a test been taken out of the push loop?
 ./tools/model/build.sh                     # rebuild the generated atlas and its palette (needs Blender)
