@@ -1,7 +1,7 @@
 # Finding targets for the directors: an infrared search part
 
-**A plan, not a record.** Tick each step as it lands. Steps 0–4 and 4b are built and none is flown;
-step 5's geometry is signed off and not yet declared.
+**A plan, not a record.** Tick each step as it lands. Steps 0–5 and 4b are built and none is flown;
+the panel (step 6) is not built.
 
 ## Why
 
@@ -133,6 +133,13 @@ locks on, without seeing the target itself.
     smooth skin. A tall smooth fairing with a recessed window and 5 mm bars scored 4/10 as a helmet.
 - Declared in `KSArmoryAssets.xml` / `KSArmoryGameData.xml`; registered as a `SensorProfile` with a
   forward cone of about 120° along the part's +Y (`BoresightMode.PartForward`) and a `ComponentProfile`; `validate-parts.py` and `checkmesh.py` clean.
+- [x] Built: `KSArmory_Prefab_Irst`, subparts body, head and glass in that order — append-only from
+  here — with `Arsenal.Irst` and a Sensor `ComponentProfile`. 40 kg, one 0.185 × 0.469 × 0.263 m
+  collider box above the mounting face. `validate-parts.py` holds `Arsenal.Irst.HeadPivot` to the
+  head's `<Position>`. The art's sources — `IRST.blend`, `irst_v21.py` and the prep, unwrap, bake,
+  compose and export scripts beside it — are in the art folder, outside this repository.
+- [ ] Not seen in game: whether KSA draws the glass over the head as expected, and whether the head
+  turns.
 - Optional later: a pod form, a 2.5 m pylon store, for fighters.
 
 ### 6. The panel — about half a day

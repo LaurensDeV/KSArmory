@@ -885,6 +885,35 @@
       </Box>
     </Collider>
   </PartGameData>
+  <PartGameData Id="KSArmory_Prefab_Irst" DisplayName="Infrared Search and Track Sensor">
+    <EditorTag Value="Sensors" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.26" />
+
+    <!-- Attaches by its flat bottom to a hull, a wing or a stack; the window looks along +Y. -->
+    <Connector Id="_irConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!-- About 40 kg: a cooled sensor head, its gimbal and processor, and the fairing. -->
+    <SolidSphereMass>
+      <Mass Kg="40" />
+      <Radius M="0.22" />
+    </SolidSphereMass>
+
+    <!-- Off the body's bounds above the mounting face; the 5 mm skirt below it sits in the host. -->
+    <Collider Id="KSArmory_IrstCollider">
+      <Box Id="KSArmory_IrstBodyCollider">
+        <LocationAsmb X="0.0925" Y="0.0168" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.185" />
+        <LengthY M="0.4686" />
+        <LengthZ M="0.263" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
   <PartGameData Id="KSArmory_Prefab_Ale47Flare" DisplayName="AN/ALE-47 Flare Dispenser">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />

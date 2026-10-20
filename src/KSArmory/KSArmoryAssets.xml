@@ -253,6 +253,18 @@
     <AoRoughMetal Path="Textures/KSArmory_Ciws_PBR.png" Category="Vessel" />
   </PbrMaterial>
 
+  <!--
+    The infrared search set's atlas: the fairing, the head that turns behind the window, and the
+    window's seven panes. Authored in Blender; the three bodies share one unwrap and one material.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_Irst.glb" />
+
+  <PbrMaterial Id="KSArmory_Irst_Material">
+    <Diffuse Path="Textures/KSArmory_Irst_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Irst_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Irst_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
   <!-- KAMAZ-6560 8x8 chassis: wheels, hull, deck, cab, stowage. -->
   <SubPart Id="KSArmory_Chassis_SubPart">
     <PartModel Id="KSArmory_Subpart_Chassis_Model">
@@ -487,6 +499,36 @@
     <MeshView>
       <Mesh Id="KSArmory_Ale47Chaff_VM" />
     </MeshView>
+  </SubPart>
+
+  <!-- The IRST's fairing and the bay behind its window. Fixed. -->
+  <SubPart Id="KSArmory_IrstBody_SubPart">
+    <PartModel Id="KSArmory_Subpart_IrstBody_Model">
+      <Mesh Id="KSArmory_Subpart_IrstBody" />
+      <Material Id="KSArmory_Irst_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_IrstBody_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- The sensor head, exported centred on the pivot it turns about. Drawn only. -->
+  <SubPart Id="KSArmory_IrstHead_SubPart">
+    <PartModel Id="KSArmory_Subpart_IrstHead_Model">
+      <Mesh Id="KSArmory_Subpart_IrstHead" />
+      <Material Id="KSArmory_Irst_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_IrstHead_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- The window: single-sided panes facing out, which KSA draws at a fixed 0.75 opacity. -->
+  <SubPart Id="KSArmory_IrstGlass_SubPart">
+    <PartModelGlass Id="KSArmory_Subpart_IrstGlass_Model">
+      <Mesh Id="KSArmory_Subpart_IrstGlass" />
+      <Material Id="KSArmory_Irst_Material" />
+    </PartModelGlass>
   </SubPart>
 
   <!-- The suspension rail. Nothing on it moves. -->
@@ -1996,6 +2038,31 @@
     AN/ALE-47 countermeasures dispensers, radially mounted. One kind per part, as a real magazine
     section is loaded: the flare module's fifteen 1x2-inch cells, the chaff module's thirty 1x1.
   -->
+  <!--
+    An infrared search set: a faceted window set flush in a low fairing, after the F-35's EOTS, with
+    a head that looks at what the set holds or sweeps its field. The window looks along +Y, so a
+    player turns the part on the hull to aim it.
+  -->
+  <Part Id="KSArmory_Prefab_Irst">
+    <SubPart Id="KSArmory_Irst_Body" InstanceOf="KSArmory_IrstBody_SubPart" />
+
+    <SubPart Id="KSArmory_Irst_Head" InstanceOf="KSArmory_IrstHead_SubPart">
+      <Transform>
+        <Position X="0.09000" Y="0.16650" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <SubPart Id="KSArmory_Irst_Glass" InstanceOf="KSArmory_IrstGlass_SubPart" />
+
+    <!-- Attaches by the fairing's flat bottom, which is the mesh origin's plane. -->
+    <Connector Id="_irConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+  </Part>
+
   <Part Id="KSArmory_Prefab_Ale47Flare">
     <SubPart Id="KSArmory_Ale47Flare_Body" InstanceOf="KSArmory_Ale47Flare_SubPart" />
 

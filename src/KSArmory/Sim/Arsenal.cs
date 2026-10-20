@@ -1592,8 +1592,21 @@ public static class Arsenal
     public static readonly IReadOnlyList<OpticProfile> Optics =
         [EoDirector, PantsirDirector, Litening, Yal1Turret];
 
-    /// <summary>Parts that only search. Empty until the IRST's part is declared.</summary>
-    public static readonly IReadOnlyList<SearchSetProfile> SearchSets = [];
+    /// <summary>
+    /// The IRST part. Its head turns about <see cref="SearchSetProfile.HeadPivot"/>, which the asset
+    /// XML's head <c>&lt;Position&gt;</c> repeats and validate-parts.py holds the two to.
+    /// </summary>
+    public static readonly SearchSetProfile Irst = new()
+    {
+        PartId = "KSArmory_Prefab_Irst",
+        DisplayName = "IRST",
+        Sensor = InfraredSearchSet.Name,
+        HeadMarker = "Irst_Head",
+        HeadPivot = new(0.09000, 0.16650, 0.00000),
+    };
+
+    /// <summary>Parts that only search.</summary>
+    public static readonly IReadOnlyList<SearchSetProfile> SearchSets = [Irst];
 
     public static readonly IReadOnlyList<DecoyProfile> Decoys = [FlareMju7, ChaffRr170];
     public static readonly IReadOnlyList<DispenserProfile> Dispensers = [Ale47Flare, Ale47Chaff];
@@ -1623,6 +1636,12 @@ public static class Arsenal
             // survey walks parts and finds it directly. Declaring one anyway mints a second row for
             // one object, filed under Sensors, with no control on it and nothing to say but that
             // there is no weapons system to belong to.
+        },
+        new ComponentProfile
+        {
+            PartId = Irst.PartId,
+            Role = WeaponRole.Sensor,
+            DisplayName = "Infrared Search and Track Sensor",
         },
         new ComponentProfile
         {
