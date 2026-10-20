@@ -2200,6 +2200,33 @@ and `validate-parts.py`; the C# is the LITENING's profile with other numbers.
 - [ ] It will not fire through its own airframe (the laser's MASK). Not reachable on a turret stacked
       on top of a tank, whose nod stops 30° below the horizon; it wants one mounted lower on a hull.
 
+### 7.6c-3 The IRST — a search set of its own, feeding the craft's picture
+
+Flown 2026-10-20 on the `IRST TEST` save (the `LITENING POD` craft with four IRSTs on its lower
+tank, each looking a different way round it) at 24.0S 62.0W, a stock Rocket parked 9.1 km east and
+flown straight up, read back with the bridge's `search`.
+
+- [x] Four `KSArmory_Prefab_Irst` load from a save and crew (`crewed IRST on NewRocket_1` x4); the
+      four boresights come in opposite pairs, as fitted.
+- [x] A craft parked with its engines out is not held: it is under the set's 15 m/s, as for every
+      search set.
+- [x] **A rocket under power is seen.** The east-facing set held `Target` at 9.1-9.5 km as it
+      climbed, at 413-422 kW/sr, not a threat (climbing away); the other three had it outside their
+      cones. The craft's picture handed it out.
+- [x] **The picture reaches a director.** The LITENING, with **Track** on and nothing shift-clicked,
+      read `aimed: Track`, `watching: Target`, on target with no drive error.
+- [x] The heads sweep with nothing held (four different directions, changing between reads) and the
+      one holding the rocket stopped sweeping and held 40 deg up out of its window, towards it. No
+      write was refused.
+- [x] The window draws as KSA glass: dark tinted panes with the facet seams showing, on the part,
+      from 4-6 m.
+- [ ] **The head is not visible behind the glass** from 4-6 m: dark glass at 0.75 over a black bay and
+      a dark head reads as one black window. Turning is confirmed by readback only, never by eye.
+- [ ] The editor: `Infrared Search and Track Sensor` under **Sensors**, surface-attaching, unrootable.
+- [ ] Engines-out and look-down ranges, a fighter-sized target, and a range against the 1 MN booster
+      in thin air: none flown.
+- [ ] The YAL-1's laser on auto-engage burning a contact from the picture.
+
 ### 7.6d The suspension rail — carriage gear the builder cannot place
 
 **Hidden rather than deleted.** A bare rail carries nothing and is registered as no launcher, so

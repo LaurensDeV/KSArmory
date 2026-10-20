@@ -425,6 +425,10 @@ TOOLS = {
                    "spot": {"type": "boolean"},
                    "lase": {"type": "boolean"}, "code": _num("1111-1788")}, ["craft"],
                   lambda a: [_text(json.dumps(send("optic", **a), indent=1))]),
+    "ksa_search": ("A craft's infrared search sets: each one's contacts (name, range, heat, threat), how many it "
+                   "found too faint, where its head points in the part frame, and what the craft's picture hands out.",
+                   {"craft": {"type": "string"}}, ["craft"],
+                   lambda a: [_text(json.dumps(send("search", **a), indent=1))]),
     "ksa_clouds": ("The cloud coverage maps a beam is stopped by, round a craft, as the mod reads them on the "
                    "CPU: per layer, rows north to south of tenths west to east, half_km either side, cells a side, round the "
                    "craft or round lat/lon on its body. A thin layer the beam passes through is left out.",

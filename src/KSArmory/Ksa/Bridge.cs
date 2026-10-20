@@ -51,8 +51,11 @@ internal sealed class Bridge : IViewPose
                   Func<IEnumerable<WeaponSystems.Entry>> systems, Func<IReadOnlyList<WeaponSystem>> loose,
                   Countermeasures countermeasures, Action<Vehicle> focus,
                   Func<IEnumerable<OpticalHeads.Entry>> heads,
-                  Func<Vehicle?, IcbmComputer?> computerFor)
+                  Func<Vehicle?, IcbmComputer?> computerFor,
+                  Func<IEnumerable<SearchSet>> searchSets, Func<Vehicle?, object?> pictureFor)
     {
+        _searchSets = searchSets;
+        _pictureFor = pictureFor;
         _computerFor = computerFor;
         _heads = heads;
         _loose = loose;
@@ -64,6 +67,8 @@ internal sealed class Bridge : IViewPose
     }
 
     private readonly Func<Vehicle?, IcbmComputer?> _computerFor;
+    private readonly Func<IEnumerable<SearchSet>> _searchSets;
+    private readonly Func<Vehicle?, object?> _pictureFor;
 
     private readonly Func<IEnumerable<WeaponSystems.Entry>> _systems;
     private readonly Func<IEnumerable<OpticalHeads.Entry>> _heads;
@@ -255,6 +260,7 @@ internal sealed class Bridge : IViewPose
             "load" => BeginLoad(command),
             "system" => System(command),
             "optic" => Optic(command),
+            "search" => Search(command),
             "clouds" => Clouds(command),
             "dispense" => Dispense(command),
             "fly" => Fly(command),
@@ -981,6 +987,52 @@ internal sealed class Bridge : IViewPose
         {
             ["layers"] = CloudLayers.CoverageAround(body, up, half, cells),
         });
+    }
+
+    // What a craft's search sets hold and where their heads look, and what its picture hands out.
+    private Reply Search(BridgeCommand command)
+    {
+        if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
+
+        List<object?> sets = [];
+        foreach (SearchSet s in _searchSets())
+        {
+            if (!ReferenceEquals(s.Craft, craft)) continue;
+
+            List<object?> tracks = [];
+            foreach (Track t in s.Radar.Tracks)
+            {
+                tracks.Add(new Dictionary<string, object?>
+                {
+                    ["name"] = t.Contact.DisplayName,
+                    ["range_m"] = Math.Round(t.Range),
+                    ["heat_kw_sr"] = Math.Round(t.Contact.HeatKwPerSr, 2),
+                    ["threat"] = t.IsThreat,
+                });
+            }
+
+            double3 h = s.HeadDirection;
+            sets.Add(new Dictionary<string, object?>
+            {
+                ["part"] = s.Profile.PartId,
+                ["tracks"] = tracks,
+                ["too_faint"] = s.Radar.TooFaint,
+                ["masked"] = s.Radar.MaskedByTerrain,
+                ["watched"] = s.Radar.Watched?.Contact.DisplayName,
+                ["head_part_frame"] = new[] { Math.Round(h.X, 3), Math.Round(h.Y, 3), Math.Round(h.Z, 3) },
+                ["boresight_ecl"] = new[] { Math.Round(s.Boresight.X, 3), Math.Round(s.Boresight.Y, 3), Math.Round(s.Boresight.Z, 3) },
+            });
+        }
+
+        object? best = _pictureFor(craft);
+        string? bestName = best switch
+        {
+            Vehicle v => KsaWorld.DisplayName(v),
+            IProjectile => "a round",
+            _ => null,
+        };
+
+        return Done(new() { ["sets"] = sets, ["picture_best"] = bestName });
     }
 
     private Reply Optic(BridgeCommand command)

@@ -250,7 +250,8 @@ public sealed class KSArmoryMod
             _bridge = new Bridge(_config, craft => _roster?.For(craft)?.Weapon,
                                  () => _roster?.All ?? [], () => _roster?.Loose ?? [],
                                  _countermeasures, craft => _ui?.Manage(craft),
-                                 () => _heads?.All ?? [], craft => _icbms?.For(craft));
+                                 () => _heads?.All ?? [], craft => _icbms?.For(craft),
+                                 () => _searchSets?.All ?? [], _picture.BestFor);
         }
 
         Log.Info(Build.Developer

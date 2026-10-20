@@ -138,8 +138,12 @@ locks on, without seeing the target itself.
   collider box above the mounting face. `validate-parts.py` holds `Arsenal.Irst.HeadPivot` to the
   head's `<Position>`. The art's sources — `IRST.blend`, `irst_v21.py` and the prep, unwrap, bake,
   compose and export scripts beside it — are in the art folder, outside this repository.
-- [ ] Not seen in game: whether KSA draws the glass over the head as expected, and whether the head
-  turns.
+- [x] Flown 2026-10-20 (CHECKLIST 7.6c-3): four on a craft crew, one sees a rocket under power at
+  9.1-9.5 km and the picture hands it to the LITENING under **Track**; the window draws as glass and
+  the heads sweep and hold, by readback.
+- [ ] The head cannot be seen behind the glass: dark tint at KSA's fixed 0.75 over a black bay and a
+  dark head is one black window from a few metres. A lighter tint, a lighter bay or a brighter lens
+  would show it; none is tried.
 - Optional later: a pod form, a 2.5 m pylon store, for fighters.
 
 ### 6. The panel — about half a day
