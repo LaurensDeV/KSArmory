@@ -408,10 +408,12 @@ with. What it cannot do is add a *kind*:
 Those are C# changes to KSArmory itself. If you want one, `MODULARITY.md` is the argument about
 what each would cost and `EXTENSIBILITY.md` is where a registration seam for them would go.
 
-Two more limits are KSA's rather than ours: there is **no damage below destruction**, so armour and
-penetration are not expressible at any level of cleverness; and there is **no part module**, so a
-part cannot *say* what it is — KSArmory recognises it by part Id, which is why the Ids in your two
-files have to agree.
+**Armour and penetration** are not expressible either. Parts take damage one by one and keep their
+health between hits, but every part takes a hit alike: a pack can set how big a charge is, not what
+a part is made of.
+
+One more limit is KSA's rather than ours: there is **no part module**, so a part cannot *say* what
+it is — KSArmory recognises it by part Id, which is why the Ids in your two files have to agree.
 
 ## Not built yet
 
