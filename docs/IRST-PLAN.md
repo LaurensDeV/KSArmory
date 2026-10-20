@@ -107,18 +107,20 @@ locks on, without seeing the target itself.
   search on, swings onto it unaided.
 
 ### 5. The part — art first, a few sessions
-- Modelled in Blender per `.claude/skills/ksa-blender/SKILL.md`, after the F-35's EOTS: **a smooth
-  convex fairing whose nose rolls in to a faceted window set nearly flush** — seven flat panes, a
-  hexagonal front one facing forward and 30° up ringed by six trapezoids tilted 26° to it, with 5 mm
-  frame bars on every pane edge — over a sensor head that turns in a round bay behind them. The front
-  of the fairing is its own outline laid on the window's plane, so the nose grows out of the flanks
-  and the chin out of the hull with no waist; the foot is buried 22 mm below the mounting face so the
-  hull hides the gap on a curved tank, and the tail sinks into the skin. About 0.48 m long, 0.25 m
-  wide and 0.23 m tall, the origin mid-way along where the fairing meets the skin. Three subparts:
-  the body, the head (a lens on a yoke) and the glass, a `PartModelGlass` — KSA draws that at a fixed
-  0.75 opacity, so the head shows dimly, as through tinted glass. Surface-attaching, so several turned
-  different ways ring a hull for all-round cover — the YAL-1's own layout. Geometry signed off before
-  any unwrap or bake.
+- Modelled in Blender per `.claude/skills/ksa-blender/SKILL.md`, after the F-35's EOTS: **a low smooth
+  fairing whose nose rolls in to a faceted window set flush** — seven flat panes, a hexagonal front one
+  facing forward and 20° up ringed by six trapezoids only 6° off it, with 3 mm frame bars on the seams
+  standing 0.6 mm proud — over a sensor head that turns in a round bay behind them. The nose runs to a
+  round opening and takes the hexagon only at its edge, so the facets crease the skin at the window and
+  nowhere else; its top stays level with the crown, so the top line runs in one curve to the tail. A
+  bell-shaped section with a fillet crossing into the hull at about 20°, a foot buried 22 mm below the
+  mounting face and deepening by y²/1.25 towards the ends so a 1.25 m tank hides the gap, and a tail
+  that sinks into the skin. About 0.44 m long, 0.23 m wide and 0.19 m tall, the origin mid-way along
+  where the fairing meets the skin. Three subparts: the body, the head (a lens on a yoke, at 0.85 scale
+  so the hump can sit low) and the glass, a `PartModelGlass` — KSA draws that at a fixed 0.75 opacity,
+  so the head shows dimly, as through tinted glass. Surface-attaching, so several turned different ways
+  ring a hull for all-round cover — the YAL-1's own layout. Geometry signed off before any unwrap or
+  bake.
   - The head looks at what its set holds, or sweeps a figure of eight across its field
     (`Sim/SearchHead.cs`), each set at its own phase. Drawn only: the set sees its whole cone.
   - A first blockout, a dome standing on a bolted octagonal plinth, was rejected: no airborne IRST
@@ -127,7 +129,7 @@ locks on, without seeing the target itself.
     flanks were concave, and a flat plate floats off a curved hull. A solid ball in a raked cowl
     scored 5/10, and a glass dome over a turning head read as too round. A faceted housing with a
     gem of a window read as too blocky: on the EOTS only the window is faceted, set nearly flush in
-    smooth skin.
+    smooth skin. A tall smooth fairing with a recessed window and 5 mm bars scored 4/10 as a helmet.
 - Declared in `KSArmoryAssets.xml` / `KSArmoryGameData.xml`; registered as a `SensorProfile` with a
   forward cone of about 120° along the part's +Y (`BoresightMode.PartForward`) and a `ComponentProfile`; `validate-parts.py` and `checkmesh.py` clean.
 - Optional later: a pod form, a 2.5 m pylon store, for fighters.
