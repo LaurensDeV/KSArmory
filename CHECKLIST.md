@@ -128,11 +128,15 @@ flown.** `Brutal.Core.Numerics`, `Common`, `Strings` and five siblings lost thei
 became `Brutal.Core`); the types and namespaces are identical, so only the references moved, and a mod
 built against the old names cannot load. That includes **StarMap 0.4.7 itself**, which throws
 `Could not load file or assembly 'Brutal.Core.Numerics'` before starting the game
-(StarMapLoader/StarMap#91, open), so nothing here could be flown. ModMenu and KSACars reference the
+(StarMapLoader/StarMap#91, open). Flown instead on 0.4.7 rebuilt against 5638, with a type-load
+failure in one mod skipping that mod rather than ending the process, and ModMenu 0.2.2 rebuilt the same
+way; the originals are in `StarMap-0.4.7-original/` and `mods-backup/`. ModMenu and KSACars reference the
 old names too. Every contract in the upgrade skill reads the same; no XML element or attribute the mod
 writes moved. Once a StarMap that loads 5638 is installed:
 
-- [ ] **`head-on`**, and the stamp reading `built for KSA 2026.10.19.5638, running 2026.10.19.5638`.
+- [x] **`head-on`** **PASS**, flown 2026-10-20 on a locally rebuilt StarMap 0.4.7 and ModMenu 0.2.2
+      (see above): the AIM-9J burst 15 m from the drone and broke 7 parts off it, the far-launcher draw
+      hook fired, and the stamp read `built for KSA 2026.10.19.5638, running 2026.10.19.5638 - reporting on`.
 - [ ] **A split leaves the staging list where it was.** `SequenceList.Add` no longer advances
       `ActiveSequence` when a rebuild finds a new low-numbered sequence; it marks it `Activated`
       instead. `LauncherSeparation` skips activated sequences — fly a MIRV shot and a rail drop and
