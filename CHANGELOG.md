@@ -1,3 +1,62 @@
+## [0.9.7](https://github.com/LaurensDeV/KSArmory/compare/v0.9.6...v0.9.7) (2026-10-20)
+
+### Features
+
+* **icbm:** a map window of our own to set targets on ([5b15684](https://github.com/LaurensDeV/KSArmory/commit/5b1568462f658f625e081cf3043b6921badcaebd))
+* **icbm:** draw what a warhead does to the ground round each target ([ff4e0a4](https://github.com/LaurensDeV/KSArmory/commit/ff4e0a4eab8152d6433c9167c1032f3d5a4166b7))
+* **icbm:** join each rocket's targets and label only the selected one ([9e90063](https://github.com/LaurensDeV/KSArmory/commit/9e90063808084656ca4ebce951362ab3a905bf20))
+* **icbm:** make the map a tool you can actually aim with ([1210c35](https://github.com/LaurensDeV/KSArmory/commit/1210c35d4185fcaebce137a27feacf037aac77f9))
+* **icbm:** set ballistic targets by clicking the ground-track map ([9294474](https://github.com/LaurensDeV/KSArmory/commit/929447439c09e946548db28e4af11df486df49e0))
+* **icbm:** weight the warheads by clicking the map ([d1ea7c0](https://github.com/LaurensDeV/KSArmory/commit/d1ea7c032c2e6f2b77bcb9acb6de0233a869fc84))
+* **mirv:** declare the heavy post-boost bus ([edc9256](https://github.com/LaurensDeV/KSArmory/commit/edc92569ea862cb35b0bf4f9bd8ba4598d5bbeee))
+* **mirv:** let a bus be sent to seven places, one per post-boost RV ([1eb4ccd](https://github.com/LaurensDeV/KSArmory/commit/1eb4ccdad9d39b1cc007b7cad8737ded2b421ccf))
+* **mirv:** release every RV nose-first along the airflow it will meet ([5dd6e44](https://github.com/LaurensDeV/KSArmory/commit/5dd6e4425a69dc19b8b02245dde880339f2f8163))
+* **mirv:** replace the Heavy MIRV Bus with the seven-RV bus ([54a4868](https://github.com/LaurensDeV/KSArmory/commit/54a4868293decfaa1597f68aa77c0dd3b6e6afcb))
+* **nuclear:** light a burst's aurora on KSA's own field, drawn as KSA's ([1d4f477](https://github.com/LaurensDeV/KSArmory/commit/1d4f4770fc36178429bf32c0fd699c7fc232901b))
+* **nuclear:** make bursts radioactive on KSA's Radiation gauge ([c3ae81a](https://github.com/LaurensDeV/KSArmory/commit/c3ae81a08d4f527bdb132f5aab8991a60368f903))
+* **optic:** add the YAL-1 nose turret as a roll-nod director ([d236fec](https://github.com/LaurensDeV/KSArmory/commit/d236fecf7f00245db333a267575804c8d7b7f627))
+* **optic:** draw the YAL-1's beam as a green column on the GPU ([1a726fa](https://github.com/LaurensDeV/KSArmory/commit/1a726faf07eaf037be18d5e628bb49e005c0a9e7))
+* **optic:** draw the YAL-1's beam as the light it scatters ([9f2f9e3](https://github.com/LaurensDeV/KSArmory/commit/9f2f9e36ea1d3ad0e8411a4461c9fec7a964afff))
+* **optic:** fire the YAL-1's laser as a weapon from cued-only directors ([feb8cf6](https://github.com/LaurensDeV/KSArmory/commit/feb8cf6eb30dc9e4933f9d74e848c0b3c03c5d78))
+* **optic:** fire the YAL-1's megawatt beam ([1559888](https://github.com/LaurensDeV/KSArmory/commit/1559888ca8e832ef731c18db00947ef0f5f95c42))
+* **optic:** stop the YAL-1's beam in overcast and light the cloud base ([d71b1ae](https://github.com/LaurensDeV/KSArmory/commit/d71b1ae232324f10bb5c224654f945ae4b6f6f4d))
+* **optic:** zoom the YAL-1's turret to its telescope's 1 mrad field ([ef004f7](https://github.com/LaurensDeV/KSArmory/commit/ef004f796089e0a914345aa118e18ed3d40a1805))
+* **rounds:** light a reentry vehicle's spin motors clear of its bus ([9b380ad](https://github.com/LaurensDeV/KSArmory/commit/9b380ad188029cade0825ddabe40afd65d76dbec))
+* **rounds:** spin the post-boost bus's RVs on their base motors ([aab4f11](https://github.com/LaurensDeV/KSArmory/commit/aab4f11205c4bae7d89c3327655535e1bf5ad03c))
+* **sensor:** an infrared search part with a head that turns ([619ca93](https://github.com/LaurensDeV/KSArmory/commit/619ca93f98de3700e824d420eb109f6818df29af))
+* **ui:** show what each IRST holds and where a director's cue came from ([3fa640d](https://github.com/LaurensDeV/KSArmory/commit/3fa640d6513797a9922ab1c500b1e5eabc04cdc7))
+
+### Fixes
+
+* **camera:** lean the chase off the axis KSA's camera cannot cross ([ad49f3b](https://github.com/LaurensDeV/KSArmory/commit/ad49f3bb436f2799c6225bf0b8ab435d5b71a298))
+* **gun:** hold a designated craft's ground contact through a bounce ([231564a](https://github.com/LaurensDeV/KSArmory/commit/231564a5d2d869f22f999c702ff97accb958cfa2))
+* **icbm:** fit the map to its shape instead of stretching it ([655f1f8](https://github.com/LaurensDeV/KSArmory/commit/655f1f8fbefc6aa9d1ba7e4e8b632e29201ca41d))
+* **icbm:** judge the map's dateline against the world, not the zoom ([aa5c7fb](https://github.com/LaurensDeV/KSArmory/commit/aa5c7fb02dab6d31cc27c3ea7d75884a571b1441))
+* **icbm:** let a drifting hold drop KSA's own attitude hold too ([dcdb5a7](https://github.com/LaurensDeV/KSArmory/commit/dcdb5a70b0f804d190923eb9dbaa695b75a15823))
+* **icbm:** say when a click will replace the target set, not add to it ([1703ef9](https://github.com/LaurensDeV/KSArmory/commit/1703ef91b30aa7b1f3e3673cc77ff130edfe0d2a))
+* **mirv:** hold the coast warp off while warheads are in the air ([43a28da](https://github.com/LaurensDeV/KSArmory/commit/43a28da411ecd451bf605b53a540edf009584bf3))
+* **mirv:** judge the aim's departure before carrying it to the release ([a9de731](https://github.com/LaurensDeV/KSArmory/commit/a9de731a221bff5f009f11f66b35b2fc1ce2e981))
+* **model:** bake the YAL-1's seam and markings without stair-steps ([b59a7a5](https://github.com/LaurensDeV/KSArmory/commit/b59a7a574b2a09006ea27f926b6af8e5ccf5f977))
+* **model:** paint the YAL-1 window as a telescope, not an eye ([ebe5d3b](https://github.com/LaurensDeV/KSArmory/commit/ebe5d3b59ed7d5e3663538c8905d990d4906d5c6))
+* **model:** take the orange off the reentry vehicle's outer skin ([006535c](https://github.com/LaurensDeV/KSArmory/commit/006535cda9b16727b321bc9b10633ab92588d448))
+* **optic:** draw the YAL-1 beam into open sky and fade it with the air ([74cab97](https://github.com/LaurensDeV/KSArmory/commit/74cab97b1f310da081562d975af91f5d91823623))
+* **optic:** draw the YAL-1's beam as a rod, not a wall ([a2ef94e](https://github.com/LaurensDeV/KSArmory/commit/a2ef94e5505aa94442d3ac11d67d4b92afa7d288))
+* **optic:** hide the YAL-1 beam behind the cloud deck it climbs into ([16d494b](https://github.com/LaurensDeV/KSArmory/commit/16d494b9e08a787f2711729c85a8b8d541b05a64))
+* **optic:** let a shift-click reach every director on the craft ([29be751](https://github.com/LaurensDeV/KSArmory/commit/29be7514468a27ee64985e942348ef9515b6cf3f))
+* **packs:** name the refusal behind an unresolved pack reference ([6d8173a](https://github.com/LaurensDeV/KSArmory/commit/6d8173afb253a25f8538f237c4daf25c364daaa4))
+* **parts:** list the YAL-1 turret under Weapons, not Sensors ([2405e31](https://github.com/LaurensDeV/KSArmory/commit/2405e31a13d50cefde97d8f66710798d4acaa191))
+* **rounds:** draw a round far from its launcher placed off the camera ([f85f53f](https://github.com/LaurensDeV/KSArmory/commit/f85f53fd3927cb70264996146e9b1f07ea831703))
+* **sensor:** show the IRST's head behind its glass ([2a1851b](https://github.com/LaurensDeV/KSArmory/commit/2a1851b0d2f12785437c7d8306cf68640687bf0d))
+* **sight:** draw the sight's text on whole pixels ([5a3db50](https://github.com/LaurensDeV/KSArmory/commit/5a3db50d58327acb135de67995b95fed7f3d12a4))
+* **ui:** call the YAL-1's beam supply chemicals, not a magazine ([24bda23](https://github.com/LaurensDeV/KSArmory/commit/24bda23b58f8601ba90a0ce778349f6e625f5c90))
+* **ui:** list the YAL-1's turret once, not twice ([d7f45af](https://github.com/LaurensDeV/KSArmory/commit/d7f45afa4086ee6fb6122d98ac11329422ffc899))
+* **ui:** spawn test targets past a craft with no weapons system ([feaf1d5](https://github.com/LaurensDeV/KSArmory/commit/feaf1d5b90ef0f89cd08be71d584d6fe98982a1d))
+* **ui:** stand the lock cue down over a spent launcher's rounds ([218b863](https://github.com/LaurensDeV/KSArmory/commit/218b8631b988486684e842b63fa117e01df8cf46))
+
+### Build and packaging
+
+* **ksa:** retarget 2026.10.19.5638 ([f553c09](https://github.com/LaurensDeV/KSArmory/commit/f553c09177de6f36b31c1e3be078de1f2a8f7a10)), closes [StarMapLoader/StarMap#91](https://github.com/StarMapLoader/StarMap/issues/91)
+
 ## [0.9.6](https://github.com/LaurensDeV/KSArmory/compare/v0.9.5...v0.9.6) (2026-10-13)
 
 ### Features
