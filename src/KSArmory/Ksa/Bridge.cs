@@ -399,15 +399,26 @@ internal sealed class Bridge : IViewPose
             return Failed($"no craft named {wanted} to designate");
         }
 
+        Aimpoint Aim() => command.String("at_craft") is { Length: > 0 } named && CraftNamed(named) is { } target
+                              ? Aimpoint.OnVehicle(target, KsaWorld.PositionEcl(target), KsaWorld.VelocityEcl(target),
+                                                   KsaWorld.MeanRadius(target))
+                              : KsaWorld.TryAnchorToGround(at, out object? anchorBody, out double3 anchor)
+                                  ? Aimpoint.OnGround(anchorBody!, anchor, at, Vec.Zero)
+                                  : Aimpoint.AtPoint(at);
+
+        // A beam is cued and pressed; its director does the laying, and a press made while it slews waits.
+        if (weapon.TriggerArmament == ArmamentKind.Beam)
+        {
+            weapon.Designate(Aim(), "a bridge point");
+            return weapon.FireAtLock()
+                       ? Done(new() { ["lasing"] = true, ["weapon"] = weapon.Profile.DisplayName,
+                                      ["beam_s_left"] = weapon.BeamSecondsLeft })
+                       : Failed($"refused: {weapon.TriggerHold?.Reason}");
+        }
+
         if ((belt || weapon.Profile.Trains) && command.Flag("lay", true))
         {
-            Aimpoint aim = command.String("at_craft") is { Length: > 0 } named && CraftNamed(named) is { } target
-                               ? Aimpoint.OnVehicle(target, KsaWorld.PositionEcl(target), KsaWorld.VelocityEcl(target),
-                                                    KsaWorld.MeanRadius(target))
-                               : KsaWorld.TryAnchorToGround(at, out object? anchorBody, out double3 anchor)
-                                   ? Aimpoint.OnGround(anchorBody!, anchor, at, Vec.Zero)
-                                   : Aimpoint.AtPoint(at);
-            weapon.Designate(aim, "a bridge point");
+            weapon.Designate(Aim(), "a bridge point");
 
             int frames = 0;
             double waited = 0.0;
@@ -906,11 +917,13 @@ internal sealed class Bridge : IViewPose
             if (command.Has("protect")) p.ProtectControlledVehicle = command.Flag("protect", p.ProtectControlledVehicle);
             if (command.Has("silent")) p.RadarSilent = command.Flag("silent", p.RadarSilent);
             if (command.Has("guns")) p.GunsEnabled = command.Flag("guns", p.GunsEnabled);
+            if (command.Has("beam")) p.BeamEnabled = command.Flag("beam", p.BeamEnabled);
             if (command.Has("chase")) p.ChaseRounds = command.Flag("chase", p.ChaseRounds);
 
             string trigger = command.String("trigger");
             if (trigger == "cannon") e.Weapon.TriggerArmament = ArmamentKind.Belt;
             else if (trigger == "tubes") e.Weapon.TriggerArmament = ArmamentKind.Tubes;
+            else if (trigger == "beam") e.Weapon.TriggerArmament = ArmamentKind.Beam;
 
             string seeker = command.String("seeker");
             if (seeker.Length > 0)
@@ -933,7 +946,15 @@ internal sealed class Bridge : IViewPose
             {
                 ["launcher"] = e.Weapon.Profile.DisplayName,
                 ["auto_engage"] = p.AutoEngage,
-                ["trigger"] = e.Weapon.TriggerArmament == ArmamentKind.Belt ? "cannon" : "tubes",
+                ["trigger"] = e.Weapon.TriggerArmament switch
+                {
+                    ArmamentKind.Belt => "cannon",
+                    ArmamentKind.Beam => "beam",
+                    _ => "tubes",
+                },
+                ["hold"] = e.Weapon.Hold,
+                ["beam_s_left"] = e.Weapon.Profile.FiresBeam ? e.Weapon.BeamSecondsLeft : null,
+                ["beam_lasing"] = e.Weapon.Profile.FiresBeam ? e.Weapon.BeamLasing : null,
                 ["protect"] = p.ProtectControlledVehicle,
                 ["guidance"] = e.Weapon.Munition.Guidance.ToString(),
                 ["band"] = e.Weapon.Munition.Band.ToString(),
@@ -990,6 +1011,7 @@ internal sealed class Bridge : IViewPose
 
             if (command.Has("magnification")) p.Magnification = SightZoom.Clamp(command.Number("magnification", 1.0));
             if (command.Has("tracking")) p.Tracking = command.Flag("tracking", p.Tracking);
+            if (command.Has("spot")) p.SpotSearch = command.Flag("spot", p.SpotSearch);
             if (command.Has("bearing_deg") || command.Has("elevation_deg"))
             {
                 p.Manual = true;
@@ -1026,6 +1048,8 @@ internal sealed class Bridge : IViewPose
                 row["beam_range_m"] = e.Head.BeamOn ? Vec.Len(e.Head.BeamToEcl - e.Head.BeamFromEcl) : null;
                 row["burning"] = e.Head.Burning is { } part ? $"{part.Id} {PartHealth.World.Of(part):P0} left" : null;
                 row["in_cloud"] = e.Head.InCloud;
+                row["spot_found_m"] = e.Head.FoundSpot is { } spot && e.Head.TryOpticViewEcl(out double3 eye, out _)
+                                          ? Math.Round(Vec.Len(spot - eye)) : null;
             }
 
             if (p.Viewport >= 0)
