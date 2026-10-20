@@ -49,6 +49,9 @@ internal interface IContact
     /// <summary>Radius, which the blast and the reticle both size from.</summary>
     double MeanRadius { get; }
 
+    /// <summary>How hot it looks to an infrared set, in kW/sr (<see cref="Signature"/>).</summary>
+    double HeatKwPerSr { get; }
+
     /// <summary>False once it is gone, so fire control can drop it.</summary>
     bool IsAlive { get; }
 
@@ -114,6 +117,8 @@ internal sealed class VehicleContact(Vehicle vehicle) : IContact
     public Vehicle? LaunchedFrom => null;
 
     public double MeanRadius => KsaWorld.MeanRadius(Vehicle);
+
+    public double HeatKwPerSr => KsaWorld.HeatOf(Vehicle);
 
     public bool IsAlive => KsaWorld.IsAlive(Vehicle);
 

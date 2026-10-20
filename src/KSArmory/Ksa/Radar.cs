@@ -74,6 +74,12 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     /// </summary>
     public int MaskedByBurst { get; private set; }
 
+    /// <summary>
+    /// Contacts in an <see cref="SensorProfile.Infrared"/> set's cone the last scan found too cool to
+    /// see at their range, counted for the same reason.
+    /// </summary>
+    public int TooFaint { get; private set; }
+
     /// <summary>Contacts the last scan lost to chaff beside them in the notch. See <see cref="ChaffNotch"/>.</summary>
     public int LostToChaff { get; private set; }
 
@@ -130,6 +136,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         _byHandle.Clear();
         MaskedByTerrain = 0;
         MaskedByBurst = 0;
+        TooFaint = 0;
         LostToChaff = 0;
         IgnoredWreckage = 0;
         _notch.BeginScan(dt);
@@ -149,7 +156,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         double3 originEcl = KsaWorld.PositionEcl(platform);
         double3 originVel = KsaWorld.VelocityEcl(platform);
 
-        // Once per scan, not once per contact. Only the clutter floor reads it, and the body every
+        // Once per scan, not once per contact. The clutter floor and the look-down read it, and the body every
         // contact is measured against is the one under the set rather than the one under each of
         // them -- a set does not see a target against a different planet's ground.
         KsaWorld.MeanSphereUnder(originEcl, out double3 groundCentre, out double groundRadius);
@@ -170,7 +177,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
                 continue;
             }
 
-            Consider(new VehicleContact(candidate), originEcl, originVel, boresight, dt,
+            Consider(new VehicleContact(candidate), platform, originEcl, originVel, boresight, dt,
                      groundCentre, groundRadius);
         }
 
@@ -189,7 +196,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
                 if (ReferenceEquals(airborne[i].LaunchedFrom, platform)) continue;
                 if (_sensor.CuedOnly && !ReferenceEquals(airborne[i].Handle, Cue)) continue;
 
-                Consider(airborne[i], originEcl, originVel, boresight, dt, groundCentre, groundRadius);
+                Consider(airborne[i], platform, originEcl, originVel, boresight, dt, groundCentre, groundRadius);
             }
         }
 
@@ -215,7 +222,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     // One contact, through the same geometry, masking and IFF a craft gets. Anything that only a
     // craft can answer is already behind IContact, so there is nothing here that knows the
     // difference.
-    private void Consider(IContact contact, double3 originEcl, double3 originVel,
+    private void Consider(IContact contact, Vehicle platform, double3 originEcl, double3 originVel,
                           double3 boresight, double dt, double3 groundCentre, double groundRadius)
     {
         if (!contact.IsAlive) return;
@@ -249,6 +256,16 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
 
         if (!ThreatModel.TryAssess(targetPos - originEcl, targetVel - originVel,
                                    boresight, _sensor, signature, out var a)) return;
+
+        if (_sensor.Infrared
+            && !InfraredSearch.Sees(_sensor, contact.HeatKwPerSr, originEcl, targetPos,
+                                    KsaWorld.AirDensityRatioAt(platform, originEcl),
+                                    KsaWorld.AirDensityRatioAt(platform, targetPos),
+                                    groundCentre, groundRadius))
+        {
+            TooFaint++;
+            return;
+        }
 
         // Chaff in the notch, which takes the track rather than hiding the contact: dropping it here is
         // what resets its dwell, so the lock has to mature again once it is found.
