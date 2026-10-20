@@ -345,9 +345,9 @@ Headless, behind a flag. Per branch:
   trim, the passes and the release wait while it runs. `Ksa/Icbm/IcbmComputer.Hop.cs` actuates it: the engine made
   Active and lit for the burn, inactive after, the coast's throttle at full. The planner prices an engine hop along
   its length at the engine's 2,996 m/s, sizes its burn at the 1.70 m/s2 measured on the loaded bus
-  (`LauncherProfile.HopEngineAccelerationMetresPerSecond2`), and adds `HopBurn.TurnsSeconds`, 38 s: 18 for the two
-  turns, the flown entry turn having settled a 164 deg swing in 9.0 s on all 48 buses of 2026-10-17 and 18, and 20
-  for the wait before the first. The bus holds its line until the warhead it has just let go of is 10 m away, twice
+  (`LauncherProfile.HopEngineAccelerationMetresPerSecond2`), and adds `HopBurn.TurnsSeconds`, 27 s: the upper quartile
+  of what 86 engine hops flown on 2026-10-19 took between releases besides their burn (68.4 s) less the 41 s every hop
+  takes. It was 38 s before those flew. The bus holds its line until the warhead it has just let go of is 10 m away, twice
   the 4.4 m its other warheads sweep, or the turn carries them through it -- seen in the first flight, before the wait
   was in. In the rig, the
   post-boost bus's 500 kg, A with `HopsResolveAfterTheirBurn` and the plan flags, every stop under 0.1 mm:
@@ -413,6 +413,37 @@ Headless, behind a flag. Per branch:
   geometry (targets on a meridian, `GameStack`) is not this flight's (Cape Canaveral to Botswana along a 291 deg
   track); reproducing the night needs the flown geometry in the rig first. Separately, a curtailed walk's leftover
   warhead releases late and lands a kilometre out, where every walked stop lands in centimetres.
+
+  **The cause, measured the next morning:** each free hop moves the arrival by its own amount, which the free solve
+  already holds -- its minimum-norm velocity per metre dotted with the arc's arrival sensitivity, 0.234 s per km
+  uprange at the first stop and 0.221 at the second, -93.5 and -88.4 s for 400 km against -92 and -88 flown
+  (`FreeArrivalShiftTests`). `FreeHopsCountTheArrivalTheyMove` (`6c904b4f`) carries it into each stop's time to go.
+
+  **The night of 2026-10-19/20** (`~/shots/2026-10-19-night`, declared in
+  `~/shots/scripts-2026-10-19/DECLARE-wide-engine.md`, eight post-boost buses a block, paired):
+
+  | Cell | Flags | Stops walked | Landed | Flown over priced, last hop |
+  | --- | --- | --- | --- | --- |
+  | A: 12,902 km, 200 km apart, nozzles v engine, 4 blocks | step 5 | 32 of 32 walked 7 | 224 within 0.35 m | engine 1.08 mean, 1.15 worst |
+  | B: 12,902 km, 300 km apart, engine A/A, 4 blocks | step 5 + engine | 32 of 32 walked 7 | 224 within 0.52 m | 1.22 mean, 1.37 worst |
+  | C: 6,180 km, 150 km apart, engine A/A, 3 blocks | step 5 + engine | 22 walked the 6 planned, 2 curtailed at the 6th | 142 within 0.17 m | -- |
+  | D: 12,902 km, 400 km apart, engine v shift, 3 blocks | + `TurnsSeconds` 27 | 19 walked 7, 5 curtailed | none over 2 km; 5 leftovers 1.2-1.3 km | engine 1.41/1.46, **shift 1.02/1.05** |
+  | E: 12,902 km, 200 km apart, nozzles v wait, 2 blocks | step 5 | 16 of 16 walked 7 | 112 within 0.23 m | -- |
+
+  Engine against nozzles at 200 km landed 0.86x [0.59, 1.18] levelled, 0.87x [0.48, 0.93] un-levelled: no worse,
+  about 14% tighter. Counting the arrival shift holds every hop within the tank's 1.11 margin of its price where the
+  plain engine walk climbs to 1.46. What curtailed D's five buses was not pricing: **each one's first hop struck its
+  own spent stack**. All 11 first hops of A, B and D burnt with the stack 36-187 m away were knocked off their line
+  (rates from 0.0004 to 1.4 rad/s in half a second on the one read closely), the nozzles flying the rest for about
+  76 m/s, and none of the 61 from 209 m or more; seats 2-4 carry it, by how slowly their stacks drift off.
+  `EngineHopsClearTheStack` (`c9143f1f`) holds a burn whose path passes inside the stack's keep-out, at most 240 s;
+  every engine hop now logs the predicted closest approach, so the next flight checks the prediction first.
+
+  **A bus flies back through its first warheads** -- seen in game on FAT_1, then measured by the per-release line
+  (`f4eea913`): on both arms of E the first two warheads of every bus come back to 0.9-1.1 m of the bus's origin, and
+  warheads 4-7 never come nearer than they left. `HopsWaitForTheirWarhead` (`9f10c8c8`) removes it from warhead 3
+  only, so the hop's trim is not the whole cause; not found yet. It costs no landing: every warhead in E is within
+  0.23 m.
 
   What C was planned with, kept for the reasoning:
   - `Sim/HopBurn.cs` only if step 4 said open-loop leaves more than a pass: point (`BusTurn`, capped), burn re-solving
