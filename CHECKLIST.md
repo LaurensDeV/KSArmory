@@ -2226,7 +2226,13 @@ flown straight up, read back with the bridge's `search`.
 - [ ] The editor: `Infrared Search and Track Sensor` under **Sensors**, surface-attaching, unrootable.
 - [ ] Engines-out and look-down ranges, a fighter-sized target, and a range against the 1 MN booster
       in thin air: none flown.
-- [ ] The YAL-1's laser on auto-engage burning a contact from the picture.
+- [x] **The YAL-1's laser on auto-engage burns a contact from the picture.** Flown 2026-10-20 on the
+      `YAL1 IRST TEST` save: a YAL-1 and four IRSTs on one 3 m tank, and two stock Rockets parked
+      7.8 km south and 8.6 km west, flown straight up. With nothing designated, the laser took the
+      picture's best and burnt through five parts of the southern rocket in 0.15 s at 7.8 km, then
+      four of the western one at 8.6 km four seconds later. Its pieces were then left alone: the
+      picture went empty and auto-engage held on "nothing detected". The pieces lased after that
+      were each shift-clicked.
 
 ### 7.6d The suspension rail — carriage gear the builder cannot place
 

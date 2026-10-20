@@ -155,6 +155,9 @@ locks on, without seeing the target itself.
 - A YAL-1 craft with IRSTs against a rocket under power at 100–300 km: the IRST sees it, the turret
   swings on with **Track** on, and auto-engage burns it. The same rocket with its engines out is not
   seen until close.
+  - [x] At 8 km, flown 2026-10-20 (CHECKLIST 7.6c-3): two rockets climbing from the ground, each seen
+    by a different IRST, both burnt from the picture with nothing designated, and their pieces left
+    alone. 100–300 km and the engines-out case are not flown.
 - A LITENING on a craft with an IRST picks up a jet under power with no shift-click.
 - The Pantsir's director still follows the Pantsir's radar.
 - CHECKLIST entries ticked with the numbers seen.
