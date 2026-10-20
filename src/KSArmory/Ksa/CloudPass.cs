@@ -44,6 +44,7 @@ internal static class CloudPass
     private const string HoleShaderId = "KSArmoryHoleCompute";
     private const string LeakShaderId = "KSArmoryLeakCompute";
     private const string TracerShaderId = "KSArmoryTracerCompute";
+    private const string BeamShaderId = "KSArmoryBeamCompute";
 
     // KSArmoryFireLight.comp's workgroup.
     private const int FireLightGroupX = 16;
@@ -78,6 +79,7 @@ internal static class CloudPass
     private static readonly ProfilerTag HolesTag = new("KSArmory Cloud: holes"u8);
     private static readonly ProfilerTag LeaksTag = new("KSArmory Cloud: leaks"u8);
     private static readonly ProfilerTag TracersTag = new("KSArmory Cloud: tracers"u8);
+    private static readonly ProfilerTag BeamsTag = new("KSArmory Cloud: beams"u8);
 
     private static readonly List<(float Kind, double Brightness, Push Push)> _sky = [];
 
@@ -155,6 +157,9 @@ internal static class CloudPass
         public ComputePipelineWrapper? Holes;
         public ComputePipelineWrapper? Leaks;
         public ComputePipelineWrapper? Tracers;
+        // One beam pipeline per weather image pair it was built against, as the clouds keep theirs.
+        public readonly List<(RenderImage? Colour, RenderImage? Distance, ComputePipelineWrapper Pipeline)>
+            Beams = [];
         public ComputePipelineWrapper? FireLight;
         public VkImageView FireLightDepth;
         public VkImageView FireLightNormal;
@@ -410,6 +415,7 @@ internal static class CloudPass
                 Holes(commandBuffer, viewport, plain, view, depth, frameIndex, width, height, ref painted);
                 Streams(commandBuffer, viewport, plain, view, depth, frameIndex, width, height, ref painted);
                 Tracers(commandBuffer, viewport, plain, view, depth, frameIndex, width, height);
+                Beams(commandBuffer, viewport, plain, view, depth, width, height);
                 return;
             }
 
@@ -582,16 +588,19 @@ internal static class CloudPass
 
             for (int i = 0; i < NuclearClouds.AuroraCount; i++)
             {
-                if (!NuclearClouds.TryAurora(i, out double3 footEcl, out double3 eastEcl, out double sinLatitude,
-                                             out double nits, out double age, out object? over)) continue;
+                if (!NuclearClouds.TryAurora(i, out double3 footEcl, out double3 eastEcl, out double3 dipoleEcl,
+                                             out double sinLatitude, out double nits, out double age,
+                                             out object? over)) continue;
                 if (!ReferenceEquals(over, camera.NearbyCelestial)) continue;
 
                 double3 foot = footEcl - camera.PositionEcl;
-                if (!Vec.IsFinite(foot)) continue;
+                double3 dipole = dipoleEcl - camera.PositionEcl;
+                if (!Vec.IsFinite(foot) || !Vec.IsFinite(dipole)) continue;
 
                 _sky.Add((SkyDispatch.Aurora, nits, new Push
                 {
                     InvViewProj = camera.VPInv.viewProjection,
+                    AgeStrengthWind = new float4((float)dipole.X, (float)dipole.Y, (float)dipole.Z, 0f),
                     CentreRadius = new float4((float)foot.X, (float)foot.Y, (float)foot.Z, -(float)nits),
                     FireSun = new float4((float)Aurora.BottomAltitude(KsaWorld.BodyAirOf(camera.NearbyCelestial)),
                                          (float)Aurora.TopAltitude(KsaWorld.BodyAirOf(camera.NearbyCelestial)),
@@ -654,6 +663,7 @@ internal static class CloudPass
             if (_order.Count == 0)
             {
                 bool traced = Tracers(commandBuffer, viewport, camera, view, depth, frameIndex, width, height);
+                traced |= Beams(commandBuffer, viewport, camera, view, depth, width, height);
                 Flash(commandBuffer, viewport, camera, width, height, marks > 0 || traced);
                 return;
             }
@@ -779,6 +789,7 @@ internal static class CloudPass
             // After the clouds, which composite over whatever is in the image and would hide a
             // tracer in front of one; before the whiteout, which covers everything.
             Tracers(commandBuffer, viewport, camera, view, depth, frameIndex, width, height);
+            Beams(commandBuffer, viewport, camera, view, depth, width, height);
 
             Flash(commandBuffer, viewport, camera, width, height, hazard: true);
         }
@@ -1689,6 +1700,166 @@ internal static class CloudPass
             commandBuffer.Dispatch((maxX - minX + TracerGroup - 1) / TracerGroup,
                                    (maxY - minY + TracerGroup - 1) / TracerGroup, 1);
         }
+
+        return true;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    private struct BeamPush
+    {
+        public float4x4 InvViewProj;
+        public float4 A;           // the start, camera-relative; w 1 with the weather bound
+        public float4 B;           // the end; w 1 while it burns, -1 where it ends in cloud
+        public float4 Up;          // the local up at the end
+        public float4 Tile;        // the tile's first pixel, the air at the start and at the end, negative for an open end
+    }
+
+    // How far the shader draws from a beam's axis (m): its glow's six core radii at three sigmas, off its
+    // ExitRadius, or six of the halo where it ends in cloud, its CloudHaloMetres.
+    private const double BeamReach = 0.20 * 18.0;
+    private const double BeamCloudHaloReach = 400.0 * 6.0;
+
+    // THE HIGH-ENERGY BEAMS, as the light they scatter: KSArmoryBeam.comp. One dispatch per beam over
+    // the patch of screen it and its glow can reach.
+    private static bool Beams(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
+                              IRenderImage depth, int width, int height)
+    {
+        int count = LaserBeams.Count;
+        if (count == 0) return false;
+
+        // KSA's weather images for the main view, read as the cloud pass reads them: into a layout a
+        // compute shader may sample through KSA's own tracked state, and stand-ins with none.
+        RenderImage? weatherColour = null, weatherDistance = null;
+        bool weather = ReferenceEquals(viewport, Program.MainViewport)
+                       && KsaWorld.TryWeatherClouds(out weatherColour, out weatherDistance)
+                       && weatherColour is not null && weatherDistance is not null;
+        if (!weather) weatherColour = weatherDistance = null;
+
+        ComputePipelineWrapper? pipeline = null;
+        foreach ((RenderImage? c, RenderImage? d, ComputePipelineWrapper p) in view.Beams)
+        {
+            if (ReferenceEquals(c, weatherColour) && ReferenceEquals(d, weatherDistance)) pipeline = p;
+        }
+
+        if (pipeline is null)
+        {
+            if (!BuildBeams(view, depth, weatherColour, weatherDistance, out pipeline)) return false;
+            if (view.Beams.Count >= MostPipelines) view.Beams.RemoveAt(0);
+            view.Beams.Add((weatherColour, weatherDistance, pipeline));
+        }
+
+        if (weather)
+        {
+            Span<VkImageMemoryBarrier2> two = stackalloc VkImageMemoryBarrier2[2];
+            BarrierBatch toSample = new(two);
+            toSample.Add(weatherColour!, ImageBarrierInfo.Presets.SampledReadC);
+            toSample.Add(weatherDistance!, ImageBarrierInfo.Presets.SampledReadC);
+            toSample.SubmitAndFlush(commandBuffer);
+        }
+
+        LaserBeams.MarkPainted();
+        bool drew = false;
+
+        for (int i = 0; i < count; i++)
+        {
+            if (!LaserBeams.TryAt(i, out double3 from, out double3 to, out double airA, out double airB,
+                                  out bool burning, out bool open, out bool cloud, out double3 up)) continue;
+
+            Tile tile = BeamTile(camera, from, to, width, height, cloud ? BeamCloudHaloReach : BeamReach);
+            if (tile.Empty) continue;
+
+            BeamPush push = new()
+            {
+                InvViewProj = camera.VPInv.viewProjection,
+                A = new float4((float)from.X, (float)from.Y, (float)from.Z, weather ? 1f : 0f),
+                B = new float4((float)to.X, (float)to.Y, (float)to.Z, burning ? 1f : cloud ? -1f : 0f),
+                Up = new float4((float)up.X, (float)up.Y, (float)up.Z, 0f),
+                Tile = new float4(tile.OriginX, tile.OriginY, (float)airA, (float)(open ? -Math.Max(airB, 1e-7) : airB)),
+            };
+
+            using (commandBuffer.TagRegion(GpuTag))
+            using (commandBuffer.TagRegion(BeamsTag))
+            {
+                Hazard(commandBuffer);
+                pipeline.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+                commandBuffer.Dispatch(tile.GroupsX, tile.GroupsY, 1);
+            }
+
+            drew = true;
+        }
+
+        return drew;
+    }
+
+    // The screen a beam and its glow can reach: both ends, clipped to the front of the eye, widened by
+    // the glow's reach as it projects at each end. The whole screen where that cannot be worked out.
+    private static Tile BeamTile(Camera camera, double3 from, double3 to, int width, int height, double reach)
+    {
+        Tile whole = new(0, 0, (width + Group - 1) / Group, (height + Group - 1) / Group);
+
+        double4 a = camera.EgoToClipDouble(from);
+        double4 b = camera.EgoToClipDouble(to);
+        if (!TracerLook.TryClipToFront(ref a, ref b, 0.05)) return default;
+
+        double left = double.MaxValue, top = double.MaxValue, right = double.MinValue, bottom = double.MinValue;
+
+        foreach (double4 end in (ReadOnlySpan<double4>)[a, b])
+        {
+            double x = ((end.X / end.W * 0.5) + 0.5) * width;
+            double y = ((end.Y / end.W * 0.5) + 0.5) * height;
+
+            // Metres to pixels at the nearest the reach comes to the eye round this end: the projection's
+            // scale, off its focal length.
+            double perMetre = height / (2.0 * Math.Tan(camera.GetFieldOfView() * 0.5) * Math.Max(end.W - reach, 1.0));
+            double margin = (reach * perMetre) + (2 * Group);
+            if (!double.IsFinite(x + y + margin)) return whole;
+
+            left = Math.Min(left, x - margin);
+            top = Math.Min(top, y - margin);
+            right = Math.Max(right, x + margin);
+            bottom = Math.Max(bottom, y + margin);
+        }
+
+        int x0 = Math.Clamp((int)Math.Floor(left), 0, width);
+        int y0 = Math.Clamp((int)Math.Floor(top), 0, height);
+        int x1 = Math.Clamp((int)Math.Ceiling(right), 0, width);
+        int y1 = Math.Clamp((int)Math.Ceiling(bottom), 0, height);
+        return x1 <= x0 || y1 <= y0 ? default : new Tile(x0, y0, (x1 - x0 + Group - 1) / Group, (y1 - y0 + Group - 1) / Group);
+    }
+
+    private static bool BuildBeams(View view, IRenderImage depth, RenderImage? weatherColour,
+                                   RenderImage? weatherDistance, out ComputePipelineWrapper? pipeline)
+    {
+        pipeline = null;
+        if (!ModLibrary.TryGet<ShaderReference>(BeamShaderId, out var shader) || shader is null)
+        {
+            Warn($"no shader '{BeamShaderId}'; beams are drawn as lines");
+            return false;
+        }
+
+        Renderer renderer = Program.GetRenderer();
+        VkPushConstantRange[] ranges =
+        [
+            new VkPushConstantRange
+            {
+                Offset = (ByteSize32)0,
+                Size = (ByteSize32)Marshal.SizeOf<BeamPush>(),
+                StageFlags = VkShaderStageFlags.ComputeBit,
+            },
+        ];
+
+        // With no weather a descriptor still cannot be left empty: the pass's own distance layer stands
+        // in, as it does for the clouds, and the push says not to read it.
+        IRenderImage[] weatherImages =
+        [
+            (IRenderImage?)weatherColour ?? view.LayerDistance,
+            (IRenderImage?)weatherDistance ?? view.LayerDistance,
+        ];
+
+        pipeline = new ComputePipelineWrapper(
+            [view.Target], [depth], weatherImages, default, shader,
+            default, ranges, renderer.MaxFramesInFlight, renderer,
+            "KSArmory.Beams", Program.PointClampedSampler, Program.LinearClampedSampler);
 
         return true;
     }

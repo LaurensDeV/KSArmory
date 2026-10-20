@@ -13,9 +13,8 @@ public class SkyDispatchTests
     }
 
     /// <summary>
-    /// Three bursts at 400 km: three glows, six curtains and three shells. Every glow and shell is drawn,
-    /// and the two newest bursts' curtains -- where the brightest alone drew one of each kind and left
-    /// the other bursts with nothing.
+    /// Three bursts at 400 km: three glows, six curtains and three shells, and every one of them drawn --
+    /// where the brightest alone drew one of each kind and left the other bursts with nothing.
     /// </summary>
     [Fact]
     public void SeveralBurstsEachShowTheirSky()
@@ -33,7 +32,7 @@ public class SkyDispatchTests
 
         Assert.Equal(3, keep.Count(i => kinds[i] == SkyDispatch.Glow));
         Assert.Equal(3, keep.Count(i => kinds[i] == SkyDispatch.Debris));
-        Assert.Equal([5, 6, 9, 10], keep.Where(i => kinds[i] == SkyDispatch.Aurora));
+        Assert.Equal(6, keep.Count(i => kinds[i] == SkyDispatch.Aurora));
     }
 
     /// <summary>
@@ -43,8 +42,9 @@ public class SkyDispatchTests
     [Fact]
     public void TheNewestAreKeptSoTheChoiceHoldsStill()
     {
-        Assert.Equal([2, 3, 4, 5], Choose(SkyDispatch.Aurora, SkyDispatch.Aurora, SkyDispatch.Aurora, SkyDispatch.Aurora,
-                                          SkyDispatch.Aurora, SkyDispatch.Aurora));
+        int most = SkyDispatch.MostOf(SkyDispatch.Aurora);
+        float[] curtains = Enumerable.Repeat(SkyDispatch.Aurora, most + 2).ToArray();
+        Assert.Equal(Enumerable.Range(2, most), Choose(curtains));
         Assert.Equal([1, 2, 3], Choose(SkyDispatch.Debris, SkyDispatch.Debris, SkyDispatch.Debris, SkyDispatch.Debris));
     }
 

@@ -1,0 +1,327 @@
+#version 450
+
+// A high-energy beam as the light it scatters toward the eye: per pixel, a gaussian tube integrated
+// in closed form along the view ray, clipped to the beam's ends and to the depth buffer. Width is
+// exact at any range, and once the beam is under a pixel it is drawn a pixel wide with the same
+// energy, so a far beam thins to a thread instead of vanishing. One dispatch per beam from
+// CloudPass, over its own patch of screen. Derivation: docs/BEAM-RENDERING.md.
+//
+// It reads its push constants, the scene, the depth and KSA's own weather images, all bound by the
+// pipeline, and indexes nothing: a bad index hangs the GPU, which on a driver that cannot reset it is
+// a blue screen. What lies behind a cloud is dimmed by the cloud's transmittance, since the clouds
+// write no depth. Where the CPU finds the beam entering cloud it ends there and glows
+// (docs/BEAM-RENDERING.md).
+//
+// Bindings follow ComputePipelineWrapper's order: the storage image, the depth it samples, then the
+// weather's light and distance images -- stand-ins when there is no weather, which A.w says.
+
+layout (local_size_x = 8, local_size_y = 8) in;
+
+layout (set = 1, binding = 0, Rgba16f) uniform image2D sceneColor;
+layout (set = 1, binding = 1) uniform sampler2D sceneDepth;
+
+// KSA's weather as the cloud renderer drew it for the main view, at its low resolution: transmittance
+// in the light's alpha, and each pixel's cloud distance in kilometres. KSArmoryCloud.comp reads the same.
+layout (set = 1, binding = 2) uniform sampler2D weatherColor;
+layout (set = 1, binding = 3) uniform sampler2D weatherDistance;
+
+layout (push_constant) uniform PushConstants
+{
+    mat4 InvViewProj;  // clip -> camera-relative world
+    vec4 A;            // the beam's start, camera-relative; w 1 with the weather bound, 0 with stand-ins
+    vec4 B;            // its end; w 1 while it burns what it lands on, -1 where it ends in cloud, else 0
+    vec4 Up;           // the local up at its end, camera-relative; w unused
+    vec4 Tile;         // the tile's first pixel, and the air density ratio at the start and the end --
+                       // the end's negative when the beam meets nothing and fades out instead
+} pc;
+
+// The core's drawn radius at the window and at the far end (m). The COIL is invisible; this is drawn
+// for the operator, at the scale of the 1.5 m telescope it leaves. CloudPass's reach mirrors these.
+const float ExitRadius = 0.20;
+const float FarRadius = 0.08;
+
+// Brightness across the beam's width, which a scattering beam keeps however wide it is, at sea-level
+// air: a 0.2 m core side-on peaks near 56 here and 14 after exposure. Then the glow's share of it, and
+// the impact's, the muzzle's at sea level and the cloud entry's.
+const float LineStrength = 20.0;
+const float GlowShare = 0.6;
+const float ImpactStrength = 40.0;
+const float MuzzleStrength = 6.0;
+const float CloudGlowStrength = 6.0;
+
+const vec3 CoreColour = vec3(0.55, 1.0, 0.6);
+const vec3 GlowColour = vec3(0.12, 1.0, 0.25);
+
+// Hot metal, not the beam's colour: what a target glows with is its own temperature.
+const vec3 ImpactColour = vec3(1.0, 0.62, 0.28);
+
+// The glow is the same tube this many times wider.
+const float GlowWidths = 6.0;
+
+// The glow at the window, in core radii, and the incandescent spot on what the beam burns (m).
+const float MuzzleWidths = 4.0;
+const float ImpactMetres = 0.6;
+
+// Where it enters cloud the droplets scatter the whole beam within metres, so the cloud lights up in
+// the beam's own colour: a hot core at the entry, and a halo where that light spreads through the cloud
+// above its base -- across it over kilometres, up into it over a few hundred metres, and none below,
+// so seen from under the deck its bottom is flat (m). CloudPass reaches six halo radii round the end.
+const float CloudGlowMetres = 40.0;
+const vec3 CloudGlowColour = vec3(0.45, 1.0, 0.5);
+const float CloudHaloMetres = 400.0;
+const float CloudHaloDepth = 150.0;
+const float CloudHaloShare = 0.12;
+const vec3 CloudHaloColour = vec3(0.1, 1.0, 0.2);
+
+// How sharply the halo is cut off under the base (m), so its edge is not a pixel's step; and the most a
+// line of sight skimming along the base may gather, in straight-up looks.
+const float CloudBaseSoftness = 40.0;
+const float MostAlongBase = 1.5;
+const int HaloSamples = 24;
+
+// The CPU's cloud entry and KSA's drawn cloud disagree by up to this much (m), so a glow is only
+// dimmed by the drawn cloud when it is clearly behind it.
+const float CloudGlowSlack = 2000.0;
+
+// The least a tube is drawn across, in pixels; narrower, it is spread to this with its energy kept.
+const float LeastPixels = 0.8;
+
+const float SqrtPi = 1.7724539;
+
+// Seen down its length a beam's light grows without bound, which is real and whites out the picture:
+// held to this many times its side-on brightness.
+const float MostEndOn = 3.0;
+
+// The whole beam's brightness against the push's numbers, tuned by eye against a daylit pad.
+const float Exposure = 0.25;
+
+// Haze's forward scattering, and the most it may brighten a beam seen looking down it.
+const float HazeG = 0.7;
+const float MostPhase = 4.0;
+
+// What the air takes out of the beam per metre at sea-level density (BeamProfile.ExtinctionPerMetre).
+const float ExtinctionPerMetre = 2.0e-5;
+
+// A beam that meets nothing fades over this share of its length rather than stopping.
+const float OpenEndShare = 0.15;
+
+// KSA's cloud opacity is drawn to look right over a sky, not to stop a megawatt beam: a cumulus is tens
+// of optical depths. Its transmittance raised to this keeps haze a haze and puts a deck's beam out.
+const float CloudOpticalDepths = 8.0;
+
+vec3 WorldAt(vec2 uv, float deviceZ)
+{
+    vec4 clip = vec4(uv * 2.0 - 1.0, deviceZ, 1.0);
+    vec4 p = pc.InvViewProj * clip;
+    return p.xyz / p.w;
+}
+
+// Abramowitz and Stegun 7.1.26, |error| < 1.5e-7.
+float Erf(float x)
+{
+    float s = sign(x);
+    x = abs(x);
+    float t = 1.0 / (1.0 + 0.3275911 * x);
+    float y = 1.0 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592)
+                    * t * exp(-x * x);
+    return s * y;
+}
+
+// A tube of radius w, its width-integrated brightness one, crossed by the ray between ta and tb:
+// the ray meets the axis's nearest point at t0, at distance h, at sin(angle) s.
+float Tube(float w, float h, float s, float t0, float ta, float tb)
+{
+    float across = exp(-(h * h) / (w * w)) / (w * SqrtPi);
+    float along = 0.5 * (Erf(s * (tb - t0) / w) - Erf(s * (ta - t0) / w));
+    return across * min(along / s, MostEndOn);
+}
+
+// A glowing ball of radius r at p, seen along the ray up to tMax: a gaussian blob integrated through,
+// so it has an edge a dispatch's patch can contain, and stops at whatever surface is in the way.
+// Under a pixel it is spread to one with its energy kept.
+float Ball(vec3 dir, vec3 p, float r, float least, float tMax)
+{
+    float rr = max(r, least);
+    float tp = dot(dir, p);
+    float h2 = max(dot(p, p) - tp * tp, 0.0);
+    float along = 0.5 * (Erf((tMax - tp) / rr) - Erf(-tp / rr));
+    return (r * r) / (rr * rr) * exp(-h2 / (rr * rr)) * along;
+}
+
+// Light in the cloud just above its base round p: falling away over r across, as light diffusing through
+// cloud does, with a long tail rather than a rim, and over depth
+// d upward, none under the base. Integrated along the ray by midpoints, within the halo's sphere and the
+// slab it fills, and normalised so a look straight up through its middle gathers one.
+float Slab(vec3 dir, vec3 p, vec3 up, float r, float d, float tMax)
+{
+    float tp = dot(dir, p);
+    float reach = 6.0 * r;
+    float miss2 = max(dot(p, p) - tp * tp, 0.0);
+    if (miss2 >= reach * reach) return 0.0;
+
+    float half_ = sqrt(reach * reach - miss2);
+    float t0 = max(tp - half_, 0.0), t1 = min(tp + half_, tMax);
+
+    // The height above the base along the ray is t * du - base.
+    float du = dot(dir, up), base = dot(p, up);
+    float lo = -3.0 * CloudBaseSoftness, hi = 6.0 * d;
+    if (abs(du) > 1.0e-5)
+    {
+        float a = (lo + base) / du, b = (hi + base) / du;
+        t0 = max(t0, min(a, b));
+        t1 = min(t1, max(a, b));
+    }
+    else if (-base < lo || -base > hi)
+    {
+        return 0.0;
+    }
+
+    if (!(t1 > t0)) return 0.0;
+
+    float dt = (t1 - t0) / float(HaloSamples), sum = 0.0;
+    for (int i = 0; i < HaloSamples; i++)
+    {
+        float t = t0 + (float(i) + 0.5) * dt;
+        vec3 q = dir * t - p;
+        float h = dot(q, up);
+        float across2 = max(dot(q, q) - h * h, 0.0);
+        float rise = h >= 0.0 ? exp(-h / d) : exp(-(h * h) / (CloudBaseSoftness * CloudBaseSoftness));
+        float across = sqrt(across2);
+        sum += exp(-across / r) * (1.0 - smoothstep(0.6 * reach, reach, across)) * rise * dt;
+    }
+
+    return min(sum / d, MostAlongBase);
+}
+
+// How much a beam scatters a distance u along it, against at its start: the air there -- which falls
+// away exponentially as the beam climbs, so the log-linear blend of the two ends' densities is exact for
+// a straight climb -- times what the air has left of the beam getting there, and the open end's fade.
+float AlongBeam(float u, float len)
+{
+    float rhoA = max(pc.Tile.z, 0.0);
+    float rhoB = max(abs(pc.Tile.w), 0.0);
+    float f = clamp(u / len, 0.0, 1.0);
+    float rho = rhoA > 1.0e-6 && rhoB > 1.0e-6 ? rhoA * pow(rhoB / rhoA, f) : mix(rhoA, rhoB, f);
+
+    // The mean density over [0, u] of that same exponential, for the beam's own extinction.
+    float mean = abs(rhoB - rhoA) > 1.0e-4 * max(rhoA, rhoB) && rhoA > 1.0e-6 && rhoB > 1.0e-6
+               ? (rho - rhoA) / log(rhoB / rhoA) / max(f, 1.0e-6) : rho;
+    float transmitted = exp(-ExtinctionPerMetre * mean * u);
+
+    float open = pc.Tile.w < 0.0 ? 1.0 - smoothstep(1.0 - OpenEndShare, 1.0, f) : 1.0;
+    return rho * transmitted * open;
+}
+
+// Haze scatters forward: a beam seen looking back along it toward its source is far brighter than
+// one seen side-on. Rayleigh and Henyey-Greenstein, each one at ninety degrees, and capped.
+float Phase(float cosTheta)
+{
+    float g = HazeG;
+    float rayleigh = 1.0 + cosTheta * cosTheta;
+    float hg = pow(1.0 + g * g, 1.5) / pow(1.0 + g * g - 2.0 * g * cosTheta, 1.5);
+    return min(0.3 * rayleigh + 0.7 * hg, MostPhase);
+}
+
+void main()
+{
+    ivec2 size = imageSize(sceneColor);
+    ivec2 at = ivec2(gl_GlobalInvocationID.xy) + ivec2(pc.Tile.xy);
+    if (at.x >= size.x || at.y >= size.y) return;
+
+    vec2 uv = (vec2(at) + 0.5) / vec2(size);
+    vec3 dir = normalize(WorldAt(uv, 1.0));
+
+    // How wide one pixel is, as an angle: the next pixel's ray against this one.
+    float pixelAngle = length(normalize(WorldAt(uv + vec2(0.0, 1.0 / float(size.y)), 1.0)) - dir);
+
+    // Reverse-Z: zero is the sky, where nothing stops the ray.
+    float deviceZ = texelFetch(sceneDepth, at, 0).r;
+    float tMax = deviceZ > 0.0 ? length(WorldAt(uv, deviceZ)) : 3.0e38;
+
+    // Where this pixel's cloud is and how much it lets through; past it, light is dimmed by that much.
+    // The halo lights the cloud drawn at this pixel, so with weather it is masked by its opacity.
+    float tCloud = 3.0e38, clear = 1.0, cloudy = 1.0;
+    if (pc.A.w > 0.5)
+    {
+        float cloudKm = textureLod(weatherDistance, uv, 0.0).r;
+        float through = clamp(textureLod(weatherColor, uv, 0.0).a, 0.0, 1.0);
+        cloudy = 1.0 - through;
+        if (cloudKm > 0.0 && through < 0.999)
+        {
+            tCloud = cloudKm * 1000.0;
+            clear = pow(through, CloudOpticalDepths);
+        }
+    }
+
+    vec3 a = pc.A.xyz;
+    vec3 axis = pc.B.xyz - a;
+    float len = length(axis);
+    if (!(len > 0.0)) return;
+    axis /= len;
+
+    float c = dot(dir, axis);
+    float s = max(sqrt(max(1.0 - c * c, 0.0)), 1.0e-3);
+    float aOnAxis = dot(a, axis);
+
+    // The stretch of the ray that lies alongside the beam, and in front of the eye and the scene.
+    float ta = 0.0, tb = tMax;
+    if (abs(c) > 1.0e-6)
+    {
+        float t1 = aOnAxis / c, t2 = (aOnAxis + len) / c;
+        ta = max(ta, min(t1, t2));
+        tb = min(tb, max(t1, t2));
+    }
+    else
+    {
+        float u = -aOnAxis;
+        if (u < 0.0 || u > len) tb = -1.0;
+    }
+
+    vec3 light = vec3(0.0);
+    if (tb > ta)
+    {
+        // The nearest point of the ray to the axis, and how far apart they are there. Off the unbounded
+        // axis: the beam's ends are already the bounds of [ta, tb].
+        float t0 = (dot(dir, a) - c * aOnAxis) / (s * s);
+        float u0 = t0 * c - aOnAxis;
+        float h = length(dir * t0 - (a + axis * u0));
+
+        float least = LeastPixels * clamp(t0, ta, tb) * pixelAngle;
+        float w = mix(ExitRadius, FarRadius, clamp(u0 / len, 0.0, 1.0));
+
+        float strength = LineStrength * Phase(-c) * AlongBeam(clamp(u0, 0.0, len), len);
+        float wCore = max(w, least), wGlow = max(w * GlowWidths, least);
+
+        // In front of the cloud whole; behind it, by what it lets through.
+        float tSplit = clamp(tCloud, ta, tb);
+        light += CoreColour * strength * (Tube(wCore, h, s, t0, ta, tSplit)
+                                          + clear * Tube(wCore, h, s, t0, tSplit, tb));
+        light += GlowColour * strength * GlowShare * (Tube(wGlow, h, s, t0, ta, tSplit)
+                                                      + clear * Tube(wGlow, h, s, t0, tSplit, tb));
+    }
+
+    light += GlowColour * MuzzleStrength * clamp(pc.Tile.z, 0.0, 1.0) * (length(pc.A.xyz) > tCloud ? clear : 1.0)
+             * Ball(dir, pc.A.xyz, MuzzleWidths * ExitRadius, LeastPixels * length(pc.A.xyz) * pixelAngle, tMax);
+    if (pc.B.w > 0.5)
+    {
+        light += ImpactColour * ImpactStrength * (length(pc.B.xyz) > tCloud ? clear : 1.0)
+                 * Ball(dir, pc.B.xyz, ImpactMetres, LeastPixels * length(pc.B.xyz) * pixelAngle, tMax);
+    }
+    else if (pc.B.w < -0.5)
+    {
+        float least = LeastPixels * length(pc.B.xyz) * pixelAngle;
+        float strength = CloudGlowStrength * (length(pc.B.xyz) > tCloud + CloudGlowSlack ? clear : 1.0);
+        light += CloudGlowColour * strength * Ball(dir, pc.B.xyz, CloudGlowMetres, least, tMax);
+
+        float halo = length(pc.Up.xyz) > 0.5
+                         ? Slab(dir, pc.B.xyz, normalize(pc.Up.xyz), CloudHaloMetres, CloudHaloDepth, tMax)
+                         : Ball(dir, pc.B.xyz, CloudHaloMetres, least, tMax);
+        light += CloudHaloColour * strength * CloudHaloShare * cloudy * halo;
+    }
+
+    if (!all(greaterThanEqual(light, vec3(0.0))) || any(isinf(light)) || any(isnan(light))) return;
+    if (max(light.r, max(light.g, light.b)) < 1.0e-4) return;
+
+    vec4 was = imageLoad(sceneColor, at);
+    imageStore(sceneColor, at, vec4(was.rgb + light * Exposure, was.a));
+}

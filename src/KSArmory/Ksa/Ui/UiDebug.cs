@@ -235,13 +235,16 @@ internal sealed partial class Ui
 
     private void DrawTestTargets()
     {
-        if (!_crewed) { ImGui.TextDisabled("No weapons system selected."); return; }
-
-        if (_system.Platform is null)
+        // Flown past the craft the panel shows, which needs no weapons system: a director alone is
+        // something to point at them, and an unarmed craft is something to watch them pass.
+        KSA.Vehicle? platform = _crewed ? _system.Platform : Focused;
+        if (platform is null)
         {
-            ImGui.TextDisabled("no platform");
+            ImGui.TextDisabled("Select a craft to fly the drones past.");
             return;
         }
+
+        float? sensorRange = _crewed ? _sensor.Range : _heads.FirstOn(platform)?.Head.Sensor.Range;
 
         ImGui.SliderFloat("Time to pass (s)", ref _spawnSeconds, 10f, 180f);
         ImGui.SliderFloat("Speed (m/s)", ref _spawnSpeed, 50f, 2000f);
@@ -249,15 +252,19 @@ internal sealed partial class Ui
 
         // Spawning beyond radar range is the easiest way to see nothing happen at all.
         float spawnRange = _spawnSpeed * _spawnSeconds;
-        if (spawnRange > _sensor.Range)
+        if (sensorRange is not { } range)
+        {
+            ImGui.TextDisabled($"spawns {spawnRange / 1000f:F1} km out");
+        }
+        else if (spawnRange > range)
         {
             ImGui.TextColored(Amber,
-                $"spawns {spawnRange / 1000f:F1} km out - beyond {_sensor.Range / 1000f:F1} km radar range");
+                $"spawns {spawnRange / 1000f:F1} km out - beyond {range / 1000f:F1} km sensor range");
             ImGui.TextDisabled("  it will be invisible until it closes to range");
         }
         else
         {
-            ImGui.TextDisabled($"spawns {spawnRange / 1000f:F1} km out, inside radar range");
+            ImGui.TextDisabled($"spawns {spawnRange / 1000f:F1} km out, inside sensor range");
         }
 
         // Which craft to fly as the drone. A stock vessel reads as an actual intruder;
@@ -274,20 +281,20 @@ internal sealed partial class Ui
 
         if (ImGui.Button("Overhead"))
         {
-            TestTarget.Spawn(_system.Platform, TestTarget.Profile.Overhead,
+            TestTarget.Spawn(platform, TestTarget.Profile.Overhead,
                 _spawnSeconds, _spawnSpeed, _spawnMiss, craftName);
         }
         ImGui.SameLine();
         if (ImGui.Button("Head-on"))
         {
-            TestTarget.Spawn(_system.Platform, TestTarget.Profile.HeadOn,
+            TestTarget.Spawn(platform, TestTarget.Profile.HeadOn,
                 _spawnSeconds, _spawnSpeed, _spawnMiss, craftName);
         }
         Tip("Dives steepest and holds its speed best in atmosphere.");
         ImGui.SameLine();
         if (ImGui.Button("Passing by"))
         {
-            TestTarget.Spawn(_system.Platform, TestTarget.Profile.PassingBy,
+            TestTarget.Spawn(platform, TestTarget.Profile.PassingBy,
                 _spawnSeconds, _spawnSpeed, _spawnMiss, craftName);
         }
 
@@ -311,6 +318,17 @@ internal sealed partial class Ui
         Tip($"A bar over every part of every craft within {PartHealthBars.RangeMetres / 1000.0:F0} km of the "
             + "camera, and over any damaged part further out: green whole, red nearly gone. The settings "
             + "window's Damage scale sets how fast it drains.");
+
+        if (Build.Developer)
+        {
+            ImGui.Checkbox("Ground-track map calibration", ref _config.DrawGroundTrackCalibration);
+            Tip("Nine crosses at round coordinates. They sit on the ground they name at any zoom "
+                + "- 0,-90 on the Galapagos - and deliberately not on KSA's grid lines, which are "
+                + "spread across whatever is visible rather than drawn at round degrees.");
+
+            if (!GroundTrackHook.Installed && GroundTrackHook.Trouble.Length > 0)
+                ImGui.TextDisabled($"  not drawing: {GroundTrackHook.Trouble}");
+        }
 
         if (Build.Developer) DrawDiagnostics();
     }

@@ -60,16 +60,17 @@ public class ReleaseFocusTests(ITestOutputHelper Out)
                          * Vec.RotationFromTo(new double3(1, 0, 0), line);
 
         LauncherProfile launcher = Arsenal.MirvBus;
-        double3[] offsets = new double3[launcher.TubeCount];
+        List<double3> offsets = [];
 
-        for (int tube = 0; tube < offsets.Length; tube++)
+        for (int tube = 0; tube < launcher.TubeCount; tube++)
         {
             Assert.True(TubeGeometry.TryOffsetFromMeanPartFrame(launcher, tube, Vec.Zero,
                                                                 doubleQuat.Identity, out double3 inPart));
-            offsets[tube] = bus * inPart;
+            // The seat on the axis is on no ring and throws no ring kick.
+            if (Vec.Len(inPart) > 0.01) offsets.Add(bus * inPart);
         }
 
-        return offsets;
+        return [.. offsets];
     }
 
     private static bool TryLand(double3 positionCci, double3 velocityCci, out double3 groundCci,

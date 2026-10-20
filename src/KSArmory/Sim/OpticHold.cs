@@ -20,6 +20,9 @@ internal readonly record struct OpticHold(string Reason)
     public bool Holds => Reason.Length > 0;
 }
 
+/// <summary>Who handed a director the contact it holds, in the precedence its set takes them.</summary>
+internal enum CueSource { None, Designation, Launcher, Picture }
+
 /// <summary>What decides that, kept apart from the drawing so it can be tested.</summary>
 internal static class OpticFollow
 {
@@ -37,8 +40,9 @@ internal static class OpticFollow
     ///
     /// <para>The order is not a preference — it mirrors the precedence in
     /// <c>OpticalHead.AimPartFrame</c>, which takes the mouse first, then the sliders, then a
-    /// designation, then the tracking switch. A reason listed in any other order names a rung the
-    /// head never reached, which is worse than saying nothing.</para>
+    /// designation, then the tracking switch -- or a cue from the weapon on its part or a laser spot its
+    /// tracker found, which count as tracking. A reason listed in any other order names a rung the head never reached, which is
+    /// worse than saying nothing.</para>
     /// </summary>
     /// <param name="onAxis">The contact is within <see cref="OnAxisDeg"/> of where the head looks.</param>
     /// <param name="settled">The drive has stopped moving.</param>

@@ -147,7 +147,7 @@ references no KSA assembly, so a `using KSA;` there fails the test build. Guidan
 modelling, lead solutions, IFF and the drives all live there and fly whole engagements headlessly.
 
 What you *do* still need is **KSA's assemblies**, even for that half: `double3` comes from
-`Brutal.Core.Numerics.dll`, so the test project references it and `tools/test.sh` will not run
+`Brutal.Numerics.dll`, so the test project references it and `tools/test.sh` will not run
 without it. `./tools/doctor.sh` says what is missing and how to get it.
 
 That is the easiest place to start, and the tests will tell you the truth without the game

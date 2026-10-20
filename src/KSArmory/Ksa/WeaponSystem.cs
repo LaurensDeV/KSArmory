@@ -42,9 +42,23 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // and there is no one turn between opposite directions.
     private readonly Dictionary<IProjectile, DrawnAttitude> _drawnAttitudes = new(ReferenceEqualityComparer.Instance);
 
+    // Rounds drawn with no air to turn them, until the frame the air first does.
+    private readonly HashSet<IProjectile> _inVacuum = new(ReferenceEqualityComparer.Instance);
+
     // The meshes a loose round is drawn with, taken off its subparts while the launcher was alive.
     private sealed record LooseBody(PartModel? Body, PartModel?[] Blades, PartModel? FinSet);
     private readonly Dictionary<IProjectile, LooseBody> _looseBodies = new(ReferenceEqualityComparer.Instance);
+
+    // Rounds further from their launcher than FarBodyMetres, drawn as instances by DrawFarBodies.
+    private readonly Dictionary<IProjectile, LooseBody> _farBodies = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>
+    /// How far from its launcher a round's body stops being placed as the launcher's subpart and is drawn as an
+    /// instance placed off the camera. A subpart's placement is packed to <c>float</c> against its craft, a step of
+    /// 0.6 mm here and about half a metre at the 4,000 km a MIRV warhead flies, which a chase camera 15 m behind
+    /// sees as the round shaking.
+    /// </summary>
+    public const double FarBodyMetres = 10_000.0;
 
     private readonly record struct DrawnAttitude(doubleQuat Ecl, double Age);
 
@@ -816,10 +830,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (double.IsFinite(dt) && dt > 0.0) _finTestSeconds += dt;
 
         _clock += dt;
+        _frameSimStep = double.IsFinite(dt) ? dt : 0.0;
 
         FillIncoming(airborne);
 
+        Radar.Cue = CuedHandle();
         Radar.Scan(Platform, Boresight, dt, _incoming);
+        if (!Profile.FiresBeam) CueDirector();
         AttributeRoundsToTracks();
         UpdateTurret(dt);
 
@@ -883,7 +900,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // The ladder itself is Sim/FireLadder.cs; this is only where its inputs are read off the
     // world. Sampled into one value rather than passed as a dozen arguments so no rung can be
     // answered from a later instant than the one above it.
-    private FireHold? Holding(bool tubes, MunitionProfile munition, Track? locked, string? designated)
+    private FireHold? Holding(bool tubes, MunitionProfile munition, Track? locked, string? designated,
+                              BeamConditions? beam = null)
     {
         double offTubeDeg = double.NaN;
         bool withinSeeker = !tubes || locked is null
@@ -918,6 +936,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 LockedOffTubeDeg = offTubeDeg,
                 LockedName = locked?.Contact.DisplayName ?? "",
                 DesignatedName = designated,
+                Beam = beam,
             },
             _policy,
             munition);
@@ -1039,6 +1058,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     private void UpdateFireControl(double dt)
     {
+        if (Profile.FiresBeam && Profile.TubeCount == 0 && !Profile.HasCannon)
+        {
+            UpdateBeamFireControl(dt);
+            return;
+        }
+
         // A launcher with no tubes takes the belt's rungs. Read off the fit rather than tested
         // here, so the panel and the ladder agree on what this system is.
         bool tubes = WeaponFit.Of(Profile, Sensor).FirstOf(ArmamentKind.Tubes) is not null;
@@ -1097,6 +1122,135 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (!Munition.Powered) return;
 
         Fire(target);
+    }
+
+    /// <summary>
+    /// Finds the optical director on a part: the one this launcher cues, and fires the beam of if it
+    /// has one. Supplied by the roster, which is the only thing that knows which heads are crewed.
+    /// </summary>
+    public Func<Part, OpticalHead?>? DirectorFor { get; set; }
+
+    /// <summary>The contact this craft's picture hands out, taken by a beam on auto-engage.</summary>
+    public Func<Vehicle?, object?>? PictureFor { get; set; }
+
+    private OpticalHead? _beamHead;
+    private readonly BeamTrigger _beam = new();
+
+    /// <summary>The director firing this launcher's beam, once found.</summary>
+    public OpticalHead? BeamHead => _beamHead;
+
+    /// <summary>Whole seconds of lasing left, which is what a beam's tally counts.</summary>
+    public int BeamSecondsLeft
+        => _beamHead is { } head && double.IsFinite(head.ChemicalSecondsLeft)
+               ? (int)Math.Ceiling(Math.Max(0.0, head.ChemicalSecondsLeft))
+               : 0;
+
+    /// <summary>Whether the beam is commanded on this step.</summary>
+    public bool BeamLasing => _beam.Lasing;
+
+    /// <summary>What is left of one armament: rounds, belt, or seconds of lasing.</summary>
+    public int Remaining(ArmamentKind kind) => kind switch
+    {
+        ArmamentKind.Belt => _guns.Ammo,
+        ArmamentKind.Beam => BeamSecondsLeft,
+        _ => Ammo,
+    };
+
+    // A beam weapon has nothing of its own to lay: it picks the target, cues the director on its
+    // part at it, and fires the director's beam while the ladder allows. The operator's designation
+    // comes ahead of the set's pick, as the trigger's does for every other weapon.
+    private void UpdateBeamFireControl(double dt)
+    {
+        _beamHead = Launcher is { } part ? DirectorFor?.Invoke(part) : null;
+
+        // A shift-click reaches every director on the craft but only the weapon selected, so a
+        // designation the director holds and this weapon does not is still the one it aims at. A
+        // place on the ground is lased by hand: auto-engage has no craft there to burn.
+        bool own = Designation.Kind != AimpointKind.None;
+        Aimpoint designation = own ? Designation : _beamHead?.Designation ?? Aimpoint.Nothing;
+        string designatedName = own ? DesignationName : _beamHead?.DesignationName ?? "";
+
+        Track? target = designation.Kind switch
+        {
+            AimpointKind.None => Radar.Locked,
+            AimpointKind.Vehicle => Radar.TrackFor(designation.Handle),
+            _ => null,
+        };
+
+        Aimpoint cue = designation.Kind != AimpointKind.None ? designation
+                       : target is not null ? AimpointOf(target)
+                       : Aimpoint.Nothing;
+        if (cue.Kind != AimpointKind.None) _beamHead?.Cue(cue, commands: true);
+
+        BeamConditions beam = new()
+        {
+            HeadResolved = _beamHead is not null,
+            SecondsLeft = _beamHead?.ChemicalSecondsLeft ?? 0.0,
+            Masked = _beamHead?.Masked ?? false,
+            OnTarget = _beamHead?.OnTarget ?? false,
+            CloudInTheWay = _beamHead?.CueBehindCloud ?? false,
+            ReachMetres = _beamHead?.Profile.LaserRangeMetres ?? 0.0,
+        };
+
+        string? designated = designation.Kind == AimpointKind.Vehicle ? designatedName : null;
+        FireHold? held = Holding(tubes: false, MunitionProfile.None, target, designated, beam);
+        string? hold = held?.Reason;
+
+        if (hold != Hold)
+        {
+            Announce(hold is null ? "clear to fire"
+                     : held is { BindsTrigger: false } ? $"auto-engage held: {hold}"
+                     : $"holding fire: {hold}");
+        }
+
+        Hold = hold;
+        TriggerHold = held;
+
+        bool autoWants = held is null && _policy.AutoEngage;
+        bool mayLase = held is not { BindsTrigger: true } && (cue.Kind == AimpointKind.None || beam.OnTarget);
+        _beamHead?.CommandBeam(_beam.Step(dt, autoWants, mayLase));
+    }
+
+    // A designated contact, the weapon's own or else its director's, for a set that can only hold
+    // what it is handed.
+    private object? CuedHandle()
+    {
+        if (Designation.Kind == AimpointKind.Vehicle) return Designation.Handle;
+        if (Profile.FiresBeam && _beamHead?.Designation is { Kind: AimpointKind.Vehicle } head) return head.Handle;
+        if (Profile.FiresBeam && _policy.AutoEngage) return PictureFor?.Invoke(Platform);
+        return null;
+    }
+
+    // A director on this launcher's part is cued with what the set holds, as a Pantsir's radar cues
+    // its 1TPP1; the director takes it only with its own tracking on.
+    private void CueDirector()
+    {
+        if (Launcher is not { } part || DirectorFor?.Invoke(part) is not { } head) return;
+
+        Aimpoint cue = Designation.Kind != AimpointKind.None ? Designation
+                       : (Radar.Watched ?? Radar.Locked) is { } track ? AimpointOf(track)
+                       : Aimpoint.Nothing;
+        if (cue.Kind != AimpointKind.None) head.Cue(cue, commands: false);
+    }
+
+    private static Aimpoint AimpointOf(Track track)
+        => track.Contact is VehicleContact craft
+               ? Aimpoint.OnVehicle(craft.Vehicle, track.PositionEcl, track.VelocityEcl, KsaWorld.MeanRadius(craft.Vehicle))
+               : Aimpoint.AtPoint(track.PositionEcl);
+
+    // One press of the trigger: a dwell, which the director's own state then runs or holds.
+    private bool PressBeam()
+    {
+        if (TriggerHold is { BindsTrigger: true } refused)
+        {
+            Announce($"refused: {refused.Reason}");
+            return false;
+        }
+
+        double shot = _beamHead?.Profile.Beam?.ShotSeconds ?? 5.0;
+        _beam.Press(shot);
+        Announce($"lasing for {shot:F0} s");
+        return true;
     }
 
     // Where a bearing to something should be measured from: the trunnion the tubes swing on, not
@@ -1237,6 +1391,47 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     /// <summary>How far away what the gun is laid on this frame is, or zero when no gun lay is driving.</summary>
     public double GunLayRangeMetres => _gunLayRangeMetres;
+
+    private double _frameSimStep;
+    private readonly ContactHold _designatedContact = new();
+    private Vehicle? _contactOf;
+
+    private bool HeldContact(Vehicle designated, bool touching)
+    {
+        if (!ReferenceEquals(_contactOf, designated))
+        {
+            _contactOf = designated;
+            _designatedContact.Reset();
+        }
+        return _designatedContact.Update(touching, _frameSimStep);
+    }
+
+    private bool _lastTouching, _lastRests;
+    private int _touchFlips, _restFlips;
+    private double _contactSince;
+
+    // How often a designated craft's ground contact flips, raw and held, once a second under a verbose log: it decides
+    // both the acceleration the lay leads with and how the reach is searched.
+    private bool SayContact(Vehicle designated, bool touching, bool rests)
+    {
+        if (touching != _lastTouching) _touchFlips++;
+        if (rests != _lastRests) _restFlips++;
+        _lastTouching = touching;
+        _lastRests = rests;
+        _contactSince += _frameSimStep;
+        if (_contactSince >= 1.0)
+        {
+            if (_touchFlips > 0 || _restFlips > 0)
+            {
+                Log.Debug($"{KsaWorld.DisplayName(designated)}: ground contact flipped {_touchFlips} time(s) in "
+                          + $"{_contactSince:F1} s, the lay's {_restFlips}; resting now {rests}");
+            }
+            _touchFlips = 0;
+            _restFlips = 0;
+            _contactSince = 0.0;
+        }
+        return rests;
+    }
 
     // A place on the ground, which keeps its place as the ground turns.
     private bool TryGunGroundLay(double3 groundEcl, double3 groundVelocityEcl, out double3 partFrame)
@@ -1590,11 +1785,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // So is a craft. Resting on something it moves with the ground under it; flying, it carries its
         // own acceleration, which the lead flies it along.
         if (Designation.Kind == AimpointKind.Vehicle && Designation.Handle is Vehicle designated
+            && KsaWorld.RestsOnSurface(designated) is var touching
+            && SayContact(designated, touching, HeldContact(designated, touching)) is var rests
             && TryGunLay(Designation.PositionEcl, Designation.VelocityEcl,
-                         KsaWorld.RestsOnSurface(designated)
+                         rests
                              ? KsaWorld.GroundAccelerationAt(Platform, Designation.PositionEcl)
                              : KsaWorld.AccelerationEcl(designated),
-                         onTheGround: KsaWorld.RestsOnSurface(designated), out partFrame))
+                         onTheGround: rests, out partFrame))
         {
             SayGunLaid("a gun laid on it");
             return true;
@@ -1999,10 +2196,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                                                                           round.LaunchAttitude),
                                                           0.0);
 
-            drawn = new DrawnAttitude(BodyAttitude.Turn(drawn.Ecl, round.VelocityLocal, density,
-                                                        round.Age - drawn.Age),
-                                      round.Age);
+            drawn = Carry(drawn, round, density);
             _drawnAttitudes[round] = drawn;
+
+            // Not flying, so the loop below seats and hides its subpart, and DrawFarBodies draws it.
+            if (_farBodies.ContainsKey(round) || Vec.Len(round.TravelSinceLaunch) > FarBodyMetres)
+            {
+                if (!_farBodies.ContainsKey(round)) _farBodies[round] = BodiesOf(round, index);
+                continue;
+            }
 
             if (!LauncherPart.TryPlaceMissile(platform, launcher, _missileBodies[index],
                                               round.LaunchAnchorPartFrame, round.TravelSinceLaunch,
@@ -2182,6 +2384,29 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
             double3 ego = platformEgo + (ecl - platformEcl);
             if (Vec.IsFinite(ego)) AddInstance(_shellModel, double3.One, drawn.Ecl, ego, viewport, frameIndex);
+        }
+    }
+
+    /// <summary>
+    /// Queues the bodies of this system's rounds that are beyond <see cref="FarBodyMetres"/> of their launcher for one
+    /// viewport, placed as <see cref="DrawShellBodies"/> places a shell.
+    /// </summary>
+    public void DrawFarBodies(IViewport viewport, int frameIndex)
+    {
+        if (_farBodies.Count == 0 || !_config.UseRoundBodies || Platform is not { } platform
+            || !KsaWorld.IsAlive(platform) || viewport.GetCamera() is not { } camera) return;
+
+        double3 platformEgo = camera.GetPositionEgo(platform);
+        double3 platformEcl = KsaWorld.PositionEcl(platform);
+
+        foreach (IProjectile round in _rounds)
+        {
+            if (round.State != RoundState.Flying || !_farBodies.TryGetValue(round, out LooseBody? looks)
+                || !_drawnAttitudes.TryGetValue(round, out DrawnAttitude drawn)
+                || !TryRoundEffectEcl(round, out double3 ecl)) continue;
+
+            double3 ego = platformEgo + (ecl - platformEcl);
+            if (Vec.IsFinite(ego)) AddRoundInstances(looks, drawn, ego, round, viewport, frameIndex);
         }
     }
 
@@ -2416,6 +2641,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // the shot outright rather than letting it fall short -- which leaves the cannon silent on
         // ground past the shell's reach while the sky fires, because only the sky path reaches the
         // trigger. Say the range, because the belt does not come back.
+        if (TriggerArmament == ArmamentKind.Beam)
+        {
+            Aimpoint point = KsaWorld.TryAnchorToGround(pointEcl, out object? ground, out double3 at)
+                                 ? Aimpoint.OnGround(ground!, at, pointEcl, Vec.Zero)
+                                 : Aimpoint.AtPoint(pointEcl);
+            Point(point, $"a designated point ({range / 1000.0:F1} km)", log: true);
+            return PressBeam();
+        }
+
         if (TriggerArmament == ArmamentKind.Belt)
         {
             if (Profile.HasCannon && range > Shell.MaxRange)
@@ -2449,6 +2683,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // launcher rather than to the target, a tube, the launch geometry, and the round.
     private bool Commit(Aimpoint aim, string what)
     {
+        if (TriggerArmament == ArmamentKind.Beam) return PressBeam();
+
         // A launcher with no tubes has exactly one weapon, and every gate below is about the
         // magazine it does not own. Sending it down this path refuses every manual shot on an
         // empty magazine, which leaves a working cannon with no trigger at all.
@@ -2709,9 +2945,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// Whether a manual shot would be taken right now, asked of the armament the trigger fires. A
     /// gun reads zero from the magazine forever.
     /// </summary>
-    public bool ReadyToFire => TriggerArmament == ArmamentKind.Tubes
-                                   ? Ammo > 0 && IsLaid
-                                   : Profile.HasCannon && !_guns.IsEmpty && GunsAreLaid;
+    public bool ReadyToFire => TriggerArmament switch
+    {
+        ArmamentKind.Tubes => Ammo > 0 && IsLaid,
+        ArmamentKind.Beam => TriggerHold is not { BindsTrigger: true },
+        _ => Profile.HasCannon && !_guns.IsEmpty && GunsAreLaid,
+    };
 
     /// <summary>
     /// Where the cannon's flashes belong, in Ecl: one point per barrel cluster.
@@ -2787,23 +3026,31 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// </summary>
     public ArmamentKind TriggerArmament
     {
-        get => Profile.TubeCount == 0 || _triggerArmament == ArmamentKind.Belt && Profile.HasCannon
-                   ? ArmamentKind.Belt
-                   : ArmamentKind.Tubes;
+        get => WeaponFit.TriggerOn(Profile, _triggerArmament);
         set
         {
             if (value == _triggerArmament) return;
 
             _triggerArmament = value;
             Log.Info($"{Profile.DisplayName} ({LauncherOrdinal + 1}) trigger on the "
-                     + (TriggerArmament == ArmamentKind.Belt ? "cannon" : "tubes"));
+                     + TriggerArmament switch
+                     {
+                         ArmamentKind.Belt => "cannon",
+                         ArmamentKind.Beam => "beam",
+                         _ => "tubes",
+                     });
         }
     }
 
     private ArmamentKind _triggerArmament = ArmamentKind.Tubes;
 
     /// <summary>The round the trigger throws: the shell when it is on the cannon.</summary>
-    public MunitionProfile TriggerMunition => TriggerArmament == ArmamentKind.Belt ? Shell : Munition;
+    public MunitionProfile TriggerMunition => TriggerArmament switch
+    {
+        ArmamentKind.Belt => Shell,
+        ArmamentKind.Beam => MunitionProfile.None,
+        _ => Munition,
+    };
 
     // What the trigger shoots at. A craft the operator shift-clicked comes ahead of the set's own
     // pick, because the turret follows the designation and a round sent at the lock would leave
@@ -2823,6 +3070,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // lock first would leave the one weapon that is meant to be hand-aimed as the only one that
         // cannot be.
         if (TriggerArmament == ArmamentKind.Belt) return FireBurst();
+        if (TriggerArmament == ArmamentKind.Beam) return PressBeam();
 
         // A store is released, not launched at something: nothing on the rack has a seeker for a
         // lock to feed, so demanding one leaves the trigger dead. Same reasoning as the gun above --
@@ -2843,6 +3091,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     public void Reload()
     {
+        if (Profile.FiresBeam && _beamHead is { } head)
+        {
+            head.RefillChemicals();
+            Announce($"laser chemicals refilled - {head.ChemicalSecondsLeft:F0} s");
+            if (Profile.TubeCount == 0 && !Profile.HasCannon) return;
+        }
+
         _magazine.Resize(Profile.TubeCount, Profile.MagazineDepth);
         _reloadTimer = 0.0;
 
@@ -2889,6 +3144,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     {
         int n = _rounds.Count;
         ClearRounds();
+        _beam.Stop();
 
         bool wasEngaging = _policy.AutoEngage;
         _policy.AutoEngage = false;
@@ -2914,8 +3170,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     {
         _roundSet.Remove(_rounds[index]);
         _drawnAttitudes.Remove(_rounds[index]);
+        _inVacuum.Remove(_rounds[index]);
         _seekers.Remove(_rounds[index]);
         _looseBodies.Remove(_rounds[index]);
+        _farBodies.Remove(_rounds[index]);
         _rounds.RemoveAt(index);
     }
 
@@ -2924,8 +3182,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _rounds.Clear();
         _roundSet.Clear();
         _drawnAttitudes.Clear();
+        _inVacuum.Clear();
         _seekers.Clear();
         _looseBodies.Clear();
+        _farBodies.Clear();
     }
 
     /// <summary>
@@ -3097,12 +3357,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             int index = round.Tube - 1;
             if (index < 0 || index >= _missileBodies.Count || !_drawnAttitudes.ContainsKey(round)) continue;
 
-            MunitionProfile munition = round.Munition;
-            var blades = new PartModel?[Math.Max(0, munition.FinsPerRound)];
-            for (int b = 0; b < blades.Length; b++) blades[b] = LauncherPart.ModelOf(FinsFor(index * blades.Length + b));
-
-            _looseBodies[round] = new LooseBody(LauncherPart.ModelOf(_missileBodies[index]), blades,
-                                                blades.Length == 0 ? LauncherPart.ModelOf(FinsFor(index)) : null);
+            _looseBodies[round] = BodiesOf(round, index);
         }
 
         foreach (IProjectile round in _rounds)
@@ -3119,6 +3374,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         for (int i = 0; i < _finBodies.Count; i++) LauncherPart.HideMissile(_finBodies[i]);
     }
 
+    // The models a tube's round is drawn with, off the subparts that say which template each is.
+    private LooseBody BodiesOf(IProjectile round, int index)
+    {
+        var blades = new PartModel?[Math.Max(0, round.Munition.FinsPerRound)];
+        for (int b = 0; b < blades.Length; b++) blades[b] = LauncherPart.ModelOf(FinsFor(index * blades.Length + b));
+
+        return new LooseBody(LauncherPart.ModelOf(_missileBodies[index]), blades,
+                             blades.Length == 0 ? LauncherPart.ModelOf(FinsFor(index)) : null);
+    }
+
     // On from where each was last drawn, as SyncRoundBodies turns a body that still has its launcher.
     private void TurnLooseBodies(Celestial body)
     {
@@ -3127,9 +3392,39 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             if (!_looseBodies.ContainsKey(round) || !_drawnAttitudes.TryGetValue(round, out DrawnAttitude was)) continue;
 
             double density = KsaWorld.MediumDensityRatioAt(body, round.PositionEcl);
-            _drawnAttitudes[round] = new DrawnAttitude(
-                BodyAttitude.Turn(was.Ecl, round.VelocityLocal, density, round.Age - was.Age), round.Age);
+            _drawnAttitudes[round] = Carry(was, round, density);
         }
+    }
+
+    // A tube round's attitude, from where it was last drawn to its age now: onto the airflow, and rolled
+    // by whatever its spin motors have added in between. The turn adds no roll, so the two compose.
+    private DrawnAttitude Carry(DrawnAttitude was, IProjectile round, double density)
+    {
+        // The nose the air first finds, which is what a bus turned onto the entry airflow is for: docs/RV-POINTING.md.
+        if (BodyAttitude.Authority(round.VelocityLocal, density) <= 0.0)
+        {
+            _inVacuum.Add(round);
+        }
+        else if (_inVacuum.Remove(round))
+        {
+            double off = double.RadiansToDegrees(Vec.AngleBetween(was.Ecl * FireGeometry.NoseAxis, round.VelocityLocal));
+            Log.Info($"{RoundLabel.For(round.Tube)} meets the air {round.Age:F0} s after release, nose {off:F1} deg off its airflow");
+        }
+
+        doubleQuat turned = BodyAttitude.Turn(was.Ecl, round.VelocityLocal, density, round.Age - was.Age);
+        if (Profile.ReleaseSpin is { } spin)
+        {
+            turned = BodyAttitude.Roll(turned, spin.RollRadAt(round.Age) - spin.RollRadAt(was.Age));
+        }
+        return new DrawnAttitude(turned, round.Age);
+    }
+
+    /// <inheritdoc cref="IEffectSource.TryRoundAttitudeEcl"/>
+    public bool TryRoundAttitudeEcl(IProjectile round, out doubleQuat attitudeEcl)
+    {
+        bool known = _drawnAttitudes.TryGetValue(round, out DrawnAttitude drawn);
+        attitudeEcl = known ? drawn.Ecl : doubleQuat.Identity;
+        return known;
     }
 
     /// <summary>
@@ -3154,21 +3449,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             double3 ego = bodyEgo + round.OffsetFromPlatform;
             if (!Vec.IsFinite(ego)) continue;
 
-            MunitionProfile munition = round.Munition;
-            AddInstance(looks.Body, double3.One, drawn.Ecl, ego, viewport, frameIndex);
+            AddRoundInstances(looks, drawn, ego, round, viewport, frameIndex);
             drawnCount += looks.Body is null ? 0 : 1;
             nearest = Math.Min(nearest, Vec.Len(ego));
-
-            for (int b = 0; b < looks.Blades.Length; b++)
-            {
-                double roll = FinMixer.FinRollRad(b, looks.Blades.Length, Math.PI / 4.0);
-                doubleQuat rotation = drawn.Ecl * doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), roll);
-                AddInstance(looks.Blades[b], double3.One, rotation,
-                            ego + (drawn.Ecl * new double3(munition.FinHingeStation, 0, 0)), viewport, frameIndex);
-            }
-
-            AddInstance(looks.FinSet, TubeGeometry.FinScale(munition, round.FinDeployment(munition)),
-                        drawn.Ecl, ego, viewport, frameIndex);
         }
 
         if (_looseBodiesReported || drawnCount == 0) return;
@@ -3177,6 +3460,25 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     private bool _looseBodiesReported;
+
+    // A round's body, its blades and its fin set, at ego.
+    private static void AddRoundInstances(LooseBody looks, DrawnAttitude drawn, double3 ego, IProjectile round,
+                                          IViewport viewport, int frameIndex)
+    {
+        MunitionProfile munition = round.Munition;
+        AddInstance(looks.Body, double3.One, drawn.Ecl, ego, viewport, frameIndex);
+
+        for (int b = 0; b < looks.Blades.Length; b++)
+        {
+            double roll = FinMixer.FinRollRad(b, looks.Blades.Length, Math.PI / 4.0);
+            doubleQuat rotation = drawn.Ecl * doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), roll);
+            AddInstance(looks.Blades[b], double3.One, rotation,
+                        ego + (drawn.Ecl * new double3(munition.FinHingeStation, 0, 0)), viewport, frameIndex);
+        }
+
+        AddInstance(looks.FinSet, TubeGeometry.FinScale(munition, round.FinDeployment(munition)),
+                    drawn.Ecl, ego, viewport, frameIndex);
+    }
 
     private static void AddInstance(PartModel? model, double3 scale, doubleQuat rotation, double3 ego,
                                     IViewport viewport, int frameIndex)

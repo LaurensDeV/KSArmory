@@ -29,6 +29,12 @@ internal sealed partial class IcbmProgram
 
     private const double AlignBeforeBurningDeg = 15.0;
 
+    // About 55 km on Earth. A GeoSat FAT finishing at 58 km paused, coasted 10 s and relit its 45 g core at 0.92 for
+    // 8 m/s: one frame, and the trim then owed more than it flies.
+    public const double ThinAirDensity = 1e-3;
+
+    private double AirCountsAbove => Config.ShortShotCutsInThinAir ? ThinAirDensity : Medium.NoticeableDensity;
+
     // How far the airflow may hold the thrust off what is left to gain before burning stops helping.
     private const double UsefulThrustDeg = 30.0;
 
@@ -42,7 +48,7 @@ internal sealed partial class IcbmProgram
         // where the air counts: flown at 700 km, at 64 km, released from a stack still turning, with kicks
         // of 0.5-0.66 m/s against a 10 mm/s cap, 0.36 km out; cut off at 98 km the same shot landed 2.2 mm.
         bool highArc = Config.ShortShotFinishesInTheAir && !StaysUnderTheReleaseAltitude(state);
-        bool inTheAir = thickAir || (highArc && state.AirDensityRatio >= Medium.NoticeableDensity);
+        bool inTheAir = thickAir || (highArc && state.AirDensityRatio >= AirCountsAbove);
 
         // A stage that can stop and has finished the shot in thick air pauses instead of ending: the
         // stack coasts up out of the air with the loop still solving, and the engine lights again in
@@ -78,17 +84,17 @@ internal sealed partial class IcbmProgram
 
         if (ShouldCutOff(state))
         {
-            _releasesAtCutoff = _shortShot && (state.AirDensityRatio >= Medium.NoticeableDensity || StaysUnderTheReleaseAltitude(state));
+            _releasesAtCutoff = _shortShot && (state.AirDensityRatio >= AirCountsAbove || StaysUnderTheReleaseAltitude(state));
 
             // Recorded here rather than in Coasting, which clears it. What was left when the
             // engines stopped is the whole story of a shot that lands short on an otherwise
             // perfect trajectory, and reporting a zero says every burn closed perfectly - which is
             // exactly what a burn that ended forty metres a second early also says.
-            ResidualAtCutoff = _toGain;
-            ResidualVectorCci = _toGainVectorCci;
+            LatchResidual();
             AccelerationAtCutoff = state.Booster.AccelerationNow;
             StepAtCutoff = _lastStep;
             ThrottleAtCutoff = state.ThrottleAchieved;
+            CutOffBy = _cutTest;
             Phase = IcbmPhase.Coast;
             return Coasting(state);
         }
@@ -114,9 +120,8 @@ internal sealed partial class IcbmProgram
 
             if (!usable && (!climbing || _toGain <= BusTrim.MaxMetresPerSecond))
             {
-                _releasesAtCutoff = state.AirDensityRatio >= Medium.NoticeableDensity || StaysUnderTheReleaseAltitude(state);
-                ResidualAtCutoff = _toGain;
-                ResidualVectorCci = _toGainVectorCci;
+                _releasesAtCutoff = state.AirDensityRatio >= AirCountsAbove || StaysUnderTheReleaseAltitude(state);
+                LatchResidual();
                 AccelerationAtCutoff = state.Booster.AccelerationNow;
                 StepAtCutoff = _lastStep;
                 ThrottleAtCutoff = state.ThrottleAchieved;
@@ -148,8 +153,25 @@ internal sealed partial class IcbmProgram
     // left to gain, which on a liquid stack in the air never reaches the cutoff. docs/SHORT-RANGE.md.
     private bool PushesThrough(in IcbmState state)
         => Config.ShortShotPushesThroughAStall && _shortShot && Phase == IcbmPhase.ClosedLoop
-           && _secondsInTheRamp > Config.ShortShotPushesThroughAfterSeconds && state.AirDensityRatio >= Medium.NoticeableDensity
+           && _secondsInTheRamp > 0.0 && (_secondsInTheRamp > Config.ShortShotPushesThroughAfterSeconds || _pushLatched)
+           && state.AirDensityRatio >= Medium.NoticeableDensity
            && !_pushCci.Equals(Vec.Zero);
+
+    // Latched because pushing raises the throttle, which lowers the share that started it.
+    private void LatchPushOnDragShare(in IcbmState state)
+    {
+        if (_pushLatched || Config.ShortShotPushesThroughAtDragShare <= 0.0 || _secondsInTheRamp <= 0.0) return;
+        DragShareOfTheRamp = DragShare(state);
+        _pushLatched = DragShareOfTheRamp >= Config.ShortShotPushesThroughAtDragShare;
+    }
+
+    private double DragShare(in IcbmState state)
+    {
+        double thrust = state.Booster.AccelerationNow * Math.Clamp(state.ThrottleAchieved, state.MinThrottle, 1.0);
+        return _pushCci.Equals(Vec.Zero) || _thrustDirCci.Equals(Vec.Zero) || thrust <= 0.0
+            ? 0.0
+            : Math.Max(Vec.Dot(_pushCci, _thrustDirCci), 0.0) / thrust;
+    }
 
     private double PushAlongTheLine(in IcbmState state)
         => PushesThrough(state) && state.Booster.AccelerationNow > 0.0
@@ -168,6 +190,7 @@ internal sealed partial class IcbmProgram
 
     private bool ShouldCutOff(in IcbmState state)
     {
+        _cutTest = CutoffTest.Threshold;
         if (_toGain <= BurnoutGuidance.CutoffMetresPerSecond) return true;
 
         // Pulsing, a frame on is a quantum the countdown cannot see -- the floor held 1.69x what the engine reported -- so
@@ -176,15 +199,19 @@ internal sealed partial class IcbmProgram
         // burn 76 m/s short.
         double frameAtTheFloor = state.MinThrottle * state.Booster.AccelerationNow * _lastStep;
         double quantum = Math.Min(_pulseQuantum, PulseQuantumOverTheFloor * frameAtTheFloor);
+        _cutTest = CutoffTest.PulseQuantum;
         if (_pulsing && quantum > 0.0 && _toGain <= 0.5 * quantum) return true;
 
         // Against the throttle the vehicle actually has, never the one that was asked for. A stack
         // whose motors do not throttle, or one still ramping down, would otherwise be cut off on a
         // prediction of how much velocity the last frame adds that is several times too small.
         double achieved = Math.Clamp(state.ThrottleAchieved, 0.0, 1.0);
+        _cutTest = CutoffTest.Countdown;
         if (_countdown <= 0.5 * _lastStep * Math.Max(achieved, 1e-3)) return true;
 
-        double oneStep = state.Booster.AccelerationNow * _lastStep;
+        _cutTest = CutoffTest.Backstop;
+        double oneStep = state.Booster.AccelerationNow * _lastStep
+                         * (Config.BackstopRisesOnTheThrottledFrame ? Math.Max(achieved, state.MinThrottle) : 1.0);
         return _lowestToGain < BackstopArmsBelow(state) && _toGain > _lowestToGain + Math.Max(oneStep, 1.0);
     }
 

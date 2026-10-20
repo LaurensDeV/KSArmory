@@ -71,6 +71,12 @@ internal sealed class IcbmConfig
     public bool DesignateByClicking = false;
 
     /// <summary>
+    /// This installation's own map window — a planet to put the warheads on, with the target list
+    /// beside it. Shut by default: it is a second planet render for as long as it is open.
+    /// </summary>
+    public bool MapOpen = false;
+
+    /// <summary>
     /// Fire the next sequence when there is nothing to burn with: the ignition on the pad, and each
     /// spent stage after it.
     /// </summary>
@@ -154,12 +160,136 @@ internal sealed class IcbmConfig
     public bool TrimCountsTheCommandInFlight = true;
 
     /// <summary>
+    /// Whether a walk between several targets starts at cutoff rather than ending on
+    /// <see cref="ReleaseBeforeArrivalSeconds"/>: about twice the spacing, a worse floor per warhead.
+    /// <b>Off: lost alone on 2026-10-11</b>, its hops refused at the per-pass ceiling; flown again with
+    /// <see cref="HopsFlyTheirOwnCeiling"/>. <c>docs/ICBM-OUTSTANDING.md</c> 4.3 and 4.12.
+    /// </summary>
+    public bool WalkStartsAtCutoff;
+
+    /// <summary>
+    /// Whether a walk's hop is bounded by its own price (<see cref="ReleaseLoop.HopCeilingFor"/>) rather
+    /// than by <see cref="BusTrim.MaxMetresPerSecond"/>, which stays on the split null and the aim
+    /// correction. <b>Off until flown</b>: <c>docs/ICBM-OUTSTANDING.md</c> 4.12.
+    /// </summary>
+    public bool HopsFlyTheirOwnCeiling;
+
+    /// <summary>
+    /// A measurement, not a behaviour: degrees the bus turns off its held line once its split is nulled,
+    /// holding the release and the post-boost passes until it settles, then turns back and flies on. Zero
+    /// is off. <c>docs/RV-POINTING.md</c> step 0.
+    /// </summary>
+    public double TurnTestDegrees;
+
+    /// <summary>
+    /// The longest one commanded turn may take before the bus holds whatever attitude it reached. Flown, the
+    /// post-boost bus turned 90 deg and settled in 5.1 s, and back in 7.3.
+    /// </summary>
+    public double TurnCapSeconds = 30.0;
+
+    /// <summary>
+    /// Whether the bus turns once after its split so every RV leaves along the airflow it will meet, and
+    /// holds that line through the walk. Paired over 30 flights of eight at 2,000 and 6,181 km, every RV met the air
+    /// within 0.30 deg of its airflow against 147-164 without, at 0.87x the worst warhead's miss: <c>docs/RV-POINTING.md</c>.
+    /// </summary>
+    public bool PointRvsAtEntry = true;
+
+    /// <summary>
+    /// How much earlier the bus splits so the turn does not come out of the first stop's slot. None: the turn only delays
+    /// the release, and any allowance is coast the walk planner takes from the stops: 10 s cost a 2,000 km walk a stop in the rig.
+    /// </summary>
+    public double TurnAllowanceSeconds;
+
+    /// <summary>
     /// Whether the walk planner prices each hop at the reach of the slot it is flown in, scaled down
     /// from the reach measured now, rather than every hop at that one reach. On, with
     /// <see cref="PriceHopsAtWhatTheTrimPays"/>: flown at 4 km, 7 of 8 walks flew every stop planned, against
     /// 0 of 16 priced at the reach measured now. <c>docs/MIRV-TARGETS.md</c>, "six stops to the ground".
     /// </summary>
     public bool PriceEachHopAtItsSlot = true;
+
+    /// <summary>
+    /// Whether a slot between the gate and the reach's measurement is priced on the line from the gate's own floor
+    /// to that measurement where it is above the line from the origin. Both lie under the concave pinned reach;
+    /// over the sweep the gate's line held with 1.3% in hand and priced 6% more reach (median) for a slot near the
+    /// gate on a walk from cutoff. <b>Off until flown</b>: <c>docs/ICBM-OUTSTANDING.md</c> 4.12.
+    /// </summary>
+    public bool PriceSlotsOnTheGateChord;
+
+    /// <summary>
+    /// Whether a walk gives each hop the time its divert burn takes at the bus's
+    /// <see cref="LauncherProfile.TrimAccelerationMetresPerSecond2"/> -- its slot, the trim's clock and the
+    /// correction's -- and plans on <see cref="TrimBudgetMetresPerSecond"/> rather than
+    /// <see cref="PostBoostAim.MaxTrimMetresPerSecond"/>. <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c> step 2.
+    /// </summary>
+    public bool HopsSizeTheirOwnSlots;
+
+    /// <summary>
+    /// Whether each hop of a walk commits the cheapest arc to its target rather than the one arriving at the
+    /// committed instant, and the walk is priced on the free reach. Along the track a hop then costs 2.7x less at
+    /// 6,181 km and 5.8x less at 12,902; each warhead arrives at its own instant. <b>Off until flown</b>:
+    /// <c>docs/WIDE-SPREAD.md</c> step 5.
+    /// </summary>
+    public bool HopsFreeTheirArrival;
+
+    /// <summary>
+    /// Whether a walk prices the bus's tank in kilograms stop by stop, each hop at the mass the bus has by then, rather
+    /// than in metres a second at its mass with every warhead aboard. Six Mk 21s are 1,500 kg of a 2,900 kg Heavy bus.
+    /// <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c> step 5.
+    /// </summary>
+    public bool PriceTheTankStopByStop;
+
+    /// <summary>
+    /// Whether a free walk flies its reach again from where the coast will be at <see cref="DivertFootprint.LaterEpochs"/>
+    /// epochs down to the release gate, and prices each hop's slot on what it costs there rather than on
+    /// <see cref="ReleaseItinerary.FreeSlotExponent"/>, the fastest fall over 54 arcs. About 1 ms a flight, every 5 s.
+    /// <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c> step 5.
+    /// </summary>
+    public bool FreeHopsMeasureTheirSlots;
+
+    /// <summary>
+    /// Whether a free walk counts the arrival each hop moves: an uprange hop commits an earlier arrival, so every later
+    /// stop is nearer it than its slots alone say, and dearer. Flown at 12,902 km 400 km apart, the arrival moved about
+    /// 80 s a hop and the last hop flew 1.42x its price. <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c> step 5.
+    /// </summary>
+    public bool FreeHopsCountTheArrivalTheyMove;
+
+    /// <summary>
+    /// Whether a hop flown on the nozzles holds until the warhead just released is <see cref="HopBurn.ClearMetres"/> away,
+    /// as an engine hop does. Without it the trim fires 25 ms after the release and the bus, pushed back along the line
+    /// the warhead left on at 0.5 m/s, passes through it, seen on 2026-10-19. <b>Off until flown</b>: the wait is
+    /// about 20 s a stop that <see cref="ReleaseItinerary.HopOverheadSeconds"/> was not measured with.
+    /// </summary>
+    public bool HopsWaitForTheirWarhead;
+
+    /// <summary>
+    /// Whether an engine hop holds while its burn would carry the bus inside its spent stack's keep-out, for at most
+    /// <see cref="HopBurn.StackHoldCapSeconds"/>. Every first hop flown on 2026-10-19 with the stack under 190 m away was
+    /// knocked off its line, and the nozzles then flew it at several times the cost. <b>Off until flown</b>.
+    /// </summary>
+    public bool EngineHopsClearTheStack;
+
+    /// <summary>
+    /// Whether a plan with fewer stops may replace the walker's once a turning bus has split. Fewer stops never move the
+    /// first release earlier, which is what the split was timed on. <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c>
+    /// step 5.
+    /// </summary>
+    public bool WalkShrinksAfterTheSplit;
+
+    /// <summary>
+    /// Whether a hop's arc is solved again from where its burn left the bus before the aim correction reads a miss.
+    /// The arc is an impulse at the hand-over, and the trim nulls velocity alone: a 180 m/s hop on the post-boost bus's
+    /// nozzles burns for about 450 s and ends 44.5 km off it, which the correction took for drag and ran away on.
+    /// <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c> step 5.
+    /// </summary>
+    public bool HopsResolveAfterTheirBurn;
+
+    /// <summary>
+    /// Whether a hop over <see cref="HopBurn.EngineAboveMetresPerSecond"/> is flown on the bus's main engine, where it has
+    /// one (<see cref="LauncherProfile.HopEngineThrustNewtons"/>): turned onto the hop, burnt down to what the nozzles
+    /// take, and turned back. <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c> step 5, C.
+    /// </summary>
+    public bool HopsBurnTheEngine;
 
     /// <summary>
     /// Whether the trim reserve kept beyond the budget for nulling the split may be spent on hops once a
@@ -377,13 +507,47 @@ internal sealed class IcbmConfig
     public bool ShortShotPushesThroughAStall = true;
 
     /// <summary>
+    /// While a short shot coasts out of the air, hold the lever at the floor rather than winding it to full for the
+    /// relight. Lit at full, the GeoSat FAT's core finishes its last 8 m/s inside one frame at 380 m/s2 and cuts off
+    /// 2-14 m/s short (ICBM-OUTSTANDING 1.23). Off until flown.
+    /// </summary>
+    public bool PauseHoldsTheThrottleDown;
+
+    /// <summary>
+    /// Size the backstop's rise on one frame at the throttle the stack has, not at full: at a 380 m/s2 core's floor the
+    /// full frame is 6-11 m/s, so a burn turning off its line runs that far past its lowest before it stops. Off until flown.
+    /// </summary>
+    public bool BackstopRisesOnTheThrottledFrame;
+
+    /// <summary>
+    /// A high short shot that finishes above <see cref="IcbmProgram.ThinAirDensity"/> cuts off there and releases after
+    /// the trim, rather than pausing to coast out of the air and relighting. Off until flown.
+    /// </summary>
+    public bool ShortShotCutsInThinAir;
+
+    /// <summary>
     /// How long the throttle-down runs in the air before <see cref="ShortShotPushesThroughAStall"/> acts, in seconds.
-    /// LowTWR at 200 km stalls at its floor with the slowed line falling behind the drag, and cuts off 2.8 m/s short
-    /// 8 s into its ramp, before a push-through at 10 s can act: 7 of 8 such flights landed 247-344 m out. At 4 s, 6 of 6
-    /// within 24 mm, and 700 km in 2.3 mm against 2.3 km. Not the default: in the rig the game's stack held at its floor
-    /// spins on 5 of 8 low arcs at 4 s (<c>FloorHoldTests</c>). <c>docs/ICBM-OUTSTANDING.md</c> 1.12.
+    /// On KSA 5554 LowTWR at 200 km landed 247-344 m out at 10 s and within 24 mm at 4; on 5602, which steers a gimbaled
+    /// burn on its thrust line, 10 s lands it in millimetres. Not the default: Real SRB4 at 25 and 150 km came in at 11-14
+    /// and 30-51 mm at 4 s against 1-5. <c>docs/SHORT-RANGE.md</c>.
     /// </summary>
     public double ShortShotPushesThroughAfterSeconds = IcbmProgram.PushesThroughAfterSeconds;
+
+    /// <summary>
+    /// Also push through, earlier than <see cref="ShortShotPushesThroughAfterSeconds"/>, once the measured push along
+    /// the line is this share of the thrust the throttle-down is making; zero leaves only the time. The ramp settles
+    /// where the share reaches one. Off: flown at 0.6 it landed LowTWR and the liquids and put Real SRB4 at 150 km 224 m
+    /// out. <c>docs/SHORT-RANGE.md</c>.
+    /// </summary>
+    public double ShortShotPushesThroughAtDragShare;
+
+    /// <summary>
+    /// In the last <see cref="IcbmProgram.CutsOffOnTheMissBelow"/> m/s of a short shot pushed through a stall and released
+    /// at cutoff in the air, steer and cut off on what is left once the one direction that moves the landing nowhere is
+    /// taken out of it. The shortfall a stack cannot gain at its floor is then left where it costs nothing. Off: a declared
+    /// night passed (LowTWR 18 -> 3 mm) but cost Real SRB4 and Liquid3 at 150 km 1.7x and 2.3x. <c>docs/SHORT-RANGE.md</c>.
+    /// </summary>
+    public bool ShortShotCutsOffOnTheMiss;
 
     /// <summary>
     /// Hand the ascent to the closed loop once burning on the schedule has raised the velocity to gain past
@@ -476,6 +640,7 @@ internal sealed class IcbmConfig
     /// Off, the attitude is held for the whole wait: flown from <c>ORBIT 300</c> with a day's hold warped through, the jets
     /// measured 0.000 m/s2 at the trim, 2.44 m/s went unpaid and the warheads landed 1.70 km out. With it, 4 of 5 holds
     /// trimmed and landed within 5 mm; the fifth pointed for five minutes at 1x before lighting and emptied them anyway.
+    /// The drift drops KSA's own attitude hold too, or a craft picked up holding one fires its jets through the warp.
     /// </summary>
     public bool HoldDriftsUntilIgnition = true;
 

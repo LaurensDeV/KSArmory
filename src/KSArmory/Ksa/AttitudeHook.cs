@@ -58,6 +58,10 @@ internal static class AttitudeHook
     // Those owed one more Direct write, which has to happen in this window like every other one.
     private static readonly HashSet<Vehicle> Restore = [];
 
+    // Craft drifting on purpose, held out of KSA's own attitude hold every frame: left holding, a stack warped 11 h to
+    // its burn window fired the bus's jets through the warp and emptied them, about 19 kg an hour, flown.
+    private static readonly HashSet<Vehicle> Drifting = [];
+
     // Craft owed a stage. Staging rebuilds the sequence list the vehicle worker reads, and outside
     // this window that worker may be running: with the engine-control gauge or the staging list open
     // KSA recomputes the controlled craft's stage performance off the main thread, and a list rebuilt
@@ -172,8 +176,19 @@ internal static class AttitudeHook
     public static void Hold(Vehicle craft, double3 directionCci, double3 rollReferenceCci, bool loosely = false)
     {
         if (!KsaWorld.IsAlive(craft)) return;
+        Drifting.Remove(craft);
         Wanted[craft] = new Aim(directionCci, rollReferenceCci, loosely);
     }
+
+    /// <summary>Hold no attitude at all, KSA's own included, every frame until <see cref="Hold"/> or <see cref="StopDrifting"/>.</summary>
+    public static void Drift(Vehicle craft)
+    {
+        if (!KsaWorld.IsAlive(craft)) return;
+        Wanted.Remove(craft);
+        Drifting.Add(craft);
+    }
+
+    public static void StopDrifting(Vehicle craft) => Drifting.Remove(craft);
 
     /// <summary>
     /// Fire this craft's translation in pulses this frame, or hold it directly.
@@ -327,6 +342,7 @@ internal static class AttitudeHook
     public static void Release(Vehicle craft)
     {
         Wanted.Remove(craft);
+        Drifting.Remove(craft);
 
         // Left in pulse mode, the player's own translation keys would fire in millisecond taps. The
         // write is owed to the prefix rather than made here, because one made outside that window is
@@ -412,6 +428,12 @@ internal static class AttitudeHook
             else if (Restore.Remove(__instance))
             {
                 VehicleCommand.SetPulseMode(__instance, pulsing: false);
+            }
+
+            if (Drifting.Count > 0 && Drifting.Contains(__instance))
+            {
+                if (VehicleCommand.HoldsAttitude(__instance)) VehicleCommand.ReleaseAttitude(__instance);
+                return;
             }
 
             if (Wanted.Count == 0) return;

@@ -49,6 +49,10 @@ internal sealed partial class IcbmProgram
     // the same instant the solve carried it to: a target at any other epoch is wrong by the ground's
     // turn over the difference, 465 m/s on the equator.
     private static bool TryDragMiss(in IcbmState state, in BurnoutGuidance.Command command, out double3 missCci)
+        => TryDragMiss(state, command, command.Arc.RequiredVelocityCci, out missCci);
+
+    private static bool TryDragMiss(in IcbmState state, in BurnoutGuidance.Command command, double3 cutoffVelocityCci,
+                                    out double3 missCci)
     {
         missCci = default;
         if (!double.IsFinite(command.CarrySeconds)) return false;
@@ -56,7 +60,7 @@ internal sealed partial class IcbmProgram
         // With the tube's throw, as the warhead leaves: 0.5 m/s along the line is 100-190 m at these ranges,
         // and flown without it every low arc landed that much long.
         if (!ImpactPredictor.TryPredict(state.Body, command.CutoffPositionCci + state.ReleaseOffsetCci,
-                                        command.Arc.RequiredVelocityCci + state.ReleaseImpulseCci,
+                                        cutoffVelocityCci + state.ReleaseImpulseCci,
                                         DragStepSeconds, ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit,
                                         drag: new ImpactPredictor.Drag(state.DensityRatioAt!, state.Warhead!)))
         {
@@ -117,5 +121,54 @@ internal sealed partial class IcbmProgram
         }
 
         return command;
+    }
+
+    private const double MissFreeProbeMetresPerSecond = 1.0;
+    private const double MissFreeLineAllowanceDeg = 2.0;
+    private const double MissFreeMinFlightSeconds = 120.0;
+
+    // The direction of cutoff velocity along which the drag-flown landing does not move: the landing is two numbers
+    // on the ground, so three velocity components leave one free.
+    private static bool TryMissFreeLine(in IcbmState state, in BurnoutGuidance.Command command, out double3 freeCci)
+    {
+        freeCci = default;
+        if (state.DensityRatioAt is null || state.Warhead is null) return false;
+
+        double3 v = command.Arc.RequiredVelocityCci;
+        if (!TryDragMiss(state, command, v, out double3 at)) return false;
+
+        (double3 e, double3 n) = EastNorth(state.Body.CarryCci(state.AimNowCci, command.CarrySeconds), state.Body);
+        double3 east = default, north = default;
+        for (int axis = 0; axis < 3; axis++)
+        {
+            double3 dv = axis switch { 0 => new double3(1, 0, 0), 1 => new double3(0, 1, 0), _ => new double3(0, 0, 1) };
+            if (!TryDragMiss(state, command, v + dv * MissFreeProbeMetresPerSecond, out double3 moved)) return false;
+            double3 column = (moved - at) / MissFreeProbeMetresPerSecond;
+            double de = Vec.Dot(column, e), dn = Vec.Dot(column, n);
+            if (axis == 0) { east.X = de; north.X = dn; }
+            else if (axis == 1) { east.Y = de; north.Y = dn; }
+            else { east.Z = de; north.Z = dn; }
+        }
+
+        double3 free = Vec.Cross(east, north);
+        double scale = Vec.Len(east) * Vec.Len(north);
+        if (!(scale > 0.0) || Vec.Len(free) < 1e-3 * scale) return false;
+        freeCci = Vec.Unit(free);
+        return Vec.IsFinite(freeCci);
+    }
+
+    private static BurnoutGuidance.Command OffTheLine(in IcbmState state, in BurnoutGuidance.Command command, double3 freeCci)
+    {
+        double3 left = command.ToGainVectorCci - freeCci * Vec.Dot(command.ToGainVectorCci, freeCci);
+        double length = Vec.Len(left);
+        if (!(length > 0.0)) return command with { VelocityToGain = 0.0, ToGainVectorCci = Vec.Zero, SecondsToCutoff = 0.0 };
+        double seconds = state.Booster.SecondsToGain(length);
+        return command with
+        {
+            ThrustDirectionCci = left / length,
+            VelocityToGain = length,
+            ToGainVectorCci = left,
+            SecondsToCutoff = double.IsFinite(seconds) ? seconds : 0.0,
+        };
     }
 }

@@ -60,7 +60,7 @@ public class ReleaseFrameTests(ITestOutputHelper Out)
 
     private static ReleaseSituation At(int tube, double3 axisNow, double3 noseNow,
                                        double3 held, double3 heldRoll)
-        => new(ReadyToDeploy: true, NextTube: tube, TubesLeft: 6 - tube, NextTubeAxisCci: axisNow,
+        => new(ReadyToDeploy: true, NextTube: tube, TubesLeft: Arsenal.MirvBus.TubeCount - tube, NextTubeAxisCci: axisNow,
                NoseAxisCci: noseNow, EjectionMetresPerSecond: Ejection,
                SweepMetresPerSecond: 0.0, SecondsLeftToDeploy: double.PositiveInfinity,
                HeldDirectionCci: held, HeldRollCci: heldRoll);

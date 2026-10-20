@@ -102,6 +102,7 @@ internal static class BodyReader
                 "Gamma" => t with { Gamma = Number(a) is > 1.0 and < 2.0 and var g2 ? g2 : throw new FormatException($"Gamma {a.Value} is not between 1 and 2") },
                 "Surface" => t with { HasSurface = Bool(a) },
                 "XRayOpacity" => t with { XRayOpacity = NonNegative(a) },
+                "ThinCloud" => t with { ThinCloud = a.Value },
                 _ => throw new FormatException($"'{a.Name.LocalName}' is not an attribute a Body takes"),
             };
         }

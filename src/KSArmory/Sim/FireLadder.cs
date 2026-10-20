@@ -74,6 +74,29 @@ internal readonly record struct FireConditions
     /// <see cref="Locked"/> is then its track, and null while the set cannot see it.
     /// </summary>
     public required string? DesignatedName { get; init; }
+
+    /// <summary>The beam's own state when the armament asked about is a beam, else null.</summary>
+    public BeamConditions? Beam { get; init; }
+}
+
+/// <summary>What the director firing a beam says about it, sampled with the rest.</summary>
+internal readonly record struct BeamConditions
+{
+    /// <summary>A director on the launcher's part was found to fire it.</summary>
+    public required bool HeadResolved { get; init; }
+
+    public required double SecondsLeft { get; init; }
+
+    /// <summary>The craft carrying it is in the way (MASK).</summary>
+    public required bool Masked { get; init; }
+
+    /// <summary>The director is settled on what it was cued at.</summary>
+    public required bool OnTarget { get; init; }
+
+    /// <summary>Cloud stops the beam short of the target.</summary>
+    public required bool CloudInTheWay { get; init; }
+
+    public required double ReachMetres { get; init; }
 }
 
 /// <summary>
@@ -120,6 +143,8 @@ internal static class FireLadder
 
         // The platform was answered above, so this is the launcher and nothing else.
         if (!now.IsOperational) return Binding("no launcher resolved on this craft");
+
+        if (now.Beam is { } beam) return BeamHolding(now, beam, policy);
 
         if (now.HasTubes && now.MagazineEmpty && now.ReloadSeconds > 0.0)
         {
@@ -223,6 +248,36 @@ internal static class FireLadder
             return AutoOnly($"target out of reach ({locked.Range / 1000.0:F1} km, envelope "
                             + $"{munition.MinRange / 1000f:F1}-"
                             + $"{munition.MaxRange / 1000f:F1} km)");
+        }
+
+        return null;
+    }
+
+    // A beam goes where its director looks, as a burst goes where the guns are laid: everything about
+    // the target is automatic fire's, and nothing is rationed per target or bounded below in range.
+    private static FireHold? BeamHolding(in FireConditions now, BeamConditions beam, SystemConfig policy)
+    {
+        if (!beam.HeadResolved) return Binding("no beam director resolved on this part");
+        if (!policy.BeamEnabled) return Binding("laser is switched off");
+        if (beam.SecondsLeft <= 0.0) return Binding("out of laser chemicals");
+        if (beam.Masked) return Binding("own craft in the way (MASK)");
+
+        if (now.Locked is not { } locked)
+        {
+            return AutoOnly(now.DesignatedName is { } named ? $"{named} is not on the director's set"
+                            : now.TrackCount == 0 ? "nothing detected"
+                            : "no lock");
+        }
+
+        if (!beam.OnTarget) return Binding("director still slewing");
+        if (!ThreatModel.MayEngage(locked, policy.Iff)) return AutoOnly("target is not engageable (IFF)");
+        if (!now.HasFiringSolution) return AutoOnly($"no firing solution yet ({now.TrackCount} track(s))");
+        if (beam.CloudInTheWay) return AutoOnly("cloud between the beam and the target");
+
+        if (locked.Range > beam.ReachMetres)
+        {
+            return AutoOnly($"target out of reach ({locked.Range / 1000.0:F0} km, beam "
+                            + $"{beam.ReachMetres / 1000.0:F0} km)");
         }
 
         return null;

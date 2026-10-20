@@ -241,7 +241,7 @@ internal static class Sight
         // draws exactly the picture of a camera that has stopped working.
         OpticHold hold = OpticFollow.Why(OnAxis(system, track), policy.MouseAim, policy.Manual,
                                          system.Designation.Kind != AimpointKind.None,
-                                         policy.Tracking, settled);
+                                         policy.Tracking || system.FollowsCue, settled);
 
         if (hold.Holds)
         {
@@ -350,6 +350,13 @@ internal static class Sight
             at.Y += line;
         }
 
+        if (system.Profile.FiresBeam)
+        {
+            Text(draw, at, system.BeamLasing ? $"LSR {system.BeamSecondsLeft} s FIRING" : $"LSR {system.BeamSecondsLeft} s",
+                 system.BeamSecondsLeft > 0 ? Reticle : Pending);
+            at.Y += line;
+        }
+
         // Which weapon owns the bearing. Only one can: the ring is laid on the gun's lead or on the
         // target, and a missile released in the first state leaves along a tube pointing elsewhere.
         if (system.TryRingAimEcl(out _, out bool isGunLead))
@@ -409,8 +416,11 @@ internal static class Sight
         Text(surface.Draw, new float2(surface.Centre.X - size.X * 0.5f, surface.Centre.Y + below), label, Pending);
     }
 
+    // On whole pixels: a label riding a projected point moves by fractions of one every frame, and a
+    // glyph drawn at a fraction is resampled across its neighbours, so a steady number shimmers.
     private static void Text(ImDrawListPtr draw, float2 at, string what, ImColor8 colour)
     {
+        at = new float2(MathF.Round(at.X), MathF.Round(at.Y));
         draw.AddText(at + new float2(1f, 1f), Shadow, what);
         draw.AddText(at, colour, what);
     }

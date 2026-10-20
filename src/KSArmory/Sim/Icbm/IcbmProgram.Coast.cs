@@ -18,6 +18,14 @@ internal sealed partial class IcbmProgram
     /// </summary>
     public void CorrectCoastArc() => _resolveCoastArc = true;
 
+    /// <summary>
+    /// Ask for the next coast frame to commit the cheapest arc to the aim, moving the arrival, and the pinned one
+    /// where that is not cheaper: a hop under <see cref="IcbmConfig.HopsFreeTheirArrival"/>.
+    /// </summary>
+    public void FreeTheHopArrival() => _freeHopArrival = true;
+
+    private bool _freeHopArrival;
+
     private void ResolveCoastArc(in IcbmState state)
     {
         double remaining = CommittedArrivalFromNow;
@@ -82,6 +90,13 @@ internal sealed partial class IcbmProgram
 
     private IcbmCommand Coasting(in IcbmState state)
     {
+        if (_freeHopArrival)
+        {
+            _freeHopArrival = false;
+            _resolveCoastArc = false;
+            if (!TryCommitTheCheapestArrival(state)) ResolveCoastArc(state);
+        }
+
         if (_resolveCoastArc)
         {
             _resolveCoastArc = false;
@@ -99,7 +114,7 @@ internal sealed partial class IcbmProgram
         // had the whole coast to converge. The altitude stays as the floor under it: it is what
         // stops a release inside the air, which the time alone would allow on a short shot.
         double toArrival = CommittedArrivalFromNow;
-        double gate = ReleaseGate;
+        double gate = SplitGate;
         bool closeEnough = gate <= 0.0 || !double.IsFinite(toArrival) || toArrival <= gate;
 
         // At the gate rather than at cutoff, so the arc is solved from the state the warheads will leave from.
@@ -140,7 +155,8 @@ internal sealed partial class IcbmProgram
         // The line it was cut off on, not the airflow. The warheads leave along it, and a bus that
         // swings to prograde the moment the engines stop throws them off the solution it just spent
         // the whole burn arriving at.
-        double3 held = _thrustDirCci.Equals(Vec.Zero) ? Vec.Unit(state.AirflowCci) : _thrustDirCci;
+        double3 held = !CoastLineCci.Equals(Vec.Zero) ? CoastLineCci
+                     : _thrustDirCci.Equals(Vec.Zero) ? Vec.Unit(state.AirflowCci) : _thrustDirCci;
 
         return new IcbmCommand(IcbmPhase.Coast, held, 0.0, EngineOn: false,
                                RequestStage: false, VelocityToGain: shortBy, SecondsToCutoff: 0.0,

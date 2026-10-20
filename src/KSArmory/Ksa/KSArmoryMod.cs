@@ -38,6 +38,9 @@ public sealed class KSArmoryMod
     // One head per optical director fitted. Crewed independently of the weapons: a craft with a
     // director and no armament gets one, and a craft with a launcher and no director gets none.
     private OpticalHeads? _heads;
+    private SearchSets? _searchSets;
+    private readonly List<OpticalHeads.Entry> _lockEntries = [];
+    private readonly List<OpticalHead> _lockHeads = [];
     private Countermeasures? _countermeasures;
 
     private IcbmComputers? _icbms;
@@ -111,6 +114,7 @@ public sealed class KSArmoryMod
 
     // What each craft's weapons are doing between them, as against what each is doing alone.
     private readonly Armaments _armaments = new();
+    private readonly CraftPicture _picture = new();
     private readonly TravelSweeps _travel = new();
 
     // Development tool: pick a craft up and set it down somewhere else.
@@ -122,6 +126,7 @@ public sealed class KSArmoryMod
 
     private MotorSound _motors = null!;
     private readonly MotorPlume _plumes = new();
+    private readonly SpinPlume _spinPlumes = new();
     private MotorSmoke _smoke = null!;
     private readonly MuzzleFlash _flashes = new();
     private DecoyEffects _decoyEffects = null!;
@@ -180,6 +185,23 @@ public sealed class KSArmoryMod
         // the flight scene across it. A refusal costs one reload's worth of stale rounds.
         WorldReloadHook.Install();
 
+        DoseRateHook.Install();
+
+        PlanetMapHook.Install(() => _ui?.PlanetMap);
+
+        GroundTrackHook.Install((window, at, size, cropMin, cropMax) =>
+        {
+            if (_icbms is not { } computers) return;
+            if (!_config.DrawGroundTrackMarks && !_config.DrawGroundTrackCalibration) return;
+
+            IcbmComputer? computer =
+                KsaWorld.TryGroundTrackCraft(window, out Vehicle? craft) ? computers.For(craft)
+                                                                        : null;
+
+            GroundTrackMarks.Draw(computer, at, size, cropMin, cropMax,
+                                  _config.DrawGroundTrackCalibration);
+        });
+
         // Which save is open and when the game writes one, which the settings kept in a save follow.
         SaveHook.Install();
 
@@ -193,7 +215,11 @@ public sealed class KSArmoryMod
 
             using (_budget.Measure("shell bodies"))
             {
-                foreach (WeaponSystems.Entry e in roster.All) e.Weapon.DrawShellBodies(viewport, frameIndex);
+                foreach (WeaponSystems.Entry e in roster.All)
+                {
+                    e.Weapon.DrawShellBodies(viewport, frameIndex);
+                    e.Weapon.DrawFarBodies(viewport, frameIndex);
+                }
             }
 
             if (roster.Loose.Count == 0) return;
@@ -207,6 +233,10 @@ public sealed class KSArmoryMod
 
         _roster = new WeaponSystems(_config);
         _heads = new OpticalHeads(_config);
+        _roster.DirectorFor = part => _heads.OnPart(part);
+        _searchSets = new SearchSets(_config);
+        _roster.PictureFor = _picture.BestFor;
+        _heads.PictureFor = _picture.BestFor;
         _countermeasures = new Countermeasures();
         _icbms = new IcbmComputers(_config);
         _motors = new MotorSound(_config);
@@ -220,13 +250,14 @@ public sealed class KSArmoryMod
             _bridge = new Bridge(_config, craft => _roster?.For(craft)?.Weapon,
                                  () => _roster?.All ?? [], () => _roster?.Loose ?? [],
                                  _countermeasures, craft => _ui?.Manage(craft),
-                                 () => _heads?.All ?? []);
+                                 () => _heads?.All ?? [], craft => _icbms?.For(craft),
+                                 () => _searchSets?.All ?? [], _picture.BestFor);
         }
 
         Log.Info(Build.Developer
                      ? "developer install: the bridge, the scenario runner and the developer controls are on"
                      : "player install: developer tools are off");
-        _ui = new Ui(_config, _roster, _heads, _countermeasures, _icbms, _warp, _watch, _mover, _bursts, ReachFor);
+        _ui = new Ui(_config, _roster, _heads, _countermeasures, _searchSets, _picture, _icbms, _warp, _watch, _mover, _bursts, ReachFor);
         Log.Info($"ready - {string.Join(", ", Catalogue.Launchers.Select(l => l.DisplayName))}, safe. "
                  + "Open the 'KSArmory' panel to arm.");
 
@@ -366,7 +397,9 @@ public sealed class KSArmoryMod
         // and writing the outgoing session's over them first is how a reload stops restoring them.
         _roster?.Discard();
         _armaments.Clear();
+        _picture.Clear();
         _heads?.Clear();
+        _searchSets?.Clear();
         _countermeasures?.Discard();
         _icbms?.Clear();
         KsaWorld.Wreckage.Clear();
@@ -422,10 +455,15 @@ public sealed class KSArmoryMod
         if (_icbms?.For(_ui.Focused) is { } aimedSite) _sites.Update(aimedSite);
 
         // Shift-click locks the installation the panel is showing onto whatever is under the cursor
-        // -- its turret, and its director if it has one -- scoped to the shown system for the same
+        // -- its turret, and every director it carries -- scoped to the shown system for the same
         // reason the designator is: every crewed system reading one cursor would lock all of them.
         WeaponSystems.Entry? weapon = _roster.For(_ui.Focused);
-        TargetLock.Update(weapon?.Weapon, _heads?.Driving(_ui.Focused)?.Head,
+        _lockHeads.Clear();
+        _heads?.On(_ui.Focused, _lockEntries);
+        foreach (OpticalHeads.Entry e in _lockEntries) _lockHeads.Add(e.Head);
+        _lockEntries.Clear();
+
+        TargetLock.Update(weapon?.Weapon, _lockHeads,
                           weapon is null ? null : (at, what) => _roster.DesignateWeapon(weapon, at, what));
     }
 
@@ -528,6 +566,7 @@ public sealed class KSArmoryMod
             if (KsaWorld.InFlight)
             {
                 using (_budget.Measure("shells")) foreach (WeaponSystems.Entry e in _roster.All) Visuals.DrawShellStream(e.Weapon);
+                if (_heads is not null && !LaserBeams.Painting) foreach (OpticalHeads.Entry e in _heads.All) Visuals.DrawBeam(e.Head);
             }
 
             // Outside the debug overlay switch, and deliberately: this is a sight the operator
@@ -694,6 +733,7 @@ public sealed class KSArmoryMod
         }
 
         using (_budget.Measure("dispsync")) _countermeasures?.Sync(KsaWorld.Vehicles);
+        using (_budget.Measure("setsync")) _searchSets?.Sync(KsaWorld.Vehicles);
 
         _roster.RetireDestroyed();
         _roster.ShareStationSettings();
@@ -702,6 +742,7 @@ public sealed class KSArmoryMod
         using (_budget.Measure("sample")) foreach (WeaponSystems.Entry e in _roster.All) e.Weapon.SampleWorld();
         using (_budget.Measure("travel")) _travel.Step(_roster.All, _ui?.Focused);
         using (_budget.Measure("headsample")) _heads?.SampleWorld();
+        using (_budget.Measure("setsample")) _searchSets?.SampleWorld();
 
         // Gate on the step the engine applied, not on the pause flag. Universe.IsPaused() is
         // `simulationSpeed == 0.0`, a statement about the setting rather than about whether the
@@ -755,7 +796,11 @@ public sealed class KSArmoryMod
                 // Which craft is on which side, before anything reads it. Same pass and the same
                 // reason as the airborne census: it is what exists, not something per system --
                 // and the rounds collected below carry their shooter's side out of it.
-                using (_budget.Measure("teams")) CollectTeams();
+                using (_budget.Measure("teams"))
+                {
+                    CollectTeams();
+                    _searchSets?.AdoptTeams();
+                }
 
                 // Gathered once, not once per system: every crewed system scans the same sky, and
                 // building this per system would be quadratic in how many are in the world.
@@ -781,6 +826,11 @@ public sealed class KSArmoryMod
                 // After the crewed ones and on the same step, so a round is stepped exactly once
                 // per frame whichever side of its launcher's death it is on.
                 using (_budget.Measure("loose")) _roster.UpdateLoose(step, _airborne);
+
+                // After every launcher radar has scanned and before the heads aim, so a director takes
+                // this step's picture; a beam weapon, stepped in the fire loop above, takes the last one.
+                using (_budget.Measure("search sets")) _searchSets?.Update(dtSim, _airborne);
+                using (_budget.Measure("picture")) _picture.Refresh(_roster.All, _searchSets?.All ?? []);
 
                 // The heads take the step as it comes, not the clamped one. That clamp exists to
                 // stop a *round* stepping over its own fuse radius, and a director has no fuse --
@@ -870,10 +920,13 @@ public sealed class KSArmoryMod
         // After the rounds have been stepped, so a motor is heard where its round now is
         // rather than where it was at the start of the frame.
         ShellTracers.BeginFrame();
+        LaserBeams.BeginFrame();
+        if (_heads is not null) foreach (OpticalHeads.Entry e in _heads.All) LaserBeams.Collect(e.Head);
         foreach (WeaponSystems.Entry e in _roster.All)
         {
             _motors.Update(e.Weapon);
             _plumes.Update(e.Weapon);
+            _spinPlumes.Update(e.Weapon);
             _smoke.Update(e.Weapon);
             _flashes.Update(e.Weapon);
             ShellTracers.Collect(e.Weapon);
@@ -912,6 +965,7 @@ public sealed class KSArmoryMod
         for (int i = 0; i < loose.Count; i++)
         {
             _plumes.Update(loose[i]);
+            _spinPlumes.Update(loose[i]);
             _smoke.Update(loose[i]);
             ShellTracers.Collect(loose[i]);
         }
@@ -966,6 +1020,7 @@ public sealed class KSArmoryMod
         // does not keep one for the session.
         _motors.Sweep(_roster);
         _plumes.Sweep(_roster);
+        _spinPlumes.Sweep(_roster);
         _smoke.Sweep(_roster);
         _flashes.Sweep(_roster);
         _gunSound.Sweep(_roster);
@@ -1012,6 +1067,7 @@ public sealed class KSArmoryMod
         _motors?.StopAll();
         _gunSound?.StopAll();
         _plumes?.ReleaseAll();
+        _spinPlumes?.ReleaseAll();
         _decoyEffects?.ReleaseAll();
         _flashes?.ReleaseAll();
 
@@ -1021,8 +1077,11 @@ public sealed class KSArmoryMod
         _icbms?.WriteDown();
         _roster?.Clear();
         _armaments.Clear();
+        _picture.Clear();
         _heads?.Clear();
         _heads = null;
+        _searchSets?.Clear();
+        _searchSets = null;
         _countermeasures?.Discard();
         _countermeasures = null;
         _icbms?.Clear();
@@ -1031,6 +1090,10 @@ public sealed class KSArmoryMod
         AttitudeHook.Remove();
         PreRenderHook.Remove();
         WorldReloadHook.Remove();
+        DoseRateHook.Remove();
+        Radioactivity.Clear();
+        GroundTrackHook.Remove();
+        PlanetMapHook.Remove();
         SaveHook.Remove();
         RoundBodyDrawHook.Remove();
         LooseBodyDrawHook.Remove();
@@ -1468,8 +1531,11 @@ public sealed class KSArmoryMod
         _icbms?.WriteDown();
         _roster?.Clear();
         _armaments.Clear();
+        _picture.Clear();
         _heads?.Clear();
         _heads = null;
+        _searchSets?.Clear();
+        _searchSets = null;
         _countermeasures?.Discard();
         _countermeasures = null;
         _icbms?.Clear();
@@ -1478,6 +1544,10 @@ public sealed class KSArmoryMod
         AttitudeHook.Remove();
         PreRenderHook.Remove();
         WorldReloadHook.Remove();
+        DoseRateHook.Remove();
+        Radioactivity.Clear();
+        GroundTrackHook.Remove();
+        PlanetMapHook.Remove();
         SaveHook.Remove();
         RoundBodyDrawHook.Remove();
         LooseBodyDrawHook.Remove();

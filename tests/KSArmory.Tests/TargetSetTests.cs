@@ -36,7 +36,14 @@ public class TargetSetTests
     }
 
     [Fact]
-    public void TheSeventhTargetIsRefused()
+    public void EveryRegisteredBusCanSendEachWarheadSomewhereOfItsOwn()
+    {
+        foreach (LauncherProfile bus in Arsenal.Launchers.Where(l => Catalogue.ProvidesGuidance(l.PartId)))
+            Assert.True(bus.Tubes.Length <= TargetSet.MaxTargets, $"{bus.PartId} carries {bus.Tubes.Length}");
+    }
+
+    [Fact]
+    public void ATargetPastTheCapIsRefused()
     {
         TargetSet set = new();
         for (int i = 0; i < TargetSet.MaxTargets; i++) Assert.True(set.TryAdd(At(-20.0 - i, -60.0)));

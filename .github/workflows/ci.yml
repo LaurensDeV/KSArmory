@@ -2,9 +2,9 @@ name: CI
 
 # Why this looks the way it does
 # ------------------------------
-# Building this mod needs KSA's own assemblies (KSA.dll, Brutal.Core.Numerics.dll and friends).
+# Building this mod needs KSA's own assemblies (KSA.dll, Brutal.Numerics.dll and friends).
 # They are not redistributable, so Import/ is gitignored and a GitHub-hosted runner has no way
-# to obtain them. The C# tests need them too - they reference Brutal.Core.Numerics for double3.
+# to obtain them. The C# tests need them too - they reference Brutal.Numerics for double3.
 #
 # They are kept in the private repository LaurensDeV/ksa-game-assemblies and checked out here
 # with a read-only deploy key (the KSA_ASSEMBLIES_KEY secret). Keeping your own licensed copy

@@ -43,6 +43,8 @@ internal sealed partial class Ui
         for (int i = 0; i < armaments.Count; i++)
         {
             Armament arm = armaments[i];
+            if (arm.Kind == ArmamentKind.Beam) continue;
+
             bool other = arm.Munition != _munition.Name;
             if (!other && arm.Kind != ArmamentKind.Belt) continue;
 
@@ -111,10 +113,27 @@ internal sealed partial class Ui
         ImGui.SliderFloat("Lock time (s)", ref _sensor.LockSeconds, 0f, 5f);
         ImGui.SliderFloat("Min target speed (m/s)", ref _sensor.MinTargetSpeed, 0f, 200f);
 
+        if (_sensor.Infrared) DrawInfraredControls();
         DrawDiscriminationControls();
         DrawHorizonControls();
 
         ImGui.TreePop();
+    }
+
+    private void DrawInfraredControls()
+    {
+        float microwatts = _sensor.IrThresholdWPerM2 * 1.0e6f;
+        if (ImGui.SliderFloat("Threshold (uW/m2)", ref microwatts, 0.05f, 10f, "%.2f",
+                              ImGuiSliderFlags.Logarithmic))
+        {
+            _sensor.IrThresholdWPerM2 = microwatts * 1.0e-6f;
+        }
+        Tip("The least heat on the aperture this set detects. Lower sees further: a fighter at "
+            + "military power is seen about as far as the square root of the change.");
+
+        ImGui.SliderFloat("Look-down penalty", ref _sensor.LookDownPenalty, 1f, 50f);
+        Tip("What the threshold is multiplied by for a contact against the ground rather than the "
+            + "sky, because warm ground is what it has to be picked out of. 1 is none.");
     }
 
     // What the set can tell targets apart by. All three are off at zero, which is where they ship:

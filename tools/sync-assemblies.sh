@@ -119,6 +119,13 @@ for name in "${ASSEMBLIES[@]}"; do
     copied=$((copied + 1))
 done
 
+# A DLL the build no longer ships would otherwise stay in the mirror and keep resolving.
+for path in "$DEST"/*.dll; do
+    name="$(basename "$path" .dll)"
+    printf '%s\n' "${ASSEMBLIES[@]}" | grep -qx "$name" \
+        || { echo "removing $name.dll: no longer shipped"; rm -f "$path"; }
+done
+
 # Record which game build these came from; the mod is only known to work against one at a time.
 # There is no machine-readable version in the install, so this is maintained by hand.
 [[ -f "$TARGET/current/KSA_BUILD" ]] || printf 'unknown\n' > "$TARGET/current/KSA_BUILD"

@@ -191,6 +191,19 @@ public sealed class Config
     public bool DrawPartHealth;
 
     /// <summary>
+    /// Where the warheads are going, and how far the bus can still move them, drawn on KSA's own
+    /// ground-track map.
+    /// </summary>
+    public bool DrawGroundTrackMarks;
+
+    /// <summary>
+    /// Nine crosses at round coordinates on that map, for checking the projection against the
+    /// ground they name. Not against KSA's grid lines, which are spread across what is visible
+    /// rather than drawn at round degrees.
+    /// </summary>
+    public bool DrawGroundTrackCalibration;
+
+    /// <summary>
     /// Whether a nuclear fireball blacks out the radar beams that cross it, for as long as the air
     /// it ionised stays hot — see <see cref="FireballBlackout"/>. Only sets that transmit are
     /// blinded. Off, a burst is something radar looks straight through.

@@ -31,10 +31,10 @@ internal static class SkyDispatch
 
     /// <summary>
     /// How many of one kind a frame draws: as many as it pays for. A glow, a shell and a wave cost
-    /// 0.04-0.15 ms from orbit. Curtains are the dear kind, and four -- both ends of two bursts' field
-    /// lines -- cost 2.2 ms from orbit, what two did, since one off the screen costs next to nothing.
+    /// 0.04-0.15 ms from orbit. Curtains are the dear kind, four of them 2.2 ms from orbit, but one off the
+    /// screen or deep in daylight returns at once: ten is four bursts' worth and one fading out.
     /// </summary>
-    public static int MostOf(float kind) => kind == Aurora ? 4 : kind == RedWave ? 2 : 3;
+    public static int MostOf(float kind) => kind == Aurora ? 10 : kind == RedWave ? 2 : 3;
 
     /// <summary>
     /// Which of the sky dispatches asked for are drawn: of each kind, up to <see cref="MostOf"/>, the

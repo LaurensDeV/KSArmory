@@ -88,4 +88,13 @@ internal static class BodyAttitude
         doubleQuat turned = doubleQuat.CreateFromAxisAngle(Vec.Unit(axis), turn) * attitudeEcl;
         return Vec.IsFinite(turned * FireGeometry.NoseAxis) ? turned : attitudeEcl;
     }
+
+    /// <summary>A body's attitude rolled about its own nose by <paramref name="rollRad"/>; the nose stays where it was.</summary>
+    public static doubleQuat Roll(doubleQuat attitudeEcl, double rollRad)
+    {
+        if (!double.IsFinite(rollRad) || rollRad == 0.0) return attitudeEcl;
+
+        doubleQuat rolled = attitudeEcl * doubleQuat.CreateFromAxisAngle(FireGeometry.NoseAxis, rollRad);
+        return Vec.IsFinite(rolled * FireGeometry.NoseAxis) ? rolled : attitudeEcl;
+    }
 }

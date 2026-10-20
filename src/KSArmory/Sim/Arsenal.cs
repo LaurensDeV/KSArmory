@@ -717,42 +717,68 @@ public static class Arsenal
 
     // ---- Launchers ------------------------------------------------------
     /// <summary>
-    /// A heavy ICBM's post-boost vehicle, with six reentry vehicles on it.
+    /// The Heavy MIRV Bus: seven reentry vehicles, an axial main engine to divert on, and twenty
+    /// nozzles for attitude. <c>docs/POSTBOOST-BUS.md</c>.
     ///
-    /// <para><b>MIRV deployment is tube release.</b> Six tubes, one RV apiece, all pointing along
-    /// the bus's own axis on an 0.86 m bolt circle. They are deliberately not canted: a cone gives
-    /// every warhead its own vector and a spread the bus's drifting attitude decides, and the
-    /// aiming a real post-boost vehicle does is manoeuvring between releases rather than ejection.
-    /// No new mechanism was needed for any of it; it is the bomb rack with six tubes and a stack
-    /// node instead of a pylon.</para>
+    /// <para><b>MIRV deployment is tube release.</b> One RV a tube, all parallel along the bus's own
+    /// axis: a cone gives every warhead a spread the bus's drifting attitude decides, and a real bus
+    /// aims by manoeuvring between releases rather than by ejection.</para>
     ///
-    /// <para>Nothing trains: no <see cref="LauncherProfile.TurretMarker"/> and no
-    /// <see cref="LauncherProfile.PodsMarker"/>, so <see cref="LauncherProfile.Trains"/> is false
-    /// and fire control cannot deadlock waiting for a drive that will never move. The bus is aimed
-    /// by flying it, which is what its RCS is for.</para>
-    ///
-    /// <para>Tube geometry generated from the Blender source and verified against the
-    /// repository's own reading of <c>&lt;Rotation&gt;</c>. Keep in step with
+    /// <para>Nothing trains, so <see cref="LauncherProfile.Trains"/> is false and fire control cannot
+    /// wait on a drive; the bus is aimed by flying it. The guidance flies it on the nozzles alone
+    /// unless <see cref="IcbmConfig.HopsBurnTheEngine"/> lights the engine. Keep the tubes in step with
     /// <c>KSArmory_Prefab_MirvBus</c> in the asset XML.</para>
     /// </summary>
     public static readonly LauncherProfile MirvBus = new()
     {
         PartId = "KSArmory_Prefab_MirvBus",
-        DisplayName = "MIRV bus",
+        DisplayName = "Heavy MIRV Bus",
         Munition = "MK21",
         Sensor = "MIRVBUS",
 
-        // About 250 kg an Mk 21 (KSArmoryGameData.xml), shed as each leaves (IcbmConfig.ShedWarheadMass).
+        // About 250 kg an Mk 21, shed as each leaves (IcbmConfig.ShedWarheadMass).
         StoreMassKg = 250f,
+
+        // The four forward nozzles, 7.92 m/s in 20 s on the bridge (docs/POSTBOOST-BUS.md).
+        TrimAccelerationMetresPerSecond2 = 0.40,
+
+        // ve 2,912 m/s measured on this bus, a lateral m/s costing 1.41x an axial one (docs/ICBM-GUIDANCE.md).
+        TrimWorstAxisExhaustVelocity = 2_912.0 / 1.414,
+
+        // 2.27 kg/s at 2,996 m/s, both measured on the bridge (docs/POSTBOOST-BUS.md).
+        HopEngineThrustNewtons = 6_800.0,
+        HopEngineExhaustVelocity = 2_996.0,
+
+        // 95.3 m/s in 56 s on the loaded bus alone, 2026-10-19 (docs/WIDE-SPREAD.md step 5, C).
+        HopEngineAccelerationMetresPerSecond2 = 1.70,
+
+        // The RV's two base motors (KSArmory_Subpart_PostBoostRv): mouths at r 0.15 m, 45 and 225 deg
+        // round +X from +Y, each exhausting 45 deg round the axis from straight aft, so their sideways
+        // pushes cancel and their torques add about -X. The rate is a choice: half a turn a second
+        // reads as spin without blurring the paint.
+        ReleaseSpin = new RoundSpin
+        {
+            RateDegPerSecond = -180.0,
+            SpinUpSeconds = 0.6,
+
+            // About a metre clear of the bus at the Mk 21's 0.5 m/s kick, where the light-up can be seen apart from it.
+            IgnitionSeconds = 2.0,
+            Nozzles =
+            [
+                new SpinNozzle(new(-0.876,  0.10607,  0.10607), new(-0.70711, -0.5,  0.5)),
+                new SpinNozzle(new(-0.876, -0.10607, -0.10607), new(-0.70711,  0.5, -0.5)),
+            ],
+        },
         TubeArmamentLabel = "Warheads",
         Tubes =
         [
-            new(new(2.64010,   0.86000,   0.00000), new(1.00000, 0.00000, 0.00000)),
-            new(new(2.64010,   0.43000,   0.74478), new(1.00000, 0.00000, 0.00000)),
-            new(new(2.64010,  -0.43000,   0.74478), new(1.00000, 0.00000, 0.00000)),
-            new(new(2.64010,  -0.86000,   0.00000), new(1.00000, 0.00000, 0.00000)),
-            new(new(2.64010,  -0.43000,  -0.74478), new(1.00000, 0.00000, 0.00000)),
-            new(new(2.64010,   0.43000,  -0.74478), new(1.00000, 0.00000, 0.00000)),
+            new(new(3.04000,   0.86000,   0.00000), new(1.00000, 0.00000, 0.00000)),
+            new(new(3.04000,   0.43000,   0.74478), new(1.00000, 0.00000, 0.00000)),
+            new(new(3.04000,  -0.43000,   0.74478), new(1.00000, 0.00000, 0.00000)),
+            new(new(3.04000,  -0.86000,   0.00000), new(1.00000, 0.00000, 0.00000)),
+            new(new(3.04000,  -0.43000,  -0.74478), new(1.00000, 0.00000, 0.00000)),
+            new(new(3.04000,   0.43000,  -0.74478), new(1.00000, 0.00000, 0.00000)),
+            new(new(3.04000,   0.00000,   0.00000), new(1.00000, 0.00000, 0.00000)),
         ],
         MuzzleForwardOffset = 0.0,
         LaunchAlongTube = true,
@@ -762,6 +788,7 @@ public static class Arsenal
 
         SettleSeconds = 0f,
     };
+
     /// <summary>
     /// A single LAU-7 launch rail carrying one AIM-9J, attached to the side of whatever it is
     /// bolted to.
@@ -1168,9 +1195,8 @@ public static class Arsenal
     };
 
     /// <summary>
-    /// The EO director's own sensor. Narrow and short-ranged next to a search radar, because it
-    /// is a telescope rather than a set: it sees what it is pointed at, in detail, and finds
-    /// nothing on its own beyond a few kilometres.
+    /// The EO director's own sensor, also the Pantsir's roof director's. A telescope rather than a
+    /// set: it holds what it is handed, in detail, and finds nothing on its own.
     ///
     /// <para><see cref="BoresightMode.PartForward"/>, so its volume follows the craft's attitude
     /// rather than pointing at the sky — a director bolted to the side of a hull looks out of
@@ -1181,6 +1207,7 @@ public static class Arsenal
         Name = "EO",
         DisplayName = "EO director",
         Range = 12000f,
+        CuedOnly = true,
 
         // Wide enough to cover the head's own travel, and that is where the number comes from
         // rather than from taste: the boresight is the mounting face's normal, which is 90 deg
@@ -1253,10 +1280,10 @@ public static class Arsenal
 
     /// <summary>
     /// The set inside a targeting pod. Longer-ranged than a mast director and looking down rather
-    /// than out, which is the difference between watching a perimeter and designating for a strike.
+    /// than out. Like every director's it holds what it is handed and searches for nothing.
     ///
     /// <para><see cref="BoresightMode.PartForward"/>, as the mast director's is, and for a pod that
-    /// resolves to the mounting face's own normal — away from the pylon, so a wing store searches
+    /// resolves to the mounting face's own normal — away from the pylon, so a wing store looks at
     /// the ground below the aircraft. A cone about the pod's <em>centreline</em> would be the
     /// literal field of regard and would also point straight into the wing, which is the one
     /// direction the airframe masks and nothing here models.</para>
@@ -1266,6 +1293,7 @@ public static class Arsenal
         Name = "Litening",
         DisplayName = "LITENING",
         Range = 20000f,
+        CuedOnly = true,
         ConeDeg = 100f,
 
         // Out of the mounting face, matching where the pod stows. Along the pod's own centreline
@@ -1277,6 +1305,54 @@ public static class Arsenal
 
         // An instrument rather than a weapon's eye: something parked is exactly what it is for.
         MinTargetSpeed = 0f,
+    };
+
+    /// <summary>
+    /// What the YAL-1's turret tracks with. The aircraft's six IRSTs did the detecting, so it holds
+    /// only what it is handed.
+    ///
+    /// <para><see cref="BoresightMode.MountNormal"/> is the part's <c>+X</c>, which for a turret
+    /// stacked on a nose is straight ahead along its roll axis.</para>
+    /// </summary>
+    public static readonly SensorProfile BeamDirectorSensor = new()
+    {
+        Name = "Yal1BeamDirector",
+        DisplayName = "YAL-1 beam director",
+        CuedOnly = true,
+
+        // The design range against a solid-fuelled booster (APS, 2003); liquid was twice that.
+        Range = 300000f,
+        ConeDeg = 120f,
+
+        BoresightSource = BoresightMode.MountNormal,
+        ThreatRadius = 6000f,
+        ThreatHorizonSeconds = 30f,
+        LockSeconds = 0.6f,
+        MinTargetSpeed = 0f,
+    };
+
+    /// <summary>
+    /// An infrared search set, after the six the YAL-1 carried along its forward fuselage: passive, a
+    /// faceted window set nearly flush in a smooth fairing, over a turning head, after the F-35's EOTS,
+    /// with a 120 deg cone along the part's +Y, so several turned different ways on a hull give
+    /// all-round cover.
+    /// </summary>
+    public static readonly SensorProfile InfraredSearchSet = new()
+    {
+        Name = "Irst",
+        DisplayName = "IRST",
+        Infrared = true,
+        Scope = ScopePresentation.Search,
+        LookDownPenalty = 10f,
+
+        // A ceiling only: the heat decides. A 1 MN booster in thin air is seen at about 250 km.
+        Range = 400000f,
+        ConeDeg = 60f,
+
+        BoresightSource = BoresightMode.PartForward,
+        ThreatRadius = 8000f,
+        ThreatHorizonSeconds = 40f,
+        LockSeconds = 1.0f,
     };
 
     /// <summary>
@@ -1322,11 +1398,66 @@ public static class Arsenal
         KeyholeDeg = 4f,
 
         // Its narrow field is 1° (GlobalSecurity's AN/AAQ-28 page, and the SAAF's Litening III),
-        // which is x53 against the 50° the zoom is measured from -- and SightZoom.MinFovDeg.
+        // which is x53 against the 50° the zoom is measured from.
         MaxMagnification = 53f,
 
         // A rangefinder and designator, as every pod of the class carries.
         HasLaser = true,
+    };
+
+    /// <summary>
+    /// The beam director in the YAL-1 Airborne Laser's nose. Geometry from its Blender export.
+    ///
+    /// <para>A <see cref="GimbalKind.RollNod"/> head like <see cref="Litening"/>: Lockheed Martin's
+    /// turret ball "yaws and rolls in flight" inside a roll shell. Its base is turned a quarter turn
+    /// in the part XML, so its centreline is the stack axis and the window looks forward at zero
+    /// nod.</para>
+    /// </summary>
+    public static readonly OpticProfile Yal1Turret = new()
+    {
+        PartId = "KSArmory_Prefab_Yal1Turret",
+        DisplayName = "YAL-1 beam director",
+        Sensor = BeamDirectorSensor.Name,
+        Gimbal = GimbalKind.RollNod,
+
+        BaseMarker = "Yal1_Base",
+        RollMarker = "Yal1_Roll",
+        HeadMarker = "Yal1_Head",
+
+        HeadPivot = new(0.00000, 2.50000, 0.00000),
+        EyeForward = 1.400f,
+
+        // Not published. Slower than the pod's 140 for a 6.4 t ball; a guess until something says.
+        SlewRateDeg = 30f,
+
+        // Laserstars' ±120° field of regard; the shell's slot clears the window to that nod.
+        MaxOffBoresightDeg = 120f,
+        KeyholeDeg = 4f,
+
+        // The fine tracker looks through the beam's own telescope; telescopes of that class are
+        // built with a field of 1 mrad or less (US 12171055). 1 mrad is x932 against 50°.
+        MaxMagnification = 932f,
+
+        // The tracking and beacon illuminators leave through this window, and so does the COIL.
+        HasLaser = true,
+        LaserRangeMetres = 300000f,
+        Beam = new BeamProfile(),
+    };
+
+    /// <summary>
+    /// The YAL-1's laser as a weapon: the same part as <see cref="Yal1Turret"/>, firing that
+    /// director's beam. Nothing of its own moves and it throws no round; fire control picks the
+    /// target and cues the director, which aims, casts and burns.
+    /// </summary>
+    public static readonly LauncherProfile Yal1Beam = new()
+    {
+        PartId = Yal1Turret.PartId,
+        DisplayName = "YAL-1 laser",
+        Munition = "",
+        Sensor = BeamDirectorSensor.Name,
+        Tubes = [],
+        FiresBeam = true,
+        BeamArmamentLabel = "COIL laser",
     };
 
     // ---- Countermeasures -------------------------------------------------
@@ -1401,19 +1532,37 @@ public static class Arsenal
     // ---- Registry -------------------------------------------------------
 
     public static readonly IReadOnlyList<LauncherProfile> Launchers =
-        [SidewinderRail, AmraamRail, HarmRail, Ciws, NukeRack, MirvBus, Mk42, M197];
+        [SidewinderRail, AmraamRail, HarmRail, Ciws, NukeRack, MirvBus, Mk42, M197, Yal1Beam];
     public static readonly IReadOnlyList<MunitionProfile> Munitions =
         [Missile9J, Missile120C, MissileAgm88, Cannon20Mm, NukeB61, ReentryVehicleMk21,
          Shell5In54];
     public static readonly IReadOnlyList<SensorProfile> Sensors =
         [SeekerHeadAim9, SeekerHeadAim120, SeekerHeadAgm88, SearchRadarVps2,
-         BombSight, EoSensor, PodSensor, BusDesignation, FireControlMk68, TurretSight];
+         BombSight, EoSensor, PodSensor, BeamDirectorSensor, BusDesignation, FireControlMk68,
+         TurretSight, InfraredSearchSet];
 
     /// <summary>
     /// Optical heads. Most are parts in their own right; one rides a launcher's turret, and
     /// nothing downstream can tell which is which — nor which gimbal any of them is hung on.
     /// </summary>
-    public static readonly IReadOnlyList<OpticProfile> Optics = [EoDirector, PantsirDirector, Litening];
+    public static readonly IReadOnlyList<OpticProfile> Optics =
+        [EoDirector, PantsirDirector, Litening, Yal1Turret];
+
+    /// <summary>
+    /// The IRST part. Its head turns about <see cref="SearchSetProfile.HeadPivot"/>, which the asset
+    /// XML's head <c>&lt;Position&gt;</c> repeats and validate-parts.py holds the two to.
+    /// </summary>
+    public static readonly SearchSetProfile Irst = new()
+    {
+        PartId = "KSArmory_Prefab_Irst",
+        DisplayName = "IRST",
+        Sensor = InfraredSearchSet.Name,
+        HeadMarker = "Irst_Head",
+        HeadPivot = new(0.09000, 0.16650, 0.00000),
+    };
+
+    /// <summary>Parts that only search.</summary>
+    public static readonly IReadOnlyList<SearchSetProfile> SearchSets = [Irst];
 
     public static readonly IReadOnlyList<DecoyProfile> Decoys = [FlareMju7, ChaffRr170];
     public static readonly IReadOnlyList<DispenserProfile> Dispensers = [Ale47Flare, Ale47Chaff];
@@ -1446,12 +1595,33 @@ public static class Arsenal
         },
         new ComponentProfile
         {
+            PartId = Irst.PartId,
+            Role = WeaponRole.Sensor,
+            DisplayName = "Infrared Search and Track Sensor",
+        },
+        new ComponentProfile
+        {
             PartId = Litening.PartId,
             Role = WeaponRole.Camera,
             DisplayName = Litening.DisplayName,
 
             // Nothing declared, for the mast director's reason: its sensor is not gear it
             // carries, it *is* the pod, and the survey walks parts and finds it directly.
+        },
+        new ComponentProfile
+        {
+            PartId = Yal1Turret.PartId,
+            Role = WeaponRole.Launcher,
+            DisplayName = Yal1Beam.DisplayName,
+
+            // One entry: the survey takes the first that names a part. The director is the part
+            // itself, so it is declared here as the Pantsir declares the one on its turret. Its set
+            // is the director's, whose row already says what it watches, so no Sensor row.
+            Provides =
+            [
+                new(WeaponRole.Camera, Yal1Turret.DisplayName),
+                new(WeaponRole.FireControl, "YAL-1 fire control"),
+            ],
         },
         new ComponentProfile
         {
@@ -1600,7 +1770,7 @@ public static class Arsenal
         LauncherProfile launcher,
         IReadOnlyList<MunitionProfile> munitions,
         IReadOnlyList<SensorProfile> sensors)
-        => (Named(munitions, launcher.Munition, m => m.Name),
+        => (launcher.Munition.Length == 0 ? MunitionProfile.None : Named(munitions, launcher.Munition, m => m.Name),
             Named(sensors, launcher.Sensor, s => s.Name));
 
     /// <summary>

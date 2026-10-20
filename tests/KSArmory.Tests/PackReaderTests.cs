@@ -167,6 +167,44 @@ public class PackReaderTests
     }
 
     [Theory]
+    [InlineData("Munition")]
+    [InlineData("GunMunition")]
+    public void ALauncherNamingARefusedRoundIsToldWhyTheRoundWasRefused(string attribute)
+    {
+        PackContents pack = Read(Wrap(
+            ASet + $"""
+            <Munition Name="Dart" DisplayName="Dart" Spread="0.3" />
+            <Launcher PartId="TestPack_Prefab_Rail" DisplayName="Test rail"
+                      Munition="Dart" Sensor="Eye" {(attribute == "GunMunition" ? "GunMunition=\"Dart\"" : "")}>
+              <Tube Position="0, 0, 0.9" />
+              <Muzzle At="0, 0, 1" />
+            </Launcher>
+            """));
+
+        Assert.Empty(pack.Launchers);
+        PackFault launcher = Assert.Single(pack.Faults, f => f.Element == "Launcher" && f.Reason.StartsWith(attribute + "="));
+        Assert.Contains("was refused above", launcher.Reason);
+        Assert.Contains("Spread", launcher.Reason);
+    }
+
+    [Fact]
+    public void ALauncherNamingARefusedSensorIsToldWhyTheSensorWasRefused()
+    {
+        PackContents pack = Read(Wrap(
+            ARound + """
+            <Sensor Name="Eye" DisplayName="Eye" Rnage="9000" />
+            <Launcher PartId="TestPack_Prefab_Rail" DisplayName="Test rail"
+                      Munition="Dart" Sensor="Eye">
+              <Tube Position="0, 0, 0.9" />
+            </Launcher>
+            """));
+
+        PackFault launcher = Assert.Single(pack.Faults, f => f.Element == "Launcher");
+        Assert.Contains("was refused above", launcher.Reason);
+        Assert.Contains("Rnage", launcher.Reason);
+    }
+
+    [Theory]
     [InlineData("Guidance=\"Telepathy\"", "Guidance")]
     [InlineData("MaxRange=\"far\"", "MaxRange")]
     [InlineData("FinsPerRound=\"4.5\"", "FinsPerRound")]

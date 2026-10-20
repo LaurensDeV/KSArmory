@@ -17,8 +17,9 @@ internal enum Airglow
 }
 
 /// <summary>
-/// What a burst needs to know about a body that KSA does not declare: its magnetic field, what its air
-/// is made of, whether water condenses in it, and whether it has a surface. Read from
+/// What a burst or a beam needs to know about a body: its magnetic field, what its air is made of,
+/// whether water condenses in it, whether it has a surface, and which of its cloud layers are too thin
+/// to stop a beam. Read not from the game but from
 /// <c>KSArmory/Bodies.xml</c> in any mod (<see cref="BodyReader"/>), keyed by the body's Id, so a custom
 /// solar system gains these by adding lines rather than code.
 ///
@@ -35,6 +36,8 @@ internal enum Airglow
 /// <param name="HasSurface">Whether there is ground to burst on, burn and reflect from.</param>
 /// <param name="XRayOpacity">How strongly its air stops a burst's X-rays per kilogram, against
 /// nitrogen and oxygen's.</param>
+/// <param name="ThinCloud">The Ids of its cloud layers a beam passes through, comma-separated: ice cloud a
+/// few optical depths thick, where a water deck is tens.</param>
 internal sealed record BodyTraits(
     double FieldTesla = 0.0,
     double FieldTiltDeg = 0.0,
@@ -43,11 +46,17 @@ internal sealed record BodyTraits(
     bool? Condensation = null,
     double Gamma = 1.4,
     bool HasSurface = true,
-    double XRayOpacity = 1.0)
+    double XRayOpacity = 1.0,
+    string ThinCloud = "")
 {
     /// <summary>A body nobody described.</summary>
     public static readonly BodyTraits Default = new();
 
     /// <summary>Whether it has a field to hold a burst's debris and light an aurora.</summary>
     public bool HasField => FieldTesla > 0.0;
+
+    public bool IsThinCloud(string? layerId)
+        => !string.IsNullOrEmpty(layerId)
+           && ThinCloud.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                       .Contains(layerId, StringComparer.Ordinal);
 }

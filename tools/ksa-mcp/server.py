@@ -356,12 +356,13 @@ TOOLS = {
     "ksa_clear": ("Forget every cloud, mark and flash.", {}, [], lambda a: [_text(json.dumps(send("clear")))]),
     "ksa_camera": ("Hold the view on the newest burst: a preset (side, under, overhead, far, downwind), or "
                    "azimuth from across the wind, elevation, distance (0 = default), aim as a fraction of "
-                   "the cloud's top. release=true hands the view back.",
+                   "the cloud's top. at_craft holds it on a named craft instead, distance_m out with aim in metres "
+                   "above it. release=true hands the view back.",
                    {"preset": {"type": "string", "enum": list(PRESETS)}, "azimuth_deg": _num("deg"),
                     "elevation_deg": _num("deg"), "distance_m": _num("m"), "aim": _num("0..1"),
                     "turn_deg": _num("deg to turn the view from the burst; 180 looks away"),
                     "orbit_deg_s": _num("deg a second the view circles the burst, paused or not"),
-                    "release": {"type": "boolean"}}, [],
+                    "at_craft": {"type": "string"}, "release": {"type": "boolean"}}, [],
                    lambda a: [_text(json.dumps(send("camera", **{**PRESETS.get(a.pop("preset", ""), {}), **a})))]),
     "ksa_site": ("Set a craft (the flown one unless craft names another) down at a latitude and longitude, on its "
                  "body or a named one, and clear the clouds. Over the sea it lands on the seabed. Returns the sun's "
@@ -403,22 +404,37 @@ TOOLS = {
     "ksa_system": ("One craft's weapons settings, as its panel would set them: auto_engage, protect (never "
                    "target the flown craft), silent. seeker flies its missiles on an infrared, radar or "
                    "radar-gated seeker to test decoys against, resistance 0-1 beside it; stock puts it back. trigger "
-                   "points the trigger at the cannon or the tubes.",
+                   "points the trigger at the cannon, the tubes or a beam; beam switches a beam weapon on or off. Reads back each "
+                   "weapon's hold, and a beam's seconds left and whether it is lasing.",
                    {"craft": {"type": "string"}, "auto_engage": {"type": "boolean"},
                     "protect": {"type": "boolean"}, "silent": {"type": "boolean"}, "guns": {"type": "boolean"}, "chase": {"type": "boolean"}, "focus": {"type": "boolean"},
                     "seeker": {"type": "string", "enum": ["infrared", "radar", "radar-gated", "stock"]},
-                    "trigger": {"type": "string", "enum": ["cannon", "tubes"]},
+                    "trigger": {"type": "string", "enum": ["cannon", "tubes", "beam"]}, "beam": {"type": "boolean"},
                     "resistance": _num("0..1")}, ["craft"],
                    lambda a: [_text(json.dumps(send("system", **a), indent=1))]),
     "ksa_optic": ("A craft's optical directors, as their rows would set them: view new (a spare camera "
-                  "window), main, off or a window index; magnification; tracking; bearing_deg and elevation_deg aim it by hand; lase and code fire its laser. Reads each window's "
-                  "camera back: its field of view, where its picture is, and the body it thinks it is near.",
+                  "window), main, off or a window index; magnification; tracking; bearing_deg and elevation_deg aim it by hand; mouse false stops it following the cursor, which outranks the hand aim; at_craft designates a "
+                  "craft by name; refill tops up a beam's chemicals; spot searches for a spot lased on its code; "
+                  "lase and code fire its designator laser; a beam is a weapon, fired with ksa_fire. Reads each window's camera back, and a "
+                  "beam's state: firing, its length, what it is burning and the magazine left.",
                   {"craft": {"type": "string"}, "view": {"type": "string"}, "magnification": _num("x"),
                    "tracking": {"type": "boolean"}, "manual": {"type": "boolean"},
                    "bearing_deg": _num("deg"), "elevation_deg": _num("deg"),
                    "sensor": {"type": "string", "enum": ["Colour", "Tv", "WhiteHot", "BlackHot"]},
+                   "mouse": {"type": "boolean"}, "at_craft": {"type": "string"}, "refill": {"type": "boolean"},
+                   "spot": {"type": "boolean"},
                    "lase": {"type": "boolean"}, "code": _num("1111-1788")}, ["craft"],
                   lambda a: [_text(json.dumps(send("optic", **a), indent=1))]),
+    "ksa_search": ("A craft's infrared search sets: each one's contacts (name, range, heat, threat), how many it "
+                   "found too faint, where its head points in the part frame, and what the craft's picture hands out.",
+                   {"craft": {"type": "string"}}, ["craft"],
+                   lambda a: [_text(json.dumps(send("search", **a), indent=1))]),
+    "ksa_clouds": ("The cloud coverage maps a beam is stopped by, round a craft, as the mod reads them on the "
+                   "CPU: per layer, rows north to south of tenths west to east, half_km either side, cells a side, round the "
+                   "craft or round lat/lon on its body. A thin layer the beam passes through is left out.",
+                   {"craft": {"type": "string"}, "half_km": _num("km"), "cells": _num("count"),
+                    "lat": _num("deg"), "lon": _num("deg")}, ["craft"],
+                   lambda a: [_text(json.dumps(send("clouds", **a), indent=1))]),
     "ksa_dispense": ("Press a craft's countermeasures: kind flare, chaff or both; auto sets auto-dispense. "
                      "The craft defaults to the one being flown.",
                      {"craft": {"type": "string"}, "kind": {"type": "string", "enum": ["flare", "chaff", "both"]},
@@ -432,6 +448,11 @@ TOOLS = {
                  "engine": {"type": "boolean"},
                  "stop": {"type": "boolean"}}, [],
                 lambda a: [_text(json.dumps(send("fly", **a)))]),
+    "ksa_burn": ("A timed burn for the exhaust velocity: what=engine (activated for it, staged or not) or jets "
+                 "(forward translation) on craft for seconds of simulated time; dv off the accelerometer, "
+                 "ve = dv / ln(m0/m1), beside KSA's declared vacuum ve. With no what, the last burn's result.",
+                 {"craft": {"type": "string"}, "what": {"type": "string", "enum": ["engine", "jets"]},
+                  "seconds": _num("s")}, [], lambda a: [_text(json.dumps(send("burn", **a), indent=1))]),
     "ksa_watch": ("Hold the main view on one round in the air, crewed or loose (its launcher destroyed), "
                   "distance_m from it at azimuth_deg/elevation_deg about its flight -- 0/0 is straight "
                   "behind, 180 ahead. craft names the system (its craft's name, or the dead one's); "
@@ -444,10 +465,29 @@ TOOLS = {
                  "to the ground under it). A gun or a launcher that trains is designated onto the point and "
                  "fires once it is laid, answering when the shot is away; lay=false fires it wherever it "
                  "points now. rounds sets how many a gun fires in place of its burst. station=N fires the "
-                 "craft's Nth launcher instead of the selected one.",
+                 "craft's Nth launcher instead of the selected one. at_craft designates that named craft instead "
+                 "of the point, as a shift-click does.",
                  {"craft": {"type": "string"}, "east_m": _num("m"), "north_m": _num("m"), "up_m": _num("m"),
-                  "lay": {"type": "boolean"}, "rounds": _num("rounds"), "station": _num("launcher number")}, [],
+                  "lay": {"type": "boolean"}, "rounds": _num("rounds"), "station": _num("launcher number"),
+                  "at_craft": {"type": "string"}}, [],
                  lambda a: [_text(json.dumps(send("fire", **a)))]),
+    "ksa_icbm_map": ("Open or close this mod's own ICBM map window on a craft (default: the one being flown). "
+                    "open=0 shuts it, which also gives the planet texture back.",
+                    {"craft": {"type": "string"}, "open": _num("0 or 1")}, [],
+                    lambda a: [_text(json.dumps(send("icbm_map", **a)))]),
+    "ksa_designate": ("Aim a craft's warheads at a latitude and longitude. The first call replaces the target "
+                     "set; add=1 appends another, up to the bus's limit. What the panel does by clicking the "
+                     "world, for a test that cannot click.",
+                     {"lat": _num("deg"), "lon": _num("deg"), "label": {"type": "string"},
+                      "add": _num("0 or 1"), "craft": {"type": "string"}}, ["lat", "lon"],
+                     lambda a: [_text(json.dumps(send("designate", **a)))]),
+    "ksa_ground_track": ("KSA's own ground-track map window, opened on a craft (default: the one being flown) "
+                        "and pointed somewhere. open=0 closes it. zoom is 1 (whole planet) to 5000; pan_x/pan_y "
+                        "are pixels, and lat/lon centres on a place instead, which is what you want. KSA re-clamps as it draws.",
+                        {"craft": {"type": "string"}, "open": _num("0 or 1"), "zoom": _num("1-5000"),
+                         "lat": _num("deg"), "lon": _num("deg"),
+                         "pan_x": _num("px"), "pan_y": _num("px")}, [],
+                        lambda a: [_text(json.dumps(send("ground_track", **a)))]),
     "ksa_control": ("Fly the named craft: the camera follows it and the controls drive it.",
                     {"craft": {"type": "string"}}, ["craft"], lambda a: [_text(json.dumps(send("control", **a)))]),
     "ksa_remove": ("Take a named craft out of the world, leaving no debris. Refuses the craft being flown.",
@@ -465,6 +505,10 @@ TOOLS = {
                   "heading_deg (default 180, south), as KSA's own Set Orbit window does.",
                   {"craft": {"type": "string"}, "alt_km": _num("km"), "lat": _num("deg"), "lon": _num("deg"),
                    "heading_deg": _num("deg")}, ["lat", "lon"], lambda a: [_text(json.dumps(send("orbit", **a)))]),
+    "ksa_attitude": ("KSA's own attitude hold on a craft, pressed as the navball button is (track: prograde, "
+                     "retrograde, normal, ... none), and what its tracker holds: mode, deadband, rate limit, error.",
+                     {"craft": {"type": "string"}, "track": {"type": "string"}}, ["craft"],
+                     lambda a: [_text(json.dumps(send("attitude", **a), indent=1))]),
     "ksa_save": ("Write the game to a save of this name, as KSA's save console command does.",
                  {"name": {"type": "string"}}, ["name"], lambda a: [_text(json.dumps(send("save", **a)))]),
     "ksa_log": ("The mod's log, filtered.", {"pattern": {"type": "string"}, "lines": _num("count")}, [],

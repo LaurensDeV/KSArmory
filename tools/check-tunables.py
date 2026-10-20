@@ -43,6 +43,7 @@ VIA = {
 
     "SystemConfig.MissilesEnabled": "EnabledIn",
     "SystemConfig.GunsEnabled": "EnabledIn",
+    "SystemConfig.BeamEnabled": "EnabledIn",
 
     # A policy object rather than a value: the reference never changes. Its own team is the switcher
     # row's flag, written through SetTeam for every system and director on the craft; the rest of it
@@ -83,6 +84,11 @@ EXEMPT = {
     "SensorProfile.Emits":
         "whether a set transmits at all is what kind of set it is; the operator's switch for "
         "whether it is transmitting *now* is SystemConfig.RadarSilent, which has a control",
+    "SensorProfile.CuedOnly":
+        "whether a set can find anything by itself is what kind of instrument it is -- a telescope "
+        "does not become a search set because somebody ticked a box",
+    "SensorProfile.Infrared":
+        "whether a set finds contacts by heat or by transmitting is what kind of instrument it is",
     "SensorProfile.Scope":
         "what picture the set puts in front of the operator is what kind of instrument it is -- "
         "a seeker head has none and an anti-radiation seeker's is a list of emitters, and neither "
@@ -136,6 +142,8 @@ EXEMPT = {
 # and taken off the panel because the shipped default is the answer. ICBM-OUTSTANDING 5.5.
 RESEARCH = (
     "ShortShotPushesThroughAfterSeconds",
+    "ShortShotPushesThroughAtDragShare",
+    "ShortShotCutsOffOnTheMiss",
     "StagesIntoTheAirflow",
     "LongCoastFreesTheArrival",
     "LongCoastSeconds",
@@ -144,6 +152,7 @@ RESEARCH = (
     "AimResumesAtCutoff",
     "AimWaitsForCutoffUnderAFloor",
     "AimWaitsForTheSolids",
+    "BackstopRisesOnTheThrottledFrame",
     "CancelProbeMissAtSeparation",
     "CancelSpinAtSeparation",
     "CarryAimBiasAcrossHops",
@@ -157,6 +166,17 @@ RESEARCH = (
     "HandsOverWhenBurningAddsToTheShot",
     "HoldDriftsUntilIgnition",
     "HoldKeepsItsWindow",
+    "HopsFlyTheirOwnCeiling",
+    "HopsFreeTheirArrival",
+    "HopsSizeTheirOwnSlots",
+    "PriceTheTankStopByStop",
+    "FreeHopsMeasureTheirSlots",
+    "WalkShrinksAfterTheSplit",
+    "HopsResolveAfterTheirBurn",
+    "HopsBurnTheEngine",
+    "FreeHopsCountTheArrivalTheyMove",
+    "HopsWaitForTheirWarhead",
+    "EngineHopsClearTheStack",
     "HoldPointsLoosely",
     "JetsThroughTheKeyboardClear",
     "KickAtTheRelease",
@@ -164,10 +184,12 @@ RESEARCH = (
     "LongShotMissKickMetresPerSecond",
     "MissKickStopsAtTheCap",
     "MovesAnEarlyRelease",
+    "PauseHoldsTheThrottleDown",
     "PredictionStopsOnTheSurface",
     "PredictionStopsOnTheTerrain",
     "PriceEachHopAtItsSlot",
     "PriceHopsAtWhatTheTrimPays",
+    "PriceSlotsOnTheGateChord",
     "ProbeMissFollowsTheGround",
     "PulseSeconds",
     "PulseTrim",
@@ -177,6 +199,7 @@ RESEARCH = (
     "SecondOrderWarheads",
     "ShedWarheadMass",
     "ShortShotBackstopsAtTheTrim",
+    "ShortShotCutsInThinAir",
     "ShortShotFinishesInTheAir",
     "ShortShotKickCapAfterTheTrim",
     "ShortShotMissKickMetresPerSecond",
@@ -192,9 +215,14 @@ RESEARCH = (
     "ThrottleThroughTheKeyboardClear",
     "TrimCountsTheCommandInFlight",
     "TrimWaitsOutTheStack",
+    "PointRvsAtEntry",
+    "TurnAllowanceSeconds",
+    "TurnCapSeconds",
+    "TurnTestDegrees",
     "WarheadAirVelocityPerSubStep",
     "WarheadDragFromItsShape",
     "WarheadFootprintMetres",
+    "WalkStartsAtCutoff",
     "WarheadSubStepMs",
 )
 EXEMPT.update({f"IcbmConfig.{name}": "a research switch, flown from a shot spec; the default is what ships"

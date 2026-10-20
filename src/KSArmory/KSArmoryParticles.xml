@@ -106,6 +106,37 @@
     </ParticleEmitter>
 
     <!--
+      A reentry vehicle's spin motor: one jet per nozzle for the fraction of a second it burns.
+      The emitter is launched along the nozzle (Ksa/SpinPlume.cs), so the particles inherit that and
+      stream out of the mouth; their own scatter is small, or the jet reads as a puff.
+    -->
+    <ParticleEmitter Id="KSArmorySpinPlume" Density="1.225">
+        <MaxParticles Value="48" />
+        <Mesh Id="ParticleSphere"/>
+        <Renderer>SimpleColor</Renderer>
+        <Updaters>SimpleMovement</Updaters>
+        <Updaters>ShrinkOverLifetime</Updaters>
+        <Updaters>HueShift</Updaters>
+        <Updaters>ModelMatrix</Updaters>
+        <Updaters>Age</Updaters>
+        <SpawnMode>Endless</SpawnMode>
+        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+        <EmitterSize Value="0.02"/>
+        <EmitterExtents X="0.01" Y="0" Z="0"/>
+        <SpawnRate Value="120"/>
+        <Force X="0" Y="0" Z="0" />
+        <InheritVelocity Value="true"/>
+        <ParticleColor X="10" Y="6" Z="3" W="1"/>
+        <ParticleColorShift X="0.35" Y="0.2" Z="0"/>
+        <ParticleLifespan X="0.06" Y="0.16"/>
+        <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
+        <ParticleSize X="0.03" Y="0.08"/>
+        <ParticleVelocity X="0.8" Y="0.8" Z="0.8"/>
+        <ParticleVelocityShift Value="0.5"/>
+        <ParticleExtra X="0.5" Y="0" Z="0" W="0"/>
+    </ParticleEmitter>
+
+    <!--
       A burning flare: magnesium-Teflon-Viton at around 2,000 K, white-hot with a thin orange fringe.
       Endless while it burns and handed back when it is spent, like the motor plume. HDR well above
       the plume's so it blooms: a flare is the brightest thing in the sky for its first seconds.
@@ -569,5 +600,6 @@
     <Shader Id="KSArmoryHoleCompute" Path="Shaders/KSArmoryHole.comp" />
     <Shader Id="KSArmoryLeakCompute" Path="Shaders/KSArmoryLeak.comp" />
     <Shader Id="KSArmoryTracerCompute" Path="Shaders/KSArmoryTracer.comp" />
+    <Shader Id="KSArmoryBeamCompute" Path="Shaders/KSArmoryBeam.comp" />
 
 </Assets>

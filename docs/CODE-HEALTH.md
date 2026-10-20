@@ -103,13 +103,15 @@ stale in two places at once.
   mass, at least there. It feeds lever arms: blast shoves and a store's release. Wants a flight on a
   rocket or a rack before anything is changed, because one craft is not the rule.
 
-- **A gun's lay flip-flops when the mount is on a moving craft.** A Mk 42 on a ship doing 13 m/s and
-  heaving ±3 m in waves, laying on a piece of wreckage still rolling on a beach 10 km off, alternated
-  every half second between "laid on it" and "laid to its longest reach", with that reach wandering
-  from 8.9 to 10.2 km of a 23.7 km gun — so the turret never settled. Every mount the lay was flown
-  from stood on the ground, and the target was moving too; which of the two breaks it was not
-  separated. Lay on a stationary target from the moving mount, and on the rolling one from a still
-  mount.
+- **A gun's lay flip-flopped when the mount was on a moving craft, and the target is what did it.** A Mk 42 on a ship
+  doing 13 m/s and heaving ±3 m, laying on wreckage rolling on a beach 10 km off, alternated every half second between
+  "laid on it" and "laid to its longest reach". Separated on 2026-10-14: headlessly (`MovingMountLayStudy`) the moving
+  mount lays steadily, and a target with a jumpy acceleration flips 124-136 times in 600 frames at 20 km; in game,
+  KSA's ground contact on a rocket sitting on a slope flips 2-6 times a second, and the lay swapped between the
+  ground's acceleration and the craft's own on every flip. **Held a second past the last contact now
+  (`Sim/ContactHold.cs`)**: in game the lay's contact flipped 0 times a second against 2-5 raw. The flip-flop itself was
+  never reproduced in game -- the rocket on the slope lays steadily either way, having no acceleration of its own --
+  so the ship case is the one re-flight that would close this.
 
 
 ## Did not survive

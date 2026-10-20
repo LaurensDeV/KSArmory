@@ -37,6 +37,17 @@ internal sealed class OpticalHeads(Config config)
     /// <summary>Every crewed head, in no particular order.</summary>
     public IEnumerable<Entry> All => _entries.Values;
 
+    /// <summary>The head crewed on a part, or null.</summary>
+    public OpticalHead? OnPart(Part part)
+    {
+        foreach (Entry e in _entries.Values)
+        {
+            if (ReferenceEquals(e.Head.Director, part)) return e.Head;
+        }
+
+        return null;
+    }
+
     /// <summary>The heads on one craft, appended in part order.</summary>
     public void On(Vehicle? craft, List<Entry> into)
     {
@@ -278,8 +289,15 @@ internal sealed class OpticalHeads(Config config)
     public void Update(double dt, IReadOnlyList<IContact>? airborne = null)
     {
         LaserDesignators.BeginFrame();
-        foreach (Entry e in _entries.Values) e.Head.Update(dt, airborne);
+        foreach (Entry e in _entries.Values)
+        {
+            e.Head.Pictured = PictureFor?.Invoke(e.Head.Platform);
+            e.Head.Update(dt, airborne);
+        }
     }
+
+    /// <summary>The contact the craft's picture hands out, which a head takes under its tracking switch.</summary>
+    public Func<Vehicle?, object?>? PictureFor { get; set; }
 
     public void Clear() => _entries.Clear();
 }

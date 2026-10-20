@@ -54,7 +54,14 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
     /// The velocity change per metre of landing along and across the track, resolved on the bus's nose, right and
     /// down, with the arrival pinned.
     /// </summary>
-    internal readonly record struct AxisPrice(double3 PerMetreAlong, double3 PerMetreAcross)
+    /// <param name="ArrivalSecondsPerMetreAlong">
+    /// How much later the arrival comes per metre the landing moves along the track, on a free arrival's cheapest arc;
+    /// zero pinned, where the clock is held.
+    /// </param>
+    /// <param name="ArrivalSecondsPerMetreAcross"><inheritdoc cref="ArrivalSecondsPerMetreAlong"/></param>
+    internal readonly record struct AxisPrice(double3 PerMetreAlong, double3 PerMetreAcross,
+                                              double ArrivalSecondsPerMetreAlong = 0.0,
+                                              double ArrivalSecondsPerMetreAcross = 0.0)
     {
         public bool Known => Vec.IsFinite(PerMetreAlong) && Vec.IsFinite(PerMetreAcross)
                              && (Vec.Len2(PerMetreAlong) > 0.0 || Vec.Len2(PerMetreAcross) > 0.0);
@@ -251,6 +258,23 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
     }
 
     /// <summary>
+    /// How much later a free divert this far makes the arrival, negative for earlier: about 0.23 s per km uprange at
+    /// 12,902 km, which is 92 s on a 400 km hop. Zero where the axes are not known or the clock is pinned.
+    /// </summary>
+    public double ArrivalShiftSeconds(double alongMetres, double crossMetres)
+        => Axes.Known ? (Axes.ArrivalSecondsPerMetreAlong * alongMetres) + (Axes.ArrivalSecondsPerMetreAcross * crossMetres)
+                      : 0.0;
+
+    /// <summary>
+    /// What one engine pushing along the divert pays to move the landing this far: the velocity change's length, or
+    /// <see cref="CostMetresPerSecond"/> where the axes are not known.
+    /// </summary>
+    public double LengthCostMetresPerSecond(double alongMetres, double crossMetres)
+        => Axes.Known
+               ? Vec.Len((Axes.PerMetreAlong * alongMetres) + (Axes.PerMetreAcross * crossMetres))
+               : CostMetresPerSecond(alongMetres, crossMetres);
+
+    /// <summary>
     /// The worst ratio of what the trim pays to the divert's length over every bearing on the ground: what the
     /// ring is shrunk by so that every point inside it is affordable.
     /// </summary>
@@ -283,10 +307,12 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
     /// </summary>
     /// <remarks>
     /// Pinned, a divert is the exactly-determined 3x3 the trim solves — the two ground rows and the clock — so
-    /// each column of its inverse is a cross product of the other two rows over the determinant.
+    /// each column of its inverse is a cross product of the other two rows over the determinant. Free, it is the
+    /// minimum-norm answer to the two ground rows alone, which is the velocity the cheapest arc asks for.
     /// </remarks>
     public static bool TryAxisPrice(BallisticBody body, ReleaseFocus.FlownSensitivity flown, double3 noseCci,
-                                    double3 rightCci, double3 downCci, out AxisPrice price)
+                                    double3 rightCci, double3 downCci, out AxisPrice price,
+                                    ArrivalClock clock = ArrivalClock.Pinned)
     {
         price = default;
 
@@ -299,20 +325,86 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
                             Vec.Dot(flown.VelocityZ, frame.Downrange));
         double3 cross = new(Vec.Dot(flown.VelocityX, frame.Cross), Vec.Dot(flown.VelocityY, frame.Cross),
                             Vec.Dot(flown.VelocityZ, frame.Cross));
-        double3 clock = flown.ArrivalSecondsPerMetrePerSecond;
+        double3 perAlong, perAcross;
+        if (clock == ArrivalClock.Free)
+        {
+            double aa = Vec.Dot(along, along), ac = Vec.Dot(along, cross), cc = Vec.Dot(cross, cross);
+            double gram = (aa * cc) - (ac * ac);
+            if (!(gram > 0.0) || !double.IsFinite(gram)) return false;
 
-        double det = Vec.Dot(along, Vec.Cross(cross, clock));
-        if (!(Math.Abs(det) > 0.0) || !double.IsFinite(det)) return false;
+            perAlong = ((along * cc) - (cross * ac)) / gram;
+            perAcross = ((cross * aa) - (along * ac)) / gram;
+        }
+        else
+        {
+            double3 slower = flown.ArrivalSecondsPerMetrePerSecond;
 
-        double3 perAlong = Vec.Cross(cross, clock) / det;
-        double3 perAcross = Vec.Cross(clock, along) / det;
+            double det = Vec.Dot(along, Vec.Cross(cross, slower));
+            if (!(Math.Abs(det) > 0.0) || !double.IsFinite(det)) return false;
+
+            perAlong = Vec.Cross(cross, slower) / det;
+            perAcross = Vec.Cross(slower, along) / det;
+        }
 
         double3 nose = Vec.Unit(noseCci), right = Vec.Unit(rightCci), down = Vec.Unit(downCci);
+        double3 later = flown.ArrivalSecondsPerMetrePerSecond;
+        bool free = clock == ArrivalClock.Free && Vec.IsFinite(later);
 
         price = new AxisPrice(new double3(Vec.Dot(perAlong, nose), Vec.Dot(perAlong, right), Vec.Dot(perAlong, down)),
                               new double3(Vec.Dot(perAcross, nose), Vec.Dot(perAcross, right),
-                                          Vec.Dot(perAcross, down)));
+                                          Vec.Dot(perAcross, down)),
+                              free ? Vec.Dot(later, perAlong) : 0.0,
+                              free ? Vec.Dot(later, perAcross) : 0.0);
         return price.Known;
+    }
+
+    /// <summary>How many epochs <see cref="IcbmConfig.FreeHopsMeasureTheirSlots"/> flies the reach at past the first.</summary>
+    public const int LaterEpochs = 4;
+
+    /// <summary>
+    /// <see cref="LaterEpochs"/> epochs before arrival, falling, evenly spaced on log axes from
+    /// <paramref name="secondsToGo"/> down to <paramref name="gateSeconds"/>; empty where the gate is not before it.
+    /// </summary>
+    public static double[] LaterEpochsBeforeArrival(double secondsToGo, double gateSeconds)
+    {
+        if (!(gateSeconds > 0.0) || !(secondsToGo > gateSeconds) || !double.IsFinite(secondsToGo)) return [];
+
+        double[] epochs = new double[LaterEpochs];
+        for (int i = 1; i <= LaterEpochs; i++)
+        {
+            epochs[i - 1] = secondsToGo * Math.Pow(gateSeconds / secondsToGo, (double)i / LaterEpochs);
+        }
+
+        return epochs;
+    }
+
+    /// <summary>
+    /// The free reach, with its per-axis price on the given axes, flown from where a vacuum coast from
+    /// <paramref name="positionCci"/> is <paramref name="beforeArrivalSeconds"/> before an arrival
+    /// <paramref name="secondsToGo"/> away: <see cref="IcbmConfig.FreeHopsMeasureTheirSlots"/>.
+    /// </summary>
+    public static bool TryFreeLater(BallisticBody body, double3 positionCci, double3 velocityCci, double secondsToGo,
+                                    double beforeArrivalSeconds, in ReleaseFocus.Air air, double3 noseCci,
+                                    double3 rightCci, double3 downCci, out DivertFootprint later)
+    {
+        later = default;
+
+        double coast = secondsToGo - beforeArrivalSeconds;
+        if (!(coast > 0.0) || !(beforeArrivalSeconds > 0.0)
+            || !Kepler.TryCoast(body.Mu, positionCci, velocityCci, coast, out double3 p, out double3 v))
+        {
+            return false;
+        }
+
+        if (ReleaseFocus.FlownSensitivity.TryFly(body, p, v, air) is not { } flown
+            || !TryFrom(body, flown, ArrivalClock.Free, fromTheRealState: true, out DivertFootprint footprint)
+            || !TryAxisPrice(body, flown, noseCci, rightCci, downCci, out AxisPrice axes, ArrivalClock.Free))
+        {
+            return false;
+        }
+
+        later = footprint with { Axes = axes };
+        return true;
     }
 
     /// <summary>Whether a displacement is inside what the stated budget can pay for.</summary>

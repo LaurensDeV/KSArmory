@@ -84,7 +84,7 @@ public class CatalogueTests
     }
 
     [Fact]
-    public void OnlyTheBusFliesItsCraft()
+    public void OnlyABusFliesItsCraft()
     {
         // The ballistic computer releases through the launcher that answers yes, so a second
         // launcher on the same craft answering yes would hand the warheads' release to a rail.

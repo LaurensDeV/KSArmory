@@ -67,17 +67,17 @@ public class DebrisShellTests(ITestOutputHelper output)
     [Fact]
     public void TheFieldRunsNorthSouthOverTheEquatorAndStraightDownAtThePole()
     {
-        double3 axis = new(0, 0, 1);
+        MagneticDipole dipole = new(Vec.Zero, new double3(0, 0, 1), 3.1e-5, 1.0);
 
-        double3 equator = DebrisShell.FieldDirection(new double3(1, 0, 0), axis);
+        double3 equator = dipole.FieldDirection(new double3(1, 0, 0));
         Assert.Equal(1.0, Math.Abs(equator.Z), 9);
 
-        double3 pole = DebrisShell.FieldDirection(new double3(0, 0, 1), axis);
+        double3 pole = dipole.FieldDirection(new double3(0, 0, 1));
         Assert.Equal(1.0, Math.Abs(pole.Z), 9);
 
         // At 45 degrees the dip is atan(2 tan 45) = 63.4 degrees below the horizontal.
         double3 up = Vec.Unit(new double3(1, 0, 1));
-        double3 field = DebrisShell.FieldDirection(up, axis);
+        double3 field = dipole.FieldDirection(up);
         double dip = Math.Asin(Math.Abs(Vec.Dot(field, up))) * 180.0 / Math.PI;
         Assert.Equal(63.43, dip, 1);
     }

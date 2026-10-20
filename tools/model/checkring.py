@@ -62,10 +62,16 @@ def rotation(rx, ry, rz):
 
 
 def thruster_subparts(gamedata):
-    """Which SubPartGameData declare a rocket -- found by what they are, not by name."""
+    """Which SubPartGameData declare an attitude thruster -- found by what they are, not by name.
+
+    Only a RocketThrusterController's rockets are enrolled (ThrusterController's constructor), so a
+    main engine under a RocketEngineController steers nothing and is left out.
+    """
     out = set()
     for spgd in gamedata.iter("SubPartGameData"):
-        if spgd.find(".//Combustor") is not None and spgd.find(".//DeLavalNozzle") is not None:
+        if (spgd.find(".//RocketThrusterController") is not None
+                and spgd.find(".//Combustor") is not None
+                and spgd.find(".//DeLavalNozzle") is not None):
             out.add(spgd.get("Id"))
     return out
 

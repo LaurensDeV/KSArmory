@@ -5,7 +5,8 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// The radar scope: a plan-position indicator for one installation's set.
+/// The radar scope: a plan-position indicator for one installation's set, and for the infrared
+/// search parts aboard its craft.
 ///
 /// <para>A different instrument from the director's map, not a second copy of it. The map is
 /// north-up terrain relief showing what a <em>head</em> can see over the skyline; this is the
@@ -233,64 +234,109 @@ internal partial class Ui
     {
         Track? locked = system.LockedTrack;
 
+        // The craft's search parts too: the scope is what the craft can see by bearing, and a
+        // contact only an IRST holds is still out there on that bearing.
+        _searchSets.On(system.Platform, _searchScratch);
+
         for (int i = 0; i < system.Radar.Tracks.Count; i++)
         {
             Track track = system.Radar.Tracks[i];
+            DrawScopeBlip(draw, centre, radius, system, policy, frame, range, track,
+                          isLocked: locked is not null && ReferenceEquals(track, locked),
+                          heat: HeldBySearchSet(track.Contact.Handle));
+        }
 
-            double3 offset = frame.ToLocal(track.PositionEcl);
-            double bearing = ScopeGeometry.BearingRad(offset.X, offset.Y);
-            double ground = ScopeGeometry.GroundRange(offset.X, offset.Y);
-
-            bool beyond = ScopeGeometry.Beyond(ground, range);
-            float2 at = Face(centre, radius, ScopeGeometry.Plot(bearing, ground, range));
-
-            bool isLocked = locked is not null && ReferenceEquals(track, locked);
-            ScopeGeometry.Blip symbol = SymbolOf(track, policy);
-            uint colour = isLocked ? ScopeLocked
-                        : symbol == ScopeGeometry.Blip.Hostile ? ScopeHostile
-                        : track.IsThreat ? ScopeThreat
-                        : ScopeBlip;
-
-            switch (symbol)
+        for (int s = 0; s < _searchScratch.Count; s++)
+        {
+            List<Track> held = _searchScratch[s].Radar.Tracks;
+            for (int i = 0; i < held.Count; i++)
             {
-                case ScopeGeometry.Blip.Missile:
-                    draw.AddText(new float2(at.X - 5f, at.Y - 7f), colour, "M");
-                    break;
+                Track track = held[i];
+                if (system.Radar.TrackFor(track.Contact.Handle) is not null || HeldEarlier(s, track.Contact.Handle)) continue;
 
-                // Geometry rather than a Greek delta: the font here is not guaranteed to carry one,
-                // and a symbol that renders as a box on somebody else's machine is worse than none.
-                case ScopeGeometry.Blip.Unknown:
-                    draw.AddNgon(at, 6f, colour, 3, isLocked ? 2.2f : 1.5f);
-                    break;
-
-                case ScopeGeometry.Blip.Hostile:
-                    DrawHostile(draw, at, system, frame, track, colour, isLocked, beyond);
-                    break;
-
-                default:
-                    draw.AddLine(new float2(at.X - 4f, at.Y - 4f), new float2(at.X + 4f, at.Y + 4f),
-                                 colour, isLocked ? 2.2f : 1.5f);
-                    draw.AddLine(new float2(at.X - 4f, at.Y + 4f), new float2(at.X + 4f, at.Y - 4f),
-                                 colour, isLocked ? 2.2f : 1.5f);
-                    break;
+                DrawScopeBlip(draw, centre, radius, system, policy, frame, range, track, isLocked: false, heat: true);
             }
+        }
+    }
 
-            // Transmitting: a mark beside the symbol rather than one of its own, because a hostile
-            // that switches its set on must not stop being drawn as a hostile.
-            if (IsEmitting(track)) draw.AddText(new float2(at.X + 6f, at.Y - 9f), colour, ScopeGeometry.Emitting);
+    private bool HeldBySearchSet(object handle)
+    {
+        for (int s = 0; s < _searchScratch.Count; s++)
+        {
+            if (_searchScratch[s].Radar.TrackFor(handle) is not null) return true;
+        }
 
-            // Held on the rim: a tick outward, so "out there, that way" is not read as "there".
-            if (beyond)
-            {
-                float2 out2 = Face(centre, radius * 1.06f, ScopeGeometry.Plot(bearing, 1.0, 1.0));
-                draw.AddLine(at, out2, colour, 1.4f);
-            }
+        return false;
+    }
 
-            if (isLocked)
-            {
-                draw.AddCircle(at, 10f, colour, 16, 1.4f);
-                DrawTrackBeam(draw, centre, at, colour);
-            }
+    // Each contact once, however many search parts hold it.
+    private bool HeldEarlier(int set, object handle)
+    {
+        for (int s = 0; s < set; s++)
+        {
+            if (_searchScratch[s].Radar.TrackFor(handle) is not null) return true;
+        }
+
+        return false;
+    }
+
+    private void DrawScopeBlip(ImDrawListPtr draw, float2 centre, float radius, WeaponSystem system,
+                               SystemConfig policy, MapFrame frame, float range, Track track,
+                               bool isLocked, bool heat)
+    {
+        double3 offset = frame.ToLocal(track.PositionEcl);
+        double bearing = ScopeGeometry.BearingRad(offset.X, offset.Y);
+        double ground = ScopeGeometry.GroundRange(offset.X, offset.Y);
+
+        bool beyond = ScopeGeometry.Beyond(ground, range);
+        float2 at = Face(centre, radius, ScopeGeometry.Plot(bearing, ground, range));
+
+        ScopeGeometry.Blip symbol = SymbolOf(track, policy);
+        uint colour = isLocked ? ScopeLocked
+                    : symbol == ScopeGeometry.Blip.Hostile ? ScopeHostile
+                    : track.IsThreat ? ScopeThreat
+                    : ScopeBlip;
+
+        switch (symbol)
+        {
+            case ScopeGeometry.Blip.Missile:
+                draw.AddText(new float2(at.X - 5f, at.Y - 7f), colour, "M");
+                break;
+
+            // Geometry rather than a Greek delta: the font here is not guaranteed to carry one,
+            // and a symbol that renders as a box on somebody else's machine is worse than none.
+            case ScopeGeometry.Blip.Unknown:
+                draw.AddNgon(at, 6f, colour, 3, isLocked ? 2.2f : 1.5f);
+                break;
+
+            case ScopeGeometry.Blip.Hostile:
+                DrawHostile(draw, at, system, frame, track, colour, isLocked, beyond);
+                break;
+
+            default:
+                draw.AddLine(new float2(at.X - 4f, at.Y - 4f), new float2(at.X + 4f, at.Y + 4f),
+                             colour, isLocked ? 2.2f : 1.5f);
+                draw.AddLine(new float2(at.X - 4f, at.Y + 4f), new float2(at.X + 4f, at.Y - 4f),
+                             colour, isLocked ? 2.2f : 1.5f);
+                break;
+        }
+
+        // Transmitting: a mark beside the symbol rather than one of its own, because a hostile
+        // that switches its set on must not stop being drawn as a hostile.
+        if (IsEmitting(track)) draw.AddText(new float2(at.X + 6f, at.Y - 9f), colour, ScopeGeometry.Emitting);
+        if (heat) draw.AddText(new float2(at.X + 6f, at.Y + 1f), colour, ScopeGeometry.Heat);
+
+        // Held on the rim: a tick outward, so "out there, that way" is not read as "there".
+        if (beyond)
+        {
+            float2 out2 = Face(centre, radius * 1.06f, ScopeGeometry.Plot(bearing, 1.0, 1.0));
+            draw.AddLine(at, out2, colour, 1.4f);
+        }
+
+        if (isLocked)
+        {
+            draw.AddCircle(at, 10f, colour, 16, 1.4f);
+            DrawTrackBeam(draw, centre, at, colour);
         }
     }
 
@@ -357,7 +403,7 @@ internal partial class Ui
         // was avoided for.
         ImGui.TextColored(ScopeHostileInk, "triangle pointing, with a line  hostile, and its heading");
         ImGui.TextDisabled("X  friendly or neutral      triangle  unknown side");
-        ImGui.TextDisabled("M  round in the air     R  transmitting");
+        ImGui.TextDisabled($"M  round in the air     {ScopeGeometry.Emitting}  transmitting     {ScopeGeometry.Heat}  held by an infrared search set");
         ImGui.TextDisabled("ringed, with a line  the lock, held by the track radar");
     }
 

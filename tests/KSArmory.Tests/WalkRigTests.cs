@@ -23,8 +23,9 @@ public class WalkRigTests(ITestOutputHelper Out)
         {
             Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, ArrivalPreference = 0.5, FlyAnyRange = true,
             // Pulsed, this bus comes back to 5.3 m of its stack rather than 13.5 and is held 72 s, which leaves the first hop
-            // just over one pass: the keep-out's knife edge, not the walk.
-            PulsesBelowTheFloor = false,
+            // just over one pass: the keep-out's knife edge, not the walk. The entry turn's 9 s tips this forced walk over
+            // the same edge; the planned one the computer flies is RvPointingRigTests'.
+            PulsesBelowTheFloor = false, PointRvsAtEntry = false,
         });
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,

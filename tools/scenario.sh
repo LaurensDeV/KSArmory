@@ -27,6 +27,8 @@
 #   ./tools/scenario.sh mirv:26.485S,68.148W       # ...at somewhere else
 #   ./tools/scenario.sh mirv:26.485S,68.148W,2     # ...and pass only under 2 km
 #   ./tools/scenario.sh 'mirv:24S,62W;24.04S,62W'  # ...or one bus at two places, scored separately
+#   ./tools/scenario.sh 'mirv:24S,62W;track:6x100'  # ...or six more 100 km apart uprange along the track
+#                                        #   (across:6x100 lays them square to it), measured from each rocket's pad
 #   KSARMORY_SCENARIO_SAVE="ICBM E2E RAIL" KSARMORY_SCENARIO_SELECTOTHER=1 ./tools/scenario.sh mirv
 #                                        # ...with the rocket's other launcher selected in the panel:
 #                                        #   the bus must still be what releases

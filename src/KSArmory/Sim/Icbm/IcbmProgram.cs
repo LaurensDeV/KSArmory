@@ -17,6 +17,17 @@ internal enum IcbmPhase
     NoSolution,
 }
 
+internal enum CutoffTest
+{
+    None,
+    Threshold,
+    PulseQuantum,
+    Countdown,
+
+    /// <summary>The velocity to gain rose again past the lowest it reached.</summary>
+    Backstop,
+}
+
 /// <summary>Whether the shot can be made at all, which is three different answers.</summary>
 internal enum IcbmReach
 {
@@ -159,7 +170,10 @@ internal readonly record struct IcbmCommand(
     /// The engine is being switched on and off to average a throttle below its floor, so an off frame holds the lever at
     /// <see cref="Throttle"/> rather than winding it up for a relight.
     /// </summary>
-    bool Pulsing = false);
+    bool Pulsing = false,
+
+    /// <summary>The engine is off and will relight to finish the burn, so the lever is held at <see cref="Throttle"/> for it.</summary>
+    bool HoldsLever = false);
 
 /// <summary>
 /// The flight, from the pad to warhead release: a schedule while there is air, closed-loop
@@ -503,6 +517,7 @@ internal sealed partial class IcbmProgram
     private double _secondsInTheRamp;
     private double3 _lastToGainCci;
     private double3 _pushCci;
+    private bool _pushLatched;
     private bool _absorbing;
 
     // Whether the closed loop took over at the top of a climb still inside the air.
@@ -638,6 +653,9 @@ internal sealed partial class IcbmProgram
     /// <summary>Below this velocity to gain the steering direction is held, as of the last solve.</summary>
     public double HoldDirectionBelowNow { get; private set; } = double.NaN;
 
+    /// <summary>The measured push along the line over the throttle-down's thrust, as last read before the push latched.</summary>
+    public double DragShareOfTheRamp { get; private set; } = double.NaN;
+
     /// <summary>Whether the last solve turned the line at a bounded rate (<see cref="IcbmConfig.ShortShotSlowsLineSeconds"/>).</summary>
     public bool LineSlowed { get; private set; }
 
@@ -658,6 +676,24 @@ internal sealed partial class IcbmProgram
     public double3 ResidualVectorCci { get; private set; }
 
     private double3 _toGainVectorCci;
+    private double3 _fullToGainVectorCci;
+
+    /// <summary>
+    /// What was still to gain at cutoff off the line that moves the landing nowhere, under
+    /// <see cref="IcbmConfig.ShortShotCutsOffOnTheMiss"/>; the whole residual otherwise.
+    /// </summary>
+    public double ResidualOffTheMissFreeLine { get; private set; } = double.NaN;
+
+    /// <summary>The velocity to gain below which <see cref="IcbmConfig.ShortShotCutsOffOnTheMiss"/> acts, in m/s.</summary>
+    public const double CutsOffOnTheMissBelow = 10.0;
+
+    private void LatchResidual()
+    {
+        bool projected = !_fullToGainVectorCci.Equals(Vec.Zero);
+        ResidualVectorCci = projected ? _fullToGainVectorCci : _toGainVectorCci;
+        ResidualAtCutoff = projected ? Vec.Len(_fullToGainVectorCci) : _toGain;
+        ResidualOffTheMissFreeLine = _toGain;
+    }
 
     /// <summary>What the stack could do at cutoff, latched with the residual to explain it.</summary>
     public double AccelerationAtCutoff { get; private set; } = double.NaN;
@@ -693,6 +729,11 @@ internal sealed partial class IcbmProgram
     /// that was never asked for.</para>
     /// </summary>
     public double ThrottleAtCutoff { get; private set; } = double.NaN;
+
+    /// <summary>Which of the closed loop's tests ended the burn; <see cref="CutoffTest.None"/> for any other way out.</summary>
+    public CutoffTest CutOffBy { get; private set; }
+
+    private CutoffTest _cutTest;
 
     /// <summary>
     /// The closest the target ever comes to the plane being flown in, in degrees, or NaN before
@@ -802,6 +843,7 @@ internal sealed partial class IcbmProgram
         ReferencePositionCci = Vec.Zero;
         SecondsSinceReference = 0.0;
         _resolveCoastArc = false;
+        _freeHopArrival = false;
         _coastArrivalFreed = false;
         CoastArrivalMovedSeconds = double.NaN;
         DownrangeCci = Vec.Zero;
@@ -843,7 +885,10 @@ internal sealed partial class IcbmProgram
         _fellShort = false;
         _arrivalFloorUnaffordable = false;
         ResidualAtCutoff = double.NaN;
+        CutOffBy = CutoffTest.None;
         ResidualVectorCci = Vec.Zero;
+        ResidualOffTheMissFreeLine = double.NaN;
+        _fullToGainVectorCci = default;
         AccelerationAtCutoff = double.NaN;
         StepAtCutoff = double.NaN;
         ThrottleAtCutoff = double.NaN;
@@ -854,6 +899,8 @@ internal sealed partial class IcbmProgram
         _secondsInTheRamp = 0.0;
         _lastToGainCci = default;
         _pushCci = default;
+        _pushLatched = false;
+        DragShareOfTheRamp = double.NaN;
         _reachHold = "";
         _reachIfNoArc = IcbmReach.NoTrajectory;
         _sinceWindow = double.PositiveInfinity;
@@ -871,6 +918,7 @@ internal sealed partial class IcbmProgram
         _shortfall = 0.0;
         _closestOffPlane = double.NaN;
         ReleaseGateSeconds = double.NaN;
+        CoastLineCci = Vec.Zero;
     }
 
     /// <summary>
@@ -886,6 +934,18 @@ internal sealed partial class IcbmProgram
     public double ReleaseGateSeconds { get; set; } = double.NaN;
 
     /// <summary>
+    /// The line the coast holds in place of the one the burn was cut off on; zero holds the cutoff line.
+    /// </summary>
+    /// <remarks>
+    /// Set by the computer, which alone knows when the bus has split and nulled its shove: a turn
+    /// commanded any earlier swings the whole stack, or turns before the shove is off the conic.
+    /// </remarks>
+    public double3 CoastLineCci { get; set; } = Vec.Zero;
+
+    /// <summary>The line the burn was cut off on, zero until a burn has set one.</summary>
+    public double3 CutoffLineCci => _thrustDirCci;
+
+    /// <summary>
     /// The gate in force, which is the setting unless a walk has asked for an earlier one.
     ///
     /// <para>One expression, because everything that counts down to a release has to reach the same
@@ -895,6 +955,20 @@ internal sealed partial class IcbmProgram
     public double ReleaseGate
         => double.IsFinite(ReleaseGateSeconds) ? ReleaseGateSeconds
                                                : Config.ReleaseBeforeArrivalSeconds;
+
+    /// <summary>
+    /// Whether this flight turns its bus onto the entry airflow after the split -- never a short shot, which
+    /// splits in air at cutoff, or one that releases at cutoff and never splits.
+    /// </summary>
+    public bool TurnsAtTheSplit
+        => Config.PointRvsAtEntry && !_shortShot && !_releasesAtCutoff;
+
+    /// <summary>
+    /// When the bus splits, in seconds before arrival: the release gate, opened earlier by the turn's
+    /// allowance so the turn does not come out of the first stop. The release itself is still
+    /// <see cref="ReleaseGate"/>, which is where the prediction puts the warheads' departure.
+    /// </summary>
+    public double SplitGate => ReleaseGate + (TurnsAtTheSplit ? Math.Max(0.0, Config.TurnAllowanceSeconds) : 0.0);
 
     public IcbmCommand Update(double stepSeconds, in IcbmState state)
     {
@@ -955,8 +1029,7 @@ internal sealed partial class IcbmProgram
         if (Config.FlyAnyRange && dry && _absorbing && _toGain <= BusTrim.MaxMetresPerSecond)
         {
             _releasesAtCutoff = state.AirDensityRatio >= Medium.NoticeableDensity || StaysUnderTheReleaseAltitude(state);
-            ResidualAtCutoff = _toGain;
-            ResidualVectorCci = _toGainVectorCci;
+            LatchResidual();
             AccelerationAtCutoff = state.Booster.AccelerationNow;
             StepAtCutoff = _lastStep;
             ThrottleAtCutoff = state.ThrottleAchieved;
@@ -967,8 +1040,7 @@ internal sealed partial class IcbmProgram
         if (_drySeconds > DrySecondsBeforeGivingUp)
         {
             _fellShort = _toGain > BurnoutGuidance.CutoffMetresPerSecond;
-            ResidualAtCutoff = _toGain;
-            ResidualVectorCci = _toGainVectorCci;
+            LatchResidual();
             AccelerationAtCutoff = state.Booster.AccelerationNow;
             StepAtCutoff = _lastStep;
             ThrottleAtCutoff = state.ThrottleAchieved;
@@ -1102,7 +1174,8 @@ internal sealed partial class IcbmProgram
         return new IcbmCommand(phase, direction, commanded, EngineOn: !waiting && !pulsedOff, stage,
                                _toGain, Math.Max(_countdown, 0.0), ReadyToDeploy: false, Hold: hold,
                                Reach: Reach, SecondsToArrival: SecondsToArrival, SecondsToBurn: 0.0,
-                               ShortfallMetresPerSecond: _shortfall, Pulsing: pulsing && !waiting);
+                               ShortfallMetresPerSecond: _shortfall, Pulsing: pulsing && !waiting,
+                               HoldsLever: waiting && _paused && Config.PauseHoldsTheThrottleDown);
     }
 
     // A dry stage dropped in the air at an angle of attack is pushed sideways by its own drag into what it leaves:

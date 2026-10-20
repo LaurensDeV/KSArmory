@@ -78,6 +78,12 @@ internal interface IEffectSource : IRoundsInFlight
     /// </summary>
     bool TryRoundEffectEcl(IProjectile round, out double3 ecl);
 
+    /// <summary>
+    /// Which way a round's body was last drawn, mesh to Ecl -- what a nozzle on the body is placed through.
+    /// False before its body has been drawn once.
+    /// </summary>
+    bool TryRoundAttitudeEcl(IProjectile round, out doubleQuat attitudeEcl);
+
     /// <summary>The profile, for the rates and geometry an effect is sized from.</summary>
     LauncherProfile Profile { get; }
 
@@ -128,6 +134,9 @@ internal interface IOpticalHead : IWeaponPlatform
 
     /// <summary>True once the head has caught up with what it was told to look at.</summary>
     bool OpticOnTarget { get; }
+
+    /// <summary>Aimed at what the weapon on its part cued it with.</summary>
+    bool FollowsCue { get; }
 
     /// <summary>True while its own craft stands across its line of sight.</summary>
     bool Masked { get; }
@@ -203,6 +212,12 @@ internal interface ISightPicture : IWeaponPlatform, IWeaponLoadout
 
     /// <summary>Rounds left in the cannon belt.</summary>
     int GunAmmo { get; }
+
+    /// <summary>Seconds of lasing left, for a launcher that fires a beam.</summary>
+    int BeamSecondsLeft { get; }
+
+    /// <summary>Whether its beam is on this step.</summary>
+    bool BeamLasing { get; }
 
     /// <summary>Where rounds leave from, which is what every lead is measured from.</summary>
     double3 MountEcl { get; }

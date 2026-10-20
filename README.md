@@ -74,12 +74,12 @@ rest. One B61-12 on a rack that surface-attaches to an aircraft, and a sight tha
 the bomb will land in — flown rather than solved, so the ring sits wherever the round will actually
 go. It ships at the bottom of the real yield range.
 
-**MIRV bus** — six Mk 21 reentry vehicles on a post-boost vehicle that stacks on a 3 m node.
-Nothing on it moves and nothing about it aims: the ballistic computer flies the whole stack, cuts
+**Heavy MIRV Bus** — seven Mk 21 reentry vehicles on a post-boost vehicle that stacks on a 3 m node.
+Nothing on it aims: the ballistic computer flies the whole stack, cuts
 the engines on the solution, trims the bus back onto it with its own thrusters, and then lets the
 warheads go one at a time. See [`docs/ICBM-GUIDANCE.md`](docs/ICBM-GUIDANCE.md).
 
-Two sights come with them, and they are the same instrument on different mechanisms:
+Three sights come with them, and they are the same instrument on different mechanisms:
 
 **EO Director** — a sight as a part in its own right, on a mast. It finds its own targets through
 its own sensor and drives the view with no weapon involved, so a hull carrying nothing else is an
@@ -88,6 +88,10 @@ observation post. A launcher may carry one as well, and the Pantsir's turret roo
 **Rafael LITENING pod** — that same sight on a roll-nod gimbal: the whole nose rolls about the
 pod's centreline while the ball nods within it, and the picture is counter-rotated so what the pod
 hangs from stays at the top of it.
+
+**YAL-1 nose turret** — the Airborne Laser's beam director: the LITENING's mechanism scaled to a
+1.5 m telescope behind a 1.8 m window, stacking on a 3 m node. It tracks, and fires a megawatt beam
+that burns through whatever part it is held on: a few seconds at 100 km, with about twenty shots a load.
 
 And one piece of kit that shoots nothing:
 
@@ -108,7 +112,7 @@ folder of definitions in it and no code; KSArmory reads that folder inside every
 holds no list of packs. `KSArmory-example-mod` is a complete worked example — a Mk 82 bomb rack, which
 used to ship here — and `docs/WEAPON-PACKS.md` is the reference.
 
-> Built against KSA build `2026.10.13.5602`. KSA is pre-release and has no official code-modding
+> Built against KSA build `2026.10.19.5638`. KSA is pre-release and has no official code-modding
 > API; this uses the community [StarMap](https://github.com/StarMapLoader/StarMap) loader and
 > may need updating when the game does. The community
 > [wiki](https://kittenspaceagency.wiki.gg/) is a useful reference for the game itself.
@@ -131,7 +135,7 @@ Borea also installs updates when a new release appears.
 
 ### By hand
 
-You need **Kitten Space Agency**, built against build `2026.10.13.5602`. A different build may
+You need **Kitten Space Agency**, built against build `2026.10.19.5638`. A different build may
 need a rebuild of the mod. **Windows and Linux both work**: the mod is a portable .NET assembly
 with no native code, so one release archive covers both. You also need
 **[StarMap](https://github.com/StarMapLoader/StarMap/releases)**, the community mod loader. KSA has
@@ -499,7 +503,7 @@ merge rather than a squash, because the changelog is built from the individual c
 Worth knowing up front: **most of this repository is testable without launching the game.**
 Everything under `src/KSArmory/Sim/` is free of KSA types by construction, so guidance, threat
 classification, tube geometry and the fuse can all be worked on headlessly. Building it still
-needs KSA's assemblies — `double3` comes from `Brutal.Core.Numerics.dll` — which is what
+needs KSA's assemblies — `double3` comes from `Brutal.Numerics.dll` — which is what
 `./tools/doctor.sh` checks for first.
 
 The rest of this section is the longer version.

@@ -40,6 +40,20 @@ public class BodyReaderTests
     }
 
     [Fact]
+    public void ThinCloudNamesTheLayersABeamPassesThroughAndNoOthers()
+    {
+        (List<(string Id, BodyTraits Traits)> bodies, _) = BodyReader.Read(
+            """<Bodies><Body Id="Wet" ThinCloud="High, Haze" /></Bodies>""", "test");
+
+        BodyTraits wet = bodies[0].Traits;
+        Assert.True(wet.IsThinCloud("High"));
+        Assert.True(wet.IsThinCloud("Haze"));
+        Assert.False(wet.IsThinCloud("Low"));
+        Assert.False(wet.IsThinCloud("Hig"));
+        Assert.False(BodyTraits.Default.IsThinCloud("High"));
+    }
+
+    [Fact]
     public void ABodyNobodyDescribedGetsTheNeutralDefault()
     {
         BodyCatalogue.Clear();

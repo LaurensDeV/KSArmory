@@ -17,6 +17,7 @@ namespace KSArmory;
 internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalHead
 {
     private readonly OpticConfig _policy = policy;
+    private readonly Config _config = config;
 
     private readonly List<(Part, OpticProfile)> _scratch = [];
 
@@ -239,6 +240,9 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
             Sensor = Catalogue.SensorNamed(Profile.Sensor);
             OpticPart = OpticParts.FindHead(found.Part, found.Profile);
             RollPart = OpticParts.FindRoll(found.Part, found.Profile);
+
+            // Filled once, when first crewed, and not refilled by finding the part again.
+            if (double.IsNaN(ChemicalSecondsLeft)) ChemicalSecondsLeft = Profile.Beam?.ChemicalSeconds ?? 0.0;
         }
         else
         {
@@ -261,7 +265,13 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
                                            SightZoom.Clamp(Profile.MaxMagnification));
 
         Radar.Sensor = Sensor;
+        (Radar.Cue, CuedBy) = Designation.Kind == AimpointKind.Vehicle ? (Designation.Handle, CueSource.Designation)
+                              : _cue.Kind == AimpointKind.Vehicle ? (_cue.Handle, CueSource.Launcher)
+                              : _policy.Tracking && Pictured is not null ? (Pictured, CueSource.Picture)
+                              : (null, CueSource.None);
         Radar.Scan(platform, SensorBoresight, dt, airborne);
+
+        UpdateSpotSearch(platform, dt);
 
         // AimPartFrame first: it is what works out how hard the cursor is commanding, and the
         // rate below is that command.
@@ -286,7 +296,12 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         }
 
         UpdateMask(platform);
-        UpdateLaser(platform);
+        UpdateLaser(platform, dt);
+        UpdateCueCloud(platform);
+
+        // The weapon says both again every step it still wants them.
+        _cue = Aimpoint.Nothing;
+        _beamCommanded = false;
 
         if (OpticPart is not { } head || !_driveWorks) return;
 
@@ -306,7 +321,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     private void UpdateMask(Vehicle platform)
     {
         Masked = false;
-        if (_policy.Viewport < 0 && !LaserWanted) return;
+        if (_policy.Viewport < 0 && !LaserWanted && !_beamCommanded && _cue.Kind == AimpointKind.None) return;
         if (!TryOpticViewEcl(out double3 eye, out double3 forward)) return;
 
         double reach = 2.0 * KsaWorld.MeanRadius(platform) + 10.0;
@@ -354,17 +369,30 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
     // Along the line of sight the picture is centred on, to the first craft or ground it meets.
     // Its own craft is left out of the cast: MASK has already said whether that is in the way.
-    private void UpdateLaser(Vehicle platform)
+    private void UpdateLaser(Vehicle platform, double dt)
     {
         Spot = null;
-        LaserInhibited = LaserWanted && Masked;
+        Burning = null;
+        BeamOn = false;
+        InCloud = false;
+        LaserInhibited = (LaserWanted || _beamCommanded) && Masked;
 
-        if (!LaserWanted || LaserInhibited) return;
-        if (!LaserCode.IsValid(_policy.LaserCode)) return;
+        // The designator and the beam leave by the same window and are switched apart: the
+        // operator's toggle marks a spot, and only the weapon on this part fires the beam.
+        bool designating = LaserWanted && LaserCode.IsValid(_policy.LaserCode);
+        bool firing = _beamCommanded && Profile.Beam is not null && ChemicalSecondsLeft > 0.0;
+
+        if (LaserInhibited || !(designating || firing)) return;
         if (!TryOpticViewEcl(out double3 eye, out double3 forward)) return;
 
+        if (firing) ChemicalSecondsLeft = Math.Max(0.0, ChemicalSecondsLeft - Math.Max(dt, 0.0));
+
         double reach = Profile.LaserRangeMetres;
-        bool onCraft = KsaWorld.TryRayCraftHit(eye, forward, platform, reach, out Vehicle? craft, out double range);
+        bool clouded = KsaWorld.TryCloudEntry(platform, eye, forward, reach, out double cloud);
+        if (clouded) reach = cloud;
+
+        bool onCraft = KsaWorld.TryRayPartHit(eye, forward, platform, reach, out Vehicle? craft, out Part? part,
+                                              out double range);
 
         if (KsaWorld.TryRayGround(eye, forward, onCraft ? range : reach, out Celestial? body, out double ground)
             && (!onCraft || ground < range))
@@ -374,15 +402,119 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         }
         else if (!onCraft)
         {
+            // Nothing in reach, but a beam fired at the sky is still a beam: drawn out to its range, or
+            // into the cloud that stops it. A spot on a cloud designates nothing.
+            InCloud = clouded;
+            if (firing)
+            {
+                BeamOn = true;
+                BeamFromEcl = eye;
+                BeamToEcl = eye + (Vec.Unit(forward) * reach);
+            }
+
             return;
         }
 
         double3 at = eye + (Vec.Unit(forward) * range);
-        double3 velocity = onCraft ? KsaWorld.VelocityEcl(craft!) : KsaWorld.GroundVelocityAt(body!, at);
-
-        Spot = new LaserSpot(platform, _policy.LaserCode, at, velocity, range);
         SpotOn = onCraft ? KsaWorld.DisplayName(craft!) : "the ground";
-        LaserDesignators.Add(Spot.Value);
+
+        if (designating)
+        {
+            double3 velocity = onCraft ? KsaWorld.VelocityEcl(craft!) : KsaWorld.GroundVelocityAt(body!, at);
+            Spot = new LaserSpot(platform, _policy.LaserCode, at, velocity, range);
+            LaserDesignators.Add(Spot.Value);
+        }
+
+        if (!firing) return;
+
+        BeamOn = true;
+        BeamFromEcl = eye;
+        BeamToEcl = at;
+        Burning = onCraft && part is not null ? part : null;
+        if (Burning is not null) Burn(platform, craft!, part!, eye, at, range, dt);
+    }
+
+    /// <summary>Seconds of lasing left in the chemicals aboard; nothing for a head with no beam.</summary>
+    public double ChemicalSecondsLeft { get; private set; } = double.NaN;
+
+    /// <summary>A full load of chemicals again, for a test that needs to fire longer than one load.</summary>
+    public void RefillChemicals() => ChemicalSecondsLeft = Profile.Beam?.ChemicalSeconds ?? 0.0;
+
+    /// <summary>Whether the beam is firing and landing somewhere this frame.</summary>
+    public bool BeamOn { get; private set; }
+
+    /// <summary>The part the beam is on this frame, or null: not firing, or landing on the ground.</summary>
+    public Part? Burning { get; private set; }
+
+    /// <summary>Where the beam leaves and lands this frame, from one sample of the platform.</summary>
+    public double3 BeamFromEcl { get; private set; }
+
+    public double3 BeamToEcl { get; private set; }
+
+    /// <summary>Whether the laser ends in cloud this frame, which a beam glows in rather than crossing.</summary>
+    public bool InCloud { get; private set; }
+
+    // What the weapon on this part wants: where to look and whether to lase, said each step.
+    private Aimpoint _cue = Aimpoint.Nothing;
+    private Aimpoint _cueAimed = Aimpoint.Nothing;
+    private bool _cueCommands;
+    private bool _beamCommanded;
+    private double _aimRangeMetres = double.NaN;
+
+    /// <summary>
+    /// Points the head at what the weapon on its part is engaging, for this step: always when that
+    /// weapon fires through it, otherwise only with the head's own tracking on.
+    /// </summary>
+    public void Cue(Aimpoint aim, bool commands)
+    {
+        _cue = aim;
+        _cueCommands = commands;
+    }
+
+    /// <summary>Fires the beam this step, if there are chemicals and nothing is in the way.</summary>
+    public void CommandBeam(bool on) => _beamCommanded = on;
+
+    /// <summary>Settled on what it was told to look at, by the operator, the weapon or its own set.</summary>
+    public bool OnTarget => OpticOnTarget && _aimed is Aimed.Designation or Aimed.Cue or Aimed.Track;
+
+    public bool FollowsCue => _aimed is Aimed.Cue or Aimed.Spot;
+
+    /// <summary>Cloud lies between the head and what the weapon cued it at.</summary>
+    public bool CueBehindCloud { get; private set; }
+
+    private void UpdateCueCloud(Vehicle platform)
+    {
+        CueBehindCloud = false;
+        if (_aimed is not (Aimed.Cue or Aimed.Designation) || !double.IsFinite(_aimRangeMetres)) return;
+        if (!TryOpticViewEcl(out double3 eye, out double3 forward)) return;
+
+        CueBehindCloud = KsaWorld.TryCloudEntry(platform, eye, forward, _aimRangeMetres, out _);
+    }
+
+    private readonly HashSet<Part> _burntThrough = new(ReferenceEqualityComparer.Instance);
+
+    // Spends the struck part's health for the dwell this step. A part burnt through goes to the
+    // engine's failure queue once, as a shell's struck part does, or takes the craft with it when
+    // parts are not damaged one by one.
+    private void Burn(Vehicle platform, Vehicle craft, Part part, double3 eye, double3 at, double range, double dt)
+    {
+        if (!(dt > 0.0) || _burntThrough.Contains(part)) return;
+
+        double share = Beam.HealthPerSecond(Profile.Beam!, range, KsaWorld.AirDensityRatioAt(platform, eye),
+                                            KsaWorld.AirDensityRatioAt(platform, at)) * dt;
+        if (!PartHealth.World.Hit(part, share, _config.DamageScale)) return;
+
+        _burntThrough.Add(part);
+        KsaWorld.WaitForVehicleSolvers();
+
+        if (_config.DamageIndividualParts && KsaWorld.TryQueuePartFailure(craft, [part]))
+        {
+            Log.Info($"beam burnt through {part.Id} on {KsaWorld.DisplayName(craft)} at {Distance.Say(range)}");
+            return;
+        }
+
+        Log.Info($"beam destroyed {KsaWorld.DisplayName(craft)} at {Distance.Say(range)}");
+        KsaWorld.Destroy(craft, blastSeverity: 50f);
     }
 
     /// <summary>Clears the refusal latches, because a new craft deserves a fresh assessment.</summary>
@@ -485,17 +617,23 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     {
         drawnEcl = Vec.Zero;
 
-        if (_aimed == Aimed.Designation)
+        if (_aimed is Aimed.Designation or Aimed.Cue or Aimed.Spot)
         {
-            if (Designation.NeedsResampling)
+            Aimpoint aim = _aimed == Aimed.Designation ? Designation : _cueAimed;
+            if (aim.NeedsResampling)
             {
-                return KsaWorld.TryGroundAnchorEcl(Designation.Handle, Designation.Anchor,
-                                                   out drawnEcl, out _);
+                return KsaWorld.TryGroundAnchorEcl(aim.Handle, aim.Anchor, out drawnEcl, out _);
             }
 
-            if (Designation.Handle is Vehicle craft && KsaWorld.IsAlive(craft))
+            if (aim.Handle is Vehicle craft && KsaWorld.IsAlive(craft))
             {
                 if (!KsaWorld.TryDrawnMiddleEcl(craft, out drawnEcl, viewIndex)) drawnEcl = KsaWorld.CentreEcl(craft);
+                return true;
+            }
+
+            if (aim.Kind == AimpointKind.Point)
+            {
+                drawnEcl = aim.PositionEcl;
                 return true;
             }
 
@@ -543,7 +681,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
     // Which rung the last AimPartFrame took. The view re-solve reads it rather than choosing again,
     // because two places deciding what the head follows can disagree -- see TryOpticViewEclAt.
-    private enum Aimed { Rest, Cursor, Hand, Designation, Track }
+    private enum Aimed { Rest, Cursor, Hand, Designation, Cue, Spot, Track }
 
     private Aimed _aimed;
 
@@ -581,7 +719,11 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         // would be a click that silently does nothing.
         if (Designation.Kind != AimpointKind.None)
         {
-            if (TryDesignatedAim(platform, out double3 designated))
+            Aimpoint designation = Designation;
+            bool held = TryAimpointAim(platform, ref designation, report: true, out double3 designated);
+            Designation = designation;
+
+            if (held)
             {
                 _aimed = Aimed.Designation;
                 return designated;
@@ -591,6 +733,25 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
             // sticking rather than as the target having left.
             ClearDesignation();
         }
+
+        // What the weapon on this part is engaging, below the operator's own designation: a
+        // shift-click is the operator choosing, and fire control follows the same click anyway.
+        if (_cue.Kind != AimpointKind.None && _cueCommands && TryCued(platform, out double3 commanded)) return commanded;
+
+        // A spot somebody else is lasing on this head's code, which the operator switched the search
+        // on for: ahead of a launcher's own cue, which only stands in for the tracking switch.
+        if (FoundSpot is { } spot)
+        {
+            Aimpoint at = Aimpoint.AtPoint(spot);
+            if (TryAimpointAim(platform, ref at, report: false, out double3 spotted))
+            {
+                _aimed = Aimed.Spot;
+                _cueAimed = at;
+                return spotted;
+            }
+        }
+
+        if (_cue.Kind != AimpointKind.None && _policy.Tracking && TryCued(platform, out double3 cued)) return cued;
 
         if (!_policy.Tracking) return rest;
 
@@ -621,37 +782,97 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         return OpticGeometry.ClampToTravel(Profile, Mount, partFrame);
     }
 
+    private bool TryCued(Vehicle platform, out double3 partFrame)
+    {
+        if (!TryAimpointAim(platform, ref _cue, report: false, out partFrame)) return false;
+
+        _aimed = Aimed.Cue;
+        _cueAimed = _cue;
+        return true;
+    }
+
+    /// <summary>
+    /// What the craft's picture hands this head, held only under the tracking switch and below a
+    /// designation and its launcher's cue.
+    /// </summary>
+    public object? Pictured { get; set; }
+
+    /// <summary>What handed this step's cue to the head's set, which holds nothing it is not handed.</summary>
+    public CueSource CuedBy { get; private set; }
+
+    /// <summary>The laser spot this head's tracker has found this step, or null.</summary>
+    public double3? FoundSpot { get; private set; }
+
+    // How far off a direction may be from where the travel puts it and still count as reachable.
+    private const double SpotReachSlackDeg = 1.0;
+
+    // Ground nearer than the spot by more than this hides it; a spot lies on the ground the ray meets.
+    private const double SpotGroundSlackMetres = 30.0;
+
+    private void UpdateSpotSearch(Vehicle platform, double dt)
+    {
+        FoundSpot = null;
+        if (!_policy.SpotSearch || Director is null) return;
+        if (!TryOpticViewEcl(out double3 eye, out _)) return;
+        if (!LauncherPart.TryPartPointEcl(platform, Director, Mount.ToPart(Profile.HeadPivot), PlatformEcl,
+                                          out double3 pivot))
+        {
+            return;
+        }
+
+        bool CanSee(double3 at)
+        {
+            double3 toSpot = at - pivot;
+            if (!LauncherPart.TryDirectionToPartFrame(platform, Director, toSpot, out double3 inPart)
+                || Vec.Len2(inPart) < 0.5)
+            {
+                return false;
+            }
+
+            double3 reach = OpticGeometry.ClampToTravel(Profile, Mount, inPart);
+            if (double.RadiansToDegrees(Vec.AngleBetween(reach, inPart)) > SpotReachSlackDeg) return false;
+
+            double range = Vec.Len(at - eye);
+            return range <= SpotGroundSlackMetres
+                   || !KsaWorld.TryRayGround(eye, Vec.Unit(at - eye), range - SpotGroundSlackMetres, out _, out _);
+        }
+
+        if (SpotSearch.TryChoose(LaserDesignators.LastStep, _policy.LaserCode, platform, eye, Sensor.Range, dt,
+                                 CanSee, out double3 found))
+        {
+            FoundSpot = found;
+        }
+    }
+
     // Where the designation is now, in the head's part frame. False once it is gone.
     //
     // A place on a body is re-read every frame rather than kept as the coordinate it was: held in
     // the ecliptic it is left behind at ~29.8 km/s, so a head watching a hillside would slide off
     // it within a second. The same rule, for the same reason, that a round aimed at the ground
     // obeys -- see Sim/Aimpoint.NeedsResampling.
-    private bool TryDesignatedAim(Vehicle platform, out double3 partFrame)
+    private bool TryAimpointAim(Vehicle platform, ref Aimpoint aim, bool report, out double3 partFrame)
     {
         partFrame = Vec.Zero;
 
-        if (Designation.Kind == AimpointKind.Vehicle
-            && (Designation.Handle is not Vehicle craft || !KsaWorld.IsAlive(craft)))
+        if (aim.Kind == AimpointKind.Vehicle && (aim.Handle is not Vehicle craft || !KsaWorld.IsAlive(craft)))
         {
             return false;
         }
 
-        double3 targetEcl = Designation.PositionEcl;
+        double3 targetEcl = aim.PositionEcl;
 
-        if (Designation.Kind == AimpointKind.Vehicle && Designation.Handle is Vehicle live)
+        if (aim.Kind == AimpointKind.Vehicle && aim.Handle is Vehicle live)
         {
             if (!KsaWorld.TryDrawnMiddleEcl(live, out targetEcl)) targetEcl = KsaWorld.CentreEcl(live);
         }
-        else if (Designation.NeedsResampling)
+        else if (aim.NeedsResampling)
         {
-            if (!KsaWorld.TryGroundAnchorEcl(Designation.Handle, Designation.Anchor,
-                                             out double3 groundEcl, out double3 groundVel))
+            if (!KsaWorld.TryGroundAnchorEcl(aim.Handle, aim.Anchor, out double3 groundEcl, out double3 groundVel))
             {
                 return false;
             }
 
-            Designation = Designation.Resampled(groundEcl, groundVel);
+            aim = aim.Resampled(groundEcl, groundVel);
             targetEcl = groundEcl;
         }
 
@@ -666,11 +887,13 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
                                                   out double3 toTarget)
             || Vec.Len2(toTarget) < 0.5)
         {
-            WhyNotWatching("the direction would not convert into the head's frame");
+            if (report) WhyNotWatching("the direction would not convert into the head's frame");
             return false;
         }
 
         partFrame = OpticGeometry.ClampToTravel(Profile, Mount, toTarget);
+        _aimRangeMetres = Vec.Len(targetEcl - pivotEcl);
+        if (!report) return true;
 
         // Said once, so the log tells "following it" apart from "silently fell through to
         // something else". An absent warning alone cannot, and that ambiguity is what made the

@@ -36,7 +36,7 @@ public class SeparationSpinTests(ITestOutputHelper Out)
     // The bus part as the save places it on the rocket's assembly axis, and its mass seat.
     private static readonly double3 BusPositionAsmb = new(-2.7426, 0, 0);
     private static readonly doubleQuat BusRotationAsmb = doubleQuat.CreateFromAxisAngle(new double3(1, 0, 0), Math.PI);
-    private static readonly double3 CentreOfMassAsmb = BusPositionAsmb + BusRotationAsmb * new double3(0.30, 0, 0);
+    private static readonly double3 CentreOfMassAsmb = BusPositionAsmb + BusRotationAsmb * new double3(0.52, 0, 0);
 
     // A bus turning at the rate that throws the common spin the night logged, about 4 mm/s.
     private static readonly double3 TurningBodyRates = new(0.4e-3, 1.2e-3, -1.2e-3);
@@ -117,16 +117,17 @@ public class SeparationSpinTests(ITestOutputHelper Out)
         }
 
         double3 omega = asmb2Cci * bodyRates;
-        double3[] offsets = new double3[mouths.Length];
-        double3[] spins = new double3[mouths.Length];
+        List<double3> offsets = [], spins = [];
 
         for (int tube = 0; tube < mouths.Length; tube++)
         {
-            offsets[tube] = asmb2Cci * (mouths[tube] - meanMouth);
-            spins[tube] = FireGeometry.SpinVelocityAt(omega, asmb2Cci, mouths[tube], CentreOfMassAsmb);
+            // The seat on the axis is on no ring.
+            if (Vec.Len(mouths[tube] - meanMouth) < 0.01) continue;
+            offsets.Add(asmb2Cci * (mouths[tube] - meanMouth));
+            spins.Add(FireGeometry.SpinVelocityAt(omega, asmb2Cci, mouths[tube], CentreOfMassAsmb));
         }
 
-        return new Tubes(offsets, spins, FireGeometry.SpinVelocityAt(omega, asmb2Cci, meanMouth, CentreOfMassAsmb),
+        return new Tubes([.. offsets], [.. spins], FireGeometry.SpinVelocityAt(omega, asmb2Cci, meanMouth, CentreOfMassAsmb),
                          line, Vec.Len(meanMouth - CentreOfMassAsmb));
     }
 
@@ -212,7 +213,7 @@ public class SeparationSpinTests(ITestOutputHelper Out)
         Flight flight = FlightFor(arc);
         Tubes tubes = TubesFor(flight, 0.37, TurningBodyRates);
 
-        Assert.InRange(tubes.MeanArm, 2.33, 2.35);
+        Assert.InRange(tubes.MeanArm, 2.51, 2.53);
         Assert.InRange(Vec.Len(tubes.CommonSpinCci), 0.003, 0.005);
 
         double worst = 0.0;

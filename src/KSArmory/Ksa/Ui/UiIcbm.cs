@@ -33,6 +33,9 @@ internal sealed partial class Ui
     private static readonly float4 Working = new(0.95f, 0.85f, 0.45f, 1f);
     private static readonly float4 Bad = new(0.98f, 0.5f, 0.45f, 1f);
 
+    // The slider's top once the tank, not the 60 m/s reserve, bounds the budget: past the Heavy bus's 143 m/s axially.
+    private const double WideTrimBudgetMetresPerSecond = 200.0;
+
     private void DrawIcbm(IcbmComputer computer)
     {
         DrawIcbmTarget(computer);
@@ -83,7 +86,24 @@ internal sealed partial class Ui
         Tip("On: a ring follows the cursor; click the ground to aim there. Shift-click is still the "
             + "lock gesture, and clicks on a window do nothing. Off: enter coordinates below. Once the "
             + $"burn is over a click adds another target instead, up to {TargetSet.MaxTargets} -- "
-            + "designating there would start the shot over on a bus that is already coasting.");
+            + "designating there would start the shot over on a bus that is already coasting. This "
+            + "also arms clicking on the ground-track map.");
+
+        if (Toggle("Map", config.MapOpen)) config.MapOpen = !config.MapOpen;
+        Tip("A planet to put the warheads on, with the target list beside it. Drag to pan, wheel "
+            + "to zoom. It renders a second picture of the planet while it is open, so it is shut "
+            + "by default.");
+
+        ImGui.SameLine();
+        ImGui.Checkbox("Show on the ground-track map", ref _config.DrawGroundTrackMarks);
+        Tip("Draws the targets and the ground this bus can still divert to on KSA's own "
+            + "ground-track map, which F3 opens. The lead target is filled and the number beside "
+            + "each is its warhead count. With designating on, the map can be clicked like the "
+            + "ground -- though a pixel there is tens of kilometres unzoomed, so the coordinates "
+            + "below stay the way to be exact.");
+
+        if (!GroundTrackHook.Installed && GroundTrackHook.Trouble.Length > 0)
+            ImGui.TextDisabled($"  not drawing: {GroundTrackHook.Trouble}");
 
         DrawIcbmReach(computer);
 
@@ -733,15 +753,20 @@ internal sealed partial class Ui
 
         float budget = (float)config.TrimBudgetMetresPerSecond;
         if (ImGui.SliderFloat("Trim budget", ref budget, 0f,
-                              (float)PostBoostAim.MaxTrimMetresPerSecond,
+                              (float)(config.HopsSizeTheirOwnSlots ? WideTrimBudgetMetresPerSecond
+                                                                   : PostBoostAim.MaxTrimMetresPerSecond),
                               "%.0f m/s for the flight"))
         {
             config.TrimBudgetMetresPerSecond = budget;
         }
-        Tip("Spent across every correction, then it stops. At 0 there is no trimming at all, and the "
-            + "warheads go on the aim as the burn left it. The bus reserves "
-            + $"{PostBoostAim.MaxTrimMetresPerSecond:F0} m/s anyway, so a budget under that is the one "
-            + "that binds.");
+        Tip(config.HopsSizeTheirOwnSlots
+                ? "Spent across every correction and every hop between targets, then it stops. At 0 there is no "
+                  + "trimming at all. Never more than the bus's tank still pays on its dearest axis, less a tenth, "
+                  + "so a walk the tank cannot finish ends a stop early rather than running dry."
+                : "Spent across every correction, then it stops. At 0 there is no trimming at all, and the "
+                  + "warheads go on the aim as the burn left it. The bus reserves "
+                  + $"{PostBoostAim.MaxTrimMetresPerSecond:F0} m/s anyway, so a budget under that is the one "
+                  + "that binds.");
 
         bool keepOut = config.KeepOutCoversTheClearance;
         if (ImGui.Checkbox("Keep trimming past the clearance", ref keepOut))

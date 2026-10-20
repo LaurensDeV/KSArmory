@@ -123,6 +123,47 @@ Four things changed shape and need watching, worst first:
 
 Also unflown on this build: everything the previous retarget listed as unwatched, and the turret.
 
+**Retargeted to KSA `2026.10.19.5638` — eight assemblies renamed, no member moved, and not yet
+flown.** `Brutal.Core.Numerics`, `Common`, `Strings` and five siblings lost their `Core.` (`Common`
+became `Brutal.Core`); the types and namespaces are identical, so only the references moved, and a mod
+built against the old names cannot load. That includes **StarMap 0.4.7 itself**, which throws
+`Could not load file or assembly 'Brutal.Core.Numerics'` before starting the game
+(StarMapLoader/StarMap#91, open). Flown instead on 0.4.7 rebuilt against 5638, with a type-load
+failure in one mod skipping that mod rather than ending the process, and ModMenu 0.2.2 rebuilt the same
+way; the originals are in `StarMap-0.4.7-original/` and `mods-backup/`. ModMenu and KSACars reference the
+old names too. Every contract in the upgrade skill reads the same; no XML element or attribute the mod
+writes moved. Once a StarMap that loads 5638 is installed:
+
+- [x] **`head-on`** **PASS**, flown 2026-10-20 on a locally rebuilt StarMap 0.4.7 and ModMenu 0.2.2
+      (see above): the AIM-9J burst 15 m from the drone and broke 7 parts off it, the far-launcher draw
+      hook fired, and the stamp read `built for KSA 2026.10.19.5638, running 2026.10.19.5638 - reporting on`.
+- [x] **Also flown 2026-10-20 on 5638:** `gunnery` (Mk 42) PASS, 4 of 4 drones, every burst inside the
+      lethal radius; the Phalanx PASS on `gunnery:4,overhead,5,250,500,0,burn`, 4 of 4, 12 bursts inside
+      2.7 m; the M197 on the same geometry hit all four, then lost its gun to the last drone's wreckage
+      falling on the mount and timed out waiting; `drop` PASS 0 m from the ring, the chase taken and handed
+      back; a photographed 0.3 kt burst with fireball, front, column, rings, skirt and scorch drawn; flares
+      and chaff thrown and drawn; the LITENING pod in a camera window and the main view, centred on its
+      target. **The default `gunnery` geometry cannot test the short guns** — drones pass 3 km off against
+      a 1,486 m envelope, and an unpowered drone sent closer is dragged to half speed and falls short.
+- [ ] **The HARM homes on a radar.** Two fired from the vertical rocket on `GUIDED MISSILE TEST - CHAFF`
+      landed 2.07 and 2.60 km off; the bridge's `fire` ignores `at_craft` on a launcher that does not
+      train, and a vertical launch at a radar 1.8 km away is no test. Fly it off something flying level.
+- [ ] **The sight's reticle and bracket paint** over the pod's picture — the bridge's captures leave out
+      the UI layer they are drawn on.
+- [ ] **A split leaves the staging list where it was.** `SequenceList.Add` no longer advances
+      `ActiveSequence` when a rebuild finds a new low-numbered sequence; it marks it `Activated`
+      instead. `LauncherSeparation` skips activated sequences — fly a MIRV shot and a rail drop and
+      read the stage counts.
+- [ ] **KSA's own aurora** now draws from a declared field (`docs/BLOCKED-ON-KSA.md`). Look at a
+      high burst's aurora beside it.
+- [ ] **A burst reads on KSA's Radiation gauge** (`docs/NUCLEAR-RADIATION.md`). Hold a craft about 2 km
+      from a 20 kt surface burst: the gauge pegs for a few seconds, drops, then reads fallout once it
+      arrives, more downwind than up. A burst at 400 km should log a belt filled at L ~1.1 and show in
+      the map's Magnetospheres overlay, and the orbit-average digits should move. Reload: the belt goes.
+- [ ] **A landed craft's acceleration** no longer jumps when the physics bubble snaps its origin
+      (`PhysicsBubble._snappedVelocityDeltaPhys`); `AccelerationEstimate` reads it. Gunnery against a
+      grounded target should be no worse.
+
 **Retargeted to KSA `2026.10.13.5602` — two renames, one data drift, and two flight-model changes
 that compile clean.** `Vehicle.Ctrl2Body` is `Helm2Body` (same expression), and the static
 `ExplosionVolumeSystem` became `Program.Instance.ExplosionVolumes`. Core's conflagration fireball
@@ -1386,6 +1427,15 @@ the mesh and the XML, and the suite.
 - [ ] A shell's burst is KSA's `SmallFire`, and sounds like it. The shell carries no burst sound of its
       own any more.
 - [ ] If a sound is silent, grep `KSArmory.log` for `does not resolve`.
+- [x] **A spent launcher's lock cue stands down while its rounds fly.** Chasing a MIRV's warheads after
+      the salvo used to bracket the target in red with `out of rounds` under it. **Seen in game on
+      2026.10.13.5602**, a LowTWR shot with the view held behind a falling warhead and the target in
+      frame: the target's own mark and `impact T+2:29`, and no bracket. It comes back once nothing
+      is in the air, and is untouched for a gun, whose magazine is always empty.
+- [x] **Stacked targeting rings do not compound into a glow** (`076a9ef7`). **Seen in game on
+      2026.10.13.5602**: three targets 4 km apart, their rings and divert outlines crossing, from high
+      above and down to impact -- thin lines throughout, nothing blooming where they overlap. Three
+      targets rather than the six seen from orbit when it was reported.
 - [ ] With shells committed and the chase camera riding one, the lock cue's `salvo committed` sits
       under its bracket and the chase's range beside the target, not on top of each other. Both
       were written to the right of the target at one height.
@@ -2095,6 +2145,101 @@ maps are all unproven paths.
       from. The sensor cone points out of the mounting face, which keeps it off that direction
       without forbidding it.
 
+### 7.6c-2 The YAL-1 nose turret — the roll-nod head, stacked
+
+**Never flown.** The art is authored, baked into one 2048 atlas and checked by `checkmesh.py`
+and `validate-parts.py`; the C# is the LITENING's profile with other numbers.
+
+- [ ] `YAL-1 Nose Turret` appears under **Weapons** and stacks on a 3 m node like the CIWS.
+- [ ] **It points forward.** The base subpart carries a quarter turn about Z so its own +Y is the
+      stack axis. If the turret lies sideways or faces into the stack, that sign is wrong.
+- [ ] The shell rolls about the stack axis and the ball nods in its slot, never through the shell.
+- [ ] Looking dead ahead it says **in the keyhole**, as the pod does.
+- [ ] It parks with the window **sideways** (the mount's normal), not hidden. The real one stows
+      the window behind the shell; nothing models a stow.
+- [ ] `SlewRateDeg = 30` is a guess, not a published number.
+- [ ] The beam draws a green line from the window to the spot (`KSArmoryBeam.comp`): a whitish
+      core in a green glow, a glow at the window and an orange-white spot on what it burns. It fades
+      into terrain rather than ending on it, thins to a faint thread far away instead of vanishing, is
+      brightest looking back along it toward the turret, and dims in thin air. With the pass off, a thin
+      orange gizmo line. The chemicals count down from 100 s only while firing, and not while paused.
+- [ ] **The laser is a weapon.** "YAL-1 laser" appears in the weapons panel with its chemicals as
+      `n s/100 s`, and the director's row keeps the turret's camera. FIRE holds the beam on for 5 s at
+      the shift-clicked craft or place, or the set's lock, waiting while the director slews; with
+      nothing to aim at it lases where the director looks. The header strip says why it holds: out of
+      chemicals, MASK, slewing, IFF, cloud, out of reach.
+- [ ] Auto-engage burns a hostile on its own, holds on a friendly or a team-mate, and stops when the
+      chemicals run out. Reload refills them. Its `live` tick box stops it.
+- [ ] Shift-clicking with a HARM rail selected still points the YAL: the beam follows its director's
+      designation when it has none of its own.
+- [ ] The director's own **Fire laser** is the designator only: it marks a spot for laser-guided
+      weapons and never fires the beam.
+- [ ] **Directors find nothing by themselves.** With nothing shift-clicked, the YAL-1, the LITENING and
+      the EO mast bracket nothing and **Track** leaves them at rest. Shift-click a craft and each
+      director on the craft swings onto it and brackets it; auto-engage on the laser then burns it if
+      it is hostile, whether or not it is closing.
+- [ ] The Pantsir's roof director still follows the Pantsir's radar with **Track** on, and stops
+      with it off.
+- [ ] **Spot search.** An EO mast lases a hilltop on code 1688. A LITENING on another craft, also on
+      1688 with **Spot** ticked, swings onto the hilltop by itself and reads `Watching: the laser spot`;
+      on another code it does not, and a spot behind a ridge or past its 20 km is not found. A head
+      never locks onto the spot its own craft is making.
+- [x] Held on a craft, the line says `burning <part>` with its health falling; at the end that part
+      breaks off (or the whole craft goes, with per-part damage off). Logged as `beam burnt through`.
+- [x] The ground stops it: nodded 10° and 25° below the horizon on the pad, the beam ended 27 m and
+      23 m out, on the ground the depth buffer shows.
+- [x] A deck in front of it hides it: fired up through broken cumulus and watched from 4 km, it
+      climbed in front of the far clouds, went out where it entered the deck and showed again in the
+      gap above. Broken cloud only hides it: past a puff it still flies on.
+- [x] Overcast stops the beam (the panel's "stopped by cloud" line is unseen). Fired up at
+      27.9N 81.9W by day and 30N 112E by night, it ended 1.93 and 1.96 km up at the deck's base, a
+      white-green core with a halo flat along the cloud base: a soft disc on the ceiling from 9 km, and
+      at night a green patch following the drawn cloud, dark in its gaps. Earth's cirrus, `ThinCloud`,
+      stops nothing.
+- [ ] A target above an overcast is safe from a beam fired from under it, and one under it from above.
+- [ ] It will not fire through its own airframe (the laser's MASK). Not reachable on a turret stacked
+      on top of a tank, whose nod stops 30° below the horizon; it wants one mounted lower on a hull.
+
+### 7.6c-3 The IRST — a search set of its own, feeding the craft's picture
+
+Flown 2026-10-20 on the `IRST TEST` save (the `LITENING POD` craft with four IRSTs on its lower
+tank, each looking a different way round it) at 24.0S 62.0W, a stock Rocket parked 9.1 km east and
+flown straight up, read back with the bridge's `search`.
+
+- [x] Four `KSArmory_Prefab_Irst` load from a save and crew (`crewed IRST on NewRocket_1` x4); the
+      four boresights come in opposite pairs, as fitted.
+- [x] A craft parked with its engines out is not held: it is under the set's 15 m/s, as for every
+      search set.
+- [x] **A rocket under power is seen.** The east-facing set held `Target` at 9.1-9.5 km as it
+      climbed, at 413-422 kW/sr, not a threat (climbing away); the other three had it outside their
+      cones. The craft's picture handed it out.
+- [x] **The picture reaches a director.** The LITENING, with **Track** on and nothing shift-clicked,
+      read `aimed: Track`, `watching: Target`, on target with no drive error.
+- [x] The heads sweep with nothing held (four different directions, changing between reads) and the
+      one holding the rocket stopped sweeping and held 40 deg up out of its window, towards it. No
+      write was refused.
+- [x] The window draws as KSA glass: dark tinted panes with the facet seams showing, on the part,
+      from 4-6 m.
+- [x] **The head shows behind the glass** from 4-5 m, rebaked with a pale head and a gold lens
+      against the dark bay: the lens and the outline read through the panes. A dark head over that bay
+      read as one black window. Turning is still confirmed by readback only, never by eye.
+- [x] **The panel shows it.** Seen 2026-10-20 on `YAL1 IRST TEST` with both rockets climbing: four
+      rows numbered 1 to 4 of 4, the south-facing one "holding 1 / TargetSouth 7.84 km 410 kW/sr
+      threat", the west-facing one TargetWest at 8.58 km, the other two holding nothing and
+      sweeping, and the YAL-1's director "Watching: TargetSouth - from the craft's picture". With
+      the rockets 70 deg up all four said holding nothing, which is right: every IRST looks along
+      the horizon. The scope's `IR` mark is not seen: this craft has no search radar, so no scope.
+- [ ] The editor: `Infrared Search and Track Sensor` under **Sensors**, surface-attaching, unrootable.
+- [ ] Engines-out and look-down ranges, a fighter-sized target, and a range against the 1 MN booster
+      in thin air: none flown.
+- [x] **The YAL-1's laser on auto-engage burns a contact from the picture.** Flown 2026-10-20 on the
+      `YAL1 IRST TEST` save: a YAL-1 and four IRSTs on one 3 m tank, and two stock Rockets parked
+      7.8 km south and 8.6 km west, flown straight up. With nothing designated, the laser took the
+      picture's best and burnt through five parts of the southern rocket in 0.15 s at 7.8 km, then
+      four of the western one at 8.6 km four seconds later. Its pieces were then left alone: the
+      picture went empty and auto-engage held on "nothing detected". The pieces lased after that
+      were each shift-clicked.
+
 ### 7.6d The suspension rail — carriage gear the builder cannot place
 
 **Hidden rather than deleted.** A bare rail carries nothing and is registered as no launcher, so
@@ -2233,11 +2378,15 @@ head's own axis is used, because a target sliding towards the middle is what sle
       gone, anything left moving is the epoch question rather than either of these.
 - [ ] Known and not yet fixed: `PointingDrive.OnTarget` is a fixed 1° window, which at 16× is a
       third of the vertical field. The brackets close and `SLEWING` clears while the head can
-      still be visibly off, so "settled" is not evidence of anything at magnification.
+      still be visibly off, so "settled" is not evidence of anything at magnification. At the
+      YAL-1's x932 the field is 0.057°, so that 1° window is about seventeen pictures wide.
 
 **Zoom is the one with a crash behind it.** `Camera.SetFieldOfView` does not clamp and
 `UpdateProjection` throws for a field of zero or more than half a turn, out of the frame hook.
-`SightZoom.MinFovDeg` guards it; that guard has never been reached in game.
+`SightZoom.MinFovDeg` guards it, at 0.05°.
+
+- [x] The YAL-1 at x932, a 0.057° field just over that floor, seen 2026-10-20 on `YAL1 IRST TEST`
+      on a rocket climbing from 7.8 km, in a camera window and on the main view: no problems.
 
 - [ ] Put the optical head on the **main view** and step the magnification 1× → 16×. The picture
       narrows each time. If it snaps back to something wide within a frame, the mod's write is
@@ -2509,9 +2658,15 @@ trying to fly a vertical rise.
 
 - [x] Arm it **in orbit** with a target ahead on the ground track: it goes straight to a deorbit
       burn, not a vertical rise.
-- [ ] Arm it with a target the craft has just **passed over**: it says
+- [x] Arm it with a target the craft has just **passed over**: it says
       `holding for the burn window, H:MM:SS away` and does **not** burn. Warp through the wait —
-      the mod should let you, then slow the world down as the window approaches.
+      the mod should let you, then slow the world down as the window approaches. **Flown by the
+      scenario on 2026.10.13.5602** (2.2's grid, the "passed" target at 200/400/800 km and three
+      inclinations): holds of 1-11 h warped through, every one burned and landed in millimetres.
+- [x] **The bus still has its jets after a long hold.** A craft picked up holding KSA's own attitude
+      fired them through the warp and emptied 133.8 kg over 11 h, so the trim could not fly (797 m).
+      Fixed in `dcdb5a70`; re-flown, the tank read 133.8 kg at the burn and the shot landed 2.6 mm.
+      The phase and turn lines in the log say `bus jets N kg`.
 - [ ] Arm it **halfway up an ascent** already under way: it takes over without pitching back to
       vertical.
 - [ ] Arm it on something already **on a ballistic arc**: it corrects rather than starting over.
@@ -2540,7 +2695,9 @@ of this section is the default path.
       arm state, its teams and its IFF policy. Six aboard after the handover, not refilled.
 - [x] The ballistic computer follows with it and keeps deploying — all six released.
 - [ ] The spent stack is left in `Manual/None` with its engine off, and is not still being pointed.
-- [ ] The spent stack drifts clear rather than staying alongside the bus.
+- [ ] The spent stack drifts clear rather than staying alongside the bus. **Not always**: with the
+      release already due, a large first aim correction backs the bus into it (ICBM-OUTSTANDING
+      1.22) -- six of six on the 15 deg floor from orbit, no damage, all landed within 9 mm.
 
 **Accuracy, flown 20 August.** With the trim in and tube re-pointing off, six warheads landed
 **431 m, 537 m, 607 m, 1.1 km, 1.2 km and 1.4 km** — against 3,100-4,100 m before the trim existed.
@@ -2598,6 +2755,12 @@ timeout, and the salvo took three minutes, against 1.7–0.3 km on the same shot
 Reopening it means a different bus — finer RCS, more inertia, or thrusters placed for translation
 — which is a craft design change rather than a mod one. `docs/MIRV-NEXT.md` §5 and §5a carry the
 numbers and the engine reason.
+
+**Reopened 2026-10-17 for one large turn, and that one works.** A single commanded turn after the split,
+not one per tube: on the post-boost bus 90 deg off the held line settled within 0.35 deg in 5.1 s on
+1.04 kg, and back in 7.3 s, nothing owed and the shot landing 7 of 7 within 5.1 mm. The real turn onto the
+entry airflow (`IcbmConfig.PointRvsAtEntry`) is 160-165 deg and settles in 7.3-9.1 s on both buses. The
+six-degree hunt above stands for re-pointing between releases. `docs/RV-POINTING.md`.
 
 ### 12.7b A director that rides away on a split
 
@@ -2732,6 +2895,31 @@ stack wait holds only the split. `docs/MIRV-TARGETS.md`, "six stops to the groun
       aboard, before launch.
 - [ ] The reach ring on the ground is smaller than it was before the per-axis price, and a click inside it is a stop
       the walk then flies rather than one it drops mid-flight.
+
+### 12.7h The heavy post-boost bus -- flown 2026-10-17
+
+`KSArmory_Prefab_PostBoostBus`, flown on its nozzles as the old bus; nothing commands its engine. `docs/POSTBOOST-BUS.md`.
+
+Since 2026-10-20 it is the **Heavy MIRV Bus**, the only bus, under the six-RV bus's Id `KSArmory_Prefab_MirvBus`,
+with the old bus's 27 subparts first in their order and the engine and seventh RV appended.
+
+- [ ] It shows in the editor as "Heavy MIRV Bus", and no other bus is listed.
+- [ ] A save carrying the old bus (`tools/scenario.sh mirv`'s, a shot-batch save) loads with nothing thrown, and the
+      rocket carries the new bus: seven RVs, the engine, its propellant carried over.
+- [ ] That rocket flies a shot from the loaded save.
+- [ ] Saves made with the interim `KSArmory_Prefab_PostBoostBus` (`TEST PBB GeoSat FAT`, `PBB SCALE 8`) lose that craft
+      and are rebuilt with `tools/make-rocket.py`.
+
+- [x] One target at 6,180 km on `TEST PBB GeoSat FAT`: 7 of 7, twice, 3.8 and 6.2 mm worst; the engine idle pad to impact.
+- [x] Seven targets 2.5 km apart: each warhead on its own target, worst 5.6 mm.
+- [x] Each RV's base motors light for 0.6 s on release and spin it at half a turn a second.
+- [ ] In the editor: listed under Weapons, stacks on a 3 m tank without sinking, seven RVs seated, colliders right.
+- [ ] By hand: switch the engine on and off from the popup's Active boxes, then prograde and retrograde still hold.
+- [x] The bus turned onto its RVs' entry airflow after the split (`PointRvsAtEntry`, on since 2026-10-18): every RV meets the air
+      0.1-0.3 deg off it against 162-164 deg without, on both buses, one target and the seven-target walk; paired over
+      96 buses at 6,181 km it is no worse on the worst warhead (0.82x, 0.86x). `docs/RV-POINTING.md`.
+- [x] The same at 2,000 km with a walk: on and off walk the same two stops of four, 0.9-2.1 mm, the bus turning 28 s
+      after the gate (2026-10-18). Paired, the worst warhead is 0.92x [0.64, 1.33] -- the one cell the declared bar fails.
 
 ### 12.6 It gives the vehicle back
 

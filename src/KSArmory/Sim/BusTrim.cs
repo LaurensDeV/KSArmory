@@ -112,7 +112,13 @@ internal readonly record struct TrimSituation(
     /// Whether the frame a hold still owes is taken off what is left to gain before the next
     /// direction is chosen — <see cref="IcbmConfig.TrimCountsTheCommandInFlight"/>.
     /// </summary>
-    bool CountsTheCommandInFlight = false);
+    bool CountsTheCommandInFlight = false,
+
+    /// <summary>
+    /// How long the trim may be allowed to fire before it gives up, or NaN for <see cref="BusTrim.MaxSeconds"/> --
+    /// longer for a hop whose divert burn needs it (<see cref="IcbmConfig.HopsSizeTheirOwnSlots"/>).
+    /// </summary>
+    double MaxSeconds = double.NaN);
 
 /// <summary>What to fire and whether the warheads may go.</summary>
 /// <param name="Acceleration">
@@ -612,7 +618,7 @@ internal sealed class BusTrim
             return Finish(gaveUp: true, "no cutoff solution to trim against");
         }
 
-        if (_since >= MaxSeconds)
+        if (_since >= (now.MaxSeconds > 0.0 && double.IsFinite(now.MaxSeconds) ? now.MaxSeconds : MaxSeconds))
         {
             return Finish(gaveUp: true, Left("the trim ran out of time"));
         }

@@ -216,4 +216,50 @@ public class ShotRequestTests
         Assert.False(ShotRequest.TryParse("24.0S,62.0W;95.0S,63.0W", out _, out string why));
         Assert.Contains("target 2", why);
     }
+
+    [Fact]
+    public void ATrackNamesTheFirstTargetAndHowManyMoreFollowItAndHowFarApart()
+    {
+        Assert.True(ShotRequest.TryParse("10.622N,80.604W;track:6x300", out ShotRequest shot, out string trouble), trouble);
+
+        Assert.Equal(10.622, shot.LatitudeDeg, 9);
+        Assert.Equal(-80.604, shot.LongitudeDeg, 9);
+        Assert.Equal(6, shot.TrackTargets);
+        Assert.Equal(300_000.0, shot.TrackSpacingMetres);
+        Assert.False(shot.TrackAcross);
+        Assert.Equal(7, shot.TargetCount);
+        Assert.Single(shot.Targets);
+    }
+
+    [Fact]
+    public void AcrossLaysTheSameTrackSquareToIt()
+    {
+        Assert.True(ShotRequest.TryParse("24S,62W;across:3x50", out ShotRequest shot, out string trouble), trouble);
+
+        Assert.True(shot.TrackAcross);
+        Assert.Equal(3, shot.TrackTargets);
+        Assert.Equal(4, shot.TargetCount);
+    }
+
+    [Theory]
+    [InlineData("24S,62W;track:0x100")]
+    [InlineData("24S,62W;track:3x0")]
+    [InlineData("24S,62W;track:3")]
+    [InlineData("24S,62W;track:7x100")]
+    [InlineData("24S,62W;track:2x100;25S,62W")]
+    [InlineData("5;track:2x100")]
+    public void ATrackThatCannotBeLaidIsRefusedWithAReason(string request)
+    {
+        Assert.False(ShotRequest.TryParse(request, out _, out string trouble));
+        Assert.NotEmpty(trouble);
+    }
+
+    [Fact]
+    public void AnOrdinaryListOfPlacesIsNotATrack()
+    {
+        Assert.True(ShotRequest.TryParse("24S,62W;24.5S,62W", out ShotRequest shot, out string trouble), trouble);
+
+        Assert.Equal(0, shot.TrackTargets);
+        Assert.Equal(2, shot.TargetCount);
+    }
 }

@@ -28,16 +28,18 @@ internal sealed partial class IcbmComputer
 
         if (step.Handover)
         {
-            HopHold hold = TheTrimWillFlyTheNextHop(step);
+            double ceiling = HopCeiling(step);
+            HopHold hold = TheTrimWillFlyTheNextHop(step, ceiling);
 
             if (hold != HopHold.WillFly)
             {
-                CurtailTheWalk(step, hold);
+                CurtailTheWalk(step, hold, ceiling);
                 return;
             }
 
             _walker.Advance();
             HandOverTo(step.NextTarget);
+            _hopCeilingMetresPerSecond = ceiling;
             return;
         }
 
@@ -55,24 +57,56 @@ internal sealed partial class IcbmComputer
     // over the budget it refuses nothing and the release happens with no divert flown.
     //
     // Zero cycles because HandOverTo resets the correction, so the next pass is the trim's first and
-    // PostCutoffSequence hands it the constant.
-    private HopHold TheTrimWillFlyTheNextHop(in ReleaseStep step)
+    // PostCutoffSequence hands it the constant, or the hop's own ceiling.
+    private HopHold TheTrimWillFlyTheNextHop(in ReleaseStep step, double ceiling)
         => ReleaseLoop.CanFlyTheHop(
                step.NextHopMetresPerSecond, _trim.ToGainMetresPerSecond,
-               PostCutoffSequence.CeilingFor(0, TrimBudgetMetresPerSecond,
-                                             _trim.SpentMetresPerSecond),
+               double.IsFinite(ceiling)
+                   ? ceiling
+                   : PostCutoffSequence.CeilingFor(0, TrimBudgetMetresPerSecond, _trim.SpentMetresPerSecond),
                _trim.SpentMetresPerSecond, TrimBudgetMetresPerSecond, step.NextPassMetresPerSecond);
 
-    // The flight's trim budget, with the split's reserve once a walk's first stop has let go.
+    private double HopCeiling(in ReleaseStep step)
+        => ReleaseLoop.HopCeilingFor(Config.HopsFlyTheirOwnCeiling, step.NextHopMetresPerSecond,
+                                     _trim.ToGainMetresPerSecond, step.NextPassMetresPerSecond);
+
+    // The flight's trim budget, with the split's reserve once a walk's first stop has let go, and under the flag never
+    // more than the tank still pays.
     private double TrimBudgetMetresPerSecond
-        => ReleaseLoop.BudgetWithReserve(Config.TrimBudgetMetresPerSecond, ReserveReleasedMetresPerSecond);
+        => ReleaseLoop.CappedByTheTank(
+               ReleaseLoop.BudgetWithReserve(Config.TrimBudgetMetresPerSecond, ReserveReleasedMetresPerSecond),
+               TankCeilingMetresPerSecond);
+
+    // What the bus's own tank still pays, read once it is the bus alone; NaN before the split or with the flag off.
+    private double TankCeilingMetresPerSecond
+        => TryReadTheTank(out double kg, out double massKg)
+               ? ReleaseLoop.TankCeilingMetresPerSecond(_trim.SpentMetresPerSecond, kg, massKg, TankExhaustVelocity)
+               : double.NaN;
+
+    private double TankExhaustVelocity => _release?.Profile.TrimWorstAxisExhaustVelocity ?? double.NaN;
+
+    private double ShedStoreMassKg
+        => Config.ShedWarheadMass && _release is { } release ? release.Profile.StoreMassKg : 0.0;
+
+    private bool TryReadTheTank(out double kg, out double massKg)
+    {
+        kg = massKg = double.NaN;
+        if (!Config.HopsSizeTheirOwnSlots || !_didSplit || LauncherPart.Find(Craft) is not { } launcher
+            || !KsaWorld.TryTankOf(launcher.Part, out Tank? tank) || !KsaWorld.TryTankMassKg(tank, out kg))
+        {
+            return false;
+        }
+
+        massKg = KsaWorld.MassKg(Craft);
+        return true;
+    }
 
     private double ReserveReleasedMetresPerSecond
         => ReleaseLoop.ReserveReleased(Config.SpendTheSplitReserveAfterTheFirstStop, _walker.FirstStopAway);
 
     // The stop the bus is on takes the rest: it is already trimmed and corrected onto this target,
     // so the warheads left are delivered rather than assigned to a place nothing flew the bus to.
-    private void CurtailTheWalk(in ReleaseStep step, HopHold hold)
+    private void CurtailTheWalk(in ReleaseStep step, HopHold hold, double ceiling)
     {
         double owed = _trim.ToGainMetresPerSecond;
         double wants = ReleaseLoop.PassMustFly(step.NextHopMetresPerSecond, owed);
@@ -84,7 +118,7 @@ internal sealed partial class IcbmComputer
             ? $"the flight has spent {_trim.SpentMetresPerSecond:F2} m/s of its "
               + $"{TrimBudgetMetresPerSecond:F0} and cannot pay the {wants:F2} m/s more"
             : $"one pass would have to fly {wants:F2} m/s of "
-              + $"{BusTrim.CeilingFor(double.NaN):F0} and would refuse all of it";
+              + $"{BusTrim.CeilingFor(ceiling):F0} and would refuse all of it";
 
         Log.Info($"walk on {KsaWorld.DisplayName(Craft)}: the hop to target {step.NextTarget} is "
                  + $"{step.NextHopMetresPerSecond:F2} m/s and the bus still owes {owed:F2}, so "
@@ -129,9 +163,11 @@ internal sealed partial class IcbmComputer
         // Retarget rather than Reset, which would re-seed the plant at the pre-burn 1/Gain.
         _aim.Retarget(Config.CarryAimBiasAcrossHops);
 
-        // Re-solved to the same committed arrival, which is what makes a hop a hop rather than a
-        // new shot: every warhead of the walk arrives at one instant however far apart they land.
-        Program.CorrectCoastArc();
+        // Re-solved to the same committed arrival, so every warhead of the walk arrives at one instant however far apart
+        // they land -- or under HopsFreeTheirArrival to the cheapest, each at its own.
+        if (Config.HopsFreeTheirArrival) Program.FreeTheHopArrival();
+        else Program.CorrectCoastArc();
+        BeginTheHop();
 
         // Resume, never Reset: Reset zeroes SpentMetresPerSecond and hands the whole budget back,
         // so a six-stop walk would price every hop as if it were the first.
@@ -160,6 +196,9 @@ internal sealed partial class IcbmComputer
         _trimShape = "";
         _saidLast = "";
         _spentAtStopStart = _trim.SpentMetresPerSecond;
+        _hopBurnSeconds = ReleaseLoop.HopBurnSeconds(_walker.Step.HopMetresPerSecond, HopAcceleration);
+        _hopRound = Config.HopsResolveAfterTheirBurn ? 0 : -1;
+        _spentAtHopRound = _trim.SpentMetresPerSecond;
 
         Log.Info($"walk on {KsaWorld.DisplayName(Craft)}: re-aiming at target {next} "
                  + $"{_targets.Entries[next].Site.Describe()}, stop {_walker.Stop + 1} of "

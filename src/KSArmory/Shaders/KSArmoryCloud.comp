@@ -1209,31 +1209,62 @@ float DustAt(vec3 p, float y, float r, float front, float reach, float stemR, fl
 // The most the layer is brightened by being seen edge-on, over looking straight through it.
 const float LimbGain = 4.0;
 
-// THE AURORA at one end of a high burst's field line: Aurora.cs. Several arcs side by side, each a sheet
-// running magnetic east-west that stands on the field lines through it, so it leans as the field does --
-// sixty degrees off vertical at Samoa's latitude -- and its rays are field-aligned with nothing to say
-// so. A real arc is a few hundred metres thick, so each is drawn where the ray crosses it rather than
-// sampled: the crossing is found between two steps, and what it adds is the path through the sheet,
-// capped at LimbGain. The foot is on the ground at CentreRadius, the arcs run along Shape.xyz, Shape.w
-// is its age on the simulated clock, FireSun.w the sine of the foot's magnetic latitude on a dipole
-// along the spin axis, and FireSun.x and .y the lower border and the top over the mean sphere.
-const int CurtainArcs = 4;
+// THE AURORA at one end of a high burst's field line: Aurora.cs, drawn as KSA's own aurora is
+// (Content/Core/Shaders/Atmosphere/AuroraMarch.glsl and Aurora.glsl), cut to a patch: two folded arcs
+// over a diffuse glow, rays along the field lines, green low and red high, and nothing on the day side,
+// in KSA's emission units so a brightness of one is its own aurora. Each arc is a Gaussian band standing
+// on the field lines, so it leans as the field does, integrated exactly between two steps on the distance
+// to it, so a band thinner than the step is neither stepped over nor drawn as a line. The field is a
+// dipole about AgeStrengthWind.xyz, the foot is where it meets the lower border at CentreRadius, the arcs
+// run along Shape.xyz, Shape.w is the age, FireSun.w the sine of the foot's magnetic latitude, and
+// FireSun.x and .y the lower border and the top over the mean sphere.
+const float AuroraHalfWidth = 100000.0;
 const float CurtainHalfLength = 450000.0;
-const float CurtainFold = 25000.0;
-const float CurtainCurl = 1200.0;
-const float CurtainSpacing = 50000.0;
-// The longest step the aurora's march takes, which has to resolve a fold's drift across the arcs.
 const float AuroraStepMetres = 20000.0;
-// The red line lives two minutes, so it smears into a haze round the arcs rather than keeping to them.
-const float RedHazeWidth = 80000.0;
-const float RedHazePerMetre = 2.5e-6;
-// 557.7 nm, 630.0 nm, and nitrogen's first positive band under a bright arc, in linear sRGB.
-const vec3 OxygenGreen = vec3(0.35, 1.00, 0.25);
-const vec3 OxygenRed = vec3(1.00, 0.08, 0.06);
-const vec3 NitrogenPink = vec3(1.00, 0.35, 0.70);
+const float AuroraVerticalStepMetres = 10000.0;
+// KSA's arcs (AuroraMarch.glsl): their centres across the band in half widths, the second's strength,
+// how far a fold swings them, each a Gaussian a tenth of a half width wide, the diffuse glow's strength
+// and its emission per metre.
+const vec2 AuroraArcCentres = vec2(-0.4, 0.5);
+const float AuroraSecondArc = 0.6;
+const float AuroraFoldSwing = 0.9;
+const float AuroraFoldMetres = 300000.0;
+const float AuroraArcWidth = 0.1 * AuroraHalfWidth;
+const float AuroraDiffuse = 0.15;
+const float AuroraEmissionPerMetre = 1.0e-5;
+// KSA's rays: a cell about 5 km along the arc, cubed noise with this mean, drifting 1.5 cells a second,
+// faded to the mean where a pixel spans more than a cell.
+const float AuroraRayMetres = 5400.0;
+const float AuroraRayMean = 0.218;
+// KSA draws its aurora at a fraction of the screen and averages frames; a footprint four times a pixel's
+// stands in for both, so rays show from a few hundred kilometres and are bands from a thousand.
+const float AuroraTexelScale = 4.0;
+// KSA's AuroraReference defaults, which every body it gives an aurora uses.
+const vec3 AuroraGreen = vec3(0.3, 1.0, 0.45);
+const vec3 AuroraRed = vec3(1.0, 0.15, 0.25);
+
+// KSA's GetAuroraBandColor, heights in its kilometres over its 95 km border (Aurora.ReachScaleHeights
+// stretches them to the body's air): arc, diffuse glow and how far into a ray this is.
+vec3 AuroraColour(float rel, float arc, float diffuse, float ray, float edgeHalf)
+{
+    float lowerEdge = smoothstep(7.5 - edgeHalf, 7.5 + edgeHalf, rel);
+    float topFade = smoothstep(405.0, 255.0, rel);
+    float aboveGreen = max(rel - 15.0, 0.0);
+
+    float green = diffuse * exp(-aboveGreen / 30.0);
+    float red = diffuse * 0.1 * smoothstep(15.0, 115.0, rel) * exp(-max(rel - 115.0, 0.0) / 80.0);
+    if (arc > 0.0)
+    {
+        float greenScale = mix(30.0, 90.0, ray);
+        float redBase = mix(115.0, 155.0, ray);
+        green += arc * exp(-aboveGreen / greenScale);
+        red += arc * 0.1 * (1.0 + ray) * smoothstep(15.0, redBase, rel) * exp(-max(rel - redBase, 0.0) / 80.0);
+    }
+    return (lowerEdge * green * AuroraGreen + red * AuroraRed) * topFade;
+}
 
 // Where a field line through the point comes down to the lower border: across the arcs (m, toward the
-// magnetic north) and along them (m), both measured there. False where the line never gets that low.
+// magnetic north) and along them (m), both measured there. q is from the dipole's centre.
 bool AuroraFoot(vec3 q, vec3 axis, vec3 east, float lowerR, float sinFoot, float cosFoot, float footLatitude,
                 out float across, out float along)
 {
@@ -1251,50 +1282,69 @@ bool AuroraFoot(vec3 q, vec3 axis, vec3 east, float lowerR, float sinFoot, float
     return true;
 }
 
-// Where arc k stands across the arcs at a point along them: its own offset, and the folds drifting
-// along it at a kilometre or two a second with the small curls running faster. What does not change
-// along the ray -- each arc's offset, length and brightness -- is worked out once a pixel in
-// DrawAurora, since here it would be four noise lookups a step an arc.
-float AuroraArc(int k, float along, float age, float offset)
+// Where arc k stands across the band at a point along it: KSA's fold.
+float AuroraArc(int k, float along, float age)
 {
     float kf = float(k);
-    float fold = (Noise(vec3(along / 150000.0 + age * 0.01, kf * 3.3, 1.3)) - 0.5) * 2.0 * CurtainFold;
-    float curl = (Noise(vec3(along / 8000.0 - age * 0.6, kf * 5.9, age * 0.3)) - 0.5) * 2.0 * CurtainCurl;
-    return offset + fold + curl;
+    float fold = (Noise(vec3(along / AuroraFoldMetres + age * 0.01, kf * 20.3, 1.3)) - 0.5) * 2.0;
+    return (AuroraArcCentres[k] + AuroraFoldSwing * fold) * AuroraHalfWidth;
+}
+
+// Abramowitz and Stegun 7.1.26, to 1.5e-7.
+float AuroraErf(float x)
+{
+    float t = 1.0 / (1.0 + 0.3275911 * abs(x));
+    float y = 1.0 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t
+                    * exp(-x * x);
+    return sign(x) * y;
+}
+
+// A Gaussian band of width w integrated along a step of length dt over which the distance to it runs
+// linearly from g0 to g1.
+float AuroraBandThrough(float g0, float g1, float w, float dt)
+{
+    float dg = g1 - g0;
+    if (abs(dg) < 1.0e-3 * w) return dt * exp(-(g0 * g0) / (w * w));
+    return dt * 0.886227 * w / dg * (AuroraErf(g1 / w) - AuroraErf(g0 / w));
 }
 
 void DrawAurora(ivec2 at, ivec2 size)
 {
     vec2 uv = (vec2(at) + 0.5) / vec2(size);
     vec3 dir = normalize(WorldAt(uv, 1.0));
+    float texelAngle = length(normalize(WorldAt(uv + vec2(1.0 / float(size.x), 0.0), 1.0)) - dir);
     float deviceZ = texture(sceneDepth, uv).r;
     float sceneT = deviceZ > 0.0 ? length(WorldAt(uv, deviceZ)) : 1.0e30;
 
     vec3 planet = global.lighting.planetPosition.xyz;
     float radius = global.lighting.planetRadius;
+    vec3 dipole = pc.AgeStrengthWind.xyz;
     vec3 foot = pc.CentreRadius.xyz;
-    vec3 up = normalize(foot - planet);
+    vec3 up = normalize(foot - dipole);
     vec3 east = normalize(pc.Shape.xyz);
     vec3 north = cross(up, east);
     float nits = -pc.CentreRadius.w;
     float age = pc.Shape.w;
-    float lowerR = radius + pc.FireSun.x;
+    float lowerR = length(foot - dipole);
     float upperR = radius + pc.FireSun.y;
     float sinFoot = clamp(pc.FireSun.w, -0.999, 0.999);
     float cosFoot = sqrt(1.0 - sinFoot * sinFoot);
     vec3 axis = normalize(north * cosFoot + up * sinFoot);
     float footLatitude = asin(sinFoot);
+    vec3 sunDir = normalize(global.lighting.sunPosition.xyz - planet);
 
-    // The sheets stand on the field lines, so they lean with the field: the slab the ray is cut to is
-    // the plane through the foot holding the arcs' run and the field's direction, widened by how far a
-    // field line bends away from its tangent over the curtains' height. Cut to an upright slab wide
-    // enough for the lean instead, most of the screen from orbit marched for nothing.
+    // Deep in daylight no sample of the patch can reach the night side's start.
+    if (dot(normalize(foot - planet), sunDir) > 0.3) return;
+
+    // The sheets stand on the field lines, so the slab the ray is cut to is the plane through the foot
+    // holding the arcs' run and the field's direction, widened by how far a field line bends away from its
+    // tangent over the curtain's height.
     vec3 fieldAtFoot = normalize(3.0 * dot(axis, up) * up - axis);
     vec3 slab = normalize(cross(east, fieldAtFoot));
-    float sinDip = abs(dot(fieldAtFoot, up));
+    float sinDip = abs(dot(fieldAtFoot, normalize(foot - planet)));
     float climb = (pc.FireSun.y - pc.FireSun.x) / max(sinDip, 0.25);
     float bend = climb * climb / (0.6 * radius);
-    float band = 1.2 * (0.5 * float(CurtainArcs) * CurtainSpacing + CurtainFold + RedHazeWidth) + bend;
+    float band = 1.2 * (2.5 * AuroraHalfWidth) + bend;
     float acrossRate = dot(dir, slab);
     float acrossAt0 = dot(-foot, slab);
     float alongRate = dot(dir, east);
@@ -1329,33 +1379,20 @@ void DrawAurora(ivec2 at, ivec2 size)
     t1 = min(t1, alongPlanet + outerHalf);
     if (t1 <= t0) return;
 
-    // As many steps as the chord needs to resolve a fold, not a fixed count: a ray clipping the
-    // region's edge takes a handful.
-    const int MostSteps = 48;
-    int Steps = clamp(int((t1 - t0) / AuroraStepMetres), 6, MostSteps);
+    // KSA's step: no longer than 20 km along the ray nor 10 km up or down it, so a ray cutting down
+    // through the curtain is not stepped across its colours in stairs.
+    const int MostSteps = 160;
+    float tNear = clamp(dot(planet, dir), t0, t1);
+    float rNear = length(dir * tNear - planet);
+    float span = length(dir * t0 - planet) + length(dir * t1 - planet) - 2.0 * rNear;
+    int Steps = clamp(int(ceil(max((t1 - t0) / AuroraStepMetres, span / AuroraVerticalStepMetres))), 6, MostSteps);
     float dt = (t1 - t0) / float(Steps);
-    float bottomKm = pc.FireSun.x / 1000.0;
-    float topKm = pc.FireSun.y / 1000.0;
 
-    // Every height in the curtain is Earth's measured from its border and scaled by how tall this body's
-    // curtain is (Aurora.ReachScaleHeights), so a deeper air stretches it and Earth's is 1.
-    float km = (topKm - bottomKm) / 300.0;
+    float bottomKm = pc.FireSun.x / 1000.0;
+    float km = (pc.FireSun.y - pc.FireSun.x) / 1000.0 / 405.0;
     vec3 light = vec3(0.0);
 
-    // Each arc's own offset, length, centre and brightness, which nothing along the ray changes.
-    float arcOffset[CurtainArcs];
-    float arcHalf[CurtainArcs];
-    float arcCentre[CurtainArcs];
-    for (int k = 0; k < CurtainArcs; k++)
-    {
-        float kf = float(k);
-        arcOffset[k] = (kf - 0.5 * float(CurtainArcs - 1)) * CurtainSpacing
-                       + (Noise(vec3(kf * 7.1, age * 0.004, 0.5)) - 0.5) * 0.6 * CurtainSpacing;
-        arcHalf[k] = CurtainHalfLength * (0.45 + 0.55 * Noise(vec3(kf * 5.7, 0.2, 9.1)));
-        arcCentre[k] = (Noise(vec3(kf * 2.3, 0.7, 4.4)) - 0.5) * 0.8 * CurtainHalfLength;
-    }
-
-    float was[CurtainArcs];
+    float was[2];
     float wasAlong = 0.0;
     float wasHeight = 0.0;
     bool had = false;
@@ -1363,64 +1400,75 @@ void DrawAurora(ivec2 at, ivec2 size)
     for (int i = 0; i <= Steps; i++)
     {
         float t = t0 + float(i) * dt;
-        vec3 q = dir * t - planet;
-        float heightKm = (length(q) - radius) / 1000.0;
+        vec3 fromPlanet = dir * t - planet;
+        float heightKm = (length(fromPlanet) - radius) / 1000.0;
+        float rel = (heightKm - bottomKm) / km;
+
+        // KSA's night side: none where the sun is up, all of it once it is well down.
+        float darkness = smoothstep(0.05, -0.25, dot(normalize(fromPlanet), sunDir));
 
         float across, along;
-        if (!AuroraFoot(q, axis, east, lowerR, sinFoot, cosFoot, footLatitude, across, along))
+        if (darkness <= 0.0 || !AuroraFoot(dir * t - dipole, axis, east, lowerR, sinFoot, cosFoot, footLatitude, across, along))
         {
             had = false;
             continue;
         }
 
-        // The red haze, a volume: gone below 140 km, broad about 230, fading out through the top.
-        float redAt = smoothstep(bottomKm + 40.0 * km, bottomKm + 110.0 * km, heightKm)
-                      * exp(-max(heightKm - (bottomKm + 130.0 * km), 0.0) / (60.0 * km))
-                      * (1.0 - smoothstep(topKm - 60.0 * km, topKm, heightKm));
-        float haze = exp(-(across * across) / (RedHazeWidth * RedHazeWidth));
-        if (i > 0) light += OxygenRed * (redAt * haze * RedHazePerMetre * dt);
+        float ends = 1.0 - smoothstep(0.6 * CurtainHalfLength, CurtainHalfLength, abs(along));
+        float offset = across / AuroraHalfWidth;
+        float diffuse = exp(-offset * offset) * ends;
+        float edgeHalf = max(7.5, 0.75 * t * texelAngle / 1000.0 / km);
+        if (i > 0) light += AuroraColour(rel, 0.0, AuroraDiffuse * diffuse, 0.0, edgeHalf) * (darkness * dt);
 
-        for (int k = 0; k < CurtainArcs; k++)
+        for (int k = 0; k < 2; k++)
         {
-            // Beyond the fold and the curl the sheet cannot be crossed, and which side of it this is
-            // needs no noise.
-            float fromArc = across - arcOffset[k];
-            float g = abs(fromArc) > CurtainFold + CurtainCurl ? fromArc
-                                                                : across - AuroraArc(k, along, age, arcOffset[k]);
+            float centre = AuroraArcCentres[k] * AuroraHalfWidth;
+            float reach = AuroraFoldSwing * AuroraHalfWidth + 4.0 * AuroraArcWidth;
+            float g = abs(across - centre) > reach ? across - centre : across - AuroraArc(k, along, age);
 
-            if (had && (g > 0.0) != (was[k] > 0.0))
+            if (had && min(abs(g), abs(was[k])) < 4.0 * AuroraArcWidth + abs(g - was[k]))
             {
-                float f = was[k] / (was[k] - g);
-                float a = mix(wasAlong, along, f);
-                float hKm = mix(wasHeight, heightKm, f);
+                float through = AuroraBandThrough(was[k], g, AuroraArcWidth, dt);
+                if (through > 0.0)
+                {
+                    // Read where the ray meets the band, which moves with the pixel, not at the step's
+                    // middle, which jumps from pixel to pixel and scallops the rays. The fold bends the
+                    // distance to the band within a step, so a crossing is refined twice by secant, or
+                    // every step puts it a little wrong the same way and the rays zigzag.
+                    float tc = (abs(was[k]) < abs(g)) ? t - dt : t;
+                    float a = (abs(was[k]) < abs(g)) ? wasAlong : along;
+                    if ((was[k] > 0.0) != (g > 0.0))
+                    {
+                        float ta = t - dt, ga = was[k], tb = t, gb = g;
+                        tc = mix(ta, tb, ga / (ga - gb));
+                        for (int r = 0; r < 2; r++)
+                        {
+                            float acrossR, alongR;
+                            if (!AuroraFoot(dir * tc - dipole, axis, east, lowerR, sinFoot, cosFoot, footLatitude,
+                                            acrossR, alongR)) break;
+                            float gr = acrossR - AuroraArc(k, alongR, age);
+                            a = alongR;
+                            if ((gr > 0.0) == (ga > 0.0)) { ta = tc; ga = gr; } else { tb = tc; gb = gr; }
+                            tc = mix(ta, tb, ga / (ga - gb));
+                        }
+                    }
+                    float hRel = ((length(dir * tc - planet) - radius) / 1000.0 - bottomKm) / km;
 
-                // Square on the sheet is one; along it no more than LimbGain.
-                float path = min(dt / max(abs(g - was[k]), 1.0e-3), LimbGain);
+                    float kf = float(k);
+                    float patchEnds = 1.0 - smoothstep(0.6 * CurtainHalfLength, CurtainHalfLength, abs(a));
+                    float patches = 0.5 + 1.2 * clamp(Noise(vec3(a / 75000.0, kf * 4.1, age * 0.1)), 0.0, 1.0);
 
-                // Each arc its own length, fading at its ends, and patches pulsing over seconds.
-                float kf = float(k);
-                float ends = 1.0 - smoothstep(0.55 * arcHalf[k], arcHalf[k], abs(a - arcCentre[k]));
-                float pulse = 0.7 + 0.3 * Noise(vec3(a / 60000.0, kf * 4.1, age * 0.15));
-                float bright = (1.0 - 0.18 * kf) * ends * pulse;
+                    float rayN = Noise(vec3(a / AuroraRayMetres + age * 1.5, kf * 11.0, 0.5));
+                    // By distance alone: KSA also fades on how far along the arc one sample is from the
+                    // next, which here, with no frames averaged, draws a patch of rays that slides with the view.
+                    float rayStep = AuroraTexelScale * tc * texelAngle;
+                    float rayFade = smoothstep(0.15, 0.6, rayStep / AuroraRayMetres);
+                    float ray = mix(rayN * rayN * rayN, AuroraRayMean, rayFade);
 
-                // Rays: field-aligned, so a function of where along the arc alone, drifting at about a
-                // kilometre a second; each its own height, so the tops are ragged.
-                float rayN = Noise(vec3(a / 2500.0 + age * 0.4, kf * 11.0, age * 0.5));
-                float rays = 0.25 + 0.75 * smoothstep(0.35, 0.85, rayN);
-                float reach = (15.0 + 35.0 * Noise(vec3(a / 2500.0 + age * 0.4, kf * 11.0 + 5.0, 3.0))) * km;
-
-                float border = smoothstep(bottomKm - 1.0 * km, bottomKm + 3.0 * km, hKm);
-                float green = border * exp(-max(hKm - (bottomKm + 10.0 * km), 0.0) / reach);
-                float pink = smoothstep(bottomKm - 6.0 * km, bottomKm - 1.0 * km, hKm)
-                             * (1.0 - smoothstep(bottomKm + 1.0 * km, bottomKm + 6.0 * km, hKm));
-                float red = 0.45 * smoothstep(bottomKm + 40.0 * km, bottomKm + 110.0 * km, hKm)
-                            * exp(-max(hKm - (bottomKm + 130.0 * km), 0.0) / (60.0 * km))
-                            * (1.0 - smoothstep(topKm - 60.0 * km, topKm, hKm));
-
-                // The red line lives too long to keep the rays' edges.
-                vec3 sheet = OxygenGreen * green * rays + NitrogenPink * (0.35 * pink * rays)
-                             + OxygenRed * red * (0.7 + 0.3 * rays);
-                light += sheet * (bright * path);
+                    float arc = (k == 0 ? 1.0 : AuroraSecondArc) * patchEnds * patches * (0.35 + 0.9 * ray);
+                    light += AuroraColour(hRel, arc, 0.0, ray, max(7.5, 0.75 * tc * texelAngle / 1000.0 / km))
+                             * (through * darkness);
+                }
             }
             was[k] = g;
         }
@@ -1430,12 +1478,10 @@ void DrawAurora(ivec2 at, ivec2 size)
         had = true;
     }
 
-    float level = dot(light, vec3(0.2126, 0.7152, 0.0722));
-    if (level <= 0.0) return;
-    light *= min(level, LimbGain) / level;
+    if (dot(light, vec3(1.0)) <= 0.0) return;
 
     vec4 before = imageLoad(sceneColor, at);
-    imageStore(sceneColor, at, vec4(before.rgb + light * nits, before.a));
+    imageStore(sceneColor, at, vec4(before.rgb + light * (AuroraEmissionPerMetre * nits), before.a));
 }
 
 

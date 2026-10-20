@@ -70,6 +70,16 @@ public sealed class LauncherProfile
     /// <inheritdoc cref="TubeArmamentLabel"/>
     public string GunArmamentLabel { get; init; } = "Cannon";
 
+    /// <inheritdoc cref="TubeArmamentLabel"/>
+    public string BeamArmamentLabel { get; init; } = "Laser";
+
+    /// <summary>
+    /// Fires the high-energy beam of the optical director on the same part. The beam's numbers stay
+    /// on that <see cref="OpticProfile.Beam"/>, and the director aims it: this launcher has nothing
+    /// of its own that moves.
+    /// </summary>
+    public bool FiresBeam { get; init; }
+
     // ---- Subparts the mod animates. Null means this system has no such piece. ----
 
     /// <summary>Traverses in azimuth. Null for a launcher that cannot train.</summary>
@@ -304,6 +314,39 @@ public sealed class LauncherProfile
     /// round's drag and for a gun is the projectile alone.
     /// </summary>
     public float StoreMassKg;
+
+    /// <summary>
+    /// The spin the seated rounds' own motors give them as they leave, or null for none. On the launcher
+    /// rather than the munition because the motors are part of the round body this launcher seats: the
+    /// MIRV bus seats the same Mk 21 in a body that has none.
+    /// </summary>
+    public RoundSpin? ReleaseSpin;
+
+    /// <summary>
+    /// What the bus's trim nozzles push it at along one axis, fully loaded (m/s²), which sizes how long a hop's
+    /// divert burn takes under <see cref="IcbmConfig.HopsSizeTheirOwnSlots"/>. NaN where nobody measured it.
+    /// </summary>
+    public double TrimAccelerationMetresPerSecond2 = double.NaN;
+
+    /// <summary>
+    /// The trim nozzles' exhaust velocity as their dearest axis spends it (m/s): what a metre a second fired that way
+    /// costs the tank, which bounds the budget under <see cref="IcbmConfig.HopsSizeTheirOwnSlots"/>. NaN reads no tank.
+    /// </summary>
+    public double TrimWorstAxisExhaustVelocity = double.NaN;
+
+    /// <summary>
+    /// The bus's own main engine, which flies a hop under <see cref="IcbmConfig.HopsBurnTheEngine"/> (N); NaN where the
+    /// bus has none.
+    /// </summary>
+    public double HopEngineThrustNewtons = double.NaN;
+
+    /// <summary>That engine's exhaust velocity (m/s), which prices a hop it flies.</summary>
+    public double HopEngineExhaustVelocity = double.NaN;
+
+    /// <summary>
+    /// What that engine pushes the bus at fully loaded (m/s²), which sizes a hop's slot before the bus is alone to weigh.
+    /// </summary>
+    public double HopEngineAccelerationMetresPerSecond2 = double.NaN;
 
     /// <summary>What one complete round in the belt weighs (kg), case and charge included; see <see cref="StoreMassKg"/>.</summary>
     public float GunRoundMassKg;

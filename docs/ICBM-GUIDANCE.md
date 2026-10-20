@@ -588,12 +588,15 @@ warheads to leave along it, and leaving it free is a vehicle drifting when it sh
 the bus's own jets, and at KSA's Strict deadband of 0.2 deg against a target turning with the orbit they
 fire continuously: flown from `ORBIT 300`, a minute of pointing at 1x left them 0.55 m/s2 and four and a
 half to five minutes left them at nothing, so the trim after cutoff could not pay 2.4-3.2 m/s and two
-holds landed 1.2-1.7 km out. Under KSA's warp the bus is on rails and burns nothing, so what drains it is
-real time spent pointed. `IcbmConfig.HoldDriftsUntilIgnition` (on) leaves the attitude free until the
+holds landed 1.2-1.7 km out. **A warp does not stop it**: with KSA's own attitude hold left on, the jets fired
+through the warp to the window at about 19 kg an hour, and an 11 h warp from `ORBIT 800` emptied the bus's
+133.8 kg. `IcbmConfig.HoldDriftsUntilIgnition` (on) leaves the attitude free until the
 turn onto the burn is due -- `HoldPointing.LeadSeconds`, the turn's time from the nose's angle and the jets'
 authority, with slack and a margin -- and lets it drift again if the window moves a minute or more away; the
 computer's own warp stops a minute before that turn rather than before ignition. Flown on three holds, the jets
-kept 0.54-0.57 m/s2 to the trim on all three. `HoldPointsLoosely` (off, five flights) points with the Balanced
+kept 0.54-0.57 m/s2 to the trim on all three. The drift drops KSA's own hold as well as the computer's,
+written from `AttitudeHook`'s window every frame (`AttitudeHook.Drift`): a craft picked up holding one kept it,
+which is how the 11 h warp emptied the jets; flown since, the tank held 133.8 kg through that hold. `HoldPointsLoosely` (off, five flights) points with the Balanced
 profile's 1 deg until the burn lights.
 
 ## Cutting off is a timing problem
@@ -912,9 +915,14 @@ coast at 100x and takes a release probe's own miss from **50 m to 520**, with th
 harness reads the same constant, because the number and its measurement drifting apart across two
 files is exactly what it is there to stop.
 
-**It never starts while `NeedsShortSteps` is true** — the burn and the trim — which matters more
+**It never starts while `NeedsShortSteps` is true** — the burn and the trim, on any computer —
+**or while any round is in the air**, and a warp of its own stops when one appears. That matters more
 than it looks: `WarpPolicy` cannot slow the world at all while an auto-warp is running, so a warp
-begun over the top of one is a warp nothing can rein in.
+begun over the top of one is a warp nothing can rein in. Flown 2026-10-19 without the round check, on
+`PBB SCALE 8`: a bus whose walk had dropped two targets still had its plain gate to wait for, warped
+to it with every released warhead falling, and the world reached 56x against a warhead's 0.32 s step.
+Each frame's excess was discarded, the warheads lagged the world, and within a second every one was
+predicted thousands of kilometres off; nothing landed on a target.
 
 ### Automatic only if somebody said so
 
@@ -1169,6 +1177,27 @@ Two things it is careful about:
   settles: the tube alternates between on the line and a full cant off it, and half the time it
   looks perfect.
 
+## The bus turns once so every RV leaves nose-first
+
+Held on the cutoff line, the bus throws its RVs 147-164 deg off the airflow they will meet, and each tumbles into the
+air backwards. So once the split's shove is nulled, and before the first post-boost pass, the bus turns onto the
+airflow at the entry altitude and holds that line through the whole walk (`IcbmConfig.PointRvsAtEntry`, on). Every
+RV then meets the air within 0.30 deg of it. `Ksa/Icbm/IcbmComputer.Turn.cs` drives it, `Sim/BusTurn.cs` judges it on
+the nose the engine reports, and `Sim/EntryDirection.cs` finds the airflow in closed form on the conic.
+
+- **The prediction aims for the turned kick from the start.** Until the turn has settled, the kick the release would
+  give is rotated onto the entry line, so the burn and every pass are aimed for the departure the warheads will
+  actually have, and the turn moves the prediction by the difference between two estimates of one line.
+- **So it turns however late, and only a conic with no entry keeps the cutoff line.** The split stays at the gate
+  (`TurnAllowanceSeconds` 0) and a turn due past it delays the release by the turn's own seconds. Keeping the line
+  instead misses by the whole swing of the kick, and an allowance is coast the walk planner takes from the stops.
+- **The release, the trim and the post-boost passes all wait while it turns**, and the reach is re-flown once it has
+  settled, so the walk is priced on the axes it is flown on; after the split only a plan of the same stops replaces it.
+
+Turns of 147-165 deg settle in 6.8-9.1 s on 1.0-1.5 kg of the bus's propellant, with nothing owed by them. Paired
+over 30 flights of eight at 2,000 and 6,181 km the worst warhead is 0.87x [0.79, 0.97] of the cutoff line's.
+`docs/RV-POINTING.md` has the flights and the one declared cell that missed its bound.
+
 ### The release gate is one budget, not two thresholds
 
 How far off the line the tube is and how fast the vehicle is sweeping it are **the same quantity**:
@@ -1267,7 +1296,7 @@ frame's velocity -- `docs/ACCURACY-PLAN.md`, "Moved from ICBM-GUIDANCE".
 
 ## Several targets
 
-**Up to six targets for one bus, and a set of one is the shot everything else is measured against.**
+**Up to one target per warhead aboard, seven at most, and a set of one is the shot everything else is measured against.**
 `TargetSet` is the list with its warhead counts, `TargetEdit` is when it may be edited, `IcbmComputer`
 holds one, and a click on the world adds to it before launch or during the coast. `DivertFootprint` is the
 reach on the ground, taken off the sensitivity columns `ReleaseFocus.FlownSensitivity` already flies once
@@ -1278,9 +1307,9 @@ it are `docs/MIRV-TARGETS.md`; what is open is `docs/ICBM-OUTSTANDING.md` (4.5, 
 
 ### What the player gets
 
-A MIRV rocket carries six reentry vehicles. With one target all six go to it and land within a few
-millimetres of each other (`docs/ACCURACY-PLAN.md` 3en). The player can pick **up to six
-targets**, and the bus flies between releases so each warhead falls on its own.
+A MIRV rocket carries seven reentry vehicles on the Heavy MIRV Bus. With one
+target all of them go to it and land within a few millimetres of each other (`docs/ACCURACY-PLAN.md` 3en).
+The player can pick **up to seven targets** (`TargetSet.MaxTargets`, one per RV), and the bus flies between releases so each warhead falls on its own.
 
 From the player's side:
 
@@ -1672,8 +1701,9 @@ is the staleness rate *within* a cycle rather than a debt that accrues. The late
 *better*: the trim's 0.02 m/s stop band is worth 14 m on the ground at the release gate against 55 m at
 cutoff.
 
-**What a later target actually loses is reach**, and steeply. At 6,179 km, 50 km of along-track divert costs
-18.2 m/s bought at cutoff, 26.7 at +400 s, 47.8 at +800 and **72.5 at today's gate**. So the order is by
+**What a later target actually loses is reach**, and steeply. At 6,179 km, 50 km of along-track divert costs,
+free-clock, 18.2 m/s bought at cutoff, 26.7 at +400 s, 47.8 at +800 and **72.5 at today's gate**; the flight pins the
+arrival, which costs 2.56x that along the track at cutoff, about 46.5 m/s for the same 50 km. So the order is by
 reach, far first — not by which target is "hardest".
 
 ### Scoring a split salvo
@@ -1736,7 +1766,9 @@ off the pinned footprint at each slot. Charging every hop `BusTrim.MaxMetresPerS
 on one *solve*, where a hop's real price is its ground distance over the reach at the slot it is bought in.
 Six 4 km apart at 6,179 km cost **36.9 m/s** started from cutoff and 55.1 ending on the gate.
 
-The whole budget spent on hops, six targets:
+The whole budget spent on hops, six targets -- **an upper bound, not the planner's answer**: these are along-track,
+straight-line and 60 m/s with no per-pass ceiling. Priced as the planner prices a hop (what the jets pay, on the reach's
+narrower axis) five fit at about 7.6 km from cutoff at 6,179 km and six at about 6.1 (`ICBM-OUTSTANDING.md` 4.12).
 
 | | reach per m/s, first → last | neighbour spacing | chain end to end |
 | --- | --- | --- | --- |
@@ -1880,6 +1912,9 @@ twelve-minute hover, which then landed 0.2-0.4 mm out.
 `IcbmProgram.PushesThroughAfterSeconds` (10 s) in the air: the push is measured from how the velocity to gain moved
 against what the thrust should have done, its component along the line is added to the throttle, the line is led
 across it by what it will add before the burn ends, and the steering freezes only under 1 m/s.
+Two other gates are built and off -- `ShortShotPushesThroughAtDragShare` and `ShortShotCutsOffOnTheMiss`, the
+second steering the last metres a second off the one direction that does not move the landing; SHORT-RANGE has the
+flights.
 
 ### Release and the kick
 

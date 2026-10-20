@@ -124,6 +124,64 @@ public class WalkPricingTests
     }
 
     [Fact]
+    public void TheGateChordLiftsASlotNearTheGateAndNeverPastOne()
+    {
+        ReleaseItinerary.Bus linear = Bus(perSlot: true);
+        ReleaseItinerary.Bus chord = linear with { ReachMeasuredMetresPerMetrePerSecond = MeasuredReach };
+
+        // 0.88 of the gate is 369.6 m per m/s, where the line from the origin gives 955 * 420 / 1,200 = 334.25.
+        Assert.Equal(369.6 / MeasuredReach, chord.SlotReachScale(Gate), 9);
+        Assert.Equal(Gate / MeasuredAt, linear.SlotReachScale(Gate), 9);
+
+        Assert.Equal(1.0, chord.SlotReachScale(MeasuredAt));
+        Assert.Equal(1.0, (chord with { ReachMeasuredMetresPerMetrePerSecond = 100.0 }).SlotReachScale(800.0));
+        Assert.Equal(linear.SlotReachScale(300.0), chord.SlotReachScale(300.0));
+    }
+
+    [Fact]
+    public void AHopsSlotIsTheMedianUntilItsBurnOutgrowsIt()
+    {
+        ReleaseItinerary.Bus bus = Bus() with { HopAccelerationMetresPerSecond2 = 0.5 };
+
+        Assert.Equal(ReleaseItinerary.MedianHopSeconds, bus.SlotFor(5.0));
+        Assert.Equal(ReleaseItinerary.HopOverheadSeconds + 40.0, bus.SlotFor(20.0), 9);
+        Assert.Equal(ReleaseItinerary.MedianHopSeconds, Bus().SlotFor(20.0));
+    }
+
+    [Fact]
+    public void TheCoastHoldsFewerStopsOnceEachHopTakesItsBurn()
+    {
+        ReleaseItinerary.Bus constant = new(Gate, Gate + 3.0 * ReleaseItinerary.MedianHopSeconds + 1.0, 6,
+                                            BudgetMetresPerSecond: double.PositiveInfinity);
+        ReleaseItinerary.Bus sized = constant with { HopAccelerationMetresPerSecond2 = 0.5 };
+
+        // 20 km hops at 1,000 m per m/s are 20 m/s, an 88 s slot each against 65.1.
+        Assert.Equal(4, ReleaseItinerary.Chain(4, 20_000.0, [1_000.0], constant).CoastFits);
+        Assert.Equal(3, ReleaseItinerary.Chain(4, 20_000.0, [1_000.0], sized).CoastFits);
+    }
+
+    [Fact]
+    public void TheTankCeilingIsWhatIsSpentAndNineTenthsOfTheRestOnTheDearestAxis()
+    {
+        // The Heavy bus full: 134.3 kg on 2.9 t at 2,055 m/s, 97.3 m/s laterally.
+        double payable = 2_055.0 * Math.Log(2_900.0 / (2_900.0 - 134.3));
+
+        Assert.Equal(5.0 + 0.9 * payable, ReleaseLoop.TankCeilingMetresPerSecond(5.0, 134.3, 2_900.0, 2_055.0), 9);
+        Assert.True(double.IsNaN(ReleaseLoop.TankCeilingMetresPerSecond(5.0, double.NaN, 2_900.0, 2_055.0)));
+        Assert.True(double.IsNaN(ReleaseLoop.TankCeilingMetresPerSecond(5.0, 134.3, 100.0, 2_055.0)));
+    }
+
+    [Fact]
+    public void AnUnreadTankLeavesTheBudgetAndAnUnlimitedOneIsHeldUnderARead()
+    {
+        Assert.Equal(-1.0, ReleaseLoop.CappedByTheTank(-1.0, double.NaN));
+        Assert.Equal(80.0, ReleaseLoop.CappedByTheTank(-1.0, 80.0));
+        Assert.Equal(60.0, ReleaseLoop.CappedByTheTank(60.0, 80.0));
+        Assert.Equal(70.0, ReleaseLoop.PlanningBudget(140.0, 80.0, ReleaseLoop.SplitNullReserveMetresPerSecond));
+        Assert.Equal(double.PositiveInfinity, ReleaseLoop.PlanningBudget(-1.0, double.NaN, 10.0));
+    }
+
+    [Fact]
     public void TheSplitReserveLetsASixStopWalkTheBudgetCut()
     {
         ReleaseWalk asSet = ReleaseLoop.Plan(Chain(6, 9_500.0), Bus(), [1_000.0], lead: 0);

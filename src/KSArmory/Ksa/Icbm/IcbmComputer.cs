@@ -32,6 +32,9 @@ internal sealed partial class IcbmComputer
     // steps. Empty when nobody handed one in, which is every path but the roster's.
     private IReadOnlyList<IcbmComputer> _busyElsewhere = [];
 
+    // Whether any round in the world is in the air, which WarpPolicy has to be able to hold the world down for.
+    private bool _roundsInFlight;
+
     // Simulated seconds since the aim was last read. The reading cadence is gated by _measureDue
     // rather than by PredictIntervalSeconds, so it is not the half-second the interval nominally is
     // and every rate quoted per reading needs it.
@@ -162,6 +165,7 @@ internal sealed partial class IcbmComputer
     // instant they departed from and five seconds of Earth's spin is 2.3 km of ground -- which on a
     // ring a few kilometres across is the whole shape.
     private DivertFootprint? _reachFootprint;
+    private List<DivertFootprint>? _reachLater;
     private double3 _reachLandingCcf;
     private doubleQuat _reachCci2Ccf = doubleQuat.Identity;
     private doubleQuat _reachCcf2Cci = doubleQuat.Identity;
@@ -384,6 +388,19 @@ internal sealed partial class IcbmComputer
     // rather than the flight's running total.
     private double _spentAtStopStart;
 
+    // The ceiling the hop just handed over to was priced at, for the pass before the correction's first.
+    private double _hopCeilingMetresPerSecond = double.NaN;
+    private double _hopBurnSeconds;
+
+    // HopsResolveAfterTheirBurn: rounds flown since the hand-over, and the spend the round started at; -1 when no hop's
+    // arc is still being solved again.
+    private int _hopRound = -1;
+    private double _spentAtHopRound;
+
+    // What the bus's jets push it at, for sizing a hop's slot and clocks; NaN with the flag off.
+    private double HopAcceleration
+        => Config.HopsSizeTheirOwnSlots ? _release?.Profile.TrimAccelerationMetresPerSecond2 ?? double.NaN : double.NaN;
+
     // Which target each released warhead was sent to, by reference, for a harness scoring a walk.
     // At most one entry per warhead aboard, cleared with the flight.
     private readonly List<(IProjectile Round, int Target)> _sentTo = [];
@@ -490,7 +507,7 @@ internal sealed partial class IcbmComputer
         {
             Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: "
                      + (_pointingForTheBurn ? "turning onto the burn" : "drifting again, the window moved")
-                     + $", {toIgnition:F0} s before ignition against a {_pointLeadSeconds:F0} s lead");
+                     + $", {toIgnition:F0} s before ignition against a {_pointLeadSeconds:F0} s lead{BusJetsSaid()}");
         }
 
         return !_pointingForTheBurn;
@@ -555,6 +572,7 @@ internal sealed partial class IcbmComputer
         _aimRebasedForTheSolids = false;
         _trimAbandoned = false;
         _trimShape = "";
+        ResetTurn();
         _saidTrim = "";
         _separatedFrom = null;
         _didSplit = false;
@@ -586,7 +604,12 @@ internal sealed partial class IcbmComputer
         _flownKick = null;
         _walker.Reset();
         _spentAtStopStart = 0.0;
+        _hopCeilingMetresPerSecond = double.NaN;
+        _hopBurnSeconds = 0.0;
+        _hopRound = -1;
+        ResetTheHop();
         _sentTo.Clear();
+        _watchedRelease = 0;
         _wentTo.Clear();
         _saidWalk = "";
 
@@ -693,6 +716,13 @@ internal sealed partial class IcbmComputer
     public void SetTargetWarheads(int index, int warheads)
         => _targets.SetWarheads(index, warheads, WarheadsAboard);
 
+    /// <summary>
+    /// Move warheads onto one target by <paramref name="delta"/>, taking them from the lead.
+    /// What a click on the map does; refused rather than clamped when there are not enough.
+    /// </summary>
+    public bool ShiftTargetWarheads(int index, int delta)
+        => _targets.Shift(index, delta, WarheadsAboard);
+
     /// <summary>Spread every warhead over the targets chosen, evenly.</summary>
     public void BalanceTargets() => _targets.Balance(WarheadsAboard);
 
@@ -741,6 +771,7 @@ internal sealed partial class IcbmComputer
         _aimRebasedForTheSolids = false;
         _trimAbandoned = false;
         _trimShape = "";
+        ResetTurn();
         _saidTrim = "";
         _separatedFrom = null;
         _didSplit = false;
@@ -753,6 +784,10 @@ internal sealed partial class IcbmComputer
         _saidBudget = false;
         _saidFloorUnaffordable = false;
         _owedAtSplit = double.NaN;
+        _hopCeilingMetresPerSecond = double.NaN;
+        _hopBurnSeconds = 0.0;
+        _hopRound = -1;
+        ResetTheHop();
         Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} stood down: {why}");
     }
 
@@ -766,7 +801,8 @@ internal sealed partial class IcbmComputer
     /// </param>
     public void Update(double simStep, double playerStep, IManualFire? release,
                        bool traceWarhead = false,
-                       IReadOnlyList<IcbmComputer>? busyElsewhere = null)
+                       IReadOnlyList<IcbmComputer>? busyElsewhere = null,
+                       bool roundsInFlight = false)
     {
         _release = release;
 
@@ -784,6 +820,7 @@ internal sealed partial class IcbmComputer
             // The reach is not one of the things that outlive the bus: it describes where the bus
             // could still send a warhead, and there is no bus.
             _reachFootprint = null;
+            _reachLater = null;
             Reach = ReachDisplay.None(ReachHold.SalvoAway, _targets.Count);
 
             StepTraceLoose(simStep);
@@ -791,6 +828,7 @@ internal sealed partial class IcbmComputer
         }
 
         _busyElsewhere = busyElsewhere ?? [];
+        _roundsInFlight = roundsInFlight;
         _traceWanted = traceWarhead;
 
         // What the prediction is of. The bus cuts off above the air; the warheads it drops fly all
@@ -874,8 +912,8 @@ internal sealed partial class IcbmComputer
             return;
         }
 
-        // A walk's first release is gate + (N-1) x 65 s, so the LAST lands on the setting. NaN leaves the program
-        // reading the setting live.
+        // A walk's first release is gate + (N-1) x 65 s, so the LAST lands on the setting, or the start of the coast
+        // with WalkStartsAtCutoff. NaN leaves the program reading the setting live.
         Program.ReleaseGateSeconds = _walker.GateOverrideSeconds(Config, _targets.Count);
 
         bool wasBurning = Program.IsBurning;
@@ -921,7 +959,7 @@ internal sealed partial class IcbmComputer
                      + $"{(ArrivalIsIfReleasedNow ? "impact if released now in" : "impact in")} "
                      + $"{IcbmProgram.Clock(SecondsToArrival)}, "
                      + $"target {OffPlaneDegrees:F1} deg off plane ({PlaneChangeCost:F0} m/s), "
-                     + $"reach {Command.Reach}"
+                     + $"reach {Command.Reach}{BusJetsSaid()}"
                      + (double.IsFinite(Program.ResidualAtCutoff)
                             ? $", cut off {Program.ResidualAtCutoff:F2} m/s short{ResidualSaid()}"
                             : "")
@@ -992,7 +1030,17 @@ internal sealed partial class IcbmComputer
                         && Program.IsShortShot;
         if ((Command.ReadyToDeploy && !atCutoff) || burnOver) SeparateOnce(release);
 
-        DriveTrim(simStep, state, release);
+        DriveTurn(simStep, state);
+        DriveHop(simStep, state);
+        WatchTheReleased(simStep);
+        if (_hopBurn.Holds)
+        {
+            if (_trim.Firing != TrimAxes.None) VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
+        }
+        else
+        {
+            DriveTrim(simStep, state, release);
+        }
 
         // Attitude is driven for every phase that is doing something, not only while an engine is
         // lit. A hold can be an hour long and the vehicle is pointed at the burn for all of it; and
@@ -1055,10 +1103,14 @@ internal sealed partial class IcbmComputer
         else
         {
             AttitudeHook.Release(Craft);
-            if (drifting && _driving)
+            if (drifting)
             {
-                VehicleCommand.ReleaseAttitude(Craft);
+                AttitudeHook.Drift(Craft);
                 _driving = false;
+            }
+            else
+            {
+                AttitudeHook.StopDrifting(Craft);
             }
         }
 
@@ -1191,8 +1243,8 @@ internal sealed partial class IcbmComputer
         }
         else if (_driving)
         {
-            VehicleCommand.SetEngine(Craft, running: false);
-            _throttleAchieved = VehicleCommand.DriveThrottle(Craft, Command.Pulsing ? Command.Throttle : 1.0,
+            VehicleCommand.SetEngine(Craft, running: _engineLit);
+            _throttleAchieved = VehicleCommand.DriveThrottle(Craft, Command.Pulsing || Command.HoldsLever ? Command.Throttle : 1.0,
                                                              Config.ThrottleThroughTheKeyboardClear);
         }
 
@@ -1395,6 +1447,17 @@ internal sealed partial class IcbmComputer
     }
 
     private static double Degrees(double radians) => radians * 180.0 / Math.PI;
+
+    // What the bus's own jets have left: the turn onto a burn is flown on them, and so is the trim after the split.
+    private string BusJetsSaid()
+    {
+        if (LauncherPart.Find(Craft) is not { } launcher || !KsaWorld.TryTankOf(launcher.Part, out Tank? tank)
+            || !KsaWorld.TryTankMassKg(tank, out double kg))
+        {
+            return "";
+        }
+        return $", bus jets {kg:F1} kg";
+    }
 
     // Something square to the vertical for the roll to clock to when the planet cannot supply one,
     // which is the whole of a vertical rise. Downrange is horizontal by construction; before there

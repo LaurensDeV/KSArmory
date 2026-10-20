@@ -1,0 +1,7 @@
+{
+  "yal1": {
+    "head_pivot": [0.0, 2.5, 0.0],
+    "eye_forward": 1.4,
+    "max_off_boresight_deg": 120.0
+  }
+}

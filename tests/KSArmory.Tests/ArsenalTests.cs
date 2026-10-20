@@ -17,7 +17,12 @@ public class ArsenalTests
     {
         foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
-            Assert.Equal(launcher.Munition, Catalogue.MunitionNamed(launcher.Munition).Name);
+            // A beam throws no round, and is the one launcher allowed to name none.
+            if (launcher.Munition.Length > 0 || !launcher.FiresBeam)
+            {
+                Assert.Equal(launcher.Munition, Catalogue.MunitionNamed(launcher.Munition).Name);
+            }
+
             Assert.Equal(launcher.Sensor, Catalogue.SensorNamed(launcher.Sensor).Name);
 
             // The cannon's round as well as the missile's. Arsenal.Named falls back to element
@@ -28,6 +33,27 @@ public class ArsenalTests
             {
                 Assert.Equal(shell, Catalogue.MunitionNamed(shell).Name);
             }
+        }
+    }
+
+    [Fact]
+    public void EveryDirectorsSetHoldsOnlyWhatItIsHanded()
+    {
+        foreach (OpticProfile optic in Catalogue.Optics)
+        {
+            Assert.True(Catalogue.SensorNamed(optic.Sensor).CuedOnly,
+                        $"{optic.DisplayName} searches for targets a telescope cannot find");
+        }
+    }
+
+    [Fact]
+    public void ALauncherWithNoDirectorOnItsPartStillSearches()
+    {
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
+        {
+            if (Catalogue.OpticForPart(launcher.PartId) is not null) continue;
+            Assert.False(Catalogue.SensorNamed(launcher.Sensor).CuedOnly,
+                         $"{launcher.DisplayName} has nothing to hand it a target");
         }
     }
 
@@ -90,8 +116,9 @@ public class ArsenalTests
     {
         foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
-            Assert.True(launcher.TubeCount > 0 || launcher.HasCannon,
-                        $"{launcher.DisplayName} has neither tubes nor a cannon");
+            bool beam = launcher.FiresBeam && Catalogue.OpticForPart(launcher.PartId)?.Beam is not null;
+            Assert.True(launcher.TubeCount > 0 || launcher.HasCannon || beam,
+                        $"{launcher.DisplayName} has no tubes, no cannon and no beam on its part");
         }
     }
 
@@ -302,19 +329,19 @@ public class ArsenalTests
     }
 
     /// <summary>
-    /// Only the MIRV bus flies the rocket under it. Every other weapon is a weapons system with
+    /// Only a bus flies the rocket under it. Every other weapon is a weapons system with
     /// nothing to fly, and a ballistic computer crewed on it is a tab nobody can use.
     /// </summary>
     [Fact]
-    public void OnlyTheBusIsGivenABallisticComputer()
+    public void OnlyABusIsGivenABallisticComputer()
     {
         foreach (ComponentProfile component in Catalogue.Components)
         {
             List<SurveyedPart> parts = [new SurveyedPart(component.PartId, default, doubleQuat.Identity)];
+            bool isBus = component.PartId == Arsenal.MirvBus.PartId;
 
-            Assert.True(component.PartId == Arsenal.MirvBus.PartId
-                            == WeaponSurvey.Survey(parts, Catalogue.Components).HasGuidance,
-                        $"{component.DisplayName} gets a ballistic computer only if it is the bus");
+            Assert.True(isBus == WeaponSurvey.Survey(parts, Catalogue.Components).HasGuidance,
+                        $"{component.DisplayName} gets a ballistic computer only if it is a bus");
         }
     }
 
@@ -326,6 +353,20 @@ public class ArsenalTests
     /// is then invisible: the panel says "no weapons systems" about a craft carrying it, with
     /// nothing in any log and nothing on screen but a part that does nothing.</para>
     /// </summary>
+    [Fact]
+    public void EverySearchSetIsASensorComponentSearchingWithARegisteredSet()
+    {
+        foreach (SearchSetProfile set in Arsenal.SearchSets)
+        {
+            Assert.Contains(Catalogue.Components, c => c.PartId == set.PartId && c.Role == WeaponRole.Sensor);
+
+            SensorProfile? sensor = Catalogue.TrySensorNamed(set.Sensor);
+            Assert.NotNull(sensor);
+            Assert.False(sensor.CuedOnly, $"{set.DisplayName} searches with a set that finds nothing by itself");
+            Assert.Equal(ScopePresentation.Search, sensor.Scope);
+        }
+    }
+
     [Fact]
     public void EveryRegisteredLauncherIsAlsoARecognisedComponent()
     {

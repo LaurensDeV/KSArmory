@@ -19,11 +19,12 @@ internal sealed class TargetSet
     /// <summary>
     /// How many places one bus may be sent to.
     ///
-    /// <para>Six because the bus carries six warheads, so past that a target gets nothing. It is not a
-    /// budget: reaching six targets is bounded by divert and by the coast's length long before this
+    /// <para>Seven because the post-boost bus carries seven warheads. A bus carrying fewer may hold a target
+    /// past its rack, which gets nothing: the release is bounded by what is loaded, not by this. It is not a
+    /// budget: reaching that many targets is bounded by divert and by the coast's length long before this
     /// is, and at 2,000 km only about three fit.</para>
     /// </summary>
-    public const int MaxTargets = 6;
+    public const int MaxTargets = 7;
 
     private readonly List<Entry> _entries = [];
 
@@ -195,6 +196,69 @@ internal sealed class TargetSet
 
         _entries[index] = _entries[index] with { Warheads = got };
         return got;
+    }
+
+    /// <summary>
+    /// Move warheads onto one target, by one or by several — what a click on a map does.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>It comes from whichever target holds the most</b>, after any unassigned remainder
+    /// is spent. Not from the lead: <c>Designate</c> puts everything aboard on the one target, but
+    /// adding another re-elects the lead to whichever is farthest, so by the time a warhead is
+    /// wanted the lead is often the empty new target and the full one is no longer it. Taking
+    /// "from the lead" then takes from a target holding nothing and refuses.</para>
+    ///
+    /// <para><b>Giving one back does not name a destination.</b> It simply stops being assigned,
+    /// and an unassigned warhead already rides to the lead — crediting it explicitly would be the
+    /// same arithmetic written twice, and the two could then disagree.</para>
+    ///
+    /// <para>Refused rather than clamped when there are not enough: half a gesture leaves an
+    /// operator believing a click did something it did not.</para>
+    /// </remarks>
+    public bool Shift(int index, int delta, int available)
+    {
+        if (index < 0 || index >= _entries.Count || delta == 0) return false;
+
+        int want = _entries[index].Warheads + delta;
+        if (want < 0) return false;
+
+        if (delta < 0)
+        {
+            _entries[index] = _entries[index] with { Warheads = want };
+            return true;
+        }
+
+        int spare = Math.Max(0, available - Assigned);
+        int owed = delta - Math.Min(spare, delta);
+
+        if (owed > 0)
+        {
+            int from = Fullest(index);
+            if (from < 0 || _entries[from].Warheads < owed) return false;
+
+            _entries[from] = _entries[from] with { Warheads = _entries[from].Warheads - owed };
+        }
+
+        _entries[index] = _entries[index] with { Warheads = want };
+        return true;
+    }
+
+    // Which other target has the most to give. Ties keep the earliest, which is the order the
+    // player stated them in.
+    private int Fullest(int besides)
+    {
+        int found = -1;
+        int most = 0;
+
+        for (int i = 0; i < _entries.Count; i++)
+        {
+            if (i == besides || _entries[i].Warheads <= most) continue;
+
+            most = _entries[i].Warheads;
+            found = i;
+        }
+
+        return found;
     }
 
     /// <summary>

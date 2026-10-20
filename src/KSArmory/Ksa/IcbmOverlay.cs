@@ -33,6 +33,12 @@ internal static class IcbmOverlay
     private static readonly ImColor8 MarkOther = new(255, 175, 115, 225);
     private static readonly ImColor8 Text = new(238, 240, 245, 245);
 
+    private static readonly ImColor8[] Chain =
+    [
+        new(255, 175, 115, 225), new(120, 200, 255, 225), new(170, 235, 120, 225), new(240, 130, 220, 225),
+        new(255, 225, 110, 225), new(120, 235, 215, 225), new(200, 160, 255, 225), new(255, 130, 130, 225),
+    ];
+
     // Coarse enough that a half-hour arc is a few dozen lines rather than a few thousand.
     private const int MaxSegments = 96;
 
@@ -52,7 +58,7 @@ internal static class IcbmOverlay
     public static void Draw(IcbmComputers computers, IcbmComputer? focused, List<double3> scratch)
     {
         DrawInWorld(computers, focused, scratch);
-        DrawMarks(computers);
+        DrawMarks(computers, focused);
     }
 
     private static void DrawInWorld(IcbmComputers computers, IcbmComputer? focused, List<double3> scratch)
@@ -141,7 +147,7 @@ internal static class IcbmOverlay
     // The screen-space half: a mark on the aim point wherever it is, with the countdown beside it.
     // Clamped to the edge when it is off screen rather than dropped, because a target behind the
     // camera is exactly when knowing which way it lies is worth something.
-    private static void DrawMarks(IcbmComputers computers)
+    private static void DrawMarks(IcbmComputers computers, IcbmComputer? focused)
     {
         bool anything = false;
         foreach (IcbmComputer computer in computers.All)
@@ -174,12 +180,23 @@ internal static class IcbmOverlay
 
         ImDrawListPtr draw = ImGui.GetWindowDrawList();
 
+        int rockets = 0;
+        foreach (IcbmComputer _ in computers.All) rockets++;
+
+        int seat = -1;
         foreach (IcbmComputer computer in computers.All)
         {
+            seat++;
             if (!computer.Config.MarkTarget) continue;
             if (!KsaWorld.IsAlive(computer.Craft)) continue;
             if (computer.TargetEcl() is not { } targetEcl) continue;
             if (!KsaWorld.TryProjectOrClamp(targetEcl, out float2 at, out bool inView)) continue;
+
+            // Several rockets' sets lie side by side, so each is one colour and one chain, and only the rocket the panel
+            // is on says everything: identical labels on eight sets read as columns of stops rather than as eight walks.
+            bool full = rockets <= 1 || ReferenceEquals(computer, focused);
+            ImColor8 own = rockets <= 1 ? MarkOther : Chain[seat % Chain.Length];
+            string craft = KsaWorld.DisplayName(computer.Craft);
 
             IcbmCommand command = computer.Command;
 
@@ -191,25 +208,43 @@ internal static class IcbmOverlay
                 _ => Mark,
             };
 
+            int count = computer.Targets.Count;
+            var marks = new (float2 At, bool Visible)?[count];
+            if (computer.LeadTarget >= 0 && computer.LeadTarget < count) marks[computer.LeadTarget] = (at, inView);
+
             DrawCross(draw, at, colour, inView);
-            draw.AddText(new float2(at.X + Half + 6f, at.Y - Half), Text,
-                         Numbered(computer, computer.LeadTarget) + Caption(computer));
+            draw.AddText(new float2(at.X + Half + 6f, at.Y - Half), full ? Text : own,
+                         full ? Numbered(computer, computer.LeadTarget) + (rockets > 1 ? $"{craft}  " : "") + Caption(computer)
+                              : $"{Numbered(computer, computer.LeadTarget)}{craft}");
 
             // The rest of the set, numbered because the panel lists them by number and a ring on the
             // ground with no number is a place nobody can pair with a row. Each carries the same
             // countdown: every warhead of a walk is solved onto the one pinned arrival.
             string impact = ImpactIn(computer);
 
-            for (int i = 0; i < computer.Targets.Count; i++)
+            for (int i = 0; i < count; i++)
             {
                 if (i == computer.LeadTarget) continue;
                 if (computer.SiteEcl(computer.Targets[i].Site) is not { } siteEcl) continue;
                 if (!KsaWorld.TryProjectOrClamp(siteEcl, out float2 where, out bool visible)) continue;
 
+                marks[i] = (where, visible);
                 DrawCross(draw, where, MarkOther, visible);
-                draw.AddText(new float2(where.X + Half + 6f, where.Y - Half), Text,
-                             Numbered(computer, i) + computer.Targets[i].Site.Describe()
-                             + $"  {computer.Targets[i].Warheads} warhead(s){impact}");
+                draw.AddText(new float2(where.X + Half + 6f, where.Y - Half), full ? Text : own,
+                             full ? Numbered(computer, i) + computer.Targets[i].Site.Describe()
+                                    + $"  {computer.Targets[i].Warheads} warhead(s){impact}"
+                                  : $"{i + 1}");
+            }
+
+            if (count < 2) continue;
+
+            int[] order = computer.Walk.Walk.VisitOrder(count, computer.LeadTarget);
+            for (int k = 1; k < order.Length; k++)
+            {
+                if (order[k - 1] >= count || order[k] >= count) continue;
+                if (marks[order[k - 1]] is not { Visible: true } from || marks[order[k]] is not { Visible: true } to) continue;
+
+                draw.AddLine(from.At, to.At, own, 1.5f);
             }
         }
 

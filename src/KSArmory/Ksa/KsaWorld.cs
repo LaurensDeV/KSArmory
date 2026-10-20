@@ -1892,6 +1892,22 @@ internal static class KsaWorld
         }
     }
 
+    /// <summary>How far along a ray from a craft the body under it has cloud thick enough to stop a beam.</summary>
+    public static bool TryCloudEntry(Vehicle platform, double3 originEcl, double3 directionEcl, double reach,
+                                     out double distance)
+    {
+        distance = double.PositiveInfinity;
+        try
+        {
+            return ParentBody(platform) is { } body
+                   && CloudLayers.TryEntry(body, originEcl, directionEcl, reach, out distance);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>Whether something is running and every running engine is a solid; false if unreadable.</summary>
     public static bool OnlySolidsRunning(Vehicle craft)
     {
@@ -2159,6 +2175,57 @@ internal static class KsaWorld
         catch
         {
             return Vec.Zero;
+        }
+    }
+
+    /// <summary>What an accelerometer aboard reads, in Ecl: everything but gravity. Zero if unreadable.</summary>
+    public static double3 ProperAccelerationEcl(Vehicle vehicle)
+    {
+        try
+        {
+            double3 measured = vehicle.AccelerationBody.Transform(vehicle.Body2Cce);
+            return Vec.IsFinite(measured) ? measured : Vec.Zero;
+        }
+        catch
+        {
+            return Vec.Zero;
+        }
+    }
+
+    /// <summary>
+    /// The vacuum exhaust velocity KSA's rocket model gives the craft's engines, or its attitude
+    /// thrusters, at full throttle: summed thrust over summed mass flow. NaN if unreadable.
+    /// </summary>
+    public static double DeclaredVacuumExhaust(Vehicle craft, bool thrusters)
+    {
+        try
+        {
+            double thrust = 0.0, flow = 0.0;
+            if (thrusters)
+            {
+                Span<ThrusterController> jets = craft.Parts.Modules.Get<ThrusterController>();
+                for (int i = 0; i < jets.Length; i++)
+                {
+                    RocketControllerData d = RocketControllerData.ComputeFromCores(jets[i].Cores.AsSpan(), 0f, 1f);
+                    thrust += Vec.Len(new double3(d.ThrustMax.X, d.ThrustMax.Y, d.ThrustMax.Z));
+                    flow += d.MassFlowRateMax;
+                }
+            }
+            else
+            {
+                Span<EngineController> engines = craft.Parts.Modules.Get<EngineController>();
+                for (int i = 0; i < engines.Length; i++)
+                {
+                    RocketControllerData d = RocketControllerData.ComputeFromCores(engines[i].Cores.AsSpan(), 0f, 1f);
+                    thrust += Vec.Len(new double3(d.ThrustMax.X, d.ThrustMax.Y, d.ThrustMax.Z));
+                    flow += d.MassFlowRateMax;
+                }
+            }
+            return flow > 0.0 ? thrust / flow : double.NaN;
+        }
+        catch
+        {
+            return double.NaN;
         }
     }
 
@@ -2432,6 +2499,35 @@ internal static class KsaWorld
             // Unreadable reads as having one, so a burst falls back to the cloud rather than to the
             // airless effect: a cloud that does not draw is a smaller fault than dust on Earth.
             return true;
+        }
+    }
+
+    /// <summary>
+    /// A body's magnetic field: KSA's declared dipole, tilted and off centre, where it has one; else a centred
+    /// one as its <c>Bodies.xml</c> entry gives it; else none.
+    /// </summary>
+    public static MagneticDipole DipoleOf(Celestial body)
+    {
+        try
+        {
+            if (body.BodyTemplate?.MagnetosphereReference is { } field && field.EquatorialFieldMicroTesla.Value > 0.0)
+            {
+                return new MagneticDipole(field.OffsetCcf, double3.UnitZ.Transform(field.Mag2Ccf),
+                                          field.EquatorialFieldMicroTesla.Value * 1.0e-6, body.MeanRadius);
+            }
+
+            BodyTraits traits = BodyCatalogue.For(SafeId(body));
+            if (!(traits.FieldTesla > 0.0)) return MagneticDipole.None;
+
+            // Ccf's +Z is the spin axis and +X its zero longitude.
+            double tilt = double.DegreesToRadians(traits.FieldTiltDeg);
+            double azimuth = double.DegreesToRadians(traits.FieldAzimuthDeg);
+            double3 axis = new(Math.Sin(tilt) * Math.Cos(azimuth), Math.Sin(tilt) * Math.Sin(azimuth), Math.Cos(tilt));
+            return new MagneticDipole(Vec.Zero, axis, traits.FieldTesla, body.MeanRadius);
+        }
+        catch
+        {
+            return MagneticDipole.None;
         }
     }
 
@@ -2892,6 +2988,23 @@ internal static class KsaWorld
 
     private static FieldInfo? _tankTemplateField;
     private static bool _tankTemplateProbed;
+
+    /// <summary>What a tank holds, in kg, off the craft's own resource states.</summary>
+    public static bool TryTankMassKg(Tank tank, out double kg)
+    {
+        kg = 0.0;
+        try
+        {
+            if (!TryCraftOf(tank.Parent, out Vehicle? craft)) return false;
+            ReadOnlySpan<MoleState> states = craft.Parts.Moles.States;
+            foreach (Mole mole in tank.Moles) kg += states[mole.StatesIdx].Mass;
+            return double.IsFinite(kg);
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     /// <summary>The tank a part carries, on the part or any of its sub-parts.</summary>
     public static bool TryTankOf(Part part, [NotNullWhen(true)] out Tank? tank)
@@ -3675,6 +3788,124 @@ internal static class KsaWorld
         typeof(ViewportBase).GetProperty(nameof(ViewportBase.OptionFlags))?.GetSetMethod(nonPublic: true);
 
     /// <summary>
+    /// Which craft a ground-track window belongs to. The window holds it privately and nothing
+    /// else names it, so this is reflection; a refusal means the marks are not drawn, which is the
+    /// honest failure for an overlay.
+    /// </summary>
+    public static bool TryGroundTrackCraft(GroundTrackWindow window,
+                                           [NotNullWhen(true)] out Vehicle? craft)
+    {
+        craft = null;
+
+        try
+        {
+            craft = typeof(GroundTrackWindow)
+                    .GetField("_vehicle", BindingFlags.NonPublic | BindingFlags.Instance)
+                    ?.GetValue(window) as Vehicle;
+
+            return craft is not null && IsAlive(craft);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// KSA's ground-track window for a craft, opened or closed. The property builds and disposes
+    /// the window, so this is the whole of it.
+    /// </summary>
+    public static bool TryShowGroundTrack(Vehicle craft, bool show)
+    {
+        try
+        {
+            craft.ShowGroundTrack = show;
+            return craft.ShowGroundTrack == show;
+        }
+        catch (System.Exception e)
+        {
+            Log.Warn($"could not change the ground track window: {e.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// A map viewport's zoom and pan, written straight onto the fields KSA drags and zooms. For
+    /// the one caller that already holds the viewport; <see cref="TrySetGroundTrackView"/> is the
+    /// form that finds it from a craft.
+    /// </summary>
+    public static void SetMapView(GenericImGuiViewport view, float zoom, float2 pan)
+    {
+        try
+        {
+            const BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
+            Type type = typeof(GenericImGuiViewport);
+
+            type.GetField("_zoom", Private)?.SetValue(view, zoom);
+            type.GetField("_pan", Private)?.SetValue(view, pan);
+        }
+        catch
+        {
+            // Driving the map is a test's business; a refusal costs the view, not the frame.
+        }
+    }
+
+    /// <summary>
+    /// Where that window is looking: its zoom, and its pan in pixels. Both are private fields of
+    /// the viewport KSA drags and zooms, so this is reflection, and it reports rather than throws
+    /// when a field moves — driving the map is a test's business, and a clear refusal is worth
+    /// more there than an exception inside the GUI pass.
+    /// </summary>
+    /// <remarks>
+    /// Nothing a player does comes through here. KSA's own wheel and drag write the same fields
+    /// from inside <c>CreateDraggableZoomableViewport</c>, which also re-clamps them, so a value
+    /// set here is a starting point rather than a setting.
+    /// </remarks>
+    public static bool TrySetGroundTrackView(Vehicle craft, double? zoom, double? panX,
+                                             double? panY, out string trouble)
+    {
+        trouble = "";
+
+        try
+        {
+            const BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
+
+            if (typeof(Vehicle).GetField("_groundTrackWindow", Private)?.GetValue(craft)
+                is not GroundTrackWindow window)
+            {
+                trouble = "that craft has no ground track window open";
+                return false;
+            }
+
+            GenericImGuiViewport view = window.Viewport;
+            FieldInfo? zoomField = typeof(GenericImGuiViewport).GetField("_zoom", Private);
+            FieldInfo? panField = typeof(GenericImGuiViewport).GetField("_pan", Private);
+
+            if (zoomField is null || panField is null)
+            {
+                trouble = "KSA's map viewport no longer keeps its zoom and pan where this expects";
+                return false;
+            }
+
+            if (zoom is { } z) zoomField.SetValue(view, (float)z);
+
+            if (panX.HasValue || panY.HasValue)
+            {
+                float2 was = view.GetPan();
+                panField.SetValue(view,
+                                  new float2((float)(panX ?? was.X), (float)(panY ?? was.Y)));
+            }
+
+            return true;
+        }
+        catch (System.Exception e)
+        {
+            trouble = e.Message;
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Takes KSA's own window and orbit lines off a camera viewport, leaving it rendering, so the
     /// mod can show the picture in a window of its own. False when that cannot be done, and KSA's
     /// window stays.
@@ -4334,8 +4565,14 @@ internal static class KsaWorld
     /// </summary>
     public static bool TryRayCraftHit(double3 eye, double3 direction, Vehicle? exclude, double maxRange,
                                       out Vehicle? hitCraft, out double range)
+        => TryRayPartHit(eye, direction, exclude, maxRange, out hitCraft, out _, out range);
+
+    /// <summary><see cref="TryRayCraftHit"/>, also naming the part the ray met first.</summary>
+    public static bool TryRayPartHit(double3 eye, double3 direction, Vehicle? exclude, double maxRange,
+                                     out Vehicle? hitCraft, out Part? hitPart, out double range)
     {
         hitCraft = null;
+        hitPart = null;
         range = maxRange;
 
         try
@@ -4363,6 +4600,7 @@ internal static class KsaWorld
                     {
                         range = hit;
                         hitCraft = craft;
+                        hitPart = parts[i];
                     }
                 }
             }

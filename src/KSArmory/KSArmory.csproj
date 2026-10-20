@@ -87,9 +87,9 @@
   <ItemGroup>
     <Reference Include="$(KsaDllDir)KSA.dll" Private="false" />
     <Reference Include="$(KsaDllDir)StarMap.API.dll" Private="false" />
-    <Reference Include="$(KsaDllDir)Brutal.Core.Numerics.dll" Private="false" />
-    <Reference Include="$(KsaDllDir)Brutal.Core.Common.dll" Private="false" />
-    <Reference Include="$(KsaDllDir)Brutal.Core.Strings.dll" Private="false" />
+    <Reference Include="$(KsaDllDir)Brutal.Numerics.dll" Private="false" />
+    <Reference Include="$(KsaDllDir)Brutal.Core.dll" Private="false" />
+    <Reference Include="$(KsaDllDir)Brutal.Strings.dll" Private="false" />
     <Reference Include="$(KsaDllDir)Brutal.ImGui.dll" Private="false" />
     <Reference Include="$(KsaDllDir)Brutal.ImGui.Abstractions.dll" Private="false" />
     <!-- KeyHash, which keeps the KSA namespace but is defined in this assembly. -->
@@ -112,6 +112,8 @@
       except Vehicle.ProcessInput, which takes the key action the keyboard would have sent.
     -->
     <Reference Include="$(KsaDllDir)Brutal.Glfw.dll" Private="false" />
+    <!-- libktx, for Ksa/CloudLayers.cs: KSA's cloud coverage maps are zstd-packed KTX2, read on the CPU. -->
+    <Reference Include="$(KsaDllDir)Brutal.Ktx.dll" Private="false" />
     <!--
       Harmony, for Ksa/AttitudeHook.cs and nothing else. KSA double-buffers a vehicle's flight
       computer across the frame and every StarMap hook lands on the wrong side of it, so an

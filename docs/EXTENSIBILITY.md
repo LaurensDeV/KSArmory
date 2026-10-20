@@ -133,7 +133,7 @@ and attributes every diagnostic, which is the whole of what this mod knows about
 
 - **A string signature means a pack needs no KSA assemblies to build.** This is the property worth
   protecting above all others. `LauncherProfile.Tubes` is `Tube[]` over `double3` from
-  `Brutal.Core.Numerics.dll`, so a pack constructing profiles in C# inherits KSArmory's own
+  `Brutal.Numerics.dll`, so a pack constructing profiles in C# inherits KSArmory's own
   licensing friction — the assemblies are RocketWerkz's, must not be redistributed, and getting
   them is the step `tools/doctor.sh` exists for. A pack that passes text references `KSArmory.dll`
   and `StarMap.API.dll` and nothing else, and `StarMap.API.dll` ships with the loader. **A weapon
@@ -326,7 +326,8 @@ XML directly when the last one has moved, and the bridge goes.
 Move the definitions into data and the validator reads *the same file the game reads*. Give it
 `--mod-root <dir>` and it becomes a tool a pack author runs against their own folder, gating what is
 otherwise silent in game: a mesh Id absent from the atlas, a texture path whose case is wrong, a
-marker matching two subparts or none, a tube seat disagreeing with the mesh.
+marker matching two subparts or none. All but the last of these runs today; a tube seat disagreeing
+with the mesh is still only checked for the built-ins.
 
 The generated half stays here. `muzzles.json` is an artefact of `tools/model/pantsir.py` and means
 nothing to a pack; the path that generalises is the **authored-launcher** one, which reads mesh
@@ -476,7 +477,7 @@ spellings of one catalogue — is still a live answer rather than a rejected one
 | 1 | ~~`PackReader` in `Sim/`: text and a source name in, profiles and diagnostics out~~ | medium | **landed** |
 | 2 | ~~`Armoury`: the public surface, the freeze, the existence checks and the API record~~ | small | **landed** |
 | 2b | ~~`PackScan` + `InstalledPacks`: read a `KSArmory/` folder inside every mod~~ | small | **landed** — what makes a pack assets-only |
-| 3 | `validate-parts.py --mod-root`, plus the silent-marker fixes | medium | yes — improves the built-ins too |
+| 3 | `validate-parts.py --mod-root`, plus the silent-marker fixes | medium | **landed but for the tube seat** — a pack's markers, PartIds and asset paths are checked; a tube's position against the mesh is not |
 | 4 | The **Content** window, and the pack template repository | small | yes |
 | 5 | ~~Register a shipped weapon through the reader instead of compiling it in~~ | small | **landed** — the Pantsir, not the LAU-7 the plan named |
 | 6 | Let a pack register a new *kind* | large | **not yet** — see above |

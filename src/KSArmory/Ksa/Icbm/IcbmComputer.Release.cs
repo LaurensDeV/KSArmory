@@ -116,7 +116,10 @@ internal sealed partial class IcbmComputer
         double arrival = Program.Arc?.ArrivalAngleDeg ?? double.NaN;
 
         Log.Info($"release summary on {KsaWorld.DisplayName(Craft)}: "
-                 + $"cut off {Program.ResidualAtCutoff:F3} m/s short, "
+                 + $"cut off {Program.ResidualAtCutoff:F3} m/s short by {Program.CutOffBy}, "
+                 + (Program.ResidualOffTheMissFreeLine < Program.ResidualAtCutoff - 1e-6
+                        ? $"{Program.ResidualOffTheMissFreeLine:F3} of it off the line that misses nothing, "
+                        : "")
                  + $"thrust spent {Program.ThrustSpentMetresPerSecond:F0} m/s against {Program.ToGainAtIgnition:F0} to gain at ignition, "
                  + $"trim owed {Rate(_owedAtSplit)} at the split and "
                  + $"{Rate(_trim.AtReleaseMetresPerSecond)} on release "
@@ -277,7 +280,7 @@ internal sealed partial class IcbmComputer
                                                                _trimAbandoned, Program.ReleasesAtCutoff,
                                                                _trim.Done, _postBoost.Correcting);
 
-        if (weapon is null || !Command.ReadyToDeploy || trimming)
+        if (weapon is null || !Command.ReadyToDeploy || trimming || Turning || _reachDueAfterTurn || _hopBurn.Holds)
         {
             return new ReleaseCommand(held, roll, false, -1, 0.0, "");
         }

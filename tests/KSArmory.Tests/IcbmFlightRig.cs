@@ -586,7 +586,7 @@ internal sealed class IcbmFlightRig
 
     private void SlewThrottle(in IcbmCommand command, double step)
     {
-        double wanted = command.EngineOn || command.Pulsing ? Math.Clamp(command.Throttle, MinThrottle, 1.0) : 1.0;
+        double wanted = command.EngineOn || command.Pulsing || command.HoldsLever ? Math.Clamp(command.Throttle, MinThrottle, 1.0) : 1.0;
 
         bool solid = StageIndex < Stages.Count && Stages[StageIndex].Solid;
 

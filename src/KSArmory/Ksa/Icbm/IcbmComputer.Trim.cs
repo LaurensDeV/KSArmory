@@ -127,7 +127,7 @@ internal sealed partial class IcbmComputer
         PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
             clearance.IsClear, clearance.Abandoned, _postBoost.Cycles,
             TrimBudgetMetresPerSecond, _trim.SpentMetresPerSecond,
-            Config.KeepOutCoversTheClearance);
+            Config.KeepOutCoversTheClearance, _hopCeilingMetresPerSecond);
 
         if (plan.Abandon)
         {
@@ -169,7 +169,8 @@ internal sealed partial class IcbmComputer
             Log.Info($"clearance on {KsaWorld.DisplayName(Craft)}: {clearance.Said}");
         }
 
-        _mayTrim = plan.MayTrim;
+        // The turn's jets and the trim's are kept apart: the trim's acceleration estimate assumes a steady frame.
+        _mayTrim = plan.MayTrim && !Turning && !HopWaitsForItsWarhead;
 
         _trim.Begin();
 
@@ -196,7 +197,8 @@ internal sealed partial class IcbmComputer
             plan.CeilingMetresPerSecond,
             Config.PulseTrim ? Config.PulseSeconds : 0.0,
             Config.StallFallsBackToHolding,
-            Config.TrimCountsTheCommandInFlight));
+            Config.TrimCountsTheCommandInFlight,
+            MaxSeconds: Config.HopsSizeTheirOwnSlots ? BusTrim.MaxSeconds + _hopBurnSeconds : double.NaN));
 
         // The mode goes through the attitude window for the same reason the aim does: applying a
         // worker's results copies the whole flight computer over anything written outside it. The
@@ -204,6 +206,10 @@ internal sealed partial class IcbmComputer
         AttitudeHook.PulseMode(Craft, trim.Pulse);
         AttitudeHook.KeepJetsThroughTheClear(Craft, Config.JetsThroughTheKeyboardClear);
         VehicleCommand.DriveTranslation(Craft, trim.Fire);
+        _lastOwed = trim.ToGainMetresPerSecond;
+
+        // Stepped through a turn, the passes count it as the bus not holding still and end the correction.
+        if (Turning) return;
 
         // The post-boost passes. With the thrusters quiet and the nose steady the correction gets a
         // clean look at where the bus is actually going; moving the aim and re-solving the arc from
@@ -214,6 +220,8 @@ internal sealed partial class IcbmComputer
         // The same call ReleaseImpulseCci() feeds the prediction, so what the sequencer watches for
         // steadiness is the term that actually moves the reading rather than a proxy for it.
         ReleaseAnArrivalTheTrimCannotFly(trim, state);
+
+        if (ResolvedTheHopAgain()) return;
 
         int passesBefore = _postBoost.Cycles;
 
@@ -227,7 +235,10 @@ internal sealed partial class IcbmComputer
             AimHasSettled: _aim.Settled,
             TrimGaveUp: _trim.GaveUp,
             TrimSpentMetresPerSecond: _trim.SpentMetresPerSecond,
-            BudgetMetresPerSecond: PostBoostAim.MaxTrimMetresPerSecond + ReserveReleasedMetresPerSecond,
+            BudgetMetresPerSecond: Config.HopsSizeTheirOwnSlots
+                                       ? ReleaseLoop.PlanningBudget(TrimBudgetMetresPerSecond)
+                                       : PostBoostAim.MaxTrimMetresPerSecond + ReserveReleasedMetresPerSecond,
+            MaxSeconds: Config.HopsSizeTheirOwnSlots ? PostBoostAim.MaxSeconds + _hopBurnSeconds : double.NaN,
             HoldingCostMetresPerSecond: double.IsFinite(_holdingCost)
                                             ? _holdingCost
                                             : Config.HoldingCostMetresPerSecond,
@@ -304,6 +315,30 @@ internal sealed partial class IcbmComputer
             (trim.Acceleration > 0.0 ? $" (thrusters measured at {trim.Acceleration:F3} m/s2)" : "")
             + Grew()
             + Arrivals());
+    }
+
+    // Before the passes may measure: the arc solved from where the hop's burn left the bus.
+    private bool ResolvedTheHopAgain()
+    {
+        if (_hopRound < 0 || !_trim.Done || _postBoost.Cycles > 0) return false;
+
+        double spent = _trim.SpentMetresPerSecond - _spentAtHopRound;
+        if (!ReleaseLoop.ResolvesTheHopAgain(_hopRound, spent))
+        {
+            _hopRound = -1;
+            return false;
+        }
+
+        _hopRound++;
+        _spentAtHopRound = _trim.SpentMetresPerSecond;
+        if (Config.HopsFreeTheirArrival) Program.FreeTheHopArrival();
+        else Program.CorrectCoastArc();
+        _trim.Resume();
+        _measureDue = false;
+        _freshMiss = double.NaN;
+        Log.Info($"walk on {KsaWorld.DisplayName(Craft)}: the hop's burn spent {spent:F1} m/s, so its arc is solved "
+                 + $"again from where it left the bus (round {_hopRound} of at most {ReleaseLoop.MaxHopRounds})");
+        return true;
     }
 
     // The one state the latch cannot get itself out of. The arrival is pinned during the burn and
@@ -387,7 +422,7 @@ internal sealed partial class IcbmComputer
         double3 owed = _trim.ToGainCci;
 
         Log.Info($"split debt on {KsaWorld.DisplayName(Craft)}: "
-                 + $"owed {trim.ToGainMetresPerSecond:F3} m/s, "
+                 + $"owed {trim.ToGainMetresPerSecond:F3} m/s{BusJetsSaid()}, "
                  + $"{Program.SecondsSinceReference:F2} s since the reference, "
                  + $"{Vec.Len(offPosition) / 1000.0:F3} km from it, "
                  + $"{Vec.Len(offVelocity):F3} m/s off its velocity, "
