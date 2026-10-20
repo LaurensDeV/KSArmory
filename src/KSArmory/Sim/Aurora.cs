@@ -3,21 +3,11 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
-/// The aurora a burst above the atmosphere makes where the planet's field brings its charged debris
-/// back down into the air: near the burst, and at the other end of the same field line in the other
-/// hemisphere.
-///
-/// <para>A burst in near-vacuum throws out charged particles -- the fission debris, ionised, and the
-/// electrons it decays with -- which cannot cross the magnetic field and spiral along it. Where a field
-/// line comes back down to about 100 km they strike the air and light it as the solar wind does.
-/// Teak, 3.8 Mt at 77 km over Johnston Island in 1958, lit an aurora over Samoa 3,200 km away: the
-/// magnetic conjugate point. Starfish Prime did the same, and its trapped electrons made a radiation
-/// belt that lasted years.</para>
-///
-/// <para><b>The field is a dipole on the spin axis</b>, not the tilted one KSA declares: a field line is
-/// <c>r = L R cos²λ</c> in magnetic latitude λ, so a burst sets its line's <c>L</c> and the line meets
-/// the aurora's altitude at the latitude that solves it, north and south, on the burst's own meridian.
-/// The brightness is drawn, not measured.</para>
+/// The aurora a burst above the atmosphere makes where the planet's field brings its charged debris back
+/// down into the air: near the burst, and at the other end of the same field line in the other hemisphere.
+/// Teak, 3.8 Mt at 77 km over Johnston Island in 1958, lit an aurora over Samoa 3,200 km away. The field
+/// is KSA's own (<see cref="MagneticDipole"/>), and the look is KSA's own aurora's, ported to a patch
+/// (<c>Shaders/KSArmoryCloud.comp</c>, <c>DrawAurora</c>).
 /// </summary>
 internal static class Aurora
 {
@@ -38,8 +28,11 @@ internal static class Aurora
     /// </summary>
     public static readonly double FootColumnKgPerM2 = 1.225 * 8_000.0 * Math.Exp(-100.0 / 8.0);
 
-    /// <summary>How far the curtain reaches over its border, in the body's scale heights: 300 km in Earth's air.</summary>
-    public const double ReachScaleHeights = 37.5;
+    /// <summary>
+    /// How far the curtain reaches over its border, in the body's scale heights: KSA's own aurora's shell,
+    /// 95 to 500 km in Earth's air.
+    /// </summary>
+    public const double ReachScaleHeights = 405.0 / 8.0;
 
     /// <summary>The curtain's lower border over a body's mean sphere (m).</summary>
     public static double BottomAltitude(BodyAir air) => air.AltitudeOfColumn(FootColumnKgPerM2);
@@ -56,60 +49,13 @@ internal static class Aurora
     /// <summary>How long after the burst it lights: the particles are seconds along the field line.</summary>
     public const double ArrivesSeconds = 3.0;
 
-    /// <summary>Its brightness at a megatonne, looking through the curtain edge-on from under it.</summary>
-    public const double PeakNits = 0.25;
+    /// <summary>Its brightness at a megatonne, as KSA's <c>AuroraReference.Brightness</c>: one is KSA's own aurora.</summary>
+    public const double PeakBrightness = 1.0;
 
     /// <summary>
-    /// Where the burst's field line comes down to the aurora's altitude, as unit directions from the
-    /// planet's centre: the end in the burst's own hemisphere first, then its conjugate. None when the
-    /// line never climbs that high -- a burst under the aurora's altitude on the magnetic equator -- and
-    /// one where the burst sits on the equator line itself.
-    /// </summary>
-    /// <param name="burstFromCentre">The burst, from the planet's centre, in any frame the axis is in.</param>
-    /// <param name="axis">The dipole's axis, the spin axis.</param>
-    public static int Footpoints(double3 burstFromCentre, double3 axis, double planetRadius, double footAltitude,
-                                 Span<double3> into)
-    {
-        double r = Vec.Len(burstFromCentre);
-        if (!(r > 0.0) || !(planetRadius > 0.0) || into.Length < 2) return 0;
-
-        double3 up = burstFromCentre / r;
-        double3 pole = Vec.Unit(axis);
-        double sinLat = Math.Clamp(Vec.Dot(up, pole), -1.0, 1.0);
-        double cos2 = 1.0 - (sinLat * sinLat);
-        if (!(cos2 > 1.0e-9)) return 0;
-
-        double shell = r / (planetRadius * cos2);
-        double foot = (planetRadius + footAltitude) / planetRadius;
-        double cos2Foot = foot / shell;
-        if (cos2Foot > 1.0) return 0;
-
-        double footLat = Math.Acos(Math.Sqrt(cos2Foot));
-
-        // The burst's meridian: along the equator, at its magnetic longitude.
-        double3 outward = Vec.Unit(up - (pole * sinLat));
-        double3 north = (outward * Math.Cos(footLat)) + (pole * Math.Sin(footLat));
-        double3 south = (outward * Math.Cos(footLat)) - (pole * Math.Sin(footLat));
-
-        bool northFirst = sinLat >= 0.0;
-        into[0] = northFirst ? north : south;
-        if (footLat < 1.0e-6) return 1;
-
-        into[1] = northFirst ? south : north;
-        return 2;
-    }
-
-    /// <summary>Magnetic east at a footpoint: the way an auroral arc runs.</summary>
-    public static double3 EastAt(double3 footDirection, double3 axis)
-    {
-        double3 east = Vec.Cross(Vec.Unit(axis), footDirection);
-        return Vec.Len2(east) > 1.0e-12 ? Vec.Unit(east) : Vec.Zero;
-    }
-
-    /// <summary>
-    /// How bright the curtain is at an age, for a yield in kilotonnes: arriving over its first seconds,
-    /// fading over minutes, and gone at <see cref="LifeSeconds"/>. As the square root of the yield,
-    /// since the brighter aurora is the wider one as much as the more intense.
+    /// How bright the curtain is at an age, for a yield in kilotonnes, against KSA's own aurora: arriving
+    /// over its first seconds, fading over minutes, and gone at <see cref="LifeSeconds"/>. As the fourth
+    /// root of the yield, so 50 Mt is under three times a natural display rather than seven.
     /// </summary>
     public static double Strength(double yieldKt, double age)
     {
@@ -119,6 +65,6 @@ internal static class Aurora
         double fading = Math.Exp(-Math.Max(age - ArrivesSeconds, 0.0) / FadeSeconds);
         double ending = 1.0 - Math.Clamp((age - (LifeSeconds - 60.0)) / 60.0, 0.0, 1.0);
 
-        return PeakNits * Math.Sqrt(yieldKt / 1000.0) * arriving * fading * ending;
+        return PeakBrightness * Math.Pow(yieldKt / 1000.0, 0.25) * arriving * fading * ending;
     }
 }

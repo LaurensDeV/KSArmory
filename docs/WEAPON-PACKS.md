@@ -299,8 +299,8 @@ pack by its root element, and read in every enabled mod.
 | Attribute | Meaning | When left out |
 |---|---|---|
 | `Id` | the body's Id, as KSA's system declares it | required |
-| `FieldTesla` | dipole strength at the surface equator (T) | no field: no aurora, no debris held along it |
-| `FieldTiltDeg`, `FieldAzimuthDeg` | the dipole's tilt from the spin axis, and which way | 0 |
+| `FieldTesla` | dipole strength at the surface equator (T), for a body KSA declares no field on; KSA's own wins where it has one | no field: no aurora, no debris held along it |
+| `FieldTiltDeg`, `FieldAzimuthDeg` | the dipole's tilt from the spin axis, and toward which longitude | 0 |
 | `Airglow` | `OxygenNitrogen`, `CarbonDioxide`, `Hydrogen` or `Neutral` | `Neutral`: a dim, uncoloured glow |
 | `Condensation` | whether a burst raises white condensation | follows whether the body has an ocean |
 | `Gamma` | the air's ratio of specific heats, for the speed of sound | 1.4 |

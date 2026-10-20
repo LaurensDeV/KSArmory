@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-321 types and 865 members across 11 assemblies.
+322 types and 869 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -856,6 +856,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double3 Transform(Brutal.Numerics.double3, Brutal.Numerics.double4x4)`
 - `Brutal.Numerics.double3 Transform(Brutal.Numerics.double3, Brutal.Numerics.doubleQuat)`
 
+### KSA.DoubleReference
+
+- `double Value`
+
 ### KSA.EmptyStruct
 
 *referenced as a type only*
@@ -1184,6 +1188,9 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.MagnetosphereReference
 
 - `Brutal.Numerics.double3 ToMag(Brutal.Numerics.double3)`
+- `Brutal.Numerics.double3 get_OffsetCcf()`
+- `Brutal.Numerics.doubleQuat get_Mag2Ccf()`
+- `KSA.DoubleReference EquatorialFieldMicroTesla`
 - `System.Collections.Generic.List`1<KSA.RadiationBeltReference> Belts`
 
 ### KSA.ManualControlInputs

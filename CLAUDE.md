@@ -393,7 +393,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/DebrisShell.cs` | what a burst in air too thin for a mushroom leaves -- **its debris as light, not as a cloud**: white-hot and filling the ball, cooling into a red, rim-bright shell gone in three minutes, stretched along the field line where the air is thin enough for the field to hold it |
 | `Sim/DebrisBubble.cs` | what a burst above the air leaves instead: **its debris held by the field**, at the equal-volume radius where the field's pressure stops it, stretched 2.7:1 along the field and collapsed within 16 s — the kinetic share fitted on Starfish, which it then draws at 1,833 by 679 km against 1,840 by 680; ballistic on a body with no field |
 | `Sim/RedWave.cs` | the red sphere a burst 60 km up or higher sends through the thermosphere — **Teak's, 965 km across at six minutes** — at 1.35 km/s with oxygen's red trailing 150 km behind the front, glowing only where the air is thin enough that the red is not quenched: a density, about 150 km on Earth. Its own sky dispatch, drawn in closed form, and a Display switch |
-| `Sim/Aurora.cs` | the aurora a burst above the atmosphere lights **at both ends of its own field line** — near the burst and at the magnetic conjugate point in the other hemisphere, on a dipole along the spin axis rather than the tilted one KSA declares (`docs/BLOCKED-ON-KSA.md`); Teak's comes down over Samoa |
+| `Sim/Aurora.cs` | the aurora a burst above the atmosphere lights **at both ends of its own field line** — near the burst and at the magnetic conjugate point in the other hemisphere — drawn as KSA draws its own aurora, cut to a patch: two folded arcs, field-aligned rays, green low and red high, nothing by day; Teak's comes down over Samoa |
+| `Sim/MagneticDipole.cs` | **a body's field as KSA declares it — tilted and off the centre** — and a field line's feet **walked down to the border's sphere about the planet**, because off the centre that sphere is not one about the dipole; `KsaWorld.DipoleOf` reads it, `Bodies.xml` only for a body KSA gives none |
 | `Sim/SkyDispatch.cs` | the kinds of full-screen dispatch a burst's sky is drawn with -- **and what each puts in `FireSun.w`**, which the scorch-mark branch would otherwise read as its own and offset off the screen, as it did every northern aurora |
 | `Sim/CloudFlags.cs` | the cloud dispatch's packed flag float — spray, weather, first, **dryness in sevenths** and the front's radius — **exact to 262,143 m**, because every term is an integer under 2^24 and the shader divides by powers of two with nothing added |
 | `Sim/ScorchFootprint.cs` | how far a scorch mark reaches downwind, across and upwind, in patch radii — **the shader's own constants restated**, so the box the cloud pass dispatches a mark over never crops it; `ScorchFootprintTests` compares the two |
@@ -703,7 +704,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 865 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 869 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1306,7 +1307,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 321 types this mod actually uses.
+defining the 322 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —

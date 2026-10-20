@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  What a nuclear burst needs to know about a body, keyed by the body's Id. KSA declares a field of its
-  own on some bodies, which this file does not read.
+  What a nuclear burst needs to know about a body, keyed by the body's Id. Where KSA declares a magnetic
+  field of its own the burst uses that one, and the Field attributes here are only for a body it does not.
   Read by KSArmory from the KSArmory/ folder of every mod, so a solar-system mod describes its own
   bodies the same way; a body with no entry has no magnetic field and a dim, uncoloured airglow.
   docs/NUCLEAR-ALTITUDE.md, "Planet-agnostic by construction".
 
-  FieldTesla       dipole strength at the surface equator (T); none by default
-  FieldTiltDeg     its tilt from the spin axis; FieldAzimuthDeg which way
+  FieldTesla       dipole strength at the surface equator (T), centred; none by default
+  FieldTiltDeg     its tilt from the spin axis; FieldAzimuthDeg toward which longitude
   Airglow          OxygenNitrogen, CarbonDioxide, Hydrogen or Neutral (the default)
   Condensation     whether a burst raises white condensation; unset follows weather and ocean
   Gamma            the air's ratio of specific heats (1.4 by default)

@@ -58,7 +58,7 @@ happen rather than a member that moved.
 
 **Rechecked against 2026.10.19.5638: one entry moved, the rest is still blocked.** KSA now declares a
 magnetic field on its bodies, which half-answers *A body's magnetic field and what its air is made of*
-below. A camera window gets a terrain depth pre-pass and the radiation belts, and still no clouds or ocean;
+below, and the mod reads it. A camera window gets a terrain depth pre-pass and the radiation belts, and still no clouds or ocean;
 `PhysicsStates.ComputeDrag` and the buoyancy's `MassToGeometryAsmb` are unchanged, `Program.PrepareFrame`
 and `OnFrame` are byte-identical, `DistanceReference.IsValid` still wants 100 km, `IsGroundSurfaceFor`
 still takes a static handle, and StarMap changed only its restart prompt. `KSA.dll` is still IL-only, but it and `Planet.Render.Core.dll` are the first builds shipped with the JIT optimiser on — every earlier one carried `DebuggableAttribute` with optimisation disabled — so the cold first destroy may cost less, and any frame time measured before this build was measured against a debug engine. Flown on `PBB SCALE 8` (eight rockets, cloud pass on, 239 Hz display), pad to cutoff: 138 fps against 78–86 on three 5602 runs of the same shot, and 132 against 56–60 through the ascent, where the 5602 frame was worst. The mod's own share of the frame fell with it, 2.7 ms to 1.0.
@@ -841,11 +841,10 @@ bodies ship with entries, and a body with none gets no field and a neutral glow.
 isothermal model is mirrored exactly in `Sim/BodyAir.cs`, so if KSA ever gives air a temperature profile
 every altitude law has to follow it.
 
-**What would unblock it.** A composition on the body template. The field is there to be read now:
-`Sim/Aurora.cs` still puts the dipole on the spin axis with `Bodies.xml`'s `FieldTesla` as its strength
-(`FieldTiltDeg` and `FieldAzimuthDeg` are read and nothing uses them), so Teak's aurora comes down where a centred, untilted field puts it rather
-than where KSA's own would. Reading the template's dipole, offset included, ahead of the file is this mod's
-work, not KSA's.
+**What would unblock it.** A composition on the body template. The field is read now:
+`KsaWorld.DipoleOf` takes the template's dipole, tilt and offset included, ahead of `Bodies.xml`, so the
+aurora, the debris held along the field and the belt a burst fills all follow KSA's own field. The file's
+field is only for a body KSA declares none on.
 
 ## Drawing a shape the gizmo renderer does not have
 

@@ -2487,6 +2487,35 @@ internal static class KsaWorld
     }
 
     /// <summary>
+    /// A body's magnetic field: KSA's declared dipole, tilted and off centre, where it has one; else a centred
+    /// one as its <c>Bodies.xml</c> entry gives it; else none.
+    /// </summary>
+    public static MagneticDipole DipoleOf(Celestial body)
+    {
+        try
+        {
+            if (body.BodyTemplate?.MagnetosphereReference is { } field && field.EquatorialFieldMicroTesla.Value > 0.0)
+            {
+                return new MagneticDipole(field.OffsetCcf, double3.UnitZ.Transform(field.Mag2Ccf),
+                                          field.EquatorialFieldMicroTesla.Value * 1.0e-6, body.MeanRadius);
+            }
+
+            BodyTraits traits = BodyCatalogue.For(SafeId(body));
+            if (!(traits.FieldTesla > 0.0)) return MagneticDipole.None;
+
+            // Ccf's +Z is the spin axis and +X its zero longitude.
+            double tilt = double.DegreesToRadians(traits.FieldTiltDeg);
+            double azimuth = double.DegreesToRadians(traits.FieldAzimuthDeg);
+            double3 axis = new(Math.Sin(tilt) * Math.Cos(azimuth), Math.Sin(tilt) * Math.Sin(azimuth), Math.Cos(tilt));
+            return new MagneticDipole(Vec.Zero, axis, traits.FieldTesla, body.MeanRadius);
+        }
+        catch
+        {
+            return MagneticDipole.None;
+        }
+    }
+
+    /// <summary>
     /// A body's air as numbers, for the Sim side: what KSA declares, and what its <c>Bodies.xml</c>
     /// entry says about the rest. Airless where the body declares no air, which is knowledge rather than
     /// a failed read.
