@@ -107,14 +107,16 @@ locks on, without seeing the target itself.
   search on, swings onto it unaided.
 
 ### 5. The part — art first, a few sessions
-- Modelled in Blender per `.claude/skills/ksa-blender/SKILL.md`, **faceted after the F-35's EOTS**: seven
-  flat panes — a hexagonal front pane facing forward and 30° up, ringed by six trapezoids — over a
-  sensor head that turns, in a flat-topped, chined housing that tapers in straight facets to a tail
-  sunk into the hull. Its foot is buried 22 mm below the mounting face so the hull hides the gap on a
-  curved tank. About 0.40 m long, 0.25 m wide and 0.22 m tall, the origin mid-way along where the
-  housing meets the skin. Three subparts: the body, the head (a lens on a yoke, turning about a pivot
-  25 mm behind the frame plane) and the glass, a `PartModelGlass` — KSA draws that at a fixed 0.75
-  opacity, so the head shows dimly, as through tinted glass. Surface-attaching, so several turned
+- Modelled in Blender per `.claude/skills/ksa-blender/SKILL.md`, after the F-35's EOTS: **a smooth
+  convex fairing whose nose rolls in to a faceted window set nearly flush** — seven flat panes, a
+  hexagonal front one facing forward and 30° up ringed by six trapezoids tilted 26° to it, with 5 mm
+  frame bars on every pane edge — over a sensor head that turns in a round bay behind them. The front
+  of the fairing is its own outline laid on the window's plane, so the nose grows out of the flanks
+  and the chin out of the hull with no waist; the foot is buried 22 mm below the mounting face so the
+  hull hides the gap on a curved tank, and the tail sinks into the skin. About 0.48 m long, 0.25 m
+  wide and 0.23 m tall, the origin mid-way along where the fairing meets the skin. Three subparts:
+  the body, the head (a lens on a yoke) and the glass, a `PartModelGlass` — KSA draws that at a fixed
+  0.75 opacity, so the head shows dimly, as through tinted glass. Surface-attaching, so several turned
   different ways ring a hull for all-round cover — the YAL-1's own layout. Geometry signed off before
   any unwrap or bake.
   - The head looks at what its set holds, or sweeps a figure of eight across its field
@@ -123,8 +125,9 @@ locks on, without seeing the target itself.
     looks like that, only a ship's deck mount does. A second, a ball in front of a fairing on a flat
     doubler, scored 4/10 for realism with three reviewers: the cowl stopped behind the ball, the
     flanks were concave, and a flat plate floats off a curved hull. A solid ball in a raked cowl
-    scored 5/10, and a glass dome over a turning head read as too round; flat panes are what the
-    newer sensors use.
+    scored 5/10, and a glass dome over a turning head read as too round. A faceted housing with a
+    gem of a window read as too blocky: on the EOTS only the window is faceted, set nearly flush in
+    smooth skin.
 - Declared in `KSArmoryAssets.xml` / `KSArmoryGameData.xml`; registered as a `SensorProfile` with a
   forward cone of about 120° along the part's +Y (`BoresightMode.PartForward`) and a `ComponentProfile`; `validate-parts.py` and `checkmesh.py` clean.
 - Optional later: a pod form, a 2.5 m pylon store, for fighters.

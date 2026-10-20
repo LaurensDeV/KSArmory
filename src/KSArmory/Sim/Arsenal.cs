@@ -1379,8 +1379,9 @@ public static class Arsenal
 
     /// <summary>
     /// An infrared search set, after the six the YAL-1 carried along its forward fuselage: passive, a
-    /// faceted window over a turning head, after the F-35's EOTS, with a 120 deg cone along the part's
-    /// +Y, so several turned different ways on a hull give all-round cover.
+    /// faceted window set nearly flush in a smooth fairing, over a turning head, after the F-35's EOTS,
+    /// with a 120 deg cone along the part's +Y, so several turned different ways on a hull give
+    /// all-round cover.
     /// </summary>
     public static readonly SensorProfile InfraredSearchSet = new()
     {
