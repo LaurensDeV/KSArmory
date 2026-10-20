@@ -575,7 +575,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/LauncherSeparation.cs` | the decoupler on the joint holding a launcher on — **a property of the part, not the craft** |
 | `Ksa/OpticParts.cs` | finds a director on a craft, and turns its head |
 | `Ksa/OpticalHead.cs` | **one director** — its own sensor, its own aim, no weapon involved |
-| `Ksa/OpticalHeads.cs` | one head per director fitted, crewed with the craft and followed across a split |
+| `Ksa/OpticalHeads.cs` | one head per director fitted, crewed with the craft and followed across a split, and handed its craft's picture |
 | `Ksa/TravelSweeps.cs` | sweeps each gun's travel against its own craft with the engine's part ray casts — **50 rays and 1 ms a frame across every mount**, the craft on the panel first, and only once a craft has kept its shape for 60 frames, so a break-up is swept once. Other mounts are left out, since their barrels move |
 | `Ksa/StoreMass.cs` | a launcher or dispenser part made lighter by what it has fired, through KSA's own per-part mass slot and in `AttitudeHook`'s window — **scaled where the part declares it, never moved to the tube**, because the MIRV bus's mass sits on its thruster ring on purpose. Not saved, which matches a magazine |
 | `Ksa/Countermeasures.cs` | every dispenser fitted and every decoy in the air — **stepped after the airborne sample and before any round**, so a seeker reads a decoy as it reads a craft, at the end of the step it integrates |
@@ -960,8 +960,8 @@ a launcher can shoot with *something*, and that a traverse carries something tha
 
 **Nor a round at all.** The YAL-1's laser is a `LauncherProfile` on the director's own part with
 `FiresBeam` and no munition (`LoadoutFor` answers `MunitionProfile.None`, never the first
-registered round). It owns nothing that moves: fire control picks the target and cues the director
-on its part, which aims, casts and burns, while `Sim/BeamTrigger.cs` decides when it lases and the
+registered round). It owns nothing that moves: fire control picks the target — a designation, else
+on auto-engage the craft's picture — and cues the director on its part, which aims, casts and burns, while `Sim/BeamTrigger.cs` decides when it lases and the
 ladder's beam rungs say why not. Everything about the target is auto-engage's, as for a gun, and
 nothing is rationed per target or bounded by a round's envelope. The director's own laser button is
 the designator only.
@@ -2590,8 +2590,10 @@ observation post.
 says nothing about which dot matters, so every director's set is `CuedOnly` and holds only what it
 is handed — the operator's shift-click, or what the launcher on its own part cues it with, as a
 Pantsir's radar cues its 1TPP1, or a laser spot somebody else is making on its code
-(`Sim/SpotSearch.cs`, the **Spot** switch). Something that *finds* targets for it, an infrared search
-set like the YAL-1's, is a part not yet built — `docs/IRST-PLAN.md`. That it cost nothing in the sight, the chase camera or the claim ladder is
+(`Sim/SpotSearch.cs`, the **Spot** switch), or under **Track** the best contact of its craft's
+picture (`Ksa/CraftPicture.cs`), which every searching set aboard feeds: an IRST part
+(`Ksa/SearchSets.cs`) or a launcher's own radar — `docs/IRST-PLAN.md`. That it cost nothing in the
+sight, the chase camera or the claim ladder is
 `IOpticalHead` earning its place: the interface was written when the head *was* launcher gear, and
 every consumer of it was already reading a role rather than a system.
 

@@ -826,6 +826,11 @@ public sealed class KSArmoryMod
                 // per frame whichever side of its launcher's death it is on.
                 using (_budget.Measure("loose")) _roster.UpdateLoose(step, _airborne);
 
+                // After every launcher radar has scanned and before the heads aim, so a director takes
+                // this step's picture; a beam weapon, stepped in the fire loop above, takes the last one.
+                using (_budget.Measure("search sets")) _searchSets?.Update(dtSim, _airborne);
+                using (_budget.Measure("picture")) _picture.Refresh(_roster.All, _searchSets?.All ?? []);
+
                 // The heads take the step as it comes, not the clamped one. That clamp exists to
                 // stop a *round* stepping over its own fuse radius, and a director has no fuse --
                 // it is a rate-limited drive, for which a long step simply means turning further.
@@ -835,11 +840,6 @@ public sealed class KSArmoryMod
                 // 0.32 s while an 8.33 ms frame (0.13 s) is not. The head then under-advances on
                 // alternate frames, in step with the display's pacing -- which is a shake in the
                 // picture that appears above about 13x and nowhere below it.
-                // After every launcher radar has scanned and before the heads aim, so a director takes
-                // this step's picture; a beam weapon, stepped in the fire loop above, takes the last one.
-                using (_budget.Measure("search sets")) _searchSets?.Update(dtSim, _airborne);
-                using (_budget.Measure("picture")) _picture.Refresh(_roster.All, _searchSets?.All ?? []);
-
                 using (_budget.Measure("heads")) _heads?.Update(dtSim, _airborne);
 
                 // On the simulated step and unclamped, for the same reason the heads are: the

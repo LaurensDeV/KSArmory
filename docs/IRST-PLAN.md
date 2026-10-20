@@ -1,7 +1,7 @@
 # Finding targets for the directors: an infrared search part
 
-**A plan, not a record.** Tick each step as it lands. Steps 0–4 and 4b are built; none is flown, and the
-part (step 5) is not declared, so nothing in game carries an IRST yet.
+**A plan, not a record.** Tick each step as it lands. Steps 0–4 and 4b are built and none is flown;
+step 5's geometry is signed off and not yet declared.
 
 ## Why
 
@@ -33,16 +33,15 @@ launcher on their own part) has been handed to them.
 - [ ] Flown (CHECKLIST 7.6c-2).
 
 ### 1. The detection law, in `Sim/` — about half a day
-- `Sim/InfraredSearch.cs`: `Sees(intensityKwPerSr, rangeMetres, meanAirRatio, lookingDown, profile)`.
-  Detected when `I · τ / R² ≥ E_min`, with `τ = exp(−k · ρ̄ · R)` from the same extinction the beam
-  uses (`BeamProfile.ExtinctionPerMetre`'s order), and `E_min` multiplied by `LookDownPenalty` when the
-  contact lies below the horizon.
+- `Sim/InfraredSearch.cs`: `Sees(profile, intensity, range, airAtEye, airAtTarget, againstGround)`.
+  Detected when `I · τ / R² ≥ E_min`, and `E_min` multiplied by `LookDownPenalty` when the line from the
+  eye past the contact meets the body (`SeenAgainstGround`); `τ` is in the built note below.
 - The heat comes from `Sim/Signature.cs` unchanged (`HeatOfCraft`, `HeatOfRound`), so the IRST, the
   seekers and the flares all agree about how bright a thing is.
 - New `SensorProfile` fields, all off by default: `Infrared` (detection by this law instead of by
   range and cross-section), `IrThresholdWPerM2`, `LookDownPenalty`.
 - **Calibration targets**, each pinned by a test (`InfraredSearchTests`):
-  - a fighter at military power (3 kW/sr) tail-on, both at 10 km altitude: seen at 50–90 km;
+  - a fighter at military power (75 kN, 4 kW/sr) tail-on, both at 10 km altitude: seen at 50–90 km;
   - a 1 MN booster in thin air: seen beyond 200 km;
   - a craft with its engines out (1 kW/sr) at sea level: seen within a few kilometres, not tens;
   - the same craft looked down on: a fraction of that range;
@@ -52,7 +51,7 @@ launcher on their own part) has been handed to them.
 - [x] Built. **The extinction is not linear in density**: no constant then gives both a fighter at 60 km
   from 10 km up and an idling craft at sea level at a few. It is 0.4/km at sea level times the density
   ratio to the fourth (water vapour's scale height is about a quarter of the air's), taken as the
-  log-mean along the path. Threshold 6e-7 W/m², look-down x10: fighter 65 km, 1 MN booster 250 km,
+  log-mean along the path. Threshold 6e-7 W/m², look-down x10: fighter 68 km, 1 MN booster 248 km,
   engines out 8 km (5 km looked down on), fighter in vacuum 82 km. The law takes no velocity, so the
   invariance test translates every position instead.
 
@@ -80,13 +79,13 @@ launcher on their own part) has been handed to them.
   contact from two sets is one entry, and a hostile beats a passer-by.
 - Who reads it, below everything more specific (a laser spot found by step 4b ranks with these cues):
   - a director with **Track** on, after a shift-click and its own launcher's cue
-    (`OpticalHead.AimPartFrame`, and the rung order in `Sim/OpticHold.cs`);
-  - the laser weapon's target when it has no designation (`WeaponSystem.UpdateBeamFireControl`).
+    (`OpticalHead.AimPartFrame`);
+  - the laser weapon's target when it has no designation (`WeaponSystem.CuedHandle`).
 - [x] Built. The picture hands out a **handle**, which the taker's own cued-only set scans and judges on
   its own IFF: `OpticalHead.Pictured` becomes its set's cue under **Track** below a designation and the
   launcher's cue, and `WeaponSystem.CuedHandle` falls back to it for a beam on auto-engage. A launcher
   radar counts when its set is `Searches` (not cued-only, a search scope). A director's set beyond its
-  own range still holds nothing, which is honest: a LITENING does not see what the IRST sees at 65 km.
+  own range still holds nothing, which is honest: a LITENING does not see what the IRST sees at 68 km.
 
 ### 4b. Laser spot search — built, not flown
 Somebody else marks a target with a coded laser — a mast director on the ground, a drone, another
@@ -149,7 +148,7 @@ locks on, without seeing the target itself.
 - The Pantsir's director still follows the Pantsir's radar.
 - CHECKLIST entries ticked with the numbers seen.
 
-## Decisions to make before step 1 — settled 2026-10-20, all as proposed
+## Decisions — settled 2026-10-20, all as proposed
 
 1. **Bearing only, or range too?** A real IRST gives a direction; range comes from a laser ranger or a
    radar. The mod knows the range anyway. Proposed: the track carries it, and the scope draws an IRST
@@ -171,17 +170,16 @@ positions. Work on a branch off `dev`; commit to `dev`, never `main`.
   for an airframe with its engines out), `HeatOfRound(burning)`. The detection law reads these and
   nothing else, so seekers, flares and the IRST cannot disagree about brightness.
 - `Ksa/Radar.cs` — the scan every set runs: range and cone (`ThreatModel.TryAssess`), terrain masking,
-  IFF, wreckage, `CuedOnly`. Step 2 adds a heat test beside the range test, not a second scanner.
-- `Sim/SensorProfile.cs` — where `Infrared`, `IrThresholdWPerM2` and `LookDownPenalty` go; every new
-  field needs a control or an exemption in `tools/check-tunables.py`.
+  IFF, wreckage, `CuedOnly`, and the heat test beside the range test for an `Infrared` set.
+- `Sim/SensorProfile.cs` — `Infrared`, `IrThresholdWPerM2` and `LookDownPenalty`; every field needs a
+  control or an exemption in `tools/check-tunables.py`.
 - `Ksa/OpticalHeads.cs` — the shape to copy for a roster of standalone sets (step 3): crewed with
   the craft, followed across a split by part reference, never by ordinal.
 - `Ksa/Armaments.cs` — the shape to copy for the per-craft picture (step 4): derived every frame,
   never pinned.
-- `Ksa/OpticalHead.AimPartFrame` and `Sim/OpticHold.cs` — the director's rung order. The picture's
-  contact goes below the launcher's cue, under the tracking switch.
-- `WeaponSystem.UpdateBeamFireControl` — where the laser picks its target; the picture is its
-  fallback when nothing is designated.
+- `Ksa/OpticalHead.AimPartFrame` — the director's rung order. The picture's contact is its set's cue
+  below the launcher's, under the tracking switch.
+- `WeaponSystem.CuedHandle` — where the laser takes the picture's contact when nothing is designated.
 
 **Order.** Steps 1 → 2 → 3 → 4 are code and can be done and tested headlessly before any art exists:
 register the IRST against a placeholder part Id only once step 5 declares the real one. Step 5 is the
@@ -189,11 +187,11 @@ art and needs a person: model in Blender per `.claude/skills/ksa-blender/SKILL.m
 blockout, and **wait for sign-off on the geometry before unwrapping or baking**. Step 7 is flying it,
 per `.claude/skills/verify-in-game/SKILL.md`; a `fix` or `feat` is not called done until then.
 
-**The part, for the modeller.** A low dome on a short faceted plinth, about 0.5 m across, that
-surface-attaches (`ToSurface`), so several can ring a hull for all-round cover, as the YAL-1's six
-did. One forward cone of about 120° per unit, out of its mounting face (`BoresightMode.MountNormal`).
-No moving parts, so one body and one collider. **Superseded:** the
-window looks forward along the hull, not out of the mounting face — see step 5. Reference:
+**The part.** A faceted window set flush in a low smooth fairing, over a turning sensor head; it
+surface-attaches (`ToSurface`), so several can ring a hull for all-round cover, as the YAL-1's six did.
+Three subparts (body, head, glass) and one ~120° cone along the part's +Y (`BoresightMode.PartForward`)
+— step 5 has the rest. Its generator is `irst_v21.py` beside `IRST.blend` in the art folder, outside
+this repository. Reference:
 - the YAL-1's own sensors were small domed infrared windows along the forward fuselage, one each side
   below the ranging fairing and one under the nose turret — Lockheed Martin, derived from the F-14's
   AN/AAS-42 ([Boeing, 2001](https://boeing.mediaroom.com/2001-07-11-Team-Airborne-Laser-Delivers-Infrared-Sensors-for-Lab-Testing-and-Aircraft-Integration));
@@ -204,9 +202,8 @@ window looks forward along the hull, not out of the mounting face — see step 5
   and IRST21 in a [Super Hornet's tank nose](https://commons.wikimedia.org/wiki/File:VX-9_FA-18F_with_AIM-174_missiles.jpg),
   which is the later pod variant.
 
-**Open decisions — settle before step 1** (the proposed answers are in *Decisions to make* above):
-range carried but drawn as a bearing; no visual range for sensorless craft; directors do not feed the
-picture.
+**Decisions** (settled, see above): range carried but drawn as a bearing; no visual range for
+sensorless craft; directors do not feed the picture.
 
 **Traps already known.**
 - A `Sim/` entry point takes both positions and both velocities, never a relative velocity worked out
