@@ -35,6 +35,11 @@ for pattern in 'KSA.dll' 'Brutal.*.dll' 'BepuPhysics.dll' 'BepuUtilities.dll' \
         cp -f "$src" "$IMPORT_DIR/"
         chmod u+rw "$IMPORT_DIR/$(basename "$src")"
     done
+    # A copy the game no longer ships stays resolvable, so a renamed assembly links the old build.
+    # shellcheck disable=SC2086
+    for stale in "$IMPORT_DIR"/$pattern; do
+        [[ -f "$KSA_DIR/$(basename "$stale")" ]] || { echo "removing $(basename "$stale"): no longer shipped"; rm -f "$stale"; }
+    done
 done
 shopt -u nullglob
 
