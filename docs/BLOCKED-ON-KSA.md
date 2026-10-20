@@ -61,7 +61,7 @@ magnetic field on its bodies, which half-answers *A body's magnetic field and wh
 below. A camera window gets a terrain depth pre-pass and the radiation belts, and still no clouds or ocean;
 `PhysicsStates.ComputeDrag` and the buoyancy's `MassToGeometryAsmb` are unchanged, `Program.PrepareFrame`
 and `OnFrame` are byte-identical, `DistanceReference.IsValid` still wants 100 km, `IsGroundSurfaceFor`
-still takes a static handle, and StarMap changed only its restart prompt. `KSA.dll` is still IL-only, but it and `Planet.Render.Core.dll` are the first builds shipped with the JIT optimiser on — every earlier one carried `DebuggableAttribute` with optimisation disabled — so the cold first destroy may cost less, and any frame time measured before this build was measured against a debug engine.
+still takes a static handle, and StarMap changed only its restart prompt. `KSA.dll` is still IL-only, but it and `Planet.Render.Core.dll` are the first builds shipped with the JIT optimiser on — every earlier one carried `DebuggableAttribute` with optimisation disabled — so the cold first destroy may cost less, and any frame time measured before this build was measured against a debug engine. Flown on `PBB SCALE 8` (eight rockets, cloud pass on, 239 Hz display), pad to cutoff: 138 fps against 78–86 on three 5602 runs of the same shot, and 132 against 56–60 through the ascent, where the 5602 frame was worst. The mod's own share of the frame fell with it, 2.7 ms to 1.0.
 Citations were not re-derived for this build; where the text above and below gives no other, they are
 against 2026.10.13.5602.
 
