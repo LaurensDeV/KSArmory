@@ -332,4 +332,18 @@ public class ReleaseLoopTests(ITestOutputHelper Out)
                 walk.Itinerary.Means.BudgetMetresPerSecond - at.SpentMetresPerSecond));
         }
     }
+
+    [Fact]
+    public void AWalkIsVisitedInItsStopsOrderAndNoWalkFromTheLead()
+    {
+        ReleaseWalk walk = ReleaseLoop.Plan(Outward(3, 1_000.0), SixThousand, Reach, 0);
+        Assert.True(walk.Walks, walk.Say());
+
+        int[] walked = walk.VisitOrder(3, 0);
+        Assert.Equal(walk.Stops, walked.Length);
+        for (int k = 0; k < walked.Length; k++) Assert.Equal(walk.Itinerary.Stops[k].Target, walked[k]);
+
+        Assert.Equal([2, 0, 1, 3], default(ReleaseWalk).VisitOrder(4, 2));
+        Assert.Empty(default(ReleaseWalk).VisitOrder(0, 0));
+    }
 }

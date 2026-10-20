@@ -75,6 +75,32 @@ internal readonly record struct ReleaseWalk(ReleaseItinerary Itinerary, ReleaseW
 
     public int Stops => Itinerary.Count;
 
+    /// <summary>
+    /// The targets in the order the bus visits them: the walk's stops, or with no walk the lead and then the rest by
+    /// index. A target the walk dropped is not in it.
+    /// </summary>
+    public int[] VisitOrder(int targets, int lead)
+    {
+        if (Walks)
+        {
+            int[] walked = new int[Stops];
+            for (int k = 0; k < walked.Length; k++) walked[k] = Itinerary.Stops[k].Target;
+            return walked;
+        }
+
+        if (targets <= 0) return [];
+
+        int first = lead >= 0 && lead < targets ? lead : 0;
+        int[] order = new int[targets];
+        order[0] = first;
+        for (int i = 0, k = 1; i < targets; i++)
+        {
+            if (i != first) order[k++] = i;
+        }
+
+        return order;
+    }
+
     /// <summary>What the panel and the log say about the plan, in one line.</summary>
     public string Say()
         => Hold switch
