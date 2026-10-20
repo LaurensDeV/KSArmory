@@ -445,6 +445,25 @@ Headless, behind a flag. Per branch:
   only, so the hop's trim is not the whole cause; not found yet. It costs no landing: every warhead in E is within
   0.23 m.
 
+  **Flown 2026-10-20 morning**, 12,902 km, seven targets along the track, `PBB SCALE 8`:
+
+  - **400 km, the shift on every bus, the stack hold on half** (`~/shots/2026-10-20-400-guard`): 7 of 8 walked
+    seven. All four held buses waited 6-18 s for the path to clear the 15 m keep-out and none struck; of the four
+    not held, the one whose path was predicted to pass its stack at 3 m struck it and was curtailed, while 4 m and
+    12 m passed. Every landing within 0.75 m but that bus's leftover.
+  - **500 km, both on every bus** (`-500-guard`): every bus planned six before its first release, prices held to
+    0.95-1.02 of what flew and every first burn was clean -- and all eight were curtailed at the sixth hop, 2-4 m/s
+    short. The tank check charged the hops alone; the nozzles also spend a median 2.90 m/s a stop (upper quartile
+    3.04, 192 stops of the 300 km night). `4326a238` reserves it. So at 12,902 km on this tank the widest walk of
+    seven is **400 km apart, 2,400 km end to end**, and 500 km apart is five.
+  - **200 km on the nozzles, with and without the warhead wait** (`-200-nozzles`), the per-release line saying what
+    the bus was doing: **the bus overtakes its warheads down its own axis.** At its closest every returning warhead
+    sits at 0.0 m along the nose and 0.9-1.0 m off it -- a tube's offset -- with the trim firing Forward: the warheads
+    leave forward along the nose at 0.5 m/s and the first stops' nozzle hops push the bus forward along the same
+    line, overtaking them about 5 s after the release, or about 37 s after it with the wait. From stop 4 the hop
+    fires Down and nothing comes back; an engine hop turns onto its own line first and never meets its warhead. So
+    the cure is a sidestep before a forward hop, or turning the bus as the engine does, not a wait.
+
   What C was planned with, kept for the reasoning:
   - `Sim/HopBurn.cs` only if step 4 said open-loop leaves more than a pass: point (`BusTurn`, capped), burn re-solving
     every ~0.25 s with `BurnoutGuidance.TrySteer` **from the current position** (a ~90 m/s burn at ~1.8 m/s² carries the
