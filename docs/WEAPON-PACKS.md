@@ -407,6 +407,8 @@ with. What it cannot do is add a *kind*:
 
 Those are C# changes to KSArmory itself. If you want one, `MODULARITY.md` is the argument about
 what each would cost and `EXTENSIBILITY.md` is where a registration seam for them would go.
+Porting from a KSP weapon mod meets most of these, and `PACK-PORTING.md` is the plan for the ones
+this side can close.
 
 **Armour and penetration** are not expressible either. Parts take damage one by one and keep their
 health between hits, but every part takes a hit alike: a pack can set how big a charge is, not what
