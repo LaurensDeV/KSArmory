@@ -277,7 +277,7 @@ observation post. `PartId`, `DisplayName`, `Sensor`, `BaseMarker`, `HeadMarker` 
 | `MinElevationDeg`, `MaxElevationDeg` | `-20`, `85` | mast heads |
 | `MaxOffBoresightDeg` | `135` | roll-nod heads: the nod stop, which is the only travel limit a rolling head has |
 | `KeyholeDeg` | `4` | cone about the roll axis the aim is held out of. Dead along it there is no roll angle, and a target crossing the nose asks for unbounded roll rate |
-| `MaxMagnification` | `16` | how far the optics wind in, against KSA's 50° view; the zoom steps x1, x2, x4… up to it and ends on it. 53 is a 1° field, the floor the camera takes |
+| `MaxMagnification` | `16` | how far the optics wind in, against KSA's 50° view; the zoom steps x1, x2, x4… up to it and ends on it. 53 is a 1° field; the camera takes down to 0.05°, and the most any optic may be fitted with is 1024 |
 | `HasLaser` | `false` | a laser rangefinder and designator on the line of sight, fired from the camera window's LASE button; its spot is what a laser-guided weapon homes on, by its code |
 | `LaserRangeMetres` | `20000` | how far the laser returns from; past it the beam lases at nothing |
 

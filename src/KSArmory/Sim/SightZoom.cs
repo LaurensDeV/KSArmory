@@ -19,10 +19,10 @@ public static class SightZoom
     ///
     /// <para>The engine throws rather than clamping — <c>CreatePerspectiveFieldOfViewReverseZ</c>
     /// rejects a field of zero or more than half a turn, out of a mod's frame hook — so this is a
-    /// hard limit and not a preference. A degree is far below any magnification offered here and
-    /// well clear of the throw.</para>
+    /// hard limit and not a preference. Just under the YAL-1's 1 mrad (0.057°), the narrowest
+    /// optic fitted, and well clear of the throw.</para>
     /// </summary>
-    public const double MinFovDeg = 1.0;
+    public const double MinFovDeg = 0.05;
 
     /// <summary>Widest field the camera may be asked for (deg), which is the engine's own ceiling.</summary>
     public const double MaxFovDeg = 120.0;
@@ -32,7 +32,7 @@ public static class SightZoom
 
     public const float MinMagnification = 1f;
     /// <summary>The most any optic may be fitted with; each has its own, <c>OpticProfile.MaxMagnification</c>.</summary>
-    public const float MaxMagnification = 64f;
+    public const float MaxMagnification = 1024f;
 
     /// <summary>
     /// The magnifications the panel and the wheel step through.
@@ -40,7 +40,7 @@ public static class SightZoom
     /// <para>Detents rather than a continuous slider: a gunner's sight has fixed optical stops, and
     /// a factor arrived at by dragging is a number nobody can return to.</para>
     /// </summary>
-    public static ReadOnlySpan<float> Detents => [1f, 2f, 4f, 8f, 16f, 32f, 64f];
+    public static ReadOnlySpan<float> Detents => [1f, 2f, 4f, 8f, 16f, 32f, 64f, 128f, 256f, 512f, 1024f];
 
     /// <summary>
     /// The stops one optic has: every detent up to its maximum, and the maximum itself when it is

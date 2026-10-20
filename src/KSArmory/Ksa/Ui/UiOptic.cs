@@ -226,9 +226,15 @@ internal sealed partial class Ui
         ImGui.Text("Zoom:");
 
         Span<float> stops = stackalloc float[SightZoom.Detents.Length + 1];
+        int i = 0;
         foreach (float detent in stops[..SightZoom.StopsFor(head.Profile.MaxMagnification, stops)])
         {
+            // Six to a line, the next lines indented under the first: the YAL-1's eleven stops
+            // run off the panel in one.
+            if (i > 0 && i % 6 == 0) ImGui.Dummy(new float2(ImGui.CalcTextSize("Zoom:").X, 0f));
             ImGui.SameLine();
+            i++;
+
             bool selected = Math.Abs(policy.Magnification - detent) < 1e-3f;
             if (ImGui.RadioButton($"x{detent:0.#}##zoom", selected)) policy.Magnification = detent;
         }

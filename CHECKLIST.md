@@ -2378,11 +2378,15 @@ head's own axis is used, because a target sliding towards the middle is what sle
       gone, anything left moving is the epoch question rather than either of these.
 - [ ] Known and not yet fixed: `PointingDrive.OnTarget` is a fixed 1° window, which at 16× is a
       third of the vertical field. The brackets close and `SLEWING` clears while the head can
-      still be visibly off, so "settled" is not evidence of anything at magnification.
+      still be visibly off, so "settled" is not evidence of anything at magnification. At the
+      YAL-1's x932 the field is 0.057°, so that 1° window is about seventeen pictures wide.
 
 **Zoom is the one with a crash behind it.** `Camera.SetFieldOfView` does not clamp and
 `UpdateProjection` throws for a field of zero or more than half a turn, out of the frame hook.
-`SightZoom.MinFovDeg` guards it; that guard has never been reached in game.
+`SightZoom.MinFovDeg` guards it, at 0.05°.
+
+- [x] The YAL-1 at x932, a 0.057° field just over that floor, seen 2026-10-20 on `YAL1 IRST TEST`
+      on a rocket climbing from 7.8 km, in a camera window and on the main view: no problems.
 
 - [ ] Put the optical head on the **main view** and step the magnification 1× → 16×. The picture
       narrows each time. If it snaps back to something wide within a frame, the mod's write is

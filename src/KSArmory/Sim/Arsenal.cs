@@ -1444,7 +1444,7 @@ public static class Arsenal
         KeyholeDeg = 4f,
 
         // Its narrow field is 1° (GlobalSecurity's AN/AAQ-28 page, and the SAAF's Litening III),
-        // which is x53 against the 50° the zoom is measured from -- and SightZoom.MinFovDeg.
+        // which is x53 against the 50° the zoom is measured from.
         MaxMagnification = 53f,
 
         // A rangefinder and designator, as every pod of the class carries.
@@ -1480,7 +1480,9 @@ public static class Arsenal
         MaxOffBoresightDeg = 120f,
         KeyholeDeg = 4f,
 
-        MaxMagnification = 53f,
+        // The fine tracker looks through the beam's own telescope; telescopes of that class are
+        // built with a field of 1 mrad or less (US 12171055). 1 mrad is x932 against 50°.
+        MaxMagnification = 932f,
 
         // The tracking and beacon illuminators leave through this window, and so does the COIL.
         HasLaser = true,
