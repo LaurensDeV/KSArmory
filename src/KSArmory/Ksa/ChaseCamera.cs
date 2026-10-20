@@ -844,7 +844,7 @@ internal sealed class ChaseCamera : IViewPose
         double lowest = double.IsFinite(_heightOverAim) ? -(_heightOverAim - EyeClearance) : 0.0;
         lowest = Math.Min(lowest, Vec.Dot(eye, _poseUp));
 
-        ChaseView.Orbit(eye, forward, up, _poseUp, _orbit.Yaw, _orbit.Pitch, _orbit.Zoom, lowest, _poseUp,
+        ChaseView.Orbit(eye, forward, up, _poseUp, _orbit.Yaw, _orbit.Pitch, _orbit.Zoom, lowest, ChaseView.EngineAxisEcl,
                         out viewEye, out viewForward, out viewUp);
     }
 
@@ -916,7 +916,7 @@ internal sealed class ChaseCamera : IViewPose
         // In the round's own lengths, so a shell fills the picture the way a missile does.
         double scale = ChaseView.StandOffScale(round.Munition.BodyLength);
 
-        if (!ChaseView.TryPose(Vec.Zero, round.VelocityLocal, aimFromRound, up, up,
+        if (!ChaseView.TryPose(Vec.Zero, round.VelocityLocal, aimFromRound, up, ChaseView.EngineAxisEcl,
                                _behind * scale, _above * scale, Ahead, _poseLift, out eye, out forward, out lift))
         {
             return false;
@@ -955,7 +955,7 @@ internal sealed class ChaseCamera : IViewPose
 
         // Frozen, the eye stays where the transition started and the look stays on the round. See
         // Config.FreezeChaseTransition for what this is separating.
-        if (ChaseView.TryBlend(fromRound, eye, Vec.Zero, toLookRound, up,
+        if (ChaseView.TryBlend(fromRound, eye, Vec.Zero, toLookRound, ChaseView.EngineAxisEcl,
                                _freezeTransition ? 0.0 : _blend,
                                out double3 blendedOffset, out double3 blendedForward))
         {

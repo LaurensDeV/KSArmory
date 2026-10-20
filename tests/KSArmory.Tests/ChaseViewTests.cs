@@ -537,4 +537,33 @@ public class ChaseViewTests
         Assert.True(worstCarried < double.DegreesToRadians(5.0),
                     $"the carried lift turned {double.RadiansToDegrees(worstCarried):F1} deg in one step");
     }
+
+    // A site whose vertical is far from ecliptic +Z, and a round falling steeply, so a small pitch takes the view
+    // across straight down; 0.1 deg a step is a drag of a few pixels.
+    [Fact]
+    public void DraggingTheViewAcrossStraightDownTurnsItSmoothly()
+    {
+        double3 vertical = Vec.Unit(new double3(1, 0, 0.2));
+        double3 forward = Vec.Unit(-vertical + new double3(0, 0.05, 0));
+        double3 up = Vec.Unit(Vec.Cross(Vec.Cross(forward, vertical), forward));
+        double3 eyeFromRound = -forward * 15.0;
+
+        double Worst(double3 axis)
+        {
+            double worst = 0.0;
+            double3? last = null;
+            for (double deg = -6.0; deg <= 6.0; deg += 0.1)
+            {
+                ChaseView.Orbit(eyeFromRound, forward, up, vertical, 0.0, double.DegreesToRadians(deg), 1.0,
+                                double.NegativeInfinity, axis, out _, out double3 f, out _);
+                if (last is { } was) worst = Math.Max(worst, Vec.AngleBetween(was, f));
+                last = f;
+            }
+
+            return double.RadiansToDegrees(worst);
+        }
+
+        Assert.True(Worst(vertical) > 1.0, $"leaning off the vertical never jumped ({Worst(vertical):F2} deg)");
+        Assert.True(Worst(ChaseView.EngineAxisEcl) < 0.2, $"the view jumped {Worst(ChaseView.EngineAxisEcl):F2} deg in one step");
+    }
 }
