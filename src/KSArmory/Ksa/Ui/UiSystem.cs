@@ -69,17 +69,20 @@ internal sealed partial class Ui
             // omits a role added later, which reads as the survey not finding one.
             foreach (WeaponRole role in Enum.GetValues<WeaponRole>())
             {
-                int of = inv.CountOf(role);
+                // Search parts count among their own kind: a director's set is a sensor too, and
+                // counting it numbers four IRSTs "2 of 5" to "5 of 5".
+                bool ownCount = IsSearchPart(kind);
+                int of = ownCount ? stations : inv.CountOf(role);
                 int nth = 0;
                 bool drawn = false;
 
                 for (int i = 0; i < inv.Components.Count; i++)
                 {
                     FoundComponent c = inv.Components[i];
-                    if (c.Role != role) continue;
+                    if (c.Role != role || (ownCount && !ReferenceEquals(c.Profile, kind))) continue;
 
-                    if (ReferenceEquals(c.Profile, kind) && !(drawn && StacksStations(role))
-                        && !(otherWeapon && StacksStations(role)))
+                    if (ReferenceEquals(c.Profile, kind) && !(drawn && StacksStations(kind, role))
+                        && !(otherWeapon && StacksStations(kind, role)))
                     {
                         // Per component, not per label. ImGui keys a widget on its label within
                         // the current id scope, so without this the second director's tick boxes
@@ -96,6 +99,8 @@ internal sealed partial class Ui
 
             ImGui.PopID();
         }
+
+        if (CarriesSearchSet(craft)) DrawPictureSummary(craft);
     }
 
     private readonly List<ComponentProfile> _kinds = [];
@@ -105,12 +110,126 @@ internal sealed partial class Ui
     private static bool StacksStations(WeaponRole role)
         => role is not (WeaponRole.Camera or WeaponRole.Guidance or WeaponRole.Countermeasures);
 
+    // Nor is a search part: each looks its own way and holds its own contacts.
+    private static bool StacksStations(ComponentProfile kind, WeaponRole role)
+        => StacksStations(role) && !IsSearchPart(kind);
+
+    private static bool IsSearchPart(ComponentProfile kind) => Catalogue.SearchSetForPart(kind.PartId) is not null;
+
+    private bool CarriesSearchSet(KSA.Vehicle? craft)
+    {
+        _searchSets.On(craft, _searchScratch);
+        return _searchScratch.Count > 0;
+    }
+
+    private const int SearchRowsShown = 6;
+
+    // A search part is its own set and needs no weapons system: a hull carrying an IRST and nothing
+    // else has every line here. Paired by where the part sits, because the sets are keyed on parts
+    // and the survey lists positions.
+    private void DrawSearchSetComponent(KSA.Vehicle craft, FoundComponent c)
+    {
+        _searchSets.On(craft, _searchScratch);
+
+        SearchSet? set = null;
+        double nearest = double.MaxValue;
+        foreach (SearchSet s in _searchScratch)
+        {
+            double d;
+            try { d = Vec.Len2(s.Part.PositionVehicleAsmb - c.PositionVehicleAsmb); }
+            catch { continue; }
+
+            if (d < nearest)
+            {
+                nearest = d;
+                set = s;
+            }
+        }
+
+        if (set is null)
+        {
+            ImGui.TextColored(Amber, "not crewed - no set resolved for this part");
+            return;
+        }
+
+        List<Track> tracks = set.Radar.Tracks;
+        if (tracks.Count == 0)
+        {
+            ImGui.TextDisabled(set.Radar.TooFaint > 0
+                                   ? $"holding nothing - {set.Radar.TooFaint} too faint to see"
+                                   : "holding nothing");
+            Tip("It sees heat: a craft with its engines lit. One coasting, parked or slower than "
+                + $"{set.Sensor.MinTargetSpeed:F0} m/s is not held.");
+        }
+        else
+        {
+            ImGui.TextColored(Green, $"holding {tracks.Count}");
+            for (int i = 0; i < Math.Min(tracks.Count, SearchRowsShown); i++)
+            {
+                Track t = tracks[i];
+                string line = $"  {t.Contact.DisplayName}  {Distance.Say(t.Range)}  {t.Contact.HeatKwPerSr:F0} kW/sr";
+                if (t.IsThreat) ImGui.TextColored(Amber, line + "  threat");
+                else ImGui.Text(line);
+            }
+
+            if (tracks.Count > SearchRowsShown) ImGui.TextDisabled($"  and {tracks.Count - SearchRowsShown} more");
+        }
+
+        ImGui.TextDisabled($"{LooksToward(craft, set.Boresight)}, head {(set.Radar.Watched is { } w ? $"on {w.Contact.DisplayName}" : "sweeping")}");
+        Tip($"Passive: it gives nothing away, so there is nothing to switch off. It sees its whole "
+            + $"{set.Sensor.ConeDeg:F0} deg cone wherever the head points; the head only shows where it is looking.");
+    }
+
+    // The boresight as a compass bearing and an angle above the horizon, off the body's own axis.
+    private static string LooksToward(KSA.Vehicle craft, double3 boresightEcl)
+    {
+        if (KsaWorld.ParentBody(craft) is not { } body
+            || ScopeFrame(body, KsaWorld.PositionEcl(craft)) is not { } frame)
+        {
+            return "looks somewhere";
+        }
+
+        double3 local = frame.ToLocalDirection(boresightEcl);
+        // Rounded before printing, or a level boresight reads "-0 deg up".
+        double up = Math.Round(double.RadiansToDegrees(Math.Asin(Math.Clamp(local.Z, -1.0, 1.0)))) + 0.0;
+        return TerrainMap.HeadingDeg(local, still: 1e-3) is { } heading
+                   ? $"looks {Math.Round(heading) % 360:F0} deg, {up:F0} deg up"
+                   : up > 0 ? "looks straight up" : "looks straight down";
+    }
+
+    // What every searching set aboard adds up to: the IRSTs and any launcher's own radar, each
+    // contact once. Only drawn where a search part is fitted; elsewhere the Radar tab says it all.
+    private void DrawPictureSummary(KSA.Vehicle craft)
+    {
+        ImGui.SeparatorText("Picture");
+
+        IReadOnlyList<Track> merged = _picture.TracksFor(craft);
+        if (merged.Count == 0)
+        {
+            ImGui.TextDisabled("nothing held");
+        }
+        else
+        {
+            string best = _picture.BestFor(craft) switch
+            {
+                KSA.Vehicle v => KsaWorld.DisplayName(v),
+                null => "none",
+                _ => "a round",
+            };
+            ImGui.Text($"{merged.Count} contact{(merged.Count == 1 ? "" : "s")}, best: {best}");
+        }
+
+        Tip("Every set aboard that searches for itself, merged, each contact once. A director with "
+            + "Track on, and a beam weapon on auto-engage, take its best contact when nothing more "
+            + "specific tells them where to look.");
+    }
+
     // One role of one kind of part -- once for all its stations, or once per head for a director --
     // and whatever it is that the panel can drive.
     private void DrawComponentRow(KSA.Vehicle craft, FoundComponent c, ComponentProfile kind, WeaponRole role,
                                   int nth, int stations, int of, bool alone)
     {
-        string label = !StacksStations(role) && of > 1 ? $"{c.DisplayName}  {nth + 1} of {of}" : c.DisplayName;
+        string label = !StacksStations(kind, role) && of > 1 ? $"{c.DisplayName}  {nth + 1} of {of}" : c.DisplayName;
         bool folded = !(alone && label == kind.DisplayName);
 
         // Open unless folded away. A craft carries a handful of components and their controls are
@@ -135,6 +254,10 @@ internal sealed partial class Ui
         else if (role == WeaponRole.Countermeasures)
         {
             DrawDispenserComponent(craft, nth);
+        }
+        else if (role == WeaponRole.Sensor && IsSearchPart(kind))
+        {
+            DrawSearchSetComponent(craft, c);
         }
         else if (!_crewed)
         {

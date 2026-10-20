@@ -2223,6 +2223,12 @@ flown straight up, read back with the bridge's `search`.
 - [x] **The head shows behind the glass** from 4-5 m, rebaked with a pale head and a gold lens
       against the dark bay: the lens and the outline read through the panes. A dark head over that bay
       read as one black window. Turning is still confirmed by readback only, never by eye.
+- [x] **The panel shows it.** Seen 2026-10-20 on `YAL1 IRST TEST` with both rockets climbing: four
+      rows numbered 1 to 4 of 4, the south-facing one "holding 1 / TargetSouth 7.84 km 410 kW/sr
+      threat", the west-facing one TargetWest at 8.58 km, the other two holding nothing and
+      sweeping, and the YAL-1's director "Watching: TargetSouth - from the craft's picture". With
+      the rockets 70 deg up all four said holding nothing, which is right: every IRST looks along
+      the horizon. The scope's `IR` mark is not seen: this craft has no search radar, so no scope.
 - [ ] The editor: `Infrared Search and Track Sensor` under **Sensors**, surface-attaching, unrootable.
 - [ ] Engines-out and look-down ranges, a fighter-sized target, and a range against the 1 MN booster
       in thin air: none flown.

@@ -265,10 +265,10 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
                                            SightZoom.Clamp(Profile.MaxMagnification));
 
         Radar.Sensor = Sensor;
-        Radar.Cue = Designation.Kind == AimpointKind.Vehicle ? Designation.Handle
-                    : _cue.Kind == AimpointKind.Vehicle ? _cue.Handle
-                    : _policy.Tracking ? Pictured
-                    : null;
+        (Radar.Cue, CuedBy) = Designation.Kind == AimpointKind.Vehicle ? (Designation.Handle, CueSource.Designation)
+                              : _cue.Kind == AimpointKind.Vehicle ? (_cue.Handle, CueSource.Launcher)
+                              : _policy.Tracking && Pictured is not null ? (Pictured, CueSource.Picture)
+                              : (null, CueSource.None);
         Radar.Scan(platform, SensorBoresight, dt, airborne);
 
         UpdateSpotSearch(platform, dt);
@@ -796,6 +796,9 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     /// designation and its launcher's cue.
     /// </summary>
     public object? Pictured { get; set; }
+
+    /// <summary>What handed this step's cue to the head's set, which holds nothing it is not handed.</summary>
+    public CueSource CuedBy { get; private set; }
 
     /// <summary>The laser spot this head's tracker has found this step, or null.</summary>
     public double3? FoundSpot { get; private set; }

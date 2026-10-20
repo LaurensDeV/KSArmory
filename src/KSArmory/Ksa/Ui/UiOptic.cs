@@ -279,8 +279,31 @@ internal sealed partial class Ui
             return;
         }
 
-        ImGui.TextDisabled(head.LockedTrack is { } track ? $"Watching: {track.Contact.DisplayName}"
+        if (head.LockedTrack is { } track)
+        {
+            ImGui.TextDisabled($"Watching: {track.Contact.DisplayName}{CuedBy(head.CuedBy)}");
+            return;
+        }
+
+        // The craft's picture holding something this head is not watching is the answer to "why
+        // is it not looking at the contact the IRST has".
+        string? pictured = head.Pictured switch
+        {
+            KSA.Vehicle v => KsaWorld.DisplayName(v),
+            null => null,
+            _ => "a round",
+        };
+
+        ImGui.TextDisabled(pictured is not null && !policy.Tracking ? $"Watching: nothing - the craft's picture holds {pictured}; Track follows it"
+                           : pictured is not null ? $"Watching: nothing - {pictured} is beyond this head's reach"
                            : policy.SpotSearch ? $"Watching: nothing - no spot on code {policy.LaserCode} in view"
                            : "Watching: nothing - shift-click the world to point it");
     }
+
+    private static string CuedBy(CueSource source) => source switch
+    {
+        CueSource.Launcher => " - cued by its launcher",
+        CueSource.Picture => " - from the craft's picture",
+        _ => "",
+    };
 }

@@ -150,6 +150,14 @@ locks on, without seeing the target itself.
 - The IRST's component row: on or off, how many contacts it holds, the best one.
 - The Radar tab's scope shows IRST contacts, marked as heat contacts.
 - A director's row says where its target came from: shift-click, its launcher, or the craft's picture.
+- [x] Built, and seen in game 2026-10-20 on `YAL1 IRST TEST`. Each IRST has its own row — what it
+  holds with range, heat and threat, how many were too faint, its bearing and elevation, and whether
+  the head sweeps — and a **Picture** line under them gives the count and the best contact. The scope
+  marks what an IRST holds `IR` and draws what only an IRST holds; it exists only on a weapon with a
+  search radar, so the rows carry the list too. A director under **Track** says "from the craft's
+  picture", and with nothing held says whether Track is off or the contact is out of its reach. A craft
+  carrying only IRSTs opens its window. **No on/off switch**: the set is passive and gives nothing
+  away, so switching it off only blinds the craft, and it would be the IRST's first saved setting.
 
 ### 7. Flown — one session
 - A YAL-1 craft with IRSTs against a rocket under power at 100–300 km: the IRST sees it, the turret

@@ -207,6 +207,9 @@ public static class ScopeGeometry
     /// </remarks>
     public const string Emitting = "R";
 
+    /// <summary>The mark a contact an infrared search set holds carries below its symbol.</summary>
+    public const string Heat = "IR";
+
     /// <summary>Range rings drawn inside the rim, as fractions of the face radius.</summary>
     ///
     /// <para>The rim itself is not one of them: it is the range setting and is drawn as the edge,

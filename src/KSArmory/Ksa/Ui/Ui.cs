@@ -7,7 +7,7 @@ namespace KSArmory;
 /// The operator's panel: auto-engage, radar and guidance tuning, the track list with
 /// manual designation, and a rolling event log.
 /// </summary>
-internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHeads heads, Countermeasures countermeasures, IcbmComputers icbms, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts, Func<WeaponSystem, StoreReach> reachFor)
+internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHeads heads, Countermeasures countermeasures, SearchSets searchSets, CraftPicture picture, IcbmComputers icbms, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts, Func<WeaponSystem, StoreReach> reachFor)
 {
     // The overlay's own answer rather than a fresh one: solving here would be three flown
     // trajectories per frame for a readout the ring is already showing, and a line that
@@ -29,6 +29,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private readonly OpticalHeads _heads = heads;
     private readonly Countermeasures _countermeasures = countermeasures;
     private readonly List<Countermeasures.Entry> _dispenserScratch = [];
+    private readonly SearchSets _searchSets = searchSets;
+    private readonly CraftPicture _picture = picture;
+    private readonly List<SearchSet> _searchScratch = [];
     private readonly WarpPolicy _warp = warp;
 
     // The system the panes read. Not fixed, and not set here: Focus points them at whichever
@@ -229,7 +232,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         // the system alone clears the selection on the frame after a camera-only craft is picked,
         // so the window opens and shuts again before it is ever drawn.
         if (_managed is not null
-            && _roster.For(_managed) is null && _heads.FirstOn(_managed) is null)
+            && _roster.For(_managed) is null && _heads.FirstOn(_managed) is null && !CarriesSearchSet(_managed))
         {
             _managed = null;
         }
@@ -773,7 +776,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         // a system. Rather than refusing to open -- which leaves the operator with a listed craft
         // and no way into its camera -- the window opens with what that craft actually has.
         bool armed = Focus(craft);
-        if (!armed && _heads.FirstOn(craft) is null)
+        if (!armed && _heads.FirstOn(craft) is null && !CarriesSearchSet(craft))
         {
             _managed = null;
             return;

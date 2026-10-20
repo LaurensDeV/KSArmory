@@ -20,6 +20,9 @@ internal readonly record struct OpticHold(string Reason)
     public bool Holds => Reason.Length > 0;
 }
 
+/// <summary>Who handed a director the contact it holds, in the precedence its set takes them.</summary>
+internal enum CueSource { None, Designation, Launcher, Picture }
+
 /// <summary>What decides that, kept apart from the drawing so it can be tested.</summary>
 internal static class OpticFollow
 {

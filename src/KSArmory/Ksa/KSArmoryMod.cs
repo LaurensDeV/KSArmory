@@ -257,7 +257,7 @@ public sealed class KSArmoryMod
         Log.Info(Build.Developer
                      ? "developer install: the bridge, the scenario runner and the developer controls are on"
                      : "player install: developer tools are off");
-        _ui = new Ui(_config, _roster, _heads, _countermeasures, _icbms, _warp, _watch, _mover, _bursts, ReachFor);
+        _ui = new Ui(_config, _roster, _heads, _countermeasures, _searchSets, _picture, _icbms, _warp, _watch, _mover, _bursts, ReachFor);
         Log.Info($"ready - {string.Join(", ", Catalogue.Launchers.Select(l => l.DisplayName))}, safe. "
                  + "Open the 'KSArmory' panel to arm.");
 
