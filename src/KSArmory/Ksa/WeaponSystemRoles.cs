@@ -135,6 +135,9 @@ internal interface IOpticalHead : IWeaponPlatform
     /// <summary>True once the head has caught up with what it was told to look at.</summary>
     bool OpticOnTarget { get; }
 
+    /// <summary>Aimed at what the weapon on its part cued it with.</summary>
+    bool FollowsCue { get; }
+
     /// <summary>True while its own craft stands across its line of sight.</summary>
     bool Masked { get; }
 
@@ -209,6 +212,12 @@ internal interface ISightPicture : IWeaponPlatform, IWeaponLoadout
 
     /// <summary>Rounds left in the cannon belt.</summary>
     int GunAmmo { get; }
+
+    /// <summary>Seconds of lasing left, for a launcher that fires a beam.</summary>
+    int BeamSecondsLeft { get; }
+
+    /// <summary>Whether its beam is on this step.</summary>
+    bool BeamLasing { get; }
 
     /// <summary>Where rounds leave from, which is what every lead is measured from.</summary>
     double3 MountEcl { get; }

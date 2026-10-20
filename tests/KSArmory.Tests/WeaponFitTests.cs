@@ -253,7 +253,7 @@ public class WeaponFitTests
             foreach (Armament arm in fit.Armaments)
             {
                 Assert.False(string.IsNullOrWhiteSpace(arm.Label));
-                Assert.Equal(arm.Munition, Catalogue.MunitionNamed(arm.Munition).Name);
+                if (arm.Kind != ArmamentKind.Beam) Assert.Equal(arm.Munition, Catalogue.MunitionNamed(arm.Munition).Name);
                 Assert.True(arm.Capacity > 0, $"{launcher.DisplayName} carries no {arm.Label}");
             }
         }
@@ -283,7 +283,7 @@ public class WeaponFitTests
                     $"{launcher.DisplayName}'s {arm.Kind} armament has no name to print");
                 Assert.True(arm.Capacity > 0,
                     $"{launcher.DisplayName}'s {arm.Kind} armament holds {arm.Capacity} rounds");
-                Assert.False(string.IsNullOrWhiteSpace(arm.Munition),
+                Assert.True(arm.Kind == ArmamentKind.Beam || !string.IsNullOrWhiteSpace(arm.Munition),
                     $"{launcher.DisplayName}'s {arm.Kind} armament names no round");
             }
         }

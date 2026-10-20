@@ -105,7 +105,7 @@ internal partial class Ui
         {
             // Whatever the trigger fires. A gun's belt is not its magazine, so asking a gun for
             // rounds would report every station of it empty and the trigger would never reach one.
-            _stationAmmo.Add(s.Weapon.TriggerArmament == ArmamentKind.Tubes ? s.Weapon.Ammo : s.Weapon.GunAmmo);
+            _stationAmmo.Add(s.Weapon.Remaining(s.Weapon.TriggerArmament));
         }
 
         return WeaponSelection.NextStation(CollectionsMarshal.AsSpan(_stationAmmo),
@@ -283,7 +283,7 @@ internal partial class Ui
                 bool guarding = false;
                 foreach (WeaponSystems.Entry s in _stations)
                 {
-                    left += arm.Kind == ArmamentKind.Tubes ? s.Weapon.Ammo : s.Weapon.GunAmmo;
+                    left += s.Weapon.Remaining(arm.Kind);
                     guarding |= s.Policy.AutoEngage;
                 }
 
@@ -299,7 +299,12 @@ internal partial class Ui
     }
 
     private static string ChoiceLeft(WeaponChoice c)
-        => c.Arm.Kind == ArmamentKind.Tubes ? $"{c.Left} round(s)" : $"{c.Left} belt";
+        => c.Arm.Kind switch
+        {
+            ArmamentKind.Tubes => $"{c.Left} round(s)",
+            ArmamentKind.Beam => $"{c.Left} s of chemicals",
+            _ => $"{c.Left} belt",
+        };
 
     private static bool IsChosen(WeaponSystems.Entry? selected, WeaponChoice c)
         => selected is not null

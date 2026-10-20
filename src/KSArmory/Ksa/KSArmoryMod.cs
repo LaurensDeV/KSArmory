@@ -231,6 +231,7 @@ public sealed class KSArmoryMod
 
         _roster = new WeaponSystems(_config);
         _heads = new OpticalHeads(_config);
+        _roster.DirectorFor = part => _heads.OnPart(part);
         _countermeasures = new Countermeasures();
         _icbms = new IcbmComputers(_config);
         _motors = new MotorSound(_config);

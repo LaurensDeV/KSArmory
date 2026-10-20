@@ -22,6 +22,7 @@ public sealed class SystemSettings
     public bool ChaseRounds { get; set; }
     public bool MissilesEnabled { get; set; } = true;
     public bool GunsEnabled { get; set; } = true;
+    public bool BeamEnabled { get; set; } = true;
     public int RoundsPerTarget { get; set; } = 2;
     public bool MouseAim { get; set; }
     public bool TurretTracking { get; set; } = true;
@@ -54,6 +55,7 @@ public sealed class SystemSettings
             ChaseRounds = config.ChaseRounds,
             MissilesEnabled = config.MissilesEnabled,
             GunsEnabled = config.GunsEnabled,
+            BeamEnabled = config.BeamEnabled,
             RoundsPerTarget = config.RoundsPerTarget,
             MouseAim = config.MouseAim,
             TurretTracking = config.TurretTracking,
@@ -116,6 +118,7 @@ public sealed class SystemSettings
         config.ChaseRounds = ChaseRounds;
         config.MissilesEnabled = MissilesEnabled;
         config.GunsEnabled = GunsEnabled;
+        config.BeamEnabled = BeamEnabled;
         config.RoundsPerTarget = Math.Max(1, RoundsPerTarget);
         config.MouseAim = MouseAim;
         config.TurretTracking = TurretTracking;
@@ -153,6 +156,7 @@ public sealed class SystemSettings
                || ChaseRounds != other.ChaseRounds
                || MissilesEnabled != other.MissilesEnabled
                || GunsEnabled != other.GunsEnabled
+               || BeamEnabled != other.BeamEnabled
                || RoundsPerTarget != other.RoundsPerTarget
                || MouseAim != other.MouseAim
                || TurretTracking != other.TurretTracking

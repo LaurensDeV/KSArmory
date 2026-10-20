@@ -87,6 +87,12 @@ public sealed class OpticConfig : ISensorPolicy
     /// <summary>The laser's pulse code; a weapon homes on the spot carrying its own. See <see cref="LaserCode"/>.</summary>
     public int LaserCode = KSArmory.LaserCode.Default;
 
+    /// <summary>
+    /// Looks for a spot somebody else is lasing on <see cref="LaserCode"/> and locks onto it, when
+    /// nothing more specific has been handed to the director.
+    /// </summary>
+    public bool SpotSearch;
+
     /// <summary>A factor on whatever field the player already had, so the same setting is the
     /// same instrument to two people with different preferences. See <see cref="SightZoom"/>.</summary>
     public float Magnification = 1f;

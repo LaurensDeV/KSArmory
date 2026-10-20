@@ -54,6 +54,12 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     public object? ManualDesignation { get; set; }
 
     /// <summary>
+    /// What a <see cref="SensorProfile.CuedOnly"/> set has been handed to hold, as an
+    /// <see cref="IContact.Handle"/>. Every other contact is left out of its scan.
+    /// </summary>
+    public object? Cue { get; set; }
+
+    /// <summary>
     /// Craft the last scan discarded because the planet was in the way.
     ///
     /// <para>Counted rather than dropped quietly: a system that suddenly sees nothing looks
@@ -155,6 +161,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
             Vehicle candidate = world[i];
 
             if (ReferenceEquals(candidate, platform)) continue;
+            if (_sensor.CuedOnly && !ReferenceEquals(candidate, Cue)) continue;
             if (_policy.ProtectControlledVehicle && ReferenceEquals(candidate, KsaWorld.ControlledVehicle)) continue;
 
             if (KsaWorld.Wreckage.IsPiece(KsaWorld.DisplayName(candidate)))
@@ -180,6 +187,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
                 // On a launcher carrying a director this is the difference between a sight that
                 // watches the target and one that follows every round out to 30 km.
                 if (ReferenceEquals(airborne[i].LaunchedFrom, platform)) continue;
+                if (_sensor.CuedOnly && !ReferenceEquals(airborne[i].Handle, Cue)) continue;
 
                 Consider(airborne[i], originEcl, originVel, boresight, dt, groundCentre, groundRadius);
             }
@@ -284,7 +292,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
             ClosestApproach = a.ClosestApproach,
             TimeToClosestApproach = a.TimeToClosestApproach,
             HeldSeconds = _dwell.GetValueOrDefault(contact.Handle) + dt,
-            IsThreat = a.IsThreat && !contact.IsDebris && _policy.Iff.MayEngage(allegiance),
+            IsThreat = (a.IsThreat || _sensor.CuedOnly) && !contact.IsDebris && _policy.Iff.MayEngage(allegiance),
             Team = team,
             Allegiance = allegiance,
         });

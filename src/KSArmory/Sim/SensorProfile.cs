@@ -147,6 +147,14 @@ public sealed class SensorProfile
     /// </summary>
     public bool Emits;
 
+    /// <summary>
+    /// Holds only the contact it was handed and searches for nothing: a telescope, whose view is a
+    /// straw and whose picture says nothing about which dot matters. Something else finds the target
+    /// and points it there, and that contact is engageable whether or not it is closing, because
+    /// somebody chose it.
+    /// </summary>
+    public bool CuedOnly;
+
     // ---- What the set can tell targets apart by ------------------------------
     //
     // Each is off at its default, so a set that says nothing about them does not tell targets apart

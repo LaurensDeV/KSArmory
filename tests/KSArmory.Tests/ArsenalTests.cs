@@ -17,7 +17,12 @@ public class ArsenalTests
     {
         foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
-            Assert.Equal(launcher.Munition, Catalogue.MunitionNamed(launcher.Munition).Name);
+            // A beam throws no round, and is the one launcher allowed to name none.
+            if (launcher.Munition.Length > 0 || !launcher.FiresBeam)
+            {
+                Assert.Equal(launcher.Munition, Catalogue.MunitionNamed(launcher.Munition).Name);
+            }
+
             Assert.Equal(launcher.Sensor, Catalogue.SensorNamed(launcher.Sensor).Name);
 
             // The cannon's round as well as the missile's. Arsenal.Named falls back to element
@@ -28,6 +33,27 @@ public class ArsenalTests
             {
                 Assert.Equal(shell, Catalogue.MunitionNamed(shell).Name);
             }
+        }
+    }
+
+    [Fact]
+    public void EveryDirectorsSetHoldsOnlyWhatItIsHanded()
+    {
+        foreach (OpticProfile optic in Catalogue.Optics)
+        {
+            Assert.True(Catalogue.SensorNamed(optic.Sensor).CuedOnly,
+                        $"{optic.DisplayName} searches for targets a telescope cannot find");
+        }
+    }
+
+    [Fact]
+    public void ALauncherWithNoDirectorOnItsPartStillSearches()
+    {
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
+        {
+            if (Catalogue.OpticForPart(launcher.PartId) is not null) continue;
+            Assert.False(Catalogue.SensorNamed(launcher.Sensor).CuedOnly,
+                         $"{launcher.DisplayName} has nothing to hand it a target");
         }
     }
 
@@ -90,8 +116,9 @@ public class ArsenalTests
     {
         foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
-            Assert.True(launcher.TubeCount > 0 || launcher.HasCannon,
-                        $"{launcher.DisplayName} has neither tubes nor a cannon");
+            bool beam = launcher.FiresBeam && Catalogue.OpticForPart(launcher.PartId)?.Beam is not null;
+            Assert.True(launcher.TubeCount > 0 || launcher.HasCannon || beam,
+                        $"{launcher.DisplayName} has no tubes, no cannon and no beam on its part");
         }
     }
 

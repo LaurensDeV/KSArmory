@@ -905,6 +905,7 @@ LAUNCHER_GEOMETRY = {
     "PostBoostBus": (None, "post-boost bus"), # authored, clustered -- CLUSTER_LAUNCHERS
     "Mk42": (None, "Mk 42 mount"),            # authored gun -- AUTHORED_GUNS below
     "M197": (None, "M197 chin turret"),       # authored gun -- AUTHORED_GUNS below
+    "Yal1Beam": (None, "YAL-1 laser"),        # fires the director on its part; nothing of its own
 }
 
 # Launchers whose art was authored AND whose weapon is a gun, so there is no tube and no seat to

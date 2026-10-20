@@ -43,6 +43,8 @@ internal sealed partial class Ui
         for (int i = 0; i < armaments.Count; i++)
         {
             Armament arm = armaments[i];
+            if (arm.Kind == ArmamentKind.Beam) continue;
+
             bool other = arm.Munition != _munition.Name;
             if (!other && arm.Kind != ArmamentKind.Belt) continue;
 

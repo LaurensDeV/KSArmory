@@ -43,6 +43,7 @@ VIA = {
 
     "SystemConfig.MissilesEnabled": "EnabledIn",
     "SystemConfig.GunsEnabled": "EnabledIn",
+    "SystemConfig.BeamEnabled": "EnabledIn",
 
     # A policy object rather than a value: the reference never changes. Its own team is the switcher
     # row's flag, written through SetTeam for every system and director on the craft; the rest of it
@@ -83,6 +84,9 @@ EXEMPT = {
     "SensorProfile.Emits":
         "whether a set transmits at all is what kind of set it is; the operator's switch for "
         "whether it is transmitting *now* is SystemConfig.RadarSilent, which has a control",
+    "SensorProfile.CuedOnly":
+        "whether a set can find anything by itself is what kind of instrument it is -- a telescope "
+        "does not become a search set because somebody ticked a box",
     "SensorProfile.Scope":
         "what picture the set puts in front of the operator is what kind of instrument it is -- "
         "a seeker head has none and an anti-radiation seeker's is a list of emitters, and neither "

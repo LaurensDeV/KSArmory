@@ -502,6 +502,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/RadarSignature.cs` | how large a contact looks, and how far that lets the set see it |
 | `Sim/BeamProfile.cs` | a high-energy laser an optical head fires down its own line of sight — power, aperture, burn-through fluence and the seconds of lasing its load of chemicals gives |
 | `Sim/Beam.cs` | what that beam does to the part it is held on — **diffraction and jitter set the spot, the air on the path thins it**, and the burn is a share of the part's health per second, calibrated to the ABL's 3–5 s at 100 km |
+| `Sim/BeamTrigger.cs` | when a beam weapon lases — **a press holds it on for one dwell, auto-engage for as long as it asks**, and the dwell runs down only while the director is on target, so a press made while it slews waits rather than lasing at nothing |
 | `Sim/CloudCover.cs` | where a beam first enters cloud thick enough to stop it — **overcast only**, coverage 0.8 and over, because KSA's coverage map places cloud fields and not the puffs inside them, so broken cloud would stop a beam in a visible gap; up to a top that rises with the coverage |
 | `Sim/CoverageCube.cs` | a cloud layer's coverage map as KSA's renderer samples it — a BC4 cubemap in Vulkan's face order, kept compressed and decoded per texel |
 | `Sim/Signature.cs` | how bright a thing looks to a seeker — heat in kW/sr off the thrust being made, and the lock strength a seeker would take on it, **over range squared for heat and to the fourth for radar** |
@@ -530,6 +531,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/LockCue.cs` | how far a lock has matured, as the number a closing bracket is drawn from |
 | `Sim/SightPicture.cs` | where the sight's horizontal lies, and which way a contact off the glass went |
 | `Sim/EdgeCue.cs` | where an indicator for something off the screen sits on its edge — **from the bearing against the camera's right and up, not a projection**, because a projection throws a point behind the camera to the opposite side |
+| `Sim/SpotSearch.cs` | which laser spot a director's tracker locks onto — **its own code, somebody else's spot**, in range and where the head can look, the nearest; last step's spots carried over the step by the velocity of what each lies on |
 | `Sim/LaserCode.cs` | a laser's pulse code and the spot it lands — **a position and the velocity of what it lies on**, so a weapon replaying it keeps it on the ground or the craft it is on |
 | `Sim/SensorMode.cs` | which channel a director's camera window shows — TV, white-hot, black-hot or colour, in the order a pod's mode button steps |
 | `Sim/SightZoom.cs` | the head's magnification, as the field of view it asks a camera for |
@@ -718,6 +720,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
+| `docs/IRST-PLAN.md` | **a plan, not a record** — an infrared search part that finds targets for the directors, which find nothing by themselves, and one picture per craft that hands them on; the detection law, its calibration targets and the order of work |
 | `docs/SHARED-PICTURE.md` | **a plan, not a record** — a team's scopes showing what another installation's set holds: the display-only step first, and why firing on somebody else's track is a much bigger one |
 | `docs/MULTIPLAYER.md` | **a plan, not a record** — what KSA's networking skeleton does, why this mod's rounds have nothing to sync against until KSA replicates vehicles and time, and the two pieces worth doing first |
 | `docs/CIWS-REALISM.md` | **a plan, not a record** — what the real Phalanx does that the mod does not: detection only as the search beam passes, and closed-loop spotting of its own rounds, with why each waits and **what would make spotting worth building** |
@@ -948,6 +951,14 @@ neither of them is longer than a page.
 the magazine holds nothing; it fires entirely through `GunMunition` and `GunMuzzles`. Neither
 "every launcher has a tube" nor "every turret has pods" is an invariant. What is required is that
 a launcher can shoot with *something*, and that a traverse carries something that moves with it.
+
+**Nor a round at all.** The YAL-1's laser is a `LauncherProfile` on the director's own part with
+`FiresBeam` and no munition (`LoadoutFor` answers `MunitionProfile.None`, never the first
+registered round). It owns nothing that moves: fire control picks the target and cues the director
+on its part, which aims, casts and burns, while `Sim/BeamTrigger.cs` decides when it lases and the
+ladder's beam rungs say why not. Everything about the target is auto-engage's, as for a gun, and
+nothing is rationed per target or bounded by a round's envelope. The director's own laser button is
+the designator only.
 
 **Its radome elevates with the gun, and that is the whole articulation.** The dome carries the
 track antenna, which has to stay boresighted with the barrels, so the housing, the barrels and the
@@ -2467,8 +2478,10 @@ brackets whatever its sensor holds, and only slews onto it if something told it 
 rest with a contact tracked paints a bracket well off the boresight and reads, from the picture
 alone, as a camera that has stopped working. `Sim/OpticHold.cs` is the director's half of
 `FireHold`, and its ordering is not a preference: it mirrors `OpticalHead.AimPartFrame`, which
-takes the mouse first, then the sliders, then a designation, then the tracking switch. All of them
-can be true at once, so a reason read in any other order names a rung the head never reached.
+takes the mouse first, then the sliders, then a designation, then a weapon on its own part firing
+through it, then a laser spot its tracker found, then its launcher's cue and its own set under the
+tracking switch. All of them can be true at once, so a reason read in any other order
+names a rung the head never reached.
 
 **The view's re-solve onto a settled head's target asks the same question, and does not ask it
 again.** `AimPartFrame` records the rung it took and `TryFollowedDrawnEcl` reads that, so the
@@ -2563,9 +2576,16 @@ a turn. The roll is built about a *named* axis for the same reason at 180°: a s
 picks a perpendicular that tips the aim off target, which is a wrecked bearing rather than a roll.
 
 **The head is its own part, and a weapon is not what gives a craft one.** `Ksa/OpticalHead.cs` is
-crewed per director fitted rather than per weapons system, finds its own targets through its own
+crewed per director fitted rather than per weapons system, holds what it is handed through its own
 `SensorProfile`, and needs no weapon on the craft at all — so a hull with one director on it is an
-observation post. That it cost nothing in the sight, the chase camera or the claim ladder is
+observation post.
+
+**And it finds nothing by itself.** A director is a telescope: its view is a straw and its picture
+says nothing about which dot matters, so every director's set is `CuedOnly` and holds only what it
+is handed — the operator's shift-click, or what the launcher on its own part cues it with, as a
+Pantsir's radar cues its 1TPP1, or a laser spot somebody else is making on its code
+(`Sim/SpotSearch.cs`, the **Spot** switch). Something that *finds* targets for it, an infrared search
+set like the YAL-1's, is a part not yet built — `docs/IRST-PLAN.md`. That it cost nothing in the sight, the chase camera or the claim ladder is
 `IOpticalHead` earning its place: the interface was written when the head *was* launcher gear, and
 every consumer of it was already reading a role rather than a system.
 

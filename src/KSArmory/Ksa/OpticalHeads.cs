@@ -37,6 +37,17 @@ internal sealed class OpticalHeads(Config config)
     /// <summary>Every crewed head, in no particular order.</summary>
     public IEnumerable<Entry> All => _entries.Values;
 
+    /// <summary>The head crewed on a part, or null.</summary>
+    public OpticalHead? OnPart(Part part)
+    {
+        foreach (Entry e in _entries.Values)
+        {
+            if (ReferenceEquals(e.Head.Director, part)) return e.Head;
+        }
+
+        return null;
+    }
+
     /// <summary>The heads on one craft, appended in part order.</summary>
     public void On(Vehicle? craft, List<Entry> into)
     {

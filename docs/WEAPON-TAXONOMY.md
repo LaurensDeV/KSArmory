@@ -196,7 +196,7 @@ none.
 **Only 1, 3, 11 and 13 have an instance, and only those four should be built now.**
 
 - **1 is the highest leverage item on the list and its instance already exists.** `Ksa/OpticalHead.cs`
-  is crewed per director, finds its own targets through its own `SensorProfile`, and needs no weapon
+  is crewed per director, holds what it is handed through its own `SensorProfile`, and needs no weapon
   on the craft. The generalisation that made it cheap is `Sim/OpticGeometry.MountFrame`: the head
   *reads* its base's finished pose rather than being handed the mover's angles. A launcher reading a
   track from a sensor it does not own is the same move at the fire-control level. Both rosters

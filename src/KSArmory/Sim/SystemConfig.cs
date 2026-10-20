@@ -103,6 +103,9 @@ public sealed class SystemConfig : ISensorPolicy
     /// <inheritdoc cref="MissilesEnabled"/>
     public bool GunsEnabled = true;
 
+    /// <inheritdoc cref="MissilesEnabled"/>
+    public bool BeamEnabled = true;
+
     /// <summary>Rounds committed to a single target before re-evaluating.</summary>
     public int RoundsPerTarget = 2;
 

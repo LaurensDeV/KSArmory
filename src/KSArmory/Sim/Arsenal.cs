@@ -1241,9 +1241,8 @@ public static class Arsenal
     };
 
     /// <summary>
-    /// The EO director's own sensor. Narrow and short-ranged next to a search radar, because it
-    /// is a telescope rather than a set: it sees what it is pointed at, in detail, and finds
-    /// nothing on its own beyond a few kilometres.
+    /// The EO director's own sensor, also the Pantsir's roof director's. A telescope rather than a
+    /// set: it holds what it is handed, in detail, and finds nothing on its own.
     ///
     /// <para><see cref="BoresightMode.PartForward"/>, so its volume follows the craft's attitude
     /// rather than pointing at the sky — a director bolted to the side of a hull looks out of
@@ -1254,6 +1253,7 @@ public static class Arsenal
         Name = "EO",
         DisplayName = "EO director",
         Range = 12000f,
+        CuedOnly = true,
 
         // Wide enough to cover the head's own travel, and that is where the number comes from
         // rather than from taste: the boresight is the mounting face's normal, which is 90 deg
@@ -1326,10 +1326,10 @@ public static class Arsenal
 
     /// <summary>
     /// The set inside a targeting pod. Longer-ranged than a mast director and looking down rather
-    /// than out, which is the difference between watching a perimeter and designating for a strike.
+    /// than out. Like every director's it holds what it is handed and searches for nothing.
     ///
     /// <para><see cref="BoresightMode.PartForward"/>, as the mast director's is, and for a pod that
-    /// resolves to the mounting face's own normal — away from the pylon, so a wing store searches
+    /// resolves to the mounting face's own normal — away from the pylon, so a wing store looks at
     /// the ground below the aircraft. A cone about the pod's <em>centreline</em> would be the
     /// literal field of regard and would also point straight into the wing, which is the one
     /// direction the airframe masks and nothing here models.</para>
@@ -1339,6 +1339,7 @@ public static class Arsenal
         Name = "Litening",
         DisplayName = "LITENING",
         Range = 20000f,
+        CuedOnly = true,
         ConeDeg = 100f,
 
         // Out of the mounting face, matching where the pod stows. Along the pod's own centreline
@@ -1353,8 +1354,8 @@ public static class Arsenal
     };
 
     /// <summary>
-    /// What the YAL-1's turret tracks with. The aircraft's six IRSTs did the detecting; this stands
-    /// in for the whole chain handing a booster to the turret.
+    /// What the YAL-1's turret tracks with. The aircraft's six IRSTs did the detecting, so it holds
+    /// only what it is handed.
     ///
     /// <para><see cref="BoresightMode.MountNormal"/> is the part's <c>+X</c>, which for a turret
     /// stacked on a nose is straight ahead along its roll axis.</para>
@@ -1363,6 +1364,7 @@ public static class Arsenal
     {
         Name = "Yal1BeamDirector",
         DisplayName = "YAL-1 beam director",
+        CuedOnly = true,
 
         // The design range against a solid-fuelled booster (APS, 2003); liquid was twice that.
         Range = 300000f,
@@ -1462,6 +1464,22 @@ public static class Arsenal
         Beam = new BeamProfile(),
     };
 
+    /// <summary>
+    /// The YAL-1's laser as a weapon: the same part as <see cref="Yal1Turret"/>, firing that
+    /// director's beam. Nothing of its own moves and it throws no round; fire control picks the
+    /// target and cues the director, which aims, casts and burns.
+    /// </summary>
+    public static readonly LauncherProfile Yal1Beam = new()
+    {
+        PartId = Yal1Turret.PartId,
+        DisplayName = "YAL-1 laser",
+        Munition = "",
+        Sensor = BeamDirectorSensor.Name,
+        Tubes = [],
+        FiresBeam = true,
+        BeamArmamentLabel = "COIL laser",
+    };
+
     // ---- Countermeasures -------------------------------------------------
 
     /// <summary>
@@ -1534,7 +1552,7 @@ public static class Arsenal
     // ---- Registry -------------------------------------------------------
 
     public static readonly IReadOnlyList<LauncherProfile> Launchers =
-        [SidewinderRail, AmraamRail, HarmRail, Ciws, NukeRack, MirvBus, PostBoostBus, Mk42, M197];
+        [SidewinderRail, AmraamRail, HarmRail, Ciws, NukeRack, MirvBus, PostBoostBus, Mk42, M197, Yal1Beam];
     public static readonly IReadOnlyList<MunitionProfile> Munitions =
         [Missile9J, Missile120C, MissileAgm88, Cannon20Mm, NukeB61, ReentryVehicleMk21,
          Shell5In54];
@@ -1591,8 +1609,17 @@ public static class Arsenal
         new ComponentProfile
         {
             PartId = Yal1Turret.PartId,
-            Role = WeaponRole.Camera,
-            DisplayName = Yal1Turret.DisplayName,
+            Role = WeaponRole.Launcher,
+            DisplayName = Yal1Beam.DisplayName,
+
+            // One entry: the survey takes the first that names a part. The director is the part
+            // itself, so it is declared here as the Pantsir declares the one on its turret.
+            Provides =
+            [
+                new(WeaponRole.Camera, Yal1Turret.DisplayName),
+                new(WeaponRole.Sensor, BeamDirectorSensor.DisplayName),
+                new(WeaponRole.FireControl, "YAL-1 fire control"),
+            ],
         },
         new ComponentProfile
         {
@@ -1753,7 +1780,7 @@ public static class Arsenal
         LauncherProfile launcher,
         IReadOnlyList<MunitionProfile> munitions,
         IReadOnlyList<SensorProfile> sensors)
-        => (Named(munitions, launcher.Munition, m => m.Name),
+        => (launcher.Munition.Length == 0 ? MunitionProfile.None : Named(munitions, launcher.Munition, m => m.Name),
             Named(sensors, launcher.Sensor, s => s.Name));
 
     /// <summary>

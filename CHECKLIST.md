@@ -2158,12 +2158,32 @@ and `validate-parts.py`; the C# is the LITENING's profile with other numbers.
 - [ ] It parks with the window **sideways** (the mount's normal), not hidden. The real one stows
       the window behind the shell; nothing models a stow.
 - [ ] `SlewRateDeg = 30` is a guess, not a published number.
-- [ ] **Fire beam** draws a green beam from the window to the spot (`KSArmoryBeam.comp`): a whitish
+- [ ] The beam draws a green line from the window to the spot (`KSArmoryBeam.comp`): a whitish
       core in a green glow, a glow at the window and an orange-white spot on what it burns. It fades
       into terrain rather than ending on it, thins to a faint thread far away instead of vanishing, is
       brightest looking back along it toward the turret, and dims in thin air. With the pass off, a thin
-      orange gizmo line. The line beside the
-      button counts the chemicals down from 100 s only while firing, and not while paused.
+      orange gizmo line. The chemicals count down from 100 s only while firing, and not while paused.
+- [ ] **The laser is a weapon.** "YAL-1 laser" appears in the weapons panel with its chemicals as
+      `n s/100 s`, and the director's row keeps the turret's camera. FIRE holds the beam on for 5 s at
+      the shift-clicked craft or place, or the set's lock, waiting while the director slews; with
+      nothing to aim at it lases where the director looks. The header strip says why it holds: out of
+      chemicals, MASK, slewing, IFF, cloud, out of reach.
+- [ ] Auto-engage burns a hostile on its own, holds on a friendly or a team-mate, and stops when the
+      chemicals run out. Reload refills them. Its `live` tick box stops it.
+- [ ] Shift-clicking with a HARM rail selected still points the YAL: the beam follows its director's
+      designation when it has none of its own.
+- [ ] The director's own **Fire laser** is the designator only: it marks a spot for laser-guided
+      weapons and never fires the beam.
+- [ ] **Directors find nothing by themselves.** With nothing shift-clicked, the YAL-1, the LITENING and
+      the EO mast bracket nothing and **Track** leaves them at rest. Shift-click a craft and each
+      director on the craft swings onto it and brackets it; auto-engage on the laser then burns it if
+      it is hostile, whether or not it is closing.
+- [ ] The Pantsir's roof director still follows the Pantsir's radar with **Track** on, and stops
+      with it off.
+- [ ] **Spot search.** An EO mast lases a hilltop on code 1688. A LITENING on another craft, also on
+      1688 with **Spot** ticked, swings onto the hilltop by itself and reads `Watching: the laser spot`;
+      on another code it does not, and a spot behind a ridge or past its 20 km is not found. A head
+      never locks onto the spot its own craft is making.
 - [x] Held on a craft, the line says `burning <part>` with its health falling; at the end that part
       breaks off (or the whole craft goes, with per-part damage off). Logged as `beam burnt through`.
 - [x] The ground stops it: nodded 10° and 25° below the horizon on the pad, the beam ended 27 m and

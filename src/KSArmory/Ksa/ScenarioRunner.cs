@@ -936,6 +936,7 @@ internal sealed class ScenarioRunner
                 entry.Policy.AutoEngage = true;
                 entry.Policy.MissilesEnabled = true;
                 entry.Policy.GunsEnabled = true;
+                entry.Policy.BeamEnabled = true;
                 _config.DrawOverlays = true;
 
                 Report($"{_name}: auto-engage on, {entry.Weapon.Ammo} rounds");

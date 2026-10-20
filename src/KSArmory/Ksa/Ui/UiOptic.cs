@@ -73,7 +73,7 @@ internal sealed partial class Ui
             ImGui.TextDisabled("  KSA's View > Orbit Camera takes the view back");
         }
 
-        DrawWhatItWatches(entry.Head);
+        DrawWhatItWatches(entry.Head, policy);
         if (entry.Head.HasLaser) DrawLaser(entry.Head, policy, onWindow);
 
         ImGui.Text("Aim:");
@@ -86,6 +86,10 @@ internal sealed partial class Ui
         ImGui.SameLine();
         ImGui.Checkbox("Hand", ref policy.Manual);
         Tip("Point it with sliders.");
+        ImGui.SameLine();
+        ImGui.Checkbox("Spot", ref policy.SpotSearch);
+        Tip($"Search for a spot somebody else is lasing on code {policy.LaserCode} and lock onto it, "
+            + "within range and where the head can look. The code is under Settings.");
 
         // The rest area exists because a head driving its own picture chases a cursor its own
         // turning keeps off centre; from another view there is no such loop.
@@ -140,16 +144,15 @@ internal sealed partial class Ui
         else
         {
             bool beam = head.Profile.Beam is not null;
-            string verb = beam ? "beam" : "laser";
-            if (Toggle(policy.Lasing ? $"Stop {verb}" : $"Fire {verb}", policy.Lasing)) policy.Lasing = !policy.Lasing;
+            if (Toggle(policy.Lasing ? "Stop laser" : "Fire laser", policy.Lasing)) policy.Lasing = !policy.Lasing;
             Tip(beam
-                ? "Holds a megawatt beam on whatever the crosshair is on, burning through the part it lands on. "
-                  + "It also ranges and marks the spot for laser-guided weapons, and will not fire through "
-                  + "your own craft."
+                ? "The designator: ranges whatever the crosshair is on and marks it for laser-guided weapons. "
+                  + "The megawatt beam is a weapon of its own -- select it in the weapons panel and fire it "
+                  + "with FIRE, or let auto-engage use it. Neither fires through your own craft."
                 : "Measures the distance to whatever the crosshair is on, and marks it for laser-guided "
                   + "weapons. It will not fire through your own craft.");
             if (beam) DrawChemicals(head);
-            if (!policy.Lasing) return;
+            if (!policy.Lasing && !head.BeamOn) return;
         }
 
         ImGui.SameLine();
@@ -259,7 +262,7 @@ internal sealed partial class Ui
     // The Release button is the whole exit. Nothing else clears a designation -- a craft that dies
     // takes its own with it, and ground never dies, so without this a shift-click on a hillside is
     // followed for the rest of the session.
-    private void DrawWhatItWatches(OpticalHead head)
+    private void DrawWhatItWatches(OpticalHead head, OpticConfig policy)
     {
         if (head.Designation.Kind != AimpointKind.None)
         {
@@ -270,8 +273,14 @@ internal sealed partial class Ui
             return;
         }
 
-        ImGui.TextDisabled(head.LockedTrack is { } track
-                           ? $"Watching: {track.Contact.DisplayName}"
+        if (head.FoundSpot is not null)
+        {
+            ImGui.Text($"Watching: the laser spot on code {policy.LaserCode}");
+            return;
+        }
+
+        ImGui.TextDisabled(head.LockedTrack is { } track ? $"Watching: {track.Contact.DisplayName}"
+                           : policy.SpotSearch ? $"Watching: nothing - no spot on code {policy.LaserCode} in view"
                            : "Watching: nothing - shift-click the world to point it");
     }
 }

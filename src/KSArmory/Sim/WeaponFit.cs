@@ -16,6 +16,10 @@ public enum ArmamentKind
     /// <summary>Rounds fed from a belt through barrels that cycle rather than empty, flown
     /// ballistically.</summary>
     Belt,
+
+    /// <summary>A high-energy beam held on what its director looks at; what it carries is seconds
+    /// of lasing.</summary>
+    Beam,
 }
 
 /// <summary>
@@ -32,7 +36,7 @@ public readonly record struct Armament
     /// <summary>Registry key of the round it throws, for the reader to resolve and tune.</summary>
     public required string Munition { get; init; }
 
-    /// <summary>Rounds a full load holds.</summary>
+    /// <summary>Rounds a full load holds, or seconds of lasing for a beam.</summary>
     public required int Capacity { get; init; }
 
     /// <summary>Seconds to replenish. Zero means what it carries is all there is.</summary>
@@ -65,7 +69,8 @@ public readonly record struct Armament
     public bool Reloads => ReloadSeconds > 0f;
 
     /// <summary>How much is left against a full load.</summary>
-    public string Tally(int remaining) => $"{remaining}/{Capacity}";
+    public string Tally(int remaining)
+        => Kind == ArmamentKind.Beam ? $"{remaining} s/{Capacity} s" : $"{remaining}/{Capacity}";
 
     /// <summary>One armament's line of a status readout.</summary>
     public string Describe(int remaining, bool firing)
@@ -82,6 +87,7 @@ public readonly record struct Armament
     public static ref bool EnabledIn(SystemConfig policy, ArmamentKind kind)
     {
         if (kind == ArmamentKind.Belt) return ref policy.GunsEnabled;
+        if (kind == ArmamentKind.Beam) return ref policy.BeamEnabled;
         return ref policy.MissilesEnabled;
     }
 }
@@ -161,7 +167,7 @@ public sealed class WeaponFit
         {
             for (int i = 0; i < Armaments.Count; i++)
             {
-                if (Armaments[i].Kind == ArmamentKind.Belt) return true;
+                if (Armaments[i].Kind is ArmamentKind.Belt or ArmamentKind.Beam) return true;
                 if (Armaments[i].Powered) return true;
             }
             return false;
@@ -186,7 +192,8 @@ public sealed class WeaponFit
     /// not run.</para>
     /// </summary>
     public bool Describes(ArmamentKind kind, string displayName)
-        => FirstOf(kind) is { } arm
+        => kind != ArmamentKind.Beam
+           && FirstOf(kind) is { } arm
            && string.Equals(Catalogue.MunitionNamed(arm.Munition).DisplayName, displayName,
                             StringComparison.Ordinal);
 
@@ -238,6 +245,18 @@ public sealed class WeaponFit
             });
         }
 
+        if (launcher.FiresBeam && Catalogue.OpticForPart(launcher.PartId)?.Beam is { } beam)
+        {
+            armaments.Add(new Armament
+            {
+                Kind = ArmamentKind.Beam,
+                Label = launcher.BeamArmamentLabel,
+                Munition = "",
+                Capacity = (int)Math.Round(beam.ChemicalSeconds),
+                ReloadSeconds = 0f,
+            });
+        }
+
         return new WeaponFit
         {
             Armaments = armaments,
@@ -260,10 +279,26 @@ public sealed class WeaponFit
     {
         for (int i = 0; i < armaments.Count; i++)
         {
+            if (armaments[i].Kind == ArmamentKind.Beam) continue;
             if (Catalogue.MunitionNamed(armaments[i].Munition) is { HitsTerrain: true }) return true;
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// The armament a trigger set to <paramref name="wanted"/> fires: that one if the launcher has
+    /// it, otherwise the first it has, in the order <see cref="Of"/> lists them.
+    /// </summary>
+    public static ArmamentKind TriggerOn(LauncherProfile launcher, ArmamentKind wanted)
+    {
+        bool tubes = launcher.TubeCount > 0, belt = launcher.HasCannon, beam = launcher.FiresBeam;
+
+        if (wanted == ArmamentKind.Tubes && tubes) return ArmamentKind.Tubes;
+        if (wanted == ArmamentKind.Belt && belt) return ArmamentKind.Belt;
+        if (wanted == ArmamentKind.Beam && beam) return ArmamentKind.Beam;
+
+        return tubes ? ArmamentKind.Tubes : belt ? ArmamentKind.Belt : beam ? ArmamentKind.Beam : ArmamentKind.Belt;
     }
 
     /// <summary>

@@ -241,7 +241,7 @@ internal static class Sight
         // draws exactly the picture of a camera that has stopped working.
         OpticHold hold = OpticFollow.Why(OnAxis(system, track), policy.MouseAim, policy.Manual,
                                          system.Designation.Kind != AimpointKind.None,
-                                         policy.Tracking, settled);
+                                         policy.Tracking || system.FollowsCue, settled);
 
         if (hold.Holds)
         {
@@ -347,6 +347,13 @@ internal static class Sight
         {
             bool ready = system.GunAmmo > 0 && system.GunsAreLaid;
             Text(draw, at, $"GUN {system.GunAmmo}", ready ? Gun : Pending);
+            at.Y += line;
+        }
+
+        if (system.Profile.FiresBeam)
+        {
+            Text(draw, at, system.BeamLasing ? $"LSR {system.BeamSecondsLeft} s FIRING" : $"LSR {system.BeamSecondsLeft} s",
+                 system.BeamSecondsLeft > 0 ? Reticle : Pending);
             at.Y += line;
         }
 

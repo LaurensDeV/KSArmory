@@ -944,9 +944,12 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     // names an armament kind: a system exposes a counter per weapon rather than a lookup, so
     // something has to bridge the description to them.
     private static (int Remaining, bool Firing) LiveState(WeaponSystem system, Armament arm)
-        => arm.Kind == ArmamentKind.Belt
-            ? (system.GunAmmo, system.GunsFiring)
-            : (system.Ammo, false);
+        => arm.Kind switch
+        {
+            ArmamentKind.Belt => (system.GunAmmo, system.GunsFiring),
+            ArmamentKind.Beam => (system.BeamSecondsLeft, system.BeamLasing),
+            _ => (system.Ammo, false),
+        };
 
     // Speeds worth a button. KSA's own roller stops at 0.1x; these go two decades below.
     private static readonly (string Label, double Speed)[] SlowMotionSpeeds =

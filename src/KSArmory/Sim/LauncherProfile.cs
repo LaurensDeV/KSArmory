@@ -70,6 +70,16 @@ public sealed class LauncherProfile
     /// <inheritdoc cref="TubeArmamentLabel"/>
     public string GunArmamentLabel { get; init; } = "Cannon";
 
+    /// <inheritdoc cref="TubeArmamentLabel"/>
+    public string BeamArmamentLabel { get; init; } = "Laser";
+
+    /// <summary>
+    /// Fires the high-energy beam of the optical director on the same part. The beam's numbers stay
+    /// on that <see cref="OpticProfile.Beam"/>, and the director aims it: this launcher has nothing
+    /// of its own that moves.
+    /// </summary>
+    public bool FiresBeam { get; init; }
+
     // ---- Subparts the mod animates. Null means this system has no such piece. ----
 
     /// <summary>Traverses in azimuth. Null for a launcher that cannot train.</summary>

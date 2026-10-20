@@ -31,4 +31,7 @@ public sealed class BeamProfile
     /// hydrogen peroxide and iodine to make its light, so what runs out is those, not a battery.
     /// </summary>
     public float ChemicalSeconds = 100f;
+
+    /// <summary>How long one press of the trigger holds the beam on, the ABL's quoted dwell.</summary>
+    public float ShotSeconds = 5f;
 }

@@ -292,6 +292,7 @@ internal sealed partial class Ui
         }
 
         DrawArmamentTally(ArmamentKind.Tubes);
+        DrawArmamentTally(ArmamentKind.Beam);
 
         if (_system.ReloadRemaining > 0.0)
         {
@@ -308,7 +309,9 @@ internal sealed partial class Ui
         ImGui.SameLine();
         if (ImGui.Button("Safe all")) ForEachStation(b => b.SafeAll());
 
-        // A view control, so it sits with the weapon whose rounds it would ride.
+        // A view control, so it sits with the weapon whose rounds it would ride. A beam throws none.
+        if (_fit.FirstOf(ArmamentKind.Tubes) is null && _fit.FirstOf(ArmamentKind.Belt) is null) return;
+
         ImGui.Checkbox("Chase this launcher's rounds", ref _policy.ChaseRounds);
         Tip("Rides the camera behind a round this launcher fires, and hands the view back on its own: "
             + "after the burst, or about two seconds after the round has nothing left to arrive at. "
@@ -495,6 +498,9 @@ internal sealed partial class Ui
         // The same three cases WeaponSystem.FireAtLock branches on, in its order.
         Tip(_system.TriggerArmament == ArmamentKind.Belt
                 ? "Fire one burst now, wherever the guns are pointing."
+            : _system.TriggerArmament == ArmamentKind.Beam
+                ? "Hold the beam on for one dwell, at the craft or place you shift-clicked or else at the "
+                  + "set's lock. With nothing to aim at it lases wherever the director is looking."
             : !_system.Munition.Powered
                 ? "Release one store now. A guided store steers onto whatever is designated; an "
                   + "unguided one, or a guided one with nothing designated, simply falls."

@@ -834,7 +834,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         FillIncoming(airborne);
 
+        Radar.Cue = CuedHandle();
         Radar.Scan(Platform, Boresight, dt, _incoming);
+        if (!Profile.FiresBeam) CueDirector();
         AttributeRoundsToTracks();
         UpdateTurret(dt);
 
@@ -898,7 +900,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // The ladder itself is Sim/FireLadder.cs; this is only where its inputs are read off the
     // world. Sampled into one value rather than passed as a dozen arguments so no rung can be
     // answered from a later instant than the one above it.
-    private FireHold? Holding(bool tubes, MunitionProfile munition, Track? locked, string? designated)
+    private FireHold? Holding(bool tubes, MunitionProfile munition, Track? locked, string? designated,
+                              BeamConditions? beam = null)
     {
         double offTubeDeg = double.NaN;
         bool withinSeeker = !tubes || locked is null
@@ -933,6 +936,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 LockedOffTubeDeg = offTubeDeg,
                 LockedName = locked?.Contact.DisplayName ?? "",
                 DesignatedName = designated,
+                Beam = beam,
             },
             _policy,
             munition);
@@ -1054,6 +1058,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     private void UpdateFireControl(double dt)
     {
+        if (Profile.FiresBeam && Profile.TubeCount == 0 && !Profile.HasCannon)
+        {
+            UpdateBeamFireControl(dt);
+            return;
+        }
+
         // A launcher with no tubes takes the belt's rungs. Read off the fit rather than tested
         // here, so the panel and the ladder agree on what this system is.
         bool tubes = WeaponFit.Of(Profile, Sensor).FirstOf(ArmamentKind.Tubes) is not null;
@@ -1112,6 +1122,131 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (!Munition.Powered) return;
 
         Fire(target);
+    }
+
+    /// <summary>
+    /// Finds the optical director on a part: the one this launcher cues, and fires the beam of if it
+    /// has one. Supplied by the roster, which is the only thing that knows which heads are crewed.
+    /// </summary>
+    public Func<Part, OpticalHead?>? DirectorFor { get; set; }
+
+    private OpticalHead? _beamHead;
+    private readonly BeamTrigger _beam = new();
+
+    /// <summary>The director firing this launcher's beam, once found.</summary>
+    public OpticalHead? BeamHead => _beamHead;
+
+    /// <summary>Whole seconds of lasing left, which is what a beam's tally counts.</summary>
+    public int BeamSecondsLeft
+        => _beamHead is { } head && double.IsFinite(head.ChemicalSecondsLeft)
+               ? (int)Math.Ceiling(Math.Max(0.0, head.ChemicalSecondsLeft))
+               : 0;
+
+    /// <summary>Whether the beam is commanded on this step.</summary>
+    public bool BeamLasing => _beam.Lasing;
+
+    /// <summary>What is left of one armament: rounds, belt, or seconds of lasing.</summary>
+    public int Remaining(ArmamentKind kind) => kind switch
+    {
+        ArmamentKind.Belt => _guns.Ammo,
+        ArmamentKind.Beam => BeamSecondsLeft,
+        _ => Ammo,
+    };
+
+    // A beam weapon has nothing of its own to lay: it picks the target, cues the director on its
+    // part at it, and fires the director's beam while the ladder allows. The operator's designation
+    // comes ahead of the set's pick, as the trigger's does for every other weapon.
+    private void UpdateBeamFireControl(double dt)
+    {
+        _beamHead = Launcher is { } part ? DirectorFor?.Invoke(part) : null;
+
+        // A shift-click reaches every director on the craft but only the weapon selected, so a
+        // designation the director holds and this weapon does not is still the one it aims at. A
+        // place on the ground is lased by hand: auto-engage has no craft there to burn.
+        bool own = Designation.Kind != AimpointKind.None;
+        Aimpoint designation = own ? Designation : _beamHead?.Designation ?? Aimpoint.Nothing;
+        string designatedName = own ? DesignationName : _beamHead?.DesignationName ?? "";
+
+        Track? target = designation.Kind switch
+        {
+            AimpointKind.None => Radar.Locked,
+            AimpointKind.Vehicle => Radar.TrackFor(designation.Handle),
+            _ => null,
+        };
+
+        Aimpoint cue = designation.Kind != AimpointKind.None ? designation
+                       : target is not null ? AimpointOf(target)
+                       : Aimpoint.Nothing;
+        if (cue.Kind != AimpointKind.None) _beamHead?.Cue(cue, commands: true);
+
+        BeamConditions beam = new()
+        {
+            HeadResolved = _beamHead is not null,
+            SecondsLeft = _beamHead?.ChemicalSecondsLeft ?? 0.0,
+            Masked = _beamHead?.Masked ?? false,
+            OnTarget = _beamHead?.OnTarget ?? false,
+            CloudInTheWay = _beamHead?.CueBehindCloud ?? false,
+            ReachMetres = _beamHead?.Profile.LaserRangeMetres ?? 0.0,
+        };
+
+        string? designated = designation.Kind == AimpointKind.Vehicle ? designatedName : null;
+        FireHold? held = Holding(tubes: false, MunitionProfile.None, target, designated, beam);
+        string? hold = held?.Reason;
+
+        if (hold != Hold)
+        {
+            Announce(hold is null ? "clear to fire"
+                     : held is { BindsTrigger: false } ? $"auto-engage held: {hold}"
+                     : $"holding fire: {hold}");
+        }
+
+        Hold = hold;
+        TriggerHold = held;
+
+        bool autoWants = held is null && _policy.AutoEngage;
+        bool mayLase = held is not { BindsTrigger: true } && (cue.Kind == AimpointKind.None || beam.OnTarget);
+        _beamHead?.CommandBeam(_beam.Step(dt, autoWants, mayLase));
+    }
+
+    // A designated contact, the weapon's own or else its director's, for a set that can only hold
+    // what it is handed.
+    private object? CuedHandle()
+    {
+        if (Designation.Kind == AimpointKind.Vehicle) return Designation.Handle;
+        if (Profile.FiresBeam && _beamHead?.Designation is { Kind: AimpointKind.Vehicle } head) return head.Handle;
+        return null;
+    }
+
+    // A director on this launcher's part is cued with what the set holds, as a Pantsir's radar cues
+    // its 1TPP1; the director takes it only with its own tracking on.
+    private void CueDirector()
+    {
+        if (Launcher is not { } part || DirectorFor?.Invoke(part) is not { } head) return;
+
+        Aimpoint cue = Designation.Kind != AimpointKind.None ? Designation
+                       : (Radar.Watched ?? Radar.Locked) is { } track ? AimpointOf(track)
+                       : Aimpoint.Nothing;
+        if (cue.Kind != AimpointKind.None) head.Cue(cue, commands: false);
+    }
+
+    private static Aimpoint AimpointOf(Track track)
+        => track.Contact is VehicleContact craft
+               ? Aimpoint.OnVehicle(craft.Vehicle, track.PositionEcl, track.VelocityEcl, KsaWorld.MeanRadius(craft.Vehicle))
+               : Aimpoint.AtPoint(track.PositionEcl);
+
+    // One press of the trigger: a dwell, which the director's own state then runs or holds.
+    private bool PressBeam()
+    {
+        if (TriggerHold is { BindsTrigger: true } refused)
+        {
+            Announce($"refused: {refused.Reason}");
+            return false;
+        }
+
+        double shot = _beamHead?.Profile.Beam?.ShotSeconds ?? 5.0;
+        _beam.Press(shot);
+        Announce($"lasing for {shot:F0} s");
+        return true;
     }
 
     // Where a bearing to something should be measured from: the trunnion the tubes swing on, not
@@ -2502,6 +2637,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // the shot outright rather than letting it fall short -- which leaves the cannon silent on
         // ground past the shell's reach while the sky fires, because only the sky path reaches the
         // trigger. Say the range, because the belt does not come back.
+        if (TriggerArmament == ArmamentKind.Beam)
+        {
+            Aimpoint point = KsaWorld.TryAnchorToGround(pointEcl, out object? ground, out double3 at)
+                                 ? Aimpoint.OnGround(ground!, at, pointEcl, Vec.Zero)
+                                 : Aimpoint.AtPoint(pointEcl);
+            Point(point, $"a designated point ({range / 1000.0:F1} km)", log: true);
+            return PressBeam();
+        }
+
         if (TriggerArmament == ArmamentKind.Belt)
         {
             if (Profile.HasCannon && range > Shell.MaxRange)
@@ -2535,6 +2679,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // launcher rather than to the target, a tube, the launch geometry, and the round.
     private bool Commit(Aimpoint aim, string what)
     {
+        if (TriggerArmament == ArmamentKind.Beam) return PressBeam();
+
         // A launcher with no tubes has exactly one weapon, and every gate below is about the
         // magazine it does not own. Sending it down this path refuses every manual shot on an
         // empty magazine, which leaves a working cannon with no trigger at all.
@@ -2795,9 +2941,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// Whether a manual shot would be taken right now, asked of the armament the trigger fires. A
     /// gun reads zero from the magazine forever.
     /// </summary>
-    public bool ReadyToFire => TriggerArmament == ArmamentKind.Tubes
-                                   ? Ammo > 0 && IsLaid
-                                   : Profile.HasCannon && !_guns.IsEmpty && GunsAreLaid;
+    public bool ReadyToFire => TriggerArmament switch
+    {
+        ArmamentKind.Tubes => Ammo > 0 && IsLaid,
+        ArmamentKind.Beam => TriggerHold is not { BindsTrigger: true },
+        _ => Profile.HasCannon && !_guns.IsEmpty && GunsAreLaid,
+    };
 
     /// <summary>
     /// Where the cannon's flashes belong, in Ecl: one point per barrel cluster.
@@ -2873,23 +3022,31 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// </summary>
     public ArmamentKind TriggerArmament
     {
-        get => Profile.TubeCount == 0 || _triggerArmament == ArmamentKind.Belt && Profile.HasCannon
-                   ? ArmamentKind.Belt
-                   : ArmamentKind.Tubes;
+        get => WeaponFit.TriggerOn(Profile, _triggerArmament);
         set
         {
             if (value == _triggerArmament) return;
 
             _triggerArmament = value;
             Log.Info($"{Profile.DisplayName} ({LauncherOrdinal + 1}) trigger on the "
-                     + (TriggerArmament == ArmamentKind.Belt ? "cannon" : "tubes"));
+                     + TriggerArmament switch
+                     {
+                         ArmamentKind.Belt => "cannon",
+                         ArmamentKind.Beam => "beam",
+                         _ => "tubes",
+                     });
         }
     }
 
     private ArmamentKind _triggerArmament = ArmamentKind.Tubes;
 
     /// <summary>The round the trigger throws: the shell when it is on the cannon.</summary>
-    public MunitionProfile TriggerMunition => TriggerArmament == ArmamentKind.Belt ? Shell : Munition;
+    public MunitionProfile TriggerMunition => TriggerArmament switch
+    {
+        ArmamentKind.Belt => Shell,
+        ArmamentKind.Beam => MunitionProfile.None,
+        _ => Munition,
+    };
 
     // What the trigger shoots at. A craft the operator shift-clicked comes ahead of the set's own
     // pick, because the turret follows the designation and a round sent at the lock would leave
@@ -2909,6 +3066,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // lock first would leave the one weapon that is meant to be hand-aimed as the only one that
         // cannot be.
         if (TriggerArmament == ArmamentKind.Belt) return FireBurst();
+        if (TriggerArmament == ArmamentKind.Beam) return PressBeam();
 
         // A store is released, not launched at something: nothing on the rack has a seeker for a
         // lock to feed, so demanding one leaves the trigger dead. Same reasoning as the gun above --
@@ -2929,6 +3087,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     public void Reload()
     {
+        if (Profile.FiresBeam && _beamHead is { } head)
+        {
+            head.RefillChemicals();
+            Announce($"laser chemicals refilled - {head.ChemicalSecondsLeft:F0} s");
+            if (Profile.TubeCount == 0 && !Profile.HasCannon) return;
+        }
+
         _magazine.Resize(Profile.TubeCount, Profile.MagazineDepth);
         _reloadTimer = 0.0;
 
@@ -2975,6 +3140,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     {
         int n = _rounds.Count;
         ClearRounds();
+        _beam.Stop();
 
         bool wasEngaging = _policy.AutoEngage;
         _policy.AutoEngage = false;
