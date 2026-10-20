@@ -1379,7 +1379,8 @@ public static class Arsenal
 
     /// <summary>
     /// An infrared search set, after the six the YAL-1 carried along its forward fuselage: passive, a
-    /// 120 deg cone out of its mounting face, so several ring a hull for all-round cover.
+    /// ball window looking forward out of a fairing, as the Typhoon's PIRATE does, with a 120 deg cone
+    /// along the part's +Y, so several turned different ways on a hull give all-round cover.
     /// </summary>
     public static readonly SensorProfile InfraredSearchSet = new()
     {
@@ -1393,7 +1394,7 @@ public static class Arsenal
         Range = 400000f,
         ConeDeg = 60f,
 
-        BoresightSource = BoresightMode.MountNormal,
+        BoresightSource = BoresightMode.PartForward,
         ThreatRadius = 8000f,
         ThreatHorizonSeconds = 40f,
         LockSeconds = 1.0f,

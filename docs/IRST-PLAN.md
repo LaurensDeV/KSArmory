@@ -107,11 +107,14 @@ locks on, without seeing the target itself.
   search on, swings onto it unaided.
 
 ### 5. The part — art first, a few sessions
-- Modelled in Blender per `.claude/skills/ksa-blender/SKILL.md`: a **low dome on a faceted plinth**,
-  about 0.5 m across, surface-attaching, so several can be fitted round a hull for all-round cover —
-  the YAL-1's own layout. Geometry signed off before any unwrap or bake.
+- Modelled in Blender per `.claude/skills/ksa-blender/SKILL.md`, after the Typhoon's PIRATE: a **ball
+  window looking forward out of a low teardrop fairing** that flares into the skin, on a thin doubler,
+  0.59 m long and 0.28 m wide. Surface-attaching, so several turned different ways ring a hull for
+  all-round cover — the YAL-1's own layout. Geometry signed off before any unwrap or bake.
+  - A first blockout, a dome standing on a bolted octagonal plinth, was rejected: no airborne IRST
+    looks like that, only a ship's deck mount does.
 - Declared in `KSArmoryAssets.xml` / `KSArmoryGameData.xml`; registered as a `SensorProfile` with a
-  forward cone of about 120° and a `ComponentProfile`; `validate-parts.py` and `checkmesh.py` clean.
+  forward cone of about 120° along the part's +Y (`BoresightMode.PartForward`) and a `ComponentProfile`; `validate-parts.py` and `checkmesh.py` clean.
 - Optional later: a pod form, a 2.5 m pylon store, for fighters.
 
 ### 6. The panel — about half a day
@@ -170,7 +173,8 @@ per `.claude/skills/verify-in-game/SKILL.md`; a `fix` or `feat` is not called do
 **The part, for the modeller.** A low dome on a short faceted plinth, about 0.5 m across, that
 surface-attaches (`ToSurface`), so several can ring a hull for all-round cover, as the YAL-1's six
 did. One forward cone of about 120° per unit, out of its mounting face (`BoresightMode.MountNormal`).
-No moving parts, so one body and one collider. Reference:
+No moving parts, so one body and one collider. **Superseded:** the
+window looks forward along the hull, not out of the mounting face — see step 5. Reference:
 - the YAL-1's own sensors were small domed infrared windows along the forward fuselage, one each side
   below the ranging fairing and one under the nose turret — Lockheed Martin, derived from the F-14's
   AN/AAS-42 ([Boeing, 2001](https://boeing.mediaroom.com/2001-07-11-Team-Airborne-Laser-Delivers-Infrared-Sensors-for-Lab-Testing-and-Aircraft-Integration));
