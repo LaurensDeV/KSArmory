@@ -53,7 +53,16 @@ internal sealed partial class IcbmComputer
         if (Parent is { } parent) KsaWorld.TryControlFrameCci(Craft, parent, out nose, out _, out _);
 
         HopBurn.Stage was = _hopBurn.Now;
-        HopBurn.Decision d = _hopBurn.Update(simStep, toGain, nose, EngineAcceleration, ReleasedMetres);
+        bool stackInTheWay = was == HopBurn.Stage.Pending && TryTheStackPath(toGain)
+                             && Config.EngineHopsClearTheStack && _stackClosestMetres < _stackKeepOutMetres;
+        HopBurn.Decision d = _hopBurn.Update(simStep, toGain, nose, EngineAcceleration, ReleasedMetres, stackInTheWay);
+
+        if (was == HopBurn.Stage.Pending && _hopBurn.Now != HopBurn.Stage.Pending && _hopBurn.Now != HopBurn.Stage.Done)
+        {
+            Log.Info($"hop on {KsaWorld.DisplayName(Craft)}: spent stack {_stackApartMetres:F0} m away, the burn passes it "
+                     + $"at {_stackClosestMetres:F0} m against a keep-out of {_stackKeepOutMetres:F0} m"
+                     + (_hopBurn.HeldForTheStackSeconds > 0.0 ? $", held {_hopBurn.HeldForTheStackSeconds:F0} s for it" : ""));
+        }
 
         if (was == HopBurn.Stage.Pending) _hopAskedBefore = _hopBurn.AskedMetresPerSecond;
         if (d.EngineOn && !_engineLit) _hopMassBefore = Mass();
@@ -106,6 +115,29 @@ internal sealed partial class IcbmComputer
         Log.Info($"released warhead {_watchedRelease} on {KsaWorld.DisplayName(Craft)}: left {_leftAtMetres:F1} m from "
                  + $"the bus, closest {_closestMetres:F1} m in the {_watchedSeconds:F0} s after");
         _watchedSeconds = double.NaN;
+    }
+
+    private double _stackApartMetres = double.NaN, _stackClosestMetres = double.NaN, _stackKeepOutMetres = double.NaN;
+
+    // Where a burn started now would take the bus against its spent stack, in the stack's frame, both from one instant.
+    private bool TryTheStackPath(double3 toGainCci)
+    {
+        _stackApartMetres = _stackClosestMetres = _stackKeepOutMetres = double.NaN;
+        if (_separatedFrom is not { } stack || !KsaWorld.IsAlive(stack) || Parent is not { } parent) return false;
+
+        doubleQuat cce2Cci = parent.GetCce2Cci();
+        double3 fromStack = (KsaWorld.PositionEcl(Craft) - KsaWorld.PositionEcl(stack)).Transform(cce2Cci);
+        double3 relative = (KsaWorld.VelocityEcl(Craft) - KsaWorld.VelocityEcl(stack)).Transform(cce2Cci);
+
+        double radius;
+        try { radius = stack.MeanRadius; }
+        catch { radius = double.NaN; }
+
+        _stackApartMetres = Vec.Len(fromStack);
+        _stackKeepOutMetres = ProximityWatch.KeepOutFor(radius);
+        _stackClosestMetres = HopBurn.ClosestToTheStackMetres(fromStack, relative, toGainCci, EngineAcceleration,
+                                                               Vec.Len(toGainCci));
+        return double.IsFinite(_stackClosestMetres);
     }
 
     // Against the bus in the same frame: the round's own ecliptic position is a step of ~30 km/s from the craft's.

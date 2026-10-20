@@ -263,6 +263,13 @@ internal sealed class IcbmConfig
     public bool HopsWaitForTheirWarhead;
 
     /// <summary>
+    /// Whether an engine hop holds while its burn would carry the bus inside its spent stack's keep-out, for at most
+    /// <see cref="HopBurn.StackHoldCapSeconds"/>. Every first hop flown on 2026-10-19 with the stack under 190 m away was
+    /// knocked off its line, and the nozzles then flew it at several times the cost. <b>Off until flown</b>.
+    /// </summary>
+    public bool EngineHopsClearTheStack;
+
+    /// <summary>
     /// Whether a plan with fewer stops may replace the walker's once a turning bus has split. Fewer stops never move the
     /// first release earlier, which is what the split was timed on. <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c>
     /// step 5.

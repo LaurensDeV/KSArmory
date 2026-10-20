@@ -170,6 +170,7 @@ RESEARCH = (
     "HopsBurnTheEngine",
     "FreeHopsCountTheArrivalTheyMove",
     "HopsWaitForTheirWarhead",
+    "EngineHopsClearTheStack",
     "HoldPointsLoosely",
     "JetsThroughTheKeyboardClear",
     "KickAtTheRelease",
