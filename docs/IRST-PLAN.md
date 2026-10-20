@@ -141,9 +141,9 @@ locks on, without seeing the target itself.
 - [x] Flown 2026-10-20 (CHECKLIST 7.6c-3): four on a craft crew, one sees a rocket under power at
   9.1-9.5 km and the picture hands it to the LITENING under **Track**; the window draws as glass and
   the heads sweep and hold, by readback.
-- [ ] The head cannot be seen behind the glass: dark tint at KSA's fixed 0.75 over a black bay and a
-  dark head is one black window from a few metres. A lighter tint, a lighter bay or a brighter lens
-  would show it; none is tried.
+- [x] The head shows behind the glass, seen in game from 4-5 m. KSA's glass shader takes a tenth of
+  the tint into its own grey at a fixed 0.75, so the tint barely matters; what shows the head is its
+  contrast against the bay, so the head is pale and the lens gold.
 - Optional later: a pod form, a 2.5 m pylon store, for fighters.
 
 ### 6. The panel — about half a day

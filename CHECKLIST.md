@@ -2220,8 +2220,9 @@ flown straight up, read back with the bridge's `search`.
       write was refused.
 - [x] The window draws as KSA glass: dark tinted panes with the facet seams showing, on the part,
       from 4-6 m.
-- [ ] **The head is not visible behind the glass** from 4-6 m: dark glass at 0.75 over a black bay and
-      a dark head reads as one black window. Turning is confirmed by readback only, never by eye.
+- [x] **The head shows behind the glass** from 4-5 m, rebaked with a pale head and a gold lens
+      against the dark bay: the lens and the outline read through the panes. A dark head over that bay
+      read as one black window. Turning is still confirmed by readback only, never by eye.
 - [ ] The editor: `Infrared Search and Track Sensor` under **Sensors**, surface-attaching, unrootable.
 - [ ] Engines-out and look-down ranges, a fighter-sized target, and a range against the 1 MN booster
       in thin air: none flown.
