@@ -150,7 +150,10 @@ internal sealed partial class IcbmComputer
                                                               ? _release!.Profile.HopEngineExhaustVelocity
                                                               : TankExhaustVelocity,
                                                           StoreMassKg: ShedStoreMassKg,
-                                                          HopTurnSeconds: HopsBurnTheEngine ? HopBurn.TurnsSeconds : 0.0),
+                                                          HopTurnSeconds: HopsBurnTheEngine ? HopBurn.TurnsSeconds : 0.0,
+                                                          PassesMetresPerSecondPerStop: HopsBurnTheEngine
+                                                              ? ReleaseItinerary.EnginePassesMetresPerSecond
+                                                              : 0.0),
                                  Program.Phase, SalvoIsOver, TargetSet.MaxTargets,
                                  Warhead.LethalRadius(_warhead!.ChargeKg), _targets.LeadIndex,
                                  coasting ? ReachHold.Unflown : ReachHold.EpochUnmeasured,

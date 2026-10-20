@@ -83,4 +83,29 @@ public class FreeArrivalShiftTests(ITestOutputHelper Out)
 
         Assert.Equal(held.Stops[0].BeforeArrivalSeconds, moved.Stops[0].BeforeArrivalSeconds, 9);
     }
+
+    // A tank that pays six hops exactly, against one that must also pay the passes at every stop.
+    [Fact]
+    public void ATankThatPaysTheHopsAloneDoesNotAlsoPayThePasses()
+    {
+        ReleaseItinerary.Bus edge = Engine with { MassKg = 3_500.0, StoreMassKg = 250.0, TankExhaustVelocity = 2_996.0 };
+        ReleaseItinerary hopsOnly = ReleaseItinerary.Plan(Chain(0.0), edge with { TankKg = 1_000.0 });
+
+        double kg = 0.0, mass = edge.MassKg;
+        for (int k = 1; k < 6; k++)
+        {
+            mass -= 250.0;
+            double hop = edge.HopKg(55.0, mass);
+            kg += hop;
+            mass -= hop;
+        }
+
+        ReleaseItinerary.Bus tight = edge with { TankKg = kg };
+        Assert.True(ReleaseItinerary.Plan(Chain(0.0), tight).Stops[5].Affordable);
+        Assert.False(ReleaseItinerary.Plan(Chain(0.0), tight with
+        {
+            PassesMetresPerSecondPerStop = ReleaseItinerary.EnginePassesMetresPerSecond,
+        }).Stops[5].Affordable);
+        Assert.All(hopsOnly.Stops, stop => Assert.True(stop.Affordable));
+    }
 }

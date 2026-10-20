@@ -629,7 +629,8 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
                                      MassKg: MassNowKg,
                                      TankExhaustVelocity: EngineHops ? EngineExhaustVelocity : JetExhaustVelocity / LateralCostFactor,
                                      StoreMassKg: WarheadMassKg,
-                                     HopTurnSeconds: EngineHops ? HopBurn.TurnsSeconds : 0.0),
+                                     HopTurnSeconds: EngineHops ? HopBurn.TurnsSeconds : 0.0,
+                                     PassesMetresPerSecondPerStop: EngineHops ? ReleaseItinerary.EnginePassesMetresPerSecond : 0.0),
             Program.Phase, false, TargetSet.MaxTargets, KSArmory.Warhead.LethalRadius(Warhead.ChargeKg), PlannedLead,
             ReachHold.Unflown, Config.PriceEachHopAtItsSlot, Config.PriceHopsAtWhatTheTrimPays,
             Config.PriceSlotsOnTheGateChord, _later, EngineHops, Config.FreeHopsCountTheArrivalTheyMove);
