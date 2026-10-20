@@ -288,6 +288,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/test.sh                            # guidance + fuse tests; needs the assemblies, not the game
 ./tools/test.sh --studies                  # ...the instruments instead -- what a push does not wait for
 ./tools/validate-parts.py                  # part XML, launch geometry, registered PartIds; runs in deploy.sh
+./tools/validate-parts.py --mod-root ../MyWeaponPack   # ...or a weapon pack's folder, against its own parts
 ./tools/pack-api.py --check                # has the API weapon packs bind to moved?
 ./tools/check-studies.py --check           # has a test been taken out of the push loop?
 ./tools/model/build.sh                     # rebuild the generated atlas and its palette (needs Blender)
@@ -762,6 +763,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/BATTERY-SPLIT.md` | what `WeaponSystem` should be split into, what to call it instead, and in what order |
 | `docs/WEAPON-PACKS.md` | **the pack author's reference** — the folder, the optional code entry point, and every attribute a definition file may carry |
 | `docs/EXTENSIBILITY.md` | **mostly built** — how a weapon pack registers itself without this mod knowing it exists, and what such a pack could never express |
+| `docs/PACK-PORTING.md` | **a plan, not a record** — what a weapon from a KSP mod loses on the way into a pack, measured on one ported part, and the steps that close each gap on this side |
 | `.claude/skills/upgrade-ksa/` | the whole KSA-update procedure, as a skill |
 | `.claude/skills/verify-in-game/` | **flying a change before calling it a fix** — whose game it is, which scenario exercises what, the bridge, catching an effect that lasts a moment, and what counts as evidence |
 | `tools/meshinfo.py` | prints mesh bounds from a KSA `.glb` atlas |

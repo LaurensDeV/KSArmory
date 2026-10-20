@@ -616,7 +616,7 @@ public static class PackReader
             string key = KeyFor(source, raw);
             if (Resolved(key, own, known, nameOf) is not null) return key;
 
-            Fault($"{attribute}=\"{raw}\" names nothing registered");
+            Fault(Unresolved<T>(attribute, raw));
             return key;
         }
 
@@ -629,10 +629,26 @@ public static class PackReader
             string key = KeyFor(source, raw);
             if (Resolved(key, own, known, nameOf) is null)
             {
-                Fault($"{attribute}=\"{raw}\" names nothing registered");
+                Fault(Unresolved<T>(attribute, raw));
             }
 
             return key;
+        }
+
+        // A reference to this pack's own definition that was refused is the refusal's fault, not
+        // the reference's; naming nothing registered sends the author looking for a typo.
+        private string Unresolved<T>(string attribute, string raw)
+        {
+            string definition = typeof(T) == typeof(SensorProfile) ? "Sensor" : "Munition";
+            foreach (PackFault f in faults)
+            {
+                if (f.Source == source && f.Element == definition && f.Name == raw)
+                {
+                    return $"{attribute}=\"{raw}\" was refused above: {f.Reason}";
+                }
+            }
+
+            return $"{attribute}=\"{raw}\" names nothing registered";
         }
 
         private static string KeyFor(string source, string raw)

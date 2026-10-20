@@ -6,8 +6,8 @@ name.** It looks in the same place inside every installed mod and reads what is 
 installing one is nothing but installing a mod.
 
 > **Status.** Everything described here is implemented and covered by tests, and a pack has been
-> registered in game — `CHECKLIST.md` 1.3 records what that flight did and did not reach. The two
-> things named at the end are not built. `KSArmory.Armoury.Schema` is `1`.
+> registered in game — `CHECKLIST.md` 1.3 records what that flight did and did not reach. The one
+> thing named at the end is not built. `KSArmory.Armoury.Schema` is `1`.
 
 **There is a complete worked example**: `KSArmory-example-mod` is this whole document as a folder
 you can copy — a bomb rack, its art and its definitions, with no code in it at all. Everything
@@ -346,6 +346,18 @@ profile, so a launcher naming it would load, fly, and throw a weapon you never s
 
 ## When something does not appear
 
+**Before launching the game**, run KSArmory's validator over your folder:
+
+```bash
+./tools/validate-parts.py --mod-root ../MyWeaponPack     # add --offline without a KSA install
+```
+
+It checks what the game would otherwise fail on silently: `mod.toml` listing a file that is not
+there or a weapon file it should not, a texture or mesh path that differs only in case, a `PartId`
+no `<Part>` declares, a drive marker matching no subpart or more than one, and a round's body or fin
+marker matching nothing on the launcher that carries it. It does not judge attributes; KSArmory's
+reader does that in game, and the log below is where it says so.
+
 Everything refused is written to `<KSA user dir>/Logs/KSArmory.log`, one line per fault, naming
 your pack, the definition and what was wrong. Check in this order:
 
@@ -395,16 +407,18 @@ with. What it cannot do is add a *kind*:
 
 Those are C# changes to KSArmory itself. If you want one, `MODULARITY.md` is the argument about
 what each would cost and `EXTENSIBILITY.md` is where a registration seam for them would go.
+Porting from a KSP weapon mod meets most of these, and `PACK-PORTING.md` is the plan for the ones
+this side can close.
 
-Two more limits are KSA's rather than ours: there is **no damage below destruction**, so armour and
-penetration are not expressible at any level of cleverness; and there is **no part module**, so a
-part cannot *say* what it is — KSArmory recognises it by part Id, which is why the Ids in your two
-files have to agree.
+**Armour and penetration** are not expressible either. Parts take damage one by one and keep their
+health between hits, but every part takes a hit alike: a pack can set how big a charge is, not what
+a part is made of.
+
+One more limit is KSA's rather than ours: there is **no part module**, so a part cannot *say* what
+it is — KSArmory recognises it by part Id, which is why the Ids in your two files have to agree.
 
 ## Not built yet
 
 Named so you do not go looking:
 
-- **No offline validator.** `tools/validate-parts.py` checks KSArmory's own art and does not yet
-  take a `--mod-root`.
 - **No in-game list.** Refusals are in the log; there is no panel window showing them.

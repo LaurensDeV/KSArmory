@@ -282,9 +282,11 @@ across the reap switch, `Detonate`, round-body placement keyed on tube number, `
 
 ### The two ceilings that are KSA's
 
-- **No damage below destruction.** KSA exposes `DestroyVehicleFromEvent` and nothing else. Armour,
-  penetration and component damage — most of what makes an RPG interesting against a tank — are
-  not expressible at any level of mod cleverness.
+- **No damage model of its own.** KSA destroys a craft or fails a part, and nothing between. The
+  mod builds part damage on that — each part judged on its own distance (`Sim/BlastDamage.cs`), with
+  health that a load short of breaking still spends (`Sim/PartHealth.cs`), failed through the
+  engine's own queue. What has no model is armour and penetration: every part takes a hit alike,
+  so an RPG against a tank is a charge against a part's strength and nothing more.
 - **No real part modules.** Registering a module type into the engine's update lists needs Harmony
   patching. Modules are faked by scanning part Ids, which works but means every new module type
   needs mod-side wiring rather than being declarative.

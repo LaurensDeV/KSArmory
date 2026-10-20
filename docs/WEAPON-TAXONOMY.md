@@ -228,8 +228,8 @@ Extending the same list in `AUDIT-2026-08`. All are a profile entry plus art:
 - **Autocannon, heavy MG, quad AA, remote weapon station, standalone CIWS**: a gun-only
   `LauncherProfile`. The CIWS is the worked example.
 - **Anti-tank gun, recoilless rifle, RPG, railgun**: `Slug` with a different `LaunchSpeed`. What
-  would make them interesting, penetration and armour, is downstream of damage below destruction,
-  which KSA does not have.
+  would make them interesting, penetration and armour, has no model: a part has health
+  (`Sim/PartHealth.cs`), but every part takes a hit alike.
 - **Naval mount, howitzer carriage, mortar bipod**: `MinElevationDeg` / `MaxElevationDeg` /
   `ForwardArcDeg`. Roll stabilisation is free, because the command is recomputed in the part frame
   every frame.
@@ -258,8 +258,9 @@ CLAUDE.md they are diagnoses rather than fixes.
    silently flies the first round in the registry. Still true, still pinned by
    `WeaponSystemSelectionTests`.
 2. **`Aimpoint.OnPart` has no production call site.** Component-level aiming is read by
-   `WeaponSystem` and produced by nobody, which is a KSA ceiling rather than a mod one: there is no
-   damage below destruction to apply it to.
+   `WeaponSystem` and produced by nobody. That is now the mod's gap rather than KSA's: a burst
+   breaks parts one by one and part health accumulates, so a hit aimed at a part has something to
+   do.
 
 Three others recorded here have since been fixed and are gone rather than annotated: a guided round
 flying the 57E6's profile whatever launcher fired it, the Mk 82 rack labelling its bombs "Missiles",
