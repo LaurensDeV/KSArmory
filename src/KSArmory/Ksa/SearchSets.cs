@@ -33,6 +33,12 @@ internal sealed class SearchSet
     // Latched, as a director's is: a refused write is not retried every frame.
     private bool _headWorks = true;
 
+    private bool _headMissingLogged;
+
+    // A step longer than this is cut to it: at warp the smoothed step runs to seconds, and the head
+    // would jump a whole sweep in one frame.
+    private const double MaxHeadStepSeconds = 0.1;
+
     /// <summary>Where the head is looking, in the part's frame.</summary>
     public double3 HeadDirection => _head.Direction;
 
@@ -81,9 +87,17 @@ internal sealed class SearchSet
     private void TurnHead(Vehicle craft, double dt)
     {
         if (!_headWorks || Profile.HeadMarker is not { } marker) return;
-        if (FindSubPart(marker) is not { } head) return;
+        if (FindSubPart(marker) is not { } head)
+        {
+            if (!_headMissingLogged)
+            {
+                _headMissingLogged = true;
+                Log.Warn($"{Profile.DisplayName}: no subpart whose Id contains '{marker}', so its head will not turn");
+            }
+            return;
+        }
 
-        double step = _headStep.Next(dt);
+        double step = Math.Min(_headStep.Next(dt), MaxHeadStepSeconds);
         _scanSeconds += step;
 
         double3? toContact = null;

@@ -55,17 +55,29 @@ public class SearchHeadTests
     }
 
     [Fact]
-    public void ItNodsAsItSweepsSoItTracesAFigureOfEightNotALine()
+    public void ItNodsAtTwiceTheSweepRateSoItTracesAFigureOfEightNotATiltedLine()
     {
-        double low = 0.0, high = 0.0;
-        for (double t = 0.0; t < 6.0; t += 0.01)
+        // Level at both ends of the sweep and at its middle; at full nod a quarter of the way between.
+        foreach (double t in new[] { 0.0, 1.5, 3.0, 4.5 })
         {
-            double3 c = SearchHead.Scan(Irst, t);
-            low = Math.Min(low, c.X);
-            high = Math.Max(high, c.X);
+            Assert.Equal(0.0, SearchHead.Scan(Irst, t).X, 9);
         }
 
-        Assert.True(high - low > 0.2);
+        Assert.Equal(Math.Sin(double.DegreesToRadians(8.0)), SearchHead.Scan(Irst, 0.75).X, 9);
+        Assert.Equal(-Math.Sin(double.DegreesToRadians(8.0)), SearchHead.Scan(Irst, 2.25).X, 9);
+    }
+
+    [Fact]
+    public void TheSweepRepeatsEveryPeriodAndCrossesTheMiddleHalfwayThrough()
+    {
+        for (double t = 0.0; t < 6.0; t += 0.37)
+        {
+            Assert.True(Vec.AngleBetween(SearchHead.Scan(Irst, t), SearchHead.Scan(Irst, t + 6.0)) < 1e-9);
+        }
+
+        Assert.Equal(0.0, SearchHead.Scan(Irst, 3.0).Z, 9);
+        Assert.True(SearchHead.Scan(Irst, 1.5).Z > 0.6);
+        Assert.True(SearchHead.Scan(Irst, 4.5).Z < -0.6);
     }
 
     [Fact]
