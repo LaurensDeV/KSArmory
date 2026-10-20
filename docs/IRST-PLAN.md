@@ -113,9 +113,11 @@ locks on, without seeing the target itself.
   standing 0.6 mm proud — over a sensor head that turns in a round bay behind them. The nose runs to a
   round opening and takes the hexagon only at its edge, so the facets crease the skin at the window and
   nowhere else; its top stays level with the crown, so the top line runs in one curve to the tail. A
-  bell-shaped section with a fillet crossing into the hull at about 20°, a foot buried 22 mm below the
-  mounting face and deepening by y²/1.25 towards the ends so a 1.25 m tank hides the gap, and a tail
-  that sinks into the skin. About 0.44 m long, 0.23 m wide and 0.19 m tall, the origin mid-way along
+  bell-shaped section with a fillet crossing into the hull at about 20°, and a flat bottom with a 5 mm
+  skirt below the mounting face, so it sits cleanly on a flat panel or a wing and a thin wall hides the
+  skirt. A deep curved keel that closed the gaps on small round tanks was dropped: it poked through any
+  thin host. On a 1.25 m tank with the part's length across the curve the ends show a gap, as most
+  surface parts do. About 0.44 m long, 0.23 m wide and 0.19 m tall, the origin mid-way along
   where the fairing meets the skin. Three subparts: the body, the head (a lens on a yoke, at 0.85 scale
   so the hump can sit low) and the glass, a `PartModelGlass` — KSA draws that at a fixed 0.75 opacity,
   so the head shows dimly, as through tinted glass. Surface-attaching, so several turned different ways
