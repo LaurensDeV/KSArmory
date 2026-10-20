@@ -85,10 +85,12 @@ internal sealed partial class IcbmComputer
     }
 
     private int _watchedRelease;
-    private double _watchedSeconds, _leftAtMetres, _closestMetres;
+    private double _watchedSeconds, _leftAtMetres, _closestMetres, _closestAtSeconds;
+    private double3 _velocityAtRelease;
+    private string _closestSaid = "";
 
-    // How near the last warhead released came to its bus in the minute after it left: under where it started, the bus
-    // flew back through it.
+    // How near the last warhead released came to its bus in the minute after it left, and what the bus was doing then:
+    // under where it started, the bus flew back through it.
     private void WatchTheReleased(double simStep)
     {
         if (_sentTo.Count > _watchedRelease)
@@ -98,14 +100,44 @@ internal sealed partial class IcbmComputer
             _watchedSeconds = 0.0;
             _leftAtMetres = ReleasedMetres;
             _closestMetres = double.PositiveInfinity;
+            _closestAtSeconds = 0.0;
+            _closestSaid = "";
+            _velocityAtRelease = KsaWorld.IsAlive(Craft) ? KsaWorld.VelocityEcl(Craft) : Vec.Zero;
             return;
         }
 
         if (_watchedRelease == 0 || !double.IsFinite(_watchedSeconds)) return;
 
         _watchedSeconds += simStep;
-        if (double.IsFinite(ReleasedMetres)) _closestMetres = Math.Min(_closestMetres, ReleasedMetres);
+        double released = ReleasedMetres;
+        if (double.IsFinite(released) && released < _closestMetres)
+        {
+            _closestMetres = released;
+            _closestAtSeconds = _watchedSeconds;
+            _closestSaid = WhatTheBusIsDoing();
+        }
+
         if (_watchedSeconds >= 60.0) SayTheClosest();
+    }
+
+    private string WhatTheBusIsDoing()
+    {
+        if (_sentTo.Count == 0 || !KsaWorld.IsAlive(Craft) || Parent is not { } parent) return "";
+
+        double3 offset = _sentTo[^1].Round.OffsetFromPlatform;
+        double3 gained = KsaWorld.VelocityEcl(Craft) - _velocityAtRelease;
+        double toward = Vec.Len2(offset) > 0.0 ? Vec.Dot(gained, Vec.Unit(offset)) : double.NaN;
+
+        string axes = "";
+        if (KsaWorld.TryControlFrameCci(Craft, parent, out double3 nose, out double3 right, out double3 down))
+        {
+            double3 cci = offset.Transform(parent.GetCce2Cci());
+            axes = $", at ({Vec.Dot(cci, nose):+0.0;-0.0} nose, {Vec.Dot(cci, right):+0.0;-0.0} right, "
+                   + $"{Vec.Dot(cci, down):+0.0;-0.0} down) m";
+        }
+
+        return $"{axes}, the bus {toward:+0.00;-0.00} m/s toward it since the release, hop {_hopBurn.Now}, "
+               + $"trim {_trim.Firing}{(Turning ? ", turning" : "")}, rails {KsaWorld.OnRails(Craft)?.ToString() ?? "?"}";
     }
 
     private void SayTheClosest()
@@ -113,7 +145,8 @@ internal sealed partial class IcbmComputer
         if (!double.IsFinite(_watchedSeconds)) return;
 
         Log.Info($"released warhead {_watchedRelease} on {KsaWorld.DisplayName(Craft)}: left {_leftAtMetres:F1} m from "
-                 + $"the bus, closest {_closestMetres:F1} m in the {_watchedSeconds:F0} s after");
+                 + $"the bus, closest {_closestMetres:F1} m at {_closestAtSeconds:F1} s of the {_watchedSeconds:F0} after"
+                 + _closestSaid);
         _watchedSeconds = double.NaN;
     }
 
