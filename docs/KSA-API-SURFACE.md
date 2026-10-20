@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-318 types and 859 members across 11 assemblies.
+321 types and 865 members across 11 assemblies.
 
 ## BepuUtilities
 
@@ -650,6 +650,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.AstronomicalTemplate
 
 - `KSA.HapkeScatteringReference ScatteringReference`
+- `KSA.MagnetosphereReference MagnetosphereReference`
 - `KSA.TextureReference DiffuseReference`
 
 ### KSA.Atmosphere.Rendering.CloudRenderer
@@ -1180,6 +1181,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### KSA.MagnetosphereReference
+
+- `Brutal.Numerics.double3 ToMag(Brutal.Numerics.double3)`
+- `System.Collections.Generic.List`1<KSA.RadiationBeltReference> Belts`
+
 ### KSA.ManualControlInputs
 
 *referenced as a type only*
@@ -1520,6 +1526,15 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.QuaternionEx
 
 - `Brutal.Numerics.doubleQuat Inverse(Brutal.Numerics.doubleQuat)`
+
+### KSA.Radiation
+
+- `double ComputeDoseRate(KSA.IParentBody, Brutal.Numerics.double3, Brutal.Numerics.double3)`
+- `double ComputeL(Brutal.Numerics.double3, double, ref double)`
+
+### KSA.RadiationBeltReference
+
+- `void .ctor(double, double, double)`
 
 ### KSA.Ray
 

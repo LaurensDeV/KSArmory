@@ -880,6 +880,13 @@ internal static class NuclearClouds
             double3 groundCcf = burstCcf - (up * height);
             double coupling = MushroomCloud.GroundCoupling(kt, height);
 
+            // Each warhead its own source even inside one burst: doses add.
+            double overGround = hasAir ? height : Math.Max(KsaWorld.HeightAboveTerrain(body, burstEcl), 0.0);
+            double3 fallGround = burstCcf - (up * overGround);
+            Radioactivity.Begin(body, burstEcl, burstCcf, fallGround, up, DownwindAt(fallGround),
+                                chargeKg, MushroomCloud.GroundCoupling(kt, overGround), hasAir,
+                                hasAir && MushroomCloud.IsThin(airRatio));
+
             // A burst inside one still going off is the SAME EVENT (MushroomCloud.IsTheSameBurst): six
             // warheads of a bus land metres apart in one frame, and the truth is one burst of the combined
             // yield. Its yield is added to everything that burst started -- the fireball's light, the glow,
@@ -1036,6 +1043,8 @@ internal static class NuclearClouds
     {
         if (!double.IsFinite(dtSim)) return;
 
+        Radioactivity.Update(dtSim);
+
         for (int i = _curtains.Count - 1; i >= 0; i--)
         {
             _curtains[i].Age += Math.Max(dtSim, 0.0);
@@ -1119,6 +1128,7 @@ internal static class NuclearClouds
         _glows.Clear();
         _waves.Clear();
         _curtains.Clear();
+        Radioactivity.Clear();
         _watch = null;
         BurstFlash.Reset();
         BurstSound.Clear();

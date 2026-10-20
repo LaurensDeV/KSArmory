@@ -745,7 +745,7 @@ far off read red -- Teak's and Starfish's conjugate aurorae were both reported d
 the measured scales: folds drifting a kilometre or two a second, rays about a kilometre a second, curls
 under 10 km running faster, and patches pulsing over seconds; the tens-of-hertz flicker is left out,
 since at a game's frame rate it would strobe.
-What it still lacks is the radiation belts -- see `docs/NUCLEAR-NEXT.md`.
+A burst above the air also fills a radiation belt in KSA's own model -- see `docs/NUCLEAR-RADIATION.md`.
 
 ## The airless burst, which is a different effect rather than the same one degraded
 

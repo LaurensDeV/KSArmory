@@ -156,6 +156,10 @@ writes moved. Once a StarMap that loads 5638 is installed:
       read the stage counts.
 - [ ] **KSA's own aurora** now draws from a declared field (`docs/BLOCKED-ON-KSA.md`). Look at a
       high burst's aurora beside it.
+- [ ] **A burst reads on KSA's Radiation gauge** (`docs/NUCLEAR-RADIATION.md`). Hold a craft about 2 km
+      from a 20 kt surface burst: the gauge pegs for a few seconds, drops, then reads fallout once it
+      arrives, more downwind than up. A burst at 400 km should log a belt filled at L ~1.1 and show in
+      the map's Magnetospheres overlay, and the orbit-average digits should move. Reload: the belt goes.
 - [ ] **A landed craft's acceleration** no longer jumps when the physics bubble snaps its origin
       (`PhysicsBubble._snappedVelocityDeltaPhys`); `AccelerationEstimate` reads it. Gunnery against a
       grounded target should be no worse.
