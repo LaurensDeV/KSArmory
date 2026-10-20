@@ -6,7 +6,7 @@ namespace KSArmory;
 
 /// <summary>
 /// Shift-click anything to lock an installation onto it: the turret follows, FIRE shoots a craft
-/// named this way, and a director fitted beside it watches the same thing.
+/// named this way, and every director fitted beside it watches the same thing.
 ///
 /// <para><b>It designates; it does not take the player's view.</b> The instruction goes to the
 /// drives, so the picture follows because the mount moved — which is what an operator means by
@@ -42,13 +42,15 @@ internal static class TargetLock
 
     /// <summary>
     /// Reads the click, if there was one, and locks whatever is under it. The weapon is designated
-    /// through <paramref name="designate"/>, which reaches every station of it.
+    /// through <paramref name="designate"/>, which reaches every station of it, and every director on
+    /// the craft takes it too, since the click locks the installation rather than one part of it.
     /// </summary>
-    public static void Update(WeaponSystem? system, OpticalHead? head, Action<Aimpoint, string>? designate)
+    public static void Update(WeaponSystem? system, IReadOnlyList<OpticalHead> heads,
+                              Action<Aimpoint, string>? designate)
     {
         if (!Requested()) return;
 
-        if ((system?.Platform ?? head?.Platform) is not { } platform) return;
+        if ((system?.Platform ?? (heads.Count > 0 ? heads[0].Platform : null)) is not { } platform) return;
 
         // A craft under the pointer wins over the ground behind it: what an operator means by
         // clicking is the thing they can see, and the ground is what they meant only when there is
@@ -60,7 +62,7 @@ internal static class TargetLock
                                              KsaWorld.VelocityEcl(craft), KsaWorld.MeanRadius(craft));
 
             designate?.Invoke(at, KsaWorld.DisplayName(craft));
-            head?.Designate(at, KsaWorld.DisplayName(craft));
+            foreach (OpticalHead head in heads) head.Designate(at, KsaWorld.DisplayName(craft));
             return;
         }
 
@@ -76,7 +78,7 @@ internal static class TargetLock
             string what = $"{body} {lat:F2}, {lon:F2}";
 
             designate?.Invoke(at, what);
-            head?.Designate(at, what);
+            foreach (OpticalHead head in heads) head.Designate(at, what);
         }
 
         // Nothing under the cursor designates nothing. A click on empty sky must not name a point

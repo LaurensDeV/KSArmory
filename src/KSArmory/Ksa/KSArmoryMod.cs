@@ -38,6 +38,8 @@ public sealed class KSArmoryMod
     // One head per optical director fitted. Crewed independently of the weapons: a craft with a
     // director and no armament gets one, and a craft with a launcher and no director gets none.
     private OpticalHeads? _heads;
+    private readonly List<OpticalHeads.Entry> _lockEntries = [];
+    private readonly List<OpticalHead> _lockHeads = [];
     private Countermeasures? _countermeasures;
 
     private IcbmComputers? _icbms;
@@ -444,10 +446,15 @@ public sealed class KSArmoryMod
         if (_icbms?.For(_ui.Focused) is { } aimedSite) _sites.Update(aimedSite);
 
         // Shift-click locks the installation the panel is showing onto whatever is under the cursor
-        // -- its turret, and its director if it has one -- scoped to the shown system for the same
+        // -- its turret, and every director it carries -- scoped to the shown system for the same
         // reason the designator is: every crewed system reading one cursor would lock all of them.
         WeaponSystems.Entry? weapon = _roster.For(_ui.Focused);
-        TargetLock.Update(weapon?.Weapon, _heads?.Driving(_ui.Focused)?.Head,
+        _lockHeads.Clear();
+        _heads?.On(_ui.Focused, _lockEntries);
+        foreach (OpticalHeads.Entry e in _lockEntries) _lockHeads.Add(e.Head);
+        _lockEntries.Clear();
+
+        TargetLock.Update(weapon?.Weapon, _lockHeads,
                           weapon is null ? null : (at, what) => _roster.DesignateWeapon(weapon, at, what));
     }
 
