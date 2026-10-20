@@ -416,8 +416,11 @@ internal static class Sight
         Text(surface.Draw, new float2(surface.Centre.X - size.X * 0.5f, surface.Centre.Y + below), label, Pending);
     }
 
+    // On whole pixels: a label riding a projected point moves by fractions of one every frame, and a
+    // glyph drawn at a fraction is resampled across its neighbours, so a steady number shimmers.
     private static void Text(ImDrawListPtr draw, float2 at, string what, ImColor8 colour)
     {
+        at = new float2(MathF.Round(at.X), MathF.Round(at.Y));
         draw.AddText(at + new float2(1f, 1f), Shadow, what);
         draw.AddText(at, colour, what);
     }
