@@ -218,6 +218,9 @@ long weapon-data writes have been stopped by the classifier before.
 
 ### Phase 4 — the example mod's reference copy (≈0.5 session)
 
+- *As built:* the reference also carries the part XML (`KSArmory*.xml`) and every mesh, texture and sound,
+  laid out as the mod's root, and its index is generated: each family's parts, and the meshes, textures and
+  sounds those parts name, are read off the XML and the meshes rather than typed.
 - `tools/export-reference.py` copies the core family files into `../KSArmory-example-mod/reference/`,
   each headed `Generated from KSArmory <commit> (<date>) — do not edit; the live file is
   src/KSArmory/KSArmory/<name>.xml`, plus a hand-written `reference/README.md` index ("rotary cannon

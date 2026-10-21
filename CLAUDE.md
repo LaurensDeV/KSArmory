@@ -795,7 +795,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/validate-parts.py` | checks asset Ids, texture paths, and launch geometry vs the mesh |
 | `tools/listing.py` | `listing/` as Borea's TOML and SpaceDock's markdown — printed to paste; it publishes nothing |
 | `tools/spacedock-changelog.py` | a release's notes cut to what SpaceDock accepts — **10,000 characters**, which one after a long run on `dev` overruns six times over |
-| `tools/export-reference.py` | the family files copied into the example mod's `reference/`, **read from HEAD** so each header names the commit it came from; run by hand, `--check` to compare |
+| `tools/export-reference.py` | the family files, the part XML and the art copied into the example mod's `reference/`, laid out as the mod's root so every path resolves, with an index of each family's parts, meshes, textures and sounds worked out from them -- **read from HEAD** so each header names the commit it came from; run by hand, `--check` to compare |
 | `tools/pack-api.py` | records the API a weapon pack binds to, and fails when it moves — **the mirror of `api-surface.sh`**, because a pack lives in somebody else's repository and never builds here |
 | `tools/check-studies.py` | which tests are tagged out of the push loop, as a committed record — **it cannot tell a mis-tag from a real one**, and does not try: it puts the change in the author's own diff, where a human can still ask |
 | `tools/repair-saves.py` | realigns saves written before a part lost a subpart |
