@@ -565,7 +565,18 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Vec.cs`, `Sim/DrawAnchor.cs` | vector helpers, the two-instant draw anchor |
 | **`src/KSArmory/Ksa/`** | **everything that binds to the game** |
 | `Ksa/KSArmoryMod.cs` | StarMap entry point and frame hooks |
-| `Ksa/KsaWorld.cs` | most KSA contact is funnelled here — keep it that way |
+| `Ksa/KsaWorld.cs` | most KSA contact is funnelled through this class — keep it that way. **One class in partial files by concern**, so every call site reads `KsaWorld.X` whichever file holds it; this one is the scene, the clock, warp and the save |
+| `Ksa/KsaWorld.Vehicles.cs` | a craft's state, the physics bubble as diagnostics, the census every scan shares, and whether a craft is a platform |
+| `Ksa/KsaWorld.Bodies.cs` | gravity, the air and the ocean, the ground's own motion, sea level, the sun, and what a burst went off in |
+| `Ksa/KsaWorld.Terrain.cs` | occlusion and the skyline, anchoring a point to the ground, rays onto it, and snapping to it |
+| `Ksa/KsaWorld.Parts.cs` | parts: boxes, matrices, tanks, the hull ray cast, blast faces and dents, and the part-failure queue |
+| `Ksa/KsaWorld.Controls.cs` | engines, jets and the flight computer's frame — the throttle and jets put back past the keyboard clear, and KSA's popups |
+| `Ksa/KsaWorld.Draw.cs` | the draw anchor and gizmos — **`TryEclToEgo` answers only after `BeginDraw` this frame** |
+| `Ksa/KsaWorld.Projection.cs` | a point onto the screen, or clamped to its edge |
+| `Ksa/KsaWorld.Cursor.cs` | the cursor's ray, what it meets, and the aim solved once a frame from it |
+| `Ksa/KsaWorld.Viewports.cs` | camera windows and the ground-track window — leased, posed, pictured and handed back |
+| `Ksa/KsaWorld.MainView.cs` | the player's own view — its pose, field and follow, the level-horizon controller, and handing it back |
+| `Ksa/KsaWorld.Renderer.cs` | the renderer's internals reached by reflection — screenshots, weather clouds and their shadow buffers |
 | `Ksa/WeaponSystems.cs` | one system per weapon fitted, crewed with the craft and followed across a split |
 | `Ksa/WeaponSystem.cs` | fire control, salvo logic, warhead effects, drives |
 | `Ksa/WeaponSystemRoles.cs` | **the slices consumers take** — effects, sights and cameras get a role, not the whole system |

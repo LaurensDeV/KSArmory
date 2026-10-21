@@ -25,7 +25,7 @@ ALLOWED = {
     ("src/KSArmory/Sim/XRayGlow.cs", "LayerColumnKgPerM2"): "a column calibrated on KSA's Earth, placed by the body's own air",
     ("src/KSArmory/Sim/Aurora.cs", "FootColumnKgPerM2"): "a column calibrated on KSA's Earth, placed by the body's own air",
     ("src/KSArmory/Sim/MushroomCloud.cs", "TropopauseMetres"): "the cloud top's stratification, Earth's -- a known limit in docs/NUCLEAR-ALTITUDE.md",
-    ("src/KSArmory/Ksa/KsaWorld.cs", "TerrainModifierHeadroomMetres"): "terrain headroom, not air",
+    ("src/KSArmory/Ksa/KsaWorld.Terrain.cs", "TerrainModifierHeadroomMetres"): "terrain headroom, not air",
     ("src/KSArmory/Shaders/KSArmoryCloud.comp", "DustFrontSpeed"): "sea level's sound for the dust ring's timing -- a known limit: a cloud dispatch has no float free to carry the body's",
     ("src/KSArmory/Shaders/KSArmoryCloud.comp", "along / 8000.0"): "an aurora's noise wavelength, not an altitude",
 }
