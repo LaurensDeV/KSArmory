@@ -7,18 +7,17 @@
 <WeaponPack Schema="1">
 
   <!--
-    AIM-9J. Airframe figures are the real weapon's: 3.05 m, 127 mm, 78 kg, about Mach 2.5 off its
-    motor, some 14 km. It homes on the target itself, so it keeps guiding after the launcher loses
-    the track, and can be thrown off by a target that leaves its field of view.
+    AIM-9J. Length, mass, speed (about Mach 2.5) and MaxRange are the real weapon's. Guidance="Seeker":
+    it homes on the target itself, so it keeps guiding after the launcher loses the track, but loses the
+    target if it leaves the seeker's field of view.
 
-    The Mk 17 is a booster, not a sustainer: 2.2 s and then a coast the whole rest of the way, which is
-    why its reach depends on launch speed and height and a long shot arrives slow. BoostAccel is the
-    2.2 s and the Mach 2.5 peak divided, since a model with no mass can only take the average.
+    The motor burns for 2.2 s and the missile coasts the rest of the way, so a long shot arrives slow.
+    BoostAccel="370" is the Mach 2.5 peak divided by the 2.2 s burn: the real acceleration rises as
+    the propellant burns off, and this model has no mass to burn, so it uses the average.
 
-    A lead-sulphide cell with no counter-countermeasures: it follows the brightest thing in its field,
-    which a flare is for its first seconds. SeparationSeconds is about 40 m off the rail at 25 m/s
-    under 370 m/s^2, clear of the craft before anything turns it. No fin marker: a rail-launched round
-    carries its fins deployed.
+    CountermeasureResistance="0.1": an early infrared seeker with no flare rejection, so it follows the
+    brightest thing it sees. SeparationSeconds="0.4" carries it about 40 m clear of the craft before it
+    turns. There is no FinMarker because a rail-launched missile carries its fins already deployed.
   -->
   <Munition Name="AIM9J" DisplayName="AIM-9J Sidewinder"
             BodyMarker="Aim9" BodyLength="3.05"
@@ -30,15 +29,16 @@
             FuseRadius="12" FuseArmSeconds="1.0" ChargeKg="9.4" />
 
   <!--
-    AIM-120C-7. Airframe figures are the real weapon's: 3.65 m, 178 mm, 161.5 kg, a 20 kg warhead.
-    What separates it from the AIM-9J is reach: boost-only to about Mach 4 and a coast from there, so a
-    shot at the edge of its envelope arrives slow and turns badly. MaxRange is from altitude and speed;
-    a low shot gets nothing like it.
+    AIM-120C-7. Length, mass and the 20 kg warhead are the real weapon's. It reaches much further than
+    the AIM-9J: it boosts to about Mach 4 and then coasts, so a shot near maximum range arrives slow and
+    turns badly. MaxRange="105000" is the figure for a launch at altitude and speed; a low shot gets far
+    less.
 
-    Modelled as Seeker because that is what it does at the end. The real round flies a mid-course
-    datalink, which this mod does not model, and a command-linked round would break the moment the
-    launcher lost the track - the one thing an AMRAAM is built not to do. The wide gimbal is that
-    compromise. Pulse-Doppler: chaff that stops dead is outside the gate unless the target beams.
+    Guidance="Seeker" even though the real missile flies the middle of its flight on a datalink from
+    the aircraft, which this mod does not model. Command guidance would make it lose the target the
+    moment the launcher lost its track, which is exactly what an AMRAAM is designed not to do. The wide
+    SeekerFovDeg="60" makes up for having no datalink. DopplerGateMps="40": chaff, which stops almost
+    dead in the air, is ignored unless the target is flying across the seeker's line of sight.
   -->
   <Munition Name="AIM120C" DisplayName="AIM-120C-7 AMRAAM"
             BodyMarker="Amraam_Round" BodyLength="3.645"
@@ -51,13 +51,13 @@
             FuseRadius="14" FuseArmSeconds="1.2" ChargeKg="20" />
 
   <!--
-    AGM-88 HARM. Airframe figures are the real weapon's, from designation-systems.net: 4.17 m, 254 mm,
-    360 kg, a 66 kg WDU-21/B warhead. It homes on an emission, so a contact that is not transmitting is
-    not a target however large or close: useless against aircraft, decisive against a radar site.
+    AGM-88 HARM. Length, mass and the 66 kg warhead are the real weapon's (designation-systems.net).
+    Guidance="AntiRadiation": it homes on radar transmissions, so anything not transmitting is not a
+    target, however large or close. Useless against aircraft, decisive against a radar site.
 
-    The SR113-TC-1 is dual-thrust: the boost is BoostSeconds/BoostAccel and the Stage is the
-    sustainer, still pushing where a coasting round has started to fall back. The wide gimbal is
-    direction-finding across the forward hemisphere rather than a dish that has to be pointed.
+    The real motor has two phases: BoostSeconds/BoostAccel is the boost, and the Stage is the sustainer,
+    which keeps it accelerating where a coasting missile is already slowing. SeekerFovDeg="70": it finds
+    a transmitter by listening across the whole forward view, not through a dish that has to be aimed.
   -->
   <Munition Name="AGM88" DisplayName="AGM-88 HARM"
             BodyMarker="Harm_Round" BodyLength="4.17"
@@ -71,18 +71,18 @@
   </Munition>
 
   <!--
-    The rails' search sets are the rounds' seekers, standing in for whatever is carrying the rail,
-    since nothing on a rail searches. PartForward because a seeker looks where the rail points; local
-    up would have a rail on a booster searching whichever way gravity lay.
+    Nothing on a rail searches for targets, so each rail uses its missile's seeker as its search sensor.
+    BoresightSource="PartForward" points it where the rail points; the default, local up, would have a
+    rail on a rocket searching whichever way gravity happened to be.
   -->
   <Sensor Name="AIM9SEEK" DisplayName="AIM-9 seeker head"
           Range="16000" ConeDeg="50" BoresightSource="PartForward"
           ThreatRadius="6000" ThreatHorizonSeconds="30" LockSeconds="1.0" />
 
   <!--
-    Radar rather than infrared, so it does not need the target hot: a fighter-sized return, and
-    detection goes as the fourth root of cross-section. Active, so the round itself is something an
-    anti-radiation weapon could home on.
+    Radar rather than infrared, so the target does not need to be hot. ReferenceCrossSectionM2="5" is a
+    fighter-sized target; smaller targets are detected closer, by the fourth root of their size.
+    Emits="true": the seeker transmits, so an anti-radiation missile could home on it.
   -->
   <Sensor Name="AIM120SEEK" DisplayName="AIM-120 seeker head"
           Range="40000" ConeDeg="60" BoresightSource="PartForward"
@@ -90,9 +90,10 @@
           ReferenceCrossSectionM2="5" Emits="true" />
 
   <!--
-    Wholly passive, and that is the weapon: a craft carrying only this rail is invisible to another
-    anti-radiation round. It hears a transmitter far beyond where its return would be seen, whatever
-    its size, so there is no cross-section; and a radar site sits still, so no minimum speed.
+    Emits="false": the seeker only listens, so a craft carrying only this rail cannot itself be homed on
+    by another anti-radiation missile. Detection depends on whether the target transmits, not on its
+    size, so there is no ReferenceCrossSectionM2. MinTargetSpeed="0" because a radar site does not
+    move.
   -->
   <Sensor Name="AGM88SEEK" DisplayName="AGM-88 seeker head"
           Range="60000" ConeDeg="70" BoresightSource="PartForward" Scope="Emitters"
@@ -100,18 +101,19 @@
           MinTargetSpeed="0" Emits="false" />
 
   <!--
-    One tube and no reload, so a rail has exactly one shot; a second rail is a second weapon with its
-    own magazine. The tube is the nose of the seated round and the direction it leaves along, since a
-    fixed launcher has no pods to give it an axis.
+    Each rail holds one missile and never reloads (ReloadSeconds="0"); a second rail on the same craft is
+    a second weapon. The Tube gives the nose of the seated missile and the direction it leaves in, since
+    a launcher that does not move has no other way to say which way it fires.
 
-    Off the rail, then a turn: the round leaves along the rail pushed clear of the mount, coasts for its
-    SeparationSeconds, and only then steers, bounded by its own lateral G. A rail on a stack cannot be
-    aimed by pointing the craft, so a ground designation sits 92-116 degrees off it; that limits the
-    seeker, not the weapon (Interceptor's SeekerInView, FireGate.CanGuideOntoAimpoint).
+    LaunchAlongTube and EjectAwayFromMount: the missile leaves along the rail, pushed clear of the
+    craft, flies straight for its SeparationSeconds, and only then turns toward the target. A rail on
+    a rocket cannot be aimed by turning the craft, so a ground target can sit 92-116 degrees off it;
+    the missile is still steered onto a designated place even though its seeker cannot see it
+    (Interceptor's SeekerInView, FireGate.CanGuideOntoAimpoint).
 
-    LAU-7 geometry is printed by tools/model/sidewinder.py. The LAU-128's and LAU-118's art is authored,
-    so their tube is the seat position in KSArmoryAssets.xml plus half the mesh's length; the .blend is
-    not in this repository, and tools/validate-parts.py is the only thing holding the three together.
+    The LAU-7 Tube is printed by tools/model/sidewinder.py. The LAU-128 and LAU-118 were modelled by hand,
+    so their Tube is the seat position in KSArmoryAssets.xml plus half the missile's length. Their .blend
+    files are not in this repository, so tools/validate-parts.py is the only check that these agree.
   -->
   <Launcher PartId="KSArmory_Prefab_SidewinderRail" DisplayName="LAU-7 Sidewinder rail"
             FireControlLabel="LAU-7 fire control"
