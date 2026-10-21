@@ -67,6 +67,41 @@ Added 2026-10-21 against `df6549a0`, from a second review of the same shape.
   `_ringIsOnGunLead` it leaves behind.
 
 
+## Copies that disagree
+
+Found 2026-10-21 by a duplicate sweep: places where the same job is written twice and the copies
+have already drifted apart. Each is read from the source and none is flown; each is a behaviour
+change, so each wants a flight before it is fixed.
+
+- [ ] **`CloudPassHook` is installed with the other nine hooks and removed by neither teardown**, so
+  after the fault limit disables the mod its compute pass is still dispatched inside KSA's renderer.
+- [ ] **A director re-finds its part by ordinal every frame** (`OpticalHead.SampleWorld` through
+  `OpticParts.FindNth`) — the pattern that swapped two racks' magazines, which is why `WeaponSystem`
+  holds its part by reference. Two pods, the first dropped: the second is likely driven by head 0, with
+  its settings and a YAL-1's chemical seconds. `OpticalHeads` also carries its own copy of the
+  decoupled-part follow, without the held-part match, the `HasPlatform` filter or the
+  survived-on-a-fragment case `WeaponSystems` has since gained. `OpticParts.FindAll` and
+  `LauncherPart.FindAll` say opposite things about whether the ordinal survives a split.
+- [ ] **A handover made in the step is cleared before anything reads it.** `RetireDestroyed` runs in
+  `StepSimulation` and `MoveTo` records the handover; the UI pass's `WeaponSystems.Sync` then clears
+  `_handovers` in `FollowDecoupledLaunchers` before `IcbmComputers.Sync` and the panel's selection
+  read them, so neither follows a launcher that survived its craft on a fragment.
+- [ ] **A world click adds a target with no warheads; a map click gives it one**
+  (`SiteDesignator` against `GroundTrackDesignator`), where both are meant to decide alike. Which is
+  right is the owner's call.
+- [ ] **A director's settings are not saved.** `SettingsStore` writes `systems.json` and
+  `ballistic.json` and nothing carries an `OpticConfig`.
+- [ ] **`SensorPass.ViewFor` replaces its 1x1 image and its pipeline without disposing either**, on
+  every camera-window resize. `CloudPass`'s graveyard is the fix it could share.
+- [ ] **The director's hold reason is derived twice** — `OpticalHead.AimPartFrame` takes seven rungs,
+  `OpticFollow.Why` re-derives five — so a head held by a beam's cue reads "NOT TRACKING". The
+  turret's version of this is `Sim/TurretMode.cs`.
+- [ ] **The rosters disagree about an empty part read.** `WeaponSystems` reads one as a tree
+  mid-rebuild and searches 120 times; `Countermeasures` and `SearchSets` drop the entry at once, so a
+  dispenser may come back with a full magazine after staging.
+- [ ] **`PostBoostAim` prints its misses as fixed-width km**, so 30 m reads `0.0 km`; `Distance.Say`
+  is what the rest of the log uses.
+
 ## The ballistic computer
 
 - [~] **`Ksa/Icbm/IcbmComputer.cs` was 4,337 lines and about 120 methods**, and everything after cutoff -- the split,
@@ -146,6 +181,13 @@ stale in two places at once.
 ## Did not survive
 
 Reported and checked; leave these alone.
+
+- **Duplicates that are not.** From the 2026-10-21 sweep: the three density-to-altitude inversions
+  share one expression under three different guards; the Harmony hooks share six lines each and
+  differ in targets, state and failure wording on purpose; the compute pipelines differ in their
+  image sets, buffers and specialization; `ChaseView.AnyPerpendicular` re-normalised through `Vec`
+  would move a camera direction by an ulp; `BombSight`, `ImpactPredictor` and `BallisticLead` integrate
+  different questions in different frames; and the lag filters run on different clocks.
 
 - **`Ksa/GroundTest.cs` walking the system itself rather than through `KsaWorld`.** It is asked
   once per round per sub-step, and its shared cache of the body underfoot, with the runner-up
