@@ -75,8 +75,10 @@ Found 2026-10-21 by a duplicate sweep: places where the same job is written twic
 have already drifted apart. Each is read from the source and none is flown; each is a behaviour
 change, so each wants a flight before it is fixed.
 
-- [ ] **`CloudPassHook` is installed with the other nine hooks and removed by neither teardown**, so
+- [x] **`CloudPassHook` is installed with the other nine hooks and removed by neither teardown**, so
   after the fault limit disables the mod its compute pass is still dispatched inside KSA's renderer.
+  Flown with the bridge's `disable`: a 0.3 kt cloud stayed drawn after the trip before the change and
+  was gone after it, with nothing in KSA's log either way.
 - [ ] **A director re-finds its part by ordinal every frame** (`OpticalHead.SampleWorld` through
   `OpticParts.FindNth`) — the pattern that swapped two racks' magazines, which is why `WeaponSystem`
   holds its part by reference. Two pods, the first dropped: the second is likely driven by head 0, with

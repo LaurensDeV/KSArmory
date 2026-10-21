@@ -1533,6 +1533,7 @@ public sealed class KSArmoryMod
         KsaWorld.Wreckage.Clear();
         AttitudeHook.Remove();
         PreRenderHook.Remove();
+        CloudPassHook.Remove();
         WorldReloadHook.Remove();
         DoseRateHook.Remove();
         Radioactivity.Clear();
