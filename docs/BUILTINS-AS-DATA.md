@@ -92,6 +92,17 @@ lets a third-party pack keep referencing a disabled family's rounds.
 
 ### Phase 0 — mechanism (≈2 sessions, `refactor` / `fix(packs)`)
 
+**Landed 2026-10-21** (`82df2fab`, `0e0b91c2`), flown with `head-on`. Where it differs from what is
+written below:
+- Loud lookups are `Catalogue.MissingNameThrows`, on for the whole suite and off in the game. The game
+  keeps the fallback; the scenario and bridge lookups resolve a profile's own key, so need no change.
+- "Two passes" is a names-first read: every core file is read once for its round and sensor names,
+  then each is read against all of them and registered. The disable switch (Phase 3) filters the
+  part-bound lists of that second read.
+- A fault's file is in the log line (`Weapons.xml: …`) rather than in `PackFault`.
+- `BuiltInDefinitionsTests` still names `Weapons.xml`; it moves with the Pantsir slice, which renames
+  the file.
+
 1. **Loud lookups.** `BuiltIns`, tests, `GunneryScenario.cs:202`, `Bridge.cs:960` use `Try*Named` or a
    throwing lookup; the element-zero fallback goes. Empty registries are tolerated.
 2. **`CoreRegistration`** as above (both passes, sorted, `BuiltInSource`, own entry skipped by
