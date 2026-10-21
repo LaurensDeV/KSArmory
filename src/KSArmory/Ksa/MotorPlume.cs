@@ -107,7 +107,7 @@ internal sealed class MotorPlume
     {
         if (!_burning.TryGetValue(round, out Live? live))
         {
-            if (Acquire(system.EffectBody) is not { } fresh) return;
+            if (Acquire(system.EffectBody, EmitterPool.Chosen(round.Munition.PlumeEffect, PlumeId)) is not { } fresh) return;
 
             fresh.Owner = system;
             live = fresh;
@@ -142,18 +142,18 @@ internal sealed class MotorPlume
                           EmitterPool.At(live.Body, positionCcf, Vec.IsFinite(velocityCcf) ? velocityCcf : double3.Zero));
     }
 
-    private static Live? Acquire(Celestial? body)
+    private static Live? Acquire(Celestial? body, string id)
     {
         try
         {
             if (body is null) return null;
 
-            if (EmitterPool.Take(PlumeId, body) is not { } handles)
+            if (EmitterPool.Take(id, body) is not { } handles)
             {
                 if (!_warned)
                 {
                     _warned = true;
-                    Log.Warn($"no free emitters for '{PlumeId}'; rounds will fly without a plume");
+                    Log.Warn($"no free emitters for '{id}'; rounds will fly without a plume");
                 }
                 return null;
             }

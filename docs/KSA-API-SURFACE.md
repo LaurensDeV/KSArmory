@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-335 types and 892 members across 12 assemblies.
+336 types and 892 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -1660,6 +1660,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `System.Collections.Generic.List`1<KSA.Rendering.Lighting.Light> Lights`
 
 ### KSA.Rendering.Particles.ExplosionReference
+
+*referenced as a type only*
+
+### KSA.Rendering.Particles.ParticleEmitterReference
 
 *referenced as a type only*
 

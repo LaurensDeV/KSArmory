@@ -281,6 +281,20 @@ public sealed class KSArmoryMod
         {
             Log.Info($"warhead explosion {preset}: {(Detonation.Resolves(preset) ? "ok" : "DID NOT RESOLVE")}");
         }
+
+        // A pack's own effects, checked now rather than at the first shot, which would fall back quietly.
+        foreach (MunitionProfile round in Catalogue.Munitions)
+        {
+            if (round.BurstEffect is { } burst && !Detonation.Resolves(burst))
+                Log.Warn($"{round.Name}: BurstEffect=\"{burst}\" is not an explosion any mod declares; it bursts as its charge's own");
+            if (round.PlumeEffect is { } plume && !EmitterPool.Declared(plume))
+                Log.Warn($"{round.Name}: PlumeEffect=\"{plume}\" is not a particle emitter any mod declares; it burns with KSArmory's");
+        }
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
+        {
+            if (launcher.MuzzleFlashEffect is { } flash && !EmitterPool.Declared(flash))
+                Log.Warn($"{launcher.PartId}: MuzzleFlashEffect=\"{flash}\" is not a particle emitter any mod declares; it flashes with KSArmory's");
+        }
     }
 
     // Logged whether or not anything registered. A pack that is installed but disabled, or whose

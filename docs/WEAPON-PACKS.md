@@ -158,6 +158,8 @@ Four rules that between them explain most refusals:
 | `ChuteOpensSeconds` | `1.5` | when after release the chute opens; it fills over a second |
 | `BodyLength` | `3.10` | m, for drawing |
 | `BodyModel` | *none* | a gun round's model: the Id of a `<SubPart>` template, drawn once per shell in the air with no subpart on the launcher, so there is no limit on how many are seen. Without one a shell is a streak |
+| `BurstEffect` | *chosen by the charge* | an `<Explosion>` your asset XML declares, which the warhead goes off as. Only the look: the blast, its reach and a nuclear charge's cloud stay the charge's |
+| `PlumeEffect` | *KSArmory's* | a `<ParticleEmitter>` your asset XML declares, held at the nozzle while the motor burns |
 | `TracerEvery` | `0` | a gun round: one in this many burns a tracer, as a belt is loaded. The rest are drawn as a faint grey streak, as bright as the player's **Rounds between tracers** setting in daylight and fading with the sun, so at night only the tracers are seen. `0` is none |
 | `TracerBurnSeconds` | `3` | how long a tracer burns before it goes out; the round flies on unseen |
 | `FinDeploySeconds` | `0.18` | |
@@ -272,6 +274,7 @@ tubes, a cannon, or both; the Phalanx has no tubes at all.
 | `GunArmamentLabel` | `Cannon` | |
 | `GunSoundId` | *the default cannon loop* | a `<CompoundSound>` your asset XML declares, played while the gun fires |
 | `GunshotSoundId` | *none* | a `<Sound>` played once per round, for a gun slow enough to be heard shot by shot; alone, it replaces the loop |
+| `MuzzleFlashEffect` | *KSArmory's* | a `<ParticleEmitter>` your asset XML declares, at the muzzles while the guns fire |
 
 **Gun gear that is drawn only** rides the elevating gun and never changes where a round goes. Each
 marker needs its pin or pivot, measured from the turret pivot, or it is refused:
@@ -381,6 +384,16 @@ one kind on a craft throws on each press.
 | `EjectSpeed` | `30` | m/s |
 
 ---
+
+## Effects of your own
+
+A round's burst and plume and a gun's muzzle flash are KSA assets, so a pack brings its own look the way
+it brings a sound: declare an `<Explosion>` or a `<ParticleEmitter>` in an asset file listed in
+`mod.toml`, under an Id of your own, and name it with `BurstEffect`, `PlumeEffect` or
+`MuzzleFlashEffect`. KSArmory's own, in its `KSArmoryParticles.xml`, are the examples to start from.
+
+An Id no mod declares is reported in `KSArmory.log` when the world loads, and the weapon keeps
+KSArmory's effect rather than losing it.
 
 ## Bodies.xml -- describing a planet
 

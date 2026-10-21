@@ -49,6 +49,23 @@ public class PackReaderTests
     }
 
     [Fact]
+    public void ARoundAndALauncherNameTheirOwnEffectsAndNamingNoneLeavesKSArmorys()
+    {
+        PackContents pack = Read(Wrap(
+            """<Munition Name="Fancy" DisplayName="Fancy" BurstEffect="MyBurst" PlumeEffect="MyPlume" />"""
+            + ARound + ASet
+            + AChinGun.Replace("GunSoundId=", "MuzzleFlashEffect=\"MyFlash\" GunSoundId=")));
+
+        Assert.Empty(pack.Faults);
+        MunitionProfile fancy = pack.Munitions.Single(m => m.DisplayName == "Fancy");
+        Assert.Equal(("MyBurst", "MyPlume"), (fancy.BurstEffect, fancy.PlumeEffect));
+        Assert.Equal("MyFlash", Assert.Single(pack.Launchers).MuzzleFlashEffect);
+
+        MunitionProfile plain = pack.Munitions.Single(m => m.DisplayName == "Dart");
+        Assert.Equal((null, null), (plain.BurstEffect, plain.PlumeEffect));
+    }
+
+    [Fact]
     public void AWholePackComesThroughWithItsNumbers()
     {
         PackContents pack = Read(Wrap(ARound + ASet + ARail));

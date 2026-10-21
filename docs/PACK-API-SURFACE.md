@@ -11,7 +11,7 @@ ignored.
 
 `docs/WEAPON-PACKS.md` is the same surface written for the author, with the reasons attached.
 
-**Definition schema 1.** 8 elements, 168 attributes, 15 entry-point lines.
+**Definition schema 1.** 8 elements, 171 attributes, 15 entry-point lines.
 
 ## Entry point
 
@@ -44,6 +44,8 @@ to build; widening it to take a profile type would put that back.
 | `DisplayName` | text, required | **required** |
 | `BodyMarker` | text | *none* |
 | `BodyModel` | text | *none* |
+| `BurstEffect` | text | *none* |
+| `PlumeEffect` | text | *none* |
 | `FinMarker` | text | *none* |
 | `BodyLength` | number | `3.10` |
 | `TracerEvery` | whole number | `0` |
@@ -187,6 +189,7 @@ to build; widening it to take a profile type would put that back.
 | `GunRotorSpinDownSeconds` | number | `1.0` |
 | `GunSoundId` | text | *none* |
 | `GunshotSoundId` | text | *none* |
+| `MuzzleFlashEffect` | text | *none* |
 | `TrimAccelerationMetresPerSecond2` | number | `double.NaN` |
 | `TrimWorstAxisExhaustVelocity` | number | `double.NaN` |
 | `HopEngineThrustNewtons` | number | `double.NaN` |

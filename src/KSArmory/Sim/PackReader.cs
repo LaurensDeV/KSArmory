@@ -201,6 +201,8 @@ public static class PackReader
             DisplayName = r.Required("DisplayName"),
             BodyMarker = r.Text("BodyMarker"),
             BodyModel = r.Text("BodyModel"),
+            BurstEffect = r.Text("BurstEffect"),
+            PlumeEffect = r.Text("PlumeEffect"),
             FinMarker = r.Text("FinMarker"),
 
             BodyLength = r.Number("BodyLength", 3.10f),
@@ -545,6 +547,7 @@ public static class PackReader
             GunRotorSpinDownSeconds = r.Number("GunRotorSpinDownSeconds", 1.0f),
             GunSoundId = r.Text("GunSoundId"),
             GunshotSoundId = r.Text("GunshotSoundId"),
+            MuzzleFlashEffect = r.Text("MuzzleFlashEffect"),
 
             TrimAccelerationMetresPerSecond2 = r.Number("TrimAccelerationMetresPerSecond2", double.NaN),
             TrimWorstAxisExhaustVelocity = r.Number("TrimWorstAxisExhaustVelocity", double.NaN),

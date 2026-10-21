@@ -120,6 +120,16 @@ public sealed class MunitionProfile
     public string? BodyModel { get; init; }
 
     /// <summary>
+    /// The KSA explosion the warhead goes off as, by <c>ModLibrary</c> Id, in place of the one its charge
+    /// picks (<see cref="WarheadExplosion.PresetFor"/>). Only the look: the blast, its reach and a nuclear
+    /// charge's cloud and flash are the charge's whatever is named here.
+    /// </summary>
+    public string? BurstEffect { get; init; }
+
+    /// <summary>The particle emitter at the nozzle while the motor burns, by <c>ModLibrary</c> Id. Null is KSArmory's.</summary>
+    public string? PlumeEffect { get; init; }
+
+    /// <summary>
     /// Subpart marker for this round's fin set, matched the same way as <see cref="BodyMarker"/>.
     /// Null means the round has no separate fins, and nothing is animated.
     /// </summary>

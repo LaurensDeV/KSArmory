@@ -14,6 +14,34 @@ namespace KSArmory;
 /// </summary>
 internal static class EmitterPool
 {
+    private static readonly HashSet<string> _unresolved = [];
+
+    /// <summary>
+    /// <paramref name="named"/> when some mod declares that emitter, otherwise <paramref name="own"/>: a
+    /// pack's typo costs the look, not the effect, and is said once.
+    /// </summary>
+    public static string Chosen(string? named, string own)
+    {
+        if (string.IsNullOrEmpty(named)) return own;
+        if (Declared(named)) return named;
+
+        if (_unresolved.Add(named)) Log.Warn($"particle emitter '{named}' is not declared by any mod; using '{own}' instead");
+        return own;
+    }
+
+    /// <summary>Whether some mod declares an emitter by this Id.</summary>
+    public static bool Declared(string id)
+    {
+        try
+        {
+            return ModLibrary.TryGet<ParticleEmitterReference>(id, out var found) && found is not null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>
     /// A set of emitters for <paramref name="id"/>, attached to <paramref name="body"/>, or null when
     /// the pool has none free. Exceptions are the caller's, so each effect can say what it lost.

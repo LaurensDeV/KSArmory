@@ -392,6 +392,9 @@ public sealed class LauncherProfile
     /// </summary>
     public string? GunshotSoundId { get; init; }
 
+    /// <summary>The particle emitter at the muzzles while the guns fire, by <c>ModLibrary</c> Id. Null is KSArmory's.</summary>
+    public string? MuzzleFlashEffect { get; init; }
+
     /// <summary>Seconds between rounds, derived from the cyclic rate.</summary>
     public double GunRoundInterval => GunRoundsPerMinute > 0f ? 60.0 / GunRoundsPerMinute : 0.0;
 

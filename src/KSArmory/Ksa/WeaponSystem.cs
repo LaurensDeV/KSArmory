@@ -4260,7 +4260,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // EffectBody as well as the nearest craft: a system whose launcher has been destroyed
             // has no platform to ask, and a store aimed at the ground has no target craft either.
             Detonation.Explode(DrawnBurstEcl(round, burst), round.Munition.ChargeKg,
-                               round.TargetRef as Vehicle ?? Platform, EffectBody);
+                               round.TargetRef as Vehicle ?? Platform, EffectBody, round.Munition.BurstEffect);
 
             // A shell's smoke outlasts its flash; a missile's burst is KSA's explosion alone.
             if (RoundLabel.IsGunRound(round.Tube))
