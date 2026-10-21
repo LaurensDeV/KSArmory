@@ -36,5 +36,5 @@ public static class Armoury
     /// and it is what keeps two packs' identically named rounds apart.</param>
     public static PackResult Register(string definitions, string source)
         => Catalogue.Register(
-            PackReader.Read(definitions, source, Catalogue.Munitions, Catalogue.Sensors));
+            PackReader.Read(definitions, source, Catalogue.Munitions, Catalogue.Sensors, Catalogue.Decoys));
 }

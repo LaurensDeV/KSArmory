@@ -317,6 +317,32 @@ weapon to take. `PartId`, `DisplayName` and `Sensor` are required; it gets a sen
 | `HeadSlewDegPerSecond` | `90` | |
 | `ScanHalfWidthDeg`, `ScanPeriodSeconds`, `ScanNodDeg` | `45`, `6`, `8` | the figure of eight the head sweeps with nothing to look at |
 
+### `<Decoy>` — what a dispenser throws
+
+A flare or a chaff cloud: a point with a signature, falling through the air. `Name`, `DisplayName`
+and `Kind` (`Flare` or `Chaff`) are required. A flare fools infrared seekers, chaff radar ones.
+
+| | Default | |
+| --- | --- | --- |
+| `PeakSignature` | `0` | a flare's in kW/sr of heat; chaff's in m² of radar return, on the scale where a craft of 11 m mean radius reads 400 |
+| `RiseSeconds` | `0` | how long it takes to reach its peak |
+| `LifeSeconds` | `4` | when it has faded to nothing |
+| `MassKg` | `0` | what one weighs, taken off the dispenser's part as it is thrown |
+| `DragPerMetre` | `0` | how quickly the air stops it |
+
+### `<Dispenser>` — a part that throws decoys
+
+`PartId`, `DisplayName` and `Decoy` are required. It gets a countermeasures row in the panel. Its
+kind is its decoy's; `Kind` may be stated too, and is refused if the two disagree. Every dispenser of
+one kind on a craft throws on each press.
+
+| | Default | |
+| --- | --- | --- |
+| `Count` | `30` | decoys loaded |
+| `SalvoSize`, `SalvoIntervalSeconds` | `2`, `0.25` | how many one press throws, and how far apart |
+| `EjectDirection` | `1,0,0` | which way they leave, in part space |
+| `EjectSpeed` | `30` | m/s |
+
 ---
 
 ## Bodies.xml -- describing a planet

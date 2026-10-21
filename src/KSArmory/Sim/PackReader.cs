@@ -36,8 +36,10 @@ public static class PackReader
         string definitions,
         string source,
         IReadOnlyList<MunitionProfile> knownMunitions,
-        IReadOnlyList<SensorProfile> knownSensors)
+        IReadOnlyList<SensorProfile> knownSensors,
+        IReadOnlyList<DecoyProfile>? knownDecoys = null)
     {
+        knownDecoys ??= [];
         List<PackFault> faults = [];
 
         XElement? root;
@@ -80,6 +82,8 @@ public static class PackReader
         List<LauncherProfile> launchers = [];
         List<OpticProfile> optics = [];
         List<SearchSetProfile> searchSets = [];
+        List<DecoyProfile> decoys = [];
+        List<DispenserProfile> dispensers = [];
         List<ComponentProfile> components = [];
         List<ComponentProfile> partRows = [];
 
@@ -89,7 +93,8 @@ public static class PackReader
             {
                 case "Munition": ReadMunition(el, source, faults, munitions); break;
                 case "Sensor": ReadSensor(el, source, faults, sensors); break;
-                case "Launcher" or "Optic" or "SearchSet": break;
+                case "Decoy": ReadDecoy(el, source, faults, decoys); break;
+                case "Launcher" or "Optic" or "SearchSet" or "Dispenser": break;
                 default:
                     faults.Add(new PackFault(source, el.Name.LocalName, "",
                                              "not a definition this build knows"));
@@ -110,6 +115,9 @@ public static class PackReader
                     break;
                 case "SearchSet":
                     ReadSearchSet(el, source, faults, sensors, knownSensors, searchSets, partRows);
+                    break;
+                case "Dispenser":
+                    ReadDispenser(el, source, faults, decoys, knownDecoys, dispensers, partRows);
                     break;
             }
         }
@@ -137,6 +145,8 @@ public static class PackReader
             Launchers = launchers,
             Optics = optics,
             SearchSets = searchSets,
+            Decoys = decoys,
+            Dispensers = dispensers,
             Components = components,
             Faults = faults,
         };
@@ -314,6 +324,70 @@ public static class PackReader
         if (Duplicate(head.PartId, into, o => o.PartId, r)) return;
 
         into.Add(head);
+    }
+
+    private static void ReadDecoy(XElement el, string source, List<PackFault> faults, List<DecoyProfile> into)
+    {
+        Reader r = new(el, source, "Decoy", faults);
+        string name = r.Required("Name");
+        r.Describe(name);
+
+        DecoyProfile decoy = new()
+        {
+            Name = Qualify(source, name),
+            DisplayName = r.Required("DisplayName"),
+            Kind = r.Choice("Kind", DecoyKind.Flare),
+            MassKg = r.Number("MassKg", 0f),
+            PeakSignature = r.Number("PeakSignature", 0f),
+            RiseSeconds = r.Number("RiseSeconds", 0f),
+            LifeSeconds = r.Number("LifeSeconds", 4f),
+            DragPerMetre = r.Number("DragPerMetre", 0f),
+        };
+        if (el.Attribute("Kind") is null) r.Fault("needs a Kind: Flare or Chaff");
+
+        if (!r.Sound()) return;
+        if (Duplicate(decoy.Name, into, d => d.Name, r)) return;
+
+        into.Add(decoy);
+    }
+
+    // A dispenser's kind is its decoy's; stating it is allowed, and refused when the two disagree.
+    private static void ReadDispenser(XElement el, string source, List<PackFault> faults,
+                                      List<DecoyProfile> own, IReadOnlyList<DecoyProfile> known,
+                                      List<DispenserProfile> into, List<ComponentProfile> rows)
+    {
+        Reader r = new(el, source, "Dispenser", faults);
+        string partId = r.Required("PartId");
+        r.Describe(partId);
+
+        string decoy = r.Reference("Decoy", own, known, d => d.Name);
+        DecoyKind loaded = Resolved(decoy, own, known, d => d.Name)?.Kind ?? DecoyKind.Flare;
+        DecoyKind kind = r.Choice("Kind", loaded);
+        if (kind != loaded) r.Fault($"Kind=\"{kind}\" but its Decoy is a {loaded}");
+
+        DispenserProfile dispenser = new()
+        {
+            PartId = partId,
+            DisplayName = r.Required("DisplayName"),
+            Kind = kind,
+            Decoy = decoy,
+            Count = r.Count("Count", 30),
+            SalvoSize = r.Count("SalvoSize", 2),
+            SalvoIntervalSeconds = r.Number("SalvoIntervalSeconds", 0.25f),
+            EjectDirection = r.Vector("EjectDirection", new(1, 0, 0)),
+            EjectSpeed = r.Number("EjectSpeed", 30f),
+        };
+
+        if (!r.Sound()) return;
+        if (Duplicate(dispenser.PartId, into, d => d.PartId, r)) return;
+
+        into.Add(dispenser);
+        rows.Add(new ComponentProfile
+        {
+            PartId = dispenser.PartId,
+            Role = WeaponRole.Countermeasures,
+            DisplayName = dispenser.DisplayName,
+        });
     }
 
     private static void ReadSearchSet(XElement el, string source, List<PackFault> faults,
@@ -726,7 +800,9 @@ public static class PackReader
         // the reference's; naming nothing registered sends the author looking for a typo.
         private string Unresolved<T>(string attribute, string raw)
         {
-            string definition = typeof(T) == typeof(SensorProfile) ? "Sensor" : "Munition";
+            string definition = typeof(T) == typeof(SensorProfile) ? "Sensor"
+                                : typeof(T) == typeof(DecoyProfile) ? "Decoy"
+                                : "Munition";
             foreach (PackFault f in faults)
             {
                 if (f.Source == source && f.Element == definition && f.Name == raw)

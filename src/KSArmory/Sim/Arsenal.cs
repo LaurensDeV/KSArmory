@@ -479,73 +479,6 @@ public static class Arsenal
 
     // ---- Countermeasures -------------------------------------------------
 
-    /// <summary>
-    /// The MJU-7: a 1x2x8-inch magnesium-Teflon-Viton flare, burning white-hot for about four seconds
-    /// at several times a fighter's tail in the seeker's band.
-    /// </summary>
-    public static readonly DecoyProfile FlareMju7 = new()
-    {
-        Name = "MJU7",
-        DisplayName = "MJU-7 flare",
-        Kind = DecoyKind.Flare,
-        MassKg = 0.37f,
-        PeakSignature = 25f,
-        RiseSeconds = 0f,
-        LifeSeconds = 4.5f,
-
-        // Dense but blunt and tumbling: it loses half an aircraft's airspeed in about a second.
-        DragPerMetre = 0.004f,
-    };
-
-    /// <summary>
-    /// The RR-170: a 1x1x8-inch cartridge of about three million aluminised glass-fibre dipoles, blooming
-    /// into a cloud tens of metres across in under a second.
-    /// </summary>
-    public static readonly DecoyProfile ChaffRr170 = new()
-    {
-        Name = "RR170",
-        DisplayName = "RR-170 chaff",
-        Kind = DecoyKind.Chaff,
-        MassKg = 0.095f,
-
-        // On RadarSignature's scale, which reads a craft of 11 m mean radius as 400 m².
-        PeakSignature = 400f,
-        RiseSeconds = 0.5f,
-        LifeSeconds = 5f,
-
-        // Stops dead in the airflow and settles at about a metre a second.
-        DragPerMetre = 10f,
-    };
-
-    /// <summary>
-    /// An AN/ALE-47 dispenser module loaded with flares: fifteen 1x2-inch MJU-7s, each filling two of
-    /// the module's thirty 1-inch cells.
-    /// </summary>
-    public static readonly DispenserProfile Ale47Flare = new()
-    {
-        PartId = "KSArmory_Prefab_Ale47Flare",
-        DisplayName = "AN/ALE-47 Flare Dispenser",
-        Kind = DecoyKind.Flare,
-        Decoy = FlareMju7.Name,
-        Count = 15,
-        SalvoSize = 2,
-        SalvoIntervalSeconds = 0.25f,
-        EjectSpeed = 30f,
-    };
-
-    /// <summary>The same module loaded with chaff: thirty 1x1-inch RR-170s.</summary>
-    public static readonly DispenserProfile Ale47Chaff = new()
-    {
-        PartId = "KSArmory_Prefab_Ale47Chaff",
-        DisplayName = "AN/ALE-47 Chaff Dispenser",
-        Kind = DecoyKind.Chaff,
-        Decoy = ChaffRr170.Name,
-        Count = 30,
-        SalvoSize = 2,
-        SalvoIntervalSeconds = 0.25f,
-        EjectSpeed = 30f,
-    };
-
     // ---- Registry -------------------------------------------------------
 
     public static readonly IReadOnlyList<LauncherProfile> Launchers =
@@ -565,8 +498,8 @@ public static class Arsenal
     /// <summary>Parts that only search.</summary>
     public static readonly IReadOnlyList<SearchSetProfile> SearchSets = [];
 
-    public static readonly IReadOnlyList<DecoyProfile> Decoys = [FlareMju7, ChaffRr170];
-    public static readonly IReadOnlyList<DispenserProfile> Dispensers = [Ale47Flare, Ale47Chaff];
+    public static readonly IReadOnlyList<DecoyProfile> Decoys = [];
+    public static readonly IReadOnlyList<DispenserProfile> Dispensers = [];
 
     /// <summary>
     /// The parts this mod recognises on a craft it did not design, keyed by part Id.
@@ -595,18 +528,6 @@ public static class Arsenal
                 new(WeaponRole.Camera, Yal1Turret.DisplayName),
                 new(WeaponRole.FireControl, "YAL-1 fire control"),
             ],
-        },
-        new ComponentProfile
-        {
-            PartId = Ale47Flare.PartId,
-            Role = WeaponRole.Countermeasures,
-            DisplayName = Ale47Flare.DisplayName,
-        },
-        new ComponentProfile
-        {
-            PartId = Ale47Chaff.PartId,
-            Role = WeaponRole.Countermeasures,
-            DisplayName = Ale47Chaff.DisplayName,
         },
         new ComponentProfile
         {

@@ -17,9 +17,11 @@ public sealed class PackContents
     public IReadOnlyList<LauncherProfile> Launchers { get; init; } = [];
     public IReadOnlyList<OpticProfile> Optics { get; init; } = [];
     public IReadOnlyList<SearchSetProfile> SearchSets { get; init; } = [];
+    public IReadOnlyList<DecoyProfile> Decoys { get; init; } = [];
+    public IReadOnlyList<DispenserProfile> Dispensers { get; init; } = [];
 
     /// <summary>
-    /// One per launcher, standalone director and search set, minted rather than written. A part
+    /// One per launcher, standalone director, search set and dispenser, minted rather than written. A part
     /// absent from the components registry loads and is then invisible to the panel, so the pairing
     /// is made here instead of being a rule an author has to know.
     /// </summary>
@@ -28,5 +30,6 @@ public sealed class PackContents
     public IReadOnlyList<PackFault> Faults { get; init; } = [];
 
     /// <summary>How many definitions came through.</summary>
-    public int Accepted => Munitions.Count + Sensors.Count + Launchers.Count + Optics.Count + SearchSets.Count;
+    public int Accepted => Munitions.Count + Sensors.Count + Launchers.Count + Optics.Count + SearchSets.Count
+                          + Decoys.Count + Dispensers.Count;
 }

@@ -28,7 +28,7 @@ public static class CoreDefinitions
             [.. files.Where(f => !BodyReader.IsBodies(f.Text))
                      .OrderBy(f => f.FileName, StringComparer.Ordinal)];
 
-        // Read for their names alone; a launcher naming another file's round faults here, harmlessly.
+        // Read for their names alone; a launcher or dispenser naming another file's round faults here, harmlessly.
         List<PackContents> declared =
             [.. ordered.Select(f => PackReader.Read(f.Text, PackReader.BuiltInSource, [], []))];
 
@@ -37,14 +37,16 @@ public static class CoreDefinitions
         {
             List<MunitionProfile> munitions = [.. Catalogue.Munitions];
             List<SensorProfile> sensors = [.. Catalogue.Sensors];
+            List<DecoyProfile> decoys = [.. Catalogue.Decoys];
             for (int j = 0; j < declared.Count; j++)
             {
                 if (j == i) continue;
                 munitions.AddRange(declared[j].Munitions);
                 sensors.AddRange(declared[j].Sensors);
+                decoys.AddRange(declared[j].Decoys);
             }
 
-            PackContents contents = PackReader.Read(ordered[i].Text, PackReader.BuiltInSource, munitions, sensors);
+            PackContents contents = PackReader.Read(ordered[i].Text, PackReader.BuiltInSource, munitions, sensors, decoys);
             results.Add(new CoreFileResult(ordered[i].FileName, Catalogue.Register(contents)));
         }
 

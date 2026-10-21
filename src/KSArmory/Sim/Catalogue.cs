@@ -17,6 +17,8 @@ public static class Catalogue
     private static readonly List<SensorProfile> _sensors = [.. Arsenal.Sensors];
     private static readonly List<OpticProfile> _optics = [.. Arsenal.Optics];
     private static readonly List<SearchSetProfile> _searchSets = [.. Arsenal.SearchSets];
+    private static readonly List<DecoyProfile> _decoys = [.. Arsenal.Decoys];
+    private static readonly List<DispenserProfile> _dispensers = [.. Arsenal.Dispensers];
     private static readonly List<ComponentProfile> _components = [.. Arsenal.Components];
 
     public static IReadOnlyList<LauncherProfile> Launchers => _launchers;
@@ -24,6 +26,8 @@ public static class Catalogue
     public static IReadOnlyList<SensorProfile> Sensors => _sensors;
     public static IReadOnlyList<OpticProfile> Optics => _optics;
     public static IReadOnlyList<SearchSetProfile> SearchSets => _searchSets;
+    public static IReadOnlyList<DecoyProfile> Decoys => _decoys;
+    public static IReadOnlyList<DispenserProfile> Dispensers => _dispensers;
 
     /// <summary>
     /// The parts recognised on a craft the mod did not design. Separate from
@@ -52,7 +56,7 @@ public static class Catalogue
     /// the same silence as a pack's, and has never had anything to report it.</para>
     /// </summary>
     internal static IReadOnlyList<PackFault> Audit(IPartCatalogue parts)
-        => PackAudit.Run(_launchers, _optics, _searchSets, parts,
+        => PackAudit.Run(_launchers, _optics, _searchSets, _dispensers, parts,
                          partId => _packOf.GetValueOrDefault(partId, PackReader.BuiltInSource));
 
     /// <summary>Shut the door. Called once the roster is about to be built.</summary>
@@ -84,10 +88,28 @@ public static class Catalogue
         int registered = 0;
         registered += Merge(pack.Munitions, _munitions, m => m.Name, "Munition", pack.Source, faults, refused);
         registered += Merge(pack.Sensors, _sensors, s => s.Name, "Sensor", pack.Source, faults, refused);
+        registered += Merge(pack.Decoys, _decoys, d => d.Name, "Decoy", pack.Source, faults, refused);
         registered += Merge(pack.Optics, _optics, o => o.PartId, "Optic", pack.Source, faults, refused);
         foreach (OpticProfile head in pack.Optics) _packOf.TryAdd(head.PartId, pack.Source);
         registered += Merge(pack.SearchSets, _searchSets, x => x.PartId, "SearchSet", pack.Source, faults, refused);
         foreach (SearchSetProfile set in pack.SearchSets) _packOf.TryAdd(set.PartId, pack.Source);
+
+        // A dispenser loaded with a decoy that lost a collision would throw somebody else's.
+        foreach (DispenserProfile dispenser in pack.Dispensers)
+        {
+            if (refused.Contains(dispenser.Decoy))
+            {
+                faults.Add(new PackFault(pack.Source, "Dispenser", dispenser.PartId,
+                                         $"names '{dispenser.Decoy}', which something else already claims"));
+                refused.Add(dispenser.PartId);
+                continue;
+            }
+
+            if (Merge([dispenser], _dispensers, d => d.PartId, "Dispenser", pack.Source, faults, refused) == 0) continue;
+
+            registered++;
+            _packOf.TryAdd(dispenser.PartId, pack.Source);
+        }
 
         foreach (LauncherProfile launcher in pack.Launchers)
         {
@@ -111,14 +133,15 @@ public static class Catalogue
             }
         }
 
-        // A standalone director's or search set's row, when that part registered from this pack and
-        // nothing has a row for it yet.
+        // A standalone director's, search set's or dispenser's row, when that part registered from
+        // this pack and nothing has a row for it yet.
         foreach (ComponentProfile component in pack.Components)
         {
-            if (component.Role is not (WeaponRole.Camera or WeaponRole.Sensor)) continue;
+            if (component.Role is not (WeaponRole.Camera or WeaponRole.Sensor or WeaponRole.Countermeasures)) continue;
             if (refused.Contains(component.PartId)) continue;
             if (!pack.Optics.Any(o => o.PartId == component.PartId)
-                && !pack.SearchSets.Any(x => x.PartId == component.PartId)) continue;
+                && !pack.SearchSets.Any(x => x.PartId == component.PartId)
+                && !pack.Dispensers.Any(d => d.PartId == component.PartId)) continue;
             if (_components.Any(c => c.PartId == component.PartId)) continue;
 
             _components.Add(component);
@@ -232,7 +255,7 @@ public static class Catalogue
     {
         if (string.IsNullOrEmpty(partId)) return null;
 
-        foreach (DispenserProfile d in Arsenal.Dispensers)
+        foreach (DispenserProfile d in _dispensers)
         {
             if (d.PartId == partId) return d;
         }
@@ -248,7 +271,7 @@ public static class Catalogue
     internal static bool MissingNameThrows { get; set; }
 
     /// <summary>The named expendable, falling back to the first as <see cref="Arsenal.Named{T}"/> does.</summary>
-    public static DecoyProfile DecoyNamed(string name) => Resolve(Arsenal.Decoys, name, d => d.Name, "decoy");
+    public static DecoyProfile DecoyNamed(string name) => Resolve(_decoys, name, d => d.Name, "decoy");
 
     /// <summary>
     /// The named round, falling back to the first registered rather than throwing — see

@@ -117,30 +117,30 @@ public class CountermeasureTests
     [Fact]
     public void AHeatSeekerIsUsuallyTakenByFlares()
     {
-        double rate = DecoyedRate(Missile(SeekerBand.Infrared), Arsenal.FlareMju7, TailChase);
+        double rate = DecoyedRate(Missile(SeekerBand.Infrared), BuiltIns.FlareMju7, TailChase);
         Assert.True(rate >= 0.7, $"flares decoyed {rate:P0}");
     }
 
     [Fact]
     public void ARadarSeekerIgnoresFlares()
-        => Assert.Equal(0.0, DecoyedRate(Missile(SeekerBand.Radar), Arsenal.FlareMju7, TailChase));
+        => Assert.Equal(0.0, DecoyedRate(Missile(SeekerBand.Radar), BuiltIns.FlareMju7, TailChase));
 
     [Fact]
     public void AHeatSeekerIgnoresChaff()
-        => Assert.Equal(0.0, DecoyedRate(Missile(SeekerBand.Infrared), Arsenal.ChaffRr170, TailChase));
+        => Assert.Equal(0.0, DecoyedRate(Missile(SeekerBand.Infrared), BuiltIns.ChaffRr170, TailChase));
 
     [Fact]
     public void ARadarSeekerWithNoGateIsUsuallyTakenByChaff()
     {
-        double rate = DecoyedRate(Missile(SeekerBand.Radar), Arsenal.ChaffRr170, TailChase);
+        double rate = DecoyedRate(Missile(SeekerBand.Radar), BuiltIns.ChaffRr170, TailChase);
         Assert.True(rate >= 0.7, $"chaff decoyed {rate:P0}");
     }
 
     [Fact]
     public void AResistantSeekerIsRarelyTaken()
     {
-        double easy = DecoyedRate(Missile(SeekerBand.Infrared, resistance: 0.1f), Arsenal.FlareMju7, TailChase);
-        double hard = DecoyedRate(Missile(SeekerBand.Infrared, resistance: 0.97f), Arsenal.FlareMju7, TailChase);
+        double easy = DecoyedRate(Missile(SeekerBand.Infrared, resistance: 0.1f), BuiltIns.FlareMju7, TailChase);
+        double hard = DecoyedRate(Missile(SeekerBand.Infrared, resistance: 0.97f), BuiltIns.FlareMju7, TailChase);
 
         Assert.True(hard <= 0.25 && hard < easy / 3.0, $"resistant {hard:P0} against {easy:P0}");
     }
@@ -148,8 +148,8 @@ public class CountermeasureTests
     [Fact]
     public void ASeekerNoDecoyFoolsIgnoresBoth()
     {
-        Assert.Equal(0.0, DecoyedRate(Missile(SeekerBand.None), Arsenal.FlareMju7, TailChase));
-        Assert.Equal(0.0, DecoyedRate(Missile(SeekerBand.None), Arsenal.ChaffRr170, TailChase));
+        Assert.Equal(0.0, DecoyedRate(Missile(SeekerBand.None), BuiltIns.FlareMju7, TailChase));
+        Assert.Equal(0.0, DecoyedRate(Missile(SeekerBand.None), BuiltIns.ChaffRr170, TailChase));
     }
 
     /// <summary>A command-link round has no seeker, whatever its band says.</summary>
@@ -173,8 +173,8 @@ public class CountermeasureTests
     [Fact]
     public void ADopplerGateRejectsChaffUnlessTheTargetBeams()
     {
-        double away = DecoyedRate(Missile(SeekerBand.Radar, gate: 40f), Arsenal.ChaffRr170, TailChase);
-        double beam = DecoyedRate(Missile(SeekerBand.Radar, gate: 40f), Arsenal.ChaffRr170, Beaming);
+        double away = DecoyedRate(Missile(SeekerBand.Radar, gate: 40f), BuiltIns.ChaffRr170, TailChase);
+        double beam = DecoyedRate(Missile(SeekerBand.Radar, gate: 40f), BuiltIns.ChaffRr170, Beaming);
         double beamUngated = DecoyedRate(Missile(SeekerBand.Radar), null, Beaming);
 
         Assert.Equal(0.0, away);
@@ -193,8 +193,8 @@ public class CountermeasureTests
         for (int seed = 0; seed < 12; seed++)
         {
             MunitionProfile m = Missile(SeekerBand.Infrared);
-            Assert.Equal(Fly(m, Arsenal.FlareMju7, seed, TailChase),
-                         Fly(m, Arsenal.FlareMju7, seed, TailChase, carrier));
+            Assert.Equal(Fly(m, BuiltIns.FlareMju7, seed, TailChase),
+                         Fly(m, BuiltIns.FlareMju7, seed, TailChase, carrier));
         }
     }
 
@@ -219,7 +219,7 @@ public class CountermeasureTests
 
         // Where each is at the seeker's instant, then carried to the step's end as the world samples it.
         double3 flareNow = new(1000, 1000 * Math.Tan(float.DegreesToRadians(35f)), 0);
-        var flare = new Decoy(Arsenal.FlareMju7, flareNow + (carrier * Dt), carrier, null);
+        var flare = new Decoy(BuiltIns.FlareMju7, flareNow + (carrier * Dt), carrier, null);
         var target = new TargetState(new double3(4000, 0, 0) + (carrier * Dt), carrier, 5.0, "target");
 
         var seeker = new SeekerLock(new AlwaysTaken());
@@ -237,17 +237,17 @@ public class CountermeasureTests
         double3 local = new(300, 0, 0);
         var target = new TargetState(new(3000, 0, 0), Vec.Zero, 5.0, "target");
 
-        var farChaff = new Decoy(Arsenal.ChaffRr170, new(1500, 20, 0), Vec.Zero, null);
+        var farChaff = new Decoy(BuiltIns.ChaffRr170, new(1500, 20, 0), Vec.Zero, null);
         farChaff.Step(1.0, Vec.Zero, Vec.Zero, 1.0);
         Assert.Equal(SeekerPick.Target, new SeekerLock(new AlwaysTaken())
             .Choose(Missile(SeekerBand.Radar), Vec.Zero, local, local, target, TargetCrossSection, [farChaff], Dt));
 
-        var nearChaff = new Decoy(Arsenal.ChaffRr170, new(2950, 20, 0), Vec.Zero, null);
+        var nearChaff = new Decoy(BuiltIns.ChaffRr170, new(2950, 20, 0), Vec.Zero, null);
         nearChaff.Step(1.0, Vec.Zero, Vec.Zero, 1.0);
         Assert.Equal(SeekerPick.Decoy, new SeekerLock(new AlwaysTaken())
             .Choose(Missile(SeekerBand.Radar), Vec.Zero, local, local, target, TargetCrossSection, [nearChaff], Dt));
 
-        var farFlare = new Decoy(Arsenal.FlareMju7, new(1500, 20, 0), Vec.Zero, null);
+        var farFlare = new Decoy(BuiltIns.FlareMju7, new(1500, 20, 0), Vec.Zero, null);
         Assert.Equal(SeekerPick.Decoy, new SeekerLock(new AlwaysTaken())
             .Choose(Missile(SeekerBand.Infrared), Vec.Zero, local, local, target, TargetHeat, [farFlare], Dt));
     }
@@ -259,8 +259,8 @@ public class CountermeasureTests
         int fast = 0, slow = 0;
         for (int seed = 0; seed < Seeds; seed++)
         {
-            if (!Fly(Missile(SeekerBand.Infrared, 0.5f), Arsenal.FlareMju7, seed, TailChase, dt: 1.0 / 120.0).Hit) fast++;
-            if (!Fly(Missile(SeekerBand.Infrared, 0.5f), Arsenal.FlareMju7, seed, TailChase, dt: 1.0 / 30.0).Hit) slow++;
+            if (!Fly(Missile(SeekerBand.Infrared, 0.5f), BuiltIns.FlareMju7, seed, TailChase, dt: 1.0 / 120.0).Hit) fast++;
+            if (!Fly(Missile(SeekerBand.Infrared, 0.5f), BuiltIns.FlareMju7, seed, TailChase, dt: 1.0 / 30.0).Hit) slow++;
         }
 
         Assert.True(Math.Abs(fast - slow) <= Seeds / 5, $"{fast} at 120 fps against {slow} at 30");
@@ -272,7 +272,7 @@ public class CountermeasureTests
         MunitionProfile once = Missile(SeekerBand.Infrared);
         once.ReacquiresAfterDecoy = false;
         var seeker = new SeekerLock(new Random(1));
-        var flare = new Decoy(Arsenal.FlareMju7, new(1000, 0, 0), Vec.Zero, null);
+        var flare = new Decoy(BuiltIns.FlareMju7, new(1000, 0, 0), Vec.Zero, null);
         var target = new TargetState(new(1000, 50, 0), Vec.Zero, 5.0, "target");
 
         SeekerPick pick = SeekerPick.Target;
@@ -283,7 +283,7 @@ public class CountermeasureTests
         }
 
         Assert.Equal(SeekerPick.Decoy, pick);
-        flare.Step(Arsenal.FlareMju7.LifeSeconds + 0.1, Vec.Zero, Vec.Zero, 1.0);
+        flare.Step(BuiltIns.FlareMju7.LifeSeconds + 0.1, Vec.Zero, Vec.Zero, 1.0);
         Assert.Equal(SeekerPick.Lost,
                      seeker.Choose(once, Vec.Zero, new(300, 0, 0), new(300, 0, 0), target, TargetHeat, [], Dt));
         Assert.Null(seeker.Steer(SeekerPick.Lost, target));
@@ -294,19 +294,19 @@ public class CountermeasureTests
     [Fact]
     public void AFlareIsBrightAtOnceAndChaffBlooms()
     {
-        Assert.Equal(Arsenal.FlareMju7.PeakSignature, Arsenal.FlareMju7.SignatureAt(0.0), 3);
-        Assert.True(Arsenal.ChaffRr170.SignatureAt(0.1) < Arsenal.ChaffRr170.PeakSignature * 0.3);
-        Assert.Equal(Arsenal.ChaffRr170.PeakSignature, Arsenal.ChaffRr170.SignatureAt(Arsenal.ChaffRr170.RiseSeconds), 3);
-        Assert.Equal(0.0, Arsenal.FlareMju7.SignatureAt(Arsenal.FlareMju7.LifeSeconds));
-        Assert.True(Arsenal.FlareMju7.PeakSignature > Signature.HeatOfCraft(75_000, 1.0) * 3.0);
+        Assert.Equal(BuiltIns.FlareMju7.PeakSignature, BuiltIns.FlareMju7.SignatureAt(0.0), 3);
+        Assert.True(BuiltIns.ChaffRr170.SignatureAt(0.1) < BuiltIns.ChaffRr170.PeakSignature * 0.3);
+        Assert.Equal(BuiltIns.ChaffRr170.PeakSignature, BuiltIns.ChaffRr170.SignatureAt(BuiltIns.ChaffRr170.RiseSeconds), 3);
+        Assert.Equal(0.0, BuiltIns.FlareMju7.SignatureAt(BuiltIns.FlareMju7.LifeSeconds));
+        Assert.True(BuiltIns.FlareMju7.PeakSignature > Signature.HeatOfCraft(75_000, 1.0) * 3.0);
     }
 
     [Fact]
     public void ChaffStopsDeadAndAFlareFallsBehind()
     {
         double3 air = new(0, 0, 0);
-        var chaff = new Decoy(Arsenal.ChaffRr170, Vec.Zero, new(250, 0, 0), null);
-        var flare = new Decoy(Arsenal.FlareMju7, Vec.Zero, new(250, 0, 0), null);
+        var chaff = new Decoy(BuiltIns.ChaffRr170, Vec.Zero, new(250, 0, 0), null);
+        var flare = new Decoy(BuiltIns.FlareMju7, Vec.Zero, new(250, 0, 0), null);
 
         for (int i = 0; i < 6; i++) chaff.Step(Dt, Down, air, 1.0);
         for (int i = 0; i < 60; i++) flare.Step(Dt, Down, air, 1.0);
@@ -323,7 +323,7 @@ public class CountermeasureTests
     public void ALandedDecoyLiesWhereItFellAndBurnsOut()
     {
         double3 ground = new(400, 0, 0);
-        var flare = new Decoy(Arsenal.FlareMju7, Vec.Zero, new(250, 0, -20), null);
+        var flare = new Decoy(BuiltIns.FlareMju7, Vec.Zero, new(250, 0, -20), null);
         flare.Land(ground, ground);
 
         flare.Step(1.0, Down, ground, 1.0);
@@ -331,7 +331,7 @@ public class CountermeasureTests
         Assert.True(Vec.Len(flare.PositionEcl - (ground * 2.0)) < 1e-9);
         Assert.Equal(ground, flare.VelocityEcl);
 
-        flare.Step(Arsenal.FlareMju7.LifeSeconds, Down, ground, 1.0);
+        flare.Step(BuiltIns.FlareMju7.LifeSeconds, Down, ground, 1.0);
         Assert.True(flare.Spent);
     }
 
@@ -339,8 +339,8 @@ public class CountermeasureTests
     public void ADecoysFlightIsTheSameInAMovingFrame()
     {
         double3 carrier = new(29_800, -3_000, 0);
-        var still = new Decoy(Arsenal.ChaffRr170, Vec.Zero, new(250, 10, 5), null);
-        var moving = new Decoy(Arsenal.ChaffRr170, Vec.Zero, carrier + new double3(250, 10, 5), null);
+        var still = new Decoy(BuiltIns.ChaffRr170, Vec.Zero, new(250, 10, 5), null);
+        var moving = new Decoy(BuiltIns.ChaffRr170, Vec.Zero, carrier + new double3(250, 10, 5), null);
 
         for (int i = 0; i < 90; i++)
         {
@@ -359,25 +359,25 @@ public class CountermeasureTests
     {
         foreach (double dt in new[] { 1.0 / 144.0, 1.0 / 30.0, 0.2 })
         {
-            var d = new Dispenser(Arsenal.Ale47Flare);
+            var d = new Dispenser(BuiltIns.Ale47Flare);
             DispenseOrder.Request([d], DecoyKind.Flare);
 
             // Every step before the interval is up throws only the first.
             int thrown = 0;
-            for (double t = 0.0; t + dt < Arsenal.Ale47Flare.SalvoIntervalSeconds; t += dt) thrown += d.Update(dt);
+            for (double t = 0.0; t + dt < BuiltIns.Ale47Flare.SalvoIntervalSeconds; t += dt) thrown += d.Update(dt);
             Assert.Equal(1, thrown);
 
             for (int i = 0; i < 100; i++) thrown += d.Update(dt);
 
-            Assert.Equal(Arsenal.Ale47Flare.SalvoSize, thrown);
-            Assert.Equal(Arsenal.Ale47Flare.Count - Arsenal.Ale47Flare.SalvoSize, d.Remaining);
+            Assert.Equal(BuiltIns.Ale47Flare.SalvoSize, thrown);
+            Assert.Equal(BuiltIns.Ale47Flare.Count - BuiltIns.Ale47Flare.SalvoSize, d.Remaining);
         }
     }
 
     [Fact]
     public void ADispenserStopsWhenItIsEmpty()
     {
-        var d = new Dispenser(Arsenal.Ale47Chaff);
+        var d = new Dispenser(BuiltIns.Ale47Chaff);
         int thrown = 0;
         for (int i = 0; i < 40; i++)
         {
@@ -386,7 +386,7 @@ public class CountermeasureTests
         }
 
         Assert.Equal(0, d.Remaining);
-        Assert.Equal(Arsenal.Ale47Chaff.Count, thrown);
+        Assert.Equal(BuiltIns.Ale47Chaff.Count, thrown);
     }
 
     /// <summary>
@@ -396,11 +396,11 @@ public class CountermeasureTests
     [Fact]
     public void ACraftsDispensersAnswerTogether()
     {
-        var left = new Dispenser(Arsenal.Ale47Flare);
-        var right = new Dispenser(Arsenal.Ale47Flare);
-        var chaff = new Dispenser(Arsenal.Ale47Chaff);
+        var left = new Dispenser(BuiltIns.Ale47Flare);
+        var right = new Dispenser(BuiltIns.Ale47Flare);
+        var chaff = new Dispenser(BuiltIns.Ale47Chaff);
         Dispenser[] craft = [left, right, chaff];
-        int salvo = Arsenal.Ale47Flare.SalvoSize;
+        int salvo = BuiltIns.Ale47Flare.SalvoSize;
 
         Assert.Equal(2 * salvo, DispenseOrder.Request(craft, DecoyKind.Flare));
         Assert.Equal(salvo, left.Queued);
@@ -423,7 +423,7 @@ public class CountermeasureTests
         Assert.Equal(0, left.Queued);
         Assert.Equal(1, right.Queued);
 
-        Assert.Equal((Arsenal.Ale47Chaff.Count, Arsenal.Ale47Chaff.Count), DispenseOrder.Load(craft, DecoyKind.Chaff));
+        Assert.Equal((BuiltIns.Ale47Chaff.Count, BuiltIns.Ale47Chaff.Count), DispenseOrder.Load(craft, DecoyKind.Chaff));
         Assert.Equal(0, DispenseOrder.Request([chaff], DecoyKind.Flare));
     }
 

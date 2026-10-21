@@ -250,6 +250,54 @@ public class PackReaderTests
         Assert.Equal((WeaponRole.Sensor, "Infrared search"), (row.Role, row.DisplayName));
     }
 
+    private const string AFlare =
+        """<Decoy Name="Spark" DisplayName="Spark" Kind="Flare" MassKg="0.4" PeakSignature="25" LifeSeconds="4.5" DragPerMetre="0.004" />""";
+
+    [Fact]
+    public void ADispenserTakesItsKindFromItsDecoyAndBringsACountermeasuresRow()
+    {
+        PackContents pack = Read(Wrap(AFlare +
+            """<Dispenser PartId="TestPack_Prefab_Pod" DisplayName="Flare pod" Decoy="Spark" Count="15" EjectSpeed="20" />"""));
+
+        Assert.Empty(pack.Faults);
+        DecoyProfile decoy = Assert.Single(pack.Decoys);
+        Assert.Equal(("TestPack:Spark", DecoyKind.Flare, 25f, 4.5f), (decoy.Name, decoy.Kind, decoy.PeakSignature, decoy.LifeSeconds));
+
+        DispenserProfile pod = Assert.Single(pack.Dispensers);
+        Assert.Equal((DecoyKind.Flare, "TestPack:Spark", 15, 20f), (pod.Kind, pod.Decoy, pod.Count, pod.EjectSpeed));
+
+        ComponentProfile row = Assert.Single(pack.Components);
+        Assert.Equal((WeaponRole.Countermeasures, "Flare pod"), (row.Role, row.DisplayName));
+    }
+
+    [Fact]
+    public void ADispenserStatingAKindItsDecoyIsNotIsRefused()
+    {
+        PackContents pack = Read(Wrap(AFlare +
+            """<Dispenser PartId="TestPack_Prefab_Pod" DisplayName="Pod" Decoy="Spark" Kind="Chaff" />"""));
+
+        Assert.Empty(pack.Dispensers);
+        Assert.Contains(pack.Faults, f => f.Element == "Dispenser" && f.Reason.Contains("Flare"));
+    }
+
+    [Fact]
+    public void ADispenserNamingNoDecoyAnywhereIsRefused()
+    {
+        PackContents pack = Read(Wrap("""<Dispenser PartId="TestPack_Prefab_Pod" DisplayName="Pod" Decoy="Nothing" />"""));
+
+        Assert.Empty(pack.Dispensers);
+        Assert.Contains(pack.Faults, f => f.Element == "Dispenser");
+    }
+
+    [Fact]
+    public void ADecoyWithNoKindIsRefused()
+    {
+        PackContents pack = Read(Wrap("""<Decoy Name="Spark" DisplayName="Spark" />"""));
+
+        Assert.Empty(pack.Decoys);
+        Assert.Contains(pack.Faults, f => f.Reason.Contains("Kind"));
+    }
+
     // ---- Refusing -------------------------------------------------------
 
     [Fact]

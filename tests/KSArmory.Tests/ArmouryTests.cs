@@ -78,6 +78,24 @@ public class ArmouryTests
     }
 
     [Fact]
+    public void ARegisteredDispenserIsFoundByPartIdAndThrowsItsOwnDecoy()
+    {
+        PackResult result = Armoury.Register(
+            """
+            <WeaponPack Schema="1">
+              <Decoy Name="Glint" DisplayName="Glint" Kind="Chaff" PeakSignature="300" />
+              <Dispenser PartId="ChaffPack_Prefab_Pod" DisplayName="Chaff pod" Decoy="Glint" />
+            </WeaponPack>
+            """, "ChaffPack");
+
+        Assert.True(result.Complete, string.Join("; ", result.Faults));
+        DispenserProfile? pod = Catalogue.DispenserForPart("ChaffPack_Prefab_Pod");
+        Assert.NotNull(pod);
+        Assert.Equal(300f, Catalogue.DecoyNamed(pod.Decoy).PeakSignature);
+        Assert.Contains(Catalogue.Components, c => c.PartId == "ChaffPack_Prefab_Pod" && c.Role == WeaponRole.Countermeasures);
+    }
+
+    [Fact]
     public void APartIdSomethingElseAlreadyClaimsIsRefused()
     {
         string stealing = $"""

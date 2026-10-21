@@ -23,6 +23,7 @@ public static class PackAudit
         IReadOnlyList<LauncherProfile> launchers,
         IReadOnlyList<OpticProfile> optics,
         IReadOnlyList<SearchSetProfile> searchSets,
+        IReadOnlyList<DispenserProfile> dispensers,
         IPartCatalogue parts,
         Func<string, string> sourceOf)
     {
@@ -56,6 +57,8 @@ public static class PackAudit
 
             Marker(set.PartId, "SearchSet", "HeadMarker", set.HeadMarker, parts.SubPartIdsOf(set.PartId), sourceOf, faults);
         }
+
+        foreach (DispenserProfile dispenser in dispensers) Missing(dispenser.PartId, "Dispenser", parts, sourceOf, faults);
 
         return faults;
     }

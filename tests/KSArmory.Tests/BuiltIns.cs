@@ -72,4 +72,9 @@ public static class BuiltIns
     public static SensorProfile EoSensor => Catalogue.SensorNamed("EO");
     public static SensorProfile PodSensor => Catalogue.SensorNamed("Litening");
     public static SensorProfile InfraredSearchSet => Catalogue.SensorNamed("Irst");
+
+    public static DispenserProfile Ale47Flare => Catalogue.DispenserForPart("KSArmory_Prefab_Ale47Flare")!;
+    public static DispenserProfile Ale47Chaff => Catalogue.DispenserForPart("KSArmory_Prefab_Ale47Chaff")!;
+    public static DecoyProfile FlareMju7 => Catalogue.DecoyNamed("MJU7");
+    public static DecoyProfile ChaffRr170 => Catalogue.DecoyNamed("RR170");
 }
