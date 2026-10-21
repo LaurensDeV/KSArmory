@@ -212,7 +212,8 @@ long weapon-data writes have been stopped by the classifier before.
   ModMenu), one tick per family, "restart to apply" shown only when the ticks differ from what loaded. The
   startup log and every scenario's first line name the families loaded.
 - **`KSARMORY_NO_BUILTINS=1`** (developer-only): nothing from the core files, library included; every
-  KSArmory part inert and hidden.
+  KSArmory part inert. Not hidden from the editor: nothing was registered to say which parts were weapons.
+  From WSL it reaches the game only through `WSLENV=KSARMORY_NO_BUILTINS`.
 - **Rounds in flight** are not saved anyway, so a restart loses nothing new.
 
 ### Phase 4 — the example mod's reference copy (≈0.5 session)

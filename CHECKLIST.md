@@ -3085,8 +3085,9 @@ Every built-in now registers from `src/KSArmory/KSArmory/<Family>.xml` (`docs/BU
       2026-10-21 with a 99-round belt on `CIWS`, `gunnery:2,head-on` PASS, 99 shells, 2 of 2 drones, and the
       Phalanx left in the editor (2 parts hidden, not 3). With Guns on, the pack is refused and told which
       family to switch off (`ArmouryTests`).
-- [ ] **16.5** `KSARMORY_NO_BUILTINS=1`: the log says none registered, and every KSArmory part loads as
-      structure.
+- [x] **16.5** `KSARMORY_NO_BUILTINS=1`: the log says none registered, and every KSArmory part loads as
+      structure. *Flown 2026-10-21 on `5inch_gun` (through `WSLENV`): "none registered", the example mod's
+      Mk 82 the only weapon, the save loaded and crewed nothing, no exceptions.*
 
 ## Reporting back
 
