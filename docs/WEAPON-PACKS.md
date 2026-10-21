@@ -211,6 +211,7 @@ holds fire on for ever, with no gate reporting why.
 | `MuzzleForwardOffset` | `0` | m from the part origin to the tube muzzles, along the boresight |
 | `TubeRingRadius` | `0` | m; the ring the launch positions fall back to when the subpart carrying the tubes will not resolve |
 | `TubeArmamentLabel` | `Missiles` | what the panel calls it. A rack says "Bombs" |
+| `FireControlLabel` | *DisplayName* `fire control` | what the panel's fire-control row for this part is called |
 
 **Trainable launchers** name the subparts that move. Leave them all out and the launcher is fixed:
 `Trains` is false, the drives are skipped, and fire control never waits for it to settle.

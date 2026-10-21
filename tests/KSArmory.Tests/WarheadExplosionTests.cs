@@ -14,7 +14,7 @@ public class WarheadExplosionTests
     {
         double floor = WarheadExplosion.KsaFloorIntensity * WarheadExplosion.KsaReferenceJoules;
 
-        Assert.True(WarheadExplosion.Joules(Arsenal.MissileAgm88.ChargeKg) < floor,
+        Assert.True(WarheadExplosion.Joules(BuiltIns.MissileAgm88.ChargeKg) < floor,
                     "the heaviest conventional warhead should be under the floor, or the preset need not carry size");
         Assert.True(WarheadExplosion.Joules(Arsenal.NukeB61.ChargeKg) > floor,
                     "a nuclear charge should be large enough for its energy to grow the explosion");
@@ -26,9 +26,9 @@ public class WarheadExplosionTests
         Assert.Equal(WarheadExplosion.Pop, WarheadExplosion.PresetFor(Arsenal.Cannon20Mm.ChargeKg));
         Assert.Equal(WarheadExplosion.Pop, WarheadExplosion.PresetFor(BuiltIns.Cannon30Mm.ChargeKg));
         Assert.Equal(WarheadExplosion.SmallFire, WarheadExplosion.PresetFor(Arsenal.Shell5In54.ChargeKg));
-        Assert.Equal(WarheadExplosion.SmallFire, WarheadExplosion.PresetFor(Arsenal.Missile9J.ChargeKg));
+        Assert.Equal(WarheadExplosion.SmallFire, WarheadExplosion.PresetFor(BuiltIns.Missile9J.ChargeKg));
         Assert.Equal(WarheadExplosion.Conflagration, WarheadExplosion.PresetFor(BuiltIns.Missile57E6.ChargeKg));
-        Assert.Equal(WarheadExplosion.Conflagration, WarheadExplosion.PresetFor(Arsenal.MissileAgm88.ChargeKg));
+        Assert.Equal(WarheadExplosion.Conflagration, WarheadExplosion.PresetFor(BuiltIns.MissileAgm88.ChargeKg));
 
         // And a charge that grows a cloud takes this mod's own, which is that same preset without
         // Core's smoke volume -- the mod is drawing the smoke itself, a thousand times the size.

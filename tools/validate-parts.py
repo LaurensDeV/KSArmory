@@ -360,7 +360,7 @@ def check_fixed_launcher_geometry(profile, munition, key, label):
     # rounds to follow and the axis is the only thing saying which way they leave.
     checked += 1
     tube = re.search(r"Tubes\s*=\s*\[\s*new\(new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\),"
-                     r"\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)\s*\)\s*\]", block)
+                     r"\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)\s*\)\s*,?\s*\]", block)
     if tube is None:
         print(f"  MISSING Arsenal.{profile}.Tubes", file=sys.stderr)
         problems += 1
@@ -1147,7 +1147,7 @@ def check_authored_launcher_geometry(profile, part_id, seat_id, mesh_id, munitio
     # leaves on. Getting this wrong by the whole length is what firing from the tail looks like.
     checked += 1
     tube = re.search(r"Tubes\s*=\s*\[\s*new\(new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\),"
-                     r"\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)\s*\)\s*\]", block)
+                     r"\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)\s*\)\s*,?\s*\]", block)
     if tube is None:
         print(f"  MISSING Arsenal.{profile}.Tubes", file=sys.stderr)
         problems += 1
@@ -1469,15 +1469,16 @@ def _key(kind, el):
 
 
 def _render(el):
+    # A launcher's distances are double in C# and its gates match a bare number; everything else is
+    # float and written with the suffix, which some gates require.
+    suffix = "" if el.tag == "Launcher" else "f"
     lines = []
     for name, value in el.attrib.items():
         field, unit = _XML_FIELD.get(name, (name, None))
         if unit == "rad":
             lines.append(f"        {field} = {math.radians(float(value)):.5f},")
         elif re.fullmatch(r"-?[\d.]+(e-?\d+)?", value):
-            # No f suffix: a launcher's distances are double in C#, and the gates that read
-            # them match on a bare number followed by the comma.
-            lines.append(f"        {field} = {value},")
+            lines.append(f"        {field} = {value}{suffix},")
         elif value in ("true", "false"):
             lines.append(f"        {field} = {value},")
         elif re.fullmatch(r"\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*", value):
@@ -1485,7 +1486,8 @@ def _render(el):
         else:
             lines.append(f'        {field} = "{value}",')
 
-    tubes = [f"            new({t.get('Position')})," for t in el.findall("Tube")]
+    tubes = [f"            new(new({t.get('Position')}), new({t.get('Direction')}))," if t.get("Direction")
+             else f"            new({t.get('Position')})," for t in el.findall("Tube")]
     if tubes:
         lines.append("        Tubes =\n        [\n" + "\n".join(tubes) + "\n        ],")
 

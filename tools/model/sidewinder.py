@@ -157,7 +157,7 @@ def _build_round(m):
 
 
 def report(muzzles):
-    """Emits the rail's tube as a C# block, and records it for tools/validate-parts.py.
+    """Emits the rail's tube as the XML it is declared with, and records it for tools/validate-parts.py.
 
     The nose of the seated round, in part space, plus the direction it leaves along. A fixed
     launcher has no pods to follow, so unlike the Pantsir's parallel bundle this tube has to
@@ -165,10 +165,10 @@ def report(muzzles):
     """
     nose = (AXIS_X, BODY_LEN / 2, 0.0)
 
-    print("\n=== Sidewinder rail (paste into src/KSArmory/Sim/Arsenal.cs)")
-    print(f"        new(new({nose[0]:.5f}, {nose[1]:.5f}, {nose[2]:.5f}), new(0, 1, 0)),")
-    print(f"    MuzzleForwardOffset  = {nose[0]:.3f}")
-    print(f"    body length          = {BODY_LEN:.3f}   (MunitionProfile.BodyLength)")
+    print("\n=== Sidewinder rail (paste into src/KSArmory/KSArmory/Rails.xml)")
+    print(f'    <Tube Position="{nose[0]:.5f}, {nose[1]:.5f}, {nose[2]:.5f}" Direction="0, 1, 0" />')
+    print(f'    MuzzleForwardOffset="{nose[0]:.3f}" on the <Launcher>')
+    print(f'    BodyLength="{BODY_LEN:.2f}" on the AIM9J <Munition>')
 
     muzzles["sidewinder"] = {
         "tubes": [[round(v, 5) for v in nose]],

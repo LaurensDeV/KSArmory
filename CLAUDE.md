@@ -723,7 +723,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Log.cs` | the mod's own log file, which is the only debugging channel it has |
 | `src/KSArmory/KSArmory*.xml` | the parts, the warhead effects and the sounds — at the mod root, mirroring Core. **No character**: a mod's character ends up on kittens in nearly every save, which then cannot load without it — `tools/repair-saves.py` re-dresses them |
 | `src/KSArmory/KSArmory/Bodies.xml` | **what KSA's current bodies are, as data** -- fields, airglow, condensation, thin cloud -- so a custom solar system gains them by adding lines, not code |
-| `src/KSArmory/KSArmory/Weapons.xml` | **this mod's own weapons, as data** — read by `PackScan`'s convention like any pack's, not by KSA |
+| `src/KSArmory/KSArmory/Weapons.xml` | **this mod's own weapons, as data** — the Pantsir; read by the pack reader through `CoreDefinitions`, not by KSA |
+| `src/KSArmory/KSArmory/Rails.xml` | the LAU-7, LAU-128 and LAU-118 rails, their rounds and their seekers, the same way |
 | `src/KSArmory/Meshes/`, `Textures/` | art. `KSArmory_MeshAtlas.glb` is generated — rebuild with `tools/model/build.sh`; every other atlas is **authored**, and its `.blend` is not in this repository |
 | `src/KSArmory/Sounds/` | the cannon, cut from a recording by `tools/cut-cannon.py`; the Mk 42's gunshot, cut from its recording by `tools/mk42-sounds.py`; the M197's loop and tail, by `tools/m197-sounds.py`. A warhead's burst is KSA's own explosion, sound and all |
 | `src/KSArmory/mod.toml` | serves as both the content-mod and StarMap manifest |
@@ -920,9 +921,9 @@ The mod is built around three profile types and a registry, so a new launcher, r
 is **data plus art**, not new logic. No fire-control, guidance or drive code names the Pantsir —
 it is defined in `KSArmory/Weapons.xml`, read like any pack's, with its director in `Sim/Arsenal.cs`,
 which is the registry and is meant to. Anything else naming it is
-a doc comment citing what it was modelled on. **`tools/model/sidewinder.py` plus the
-`SidewinderRail` entry in `Sim/Arsenal.cs` is the worked example** — a whole second system, and
-neither of them is longer than a page.
+a doc comment citing what it was modelled on. **`tools/model/sidewinder.py` plus the LAU-7's
+entries in `KSArmory/Rails.xml` is the worked example** — a whole second system, and neither of
+them is longer than a page.
 
 1. **Model it** — authored in Blender over MCP, per `.claude/skills/ksa-blender/SKILL.md` and
    [3D model pipeline](#3d-model-pipeline); the headless generator is not extended. Run
@@ -2305,7 +2306,7 @@ reachable without patching.
 
 **Launch and slew geometry live in the Blender script, not in the C#.**
 `tools/model/pantsir.py` places the containers and writes `muzzles.json`;
-the Pantsir's definition in `KSArmory/Weapons.xml` (a launcher still in C#: its `LauncherProfile` in `Sim/Arsenal.cs`) is pasted from what it prints.
+the Pantsir's definition in `KSArmory/Weapons.xml` is pasted from what it prints.
 `validate-parts.py` **fails if any of them disagree**, because geometry duplicated across a
 boundary drifts. Change the pods, rerun `tools/model/build.sh`, paste the block. The tube count
 is `LauncherProfile.Tubes.Length`, so it follows the block you paste.

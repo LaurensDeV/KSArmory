@@ -114,7 +114,7 @@ public class BeamWeaponTests
         Assert.False(arm.Steers);
         Assert.True(fit.AutoEngages);
         Assert.False(fit.Drops);
-        Assert.False(fit.Describes(ArmamentKind.Beam, Arsenal.Missile9J.DisplayName));
+        Assert.False(fit.Describes(ArmamentKind.Beam, BuiltIns.Missile9J.DisplayName));
     }
 
     [Fact]
@@ -138,7 +138,7 @@ public class BeamWeaponTests
         Assert.Equal(ArmamentKind.Belt, WeaponFit.TriggerOn(ciws, ArmamentKind.Tubes));
         Assert.Equal(ArmamentKind.Belt, WeaponFit.TriggerOn(ciws, ArmamentKind.Beam));
 
-        LauncherProfile rail = Catalogue.LauncherForPart(Arsenal.HarmRail.PartId)!;
+        LauncherProfile rail = Catalogue.LauncherForPart(BuiltIns.HarmRail.PartId)!;
         Assert.Equal(ArmamentKind.Tubes, WeaponFit.TriggerOn(rail, ArmamentKind.Belt));
     }
 

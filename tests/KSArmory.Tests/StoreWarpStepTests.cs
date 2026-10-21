@@ -133,9 +133,9 @@ public class StoreWarpStepTests(ITestOutputHelper Out)
         Assert.True(Arsenal.ReentryVehicleMk21.HitsTerrain);
         Assert.True(Arsenal.Shell5In54.HitsTerrain);
 
-        Assert.False(Arsenal.Missile9J.HitsTerrain);
-        Assert.False(Arsenal.Missile120C.HitsTerrain);
-        Assert.False(Arsenal.MissileAgm88.HitsTerrain);
+        Assert.False(BuiltIns.Missile9J.HitsTerrain);
+        Assert.False(BuiltIns.Missile120C.HitsTerrain);
+        Assert.False(BuiltIns.MissileAgm88.HitsTerrain);
         Assert.False(Arsenal.Cannon20Mm.HitsTerrain);
     }
 

@@ -460,7 +460,7 @@ public class CountermeasureTests
         var shell = new Slug(Vec.Zero, new double3(1000, 0, 0), "target", tube: -1,
                              platformEcl: Vec.Zero, frameVelocityEcl: Vec.Zero) { Munition = cannon };
         var missile = new Interceptor(Vec.Zero, new double3(300, 0, 0), "target", tube: 1,
-                                      platformEcl: Vec.Zero, frameVelocityEcl: Vec.Zero) { Munition = Arsenal.Missile9J };
+                                      platformEcl: Vec.Zero, frameVelocityEcl: Vec.Zero) { Munition = BuiltIns.Missile9J };
 
         Assert.False(AutoDispense.Warns(shell));
         Assert.True(AutoDispense.Warns(missile));
@@ -469,11 +469,11 @@ public class CountermeasureTests
     [Fact]
     public void TheShippedMissilesSeeWithTheRightBand()
     {
-        Assert.Equal(SeekerBand.Infrared, Arsenal.Missile9J.Band);
-        Assert.True(Arsenal.Missile9J.Seducible);
-        Assert.Equal(SeekerBand.Radar, Arsenal.Missile120C.Band);
-        Assert.True(Arsenal.Missile120C.Seducible);
-        Assert.False(Arsenal.MissileAgm88.Seducible);
+        Assert.Equal(SeekerBand.Infrared, BuiltIns.Missile9J.Band);
+        Assert.True(BuiltIns.Missile9J.Seducible);
+        Assert.Equal(SeekerBand.Radar, BuiltIns.Missile120C.Band);
+        Assert.True(BuiltIns.Missile120C.Seducible);
+        Assert.False(BuiltIns.MissileAgm88.Seducible);
         Assert.False(Catalogue.MunitionNamed("57E6").Seducible);
     }
 }

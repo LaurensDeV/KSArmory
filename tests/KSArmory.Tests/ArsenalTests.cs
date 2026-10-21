@@ -187,12 +187,12 @@ public class ArsenalTests
         Assert.True(Catalogue.Launchers.Count >= 2);
 
         (MunitionProfile pantsirRound, SensorProfile pantsirSet) = Catalogue.LoadoutFor(BuiltIns.PantsirS1);
-        (MunitionProfile railRound, SensorProfile railSet) = Catalogue.LoadoutFor(Arsenal.SidewinderRail);
+        (MunitionProfile railRound, SensorProfile railSet) = Catalogue.LoadoutFor(BuiltIns.SidewinderRail);
 
         Assert.NotSame(pantsirRound, railRound);
         Assert.NotSame(pantsirSet, railSet);
 
-        Assert.Same(Arsenal.SidewinderRail, Catalogue.LauncherForPart(Arsenal.SidewinderRail.PartId));
+        Assert.Same(BuiltIns.SidewinderRail, Catalogue.LauncherForPart(BuiltIns.SidewinderRail.PartId));
         Assert.Same(BuiltIns.PantsirS1, Catalogue.LauncherForPart(BuiltIns.PantsirS1.PartId));
     }
 
@@ -208,7 +208,7 @@ public class ArsenalTests
     [Fact]
     public void TheSidewinderBoostsBrieflyAndThenCoasts()
     {
-        MunitionProfile round = Arsenal.Missile9J;
+        MunitionProfile round = BuiltIns.Missile9J;
 
         // A booster, not a sustainer. Anything approaching the flight time is the wrong shape.
         Assert.InRange(round.BoostSeconds, 1.5f, 3.0f);
@@ -257,7 +257,7 @@ public class ArsenalTests
     [Fact]
     public void TheSidewinderRailIsAFixedLauncherAndSaysSo()
     {
-        LauncherProfile rail = Arsenal.SidewinderRail;
+        LauncherProfile rail = BuiltIns.SidewinderRail;
 
         Assert.Null(rail.TurretMarker);
         Assert.Null(rail.PodsMarker);
@@ -509,7 +509,7 @@ public class ArsenalTests
         Assert.False(fit.Describes(ArmamentKind.Belt, belt.Label));
 
         // A launcher with no belt recognises nothing, rather than matching on a null.
-        WeaponFit rail = WeaponFit.Of(Arsenal.SidewinderRail, Arsenal.SeekerHeadAim9);
+        WeaponFit rail = WeaponFit.Of(BuiltIns.SidewinderRail, BuiltIns.SeekerHeadAim9);
         Assert.False(rail.Describes(ArmamentKind.Belt, BuiltIns.Cannon30Mm.DisplayName));
     }
 

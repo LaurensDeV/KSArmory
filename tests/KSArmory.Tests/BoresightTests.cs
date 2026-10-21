@@ -26,7 +26,7 @@ public class BoresightTests
     public void PartForwardIsTheAxisATubeIsDeclaredAlong()
     {
         Assert.True(TubeGeometry.TryBoresightPartFrame(
-            Arsenal.SidewinderRail, BoresightMode.PartForward, 0.0, 0.0, out double3 forward));
+            BuiltIns.SidewinderRail, BoresightMode.PartForward, 0.0, 0.0, out double3 forward));
 
         Assert.Equal(TubeGeometry.ForwardAxis.X, forward.X, 9);
         Assert.Equal(TubeGeometry.ForwardAxis.Y, forward.Y, 9);
@@ -41,9 +41,9 @@ public class BoresightTests
     public void MountNormalIsSquareToPartForward()
     {
         Assert.True(TubeGeometry.TryBoresightPartFrame(
-            Arsenal.SidewinderRail, BoresightMode.PartForward, 0.0, 0.0, out double3 forward));
+            BuiltIns.SidewinderRail, BoresightMode.PartForward, 0.0, 0.0, out double3 forward));
         Assert.True(TubeGeometry.TryBoresightPartFrame(
-            Arsenal.SidewinderRail, BoresightMode.MountNormal, 0.0, 0.0, out double3 normal));
+            BuiltIns.SidewinderRail, BoresightMode.MountNormal, 0.0, 0.0, out double3 normal));
 
         Assert.Equal(0.0, Vec.Dot(forward, normal), 9);
     }

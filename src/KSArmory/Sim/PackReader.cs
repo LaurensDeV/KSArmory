@@ -361,6 +361,7 @@ public static class PackReader
         };
 
         List<BuiltInComponent> declared = r.Provides();
+        string fireControl = r.Text("FireControlLabel") ?? $"{launcher.DisplayName} fire control";
 
         // A launcher that can shoot with nothing is a part fire control adopts and then holds
         // fire on for ever, with no gate reporting why.
@@ -393,14 +394,14 @@ public static class PackReader
         if (Duplicate(launcher.PartId, into, l => l.PartId, r)) return;
 
         into.Add(launcher);
-        components.Add(ComponentFor(launcher, declared, ownRounds, ownSets, knownRounds, knownSets));
+        components.Add(ComponentFor(launcher, fireControl, declared, ownRounds, ownSets, knownRounds, knownSets));
     }
 
     // The component row a launcher implies. Minted rather than asked for: the two registries have
     // to agree, and a launcher missing from this one is recognised by fire control and invisible to
     // the panel, which looks exactly like a part that never loaded.
     private static ComponentProfile ComponentFor(
-        LauncherProfile launcher, List<BuiltInComponent> declared,
+        LauncherProfile launcher, string fireControl, List<BuiltInComponent> declared,
         List<MunitionProfile> ownRounds, List<SensorProfile> ownSets,
         IReadOnlyList<MunitionProfile> knownRounds, IReadOnlyList<SensorProfile> knownSets)
     {
@@ -415,7 +416,7 @@ public static class PackReader
                              Resolved(shell, ownRounds, knownRounds, m => m.Name)?.DisplayName ?? shell));
         }
 
-        provides.Add(new(WeaponRole.FireControl, $"{launcher.DisplayName} fire control"));
+        provides.Add(new(WeaponRole.FireControl, fireControl));
 
         // Whatever the launcher carries that no reader could infer -- a director on its turret
         // roof is a subpart, so the survey walks past it and only the profile knows it is there.

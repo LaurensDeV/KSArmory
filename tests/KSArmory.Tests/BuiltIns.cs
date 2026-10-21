@@ -46,4 +46,14 @@ public static class BuiltIns
     public static MunitionProfile Missile57E6 => Catalogue.MunitionNamed("57E6");
     public static MunitionProfile Cannon30Mm => Catalogue.MunitionNamed("30MM");
     public static SensorProfile SearchRadar1Rs1 => Catalogue.SensorNamed("1RS1");
+
+    public static LauncherProfile SidewinderRail => Catalogue.LauncherForPart("KSArmory_Prefab_SidewinderRail")!;
+    public static LauncherProfile AmraamRail => Catalogue.LauncherForPart("KSArmory_Prefab_AmraamRail")!;
+    public static LauncherProfile HarmRail => Catalogue.LauncherForPart("KSArmory_Prefab_HarmRail")!;
+    public static MunitionProfile Missile9J => Catalogue.MunitionNamed("AIM9J");
+    public static MunitionProfile Missile120C => Catalogue.MunitionNamed("AIM120C");
+    public static MunitionProfile MissileAgm88 => Catalogue.MunitionNamed("AGM88");
+    public static SensorProfile SeekerHeadAim9 => Catalogue.SensorNamed("AIM9SEEK");
+    public static SensorProfile SeekerHeadAim120 => Catalogue.SensorNamed("AIM120SEEK");
+    public static SensorProfile SeekerHeadAgm88 => Catalogue.SensorNamed("AGM88SEEK");
 }

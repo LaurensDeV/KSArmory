@@ -11,7 +11,7 @@ ignored.
 
 `docs/WEAPON-PACKS.md` is the same surface written for the author, with the reasons attached.
 
-**Definition schema 1.** 8 elements, 134 attributes, 15 entry-point lines.
+**Definition schema 1.** 8 elements, 135 attributes, 15 entry-point lines.
 
 ## Entry point
 
@@ -160,6 +160,7 @@ to build; widening it to take a profile type would put that back.
 | `GunBurstRounds` | whole number | `12` |
 | `GunBurstGapSeconds` | number | `0.55` |
 | `GunReloadSeconds` | number | `0` |
+| `FireControlLabel` | text | *none* |
 
 ### `<Optic>` - a sighting head, needing no weapon on the craft
 

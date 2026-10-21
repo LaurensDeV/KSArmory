@@ -125,6 +125,19 @@ public class PackReaderTests
         Assert.Contains(component.Provides, p => p.Role == WeaponRole.Sensor && p.DisplayName == "Eye");
     }
 
+    [Fact]
+    public void AFireControlLabelNamesTheRowAndAbsentItFollowsTheDisplayName()
+    {
+        string labelled = ARail.Replace("<Launcher ", "<Launcher FireControlLabel=\"Rail fire control\" ");
+
+        ComponentProfile named = Assert.Single(Read(Wrap(ARound + ASet + labelled)).Components);
+        ComponentProfile plain = Assert.Single(Read(Wrap(ARound + ASet + ARail)).Components);
+
+        Assert.Equal("Rail fire control", Assert.Single(named.Provides, p => p.Role == WeaponRole.FireControl).DisplayName);
+        Assert.Equal($"{Read(Wrap(ARound + ASet + ARail)).Launchers[0].DisplayName} fire control",
+                     Assert.Single(plain.Provides, p => p.Role == WeaponRole.FireControl).DisplayName);
+    }
+
     // ---- Refusing -------------------------------------------------------
 
     [Fact]
