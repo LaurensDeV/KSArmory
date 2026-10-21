@@ -52,7 +52,18 @@ public static class BuiltInFamilies
     {
         if (on) _wanted.Remove(family);
         else _wanted.Add(family);
+        Write();
+    }
 
+    public static void WantAll(bool on)
+    {
+        if (on) _wanted.Clear();
+        else _wanted.UnionWith(_loaded);
+        Write();
+    }
+
+    private static void Write()
+    {
         try
         {
             string path = FilePath();

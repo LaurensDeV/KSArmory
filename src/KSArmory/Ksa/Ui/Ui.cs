@@ -177,6 +177,12 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                     + "when KSA next starts.");
             }
 
+            ImGui.Separator();
+            if (ImGui.MenuItem("All on")) BuiltInFamilies.WantAll(on: true);
+            if (ImGui.MenuItem("All off")) BuiltInFamilies.WantAll(on: false);
+            Tip("Every family off leaves weapon packs as the only weapons there are: how a pack that "
+                + "replaces the whole arsenal, such as the example mod's copy, is flown on its own.");
+
             if (BuiltInFamilies.RestartOwed) ImGui.TextColored(Amber, "Restart KSA to apply");
             ImGui.EndMenu();
         }
