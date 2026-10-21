@@ -3094,7 +3094,9 @@ Every built-in now registers from `src/KSArmory/KSArmory/<Family>.xml` (`docs/BU
       `head-on` on `rocket missile (copy)` 15 m from the drone; `drop` on `B61-13 (copy)` 0 m from the ring;
       `mirv` on `TEST PBB GeoSat FAT (copy)` 7 of 7 within a millimetre. No exceptions. Found and fixed on the
       way: a pack's files were read one at a time (`Sim/PackFiles.cs`).
-- [ ] **16.8** The copy's sights, IRST, dispensers and YAL-1 in flight, and *All on* / *All off* clicked.
+- [ ] **16.8** The copy's sights, IRST, dispensers and YAL-1 in flight. *All off* and *All on* were clicked
+      in game on 2026-10-21: the 22:02 session started with every family off and no weapons, and the switch
+      file was then left at `"Disabled": []` in the menu's own format.
 
 ## Reporting back
 
