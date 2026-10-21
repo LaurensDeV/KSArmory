@@ -388,16 +388,16 @@ internal sealed class PostBoostAim
         if (now.TrimGaveUp)
         {
             return Finish(Cycles > 0
-                              ? $"released {now.PredictedMissMetres / 1000.0:F1} km out after "
+                              ? $"released {Distance.Say(now.PredictedMissMetres)} out after "
                                 + $"{Cycles} pass(es); the trim stopped before the next one -- "
                                 + "its own line says which limit"
-                              : $"released {now.PredictedMissMetres / 1000.0:F1} km out -- the trim "
+                              : $"released {Distance.Say(now.PredictedMissMetres)} out -- the trim "
                                 + "refused the first correction, so none of it was applied");
         }
 
         if (now.AimHasSettled)
         {
-            return Finish($"aim settled {now.PredictedMissMetres / 1000.0:F1} km out");
+            return Finish($"aim settled {Distance.Say(now.PredictedMissMetres)} out");
         }
 
         // Inside what the trim can resolve a pass is a fresh draw rather than a correction: from under
@@ -426,7 +426,7 @@ internal sealed class PostBoostAim
         }
         else if (++_noImprovement >= PassesWithoutImprovement)
         {
-            return Finish($"{_noImprovement} passes without beating {_bestMiss / 1000.0:F1} km");
+            return Finish($"{_noImprovement} passes without beating {Distance.Say(_bestMiss)}");
         }
 
         if (Cycles >= MaxCycles) return Finish($"released after {Cycles} corrections");
