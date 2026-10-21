@@ -971,7 +971,7 @@ internal sealed class Bridge : IViewPose
                 },
                 ["hold"] = e.Weapon.Hold,
                 ["turret"] = p.TurretSpin ? "spin" : p.TurretManual ? "manual" : p.TurretTracking ? "track" : "stow",
-                ["ring_on_gun_lead"] = e.Weapon.TryRingAimEcl(out _, out bool onLead) && onLead,
+                ["ring_on_gun_lead"] = e.Weapon.RingClaimsGunLead,
                 ["beam_s_left"] = e.Weapon.Profile.FiresBeam ? e.Weapon.BeamSecondsLeft : null,
                 ["beam_lasing"] = e.Weapon.Profile.FiresBeam ? e.Weapon.BeamLasing : null,
                 ["protect"] = p.ProtectControlledVehicle,

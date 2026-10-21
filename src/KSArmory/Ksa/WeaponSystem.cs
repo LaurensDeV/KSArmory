@@ -501,6 +501,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return _ringAimValid;
     }
 
+    /// <summary>The claim the fire ladder reads, valid aim or not.</summary>
+    public bool RingClaimsGunLead => _ringIsOnGunLead;
+
     /// <summary>Time of flight the gun's lead solved for, or zero if it did not solve.</summary>
     public double GunFlightSeconds => _gunFlightTime;
 
