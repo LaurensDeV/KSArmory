@@ -571,7 +571,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/KsaWorld.Terrain.cs` | occlusion and the skyline, anchoring a point to the ground, rays onto it, and snapping to it |
 | `Ksa/KsaWorld.Parts.cs` | parts: boxes, matrices, tanks, the hull ray cast, blast faces and dents, and the part-failure queue |
 | `Ksa/KsaWorld.Controls.cs` | engines, jets and the flight computer's frame — the throttle and jets put back past the keyboard clear, and KSA's popups |
-| `Ksa/KsaWorld.Draw.cs` | the draw anchor and gizmos — **`TryEclToEgo` answers only after `BeginDraw` this frame** |
+| `Ksa/KsaWorld.Draw.cs` | the draw anchor and gizmos — **`TryAnchoredEgo` answers only after `BeginDraw` this frame** |
 | `Ksa/KsaWorld.Projection.cs` | a point onto the screen, or clamped to its edge |
 | `Ksa/KsaWorld.Cursor.cs` | the cursor's ray, what it meets, and the aim solved once a frame from it |
 | `Ksa/KsaWorld.Viewports.cs` | camera windows and the ground-track window — leased, posed, pictured and handed back |

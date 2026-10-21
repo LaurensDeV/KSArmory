@@ -14,7 +14,7 @@ internal static partial class KsaWorld
     /// A point in the world as the render camera sees it, differenced in double -- what the cloud
     /// pass places the burst with, so anything drawn in the cloud lands where the cloud is.
     ///
-    /// <para><b>Not <see cref="TryEclToEgo"/></b>, which converts through the overlay's draw anchor:
+    /// <para><b>Not <see cref="TryAnchoredEgo"/></b>, which converts through the overlay's draw anchor:
     /// that is set only on a frame some overlay draws and cleared at the start of every frame, so a
     /// caller with no overlay of its own gets nothing on most frames -- and the fireball would go
     /// undrawn, and unlit, whenever no weapon overlay happened to be on screen.</para>
@@ -148,8 +148,8 @@ internal static partial class KsaWorld
         }
     }
 
-    /// <summary>Converts an Ecl position into the anchored Ego frame.</summary>
-    public static bool TryEclToEgo(double3 posEcl, out double3 posEgo)
+    // False on any frame no overlay has called BeginDraw: the anchor is cleared by BeginFrame.
+    public static bool TryAnchoredEgo(double3 posEcl, out double3 posEgo)
     {
         if (_anchored)
         {
@@ -187,7 +187,7 @@ internal static partial class KsaWorld
             // Fall back to the anchored conversion.
         }
 
-        return TryEclToEgo(PositionEcl(v), out posEgo);
+        return TryAnchoredEgo(PositionEcl(v), out posEgo);
     }
 
     /// <summary>
@@ -266,7 +266,7 @@ internal static partial class KsaWorld
     public static void DrawSphereEcl(double3 positionEcl, float radiusMetres, float4 colour)
     {
         if (Program.GizmosRenderer is null) return;
-        if (!TryEclToEgo(positionEcl, out double3 ego)) return;
+        if (!TryAnchoredEgo(positionEcl, out double3 ego)) return;
         Program.GizmosRenderer.DrawSphere(ego, radiusMetres, colour);
     }
 
@@ -306,7 +306,7 @@ internal static partial class KsaWorld
             // burying one side and floating the other.
             if (body is not null && TrySnapToGround(body, at, out double3 ground, out _)) at = ground;
 
-            if (TryEclToEgo(at, out double3 ego))
+            if (TryAnchoredEgo(at, out double3 ego))
             {
                 Program.GizmosRenderer.DrawSphere(ego, (float)tubeRadius, colour);
             }
@@ -316,8 +316,8 @@ internal static partial class KsaWorld
     public static void DrawLineEcl(double3 startEcl, double3 endEcl, float4 colour)
     {
         if (Program.GizmosRenderer is null) return;
-        if (!TryEclToEgo(startEcl, out double3 a)) return;
-        if (!TryEclToEgo(endEcl, out double3 b)) return;
+        if (!TryAnchoredEgo(startEcl, out double3 a)) return;
+        if (!TryAnchoredEgo(endEcl, out double3 b)) return;
         Program.GizmosRenderer.DrawLine(a, b, colour);
     }
 }

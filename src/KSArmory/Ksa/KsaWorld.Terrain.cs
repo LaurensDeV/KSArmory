@@ -499,29 +499,13 @@ internal static partial class KsaWorld
                && TrySnapToGround(nearest, nearEcl, out onGroundEcl, out centreEcl);
     }
 
-    // The body whose centre is nearest a point, by a walk of the whole system. Found once for a
-    // whole draped ring rather than once a point: every point of a ring is over the same body.
+    // Found once for a whole draped ring rather than once a point: every point of a ring is over the
+    // same body. NearestBody's rule, so a ring and a sensor agree about which body a point is over.
     private static Celestial? NearestCelestial(double3 nearEcl)
     {
         try
         {
-            if (Universe.CurrentSystem is not { } system) return null;
-
-            Celestial? nearest = null;
-            double best = double.MaxValue;
-
-            for (int i = 0; i < system.Count; i++)
-            {
-                if (system.GetIndex(i) is not Celestial body) continue;
-
-                double distance = Vec.Len(nearEcl - body.GetPositionEcl());
-                if (distance >= best) continue;
-
-                best = distance;
-                nearest = body;
-            }
-
-            return nearest;
+            return NearestBody(nearEcl);
         }
         catch
         {
@@ -529,7 +513,6 @@ internal static partial class KsaWorld
         }
     }
 
-    // The snap onto a body already found.
     private static bool TrySnapToGround(Celestial nearest, double3 nearEcl, out double3 onGroundEcl,
                                         out double3 centreEcl)
     {

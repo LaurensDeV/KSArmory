@@ -46,16 +46,14 @@ not will be found again by the next reader.
 
 Added 2026-10-21 against `df6549a0`, from a second review of the same shape.
 
-- [ ] **`Ksa/KsaWorld.cs` is one static class of about 6,300 lines that a hundred files call.** Most of
-  it is a thin wrapper round one engine call each, which is what it is for, so the split is by
-  concern into partial files and no call site moves.
-- [ ] **`KsaWorld.TryEclToEgo` answers only after `BeginDraw` has run that frame**, and its name does
-  not say so. Three other conversions from Ecl to Ego sit beside it with different meanings.
-- [ ] **`KsaWorld` carries two copies of project-or-clamp** — one for an ecliptic point, one for an
-  Ego point re-based through the ecliptic — and two rules for the nearest body, by depth under the
-  mean sphere and by distance to the centre.
-- [ ] **`Ksa/GroundTest.cs` walks the system, reads the height field and the ocean itself** rather
-  than through `KsaWorld`, which already does all three.
+- [x] **`Ksa/KsaWorld.cs` was one static class of 6,278 lines that a hundred files call.** Most of it
+  is a thin wrapper round one engine call each, which is what it is for, so it is split by concern
+  into twelve partial files and no call site moved.
+- [x] **The Ecl-to-Ego conversion through the draw anchor answers only after `BeginDraw` that
+  frame**, and is now `TryAnchoredEgo` so a call site says so.
+- [x] **`KsaWorld` carried two copies of project-or-clamp and two rules for the nearest body.** The
+  edge fallback is one helper under both projections, and the ring's body walk asks `NearestBody`'s
+  depth rule.
 - [ ] **`KSArmoryMod` copies `Config` fields into static managers every frame** (`BulletHoles.Enabled`,
   `Leaks.Enabled`, `ShellTracers.BallBrightness`, `NuclearClouds.RedWaves`), where every other
   consumer is handed the `Config`. Each copy is a setting that can be added and never forwarded.
@@ -95,6 +93,13 @@ stale in two places at once.
 
 
 ## Known gaps, recorded rather than fixed
+
+- **`KsaWorld.TrySnapToGround` answers with the seabed under the sea.** It reads the height field
+  alone, where `GroundTest` puts a round on the waterline through `GroundSurface.Height`. So a decoy
+  over the sea (`Countermeasures.LandIfUnderground`) sinks to the bottom before it lands, and the
+  scenarios and the bridge read the seabed as the ground. Its near-ground gate also uses
+  `MaxTerrainHeightApprox`, which is not a sphere containing the terrain (`docs/ACCURACY-PLAN.md`
+  3z). Unflown; wants a flare dropped over water before anything changes.
 
 - **Hand-copied counts in prose drift, and nothing checks most of them.** `check-docs.sh` reads
   back the API totals, the KSA build and the layout table's coverage; every other figure in
@@ -140,6 +145,11 @@ stale in two places at once.
 ## Did not survive
 
 Reported and checked; leave these alone.
+
+- **`Ksa/GroundTest.cs` walking the system itself rather than through `KsaWorld`.** It is asked
+  once per round per sub-step, and its shared cache of the body underfoot, with the runner-up
+  guard, is what keeps that from walking the system thousands of times a frame. Routing it through
+  the uncached walk would undo the reason it exists.
 
 - **`PlumeSmoke`'s reflection.** One site in the whole mod, not a family, and the file says why it
   must stay visible.

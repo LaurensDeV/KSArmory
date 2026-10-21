@@ -123,32 +123,13 @@ internal static partial class KsaWorld
             if (Program.MainViewport is not { } viewport) return false;
             if (viewport.GetCamera() is not { } camera) return false;
 
-            int w = viewport.Width, h = viewport.Height;
-            if (w <= 0 || h <= 0) return false;
+            if (viewport.Width <= 0 || viewport.Height <= 0) return false;
 
             double3 toTarget = pointEcl - camera.EgoToEcl(Vec.Zero);
             bool ahead = Vec.Dot(toTarget, camera.GetForwardEcl()) > 0.0;
+            float2 local = ahead ? camera.EclToScreen(pointEcl, ignoreBehind: true) : default;
 
-            if (ahead)
-            {
-                float2 local = camera.EclToScreen(pointEcl, ignoreBehind: true);
-                if (float.IsFinite(local.X) && float.IsFinite(local.Y)
-                    && local.X >= 0f && local.Y >= 0f && local.X <= w && local.Y <= h)
-                {
-                    inView = true;
-                    screen = new float2(viewport.Position.X + local.X, viewport.Position.Y + local.Y);
-                    return true;
-                }
-            }
-
-            // Off-screen or behind: bearing from the camera basis, then out to the edge.
-            double right = Vec.Dot(toTarget, camera.GetRightEcl());
-            double up = Vec.Dot(toTarget, camera.GetUpEcl());
-            if (!EdgeCue.TryOffset(right, up, w, h, EdgeMargin, out double dx, out double dy)) return false;
-
-            screen = new float2((float)(viewport.Position.X + w * 0.5 + dx),
-                                (float)(viewport.Position.Y + h * 0.5 + dy));
-            return true;
+            return OnScreenOrEdge(viewport, camera, toTarget, ahead, local, out screen, out inView);
         }
         catch
         {
@@ -236,30 +217,39 @@ internal static partial class KsaWorld
             // basis is read in Ecl because Ego is a pure translation of it and the two agree
             // exactly for a direction.
             bool ahead = Vec.Dot(posEgo, camera.GetForwardEcl()) > 0.0;
+            float2 local = ahead ? camera.EgoToScreen(posEgo, ignoreBehind: true) : default;
 
-            if (ahead)
-            {
-                float2 local = camera.EgoToScreen(posEgo, ignoreBehind: true);
-                if (float.IsFinite(local.X) && float.IsFinite(local.Y)
-                    && local.X >= 0f && local.Y >= 0f && local.X <= w && local.Y <= h)
-                {
-                    inView = true;
-                    screen = new float2(viewport.Position.X + local.X, viewport.Position.Y + local.Y);
-                    return true;
-                }
-            }
-
-            double right = Vec.Dot(posEgo, camera.GetRightEcl());
-            double up = Vec.Dot(posEgo, camera.GetUpEcl());
-            if (!EdgeCue.TryOffset(right, up, w, h, EdgeMargin, out double dx, out double dy)) return false;
-
-            screen = new float2((float)(viewport.Position.X + w * 0.5 + dx),
-                                (float)(viewport.Position.Y + h * 0.5 + dy));
-            return true;
+            return OnScreenOrEdge(viewport, camera, posEgo, ahead, local, out screen, out inView);
         }
         catch
         {
             return false;
         }
+    }
+
+    // Off-screen or behind, the edge position comes from the bearing against the camera basis
+    // rather than the projection, which throws a point behind the camera to the opposite side.
+    private static bool OnScreenOrEdge(IGameViewport viewport, Camera camera, double3 fromCamera,
+                                       bool ahead, float2 local, out float2 screen, out bool inView)
+    {
+        int w = viewport.Width, h = viewport.Height;
+        inView = false;
+
+        if (ahead && float.IsFinite(local.X) && float.IsFinite(local.Y)
+            && local.X >= 0f && local.Y >= 0f && local.X <= w && local.Y <= h)
+        {
+            inView = true;
+            screen = new float2(viewport.Position.X + local.X, viewport.Position.Y + local.Y);
+            return true;
+        }
+
+        screen = default;
+        double right = Vec.Dot(fromCamera, camera.GetRightEcl());
+        double up = Vec.Dot(fromCamera, camera.GetUpEcl());
+        if (!EdgeCue.TryOffset(right, up, w, h, EdgeMargin, out double dx, out double dy)) return false;
+
+        screen = new float2((float)(viewport.Position.X + w * 0.5 + dx),
+                            (float)(viewport.Position.Y + h * 0.5 + dy));
+        return true;
     }
 }
