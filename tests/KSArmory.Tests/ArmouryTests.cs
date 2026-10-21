@@ -111,7 +111,7 @@ public class ArmouryTests
 
         PackResult result = Armoury.Register(stealing, "ThiefPack");
 
-        Assert.Contains(result.Faults, f => f.Reason.Contains("already registered"));
+        Assert.Contains(result.Faults, f => f.Reason.Contains("built-in family Pantsir"));
         Assert.Same(BuiltIns.PantsirS1, Catalogue.LauncherForPart(BuiltIns.PantsirS1.PartId));
     }
 

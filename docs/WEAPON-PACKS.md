@@ -79,6 +79,12 @@ Most packs will never need any of this.
 A pack's root is `<WeaponPack Schema="1">`. `Family` is KSArmory's own, for switching a family of its
 built-ins off, and is refused on a pack's: a pack is switched off by uninstalling it.
 
+**A pack may replace one of KSArmory's own weapons on KSArmory's own part.** While its family is on,
+the part is taken and the refusal names the family; once a player switches that family off under
+*KSArmory > Built-in weapons*, the pack's definition is the part's, and the part stays in the editor.
+The family's rounds and sensors stay registered either way, so the replacement can still name
+`KSArmory:20MM`.
+
 ```xml
 <WeaponPack Schema="1">
   <Munition Name="AIM-9X" DisplayName="AIM-9X Sidewinder II" BodyMarker="Aim9x"

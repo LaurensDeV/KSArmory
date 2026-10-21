@@ -55,6 +55,7 @@ public static class CoreDefinitions
             PackContents contents = PackReader.Read(ordered[i].Text, PackReader.BuiltInSource, munitions, sensors, decoys);
             bool off = contents.Family is { } family && disabled?.Contains(family) == true;
             if (off) contents = LibraryOnly(contents);
+            else if (contents.Family is { } owner) Catalogue.Owns(owner, PartsOf(contents));
 
             results.Add(new CoreFileResult(ordered[i].FileName, contents.Family, off, Catalogue.Register(contents)));
         }
@@ -62,13 +63,15 @@ public static class CoreDefinitions
         return results;
     }
 
+    private static IEnumerable<string> PartsOf(PackContents read)
+        => read.Launchers.Select(l => l.PartId)
+               .Concat(read.Optics.Select(o => o.PartId))
+               .Concat(read.SearchSets.Select(s => s.PartId))
+               .Concat(read.Dispensers.Select(d => d.PartId));
+
     private static PackContents LibraryOnly(PackContents read)
     {
-        Catalogue.Disable(read.Launchers.Select(l => l.PartId),
-                          read.Launchers.Select(l => l.PartId)
-                              .Concat(read.Optics.Select(o => o.PartId))
-                              .Concat(read.SearchSets.Select(s => s.PartId))
-                              .Concat(read.Dispensers.Select(d => d.PartId)));
+        Catalogue.Disable(read.Launchers.Select(l => l.PartId), PartsOf(read));
 
         return new PackContents
         {

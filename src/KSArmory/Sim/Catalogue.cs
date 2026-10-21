@@ -33,19 +33,37 @@ public static class Catalogue
     private static readonly HashSet<string> _disabledLaunchers = [];
     private static readonly HashSet<string> _disabledParts = [];
 
-    /// <summary>Every part of a built-in family the player switched off: it loads, and is nothing.</summary>
-    public static IReadOnlyCollection<string> DisabledParts => _disabledParts;
+    /// <summary>
+    /// Every part of a built-in family the player switched off that no pack has claimed since: it loads, and
+    /// is nothing. A part a pack defines again is that pack's weapon, which is what switching a family off
+    /// for a replacement is for.
+    /// </summary>
+    public static IReadOnlyCollection<string> DisabledParts => [.. _disabledParts.Where(id => !Claimed(id))];
 
     /// <summary>
-    /// Whether this part is a launcher of a switched-off family. Counted beside the registered launchers
-    /// where a craft's weapons are numbered, so switching a family off does not renumber the rest.
+    /// Whether this part is an unclaimed launcher of a switched-off family. Counted beside the registered
+    /// launchers where a craft's weapons are numbered, so switching a family off does not renumber the rest;
+    /// a claimed one is a registered launcher already, and counting it here too would number it twice.
     /// </summary>
-    public static bool IsDisabledLauncher(string? partId) => partId is not null && _disabledLaunchers.Contains(partId);
+    public static bool IsDisabledLauncher(string? partId)
+        => partId is not null && _disabledLaunchers.Contains(partId) && !Claimed(partId);
+
+    private static bool Claimed(string partId)
+        => LauncherForPart(partId) is not null || OpticForPart(partId) is not null
+        || SearchSetForPart(partId) is not null || DispenserForPart(partId) is not null;
 
     internal static void Disable(IEnumerable<string> launcherParts, IEnumerable<string> parts)
     {
         _disabledLaunchers.UnionWith(launcherParts);
         _disabledParts.UnionWith(parts);
+    }
+
+    private static readonly Dictionary<string, string> _familyOf = [];
+
+    // So a pack refused a built-in's part is told which family to switch off to replace it.
+    internal static void Owns(string family, IEnumerable<string> parts)
+    {
+        foreach (string part in parts) _familyOf.TryAdd(part, family);
     }
 
     private static readonly List<PackResult> _registrations = [];
@@ -199,7 +217,11 @@ public static class Catalogue
             if (clash)
             {
                 refused.Add(key);
-                faults.Add(new PackFault(source, kind, key, "something already registered claims this"));
+                faults.Add(new PackFault(source, kind, key,
+                                         _familyOf.TryGetValue(key, out string? family)
+                                             ? $"claimed by built-in family {family}; switch that family off under "
+                                               + "KSArmory > Built-in weapons to replace it"
+                                             : "something already registered claims this"));
                 continue;
             }
 

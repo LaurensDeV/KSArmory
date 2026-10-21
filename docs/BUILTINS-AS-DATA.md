@@ -203,7 +203,11 @@ long weapon-data writes have been stopped by the classifier before.
   parts as placeholders in `LauncherPart.FindAll/FindNth` so ordinals, and therefore saved settings, do not
   move. Test: CIWS + B61 rack, disable Guns, the rack keeps its own settings; re-enable, both intact.
 - **A third-party launcher on a disabled family's part Id is accepted** (the total-conversion case). The
-  refusal while it is enabled names the family ("claimed by built-in family Rails").
+  refusal while it is enabled names the family ("claimed by built-in family Rails"). *Built:* a claimed
+  part is no longer switched off — not hidden, not counted as a placeholder ordinal
+  (`CoreDefinitionsTests.APackDefiningASwitchedOffPartMakesItAWeaponAgain`). Flown 2026-10-21: an
+  assets-only pack redefining the Phalanx with a 99-round belt, Guns off, on the `CIWS` save — crewed as
+  the pack's, 99 shells fired, 2 of 2 drones hit, and 2 parts hidden rather than 3.
 - **Control:** a "Built-in weapons" submenu in `Ui.DrawMenuContents` (shared by the mod's bar and
   ModMenu), one tick per family, "restart to apply" shown only when the ticks differ from what loaded. The
   startup log and every scenario's first line name the families loaded.

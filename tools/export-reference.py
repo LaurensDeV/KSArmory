@@ -95,7 +95,8 @@ def index(files: dict[str, tuple[str, str]], commit: str, date: str) -> str:
         "",
         "To start from one, copy the definitions you want into a file in your mod's `KSArmory/` folder. "
         "Any `.xml` there is read and the file name is yours to choose. **Change every `PartId` to a part "
-        "your mod declares**: these are KSArmory's parts, and a part already claimed is refused. A `Name` "
+        "your mod declares**, or switch that family off under KSArmory > Built-in weapons to replace it on "
+        "KSArmory's own part: while the family is on, its parts are taken and a second definition is refused. A `Name` "
         "can stay as it is, because a pack's names are its own (`YourMod:20MM`); a reference to one of "
         "KSArmory's is written `KSArmory:20MM`, which also lets a pack use its rounds and sensors without "
         "copying them.",

@@ -100,4 +100,65 @@ public class CoreDefinitionsTests
         Assert.True(Catalogue.IsDisabledLauncher("CORETEST_Prefab_OffRail"));
         Assert.Contains("CORETEST_Prefab_OffRail", Catalogue.DisabledParts);
     }
+    // Switching a family off is how a pack replaces it, so a part the pack defines again must stop
+    // reading as switched off: hidden from the editor and counted twice in the settings ordinal otherwise.
+    [Fact]
+    public void APackDefiningASwitchedOffPartMakesItAWeaponAgain()
+    {
+        string family = """
+            <WeaponPack Schema="1" Family="CoreTestSwap">
+              <Munition Name="CORETEST_SWAPROUND" DisplayName="Round" MassKg="10" CalibreMm="100" DragCoefficient="0.3" />
+              <Sensor Name="CORETEST_SWAPEYE" DisplayName="Eye" />
+              <Launcher PartId="CORETEST_Prefab_SwapRail" DisplayName="Rail" Munition="CORETEST_SWAPROUND" Sensor="CORETEST_SWAPEYE">
+                <Tube Position="0, 0, 0.8" Direction="1, 0, 0" />
+              </Launcher>
+              <Launcher PartId="CORETEST_Prefab_SwapKept" DisplayName="Rail" Munition="CORETEST_SWAPROUND" Sensor="CORETEST_SWAPEYE">
+                <Tube Position="0, 0, 0.8" Direction="1, 0, 0" />
+              </Launcher>
+            </WeaponPack>
+            """;
+        CoreDefinitions.Register([("swap.xml", family)], new HashSet<string> { "CoreTestSwap" });
+
+        PackResult replacement = Armoury.Register("""
+            <WeaponPack Schema="1">
+              <Launcher PartId="CORETEST_Prefab_SwapRail" DisplayName="Better rail"
+                        Munition="KSArmory:CORETEST_SWAPROUND" Sensor="KSArmory:CORETEST_SWAPEYE">
+                <Tube Position="0, 0, 0.8" Direction="1, 0, 0" />
+              </Launcher>
+            </WeaponPack>
+            """, "CoreTestSwapPack");
+
+        Assert.True(replacement.Complete, string.Join("; ", replacement.Faults));
+        Assert.Equal("Better rail", Catalogue.LauncherForPart("CORETEST_Prefab_SwapRail")?.DisplayName);
+        Assert.False(Catalogue.IsDisabledLauncher("CORETEST_Prefab_SwapRail"));
+        Assert.DoesNotContain("CORETEST_Prefab_SwapRail", Catalogue.DisabledParts);
+        Assert.True(Catalogue.IsDisabledLauncher("CORETEST_Prefab_SwapKept"));
+        Assert.Contains("CORETEST_Prefab_SwapKept", Catalogue.DisabledParts);
+    }
+    [Fact]
+    public void APackRefusedABuiltInPartIsToldWhichFamilyToSwitchOff()
+    {
+        string family = """
+            <WeaponPack Schema="1" Family="CoreTestHeld">
+              <Munition Name="CORETEST_HELDROUND" DisplayName="Round" MassKg="10" CalibreMm="100" DragCoefficient="0.3" />
+              <Sensor Name="CORETEST_HELDEYE" DisplayName="Eye" />
+              <Launcher PartId="CORETEST_Prefab_HeldRail" DisplayName="Rail" Munition="CORETEST_HELDROUND" Sensor="CORETEST_HELDEYE">
+                <Tube Position="0, 0, 0.8" Direction="1, 0, 0" />
+              </Launcher>
+            </WeaponPack>
+            """;
+        CoreDefinitions.Register([("held.xml", family)]);
+
+        PackResult refused = Armoury.Register("""
+            <WeaponPack Schema="1">
+              <Launcher PartId="CORETEST_Prefab_HeldRail" DisplayName="Better rail"
+                        Munition="KSArmory:CORETEST_HELDROUND" Sensor="KSArmory:CORETEST_HELDEYE">
+                <Tube Position="0, 0, 0.8" Direction="1, 0, 0" />
+              </Launcher>
+            </WeaponPack>
+            """, "CoreTestHeldPack");
+
+        Assert.Contains("built-in family CoreTestHeld", Assert.Single(refused.Faults).Reason);
+        Assert.Equal("Rail", Catalogue.LauncherForPart("CORETEST_Prefab_HeldRail")?.DisplayName);
+    }
 }

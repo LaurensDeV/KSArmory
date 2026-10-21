@@ -3081,6 +3081,10 @@ Every built-in now registers from `src/KSArmory/KSArmory/<Family>.xml` (`docs/BU
 - [ ] **16.4** Tick it back, restart: the Phalanx is a weapon again and both keep their settings.
       *Flown 2026-10-21: switched back on, Guns registered 8 and `gunnery` passed, 4 of 4 drones. The
       settings half not yet checked.*
+- [x] **16.6** With Guns off, a pack defining `KSArmory_Prefab_Ciws` again owns the part: flown
+      2026-10-21 with a 99-round belt on `CIWS`, `gunnery:2,head-on` PASS, 99 shells, 2 of 2 drones, and the
+      Phalanx left in the editor (2 parts hidden, not 3). With Guns on, the pack is refused and told which
+      family to switch off (`ArmouryTests`).
 - [ ] **16.5** `KSARMORY_NO_BUILTINS=1`: the log says none registered, and every KSArmory part loads as
       structure.
 
