@@ -562,6 +562,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/TracerLook.cs` | how a tracer is drawn — **the streak is exposure, not the round**: speed over 40 ms of the player's time, so it shortens in slow motion and is the burning base alone when paused; lit out of the muzzle, burnt out on `MunitionProfile.TracerBurnSeconds`, and thinned and dimmed rather than widened with distance. Only one round in `TracerEvery` glows, as a belt is loaded; **the rest a faint grey streak of their own calibre**, a pixel wide at the least and as bright as `Config.BallRoundBrightness` **in daylight, fading with the sun to nothing at night** — sunlight off the round, never light of its own — so the stream reads and the tracers stay the only bright thing |
 | `Sim/Distance.cs` | a distance in the unit that shows it — **a fixed unit goes blind as the shot improves**, and `bias 0.0 km` was the whole of a ten-metre miss printed as nothing |
 | `Sim/Charge.cs` | an explosive charge in the unit that shows it — kg, t, kt or Mt — since the charge slider runs from a shell to 50 Mt |
+| `Sim/GoldenSection.cs`, `Sim/Ramp.cs` | the minimum of a cost over an interval, and the clamped smoothstep — one copy each, where several files carried their own |
 | `Sim/Vec.cs`, `Sim/DrawAnchor.cs` | vector helpers, the two-instant draw anchor |
 | **`src/KSArmory/Ksa/`** | **everything that binds to the game** |
 | `Ksa/KSArmoryMod.cs` | StarMap entry point and frame hooks |

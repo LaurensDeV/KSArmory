@@ -155,7 +155,7 @@ public static class MushroomCloud
 
         for (int i = 1; i <= 24; i++)
         {
-            Shape shape = At(yieldKt * 1.0e6, life * i / 25.0, burstHeight, airRatio);
+            Shape shape = At(yieldKt * Charge.KgPerKiloton, life * i / 25.0, burstHeight, airRatio);
             tallest = Math.Max(tallest, shape.CapCentre + (CrownInTubes * shape.CapTube));
         }
 
@@ -190,7 +190,7 @@ public static class MushroomCloud
         double safe = FalloutSafeHeight(yieldKt);
         if (!(safe > 0.0) || !(burstHeight > 0.0)) return 1.0;
 
-        return 1.0 - Smoothstep(0.5 * safe, safe, burstHeight);
+        return 1.0 - Ramp.Smooth(0.5 * safe, safe, burstHeight);
     }
 
     /// <summary>
@@ -208,8 +208,8 @@ public static class MushroomCloud
         double safe = FalloutSafeHeight(yieldKt);
         if (!(safe > 0.0) || !(burstHeight > 0.0)) return 1.0;
 
-        double airborne = Smoothstep(0.5 * safe, safe, burstHeight);
-        double fading = Smoothstep(3.0 * safe, 7.0 * safe, burstHeight);
+        double airborne = Ramp.Smooth(0.5 * safe, safe, burstHeight);
+        double fading = Ramp.Smooth(3.0 * safe, 7.0 * safe, burstHeight);
         return (1.0 - ((1.0 - AirStemShare) * airborne)) * (1.0 - fading);
     }
 
@@ -233,7 +233,7 @@ public static class MushroomCloud
         if (!(burstHeight > 0.0)) return 1.0;
 
         double reaches = GroundArrival(yieldKt, burstHeight, front);
-        return Smoothstep(reaches, reaches + ColumnFormsSeconds, age);
+        return Ramp.Smooth(reaches, reaches + ColumnFormsSeconds, age);
     }
 
     /// <summary>
@@ -247,7 +247,7 @@ public static class MushroomCloud
         double safe = FalloutSafeHeight(yieldKt);
         if (!(safe > 0.0) || !(burstHeight > 0.0)) return 1.0;
 
-        return 1.0 - (0.5 * Smoothstep(1.5 * safe, 4.0 * safe, burstHeight));
+        return 1.0 - (0.5 * Ramp.Smooth(1.5 * safe, 4.0 * safe, burstHeight));
     }
 
     /// <summary>How long an air burst's column takes to climb to its height, once the front is at the ground.</summary>
@@ -313,7 +313,7 @@ public static class MushroomCloud
     /// again while the cloud is still rising, which is grain for nothing.</para>
     /// </summary>
     public static double DrawnBound(double yieldKt, double age, double burstHeight = 0.0)
-        => GrownBound(RisenBound(yieldKt, burstHeight), At(yieldKt * 1.0e6, age, burstHeight), age);
+        => GrownBound(RisenBound(yieldKt, burstHeight), At(yieldKt * Charge.KgPerKiloton, age, burstHeight), age);
 
     /// <summary>
     /// That sphere as the risen cloud has it: at the overshoot's peak, which is as big as the RISING
@@ -328,11 +328,11 @@ public static class MushroomCloud
 
         if (IsThin(airRatio))
         {
-            Shape ball = At(yieldKt * 1.0e6, LifeFor(yieldKt) * 0.99, burstHeight, airRatio);
+            Shape ball = At(yieldKt * Charge.KgPerKiloton, LifeFor(yieldKt) * 0.99, burstHeight, airRatio);
             return (ball.CapCentre + (3.0 * ball.CapTube)) * BoundMargin;
         }
 
-        return Math.Max(top, ReachOf(At(yieldKt * 1.0e6, RiseSeconds * (1.0 + OvershootAt), burstHeight))
+        return Math.Max(top, ReachOf(At(yieldKt * Charge.KgPerKiloton, RiseSeconds * (1.0 + OvershootAt), burstHeight))
                              * BoundMargin);
     }
 
@@ -492,7 +492,7 @@ public static class MushroomCloud
                : Math.Clamp(Math.Cbrt(BangAnchorKt / yieldKt), BangPitchFloor, 1.0);
 
     /// <summary>Kilotons of TNT equivalent for a charge in kg, which is what a profile carries.</summary>
-    public static double KilotonsFor(double chargeKg) => chargeKg / 1.0e6;
+    public static double KilotonsFor(double chargeKg) => chargeKg / Charge.KgPerKiloton;
 
     // Bursts closer together in time than this are one event, as bangs are: a bus's warheads are
     // released together and land within a frame or two of each other.
@@ -580,7 +580,6 @@ public static class MushroomCloud
     // in a front that leaves the frame in seconds.
     private const double AirKgPerM3 = 1.225;
     private const double SoundMetresPerSecond = BlastWave.SoundMetresPerSecond;
-    private const double JoulesPerKiloton = 4.184e12;
 
     // The Sedov front is let go at this Mach number, and relaxes to sound speed after it.
     private const double StrongShockMach = 1.2;
@@ -622,7 +621,7 @@ public static class MushroomCloud
     {
         if (yieldKt <= 0.0 || age <= 0.0 || !(densityKgPerM3 > 0.0) || !(soundMetresPerSecond > 0.0)) return 0.0;
 
-        double k = 1.03 * Math.Pow(reflection * yieldKt * JoulesPerKiloton / densityKgPerM3, 0.2);
+        double k = 1.03 * Math.Pow(reflection * yieldKt * Charge.JoulesPerKiloton / densityKgPerM3, 0.2);
 
         // Where the Sedov speed, 0.4 R/t, falls to the release Mach number.
         double released = Math.Pow(0.4 * k / (StrongShockMach * soundMetresPerSecond), 1.0 / 0.6);
@@ -792,15 +791,6 @@ public static class MushroomCloud
 
         double pulse = Math.Max(10.0 * ThermalMaximumSeconds(yieldKt), 1.2 * PulsePeakSeconds(yieldKt)) * scale;
         return Math.Min(pulse, 0.5 * dark);
-    }
-
-    private static double Smoothstep(double edge0, double edge1, double x)
-    {
-        if (!(edge1 > edge0)) return x >= edge1 ? 1.0 : 0.0;
-
-        double t = Math.Clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
-
-        return t * t * (3.0 - (2.0 * t));
     }
 
     /// <summary>
@@ -1098,7 +1088,7 @@ public static class MushroomCloud
         // It reaches one at the second maximum and the term under it is unchanged from there on,
         // so the burn and the ember below it are reached unchanged.
         double opening = ShockFrontShare
-                         + ((1.0 - ShockFrontShare) * Smoothstep(tMin, PulsePeakSeconds(kt) * pulseScale, age));
+                         + ((1.0 - ShockFrontShare) * Ramp.Smooth(tMin, PulsePeakSeconds(kt) * pulseScale, age));
 
         // In thin air there is no front to hide the ball, and the two maxima merge into one.
         double single = ThermalAltitude.SinglePulse(airRatio);
@@ -1110,7 +1100,7 @@ public static class MushroomCloud
 
         double glow = age <= dark
                           ? Math.Max(pulse, burn * opening)
-                          : EmberGlow * (1.0 - Smoothstep(0.0, 1.0, ember));
+                          : EmberGlow * (1.0 - Ramp.Smooth(0.0, 1.0, ember));
 
         return new Flash(radius, colour, glow);
     }
@@ -1123,7 +1113,7 @@ public static class MushroomCloud
         if (age >= seconds) return default;
 
         double radius = FireballRadius(kt) * Math.Clamp(Math.Pow(age / GrowthSeconds(kt), 0.4), 0.10, 1.0);
-        double glow = PeakGlow * Math.Exp(-6.0 * age / seconds) * (1.0 - Smoothstep(0.8 * seconds, seconds, age));
+        double glow = PeakGlow * Math.Exp(-6.0 * age / seconds) * (1.0 - Ramp.Smooth(0.8 * seconds, seconds, age));
         return new Flash(radius, new double3(0.85, 0.9, 1.0), glow);
     }
 
@@ -1159,7 +1149,7 @@ public static class MushroomCloud
 
         double dark = FlashSeconds(kt);
         double whiteHot = WhiteHotSeconds(kt);
-        double warming = Smoothstep(whiteHot * 0.3, whiteHot, age);
+        double warming = Ramp.Smooth(whiteHot * 0.3, whiteHot, age);
         double cooling = Math.Exp(-Math.Max(age - dark, 0.0) / CoolingSeconds);
         double heat = warming * cooling;
 
@@ -1385,7 +1375,7 @@ public static class MushroomCloud
         if (!(burstHeight > 0.0) || !(capCentre > 0.0)) return 1.0;
 
         double reaches = GroundArrival(yieldKt, burstHeight, front);
-        double climbed = Smoothstep(reaches, reaches + ColumnClimbSeconds, age);
+        double climbed = Ramp.Smooth(reaches, reaches + ColumnClimbSeconds, age);
         double reach = ColumnReach(yieldKt, burstHeight);
         if (reach >= 1.0 && climbed >= 1.0) return 1.0;
 

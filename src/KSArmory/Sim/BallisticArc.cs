@@ -269,7 +269,8 @@ internal static class BallisticArc
             anchor = bestTime;
         }
 
-        double refined = GoldenSection(body, fromCci, fromVelocityCci, aimNowCci, lo, hi, longWay, floorDeg);
+        double refined = GoldenSection.Minimise(
+            t => CostAt(body, fromCci, fromVelocityCci, aimNowCci, t, longWay, floorDeg), lo, hi, 48, 0.01);
 
         if (floorDeg <= 0.0) return refined;
 
@@ -303,32 +304,6 @@ internal static class BallisticArc
         if (s.LowestRadius < body.SurfaceRadius - 1.0) return double.PositiveInfinity;
         if (floorDeg > 0.0 && !(s.ArrivalAngleDeg >= floorDeg)) return double.PositiveInfinity;
         return Vec.Len(s.VelocityToGain(fromVelocityCci));
-    }
-
-    private static double GoldenSection(BallisticBody body, double3 fromCci, double3 fromVelocityCci,
-                                        double3 aimNowCci, double lo, double hi, bool longWay,
-                                        double floorDeg)
-    {
-        const double Ratio = 0.6180339887498949;
-        double c = hi - (hi - lo) * Ratio;
-        double d = lo + (hi - lo) * Ratio;
-
-        for (int i = 0; i < 48 && hi - lo > 0.01; i++)
-        {
-            if (CostAt(body, fromCci, fromVelocityCci, aimNowCci, c, longWay, floorDeg)
-                < CostAt(body, fromCci, fromVelocityCci, aimNowCci, d, longWay, floorDeg))
-            {
-                hi = d;
-            }
-            else
-            {
-                lo = c;
-            }
-            c = hi - (hi - lo) * Ratio;
-            d = lo + (hi - lo) * Ratio;
-        }
-
-        return 0.5 * (lo + hi);
     }
 
     // Highest and lowest radius reached between the two ends of the arc. Both come off the conic

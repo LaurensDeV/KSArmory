@@ -47,8 +47,8 @@ internal static class RedWave
         if (!(yieldKt > 0.0) || !(age > 0.0) || age >= LifeSeconds) return 0.0;
 
         double scale = Math.Min(Math.Sqrt(yieldKt / ReferenceKt), 1.5);
-        double rising = Smooth(age / 20.0);
-        double ending = 1.0 - Smooth((age - (LifeSeconds - 60.0)) / 60.0);
+        double rising = Ramp.Smooth(age / 20.0);
+        double ending = 1.0 - Ramp.Smooth((age - (LifeSeconds - 60.0)) / 60.0);
         return PeakNits * scale * rising * Math.Exp(-age / FadeSeconds) * ending;
     }
 
@@ -62,11 +62,5 @@ internal static class RedWave
 
         double ratio = air.SeaLevelDensity / (RedSurvivesBelow * AmbientAir.ReferenceDensityKgPerM3);
         return ratio > 1.0 ? Math.Min(air.ScaleHeightMetres * Math.Log(ratio), air.BoundaryMetres) : 0.0;
-    }
-
-    private static double Smooth(double x)
-    {
-        double t = Math.Clamp(x, 0.0, 1.0);
-        return t * t * (3.0 - (2.0 * t));
     }
 }

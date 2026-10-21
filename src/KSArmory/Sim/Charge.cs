@@ -11,6 +11,10 @@ public static class Charge
     public const double KgPerKiloton = 1_000_000.0;
     public const double KgPerMegaton = 1_000_000_000.0;
 
+    /// <summary>A kilogram of TNT, in joules — what <see cref="MunitionProfile.ChargeKg"/> is measured in.</summary>
+    public const double JoulesPerKg = 4.184e6;
+    public const double JoulesPerKiloton = JoulesPerKg * KgPerKiloton;
+
     public static string Say(double kg)
     {
         if (!double.IsFinite(kg)) return "unknown";

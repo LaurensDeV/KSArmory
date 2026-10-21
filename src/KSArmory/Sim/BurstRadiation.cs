@@ -146,7 +146,7 @@ internal static class BurstRadiation
         {
             if (!(ageSeconds > 0.0)) return 0.0;
 
-            double stem = StemPart * Smoothstep(0.0, PromptPhaseSeconds, ageSeconds);
+            double stem = StemPart * Ramp.Smooth(0.0, PromptPhaseSeconds, ageSeconds);
             if (!(Wind > 0.0)) return stem;
 
             return stem + ((1.0 - StemPart) * (1.0 - Math.Exp(-ageSeconds / MeanFallSeconds)));
@@ -156,7 +156,7 @@ internal static class BurstRadiation
         public double GroundRate(double downwind, double across, double ageSeconds)
         {
             double arrive = ArrivalSeconds(downwind);
-            double on = Smoothstep(0.8 * arrive, (1.2 * arrive) + PromptPhaseSeconds, ageSeconds);
+            double on = Ramp.Smooth(0.8 * arrive, (1.2 * arrive) + PromptPhaseSeconds, ageSeconds);
 
             return on > 0.0 ? UnitRate(downwind, across) * Decay(ageSeconds) * on : 0.0;
         }
@@ -183,7 +183,7 @@ internal static class BurstRadiation
     {
         if (!(aloftKt > 0.0) || !(radius > 0.0)) return 0.0;
 
-        double onset = Smoothstep(0.5 * PromptPhaseSeconds, PromptPhaseSeconds, ageSeconds);
+        double onset = Ramp.Smooth(0.5 * PromptPhaseSeconds, PromptPhaseSeconds, ageSeconds);
         double spread = 4.0 * Math.PI * ((distance * distance) + (radius * radius / 3.0));
 
         return PointSvM2PerSecondPerKt * aloftKt * Decay(ageSeconds) * onset / spread * GammaThrough(column);
@@ -219,11 +219,5 @@ internal static class BurstRadiation
         }
 
         return sum * length / samples;
-    }
-
-    private static double Smoothstep(double edge0, double edge1, double x)
-    {
-        double t = Math.Clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
-        return t * t * (3.0 - (2.0 * t));
     }
 }

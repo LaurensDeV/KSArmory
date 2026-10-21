@@ -46,7 +46,7 @@ internal static class DebrisBubble
     {
         if (!(fieldTesla > 0.0)) return double.PositiveInfinity;
 
-        double joules = chargeKg * 4.184e6;
+        double joules = chargeKg * Charge.JoulesPerKg;
         return Math.Cbrt(3.0 * Mu0 * KineticShare * joules / (2.0 * Math.PI * fieldTesla * fieldTesla));
     }
 
@@ -88,29 +88,21 @@ internal static class DebrisBubble
 
             double full = EqualVolumeRadius(chargeKg, fieldTesla);
             double grown = 1.0 - Math.Exp(-3.0 * age / GrowSeconds);
-            double collapsing = Smooth((age - (0.5 * CollapseSeconds)) / (0.5 * CollapseSeconds));
+            double collapsing = Ramp.Smooth((age - (0.5 * CollapseSeconds)) / (0.5 * CollapseSeconds));
             double radius = full * Math.Max(grown, 0.05) * (1.0 - (0.6 * collapsing));
             double glow = PeakGlow * (1.0 - collapsing);
-            double3 colour = Lerp(new double3(0.80, 0.90, 1.00), DebrisShell.AfterglowColour,
-                                  Smooth(age / (0.5 * CollapseSeconds)));
+            double3 colour = Vec.Lerp(new double3(0.80, 0.90, 1.00), DebrisShell.AfterglowColour,
+                                  Ramp.Smooth(age / (0.5 * CollapseSeconds)));
 
             return new Look(radius, DebrisShell.RadiancePerGlow * glow, colour, Held: true);
         }
 
         if (age >= BallisticSeconds) return default;
 
-        double speed = Math.Sqrt(2.0 * KineticShare * chargeKg * 4.184e6 / DebrisMassKg);
-        double fade = Math.Exp(-2.0 * age / BallisticSeconds) * (1.0 - Smooth((age - (0.7 * BallisticSeconds))
+        double speed = Math.Sqrt(2.0 * KineticShare * chargeKg * Charge.JoulesPerKg / DebrisMassKg);
+        double fade = Math.Exp(-2.0 * age / BallisticSeconds) * (1.0 - Ramp.Smooth((age - (0.7 * BallisticSeconds))
                                                                             / (0.3 * BallisticSeconds)));
         return new Look(speed * Math.Max(age, 0.05), DebrisShell.RadiancePerGlow * PeakGlow * fade,
                         new double3(0.80, 0.90, 1.00), Held: false);
     }
-
-    private static double Smooth(double x)
-    {
-        double t = Math.Clamp(x, 0.0, 1.0);
-        return t * t * (3.0 - (2.0 * t));
-    }
-
-    private static double3 Lerp(double3 a, double3 b, double t) => a + ((b - a) * t);
 }
