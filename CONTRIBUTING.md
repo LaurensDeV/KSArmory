@@ -184,7 +184,7 @@ hides best here, and it wears a different disguise each time.
 - [`docs/MODULARITY.md`](docs/MODULARITY.md) — how far the design generalises, and what is planned.
 - [`README.md`](README.md) — installing and playing, plus a "How it works" section.
 
-**Adding a weapon system is data plus art**, not new logic — one entry in `Sim/Arsenal.cs`. See
+**Adding a weapon system is data plus art**, not new logic — a definition in `src/KSArmory/KSArmory/`. See
 the section of the same name in `CLAUDE.md`.
 
 ## Licence

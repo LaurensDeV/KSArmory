@@ -71,7 +71,7 @@ installed.
 ## Launch geometry is generated too
 
 The tube muzzle positions exist in two places: here, where the containers are placed, and in the
-launcher's profile — `Sim/Arsenal.cs` or a file in `KSArmory/` — which draws markers on them
+launcher's definition in `KSArmory/` — which draws markers on them
 and spawns rounds from them. `build.sh` writes `muzzles.json` and
 **`tools/validate-parts.py` fails if the two disagree** — this repo has
 already been bitten twice by geometry duplicated across a boundary with nothing checking it.

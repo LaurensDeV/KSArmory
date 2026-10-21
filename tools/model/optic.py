@@ -132,14 +132,12 @@ def _build_head(m):
 
 
 def report(muzzles):
-    """Emits the geometry as a C# block, and records it for validate-parts.py."""
+    """Emits the geometry as the <Optic> attributes it is declared with, and records it for validate-parts.py."""
     print()
-    print("  Optic director, for Sim/Arsenal.cs:")
+    print("  Optic director, for src/KSArmory/KSArmory/Sensors.xml (and Pantsir.xml's roof director):")
     print()
-    print(f"        HeadPivot = new({HEAD_PIVOT[0]:.5f}, {HEAD_PIVOT[1]:.5f}, {HEAD_PIVOT[2]:.5f}),")
-    print(f"        EyeForward = {EYE_FORWARD:.3f}f,")
-    print(f"        MinElevationDeg = {MIN_ELEVATION_DEG:.0f}f,")
-    print(f"        MaxElevationDeg = {MAX_ELEVATION_DEG:.0f}f,")
+    print(f'        HeadPivot="{HEAD_PIVOT[0]:.5f}, {HEAD_PIVOT[1]:.5f}, {HEAD_PIVOT[2]:.5f}" EyeForward="{EYE_FORWARD:.3f}"')
+    print(f'        MinElevationDeg="{MIN_ELEVATION_DEG:.0f}" MaxElevationDeg="{MAX_ELEVATION_DEG:.0f}"')
     print()
     print(f"    (total height {TOTAL_HEIGHT:.2f} m)")
 

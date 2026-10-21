@@ -4,6 +4,10 @@
 "split into six mods" plan, and three reviews of this one (code facts, design, tests/tooling). Every
 file:line below was checked by at least one reviewer.*
 
+**Status, 2026-10-21: Phases 0-2 landed.** Every built-in is in one of seven family files and
+`Sim/Arsenal.cs` is deleted; `validate-parts.py` reads the XML through its renderer. Phases 3 (the disable
+switch) and 4 (the example mod's reference copy) are next.
+
 ## Decisions
 
 1. **Every built-in becomes XML inside KSArmory.** Nothing is constructed in `Sim/Arsenal.cs` afterwards.

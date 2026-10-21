@@ -103,7 +103,7 @@ least knowable before a second launcher exists that actually needs it.
 already moved into `Sim/` and was covered — see the section below. 4 stays last.
 
 **The first step of 2:** `Config` holds no launcher, round or sensor;
-`WeaponSystem.Profile`/`.Munition`/`.Sensor` are the system's own, paired by `Arsenal.LoadoutFor`,
+`WeaponSystem.Profile`/`.Munition`/`.Sensor` are the system's own, paired by `Catalogue.LoadoutFor`,
 and `WeaponSystems` makes the class plural: every craft carrying a recognised part is crewed and
 pinned there. Two craft can therefore be two *different* weapon systems, which is what the LAU-7
 rail needs and what a shared `Config` makes impossible — with one, every reader outside a system's
@@ -121,7 +121,7 @@ can see it — `Sim/WeaponSelection.cs`. The dictionary bookkeeping, the per-lau
 and the re-focus on selection are all unproven until flown, which is why this stayed the riskiest
 of the four.
 
-Change 1 crosses the `tools/model/pantsir.py` → `muzzles.json` → `Arsenal` boundary that
+Change 1 crosses the `tools/model/pantsir.py` → `muzzles.json` → definition boundary that
 `validate-parts.py` guards, so the generator and the validator move with it. Geometry duplicated
 across a boundary drifts, and that validator is the only thing holding these two copies together —
 see CLAUDE.md.
@@ -345,7 +345,7 @@ by a tool instead: a profile declaring `GunsMarker` and omitting `GunReferenceEl
 the default of zero against a mesh modelled at 22°, which is a 22° error in where the rounds go.
 `validate-parts.py` reports it as a missing field, because the mesh knows the angle and the
 profile has to agree with it. That is a check rather than an impossibility, and it only runs
-because the launcher is enumerated from `Arsenal.Launchers` rather than named by hand.
+because the launcher is enumerated from the definitions rather than named by hand.
 
 **Not done, deliberately, and the third level should not be built at all yet.** Every mount costed
 so far — naval, howitzer, mortar, remote weapon station — is traverse-then-elevate or does not

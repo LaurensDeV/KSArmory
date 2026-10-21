@@ -436,8 +436,8 @@ The part itself is inert — KSA sees structure with mass and a collider. The C#
 the vehicle and mounts the battery there. That split avoids registering a custom module type
 into the engine's internal update lists, which is not reachable without patching.
 
-**Adding a weapon system is data, not code.** `src/KSArmory/Sim/Arsenal.cs` and
-the files in `src/KSArmory/KSArmory/` register each launcher, round and sensor as a profile; discovery is by part Id, so nothing in the simulation
+**Adding a weapon system is data, not code.** The files in `src/KSArmory/KSArmory/` define each
+launcher, round and sensor, one file per family; discovery is by part Id, so nothing in the simulation
 or the game binding names a particular vehicle. A new system is an entry there plus its art.
 
 The source is split by whether it can see KSA at all: `Sim/` cannot, `Ksa/` does. The test
@@ -598,16 +598,14 @@ because they live there rather than inside `LauncherPart`.
 
 ### Adding a weapon system
 
-It is data, not code. Nothing in `Sim/` or `Ksa/` names the Pantsir outside the registry.
+It is data, not code. Nothing in `Sim/` or `Ksa/` names a built-in weapon.
 
 1. Model it — authored in Blender, following `.claude/skills/ksa-blender/SKILL.md`. The headless
    generator builds the three parts that predate that and is not extended.
 2. Declare the part in `KSArmoryAssets.xml` and `KSArmoryGameData.xml`.
-3. Register a `LauncherProfile` in [`src/KSArmory/Sim/Arsenal.cs`](src/KSArmory/Sim/Arsenal.cs),
-   naming the munition and sensor it uses. Add a `MunitionProfile` if the round differs.
-4. And a `ComponentProfile` in `Arsenal.Components`. Without it the launcher loads, resolves its
-   tubes and is then completely invisible — the panel says there is no weapons system on the craft
-   and nothing appears in any log.
+3. Define a `<Launcher>` for it in a file in [`src/KSArmory/KSArmory/`](src/KSArmory/KSArmory/),
+   naming the `<Munition>` and `<Sensor>` it uses; [`docs/WEAPON-PACKS.md`](docs/WEAPON-PACKS.md) has
+   every attribute. The definition also gives the part its row in the panel.
 
 Discovery is by part Id, so the system picks up whatever is fitted. A launcher that cannot
 train is the same profile with `TurretMarker` left null.

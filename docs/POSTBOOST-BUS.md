@@ -3,7 +3,7 @@
 **A plan, not a record.** What a MIRV bus with an axial engine and a bigger tank buys, how big to make it,
 and what the guidance needs before it can fly one. This bus is now the **Heavy MIRV Bus**, the only one: the art is
 `KSArmory_PostBoostBus.glb`, carrying its own RV with two spin nozzles in a dished base, declared under the six-RV
-bus's own Id, `KSArmory_Prefab_MirvBus`, and registered as `Arsenal.MirvBus`. The guidance flies it on its nozzles
+bus's own Id, `KSArmory_Prefab_MirvBus`, and defined in `KSArmory/Strategic.xml`. The guidance flies it on its nozzles
 unless `IcbmConfig.HopsBurnTheEngine` lights the engine.
 
 It took the old Id so a save carrying the old bus loads as this one. A save pairs subparts by position, so the old
@@ -106,8 +106,8 @@ to match.
 3. **Hops as burns.** Point the bus, fire the main engine for the hop's velocity, null the remainder on the small
    nozzles. The trim's passes were built to null a few m/s; a 90 m/s hop chained through 10 m/s passes is the wrong
    tool. Rig-testable on `PastCutoffRig` before the part exists.
-4. **The part**: the draft declaration, the tank and `ExitDiameter` from this note, both registries in
-   `Sim/Arsenal.cs`, `checkring.py` on the ring at X 0.52, and `validate-parts.py`.
+4. **The part**: the draft declaration, the tank and `ExitDiameter` from this note, its definition in
+   `KSArmory/Strategic.xml`, `checkring.py` on the ring at X 0.52, and `validate-parts.py`.
 5. **Fly it** paired against the old bus at 6,179 and 12,902 km: stops walked, worst warhead, spacing reached.
 
 ## Art notes for the next art session

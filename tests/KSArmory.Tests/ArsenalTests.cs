@@ -369,7 +369,8 @@ public class ArsenalTests
     [Fact]
     public void EverySearchSetIsASensorComponentSearchingWithARegisteredSet()
     {
-        foreach (SearchSetProfile set in Arsenal.SearchSets)
+        // The shipped sets: a test pack's may search with anything.
+        foreach (SearchSetProfile set in Catalogue.SearchSets.Where(s => s.PartId.StartsWith("KSArmory_")))
         {
             Assert.Contains(Catalogue.Components, c => c.PartId == set.PartId && c.Role == WeaponRole.Sensor);
 
@@ -677,7 +678,7 @@ public class ArsenalTests
     {
         double was = BuiltIns.ReentryVehicleMk21.SubStep;
 
-        MunitionProfile fine = Arsenal.RoundAtSubStep(BuiltIns.ReentryVehicleMk21, 0.000125);
+        MunitionProfile fine = (BuiltIns.ReentryVehicleMk21).AtSubStep(0.000125);
 
         Assert.Equal(0.000125, fine.SubStep, 9);
         Assert.Equal(was, BuiltIns.ReentryVehicleMk21.SubStep, 9);
@@ -693,7 +694,7 @@ public class ArsenalTests
     public void AFinerSubStepDoesNotMoveTheFaithfulStep()
     {
         MunitionProfile shipped = BuiltIns.ReentryVehicleMk21;
-        MunitionProfile fine = Arsenal.RoundAtSubStep(shipped, shipped.SubStep / 8.0);
+        MunitionProfile fine = (shipped).AtSubStep(shipped.SubStep / 8.0);
 
         Assert.True(fine.SubStep * fine.MaxSubSteps >= shipped.MaxFaithfulStepSeconds,
                     $"a {fine.SubStep * 1000.0:F3} ms warhead spans only "

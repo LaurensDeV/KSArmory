@@ -812,7 +812,7 @@ internal sealed partial class IcbmComputer
         if (Config.WarheadSubStepMs > 0.0 && release is { } stepped
             && Math.Abs(stepped.Munition.SubStep - Config.WarheadSubStepMs / 1000.0) > 1e-9)
         {
-            stepped.FlyRoundsAs(Arsenal.RoundAtSubStep(stepped.Munition, Config.WarheadSubStepMs / 1000.0));
+            stepped.FlyRoundsAs(stepped.Munition.AtSubStep(Config.WarheadSubStepMs / 1000.0));
             Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: warheads integrate at "
                      + $"{stepped.Munition.SubStep * 1000.0:F3} ms, {stepped.Munition.MaxSubSteps} sub-steps "
                      + "to a frame at most");

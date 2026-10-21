@@ -39,7 +39,7 @@ public class TargetSetTests
     [Fact]
     public void EveryRegisteredBusCanSendEachWarheadSomewhereOfItsOwn()
     {
-        foreach (LauncherProfile bus in Arsenal.Launchers.Where(l => Catalogue.ProvidesGuidance(l.PartId)))
+        foreach (LauncherProfile bus in Catalogue.Launchers.Where(l => Catalogue.ProvidesGuidance(l.PartId)))
             Assert.True(bus.Tubes.Length <= TargetSet.MaxTargets, $"{bus.PartId} carries {bus.Tubes.Length}");
     }
 

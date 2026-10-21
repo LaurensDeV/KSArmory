@@ -46,7 +46,7 @@ one for every subpart.
 
 The travel, by casting rays from the ball's pivot until the shroud or the aft body stops them.
 That is the *aperture*; the gimbal's own stop is a separate and smaller number, and the point of
-measuring is to know which one binds. Printed for `Sim/Arsenal.cs` to be pasted from, and recorded
+measuring is to know which one binds. Printed for `KSArmory/Sensors.xml` to be pasted from, and recorded
 in `muzzles.json` so `tools/validate-parts.py` can hold the two together.
 """
 
@@ -476,11 +476,9 @@ def main():
     ball = max(math.dist(v, (0.0, 0.0, 0.0)) for v in reframed["LiteningPod_Nod"]["position"])
     eye = round(ball + 0.03, 3)
 
-    print("\n=== LITENING pod (paste into src/KSArmory/Sim/Arsenal.cs)")
-    print(f"        HeadPivot = new({pivot_part[0]:.5f}, {pivot_part[1]:.5f}, {pivot_part[2]:.5f}),")
-    print(f"        EyeForward = {eye:.3f}f,")
-    print(f"        MaxOffBoresightDeg = {binding:.0f}f,")
-    print(f"        KeyholeDeg = {KEYHOLE_DEG:.0f}f,")
+    print("\n=== LITENING pod (paste into src/KSArmory/KSArmory/Sensors.xml)")
+    print(f'        HeadPivot="{pivot_part[0]:.5f}, {pivot_part[1]:.5f}, {pivot_part[2]:.5f}" EyeForward="{eye:.3f}"')
+    print(f'        MaxOffBoresightDeg="{binding:.0f}" KeyholeDeg="{KEYHOLE_DEG:.0f}"')
 
     muzzles = Path(__file__).resolve().parent / "muzzles.json"
     data = json.loads(muzzles.read_text()) if muzzles.is_file() else {}

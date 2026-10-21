@@ -180,7 +180,7 @@ Scope is optional but useful; prefer the area touched — `turret`, `rounds`, `r
 say *why* when the reason is not obvious from the diff.
 
 **`feat` still means a player can observe the difference in the shipped archive.** Capability that
-nothing in `Arsenal.cs` or the panel yet uses is `refactor` — it becomes a feature in the commit
+nothing in the definition files or the panel yet uses is `refactor` — it becomes a feature in the commit
 that uses it, which is also the first commit whose behaviour anyone can check. This matters for
 the changelog rather than for the version now: a Features section listing things nobody can reach
 is worse than a short one.
@@ -339,8 +339,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | Path | What |
 | --- | --- |
 | **`src/KSArmory/Sim/`** | **no KSA types, linked into the tests wholesale** |
-| `Sim/Arsenal.cs` | **the built-ins — add a weapon system here** |
-| `Sim/Catalogue.cs` | **what the mod reads** — the built-ins plus anything else registered; a lookup taken against `Arsenal` sees only what shipped |
+| `Sim/Catalogue.cs` | **what the mod reads** — the built-ins from `KSArmory/*.xml` plus anything else registered; the only registry |
 | `Sim/Armoury.cs` | **the code surface a weapon pack may bind to**, for the pack that ships an assembly — three members, taking text rather than profiles so a pack needs no game assemblies. A pack with no code never calls it: `InstalledPacks` reads its folder and registers through the same `Register` |
 | `Sim/PackReader.cs` | somebody else's weapon definitions, read into profiles — **text in, no file access**, so every refusal is testable headlessly |
 | `Sim/PackScan.cs` | where KSArmory looks for somebody else's weapons — **a convention, not a list** |
@@ -751,7 +750,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
 | `docs/IRST-PLAN.md` | **a plan, not a record** — an infrared search part that finds targets for the directors, which find nothing by themselves, and one picture per craft that hands them on; the detection law, its calibration targets and the order of work |
-| `docs/BUILTINS-AS-DATA.md` | **a plan, not a record** — every built-in weapon moved out of `Arsenal.cs` into one XML file per family, a startup switch to disable built-in families, and a generated reference copy for the example mod; the mechanism, the hazards the reviews found, and the order of work |
+| `docs/BUILTINS-AS-DATA.md` | **a plan, not a record** — every built-in weapon moved into one XML file per family, a startup switch to disable built-in families, and a generated reference copy for the example mod; the mechanism, the hazards the reviews found, and the order of work |
 | `docs/SHARED-PICTURE.md` | **a plan, not a record** — a team's scopes showing what another installation's set holds: the display-only step first, and why firing on somebody else's track is a much bigger one |
 | `docs/MULTIPLAYER.md` | **a plan, not a record** — what KSA's networking skeleton does, why this mod's rounds have nothing to sync against until KSA replicates vehicles and time, and the two pieces worth doing first |
 | `docs/CIWS-REALISM.md` | **a plan, not a record** — what the real Phalanx does that the mod does not: detection only as the search beam passes, and closed-loop spotting of its own rounds, with why each waits and **what would make spotting worth building** |
@@ -923,11 +922,11 @@ head looks where the rail points, and `TurretAxis`, which follows the traverse.
 
 ## Adding a weapon system
 
-The mod is built around three profile types and a registry, so a new launcher, round or sensor
-is **data plus art**, not new logic. No fire-control, guidance or drive code names the Pantsir —
-it is defined in `KSArmory/Pantsir.xml`, read like any pack's, and `Sim/Arsenal.cs` holds the
-weapons not yet moved. Anything else naming it is
-a doc comment citing what it was modelled on. **`tools/model/sidewinder.py` plus the LAU-7's
+The mod is built around profile types and a registry, so a new launcher, round or sensor is
+**data plus art**, not new logic. Every built-in is defined in a file in `src/KSArmory/KSArmory/`,
+one per family, read by the same reader a third-party pack goes through (`docs/WEAPON-PACKS.md` has
+every element and attribute). No fire-control, guidance or drive code names any of them; anything
+else naming one is a doc comment citing what it was modelled on. **`tools/model/sidewinder.py` plus the LAU-7's
 entries in `KSArmory/Rails.xml` is the worked example** — a whole second system, and neither of
 them is longer than a page.
 
@@ -960,22 +959,21 @@ them is longer than a page.
    node just inside each end, and KSA mates a part there whenever the part's own node is no larger
    than it. An unsized node is size one, so a 3 m part sinks onto it — 8 cm into a 2 m tank, 24.5 cm
    into a 3 m one — and nothing reports it. `validate-parts.py` fails an unsized one.
-3. **Register it — in `Sim/Arsenal.cs`, and in *both* registries.** One `LauncherProfile`, naming
-   the munition and sensor it uses, with the geometry `build.sh` prints; add a `MunitionProfile`
-   and a `SensorProfile` too if the round or the set differ. Then teach `validate-parts.py` to
-   compare that geometry against `muzzles.json` — the generator emitting it and the profile
-   holding it are the same numbers in two files, which is the shape that drifts.
+3. **Define it** in a file in `src/KSArmory/KSArmory/`: a `<Launcher>` on the part Id, naming the
+   `<Munition>` and `<Sensor>` it uses, with the geometry `build.sh` prints; an `<Optic>`,
+   `<SearchSet>` or `<Dispenser>` for a part that looks or throws decoys. Then teach
+   `validate-parts.py` to compare that geometry against `muzzles.json` — the generator emitting it and
+   the definition holding it are the same numbers in two files, which is the shape that drifts.
 
-   **And a `ComponentProfile` in `Arsenal.Components`.** The two registries are keyed on the same
-   part Id and do different jobs: `Launchers` says how the thing shoots, `Components` is what
-   `WeaponSurvey` reads to decide a craft is a weapons system *at all*. A launcher missing from
-   `Components` loads, resolves its tubes, matches `LauncherForPart` and is then completely
-   invisible — the panel says "no weapons systems" about a craft carrying it, and nothing appears
-   in any log. `ArsenalTests.EveryRegisteredLauncherIsAlsoARecognisedComponent` fails against
-   that state.
+   **The definition also gives the part its panel row.** Launchers and components are two registries
+   keyed on the same part Id: `Launchers` says how the thing shoots, `Components` is what
+   `WeaponSurvey` reads to decide a craft is a weapons system *at all*. The reader mints the
+   component row for every launcher, standalone optic, search set and dispenser, so a definition
+   cannot leave its part invisible. `ArsenalTests.EveryRegisteredLauncherIsAlsoARecognisedComponent`
+   holds that.
 4. **Then nothing else.** `LauncherPart.Find` matches against every registered part Id, and the
-   system selects whichever profile it finds. `ArsenalTests` checks the two registries agree and
-   that each hangs together; `validate-parts.py` checks the geometry still matches the mesh, and
+   system selects whichever profile it finds. `ArsenalTests` checks the registries agree and that
+   each built-in hangs together; `validate-parts.py` checks the geometry still matches the mesh, and
    that every registered `PartId` is declared in the XML — a profile naming a part that exists
    nowhere otherwise passes every gate and finds no launcher in game.
 
@@ -1233,10 +1231,10 @@ dies. Each carries its own `SystemConfig`, so arming one site, sending it a targ
 on a team says nothing about any other.
 
 **A weapon system belongs to the installation running it, not to the session.** `WeaponSystem`
-carries its own `Profile`, `Munition` and `Sensor`, paired by `Arsenal.LoadoutFor` when it
+carries its own `Profile`, `Munition` and `Sensor`, paired by `Catalogue.LoadoutFor` when it
 recognises the part; `Config` deliberately holds none of the three. A session-wide selection is
 what makes two different systems in one world impossible — every reader outside a system's own
-update gets whichever system resolved last, silently. The profiles are the shared `Arsenal`
+update gets whichever system resolved last, silently. The profiles are the shared `Catalogue`
 instances, so panel tuning still reaches every system running that loadout, which is the intent.
 
 **The unit that over-commits is the craft, not the weapon.** Each system counts only the rounds it

@@ -7,7 +7,7 @@ namespace KSArmory.Tests;
 /// Reading a weapons system off a craft the mod did not design.
 ///
 /// <para>The point of surveying is that the geometry comes from the craft. A prefab launcher has
-/// its tube positions generated into <c>Arsenal.cs</c> and cross-checked against the mesh by
+/// its tube positions generated into its definition file and cross-checked against the mesh by
 /// <c>validate-parts.py</c>, because nothing at run time connects the two — a part the player
 /// placed already knows where it is, and these assert that is what comes back.</para>
 /// </summary>

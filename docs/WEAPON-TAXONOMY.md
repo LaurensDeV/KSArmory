@@ -16,8 +16,8 @@ months; a symbol survives edits above it and `grep` finds it.
 
 **Provenance.** The real-world half is public encyclopaedic material. The structural claims are
 well established, but the numbers in the directed-energy, electronic-warfare, ATGM and artillery
-sections were not freshly cited and should be spot-checked before any of them becomes a constant
-in `Arsenal.cs`.
+sections were not freshly cited and should be spot-checked before any of them becomes a value
+in a definition file.
 
 ---
 
@@ -245,7 +245,7 @@ Extending the same list in `AUDIT-2026-08`. All are a profile entry plus art:
 The model is a good implementation of cluster 1. The three axes it does not have, **sensors that
 are not on the launcher**, **guidance that changes during flight**, and **effectors with no flight
 time**, are each the defining feature of a whole tier of real systems, and each is worth more than
-any number of additional rows in `Arsenal.cs`.
+any number of additional definitions.
 
 ---
 
@@ -254,7 +254,7 @@ any number of additional rows in `Arsenal.cs`.
 Not candidates. Things that are wrong now, diagnosed from the source and **not flown**, so per
 CLAUDE.md they are diagnoses rather than fixes.
 
-1. **`Arsenal.Named` falls back to element zero** on an unknown key, so a typo'd munition name
+1. **`Catalogue.Named` falls back to element zero** on an unknown key, so a typo'd munition name
    silently flies the first round in the registry. Still true, still pinned by
    `WeaponSystemSelectionTests`.
 2. **`Aimpoint.OnPart` has no production call site.** Component-level aiming is read by

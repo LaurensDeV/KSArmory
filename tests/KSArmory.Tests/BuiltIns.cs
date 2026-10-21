@@ -7,10 +7,9 @@ namespace KSArmory.Tests;
 /// registered before any test runs.
 ///
 /// <para><b>The suite exercises the shipped files, not a copy of them, through the game's own
-/// <see cref="CoreDefinitions"/>.</b> A weapon that has moved out of <see cref="Arsenal"/> would
-/// otherwise leave every registry-wide invariant — that each launcher names a registered round, that
-/// each is also a recognised component — quietly covering one weapon fewer, with nothing failing to
-/// say so.</para>
+/// <see cref="CoreDefinitions"/>.</b> Read from a copy, a weapon added to one of those files would leave
+/// every registry-wide invariant — that each launcher names a registered round, that each is also a
+/// recognised component — quietly covering one weapon fewer, with nothing failing to say so.</para>
 ///
 /// <para>Name lookups throw on a miss from here on. A weapon renamed in the move would otherwise
 /// come back as whichever round registered first, and every test asking for it would fly that

@@ -32,7 +32,7 @@ file is why it looks the way it does.
 The design note is that a weapon system is *data plus art*. Read against the code that is true of
 the **content** and false only of the **delivery**:
 
-- No part Id appears anywhere outside `Arsenal.cs` and the definitions file the mod reads at load.
+- No part Id appears anywhere outside the definition files the mod reads at load.
   Every occurrence of "Pantsir", "Phalanx", "Sidewinder", "HARM", "B61" or "Litening" in `Sim/` and
   `Ksa/` is inside a comment. Nothing in fire control, guidance, the drives, the sight or the panel
   names a weapon.
@@ -47,8 +47,8 @@ the **content** and false only of the **delivery**:
 What was missing is that `Arsenal.Launchers` and its four siblings were **C# collection literals
 compiled into the assembly**, with no path by which anything else could contribute — so a weapon
 was data plus art plus a fork plus a .NET 10 SDK plus KSA's copyrighted assemblies, which is a
-different offer entirely. `Sim/Catalogue.cs` is now what the mod reads, and `Arsenal` is one
-contributor to it.
+different offer entirely. `Sim/Catalogue.cs` is now what the mod reads, and the built-ins'
+own XML files are contributors to it like any pack's.
 
 ---
 
@@ -194,11 +194,9 @@ reads an empty list as "no pack is installed".
 
 ### 0. The registry becomes an object — nothing external involved
 
-`Arsenal` stays what it is: the built-in catalogue of hand-written C# with the reasoning attached,
-six launchers and six rounds of it now that change 5 has taken the Pantsir out. A new
-`Sim/Catalogue.cs` is the *resolved* registry — built-ins, plus whatever registered — and every
-consumer moves from `Arsenal.Launchers` to `Catalogue.Launchers`. There are 21 such sites across
-`Sim/`, `Ksa/` and `Ksa/Ui/`, and most are one identifier.
+`Sim/Catalogue.cs` is the registry — the built-ins, plus whatever registered — and every consumer reads
+it. Since 2026-10-21 the built-ins register into it from their own XML files like anyone else's
+(`docs/BUILTINS-AS-DATA.md`), and there is no C# catalogue beside it.
 
 Two hazards, both found by reading rather than guessed:
 
@@ -209,7 +207,7 @@ degraded mode. The fix is not to sequence the load carefully; it is to **stop in
 at all**. Those fields want to be unset until a launcher is adopted, which is what
 `WeaponSystem.SampleWorld` already does the moment a part resolves.
 
-**`Arsenal.Named` returns `from[0]` on an unknown key.** A defensible answer to a typo in a file the
+**`Catalogue.Named` returns `from[0]` on an unknown key.** A defensible answer to a typo in a file the
 author owns — its docstring says so, `docs/MODULARITY.md` lists it as the one open item, and
 `ArsenalTests.UnknownNamesFallBackRatherThanThrow` pins it. It is the wrong answer the moment
 strangers write the keys: a bomb rack naming a round that does not exist becomes a 20 kg
@@ -258,7 +256,7 @@ Flat attributes, nested elements only where they carry structure:
 </WeaponPack>
 ```
 
-**An absent attribute means the profile's own default**, which is how `Arsenal.cs` already reads —
+**An absent attribute means the profile's own default**, which is how a C# initialiser reads —
 every entry there states what differs and nothing else. That is also what makes the schema
 additive: a field added to `MunitionProfile` next year is absent from every existing pack and
 behaves as it did before it existed, which is the rule `SensorProfile`'s discrimination fields
@@ -310,18 +308,17 @@ Worth building with change 2 rather than after the first breakage.
 
 The largest payoff, and invisible from the outside.
 
-`tools/validate-parts.py` opens `src/KSArmory/Sim/Arsenal.cs` **as text, in twelve places**, and
-recovers the registry by regex: `Launchers = [...]` split on commas, profile bodies matched as
+`tools/validate-parts.py`'s gates were written against the C# catalogue, opened **as text, in twelve
+places**, and recovered the registry by regex: `Launchers = [...]` split on commas, profile bodies matched as
 `X = new() { … };`, scalars with the `f` suffix required in some fields and forbidden in others,
 vectors required to be positional `new(x, y, z)`. Any expression — a named constant, a
 `float.DegreesToRadians(…)` — silently fails to match and is reported as a missing field. Three
 hand-written tables plus `OPTIC_GEOMETRY` are keyed on **C# field names in this repository**, and an
 unlisted launcher is a hard failure rather than a skip.
 
-Half of it now runs against a bridge rather than against data: every definition in the core's
-`KSArmory/*.xml` is rendered back into the C# initialiser shape those regexes already expect,
-so a weapon moving out of `Arsenal.cs` costs no coverage and buys none either. The gates read the
-XML directly when the last one has moved, and the bridge goes.
+They now run against a bridge: every definition in the core's `KSArmory/*.xml` is rendered into the
+C# initialiser shape those regexes expect, so the move cost no coverage and bought none either.
+Reading the XML directly is what retires the bridge.
 
 Move the definitions into data and the validator reads *the same file the game reads*. Give it
 `--mod-root <dir>` and it becomes a tool a pack author runs against their own folder, gating what is
@@ -463,7 +460,7 @@ one" are then the same assertion. A format exercised only by its author fails th
 larger scale, and the ways it is wrong are discovered by strangers.
 
 It also settles what the format cannot answer on paper — whether an entry loses anything in
-translation. `Arsenal.cs` carries a paragraph per number on which figures are the real weapon's and
+translation. `Arsenal.cs` carried a paragraph per number on which figures are the real weapon's and
 which are gameplay, and that is what the move was judged on: `KSArmory/Weapons.xml` carries the same
 paragraphs as XML comments, which is most of why the format is XML rather than something terser.
 The rest of the built-ins are now moving the same way, one family file at a time

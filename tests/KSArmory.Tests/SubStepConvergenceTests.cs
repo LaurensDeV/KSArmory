@@ -68,7 +68,7 @@ public class SubStepConvergenceTests(ITestOutputHelper Out)
         // is what a trim pass and a release instant actually leave.
         v += Vec.Unit(v) * nudge;
 
-        MunitionProfile warhead = Arsenal.RoundAtSubStep(BuiltIns.ReentryVehicleMk21, subStepMs / 1000.0);
+        MunitionProfile warhead = (BuiltIns.ReentryVehicleMk21).AtSubStep(subStepMs / 1000.0);
 
         Slug round = new(from, v, null, 1, from, Vec.Zero)
         {

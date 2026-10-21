@@ -154,11 +154,11 @@ is already there, and the on-disk format does not move: `BatterySettings` is ser
 `Dictionary<string, BatterySettings>`, so the JSON carries property names and craft names and no
 type name.
 
-**The cost, stated plainly.** `Arsenal`'s `LauncherProfile` entries are also called weapon systems
+**The cost, stated plainly.** The built-in `LauncherProfile` definitions are also called weapon systems
 in the docs, so the word would name both the design and the fitted instance. The answer is the
 relation the mod already has and already documents: `MunitionProfile` is a round's design and
 `Interceptor` is one in the air. `LauncherProfile` is a system's design and `WeaponSystem` is one
-fitted to a craft. Say that once in `Arsenal`'s summary and the ambiguity is spent.
+fitted to a craft. Say that once in `LauncherProfile`'s summary and the ambiguity is spent.
 
 ### For the per-launcher weapon: `FireUnit`
 

@@ -9,7 +9,7 @@ namespace KSArmory.Tests;
 /// <para>The mod ships one launcher, one round and one sensor, and every assertion in
 /// <see cref="ArsenalTests"/> is therefore trivially satisfied: with one candidate, "picked the
 /// right one" and "picked the only one" are indistinguishable, and the fallback in
-/// <c>Arsenal.Named</c> returns element zero, which <em>is</em> the answer. None of it can fail
+/// <c>Catalogue.Named</c> returns element zero, which <em>is</em> the answer. None of it can fail
 /// while the registry has one element, so none of it is guarding anything yet.</para>
 ///
 /// <para>These use the internal registry overloads to put three of each in play. See
@@ -60,16 +60,16 @@ public class WeaponSystemSelectionTests
     [InlineData("Mod_Prefab_Charlie", 2)]
     public void EveryRegisteredLauncherIsReachableByItsPartId(string partId, int expected)
     {
-        Assert.Same(ThreeLaunchers[expected], Arsenal.LauncherForPart(ThreeLaunchers, partId));
+        Assert.Same(ThreeLaunchers[expected], Catalogue.LauncherForPart(ThreeLaunchers, partId));
     }
 
     [Fact]
     public void APartFromAnotherModMatchesNothing()
     {
-        Assert.Null(Arsenal.LauncherForPart(ThreeLaunchers, "SomeOtherMod_Prefab_Thing"));
-        Assert.Null(Arsenal.LauncherForPart(ThreeLaunchers, null));
-        Assert.Null(Arsenal.LauncherForPart(ThreeLaunchers, ""));
-        Assert.Null(Arsenal.LauncherForPart([], "Mod_Prefab_Alpha"));
+        Assert.Null(Catalogue.LauncherForPart(ThreeLaunchers, "SomeOtherMod_Prefab_Thing"));
+        Assert.Null(Catalogue.LauncherForPart(ThreeLaunchers, null));
+        Assert.Null(Catalogue.LauncherForPart(ThreeLaunchers, ""));
+        Assert.Null(Catalogue.LauncherForPart([], "Mod_Prefab_Alpha"));
     }
 
     [Theory]
@@ -78,7 +78,7 @@ public class WeaponSystemSelectionTests
     [InlineData("round-c", 2)]
     public void EveryRegisteredMunitionIsReachableByName(string name, int expected)
     {
-        Assert.Same(ThreeMunitions[expected], Arsenal.Named(ThreeMunitions, name, m => m.Name));
+        Assert.Same(ThreeMunitions[expected], Catalogue.Named(ThreeMunitions, name, m => m.Name));
     }
 
     /// <summary>
@@ -90,8 +90,8 @@ public class WeaponSystemSelectionTests
     [Fact]
     public void AnUnknownNameQuietlyFallsBackToTheFirstEntry()
     {
-        Assert.Same(ThreeMunitions[0], Arsenal.Named(ThreeMunitions, "no such round", m => m.Name));
-        Assert.Same(ThreeSensors[0], Arsenal.Named(ThreeSensors, "no such sensor", s => s.Name));
+        Assert.Same(ThreeMunitions[0], Catalogue.Named(ThreeMunitions, "no such round", m => m.Name));
+        Assert.Same(ThreeSensors[0], Catalogue.Named(ThreeSensors, "no such sensor", s => s.Name));
     }
 
     // ---- Switching between systems -------------------------------------
@@ -104,11 +104,11 @@ public class WeaponSystemSelectionTests
     public void SelectingASystemMovesTheLauncherRoundAndSensorTogether()
     {
         (MunitionProfile munition, SensorProfile sensor) =
-            Arsenal.LoadoutFor(ThreeLaunchers[2], ThreeMunitions, ThreeSensors);
+            Catalogue.LoadoutFor(ThreeLaunchers[2], ThreeMunitions, ThreeSensors);
         Assert.Equal("round-c", munition.Name);
         Assert.Equal("set-c", sensor.Name);
 
-        (munition, sensor) = Arsenal.LoadoutFor(ThreeLaunchers[0], ThreeMunitions, ThreeSensors);
+        (munition, sensor) = Catalogue.LoadoutFor(ThreeLaunchers[0], ThreeMunitions, ThreeSensors);
         Assert.Equal("round-a", munition.Name);
         Assert.Equal("set-a", sensor.Name);
     }
@@ -120,7 +120,7 @@ public class WeaponSystemSelectionTests
         {
             LauncherProfile launcher = ThreeLaunchers[i % ThreeLaunchers.Count];
             (MunitionProfile munition, SensorProfile sensor) =
-                Arsenal.LoadoutFor(launcher, ThreeMunitions, ThreeSensors);
+                Catalogue.LoadoutFor(launcher, ThreeMunitions, ThreeSensors);
 
             Assert.Equal(launcher.Munition, munition.Name);
             Assert.Equal(launcher.Sensor, sensor.Name);
@@ -184,10 +184,10 @@ public class WeaponSystemSelectionTests
         Assert.Null(rail.PodsMarker);
         Assert.Null(rail.RadarMarker);
 
-        Assert.Same(rail, Arsenal.LauncherForPart(registry, rail.PartId));
+        Assert.Same(rail, Catalogue.LauncherForPart(registry, rail.PartId));
 
         (MunitionProfile munition, SensorProfile sensor) =
-            Arsenal.LoadoutFor(rail, ThreeMunitions, ThreeSensors);
+            Catalogue.LoadoutFor(rail, ThreeMunitions, ThreeSensors);
         Assert.Equal("round-b", munition.Name);
         Assert.Equal("set-b", sensor.Name);
     }

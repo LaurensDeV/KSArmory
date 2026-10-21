@@ -1,25 +1,19 @@
 namespace KSArmory;
 
 /// <summary>
-/// Every weapon the mod knows about right now: the built-ins from <see cref="Arsenal"/>, plus
-/// whatever else was registered before the roster was built.
-///
-/// <para><b>This is what the mod reads.</b> <see cref="Arsenal"/> is the hand-written catalogue of
-/// what ships in this archive and stays that way; a lookup taken against it directly sees only the
-/// built-ins, which is a weapon somebody registered going silently unrecognised. The two are kept
-/// apart rather than merged because the split is what lets the registry grow at runtime while
-/// <c>tools/validate-parts.py</c> goes on reading the built-ins out of one file.</para>
+/// Every weapon the mod knows about: KSArmory's own definition files and whatever any pack registered, until
+/// the roster is built. <b>This is what the mod reads</b>; nothing else holds a registry.
 /// </summary>
 public static class Catalogue
 {
-    private static readonly List<LauncherProfile> _launchers = [.. Arsenal.Launchers];
-    private static readonly List<MunitionProfile> _munitions = [.. Arsenal.Munitions];
-    private static readonly List<SensorProfile> _sensors = [.. Arsenal.Sensors];
-    private static readonly List<OpticProfile> _optics = [.. Arsenal.Optics];
-    private static readonly List<SearchSetProfile> _searchSets = [.. Arsenal.SearchSets];
-    private static readonly List<DecoyProfile> _decoys = [.. Arsenal.Decoys];
-    private static readonly List<DispenserProfile> _dispensers = [.. Arsenal.Dispensers];
-    private static readonly List<ComponentProfile> _components = [.. Arsenal.Components];
+    private static readonly List<LauncherProfile> _launchers = [];
+    private static readonly List<MunitionProfile> _munitions = [];
+    private static readonly List<SensorProfile> _sensors = [];
+    private static readonly List<OpticProfile> _optics = [];
+    private static readonly List<SearchSetProfile> _searchSets = [];
+    private static readonly List<DecoyProfile> _decoys = [];
+    private static readonly List<DispenserProfile> _dispensers = [];
+    private static readonly List<ComponentProfile> _components = [];
 
     public static IReadOnlyList<LauncherProfile> Launchers => _launchers;
     public static IReadOnlyList<MunitionProfile> Munitions => _munitions;
@@ -31,7 +25,8 @@ public static class Catalogue
 
     /// <summary>
     /// The parts recognised on a craft the mod did not design. Separate from
-    /// <see cref="Launchers"/> for the reason <see cref="Arsenal.Components"/> gives.
+    /// <see cref="Launchers"/>: a launcher describes how a part shoots, a component is what tells the survey a
+    /// craft carries a weapons system at all.
     /// </summary>
     public static IReadOnlyList<ComponentProfile> Components => _components;
 
@@ -222,7 +217,7 @@ public static class Catalogue
 
     /// <summary>The launcher matching a part Id, or null if that part is not one of ours.</summary>
     public static LauncherProfile? LauncherForPart(string? partId)
-        => Arsenal.LauncherForPart(_launchers, partId);
+        => LauncherForPart(_launchers, partId);
 
     /// <summary>The optical head a part Id names, or null if it names none.</summary>
     public static OpticProfile? OpticForPart(string? partId)
@@ -270,12 +265,12 @@ public static class Catalogue
     /// </summary>
     internal static bool MissingNameThrows { get; set; }
 
-    /// <summary>The named expendable, falling back to the first as <see cref="Arsenal.Named{T}"/> does.</summary>
+    /// <summary>The named expendable, falling back to the first as <see cref="Named{T}"/> does.</summary>
     public static DecoyProfile DecoyNamed(string name) => Resolve(_decoys, name, d => d.Name, "decoy");
 
     /// <summary>
     /// The named round, falling back to the first registered rather than throwing — see
-    /// <see cref="Arsenal.Named{T}"/> for why, and for what that costs.
+    /// <see cref="Named{T}"/> for why, and for what that costs.
     /// </summary>
     public static MunitionProfile MunitionNamed(string name) => Resolve(_munitions, name, m => m.Name, "round");
 
@@ -287,7 +282,7 @@ public static class Catalogue
         => Find(from, name, key)
            ?? (MissingNameThrows
                    ? throw new KeyNotFoundException($"no {kind} is registered as '{name}'")
-                   : Arsenal.Named(from, name, key));
+                   : Named(from, name, key));
 
     /// <summary>
     /// The named round, or null when nothing carries that name.
@@ -314,9 +309,59 @@ public static class Catalogue
 
     /// <summary>
     /// The round and sensor a launcher names, resolved together — see
-    /// <see cref="Arsenal.LoadoutFor"/> for why the pairing is made in one place.
+    /// <see cref="LoadoutFor(LauncherProfile, IReadOnlyList{MunitionProfile}, IReadOnlyList{SensorProfile})"/> for why the pairing is made in one place.
     /// </summary>
     public static (MunitionProfile Munition, SensorProfile Sensor) LoadoutFor(LauncherProfile launcher)
         => (launcher.Munition.Length == 0 ? MunitionProfile.None : MunitionNamed(launcher.Munition),
             SensorNamed(launcher.Sensor));
+
+    /// <summary>
+    /// The same lookup against an explicit registry.
+    ///
+    /// <para>Exists so the selection logic can be tested against a registry of any size. With one
+    /// entry every registry assertion is trivially satisfied and cannot distinguish "picks the
+    /// right one" from "picks the only one".</para>
+    /// </summary>
+    internal static LauncherProfile? LauncherForPart(IReadOnlyList<LauncherProfile> from, string? partId)
+    {
+        if (string.IsNullOrEmpty(partId)) return null;
+
+        for (int i = 0; i < from.Count; i++)
+        {
+            if (from[i].PartId == partId) return from[i];
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// The round and sensor a launcher names, resolved together against explicit registries.
+    ///
+    /// <para>Together because a launcher left holding another system's round is a wrong-weapon
+    /// bug with nothing on screen to show for it. Every caller that adopts a launcher takes all
+    /// three, and this is the one place that pairing is made.</para>
+    /// </summary>
+    internal static (MunitionProfile Munition, SensorProfile Sensor) LoadoutFor(
+        LauncherProfile launcher,
+        IReadOnlyList<MunitionProfile> munitions,
+        IReadOnlyList<SensorProfile> sensors)
+        => (launcher.Munition.Length == 0 ? MunitionProfile.None : Named(munitions, launcher.Munition, m => m.Name),
+            Named(sensors, launcher.Sensor, s => s.Name));
+
+    /// <summary>
+    /// First entry whose key matches, or the first entry as a fallback. Internal rather than
+    /// private so the fallback can be tested against a registry with more than one candidate,
+    /// where "matched" and "fell back to element zero" are actually distinguishable.
+    ///
+    /// <para>The fallback keeps a typo in a shipped profile playable and cannot report one.
+    /// <see cref="Catalogue.TryMunitionNamed"/> is the form that can, and is what anything
+    /// judging a name rather than flying a round asks.</para>
+    /// </summary>
+    internal static T Named<T>(IReadOnlyList<T> from, string name, Func<T, string> key)
+    {
+        for (int i = 0; i < from.Count; i++)
+        {
+            if (key(from[i]) == name) return from[i];
+        }
+        return from[0];
+    }
 }

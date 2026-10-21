@@ -24,7 +24,7 @@ internal static class LauncherPart
     /// <summary>
     /// Finds a launcher on a vehicle, or null if it carries none.
     ///
-    /// <para>Matches against every launcher in <see cref="Arsenal"/> rather than one hardcoded
+    /// <para>Matches against every launcher in <see cref="Catalogue"/> rather than one hardcoded
     /// Id, so adding a weapon system is a registry entry and needs no change here. Answers the
     /// "does this craft carry one at all" question and stops at the first match; a system
     /// resolves its <em>own</em> launcher through <see cref="FindNth"/> on its ordinal, because

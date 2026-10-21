@@ -80,7 +80,7 @@ public readonly record struct BuiltInComponent(WeaponRole Role, string DisplayNa
 ///
 /// <para>The position and rotation come from the craft itself rather than from a table. That is
 /// the whole point of surveying: a prefab launcher has to have its tube geometry generated into
-/// <c>Arsenal.cs</c> and cross-checked by <c>validate-parts.py</c>, because nothing at run time
+/// its definition file and cross-checked by <c>validate-parts.py</c>, because nothing at run time
 /// connects the model to the code. A part the player placed knows where it is.</para>
 /// </summary>
 /// <param name="Rides">

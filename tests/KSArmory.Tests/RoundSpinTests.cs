@@ -76,7 +76,7 @@ public class RoundSpinTests
     [Fact]
     public void OnlyTheBusWhoseRvsCarrySpinMotorsSpinsThem()
     {
-        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
             Assert.True((launcher.ReleaseSpin is not null) == ReferenceEquals(launcher, BuiltIns.MirvBus), launcher.DisplayName);
     }
 }

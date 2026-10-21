@@ -304,7 +304,7 @@ public class ProbeCrossingFloorTests(ITestOutputHelper Out)
         {
             foreach (double ms in new[] { 1.0, 0.25 })
             {
-                MunitionProfile warhead = Arsenal.RoundAtSubStep(Constant, ms / 1000.0);
+                MunitionProfile warhead = (Constant).AtSubStep(ms / 1000.0);
                 Say($"constant at {ms:F2} ms, {slope:F3}, as it ships",
                     Sample(11, N, warhead, slope, true, 0.2, 1_500_000.0, false));
                 Say($"constant at {ms:F2} ms, {slope:F3}, probe on the terrain",

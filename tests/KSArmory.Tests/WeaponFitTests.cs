@@ -314,7 +314,7 @@ public class WeaponFitTests
     [Fact]
     public void TheRailIsDescribedAsOneRoundOnAMountThatDoesNotMove()
     {
-        LauncherProfile rail = Arsenal.LauncherForPart(Catalogue.Launchers,
+        LauncherProfile rail = Catalogue.LauncherForPart(Catalogue.Launchers,
                                                        "KSArmory_Prefab_SidewinderRail")!;
         WeaponFit fit = WeaponFit.Of(rail, Catalogue.SensorNamed(rail.Sensor));
 

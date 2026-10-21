@@ -83,7 +83,7 @@ public class WalkFloorTests(ITestOutputHelper Out)
                                                new ImpactPredictor.Drag(DensityAt, BuiltIns.ReentryVehicleMk21),
                                                atmosphericStepSeconds: 0.25, stopOnTheSurface: true));
 
-        MunitionProfile warhead = Arsenal.RoundAtSubStep(BuiltIns.ReentryVehicleMk21, subStepMs / 1000.0);
+        MunitionProfile warhead = (BuiltIns.ReentryVehicleMk21).AtSubStep(subStepMs / 1000.0);
         Slug round = new(from, v, null, 1, from, Vec.Zero)
         {
             Munition = warhead,

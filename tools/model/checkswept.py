@@ -250,12 +250,11 @@ def placement(pivot_from_turret, reference_rad, elevation_rad, bearing_rad, turr
     return fn
 
 
-# Weapons that have moved out of Arsenal.cs and into the shipped definitions files. Both readers
-# below are driven by the registry, so a weapon leaving the C# takes its coverage with it and
-# this tool goes on printing "clear" -- the exact silence the coverage gate exists to prevent.
+# The weapon definitions. Both readers below are driven by them, so a launcher missing from them takes
+# its coverage with it and this tool goes on printing "clear" -- the silence the coverage gate prevents.
 DEFINITIONS = MOD / "KSArmory"
 
-# The C# field each launcher had in Arsenal.cs, which vehicles() and AUTHORED_TRAINERS are keyed on.
+# The name vehicles() and AUTHORED_TRAINERS key each launcher on.
 _SHIPPED_NAME = {
     "KSArmory_Prefab_Launcher6": "PantsirS1",
     "KSArmory_Prefab_SidewinderRail": "SidewinderRail",
@@ -268,11 +267,6 @@ _SHIPPED_NAME = {
     "KSArmory_Prefab_M197": "M197",
     "KSArmory_Prefab_Yal1Turret": "Yal1Beam",
 }
-
-
-def arsenal():
-    source = MOD / "Sim" / "Arsenal.cs"
-    return source.read_text() if source.is_file() else ""
 
 
 def shipped_launchers():
@@ -290,7 +284,7 @@ def shipped_launchers():
 
 
 def read_travel(profile="PantsirS1"):
-    """Elevation travel and the forward depression floor, from the C# rather than a fourth copy.
+    """Elevation travel and the forward depression floor, from the definition rather than a fourth copy.
 
     Scoped to one profile's initialiser. Swept over the whole file it takes whichever launcher
     appears first, so adding a CIWS that depresses to -25 sent the Pantsir -- which cannot go
@@ -298,13 +292,9 @@ def read_travel(profile="PantsirS1"):
     """
     defaults = (MOD / "Sim" / "LauncherProfile.cs").read_text()
 
-    block = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", arsenal(), re.S)
-    if block is not None:
-        overrides = block.group(1)
-    else:
-        # Rendered into the same shape, so the field reader below needs no second syntax.
-        attrs = shipped_launchers().get(profile, {})
-        overrides = "\n".join(f"{k} = {v}f," for k, v in attrs.items())
+    # Rendered into an initialiser's shape, so the field reader below needs no second syntax.
+    attrs = shipped_launchers().get(profile, {})
+    overrides = "\n".join(f"{k} = {v}f," for k, v in attrs.items())
 
     def value(field, fallback):
         match = re.search(rf"{field}\s*=\s*(-?[\d.]+)f\s*[,;]", overrides)
@@ -370,24 +360,16 @@ def check_every_articulated_launcher_is_swept(swept):
     declares a TurretMarker moves, and a body set nobody named is silently not swept while this
     tool still prints "clear". The registry is the authority on which those are.
     """
-    text = arsenal()
     shipped = shipped_launchers()
-
-    registered = re.search(r"Launchers\s*=\s*\[(.*?)\];", text, re.S)
-    if registered is None and text:
-        print("  cannot read Arsenal.Launchers -- coverage unchecked")
+    if not shipped:
+        print("  no launcher definitions found -- coverage unchecked")
         return 1
 
     covered = {v["profile"] for v in swept}
     problems = 0
 
-    names = [] if registered is None else [n.strip() for n in registered.group(1).split(",") if n.strip()]
-    names += [n for n in sorted(shipped) if n not in names]
-
-    for profile in names:
-        block = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
-        trains = (block is not None and "TurretMarker" in block.group(1)) or "TurretMarker" in shipped.get(profile, {})
-        if not trains:
+    for profile in sorted(shipped):
+        if "TurretMarker" not in shipped[profile]:
             continue                    # does not train, so it has nothing to sweep
         if profile in AUTHORED_TRAINERS:
             print(f"  not swept {profile}: {AUTHORED_TRAINERS[profile]}")

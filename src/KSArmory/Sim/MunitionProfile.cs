@@ -310,6 +310,17 @@ public sealed class MunitionProfile
     public double SubStep => SubStepSeconds > 0.0f ? SubStepSeconds : Interceptor.SubStep;
 
     /// <summary>
+    /// This round integrating at a stated sub-step. What <see cref="IcbmConfig.WarheadSubStepMs"/> flies; a copy
+    /// rather than an edit, because the registered profile is shared by every rocket in the world.
+    /// </summary>
+    public MunitionProfile AtSubStep(double seconds)
+    {
+        MunitionProfile stepped = Copy();
+        stepped.SubStepSeconds = (float)seconds;
+        return stepped;
+    }
+
+    /// <summary>
     /// How many sub-steps one frame may be cut into for this round, chosen so that
     /// <c>SubStep * MaxSubSteps</c> still spans <see cref="MaxFaithfulStepSeconds"/>.
     /// </summary>
