@@ -514,6 +514,9 @@ TOOLS = {
                      lambda a: [_text(json.dumps(send("attitude", **a), indent=1))]),
     "ksa_save": ("Write the game to a save of this name, as KSA's save console command does.",
                  {"name": {"type": "string"}}, ["name"], lambda a: [_text(json.dumps(send("save", **a)))]),
+    "ksa_disable": ("Trip the mod's fault limit, as ten failures would: it lets go of the game and disables itself "
+                    "for the session. The bridge goes with it -- nothing answers after this.", {}, [],
+                    lambda a: [_text(json.dumps(send("disable")))]),
     "ksa_log": ("The mod's log, filtered.", {"pattern": {"type": "string"}, "lines": _num("count")}, [],
                 lambda a: [_text(log_tail(a.get("pattern", ""), int(a.get("lines", 40))))]),
 }

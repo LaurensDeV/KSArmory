@@ -52,8 +52,10 @@ internal sealed class Bridge : IViewPose
                   Countermeasures countermeasures, Action<Vehicle> focus,
                   Func<IEnumerable<OpticalHeads.Entry>> heads,
                   Func<Vehicle?, IcbmComputer?> computerFor,
-                  Func<IEnumerable<SearchSet>> searchSets, Func<Vehicle?, object?> pictureFor)
+                  Func<IEnumerable<SearchSet>> searchSets, Func<Vehicle?, object?> pictureFor,
+                  Action tripFaultLimit)
     {
+        _tripFaultLimit = tripFaultLimit;
         _searchSets = searchSets;
         _pictureFor = pictureFor;
         _computerFor = computerFor;
@@ -67,6 +69,7 @@ internal sealed class Bridge : IViewPose
     }
 
     private readonly Func<Vehicle?, IcbmComputer?> _computerFor;
+    private readonly Action _tripFaultLimit;
     private readonly Func<IEnumerable<SearchSet>> _searchSets;
     private readonly Func<Vehicle?, object?> _pictureFor;
 
@@ -259,6 +262,7 @@ internal sealed class Bridge : IViewPose
             "capture" => BeginCapture(command),
             "load" => BeginLoad(command),
             "system" => System(command),
+            "disable" => Disable(),
             "optic" => Optic(command),
             "search" => Search(command),
             "clouds" => Clouds(command),
@@ -903,6 +907,14 @@ internal sealed class Bridge : IViewPose
         }
 
         return null;
+    }
+
+    // Trips the fault limit, so what the mod lets go of when it disables itself can be flown. The bridge
+    // goes with it: nothing answers after this one.
+    private Reply Disable()
+    {
+        _tripFaultLimit();
+        return Done(new() { ["disabled"] = true });
     }
 
     // One craft's weapons settings, as the panel would set them, and optionally its missiles flown on a

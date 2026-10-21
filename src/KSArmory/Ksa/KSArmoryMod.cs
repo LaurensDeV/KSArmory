@@ -251,7 +251,12 @@ public sealed class KSArmoryMod
                                  () => _roster?.All ?? [], () => _roster?.Loose ?? [],
                                  _countermeasures, craft => _ui?.Manage(craft),
                                  () => _heads?.All ?? [], craft => _icbms?.For(craft),
-                                 () => _searchSets?.All ?? [], _picture.BestFor);
+                                 () => _searchSets?.All ?? [], _picture.BestFor,
+                                 () =>
+                                 {
+                                     _faults = FaultLimit - 1;
+                                     Fault("bridge", new InvalidOperationException("the fault limit was tripped from the bridge"));
+                                 });
         }
 
         Log.Info(Build.Developer
