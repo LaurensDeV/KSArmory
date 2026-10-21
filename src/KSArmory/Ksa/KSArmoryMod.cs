@@ -1074,29 +1074,7 @@ public sealed class KSArmoryMod
         // Markers pin the craft they are showing, so a destroyed one stays reachable otherwise.
         Markers.Forget();
 
-        _icbms?.WriteDown();
-        _roster?.Clear();
-        _armaments.Clear();
-        _picture.Clear();
-        _heads?.Clear();
-        _heads = null;
-        _searchSets?.Clear();
-        _searchSets = null;
-        _countermeasures?.Discard();
-        _countermeasures = null;
-        _icbms?.Clear();
-        _icbms = null;
-        KsaWorld.Wreckage.Clear();
-        AttitudeHook.Remove();
-        PreRenderHook.Remove();
-        WorldReloadHook.Remove();
-        DoseRateHook.Remove();
-        Radioactivity.Clear();
-        GroundTrackHook.Remove();
-        PlanetMapHook.Remove();
-        SaveHook.Remove();
-        RoundBodyDrawHook.Remove();
-        LooseBodyDrawHook.Remove();
+        LetGoOfTheGame();
         KsaWorld.ResetSimStepTracking();
         _roster = null;
         _ui = null;
@@ -1528,6 +1506,13 @@ public sealed class KSArmoryMod
         if (_faults < FaultLimit) return;
 
         _disabled = true;
+        LetGoOfTheGame();
+        Log.Error("too many faults - air defence disabled for this session");
+    }
+
+    // Shared by unloading and by the fault limit, so a hook added to one cannot be missed by the other.
+    private void LetGoOfTheGame()
+    {
         _icbms?.WriteDown();
         _roster?.Clear();
         _armaments.Clear();
@@ -1551,6 +1536,5 @@ public sealed class KSArmoryMod
         SaveHook.Remove();
         RoundBodyDrawHook.Remove();
         LooseBodyDrawHook.Remove();
-        Log.Error("too many faults - air defence disabled for this session");
     }
 }
