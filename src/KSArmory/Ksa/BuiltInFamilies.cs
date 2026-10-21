@@ -76,9 +76,6 @@ public static class BuiltInFamilies
         }
     }
 
-    /// <summary>Whether what is asked for differs from what loaded, so a restart is owed.</summary>
-    public static bool RestartOwed => !_wanted.SetEquals(_offAtStart);
-
     /// <summary>
     /// Takes a switched-off family's parts out of the editor's list. A craft already carrying one still
     /// loads, since a hidden template is still a template.

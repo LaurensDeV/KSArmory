@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-334 types and 890 members across 12 assemblies.
+335 types and 892 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -182,12 +182,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void Image(Brutal.ImGuiApi.ImTextureRef, ref Brutal.Numerics.float2, ref System.Nullable`1<Brutal.Numerics.float2>, ref System.Nullable`1<Brutal.Numerics.float2>)`
 - `void OpenPopup(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiPopupFlags)`
 - `void PopID()`
+- `void PopItemFlag()`
 - `void PopStyleColor(int)`
 - `void PopStyleVar(int)`
 - `void PopTextWrapPos()`
 - `void ProgressBar(float, ref System.Nullable`1<Brutal.Numerics.float2>, Brutal.ImGuiApi.ImString)`
 - `void PushID(Brutal.ImGuiApi.ImString)`
 - `void PushID(int)`
+- `void PushItemFlag(Brutal.ImGuiApi.ImGuiItemFlags, bool)`
 - `void PushStyleColor(Brutal.ImGuiApi.ImGuiCol, ref Brutal.Numerics.float4)`
 - `void PushStyleVar(Brutal.ImGuiApi.ImGuiStyleVar, ref Brutal.Numerics.float2)`
 - `void PushTextWrapPos(float)`
@@ -247,6 +249,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 *referenced as a type only*
 
 ### Brutal.ImGuiApi.ImGuiInputTextFlags
+
+*referenced as a type only*
+
+### Brutal.ImGuiApi.ImGuiItemFlags
 
 *referenced as a type only*
 

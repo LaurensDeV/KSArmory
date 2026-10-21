@@ -168,10 +168,16 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         if (BuiltInFamilies.Loaded.Count > 0 && ImGui.BeginMenu("Built-in weapons"))
         {
+            // Kept open on a click, so the label saying a restart is owed is seen when it changes.
+            ImGui.PushItemFlag(ImGuiItemFlags.AutoClosePopups, false);
             foreach (string family in BuiltInFamilies.Loaded)
             {
                 bool on = !BuiltInFamilies.Wanted.Contains(family);
-                if (ImGui.MenuItem(FamilyLabel(family), default, ref on, true)) BuiltInFamilies.Want(family, on);
+                string owed = on == BuiltInFamilies.OffAtStart.Contains(family) ? " (restart to apply)" : "";
+                if (ImGui.MenuItem($"{FamilyLabel(family)}{owed}###{family}", default, ref on, true))
+                {
+                    BuiltInFamilies.Want(family, on);
+                }
                 Tip("Off, its parts still load on craft that carry them, as plain structure, and leave the "
                     + "editor's list; its rounds and sensors stay available to other packs. Takes effect "
                     + "when KSA next starts.");
@@ -183,7 +189,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             Tip("Every family off leaves weapon packs as the only weapons there are: how a pack that "
                 + "replaces the whole arsenal, such as the example mod's copy, is flown on its own.");
 
-            if (BuiltInFamilies.RestartOwed) ImGui.TextColored(Amber, "Restart KSA to apply");
+            ImGui.PopItemFlag();
             ImGui.EndMenu();
         }
     }
