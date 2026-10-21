@@ -56,4 +56,13 @@ public static class BuiltIns
     public static SensorProfile SeekerHeadAim9 => Catalogue.SensorNamed("AIM9SEEK");
     public static SensorProfile SeekerHeadAim120 => Catalogue.SensorNamed("AIM120SEEK");
     public static SensorProfile SeekerHeadAgm88 => Catalogue.SensorNamed("AGM88SEEK");
+
+    public static LauncherProfile Ciws => Catalogue.LauncherForPart("KSArmory_Prefab_Ciws")!;
+    public static LauncherProfile Mk42 => Catalogue.LauncherForPart("KSArmory_Prefab_Mk42")!;
+    public static LauncherProfile M197 => Catalogue.LauncherForPart("KSArmory_Prefab_M197")!;
+    public static MunitionProfile Cannon20Mm => Catalogue.MunitionNamed("20MM");
+    public static MunitionProfile Shell5In54 => Catalogue.MunitionNamed("5IN54");
+    public static SensorProfile SearchRadarVps2 => Catalogue.SensorNamed("VPS2");
+    public static SensorProfile FireControlMk68 => Catalogue.SensorNamed("MK68");
+    public static SensorProfile TurretSight => Catalogue.SensorNamed("TSU");
 }

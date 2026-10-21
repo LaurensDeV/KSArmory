@@ -163,7 +163,7 @@ public class RoundReapTests
     [Fact]
     public void APathThatCanOnlyLandRunsNoClock()
     {
-        MunitionProfile gun = Arsenal.Shell5In54;
+        MunitionProfile gun = BuiltIns.Shell5In54;
         Assert.True(gun.HitsTerrain);
 
         Slug shell = Released(gun);

@@ -20,12 +20,12 @@ public class GunCadenceTests
     }
 
     [Fact]
-    public void OnePressOnTheMk42IsOneShell() => Assert.Equal(1, Fire(Arsenal.Mk42, 90.0, held: false));
+    public void OnePressOnTheMk42IsOneShell() => Assert.Equal(1, Fire(BuiltIns.Mk42, 90.0, held: false));
 
     [Fact]
     public void HeldTheMk42FiresAtItsOwnRate()
     {
         // Forty a minute, the first on the press: a gap after each one-round burst would slow it.
-        Assert.Equal(40, Fire(Arsenal.Mk42, 60.0 - Frame, held: true));
+        Assert.Equal(40, Fire(BuiltIns.Mk42, 60.0 - Frame, held: true));
     }
 }

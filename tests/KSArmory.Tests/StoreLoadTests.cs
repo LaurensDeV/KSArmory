@@ -72,7 +72,7 @@ public class StoreLoadTests
         Assert.True(BuiltIns.AmraamRail.StoreMassKg is > 0f and < 201f);
         Assert.True(BuiltIns.SidewinderRail.StoreMassKg is > 0f and < 120f);
         Assert.True(Arsenal.MirvBus.StoreMassKg * Arsenal.MirvBus.TubeCount < 3450f);
-        Assert.True(Arsenal.Ciws.GunRoundMassKg * Arsenal.Ciws.GunAmmo < 6200f);
-        Assert.True(Arsenal.M197.GunRoundMassKg * Arsenal.M197.GunAmmo < 330f);
+        Assert.True(BuiltIns.Ciws.GunRoundMassKg * BuiltIns.Ciws.GunAmmo < 6200f);
+        Assert.True(BuiltIns.M197.GunRoundMassKg * BuiltIns.M197.GunAmmo < 330f);
     }
 }

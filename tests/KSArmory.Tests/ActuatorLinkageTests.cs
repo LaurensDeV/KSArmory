@@ -9,7 +9,7 @@ namespace KSArmory.Tests;
 /// </summary>
 public class ActuatorLinkageTests
 {
-    private static readonly LauncherProfile Gun = Arsenal.M197;
+    private static readonly LauncherProfile Gun = BuiltIns.M197;
 
     public static TheoryData<double, double> Poses() => new()
     {
@@ -80,7 +80,7 @@ public class ActuatorLinkageTests
 /// <summary>The M197's barrels spin up while it fires, run down after, and stay on the gun.</summary>
 public class GunRotorTests
 {
-    private static readonly LauncherProfile Gun = Arsenal.M197;
+    private static readonly LauncherProfile Gun = BuiltIns.M197;
 
     [Fact]
     public void AThirdOfATurnPutsEachBarrelWhereTheNextOneWas()

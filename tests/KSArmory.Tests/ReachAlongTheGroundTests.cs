@@ -22,7 +22,7 @@ public class ReachAlongTheGroundTests(ITestOutputHelper output)
     private const double MountHeight = 4.0;
     private static readonly double3 Centre = new(0, 0, -(Radius + MountHeight));
 
-    private static MunitionProfile Shell => Arsenal.Shell5In54;
+    private static MunitionProfile Shell => BuiltIns.Shell5In54;
 
     private static double3 GravityAt(double3 p)
     {

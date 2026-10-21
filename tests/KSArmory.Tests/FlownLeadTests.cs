@@ -126,14 +126,14 @@ public class FlownLeadTests(ITestOutputHelper output)
     {
         Name = "FlownLeadShell",
         DisplayName = "flown lead shell",
-        LaunchSpeed = Arsenal.Shell5In54.LaunchSpeed,
-        DragK = dragK >= 0f ? dragK : Arsenal.Shell5In54.DragK,
+        LaunchSpeed = BuiltIns.Shell5In54.LaunchSpeed,
+        DragK = dragK >= 0f ? dragK : BuiltIns.Shell5In54.DragK,
         NeutralDensityRatio = 0f,
-        MaxFlightSeconds = Arsenal.Shell5In54.MaxFlightSeconds,
+        MaxFlightSeconds = BuiltIns.Shell5In54.MaxFlightSeconds,
         FuseRadius = 0f,
         FuseArmSeconds = 0f,
         TimedFuse = true,
-        ChargeKg = Arsenal.Shell5In54.ChargeKg,
+        ChargeKg = BuiltIns.Shell5In54.ChargeKg,
     };
 
     private static double3 At(double rangeKm, double elevationDeg)

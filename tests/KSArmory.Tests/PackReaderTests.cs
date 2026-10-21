@@ -138,6 +138,57 @@ public class PackReaderTests
                      Assert.Single(plain.Provides, p => p.Role == WeaponRole.FireControl).DisplayName);
     }
 
+    private const string AChinGun =
+        """
+        <Launcher PartId="TestPack_Prefab_Chin" DisplayName="Chin gun" Munition="Dart" Sensor="Eye"
+                  TurretMarker="Yoke" GunsMarker="Gun" GunPivotFromTurret="0.3, -0.1, 0"
+                  GunMunition="Dart" GunBarrelMarker="Barrel"
+                  GunCylinderMarker="Cyl" GunCylinderPinFromTurret="0.03, 0.37, 0"
+                  GunRodMarker="Rod" GunRodPinFromTurret="0.33, 0.37, 0"
+                  GunFeedMarker="Belt" GunFeedPivotFromTurret="0.06, -0.1, 0" GunFeedRatio="0.2"
+                  GunRotorMarker="Barrels" GunRotorPivotFromTurret="0.5, 0.7, 0"
+                  GunRotorSpinUpSeconds="0.3" GunRotorSpinDownSeconds="1.5"
+                  GunRecoilMetres="0.3" GunRecoilSeconds="0.1" GunReturnSeconds="0.5"
+                  TraverseLimitDeg="110" GunSoundId="Loop" GunshotSoundId="Bang">
+          <Muzzle At="0, 2.6, 0" />
+        </Launcher>
+        """;
+
+    [Fact]
+    public void AGunsArticulationAndSoundsAreReadAsDeclared()
+    {
+        PackContents pack = Read(Wrap(ARound + ASet + AChinGun));
+        Assert.Empty(pack.Faults);
+        LauncherProfile gun = Assert.Single(pack.Launchers);
+
+        Assert.Equal(("Barrel", "Cyl", "Rod", "Belt", "Barrels"),
+                     (gun.GunBarrelMarker, gun.GunCylinderMarker, gun.GunRodMarker, gun.GunFeedMarker, gun.GunRotorMarker));
+        Assert.Equal(0.37, gun.GunCylinderPinFromTurret.Y, 9);
+        Assert.Equal(0.33, gun.GunRodPinFromTurret.X, 9);
+        Assert.Equal(0.06, gun.GunFeedPivotFromTurret.X, 9);
+        Assert.Equal(0.2, gun.GunFeedRatio, 9);
+        Assert.Equal(0.7, gun.GunRotorPivotFromTurret.Y, 9);
+        Assert.Equal((0.3f, 1.5f), (gun.GunRotorSpinUpSeconds, gun.GunRotorSpinDownSeconds));
+        Assert.Equal((0.3f, 0.1f, 0.5f), (gun.GunRecoilMetres, gun.GunRecoilSeconds, gun.GunReturnSeconds));
+        Assert.Equal(110f, gun.TraverseLimitDeg);
+        Assert.Equal(("Loop", "Bang"), (gun.GunSoundId, gun.GunshotSoundId));
+    }
+
+    [Theory]
+    [InlineData("GunCylinderPinFromTurret")]
+    [InlineData("GunRodPinFromTurret")]
+    [InlineData("GunFeedPivotFromTurret")]
+    [InlineData("GunRotorPivotFromTurret")]
+    public void ALinkageMarkerWithNoPinIsRefused(string pin)
+    {
+        string unpinned = System.Text.RegularExpressions.Regex.Replace(AChinGun, $"{pin}=\"[^\"]*\"", "");
+
+        PackContents pack = Read(Wrap(ARound + ASet + unpinned));
+
+        Assert.Empty(pack.Launchers);
+        Assert.Contains(pack.Faults, f => f.Reason.Contains(pin));
+    }
+
     // ---- Refusing -------------------------------------------------------
 
     [Fact]

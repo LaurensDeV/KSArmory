@@ -315,6 +315,11 @@ public static class PackReader
             RadarMarker = r.Text("RadarMarker"),
             GunsMarker = r.Text("GunsMarker"),
             OpticBaseMarker = r.Text("OpticBaseMarker"),
+            GunBarrelMarker = r.Text("GunBarrelMarker"),
+            GunCylinderMarker = r.Text("GunCylinderMarker"),
+            GunRodMarker = r.Text("GunRodMarker"),
+            GunFeedMarker = r.Text("GunFeedMarker"),
+            GunRotorMarker = r.Text("GunRotorMarker"),
 
             Tubes = r.Tubes(),
             TurretPivot = r.Vector("TurretPivot", default),
@@ -322,6 +327,11 @@ public static class PackReader
             RadarPivotFromTurret = r.Vector("RadarPivotFromTurret", default),
             OpticBaseFromTurret = r.Vector("OpticBaseFromTurret", default),
             GunPivotFromTurret = r.Vector("GunPivotFromTurret", default),
+            GunCylinderPinFromTurret = r.Vector("GunCylinderPinFromTurret", default),
+            GunRodPinFromTurret = r.Vector("GunRodPinFromTurret", default),
+            GunFeedPivotFromTurret = r.Vector("GunFeedPivotFromTurret", default),
+            GunFeedRatio = r.Number("GunFeedRatio", 0.0),
+            GunRotorPivotFromTurret = r.Vector("GunRotorPivotFromTurret", default),
             GunReferenceElevationRad = r.Angle("GunReferenceElevationDeg", 0.0),
             PodReferenceElevationRad = r.Angle("PodReferenceElevationDeg", 0.0),
             MuzzleForwardOffset = r.Number("MuzzleForwardOffset", 0.0),
@@ -342,6 +352,7 @@ public static class PackReader
             ForwardArcDeg = r.Number("ForwardArcDeg", 80f),
             ForwardPlateauDeg = r.Number("ForwardPlateauDeg", 62f),
             RestElevationDeg = r.Number("RestElevationDeg", float.NaN),
+            TraverseLimitDeg = r.Number("TraverseLimitDeg", 180f),
 
             MagazineDepth = r.Count("MagazineDepth", 0),
             SalvoSpacing = r.Number("SalvoSpacing", 0.45f),
@@ -358,6 +369,13 @@ public static class PackReader
             GunBurstRounds = r.Count("GunBurstRounds", 12),
             GunBurstGapSeconds = r.Number("GunBurstGapSeconds", 0.55f),
             GunReloadSeconds = r.Number("GunReloadSeconds", 0f),
+            GunRecoilMetres = r.Number("GunRecoilMetres", 0f),
+            GunRecoilSeconds = r.Number("GunRecoilSeconds", 0.08f),
+            GunReturnSeconds = r.Number("GunReturnSeconds", 0.6f),
+            GunRotorSpinUpSeconds = r.Number("GunRotorSpinUpSeconds", 0.2f),
+            GunRotorSpinDownSeconds = r.Number("GunRotorSpinDownSeconds", 1.0f),
+            GunSoundId = r.Text("GunSoundId"),
+            GunshotSoundId = r.Text("GunshotSoundId"),
         };
 
         List<BuiltInComponent> declared = r.Provides();
@@ -388,6 +406,18 @@ public static class PackReader
             {
                 r.Fault("declares a GunsMarker with no GunPivotFromTurret to elevate about");
             }
+        }
+
+        // A drawn assembly with nowhere to hinge spins about the turret's own centre.
+        foreach ((string? marker, double3 pin, string names) in new[]
+                 {
+                     (launcher.GunCylinderMarker, launcher.GunCylinderPinFromTurret, "GunCylinderMarker with no GunCylinderPinFromTurret"),
+                     (launcher.GunRodMarker, launcher.GunRodPinFromTurret, "GunRodMarker with no GunRodPinFromTurret"),
+                     (launcher.GunFeedMarker, launcher.GunFeedPivotFromTurret, "GunFeedMarker with no GunFeedPivotFromTurret"),
+                     (launcher.GunRotorMarker, launcher.GunRotorPivotFromTurret, "GunRotorMarker with no GunRotorPivotFromTurret"),
+                 })
+        {
+            if (marker is not null && Vec.Len(pin) <= 0.0) r.Fault($"declares a {names} to turn about");
         }
 
         if (!r.Sound()) return;

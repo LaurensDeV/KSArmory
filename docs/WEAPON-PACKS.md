@@ -229,6 +229,7 @@ holds fire on for ever, with no gate reporting why.
 | `ForwardMinElevationDeg`, `ForwardArcDeg`, `ForwardPlateauDeg` | `15`, `80`, `62` | a raised floor over an arc, so the gear does not swing through its own bodywork |
 | `RestElevationDeg` | *modelled pose* | where it stows |
 | `SearchRadarRpm`, `SearchRadarFaces` | `20`, `1` | a search array turns off the clock, never off the track |
+| `TraverseLimitDeg` | `180` | ° either side of the modelled bearing; under 180 the traverse turns the long way round rather than through what is behind it |
 
 Declaring elevating gear with **no trunnion offset is refused**: an assembly pivoting about the
 turret's own centre reads as a pod orbiting the vehicle.
@@ -245,6 +246,18 @@ tubes, a cannon, or both; the Phalanx has no tubes at all.
 | `GunBurstRounds`, `GunBurstGapSeconds` | `12`, `0.55` | |
 | `GunReloadSeconds` | `0` | the same for the belt |
 | `GunArmamentLabel` | `Cannon` | |
+| `GunSoundId` | *the default cannon loop* | a `<CompoundSound>` your asset XML declares, played while the gun fires |
+| `GunshotSoundId` | *none* | a `<Sound>` played once per round, for a gun slow enough to be heard shot by shot; alone, it replaces the loop |
+
+**Gun gear that is drawn only** rides the elevating gun and never changes where a round goes. Each
+marker needs its pin or pivot, measured from the turret pivot, or it is refused:
+
+| | Default | |
+| --- | --- | --- |
+| `GunBarrelMarker`, `GunRecoilMetres`, `GunRecoilSeconds`, `GunReturnSeconds` | *none*, `0`, `0.08`, `0.6` | a barrel that runs back as the gun fires and returns |
+| `GunCylinderMarker` + `GunCylinderPinFromTurret`, `GunRodMarker` + `GunRodPinFromTurret` | *none* | an elevation actuator: a cylinder on the traverse and a rod on the gun, posed from the elevation |
+| `GunFeedMarker` + `GunFeedPivotFromTurret`, `GunFeedRatio` | *none*, `0` | an ammunition feed turning by that fraction of the elevation |
+| `GunRotorMarker` + `GunRotorPivotFromTurret`, `GunRotorSpinUpSeconds`, `GunRotorSpinDownSeconds` | *none*, `0.2`, `1.0` | a rotary barrel cluster, spun up to a barrel per round while firing |
 
 **A launcher declares gear it carries inside itself**, with a `<Provides>` row per assembly that is
 a subpart rather than a part of its own. The survey walks *parts*, so a director on a turret roof is
@@ -404,7 +417,8 @@ with. What it cannot do is add a *kind*:
 - **a new guidance law**, as opposed to new numbers for one of the five.
 - **a new gimbal**, beyond `Mast` and `RollNod`.
 - **articulation beyond traverse-then-elevate.** A drum, a translating rail, per-tube motion or a
-  radar that trains independently of the turret has no expression here.
+  radar that trains independently of the turret has no expression here. Gear drawn on an elevating
+  gun -- a recoiling barrel, an actuator, a feed, a barrel cluster -- does, above.
 
 Those are C# changes to KSArmory itself. If you want one, `MODULARITY.md` is the argument about
 what each would cost and `EXTENSIBILITY.md` is where a registration seam for them would go.

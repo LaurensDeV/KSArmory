@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The guns: a Mk 15 Phalanx on a 3 m stack node, a 5"/54 Mk 42 mount and an M197 chin turret. None
+  carries a missile, so each declares no <Tube> and fires through its GunMunition alone. Part
+  definitions are in ../KSArmory*.xml, which KSA reads and this does not.
+-->
+<WeaponPack Schema="1">
+
+  <!--
+    The M61A2's 20 mm round, fired by both the Phalanx and the M197. LaunchSpeed, MaxRange and the
+    102 g mass are the real round's.
+
+    FuseRadius="2.5" is ours, not the real round's: a real 20 mm round has to hit. The mod checks for
+    contact in small time steps, and at 1100 m/s a radius smaller than 2.5 m can fall between two of
+    them and be missed.
+
+    MaxFlightSeconds="2.5": a shell takes 2.1 s to reach the gun's 1486 m range, so it is removed just
+    after. Longer costs frame time: the gun fires 75 rounds a second, so every extra second of life is
+    75 more shells to step and draw. TracerBurnSeconds="2.2" ends the glow just before the shell is
+    removed, so the stream fades out rather than being cut off.
+  -->
+  <Munition Name="20MM" DisplayName="M61A2 20 mm"
+            MinRange="100" MaxRange="1486"
+            LaunchSpeed="1100" BoostSeconds="0" BoostAccel="0" MaxFlightSeconds="2.5"
+            MassKg="0.102" CalibreMm="20" DragCoefficient="0.3"
+            FuseRadius="2.5" FuseArmSeconds="0.03" ChargeKg="0.05"
+            TracerEvery="4" TracerBurnSeconds="2.2" />
+
+  <!--
+    The 5"/54's anti-aircraft shell. LaunchSpeed and the 3.3 kg charge are the real round's; MaxRange is
+    how far out the mount engages.
+
+    TimedFuse="true": the shell bursts at the flight time the aiming solution asked for, so it does not
+    have to hit. Its charge gives about 11 m of lethal radius (the 20 mm's is 2.7 m). A target that
+    manoeuvres after the shot is missed by however far it moved. If the shell does touch a craft first,
+    it bursts there. MinRange is the distance at which the fuze has armed.
+
+    DragCoefficient="0.306" with the real 31.75 kg at 127 mm reproduces the range table's 23.69 km at
+    47 degrees. One constant cannot also match the real ceiling: fired straight up it reaches 16.1 km
+    against the real 14.8, because real drag peaks near Mach 1.
+
+    MaxFlightSeconds="120" is a safety timeout, not the flight time. A shell whose path can only end on
+    the ground has no timeout at all and is removed when it lands (RoundReach); the 120 s only removes a
+    shell whose path cannot be classified.
+
+    HitsTerrain="true" makes the ground stop the shell; without it, a shell that misses falls through the
+    planet. It costs one terrain lookup per shell per frame, which is affordable because at 40 rounds a
+    minute only a few dozen are ever in the air.
+  -->
+  <Munition Name="5IN54" DisplayName="5&quot;/54 HEDP"
+            BodyModel="KSArmory_Mk42Shell_SubPart" BodyLength="0.42825"
+            MinRange="350" MaxRange="15700"
+            LaunchSpeed="807.7" BoostSeconds="0" BoostAccel="0" MaxFlightSeconds="120"
+            MassKg="31.75" CalibreMm="127" DragCoefficient="0.306"
+            TimedFuse="true" FuseRadius="12" FuseArmSeconds="0.45" ChargeKg="3.3"
+            HitsTerrain="true" />
+
+  <!--
+    The Phalanx's search and track radar, in the radome above the gun. Short-ranged and wide, because a
+    CIWS is the last line of defence and has to see everything close, quickly.
+
+    ConeDeg="115" reaches down to the mount's own -25 degrees: a missile skimming in low stays under
+    5 degrees of elevation until the last few hundred metres, which is too late to start aiming.
+  -->
+  <Sensor Name="VPS2" DisplayName="VPS-2 search and track" Scope="Search"
+          Range="6000" ConeDeg="115"
+          ThreatRadius="2500" ThreatHorizonSeconds="15" LockSeconds="0.6"
+          Emits="true" />
+
+  <!--
+    The Mk 68 director that aims the 5"/54. Range="18000" is past the gun's 15.7 km reach on purpose: a
+    shell takes over twenty seconds to get there, so the target has to be tracked well before the first
+    one is fired. ConeDeg="105" reaches down to the mount's own -15 degrees.
+  -->
+  <Sensor Name="MK68" DisplayName="Mk 68 fire control" Scope="Search"
+          Range="18000" ConeDeg="105"
+          ThreatRadius="15700" ThreatHorizonSeconds="30" LockSeconds="1.2"
+          Emits="true" />
+
+  <!--
+    The chin turret's sight. Optical, so it emits nothing. BoresightSource="MountNormal" points it out of
+    the mounting face, which on a chin turret is down; ConeDeg="100" covers the gun's whole travel,
+    which reaches 10 degrees past the face's plane.
+  -->
+  <Sensor Name="TSU" DisplayName="Telescopic sight unit"
+          Range="8000" ConeDeg="100" BoresightSource="MountNormal"
+          ThreatRadius="2000" ThreatHorizonSeconds="20" LockSeconds="0.6"
+          MinTargetSpeed="0" />
+
+  <!--
+    Mk 15 Phalanx. The housing traverses and the barrels elevate; there is no missile launcher, so no
+    PodsMarker. The pivots and muzzles are taken from the Blender export.
+
+    Elevation is the real mount's -25 to +85. The real mount is also limited to 150 degrees either side,
+    to keep the barrels off a ship's superstructure; on a stack node nothing is behind it, and the mod's
+    own travel map keeps the barrels off the craft it is on, so no TraverseLimitDeg is set.
+
+    SearchRadarRpm="90" only drives the radar scope's sweep; nothing on the model spins (NavWeaps).
+    GunRoundMassKg="0.26": one 20 x 102 mm cartridge; the part's 6,200 kg includes a full magazine.
+    ReloadSeconds="0": it has no missile tubes, so a reload timer would never stop.
+  -->
+  <Launcher PartId="KSArmory_Prefab_Ciws" DisplayName="Mk 15 Phalanx"
+            FireControlLabel="Mk 15 fire control"
+            Munition="20MM" Sensor="VPS2"
+            TurretMarker="Ciws_Turret" GunsMarker="Ciws_Guns"
+            TurretPivot="0.80000, 0.00000, 0.00000" GunPivotFromTurret="1.45000, 0.00000, 0.00000"
+            GunMunition="20MM"
+            SlewRateDeg="100" ElevationRateDeg="86"
+            MinElevationDeg="-25" MaxElevationDeg="85" ForwardMinElevationDeg="-25"
+            SettleSeconds="0.2" SearchRadarRpm="90"
+            GunAmmo="1550" GunRoundMassKg="0.26" GunRoundsPerMinute="4500"
+            GunBurstRounds="60" GunBurstGapSeconds="0.35" GunReloadSeconds="0"
+            ReloadSeconds="0">
+    <Muzzle At=" 0.07900, 2.15000,  0.00000" />
+    <Muzzle At=" 0.04700, 2.15000,  0.05543" />
+    <Muzzle At="-0.01700, 2.15000,  0.05543" />
+    <Muzzle At="-0.04900, 2.15000,  0.00000" />
+    <Muzzle At="-0.01700, 2.15000, -0.05543" />
+    <Muzzle At=" 0.04700, 2.15000, -0.05543" />
+  </Launcher>
+
+  <!--
+    5"/54 Mk 42 single enclosed mount: forty rounds a minute against the CIWS's 4,500, and 15 km of reach
+    against 1.5. Modelled in Blender by Mallikas; the pivots are taken from his export, and no script
+    can regenerate or check them.
+
+    GunPivotFromTurret puts the trunnion forward of the traverse axis, as on the real gun house. Slew and
+    elevation rates and the -15 to +85 limits are the real mount's. SearchRadarFaces="0": the Mk 68 tracks
+    one target, so the scope draws no sweep. GunBurstRounds="1" with no gap makes one press fire one shell,
+    and lets auto-engage fire at the gun's own 40 a minute. The recoil values only affect the drawing, and
+    were set by eye against this model.
+  -->
+  <Launcher PartId="KSArmory_Prefab_Mk42" DisplayName="5&quot;/54 Mk 42"
+            FireControlLabel="Mk 68 fire control"
+            Munition="5IN54" Sensor="MK68"
+            TurretMarker="Mk42_Turret" GunsMarker="Mk42_Cannon" GunBarrelMarker="Mk42_Barrel"
+            TurretPivot="0.01664, 0.00000, 0.00000" GunPivotFromTurret="1.53777, 0.48097, 0.00000"
+            GunMunition="5IN54"
+            SlewRateDeg="40" ElevationRateDeg="25"
+            MinElevationDeg="-15" MaxElevationDeg="85" ForwardMinElevationDeg="-15"
+            SettleSeconds="0.4" SearchRadarFaces="0"
+            GunAmmo="599" GunRoundsPerMinute="40" GunBurstRounds="1" GunBurstGapSeconds="0"
+            GunReloadSeconds="0"
+            GunRecoilMetres="0.30" GunRecoilSeconds="0.08" GunReturnSeconds="0.60"
+            GunshotSoundId="KSArmoryMk42Gunshot"
+            ReloadSeconds="0">
+    <Muzzle At="0.00000, 4.18860, 0.00000" />
+  </Launcher>
+
+  <!--
+    M197 three-barrel 20 mm cannon in a chin turret. It attaches under a nose and hangs, so the part's +X
+    points down: positive elevation in its frame is the gun pointing down in the world, and negative is
+    up toward the aircraft. Modelled in Blender by Mallikas; the pivots are taken from his export.
+
+    MinElevationDeg="-10" is where the model's actuator rod meets its cylinder (the real turret raises
+    the gun 20.5 degrees). TraverseLimitDeg="110" is the turret's travel either side of straight ahead.
+    GunFeedRatio="0.2" turns the ammunition belt 10 degrees when the gun points 50 degrees down.
+  -->
+  <Launcher PartId="KSArmory_Prefab_M197" DisplayName="M197 chin turret"
+            FireControlLabel="M97 turret fire control"
+            Munition="20MM" Sensor="TSU"
+            TurretMarker="M197_Yoke" GunsMarker="M197_Gun"
+            GunCylinderMarker="M197_Cylinder" GunRodMarker="M197_Rod"
+            GunFeedMarker="M197_Belt" GunRotorMarker="M197_Barrels"
+            TurretPivot="0.00000, 0.00000, 0.00000" GunPivotFromTurret="0.33333, -0.10773, 0.00000"
+            GunCylinderPinFromTurret="0.03220, 0.37308, 0.00000"
+            GunRodPinFromTurret="0.33474, 0.37308, 0.00000"
+            GunFeedPivotFromTurret="0.06094, -0.10319, 0.00000" GunFeedRatio="0.2"
+            GunRotorPivotFromTurret="0.50611, 0.70256, 0.00000"
+            GunMunition="20MM"
+            SlewRateDeg="80" ElevationRateDeg="60"
+            MinElevationDeg="-10" MaxElevationDeg="50" ForwardArcDeg="0" RestElevationDeg="0"
+            TraverseLimitDeg="110" SettleSeconds="0.2" SearchRadarFaces="0"
+            GunAmmo="750" GunRoundMassKg="0.26" GunRoundsPerMinute="730"
+            GunBurstRounds="16" GunBurstGapSeconds="0.5" GunReloadSeconds="0"
+            GunSoundId="KSArmoryM197"
+            ReloadSeconds="0">
+    <Muzzle At="0.07726, 2.63549,  0.00000" />
+    <Muzzle At="0.22055, 2.63549, -0.08272" />
+    <Muzzle At="0.22055, 2.63549,  0.08272" />
+  </Launcher>
+
+</WeaponPack>
