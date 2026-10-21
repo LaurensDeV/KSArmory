@@ -78,7 +78,7 @@ four failure shapes apart.
 - **Art is separate from behaviour.** `tools/model/` generates the vehicle from a Blender script;
   nothing in the simulation names it.
 - **A weapon system is data plus art.** No fire-control, guidance or drive code names the Pantsir.
-  It is named in `src/KSArmory/KSArmory/Weapons.xml`, which is the mod's own definitions file and
+  It is named in `src/KSArmory/KSArmory/Pantsir.xml`, one of the mod's own definitions files, which
   is meant to; the weapons still written in C# are in `Sim/Arsenal.cs`, which is the registry.
 
 ## Adding a weapon
@@ -93,7 +93,7 @@ only one that can still want a rebuild:
    `KSArmoryAssets.xml`, and a `<PartGameData>` with colliders and mass.
 3. **Register it.** One `LauncherProfile` in `Sim/Arsenal.cs`, naming the munition and sensor it
    uses, with the geometry `tools/model/build.sh` prints — or a `<Launcher>` in
-   `src/KSArmory/KSArmory/Weapons.xml`, which is the same profile as data and goes through the
+   a file in `src/KSArmory/KSArmory/`, which is the same profile as data and goes through the
    reader a third-party pack uses. Add a `MunitionProfile` if the round differs.
 4. **Teach the validator.** `tools/validate-parts.py` compares the profile's geometry against
    `muzzles.json`, and it is scoped per launcher — a new one gets no check until you add it. The

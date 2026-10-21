@@ -454,35 +454,6 @@ public static class Arsenal
     };
 
     /// <summary>
-    /// The Pantsir's own director, on its turret roof.
-    ///
-    /// <para>The same instrument as <see cref="EoDirector"/> — same bodies, same sensor, same
-    /// travel — differing only in which part carries it and which subparts are its own. A second
-    /// <c>OpticProfile</c> rather than a flag on the launcher, because that is what makes it a
-    /// director at all: <c>OpticParts</c> finds it, <c>OpticalHead</c> crews it, and the sight, the
-    /// chase camera and the claim ladder never learn that this one sits on a weapon.</para>
-    ///
-    /// <para><see cref="OpticProfile.HeadPivot"/> is identical to the standalone's because it is an
-    /// offset from the <em>base</em> rather than a point in the part. Where the base has got to is
-    /// read off the engine each frame — see <see cref="MountFrame"/> — which is why riding a
-    /// traverse needs nothing here at all.</para>
-    /// </summary>
-    public static readonly OpticProfile PantsirDirector = new()
-    {
-        PartId = "KSArmory_Prefab_Launcher6",
-        DisplayName = "1TPP1 director",
-        Sensor = EoSensor.Name,
-
-        BaseMarker = "Launcher_OpticBase",
-        HeadMarker = "Launcher_OpticHead",
-
-        HeadPivot = new(0.63000, 0.00000, 0.00000),
-        EyeForward = 0.300f,
-        MinElevationDeg = -20f,
-        MaxElevationDeg = 85f,
-    };
-
-    /// <summary>
     /// The set inside a targeting pod. Longer-ranged than a mast director and looking down rather
     /// than out. Like every director's it holds what it is handed and searches for nothing.
     ///
@@ -747,7 +718,7 @@ public static class Arsenal
     /// nothing downstream can tell which is which — nor which gimbal any of them is hung on.
     /// </summary>
     public static readonly IReadOnlyList<OpticProfile> Optics =
-        [EoDirector, PantsirDirector, Litening, Yal1Turret];
+        [EoDirector, Litening, Yal1Turret];
 
     /// <summary>
     /// The IRST part. Its head turns about <see cref="SearchSetProfile.HeadPivot"/>, which the asset

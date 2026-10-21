@@ -35,8 +35,8 @@ immediately, so there is no unwrapping step and nothing to get out of sync.
 ## Missile geometry is exported, not eyeballed
 
 The tube muzzle positions are computed here and printed as a ready-to-paste block. They must
-match the launcher's tubes where they are declared -- the Pantsir's in KSArmory/Weapons.xml, a
-launcher still in C# in Sim/Arsenal.cs -- which is what puts the launch markers on the actual
+match the launcher's tubes where they are declared -- the Pantsir's in KSArmory/Pantsir.xml, the
+LAU-7's in KSArmory/Rails.xml -- which is what puts the launch markers on the actual
 tubes. tools/validate-parts.py fails the build if the two disagree.
 """
 
@@ -1050,7 +1050,7 @@ def report_muzzles(out_dir):
     """Emits the firing tubes as a C# array and as JSON.
 
     The array goes into the launcher's tubes by hand -- the Pantsir's as <Tube> elements in
-    src/KSArmory/KSArmory/Weapons.xml;
+    src/KSArmory/KSArmory/Pantsir.xml;
     the JSON is what tools/validate-parts.py compares that file against, so the two cannot
     quietly drift.
 
@@ -1063,7 +1063,7 @@ def report_muzzles(out_dir):
     # follow them through both traverse and elevation, with no extra bookkeeping.
     firing = [tube_muzzle(*t) - pivot for t in firing_order()]
 
-    print("\n=== LauncherProfile.Tubes (the Pantsir's go to KSArmory/Weapons.xml as <Tube>)")
+    print("\n=== LauncherProfile.Tubes (the Pantsir's go to KSArmory/Pantsir.xml as <Tube>)")
     for m in firing:
         print(f"        new({m.x:8.5f}, {m.y:8.5f}, {m.z:8.5f}),")
 

@@ -723,7 +723,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Log.cs` | the mod's own log file, which is the only debugging channel it has |
 | `src/KSArmory/KSArmory*.xml` | the parts, the warhead effects and the sounds — at the mod root, mirroring Core. **No character**: a mod's character ends up on kittens in nearly every save, which then cannot load without it — `tools/repair-saves.py` re-dresses them |
 | `src/KSArmory/KSArmory/Bodies.xml` | **what KSA's current bodies are, as data** -- fields, airglow, condensation, thin cloud -- so a custom solar system gains them by adding lines, not code |
-| `src/KSArmory/KSArmory/Weapons.xml` | **this mod's own weapons, as data** — the Pantsir; read by the pack reader through `CoreDefinitions`, not by KSA |
+| `src/KSArmory/KSArmory/Pantsir.xml` | **this mod's own weapons, as data** — the Pantsir and its roof director; read by the pack reader through `CoreDefinitions`, not by KSA |
+| `src/KSArmory/KSArmory/Weapons.xml` | **empty on purpose** — where the Pantsir used to be, so an install unzipped over an older one does not keep the old file and register it twice |
 | `src/KSArmory/KSArmory/Rails.xml` | the LAU-7, LAU-128 and LAU-118 rails, their rounds and their seekers, the same way |
 | `src/KSArmory/KSArmory/Guns.xml` | the Phalanx, the 5"/54 Mk 42 and the M197, their two rounds and their three sets |
 | `src/KSArmory/Meshes/`, `Textures/` | art. `KSArmory_MeshAtlas.glb` is generated — rebuild with `tools/model/build.sh`; every other atlas is **authored**, and its `.blend` is not in this repository |
@@ -920,8 +921,8 @@ head looks where the rail points, and `TurretAxis`, which follows the traverse.
 
 The mod is built around three profile types and a registry, so a new launcher, round or sensor
 is **data plus art**, not new logic. No fire-control, guidance or drive code names the Pantsir —
-it is defined in `KSArmory/Weapons.xml`, read like any pack's, with its director in `Sim/Arsenal.cs`,
-which is the registry and is meant to. Anything else naming it is
+it is defined in `KSArmory/Pantsir.xml`, read like any pack's, and `Sim/Arsenal.cs` holds the
+weapons not yet moved. Anything else naming it is
 a doc comment citing what it was modelled on. **`tools/model/sidewinder.py` plus the LAU-7's
 entries in `KSArmory/Rails.xml` is the worked example** — a whole second system, and neither of
 them is longer than a page.
@@ -2307,7 +2308,7 @@ reachable without patching.
 
 **Launch and slew geometry live in the Blender script, not in the C#.**
 `tools/model/pantsir.py` places the containers and writes `muzzles.json`;
-the Pantsir's definition in `KSArmory/Weapons.xml` is pasted from what it prints.
+the Pantsir's definition in `KSArmory/Pantsir.xml` is pasted from what it prints.
 `validate-parts.py` **fails if any of them disagree**, because geometry duplicated across a
 boundary drifts. Change the pods, rerun `tools/model/build.sh`, paste the block. The tube count
 is `LauncherProfile.Tubes.Length`, so it follows the block you paste.

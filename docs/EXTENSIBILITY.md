@@ -318,8 +318,8 @@ vectors required to be positional `new(x, y, z)`. Any expression — a named con
 hand-written tables plus `OPTIC_GEOMETRY` are keyed on **C# field names in this repository**, and an
 unlisted launcher is a hard failure rather than a skip.
 
-Half of it now runs against a bridge rather than against data: a `<Launcher>` in
-`KSArmory/Weapons.xml` is rendered back into the C# initialiser shape those regexes already expect,
+Half of it now runs against a bridge rather than against data: every definition in the core's
+`KSArmory/*.xml` is rendered back into the C# initialiser shape those regexes already expect,
 so a weapon moving out of `Arsenal.cs` costs no coverage and buys none either. The gates read the
 XML directly when the last one has moved, and the bridge goes.
 

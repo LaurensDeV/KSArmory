@@ -453,7 +453,7 @@ cannot build it — the scripts put the right SDK on PATH for you.
 - [x] **0.4** `./tools/validate-parts.py` — ends "OK: N asset reference(s) resolve" with no
       errors above it.
 - [ ] **0.5** `./tools/deploy.sh` — prints an install path containing `KSArmory.dll`,
-      `mod.toml`, **the `KSArmory*.xml` files at the root**, `KSArmory/Weapons.xml`, and the
+      `mod.toml`, **the `KSArmory*.xml` files at the root**, the `KSArmory/*.xml` files, and the
       `Meshes/`, `Textures/` and `Sounds/` folders. An `Assets/` folder left by a previous layout
       must have been deleted by the script — two copies of the part would fight over one Id.
 - [ ] **0.6** Re-run `./tools/deploy.sh` — it must say it **registered the mod in

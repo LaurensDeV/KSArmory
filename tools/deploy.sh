@@ -83,6 +83,9 @@ for path in "$OUT"/*/; do
     dir="$(basename "$path")"
 
     mkdir -p "$TARGET/$dir"
+    # The definitions folder is read whole, so a file renamed or removed here would otherwise be
+    # left behind and registered beside its replacement.
+    [[ "$dir" == KSArmory ]] && rm -f "$TARGET/$dir"/*.xml
     cp "$path"/* "$TARGET/$dir/"
     found_assets=1
 done

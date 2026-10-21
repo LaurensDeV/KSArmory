@@ -161,7 +161,7 @@ from where it lives.
      KSArmory.dll
      mod.toml
      KSArmory{Assets,GameData,Particles,Sounds,Characters}.xml
-     KSArmory/Weapons.xml
+     KSArmory/*.xml               (the built-in weapons, one file per family)
      Meshes/*.glb
      Textures/*.png
      Sounds/*.wav
@@ -437,7 +437,7 @@ the vehicle and mounts the battery there. That split avoids registering a custom
 into the engine's internal update lists, which is not reachable without patching.
 
 **Adding a weapon system is data, not code.** `src/KSArmory/Sim/Arsenal.cs` and
-`src/KSArmory/KSArmory/Weapons.xml` register each launcher, round and sensor as a profile; discovery is by part Id, so nothing in the simulation
+the files in `src/KSArmory/KSArmory/` register each launcher, round and sensor as a profile; discovery is by part Id, so nothing in the simulation
 or the game binding names a particular vehicle. A new system is an entry there plus its art.
 
 The source is split by whether it can see KSA at all: `Sim/` cannot, `Ksa/` does. The test
