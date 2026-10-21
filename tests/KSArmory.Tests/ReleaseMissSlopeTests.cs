@@ -56,7 +56,7 @@ public class ReleaseMissSlopeTests(ITestOutputHelper Out)
     // As IcbmComputer.ProbeRelease flies it, over the given ground.
     private static bool Predict(double3 velocityCci, Func<double3, double>? ground, out ImpactPredictor.Impact hit)
         => ImpactPredictor.TryPredict(Earth, TracedPositionCci, velocityCci, 2.0, 20_000.0, out hit, ground, null,
-                                      new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21),
+                                      new ImpactPredictor.Drag(DensityAt, RetiredRounds.Mk21Constant),
                                       stopOnTheSurface: true);
 
     // The probe over this ground, with its target this far off the impact: by default a metre short and 0.3 m

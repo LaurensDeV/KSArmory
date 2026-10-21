@@ -177,11 +177,12 @@ public static class Arsenal
 
         MaxFlightSeconds = 1800f,
 
-        // An order of magnitude below the Mk 82's: a dense cone is what a heatshield is for. Kept by hand
-        // although nothing flies it any more -- IcbmConfig.WarheadDragFromItsShape ships on and swaps in the
-        // round's real drag -- because it is the arm a paired night flies as its comparator. It is not a
-        // physical figure: ~8,400 lb/ft2 against the 100 to 5,000 published (ACCURACY-PLAN 3eu).
-        DragK = 1.5e-5f,
+        // Its drag from what it is: the 200 to 270 kg it is believed to weigh, taken at 270, on its 55 cm
+        // base, at a slender cone's hypersonic 0.1. About 2,300 lb/ft2 of ballistic coefficient, inside the
+        // 100 to 5,000 published for ICBM warheads (ACCURACY-PLAN 3eu).
+        MassKg = 270f,
+        CalibreMm = 550f,
+        DragCoefficient = 0.1f,
 
         // A fifth of the default, and the whole of what is left of this weapon's error. Flown at
         // Mahia the correction converged to 15 m and the warheads landed 756 m out; the round's own
@@ -225,23 +226,6 @@ public static class Arsenal
         PreferredStepSeconds = 0.180f,
         HitsTerrain = true,
     };
-
-    /// <summary>
-    /// A Mk 21 with its drag from what it is rather than the constant it carries: the 200 to 270 kg it is
-    /// believed to weigh, taken at 270, on its 55 cm base, at a slender cone's hypersonic 0.1. About
-    /// 2,300 lb/ft² of ballistic coefficient, inside the 100 to 5,000 published for ICBM warheads, and 3.6x
-    /// the constant's drag. This is what a released warhead actually flies, since
-    /// <see cref="IcbmConfig.WarheadDragFromItsShape"/> ships on; it is not registered, so nothing else can
-    /// reach it, and the registered profile keeps the constant as the comparator arm.
-    /// </summary>
-    internal static MunitionProfile Mk21WithDragFromShape(MunitionProfile mk21)
-    {
-        MunitionProfile round = mk21.Copy();
-        round.MassKg = 270f;
-        round.CalibreMm = 550f;
-        round.DragCoefficient = 0.1f;
-        return round;
-    }
 
     /// <summary>
     /// The same round integrating at a stated sub-step. What <see cref="IcbmConfig.WarheadSubStepMs"/> flies;

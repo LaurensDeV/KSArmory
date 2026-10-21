@@ -17,7 +17,7 @@ public class PastCutoffTests(ITestOutputHelper Out)
 
     private static double DensityAt(double3 pointCci) => Math.Exp(-Math.Max(0.0, Vec.Len(pointCci) - R) / ScaleHeight);
 
-    private static MunitionProfile Mk21 => Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21);
+    private static MunitionProfile Mk21 => Arsenal.ReentryVehicleMk21.Copy();
 
     [Fact]
     public void APadShotNullsItsShoveCorrectsItsAimAndLandsOnTheTarget()

@@ -92,11 +92,14 @@ public class ReachDisplayTests(ITestOutputHelper Out)
                       + $"at {reach.HopMetresPerSecond:F1} m/s a hop, "
                       + $"{reach.LeftMetresPerSecond:F1} m/s of budget left");
 
-        // Along the minor axis, where the ellipse's own edge is SemiMinorMetres by construction.
+        // Along the minor axis, where the ellipse's own edge is SemiMinorMetres by construction. The
+        // axis is turned off cross-track by the footprint's orientation, which drag sets.
         double edge = reach.SemiMinorMetres;
+        double along = -Math.Sin(reach.Footprint.OrientationRad), cross = Math.Cos(reach.Footprint.OrientationRad);
 
-        Assert.Equal(ReachVerdict.Adds, reach.Verdict(TargetClick.Add, true, 0.0, edge * 0.99));
-        Assert.Equal(ReachVerdict.OutsideReach, reach.Verdict(TargetClick.Add, true, 0.0, edge * 1.01));
+        Assert.Equal(ReachVerdict.Adds, reach.Verdict(TargetClick.Add, true, along * edge * 0.99, cross * edge * 0.99));
+        Assert.Equal(ReachVerdict.OutsideReach,
+                     reach.Verdict(TargetClick.Add, true, along * edge * 1.01, cross * edge * 1.01));
     }
 
     /// <summary>

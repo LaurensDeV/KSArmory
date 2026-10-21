@@ -135,7 +135,7 @@ public class BodySampleInvarianceTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// Both lookups are worth kilometres per frame of displacement, which is the argument for
+    /// Each lookup moves the impact further than the frame displaced it, which is the argument for
     /// holding them to one centre rather than for correcting either.
     ///
     /// <para><b>The ground figure here is an upper bound, not the shipped term.</b> This displaces
@@ -146,7 +146,7 @@ public class BodySampleInvarianceTests(ITestOutputHelper Out)
     /// build if the flown geometry turns out to be radial.</para>
     /// </summary>
     [Fact]
-    public void BothLookupsAreWorthKilometresPerFrameOfDisplacement()
+    public void BothLookupsMoveTheImpactFurtherThanTheFrameDisplacesThem()
     {
         (double gravity, _) = Against(new double3(-1, 0, 0) * Offset);
         (double ground, _) = Against(Vec.Zero, new double3(-1, 0, 0) * Offset);
@@ -154,8 +154,8 @@ public class BodySampleInvarianceTests(ITestOutputHelper Out)
         Out.WriteLine($"{Offset:F0} m inward: gravity {gravity:F0} m, "
                       + $"ground sphere {ground:F0} m (an upper bound on the shipped sawtooth)");
 
-        Assert.True(Math.Abs(gravity) > 1000.0, $"gravity moved only {gravity:F0} m");
-        Assert.True(Math.Abs(ground) > 1000.0, $"the ground sphere moved only {ground:F0} m");
+        Assert.True(Math.Abs(gravity) > Offset, $"gravity moved only {gravity:F0} m");
+        Assert.True(Math.Abs(ground) > Offset, $"the ground sphere moved only {ground:F0} m");
     }
 
     /// <summary>Nothing displaced is the baseline, and it has to come back to itself.</summary>

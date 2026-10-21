@@ -220,7 +220,6 @@ RESEARCH = (
     "TurnCapSeconds",
     "TurnTestDegrees",
     "WarheadAirVelocityPerSubStep",
-    "WarheadDragFromItsShape",
     "WarheadFootprintMetres",
     "WalkStartsAtCutoff",
     "WarheadSubStepMs",

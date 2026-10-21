@@ -34,7 +34,7 @@ public class ShortShotHoverTests(ITestOutputHelper Out)
             Body = Earth, PositionCci = pad, VelocityCci = Earth.GroundVelocityCci(pad), StartsUnlit = true,
             BoundingSphereRadiusMetres = 6.0, DragAreaM2 = dragAreaM2, ReportsStackDeltaV = true, CommandLatencyFrames = 1,
             MinThrottle = 0.112, ThrottleRatePerSecond = 0.7, StepJitter = 0.5, UnpoweredAttitudeRateDegPerSec = 1.0,
-            Warhead = Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21),
+            Warhead = Arsenal.ReentryVehicleMk21.Copy(),
             Stages =
             [
                 new() { DryMassKg = 19_300, PropellantKg = 75_000, ThrustNewtons = 2_900_000, ExhaustVelocity = 5_880 },

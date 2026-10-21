@@ -137,7 +137,7 @@ public class SeparationSpinTests(ITestOutputHelper Out)
         groundCci = Vec.Zero;
 
         if (!ImpactPredictor.TryPredict(Earth, positionCci, velocityCci, 2.0, 20_000.0, out hit, null, null,
-                                        new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21)))
+                                        new ImpactPredictor.Drag(DensityAt, RetiredRounds.Mk21Constant)))
         {
             return false;
         }
@@ -413,7 +413,7 @@ public class SeparationSpinTests(ITestOutputHelper Out)
 
         Assert.True(ImpactPredictor.TryPredict(Earth, flight.PositionCci, flight.VelocityCci, 2.0, 20_000.0,
                                                out ImpactPredictor.Impact probe, null, null,
-                                               new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21),
+                                               new ImpactPredictor.Drag(DensityAt, RetiredRounds.Mk21Constant),
                                                stopOnTheSurface: true));
         Assert.True(ArrivalFrame.TryAt(probe.PointCci, probe.VelocityCci, out ArrivalFrame frame));
 

@@ -116,7 +116,7 @@ public class PredictorEndingTests(ITestOutputHelper Out)
         {
             if (ImpactPredictor.TryPredict(Earth, from, FlownVelocityCci, 2.0, ImpactPredictor.DefaultMaxSeconds,
                                            out _, out ImpactPredictor.Ending ending, _ => R + FlownGroundMetres, null,
-                                           new ImpactPredictor.Drag(KsaMedium, Arsenal.ReentryVehicleMk21),
+                                           new ImpactPredictor.Drag(KsaMedium, RetiredRounds.Mk21Constant),
                                            stopOnTheSurface: true))
             {
                 continue;

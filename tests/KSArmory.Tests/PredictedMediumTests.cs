@@ -30,7 +30,8 @@ public class PredictedMediumTests(ITestOutputHelper Out)
     [Fact]
     public void TheAirAloneLandsEveryReleaseAndMovesNoneThatAlreadyLanded()
     {
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        // The release of 2026-09-17 shot 003, which was flown with this round.
+        MunitionProfile warhead = RetiredRounds.Mk21Constant;
         int oceanFailed = 0, landed = 0;
 
         foreach (double3 from in PredictorEndingTests.AlongTheTrack())

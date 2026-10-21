@@ -2374,9 +2374,8 @@ a shell flew 65 km; a shape's coefficient sits near 0.3, so a wrong one shows. T
 range table's 23.69 km at 47°, and one constant cannot also give the ceiling — 16.1 km straight up against
 14.8 — because real drag peaks near Mach 1. `DragK` stays for what no constant coefficient describes: a
 bomb's drag rises through the speed of sound, and a missile's changes as it burns and drops its
-booster. The Mk 21 is registered with a hand-typed `DragK` that is known unphysical, and the computer
-flies its real drag instead (`docs/ICBM-GUIDANCE.md`, *The prediction flies the warhead*).
-`ArsenalTests.EveryRoundsDragComesFromWhatItIsUnlessNamedHere` names the six whose drag is still typed by hand, so a
+booster. The Mk 21's drag is its shape's: 270 kg on a 55 cm base at a Cd of 0.1.
+`ArsenalTests.EveryRoundsDragComesFromWhatItIsUnlessNamedHere` names the five whose drag is still typed by hand, so a
 new round cannot join them by accident.
 
 **And the air is the air that is there.** A density ratio is a multiple of `Medium.ReferenceDensityKgPerM3`,

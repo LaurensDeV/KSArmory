@@ -806,20 +806,9 @@ internal sealed partial class IcbmComputer
         _roundsInFlight = roundsInFlight;
         _traceWanted = traceWarhead;
 
-        // What the prediction is of. The bus cuts off above the air; the warheads it drops fly all
-        // the way down through it, and they are the things that have to arrive.
         // Before the round is read, so the prediction and the warheads it lets go are the same profile.
-        if (Config.WarheadDragFromItsShape && release is { } launcher
-            && launcher.Munition.Name == Arsenal.ReentryVehicleMk21.Name && !launcher.Munition.DragFromShape)
-        {
-            launcher.FlyRoundsAs(Arsenal.Mk21WithDragFromShape(launcher.Munition));
-            Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: warheads drag from their shape, "
-                     + $"k {launcher.Munition.AppliedDragK:E3}");
-        }
-
-        // After the drag swap and not instead of it: each takes the round as it stands, so the two compose
-        // and a night may fly either alone. Guarded on the value rather than on a flag because the swap is
-        // idempotent only while the step already matches.
+        // Guarded on the value rather than on a flag because the swap is idempotent only while the step
+        // already matches.
         if (Config.WarheadSubStepMs > 0.0 && release is { } stepped
             && Math.Abs(stepped.Munition.SubStep - Config.WarheadSubStepMs / 1000.0) > 1e-9)
         {

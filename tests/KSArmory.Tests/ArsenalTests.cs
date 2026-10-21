@@ -231,7 +231,7 @@ public class ArsenalTests
     [Fact]
     public void EveryRoundsDragComesFromWhatItIsUnlessNamedHere()
     {
-        string[] byHand = ["AIM9J", "AIM120C", "AGM88", "57E6", "B61", "MK21"];
+        string[] byHand = ["AIM9J", "AIM120C", "AGM88", "57E6", "B61"];
 
         // The shipped rounds only: a pack's name is qualified, and a pack may type its drag by hand.
         foreach (MunitionProfile round in Catalogue.Munitions.Where(m => !m.Name.Contains(':')))
@@ -658,31 +658,14 @@ public class ArsenalTests
         }
     }
 
-    /// <summary>
-    /// The Mk 21 with its drag from what it is differs from the Mk 21 in its drag and nothing else: a paired night
-    /// compares the two, so anything else that differed would be measured with it.
-    /// </summary>
+    // 270 kg on a 55 cm base at a Cd of 0.1, in 1.225 kg/m3: the drag the warheads were flown with.
     [Fact]
-    public void TheMk21WithDragFromItsShapeDiffersOnlyInItsDrag()
+    public void TheMk21sDragIsItsShapes()
     {
         MunitionProfile rv = Arsenal.ReentryVehicleMk21;
-        MunitionProfile shape = Arsenal.Mk21WithDragFromShape(rv);
 
-        Assert.False(rv.DragFromShape);
-        Assert.True(shape.DragFromShape);
-        Assert.Equal(0.5 * 1.225 * 0.1 * Math.PI * 0.275 * 0.275 / 270.0, shape.AppliedDragK, 9);
-        Assert.InRange(shape.AppliedDragK / rv.AppliedDragK, 3.5, 3.7);
-
-        Assert.Equal(rv.Name, shape.Name);
-        Assert.Equal(rv.LaunchSpeed, shape.LaunchSpeed);
-        Assert.Equal(rv.SubStepSeconds, shape.SubStepSeconds);
-        Assert.Equal(rv.MaxFlightSeconds, shape.MaxFlightSeconds);
-        Assert.Equal(rv.ChargeKg, shape.ChargeKg);
-        Assert.Equal(rv.FuseArmSeconds, shape.FuseArmSeconds);
-        Assert.Equal(rv.HitsTerrain, shape.HitsTerrain);
-        Assert.Equal(rv.Guidance, shape.Guidance);
-        Assert.Equal(rv.BodyLength, shape.BodyLength);
-        Assert.False(rv.DragFromShape, "making the copy changed the registered round");
+        Assert.True(rv.DragFromShape);
+        Assert.Equal(0.5 * 1.225 * 0.1 * Math.PI * 0.275 * 0.275 / 270.0, rv.AppliedDragK, 9);
     }
 
     /// <summary>

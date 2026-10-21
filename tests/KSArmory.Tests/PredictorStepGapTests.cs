@@ -184,23 +184,12 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     {
         MunitionProfile shipped = Arsenal.ReentryVehicleMk21;
 
-        // The registered round still carries the hand-typed constant; what the GAME flies is the
-        // copy IcbmComputer swaps in, which since 3eu is the round's real drag.
-        Assert.False(shipped.DragFromShape, "the registered Mk 21 still carries its hand-typed DragK");
-        Assert.Equal(shipped.DragK, shipped.AppliedDragK, 12);
-
-        // So this rig is NOT flying the round the game flies, and that is stated rather than left to
-        // inspection: every number in this file is the retired constant's, at 1/3.6 of the drag a
-        // released warhead now has. Re-measuring them is its own piece of work. Pinned here so the
-        // gap cannot widen quietly -- a second switch flipping under it would fail this line.
-        Assert.True(new IcbmConfig().WarheadDragFromItsShape,
-                    "the game flies Mk21WithDragFromShape; this rig flies the constant and says so");
+        // The registered round is the one a released warhead flies, its drag from its shape.
+        Assert.True(shipped.DragFromShape, "the registered Mk 21 carries its drag from its shape");
         Assert.True(new IcbmConfig().KickThroughTheAir,
                     "the kick is solved through the air, which this rig does not model at all");
-
-        MunitionProfile flown = Arsenal.Mk21WithDragFromShape(shipped);
-        Assert.True(flown.AppliedDragK > shipped.AppliedDragK * 3.0,
-                    $"the flown round is {flown.AppliedDragK / shipped.AppliedDragK:F1}x this rig's drag");
+        Assert.True(new IcbmConfig().DragAtMidpointVelocity,
+                    "a released warhead takes its drag at the midpoint velocity, which this rig flies too");
 
         // The air: KSA's Earth is SeaLevelDensity 1.225 and ScaleHeight 8 km, and the reference
         // the ratio divides by is the same 1.225 -- so the ratio is exp(-h/8000) and the rig's
@@ -283,7 +272,7 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
         foreach (double ms in new[] { 5.0, 2.5, 1.0, 0.5, 0.25, 0.125 })
         {
             MunitionProfile warhead = AtSubStep(ms / 1000.0);
-            double gap = GroundMetres(predicted, FlyTheRound(from, velocity, warhead, 1.0 / 60.0));
+            double gap = GroundMetres(predicted, FlyTheRound(from, velocity, warhead, 1.0 / 60.0, midpointDrag: true));
             double first = GroundMetres(predicted,
                                         FlyTheRound(from, velocity, warhead, 1.0 / 60.0, false));
 
@@ -295,8 +284,6 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
 
         Out.WriteLine($"\nshipped 1 ms {shipped * 1000.0:F1} mm, at 0.125 ms {finest * 1000.0:F1} mm "
                       + $"-- an arm can recover {(shipped - finest) * 1000.0:F1} mm");
-        Out.WriteLine("the flown walk is 21 mm, so the sub-step is at most a fifth of it and the");
-        Out.WriteLine("arm is far below what twelve paired blocks can resolve.");
 
         Assert.True(shipped < 0.010,
                     $"the flown warhead is second order, so its sub-step should be worth millimetres; "

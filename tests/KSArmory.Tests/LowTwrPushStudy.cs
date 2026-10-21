@@ -62,7 +62,7 @@ public class LowTwrPushStudy(ITestOutputHelper Out)
     {
         Watch watch = new();
         rig.AimLoop = watch;
-        rig.Warhead = Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21);
+        rig.Warhead = Arsenal.ReentryVehicleMk21.Copy();
         rig.ReleaseLaunchSpeed = 0.5;
         IcbmConfig config = FloorHoldTests.Config(0.5, true, true);
         config.PulsesBelowTheFloor = pulses;

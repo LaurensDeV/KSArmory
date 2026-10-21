@@ -29,7 +29,7 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
         });
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
-                                              Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21), DensityAt);
+                                              Arsenal.ReentryVehicleMk21.Copy(), DensityAt);
         rig.ThrusterMetresPerSecond2 = 0.55;
         rig.ShoveMetresPerSecond = 1.0;
         rig.BusMassKg = 2_900.0;
@@ -120,7 +120,7 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
         });
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
-                                              Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21), DensityAt);
+                                              Arsenal.ReentryVehicleMk21.Copy(), DensityAt);
         rig.ThrusterMetresPerSecond2 = Arsenal.MirvBus.TrimAccelerationMetresPerSecond2;
         rig.ShoveMetresPerSecond = 1.0;
         rig.BusMassKg = 3_800.0;
@@ -154,7 +154,7 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
         });
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
-                                              Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21), DensityAt);
+                                              Arsenal.ReentryVehicleMk21.Copy(), DensityAt);
         rig.ShoveMetresPerSecond = 1.0;
         if (postBoostBus)
         {

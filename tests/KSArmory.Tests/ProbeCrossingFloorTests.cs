@@ -27,8 +27,8 @@ public class ProbeCrossingFloorTests(ITestOutputHelper Out)
 
     private static double DensityAt(double3 p) => Math.Exp(-Math.Max(0.0, Vec.Len(p) - R) / 8_000.0);
 
-    private static MunitionProfile Constant => Arsenal.ReentryVehicleMk21;
-    private static MunitionProfile Shape => Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21);
+    private static MunitionProfile Constant => RetiredRounds.Mk21Constant;
+    private static MunitionProfile Shape => Arsenal.ReentryVehicleMk21.Copy();
 
     /// <summary>
     /// <see cref="WalkFloorTests"/>' surface: seven octaves from 600 m down to 9 m, read at a

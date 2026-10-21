@@ -163,7 +163,11 @@ Each slice:
 | 6 | DirectedEnergy | `<Optic>` child `<Beam …8 fields>` (an empty `<Beam/>` still yields an instance); `<Launcher FiresBeam BeamArmamentLabel>`; `Munition` optional when `FiresBeam` and returned as `""` (`LoadoutFor` keys on length 0); no-tube/no-gun fault accepts a beam; fault a beam launcher whose part has no `<Beam>`; a way to declare a part's rows exactly (YAL-1 has no Sensor row) | 1 / 3 | lase a target |
 | 7 | Strategic | `<Munition SubStepSeconds PreferredStepSeconds MaxChargeKg>`; bus `TrimAccelerationMetresPerSecond2 TrimWorstAxisExhaustVelocity HopEngineThrustNewtons HopEngineExhaustVelocity HopEngineAccelerationMetresPerSecond2`, `<ReleaseSpin Rate SpinUp Ignition><Nozzle Mouth Exhaust/>`. The Mk 21 moves with physical drag only (the comparator was retired before this slice, below); `WarheadSubStepMs` stays, and `RoundAtSubStep` becomes a generic helper on `MunitionProfile`/`Catalogue`. `Bridge.cs:1400` burst template → core-owned. Then delete `Arsenal.cs` and the regex in `validate-parts.py`. | 64 / 172 | `drop`, `mirv` |
 
-**Before the Strategic slice — retire the Mk 21's drag comparator** (its own commit). Shape drag won its
+**Before the Strategic slice — retire the Mk 21's drag comparator** (its own commit; **landed 2026-10-21**. It
+exposed three things the constant had hidden: the divert reach over-promises on the round the game flies
+(`ICBM-OUTSTANDING.md` 1.24), two aim rigs read wrongly on it (2.8), and `PredictorStepGapTests`' rig never
+had the midpoint drag the game ships. Tests that pin an algorithm on, or reproduce a flight with, the
+retired round now fly `RetiredRounds.Mk21Constant`.) Shape drag won its
 paired night on 2026-09-18 and has shipped on since v0.9.0, so the hand-typed constant is flown by nothing
 but the tests and a batch arm nobody plans to fly. The Mk 21 declares `MassKg=270 CalibreMm=550
 DragCoefficient=0.1` directly and `DragK` goes; `IcbmConfig.WarheadDragFromItsShape`, its control and
