@@ -112,6 +112,14 @@ folder of definitions in it and no code; KSArmory reads that folder inside every
 holds no list of packs. `KSArmory-example-mod` is a complete worked example — a Mk 82 bomb rack, which
 used to ship here — and `docs/WEAPON-PACKS.md` is the reference.
 
+**KSArmory's own weapons are defined the same way**, one file per family in its `KSArmory/` folder
+(`Pantsir.xml`, `Rails.xml`, `Guns.xml`, `Sensors.xml`, `Countermeasures.xml`, `DirectedEnergy.xml`,
+`Strategic.xml`). If you edited the old `Weapons.xml`, your edits now belong in the family file that
+holds that weapon. Any family can be switched off under **KSArmory > Built-in weapons**, which takes
+effect at the next start: its parts still load on a saved craft as plain structure and leave the
+editor, its rounds and sensors stay available to packs, and a pack may then define a weapon of its own
+on that family's part.
+
 > Built against KSA build `2026.10.19.5638`. KSA is pre-release and has no official code-modding
 > API; this uses the community [StarMap](https://github.com/StarMapLoader/StarMap) loader and
 > may need updating when the game does. The community
