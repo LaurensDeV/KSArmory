@@ -37,8 +37,9 @@ not will be found again by the next reader.
   and give-back that `MotorPlume`, `MuzzleFlash` and `DecoyEffects` each copied, with the
   Kill-before-`RemoveEmitter` rule in one place, and `Ksa/SoundChannels.cs` holds the listener,
   pressure, move and stop that `MotorSound` and `GunSound` copied. Leaf functions, not a base class:
-  the keys, cardinality and lifetimes genuinely differ. The chaff puff is left as it was, because it
-  sets a burst's origin before attaching it and the pool helper attaches first.
+  the keys, cardinality and lifetimes genuinely differ. The one-shot sets -- blast dust, ejecta, flak
+  smoke and the chaff puff -- point and tune before they register, which `Take` cannot, so they share
+  `EmitterPool.Fire` beside it.
 
   Flown on 2026-09-29: an AIM-9J's flame and trail at the nozzle, a Mk 42 flash after twenty-odd
   separate shots, and flare cores lit again after sixteen had burnt at once against the twelve-core

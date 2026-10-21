@@ -117,35 +117,14 @@ internal sealed class DecoyEffects
 
         try
         {
-            if (!Program.Instance.ParticleSystem.GetAndInitializeEmitters(ChaffId, out var handles)
-                || handles is null || handles.Count == 0)
+            int fired = EmitterPool.Fire(ChaffId, body, EmitterPool.At(body, positionCcf, double3.Zero));
+            if (fired == 0)
             {
                 Warn($"no free emitters for '{ChaffId}'; chaff will bloom unseen");
                 return;
             }
 
-            var origin = new BubbleOrigin
-            {
-                Time = Universe.GetElapsedTime(),
-                Parent = body,
-                BubFrame = BubbleFrame.Ccf,
-                PositionBub = positionCcf,
-                VelocityBub = double3.Zero,
-            };
-
-            foreach (var handle in handles)
-            {
-                if (handle.TryGet() is not { } emitter) continue;
-
-                emitter.LocalOffset = float4x4.Identity;
-                emitter.Context.Vehicle = null;
-                emitter.Context.Part = null;
-                emitter.Context.Astronomical = body;
-                emitter.Origin = origin;
-                body.AddEmitter(handle);
-            }
-
-            Log.Debug(() => $"  chaff puff drawn from {handles.Count} emitter(s)");
+            Log.Debug(() => $"  chaff puff drawn from {fired} emitter(s)");
         }
         catch (Exception e)
         {

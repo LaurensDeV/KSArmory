@@ -46,39 +46,20 @@ internal static class FlakPuff
 
             float scale = (float)Math.Cbrt(chargeKg / ReferenceChargeKg);
 
-            BubbleOrigin origin = new()
-            {
-                Time = Universe.GetElapsedTime(),
-                Parent = body,
-                BubFrame = BubbleFrame.Ccf,
-                PositionBub = burstCcf,
-                VelocityBub = double3.Zero,
-            };
+            BubbleOrigin origin = EmitterPool.At(body, burstCcf, double3.Zero);
 
-            if (!Program.Instance.ParticleSystem.GetAndInitializeEmitters(PuffId, out var handles)
-                || handles is null || handles.Count == 0)
+            int fired = EmitterPool.Fire(PuffId, body, origin, e =>
+            {
+                e.EmitterSpawnInfo.Radius = 2.5f * scale;
+                e.ParticleInfo.Size *= scale;
+                e.ParticleInfo.Velocity *= scale;
+                e.ParticleInfo.Lifespan = new float2(Math.Max(18f * scale, 3f), Math.Max(28f * scale, 5f));
+            });
+
+            if (fired == 0)
             {
                 Warn($"no free emitters for '{PuffId}'; a shell will burst without smoke");
                 return;
-            }
-
-            // The order KSA's own ExplosionSystem.FireStage uses: point it, tune it, then register it.
-            foreach (var handle in handles)
-            {
-                if (handle.TryGet() is not { } emitter) continue;
-
-                emitter.LocalOffset = float4x4.Identity;
-                emitter.Context.Vehicle = null;
-                emitter.Context.Part = null;
-                emitter.Context.Astronomical = body;
-                emitter.Origin = origin;
-
-                emitter.EmitterSpawnInfo.Radius = 2.5f * scale;
-                emitter.ParticleInfo.Size *= scale;
-                emitter.ParticleInfo.Velocity *= scale;
-                emitter.ParticleInfo.Lifespan = new float2(Math.Max(18f * scale, 3f), Math.Max(28f * scale, 5f));
-
-                body.AddEmitter(handle);
             }
 
             Log.Debug(() => $"shell smoke: {chargeKg:G3} kg, {overGroundMetres:F0} m up, {12f * scale:F1} m across");

@@ -40,6 +40,36 @@ internal static class EmitterPool
         return [.. handles];
     }
 
+    /// <summary>
+    /// Fires a one-shot set for <paramref name="id"/> at <paramref name="origin"/>, and says how many
+    /// went; none when the pool is empty. Nothing is held: a one-shot set returns itself.
+    /// </summary>
+    // The order KSA's own ExplosionSystem.FireStage uses: point it, tune it, then register it, which
+    // is why this is not Take, which registers first.
+    public static int Fire(string id, Celestial body, BubbleOrigin origin, Action<ParticleEmitter<ParticleUpdateData, ParticleRenderData>>? tune = null)
+    {
+        if (!Program.Instance.ParticleSystem.GetAndInitializeEmitters(id, out var handles)
+            || handles is null || handles.Count == 0)
+        {
+            return 0;
+        }
+
+        foreach (var handle in handles)
+        {
+            if (handle.TryGet() is not { } emitter) continue;
+
+            emitter.LocalOffset = float4x4.Identity;
+            emitter.Context.Vehicle = null;
+            emitter.Context.Part = null;
+            emitter.Context.Astronomical = body;
+            emitter.Origin = origin;
+            tune?.Invoke(emitter);
+            body.AddEmitter(handle);
+        }
+
+        return handles.Count;
+    }
+
     /// <summary>Where a set of emitters spawns from, at a point in <paramref name="body"/>'s rotating frame.</summary>
     public static BubbleOrigin At(Celestial body, double3 positionCcf, double3 velocityCcf) => new()
     {

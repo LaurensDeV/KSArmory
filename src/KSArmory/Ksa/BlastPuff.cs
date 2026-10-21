@@ -49,16 +49,9 @@ internal static class BlastPuff
             float strength = (float)Math.Clamp(pressureRatio, FaintestRatio, 1.5);
             float across = (float)Math.Max(acrossMetres, 0.5);
 
-            BubbleOrigin origin = new()
-            {
-                Time = Universe.GetElapsedTime(),
-                Parent = body,
-                BubFrame = BubbleFrame.Ccf,
-                PositionBub = faceCcf,
-                VelocityBub = double3.Zero,
-            };
+            BubbleOrigin origin = EmitterPool.At(body, faceCcf, double3.Zero);
 
-            Fire(body, origin, e =>
+            int fired = EmitterPool.Fire(PuffId, body, origin, e =>
             {
                 e.EmitterSpawnInfo.Radius = across * 0.6f;
                 e.ParticleInfo.Size = new float2(across * 0.4f, across * 1.2f) * (0.6f + (0.4f * strength));
@@ -66,6 +59,12 @@ internal static class BlastPuff
                 e.Force = float3.Pack(pushCcf * (40.0 * strength));
                 e.Opacity = Math.Clamp(0.3f + (0.4f * strength), 0.3f, 0.85f);
             });
+
+            if (fired == 0 && !_warned)
+            {
+                _warned = true;
+                Log.Warn($"no free emitters for '{PuffId}'; a front will strike without dust");
+            }
         }
         catch (Exception e)
         {
@@ -73,36 +72,6 @@ internal static class BlastPuff
 
             _warned = true;
             Log.Warn($"blast dust could not be thrown: {e.Message}");
-        }
-    }
-
-    // The order KSA's own ExplosionSystem.FireStage uses: point it, tune it, then register it.
-    private static void Fire(Celestial body, BubbleOrigin origin,
-                             Action<ParticleEmitter<ParticleUpdateData, ParticleRenderData>> tune)
-    {
-        if (!Program.Instance.ParticleSystem.GetAndInitializeEmitters(PuffId, out var handles)
-            || handles is null || handles.Count == 0)
-        {
-            if (!_warned)
-            {
-                _warned = true;
-                Log.Warn($"no free emitters for '{PuffId}'; a front will strike without dust");
-            }
-
-            return;
-        }
-
-        foreach (var handle in handles)
-        {
-            if (handle.TryGet() is not { } emitter) continue;
-
-            emitter.LocalOffset = float4x4.Identity;
-            emitter.Context.Vehicle = null;
-            emitter.Context.Part = null;
-            emitter.Context.Astronomical = body;
-            emitter.Origin = origin;
-            tune(emitter);
-            body.AddEmitter(handle);
         }
     }
 }
