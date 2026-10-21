@@ -4,9 +4,10 @@
 "split into six mods" plan, and three reviews of this one (code facts, design, tests/tooling). Every
 file:line below was checked by at least one reviewer.*
 
-**Status, 2026-10-21: Phases 0-3 built.** Every built-in is in one of seven family files and
+**Status, 2026-10-21: Phases 0-4 built.** Every built-in is in one of seven family files and
 `Sim/Arsenal.cs` is deleted; `validate-parts.py` reads the XML through its renderer. The disable switch is
-in the mod's menu under "Built-in weapons". Phase 4, the example mod's reference copy, is next.
+in the mod's menu under "Built-in weapons", and `tools/export-reference.py` writes the example mod's
+reference copy. Phase 5, the release pass, is next.
 
 ## Decisions
 
