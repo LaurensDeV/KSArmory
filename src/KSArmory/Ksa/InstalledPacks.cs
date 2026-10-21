@@ -53,7 +53,14 @@ public static class InstalledPacks
             }
 
             bool core = SameFolder(FolderOf(entry), ModFolder);
-            foreach (string file in files.Order(StringComparer.Ordinal)) Read(id, file, core);
+            List<(string, string)> definitions = [];
+            foreach (string file in files.Order(StringComparer.Ordinal))
+            {
+                if (Read(id, file) is { } text) definitions.Add((Path.GetFileName(file), text));
+            }
+
+            // Already registered by RegisterCore, before any pack could need them.
+            if (!core) PackFiles.Register(definitions, id);
         }
     }
 
@@ -115,7 +122,8 @@ public static class InstalledPacks
         }
     }
 
-    private static void Read(string id, string file, bool core)
+    // A weapon file's text, or null for one that could not be read or that describes bodies instead.
+    private static string? Read(string id, string file)
     {
         string definitions;
         try
@@ -125,7 +133,7 @@ public static class InstalledPacks
         catch (IOException e)
         {
             Log.Warn($"pack '{id}': {Path.GetFileName(file)} cannot be read - {e.Message}");
-            return;
+            return null;
         }
 
         // A bodies file sits beside the weapon packs and is told from one by its root: handed to the pack
@@ -134,13 +142,10 @@ public static class InstalledPacks
         {
             foreach (PackFault fault in BodyCatalogue.Register(definitions, id)) Log.Warn(fault.ToString());
             Log.Info($"pack '{id}': {Path.GetFileName(file)} describes bodies");
-            return;
+            return null;
         }
 
-        // Already registered by RegisterCore, before any pack could need them.
-        if (core) return;
-
-        Armoury.Register(definitions, id);
+        return definitions;
     }
 
     private static IEnumerable<ModEntry> Installed()

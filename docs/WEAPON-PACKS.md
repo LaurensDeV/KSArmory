@@ -52,6 +52,10 @@ KSArmory looks in that folder inside **every** installed mod and reads the `.xml
 It holds no list of packs and never learns yours by name — the convention is the whole mechanism,
 the same relationship KSA has with its own mods folder.
 
+**Split a pack across as many files as you like, named as you like.** A mod's files are read as one
+unit: every name each declares is known to the others, so a launcher may name a round or a sensor
+in another file whichever order they sort in. KSArmory's own files are read the same way.
+
 **`KSArmory/Weapons.xml` must not be in `mod.toml`'s `assets` array.** KSA hands every entry there
 to its own asset-bundle loader, so a weapon file named there is parsed by the wrong reader.
 

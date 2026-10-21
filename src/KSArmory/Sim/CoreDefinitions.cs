@@ -13,8 +13,7 @@ public readonly record struct CoreFileResult(string FileName, string? Family, bo
 /// <c>[StarMapAllModsLoaded]</c> is not.</para>
 ///
 /// <para><b>As one unit</b>, because a launcher in one file may name a round or a sensor declared
-/// in another. Every file's names are collected first and each file is read against all of them,
-/// so neither the file order nor the family split decides whether a reference resolves.</para>
+/// in another: <see cref="PackFiles"/>, which every pack's files go through too.</para>
 ///
 /// <para>Text in, like <see cref="PackReader"/>: the game and the tests hand it the same files, so
 /// the suite cannot register the built-ins differently from the game.</para>
@@ -29,35 +28,15 @@ public static class CoreDefinitions
     public static IReadOnlyList<CoreFileResult> Register(IEnumerable<(string FileName, string Text)> files,
                                                          IReadOnlySet<string>? disabled = null)
     {
-        // Ordinal, because the filesystem gives no order and the catalogue is first-wins.
-        List<(string FileName, string Text)> ordered =
-            [.. files.Where(f => !BodyReader.IsBodies(f.Text))
-                     .OrderBy(f => f.FileName, StringComparer.Ordinal)];
-
-        // Read for their names alone; a launcher or dispenser naming another file's round faults here, harmlessly.
-        List<PackContents> declared =
-            [.. ordered.Select(f => PackReader.Read(f.Text, PackReader.BuiltInSource, [], []))];
-
         List<CoreFileResult> results = [];
-        for (int i = 0; i < ordered.Count; i++)
+        foreach ((string fileName, PackContents read) in PackFiles.Read(files, PackReader.BuiltInSource))
         {
-            List<MunitionProfile> munitions = [.. Catalogue.Munitions];
-            List<SensorProfile> sensors = [.. Catalogue.Sensors];
-            List<DecoyProfile> decoys = [.. Catalogue.Decoys];
-            for (int j = 0; j < declared.Count; j++)
-            {
-                if (j == i) continue;
-                munitions.AddRange(declared[j].Munitions);
-                sensors.AddRange(declared[j].Sensors);
-                decoys.AddRange(declared[j].Decoys);
-            }
-
-            PackContents contents = PackReader.Read(ordered[i].Text, PackReader.BuiltInSource, munitions, sensors, decoys);
+            PackContents contents = read;
             bool off = contents.Family is { } family && disabled?.Contains(family) == true;
             if (off) contents = LibraryOnly(contents);
             else if (contents.Family is { } owner) Catalogue.Owns(owner, PartsOf(contents));
 
-            results.Add(new CoreFileResult(ordered[i].FileName, contents.Family, off, Catalogue.Register(contents)));
+            results.Add(new CoreFileResult(fileName, contents.Family, off, Catalogue.Register(contents)));
         }
 
         return results;
