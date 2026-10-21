@@ -1384,11 +1384,16 @@ internal sealed class Bridge : IViewPose
         // count sets off that many in the same frame, spacing_m apart eastward: a bus's salvo, which a
         // burst a call can never be, since calls are further apart than one burst stays one event.
         int count = Math.Clamp((int)command.Number("count", 1.0), 1, 12);
+        // effect names an explosion as a munition's BurstEffect would, through the same fallback.
+        string effect = command.String("effect");
         double spacing = command.Number("spacing_m", 0.0);
         for (int i = 0; i < count; i++)
         {
             double3 offset = frame.East * (spacing * i);
-            if (command.Flag("explode", true)) Detonation.Explode(lifted + offset, charge, craft);
+            if (command.Flag("explode", true))
+            {
+                Detonation.Explode(lifted + offset, charge, craft, named: effect.Length > 0 ? effect : null);
+            }
             NuclearClouds.Begin(ground + offset, craft, charge);
         }
 

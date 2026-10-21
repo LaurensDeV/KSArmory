@@ -348,7 +348,8 @@ TOOLS = {
                    "spare_own": {"type": "boolean"}, "up_m": _num("metres above the ground"),
                    "in_frame_s": _num("seconds before the step's end it went off, negative"),
                    "count": _num("how many in the same frame, as a bus's salvo (1-12)"),
-                   "spacing_m": _num("metres east between them")},
+                   "spacing_m": _num("metres east between them"),
+                   "effect": {"type": "string", "description": "an explosion Id to go off as, as a munition's BurstEffect"}},
                   ["kt"], lambda a: [_text(json.dumps(send("burst", **a)))]),
     "ksa_dents": ("The dents the engine holds on the flown craft, each with the angle between its push and the "
                   "line from the last damaging burst to it. clear=true takes them all off.",
