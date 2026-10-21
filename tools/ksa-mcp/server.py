@@ -404,13 +404,16 @@ TOOLS = {
     "ksa_system": ("One craft's weapons settings, as its panel would set them: auto_engage, protect (never "
                    "target the flown craft), silent. seeker flies its missiles on an infrared, radar or "
                    "radar-gated seeker to test decoys against, resistance 0-1 beside it; stock puts it back. trigger "
-                   "points the trigger at the cannon, the tubes or a beam; beam switches a beam weapon on or off. Reads back each "
-                   "weapon's hold, and a beam's seconds left and whether it is lasing.",
+                   "points the trigger at the cannon, the tubes or a beam; beam switches a beam weapon on or off. turret sets the "
+                   "turret's mode as the panel does -- track, manual (bearing_deg/elevation_deg), stow or spin. Reads back each "
+                   "weapon's hold and turret, whether the ring claims the gun lead, and a beam's seconds left and whether it is lasing.",
                    {"craft": {"type": "string"}, "auto_engage": {"type": "boolean"},
                     "protect": {"type": "boolean"}, "silent": {"type": "boolean"}, "guns": {"type": "boolean"}, "chase": {"type": "boolean"}, "focus": {"type": "boolean"},
                     "seeker": {"type": "string", "enum": ["infrared", "radar", "radar-gated", "stock"]},
                     "trigger": {"type": "string", "enum": ["cannon", "tubes", "beam"]}, "beam": {"type": "boolean"},
-                    "resistance": _num("0..1")}, ["craft"],
+                    "resistance": _num("0..1"),
+                    "turret": {"type": "string", "enum": ["track", "manual", "stow", "spin"]},
+                    "bearing_deg": _num("deg"), "elevation_deg": _num("deg")}, ["craft"],
                    lambda a: [_text(json.dumps(send("system", **a), indent=1))]),
     "ksa_optic": ("A craft's optical directors, as their rows would set them: view new (a spare camera "
                   "window), main, off or a window index; magnification; tracking; bearing_deg and elevation_deg aim it by hand; mouse false stops it following the cursor, which outranks the hand aim; at_craft designates a "

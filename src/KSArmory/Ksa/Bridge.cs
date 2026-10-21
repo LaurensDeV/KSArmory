@@ -926,6 +926,17 @@ internal sealed class Bridge : IViewPose
             if (command.Has("beam")) p.BeamEnabled = command.Flag("beam", p.BeamEnabled);
             if (command.Has("chase")) p.ChaseRounds = command.Flag("chase", p.ChaseRounds);
 
+            // The panel's turret controls: track the radar, hold where the sliders say, stow, or spin.
+            string turret = command.String("turret");
+            if (turret.Length > 0)
+            {
+                p.TurretSpin = turret == "spin";
+                p.TurretManual = turret == "manual";
+                p.TurretTracking = turret is "track" or "manual" or "spin";
+            }
+            if (command.Has("bearing_deg")) p.TurretManualBearingDeg = (float)command.Number("bearing_deg", 0.0);
+            if (command.Has("elevation_deg")) p.TurretManualElevationDeg = (float)command.Number("elevation_deg", 55.0);
+
             string trigger = command.String("trigger");
             if (trigger == "cannon") e.Weapon.TriggerArmament = ArmamentKind.Belt;
             else if (trigger == "tubes") e.Weapon.TriggerArmament = ArmamentKind.Tubes;
@@ -959,6 +970,8 @@ internal sealed class Bridge : IViewPose
                     _ => "tubes",
                 },
                 ["hold"] = e.Weapon.Hold,
+                ["turret"] = p.TurretSpin ? "spin" : p.TurretManual ? "manual" : p.TurretTracking ? "track" : "stow",
+                ["ring_on_gun_lead"] = e.Weapon.TryRingAimEcl(out _, out bool onLead) && onLead,
                 ["beam_s_left"] = e.Weapon.Profile.FiresBeam ? e.Weapon.BeamSecondsLeft : null,
                 ["beam_lasing"] = e.Weapon.Profile.FiresBeam ? e.Weapon.BeamLasing : null,
                 ["protect"] = p.ProtectControlledVehicle,
