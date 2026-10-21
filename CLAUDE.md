@@ -743,6 +743,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
 | `docs/IRST-PLAN.md` | **a plan, not a record** — an infrared search part that finds targets for the directors, which find nothing by themselves, and one picture per craft that hands them on; the detection law, its calibration targets and the order of work |
+| `docs/BUILTINS-AS-DATA.md` | **a plan, not a record** — every built-in weapon moved out of `Arsenal.cs` into one XML file per family, a startup switch to disable built-in families, and a generated reference copy for the example mod; the mechanism, the hazards the reviews found, and the order of work |
 | `docs/SHARED-PICTURE.md` | **a plan, not a record** — a team's scopes showing what another installation's set holds: the display-only step first, and why firing on somebody else's track is a much bigger one |
 | `docs/MULTIPLAYER.md` | **a plan, not a record** — what KSA's networking skeleton does, why this mod's rounds have nothing to sync against until KSA replicates vehicles and time, and the two pieces worth doing first |
 | `docs/CIWS-REALISM.md` | **a plan, not a record** — what the real Phalanx does that the mod does not: detection only as the search beam passes, and closed-loop spotting of its own rounds, with why each waits and **what would make spotting worth building** |
