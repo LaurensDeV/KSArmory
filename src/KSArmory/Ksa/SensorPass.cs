@@ -118,15 +118,7 @@ internal static class SensorPass
 
         IRenderImage[] storageTargets = [colour, mean];
         IRenderImage[] depthTargets = [depth];
-        VkPushConstantRange[] ranges =
-        [
-            new VkPushConstantRange
-            {
-                Offset = (ByteSize32)0,
-                Size = (ByteSize32)Marshal.SizeOf<Push>(),
-                StageFlags = VkShaderStageFlags.ComputeBit,
-            },
-        ];
+        VkPushConstantRange[] ranges = CloudPass.PushRanges<Push>();
 
         view = new View
         {
