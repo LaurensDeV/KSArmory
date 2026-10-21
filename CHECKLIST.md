@@ -104,8 +104,8 @@ Four things changed shape and need watching, worst first:
 1. **The camera and the sight.** `MainViewportIndex`, `CollectUsableViewports`,
    `TryProjectIntoViewport`, `ViewportFovRad`, `TryLookFromViewport` and both cursor-ray paths now
    index `ViewportRegistry.GameViews` instead of `Program.Viewports`. Viewport *numbers* therefore
-   mean a position in a different list, and a persisted `OpticConfig.Viewport` could select a
-   different window than it did. Watch: the sight centres its target at 16x, the chase camera, and
+   mean a position in a different list. `OpticConfig` is not saved at all (flown 2026-10-21), so no
+   stored viewport number can select a different window than it did. Watch: the sight centres its target at 16x, the chase camera, and
    the secondary-viewport picker naming the windows that actually exist.
 2. **The levelled horizon is installed by reflection now.** `IGameViewport.FixedController` is
    get-only, so `KsaWorld.LevelTheHorizon` writes `GameViewport`'s backing field. It verifies the

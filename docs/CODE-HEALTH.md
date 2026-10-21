@@ -94,7 +94,8 @@ change, so each wants a flight before it is fixed.
   (`SiteDesignator` against `GroundTrackDesignator`), where both are meant to decide alike. Which is
   right is the owner's call.
 - [ ] **A director's settings are not saved.** `SettingsStore` writes `systems.json` and
-  `ballistic.json` and nothing carries an `OpticConfig`.
+  `ballistic.json` and nothing carries an `OpticConfig`. Flown: a LITENING set to 8x, tracking off and
+  white-hot, saved and reloaded, came back at 1x, tracking and TV.
 - [ ] **`SensorPass.ViewFor` replaces its 1x1 image and its pipeline without disposing either**, on
   every camera-window resize. `CloudPass`'s graveyard is the fix it could share.
 - [ ] **The director's hold reason is derived twice** — `OpticalHead.AimPartFrame` takes seven rungs,
@@ -102,9 +103,11 @@ change, so each wants a flight before it is fixed.
   turret's version of this is `Sim/TurretMode.cs`.
 - [ ] **The rosters disagree about an empty part read.** `WeaponSystems` reads one as a tree
   mid-rebuild and searches 120 times; `Countermeasures` and `SearchSets` drop the entry at once, so a
-  dispenser may come back with a full magazine after staging.
-- [ ] **`PostBoostAim` prints its misses as fixed-width km**, so 30 m reads `0.0 km`; `Distance.Say`
-  is what the rest of the log uses.
+  dispenser may come back with a full magazine after staging. Flown: two stagings that split nothing
+  kept the magazine (18/30 flares, then 14/30); a staging that splits the craft is the case still open,
+  and no save carries dispensers on a craft with a decoupler.
+- [x] **`PostBoostAim` prints its misses as fixed-width km**, so 30 m reads `0.0 km`; `Distance.Say`
+  is what the rest of the log uses. Flown on `mirv:24S,62W`: "3 passes without beating 0.4 m".
 
 ## The ballistic computer
 
