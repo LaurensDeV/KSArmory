@@ -216,6 +216,8 @@ holds fire on for ever, with no gate reporting why.
 | `TubeRingRadius` | `0` | m; the ring the launch positions fall back to when the subpart carrying the tubes will not resolve |
 | `TubeArmamentLabel` | `Missiles` | what the panel calls it. A rack says "Bombs" |
 | `FireControlLabel` | *DisplayName* `fire control` | what the panel's fire-control row for this part is called |
+| `MintRows` | `true` | `false` lists the panel's rows for this part exactly as its `<Provides>` declare them, with no sensor, gun or fire-control row added |
+| `FiresBeam`, `BeamArmamentLabel` | `false`, `Laser` | fires the beam an `<Optic>` on the same part carries, and needs no `Munition`. Refused if no `<Optic>` in the pack on its part has a `<Beam>` |
 
 **Trainable launchers** name the subparts that move. Leave them all out and the launcher is fixed:
 `Trains` is false, the drives are skipped, and fire control never waits for it to settle.
@@ -302,6 +304,18 @@ part gets none: the launcher declares it with `<Provides Role="Camera">`, as the
 | `MaxMagnification` | `16` | how far the optics wind in, against KSA's 50° view; the zoom steps x1, x2, x4… up to it and ends on it. 53 is a 1° field; the camera takes down to 0.05°, and the most any optic may be fitted with is 1024 |
 | `HasLaser` | `false` | a laser rangefinder and designator on the line of sight, fired from the camera window's LASE button; its spot is what a laser-guided weapon homes on, by its code |
 | `LaserRangeMetres` | `20000` | how far the laser returns from; past it the beam lases at nothing |
+
+A `<Beam>` inside an `<Optic>` makes its head a high-energy laser, fired down its own line of sight by
+a `<Launcher FiresBeam="true">` on the same part. An empty `<Beam />` is the YAL-1's.
+
+| | Default | |
+| --- | --- | --- |
+| `PowerWatts` | `1e6` | |
+| `WavelengthMetres`, `ApertureMetres` | `1.315e-6`, `1.5` | with the aperture, what sets how small the spot can be focused |
+| `JitterRad` | `2e-7` | how far the pointing wanders, smearing the spot |
+| `BurnThroughJoulesPerM2` | `6e7` | energy per area that burns through one part's whole health |
+| `ExtinctionPerMetre` | `2e-5` | what the air takes out per metre at sea-level density |
+| `ChemicalSeconds`, `ShotSeconds` | `100`, `5` | seconds of lasing in a full load, and how long one press holds it on |
 
 ### `<SearchSet>` — a part that searches and does nothing else
 
@@ -461,7 +475,7 @@ Data covers a great deal: every flight, warhead, sensor and optic number, tube p
 directions, magazine and belt, articulation markers, and which round and sensor a launcher pairs
 with. What it cannot do is add a *kind*:
 
-- **a new weapon kind** — a beam, a hitscan, anything without a discrete round.
+- **a new weapon kind** — a hitscan, anything without a discrete round other than a beam.
 - **a new guidance law**, as opposed to new numbers for one of the five.
 - **a new gimbal**, beyond `Mast` and `RollNod`.
 - **articulation beyond traverse-then-elevate.** A drum, a translating rail, per-tube motion or a

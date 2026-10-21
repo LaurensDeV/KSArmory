@@ -122,6 +122,17 @@ public static class PackReader
             }
         }
 
+        // The director on its part is what aims and fires the beam, so one with no beam has nothing to fire.
+        foreach (LauncherProfile laser in launchers.Where(l => l.FiresBeam).ToList())
+        {
+            if (optics.Exists(o => o.PartId == laser.PartId && o.Beam is not null)) continue;
+
+            faults.Add(new PackFault(source, "Launcher", laser.PartId,
+                                     "fires a beam, but no <Optic> in this pack on its part carries a <Beam>"));
+            launchers.Remove(laser);
+            components.RemoveAll(c => c.PartId == laser.PartId && c.Role == WeaponRole.Launcher);
+        }
+
         // A director on a launcher's own part is that launcher's row, declared with <Provides>; one
         // standing alone is a part the survey has to recognise by itself.
         foreach (OpticProfile head in optics)
@@ -311,6 +322,7 @@ public static class PackReader
             MaxMagnification = r.Number("MaxMagnification", 16f),
             HasLaser = r.Flag("HasLaser", false),
             LaserRangeMetres = r.Number("LaserRangeMetres", 20000f),
+            Beam = r.Beam(),
         };
 
         // A roll-nod head with no roll body cannot show what it is doing; a mast head having
@@ -430,11 +442,18 @@ public static class PackReader
         string partId = r.Required("PartId");
         r.Describe(partId);
 
+        // A beam weapon throws no round, and an empty name is what loadout resolution reads as none.
+        bool firesBeam = r.Flag("FiresBeam", false);
+
         LauncherProfile launcher = new()
         {
             PartId = partId,
             DisplayName = r.Required("DisplayName"),
-            Munition = r.Reference("Munition", ownRounds, knownRounds, m => m.Name),
+            Munition = firesBeam && el.Attribute("Munition") is null
+                           ? r.Text("Munition") ?? ""
+                           : r.Reference("Munition", ownRounds, knownRounds, m => m.Name),
+            FiresBeam = firesBeam,
+            BeamArmamentLabel = r.Text("BeamArmamentLabel") ?? "Laser",
             Sensor = r.Reference("Sensor", ownSets, knownSets, s => s.Name),
 
             TubeArmamentLabel = r.Text("TubeArmamentLabel") ?? "Missiles",
@@ -510,12 +529,13 @@ public static class PackReader
 
         List<BuiltInComponent> declared = r.Provides();
         string fireControl = r.Text("FireControlLabel") ?? $"{launcher.DisplayName} fire control";
+        bool mintRows = r.Flag("MintRows", true);
 
         // A launcher that can shoot with nothing is a part fire control adopts and then holds
         // fire on for ever, with no gate reporting why.
-        if (launcher.TubeCount == 0 && !launcher.HasCannon)
+        if (launcher.TubeCount == 0 && !launcher.HasCannon && !launcher.FiresBeam)
         {
-            r.Fault("declares no Tube and no GunMunition, so it cannot shoot with anything");
+            r.Fault("declares no Tube, no GunMunition and no FiresBeam, so it cannot shoot with anything");
         }
 
         // Elevation gear with no trunnion offset swings the assembly about the turret's own
@@ -554,7 +574,15 @@ public static class PackReader
         if (Duplicate(launcher.PartId, into, l => l.PartId, r)) return;
 
         into.Add(launcher);
-        components.Add(ComponentFor(launcher, fireControl, declared, ownRounds, ownSets, knownRounds, knownSets));
+        components.Add(mintRows
+                           ? ComponentFor(launcher, fireControl, declared, ownRounds, ownSets, knownRounds, knownSets)
+                           : new ComponentProfile
+                           {
+                               PartId = launcher.PartId,
+                               Role = WeaponRole.Launcher,
+                               DisplayName = launcher.DisplayName,
+                               Provides = declared,
+                           });
     }
 
     // The component row a launcher implies. Minted rather than asked for: the two registries have
@@ -826,6 +854,42 @@ public static class PackReader
 
         // Gear this launcher carries as subparts. The survey walks *parts*, so a role that lives
         // inside one has to be declared or the system reports as not having it at all.
+        public BeamProfile? Beam()
+        {
+            _taken.Add("Beam");
+
+            BeamProfile? beam = null;
+            foreach (XElement el in element.Elements("Beam"))
+            {
+                Reader b = new(el, source, "Beam", faults);
+                b.Describe(_name);
+
+                if (beam is not null)
+                {
+                    b.Fault("a head carries one beam");
+                    _sound = false;
+                    continue;
+                }
+
+                BeamProfile read = new()
+                {
+                    PowerWatts = b.Number("PowerWatts", 1.0e6f),
+                    WavelengthMetres = b.Number("WavelengthMetres", 1.315e-6f),
+                    ApertureMetres = b.Number("ApertureMetres", 1.5f),
+                    JitterRad = b.Number("JitterRad", 0.2e-6f),
+                    BurnThroughJoulesPerM2 = b.Number("BurnThroughJoulesPerM2", 6.0e7f),
+                    ExtinctionPerMetre = b.Number("ExtinctionPerMetre", 2.0e-5f),
+                    ChemicalSeconds = b.Number("ChemicalSeconds", 100f),
+                    ShotSeconds = b.Number("ShotSeconds", 5f),
+                };
+
+                if (b.Sound()) beam = read;
+                else _sound = false;
+            }
+
+            return beam;
+        }
+
         public List<BuiltInComponent> Provides()
         {
             _taken.Add("Provides");

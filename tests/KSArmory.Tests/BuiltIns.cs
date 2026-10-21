@@ -77,4 +77,8 @@ public static class BuiltIns
     public static DispenserProfile Ale47Chaff => Catalogue.DispenserForPart("KSArmory_Prefab_Ale47Chaff")!;
     public static DecoyProfile FlareMju7 => Catalogue.DecoyNamed("MJU7");
     public static DecoyProfile ChaffRr170 => Catalogue.DecoyNamed("RR170");
+
+    public static OpticProfile Yal1Turret => Catalogue.OpticForPart("KSArmory_Prefab_Yal1Turret")!;
+    public static LauncherProfile Yal1Beam => Catalogue.LauncherForPart("KSArmory_Prefab_Yal1Turret")!;
+    public static SensorProfile BeamDirectorSensor => Catalogue.SensorNamed("Yal1BeamDirector");
 }

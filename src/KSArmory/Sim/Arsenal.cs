@@ -398,102 +398,23 @@ public static class Arsenal
         LockSeconds = 0.8f,
     };
 
-    /// <summary>
-    /// What the YAL-1's turret tracks with. The aircraft's six IRSTs did the detecting, so it holds
-    /// only what it is handed.
-    ///
-    /// <para><see cref="BoresightMode.MountNormal"/> is the part's <c>+X</c>, which for a turret
-    /// stacked on a nose is straight ahead along its roll axis.</para>
-    /// </summary>
-    public static readonly SensorProfile BeamDirectorSensor = new()
-    {
-        Name = "Yal1BeamDirector",
-        DisplayName = "YAL-1 beam director",
-        CuedOnly = true,
-
-        // The design range against a solid-fuelled booster (APS, 2003); liquid was twice that.
-        Range = 300000f,
-        ConeDeg = 120f,
-
-        BoresightSource = BoresightMode.MountNormal,
-        ThreatRadius = 6000f,
-        ThreatHorizonSeconds = 30f,
-        LockSeconds = 0.6f,
-        MinTargetSpeed = 0f,
-    };
-
-    /// <summary>
-    /// The beam director in the YAL-1 Airborne Laser's nose. Geometry from its Blender export.
-    ///
-    /// <para>A <see cref="GimbalKind.RollNod"/> head like the LITENING pod: Lockheed Martin's
-    /// turret ball "yaws and rolls in flight" inside a roll shell. Its base is turned a quarter turn
-    /// in the part XML, so its centreline is the stack axis and the window looks forward at zero
-    /// nod.</para>
-    /// </summary>
-    public static readonly OpticProfile Yal1Turret = new()
-    {
-        PartId = "KSArmory_Prefab_Yal1Turret",
-        DisplayName = "YAL-1 beam director",
-        Sensor = BeamDirectorSensor.Name,
-        Gimbal = GimbalKind.RollNod,
-
-        BaseMarker = "Yal1_Base",
-        RollMarker = "Yal1_Roll",
-        HeadMarker = "Yal1_Head",
-
-        HeadPivot = new(0.00000, 2.50000, 0.00000),
-        EyeForward = 1.400f,
-
-        // Not published. Slower than the pod's 140 for a 6.4 t ball; a guess until something says.
-        SlewRateDeg = 30f,
-
-        // Laserstars' ±120° field of regard; the shell's slot clears the window to that nod.
-        MaxOffBoresightDeg = 120f,
-        KeyholeDeg = 4f,
-
-        // The fine tracker looks through the beam's own telescope; telescopes of that class are
-        // built with a field of 1 mrad or less (US 12171055). 1 mrad is x932 against 50°.
-        MaxMagnification = 932f,
-
-        // The tracking and beacon illuminators leave through this window, and so does the COIL.
-        HasLaser = true,
-        LaserRangeMetres = 300000f,
-        Beam = new BeamProfile(),
-    };
-
-    /// <summary>
-    /// The YAL-1's laser as a weapon: the same part as <see cref="Yal1Turret"/>, firing that
-    /// director's beam. Nothing of its own moves and it throws no round; fire control picks the
-    /// target and cues the director, which aims, casts and burns.
-    /// </summary>
-    public static readonly LauncherProfile Yal1Beam = new()
-    {
-        PartId = Yal1Turret.PartId,
-        DisplayName = "YAL-1 laser",
-        Munition = "",
-        Sensor = BeamDirectorSensor.Name,
-        Tubes = [],
-        FiresBeam = true,
-        BeamArmamentLabel = "COIL laser",
-    };
-
     // ---- Countermeasures -------------------------------------------------
 
     // ---- Registry -------------------------------------------------------
 
     public static readonly IReadOnlyList<LauncherProfile> Launchers =
-        [NukeRack, MirvBus, Yal1Beam];
+        [NukeRack, MirvBus];
     public static readonly IReadOnlyList<MunitionProfile> Munitions =
         [NukeB61, ReentryVehicleMk21];
     public static readonly IReadOnlyList<SensorProfile> Sensors =
-        [BombSight, BeamDirectorSensor, BusDesignation];
+        [BombSight, BusDesignation];
 
     /// <summary>
     /// Optical heads. Most are parts in their own right; one rides a launcher's turret, and
     /// nothing downstream can tell which is which — nor which gimbal any of them is hung on.
     /// </summary>
     public static readonly IReadOnlyList<OpticProfile> Optics =
-        [Yal1Turret];
+        [];
 
     /// <summary>Parts that only search.</summary>
     public static readonly IReadOnlyList<SearchSetProfile> SearchSets = [];
@@ -514,21 +435,6 @@ public static class Arsenal
     /// </summary>
     public static readonly IReadOnlyList<ComponentProfile> Components =
     [
-        new ComponentProfile
-        {
-            PartId = Yal1Turret.PartId,
-            Role = WeaponRole.Launcher,
-            DisplayName = Yal1Beam.DisplayName,
-
-            // One entry: the survey takes the first that names a part. The director is the part
-            // itself, so it is declared here as the Pantsir declares the one on its turret. Its set
-            // is the director's, whose row already says what it watches, so no Sensor row.
-            Provides =
-            [
-                new(WeaponRole.Camera, Yal1Turret.DisplayName),
-                new(WeaponRole.FireControl, "YAL-1 fire control"),
-            ],
-        },
         new ComponentProfile
         {
             PartId = NukeRack.PartId,

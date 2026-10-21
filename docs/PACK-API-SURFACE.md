@@ -11,7 +11,7 @@ ignored.
 
 `docs/WEAPON-PACKS.md` is the same surface written for the author, with the reasons attached.
 
-**Definition schema 1.** 8 elements, 157 attributes, 15 entry-point lines.
+**Definition schema 1.** 8 elements, 160 attributes, 15 entry-point lines.
 
 ## Entry point
 
@@ -119,8 +119,10 @@ to build; widening it to take a profile type would put that back.
 | Attribute | Reads | Default |
 | --- | --- | --- |
 | `PartId` | text, required | **required** |
+| `FiresBeam` | true or false | `false` |
 | `DisplayName` | text, required | **required** |
-| `Munition` | name, required | **required** |
+| `Munition` | text | **required** |
+| `BeamArmamentLabel` | text | `Laser` |
 | `Sensor` | name, required | **required** |
 | `TubeArmamentLabel` | text | `Missiles` |
 | `GunArmamentLabel` | text | `Cannon` |
@@ -183,6 +185,7 @@ to build; widening it to take a profile type would put that back.
 | `GunSoundId` | text | *none* |
 | `GunshotSoundId` | text | *none* |
 | `FireControlLabel` | text | *none* |
+| `MintRows` | true or false | `true` |
 
 ### `<Optic>` - a sighting head, needing no weapon on the craft
 

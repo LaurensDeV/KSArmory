@@ -6,7 +6,7 @@ namespace KSArmory.Tests;
 [Collection("catalogue")]
 public class BeamWeaponTests
 {
-    private static readonly LauncherProfile Yal = Catalogue.LauncherForPart(Arsenal.Yal1Turret.PartId)!;
+    private static readonly LauncherProfile Yal = Catalogue.LauncherForPart(BuiltIns.Yal1Turret.PartId)!;
 
     private static BeamConditions BeamReady() => new()
     {
@@ -99,7 +99,7 @@ public class BeamWeaponTests
         (MunitionProfile munition, SensorProfile sensor) = Catalogue.LoadoutFor(Yal);
 
         Assert.Same(MunitionProfile.None, munition);
-        Assert.Equal(Arsenal.BeamDirectorSensor.Name, sensor.Name);
+        Assert.Equal(BuiltIns.BeamDirectorSensor.Name, sensor.Name);
     }
 
     [Fact]
@@ -109,7 +109,7 @@ public class BeamWeaponTests
 
         Armament arm = Assert.Single(fit.Armaments);
         Assert.Equal(ArmamentKind.Beam, arm.Kind);
-        Assert.Equal((int)Arsenal.Yal1Turret.Beam!.ChemicalSeconds, arm.Capacity);
+        Assert.Equal((int)BuiltIns.Yal1Turret.Beam!.ChemicalSeconds, arm.Capacity);
         Assert.Equal("73 s/100 s", arm.Tally(73));
         Assert.False(arm.Steers);
         Assert.True(fit.AutoEngages);

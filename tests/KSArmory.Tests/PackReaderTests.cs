@@ -298,6 +298,67 @@ public class PackReaderTests
         Assert.Contains(pack.Faults, f => f.Reason.Contains("Kind"));
     }
 
+    private const string ALaserHead =
+        """
+        <Optic PartId="TestPack_Prefab_Laser" DisplayName="Laser head" Sensor="Eye"
+               BaseMarker="Base" HeadMarker="Head" HeadPivot="0, 2.5, 0">
+          <Beam PowerWatts="2e6" ApertureMetres="1.2" ShotSeconds="3" />
+        </Optic>
+        """;
+
+    private const string ALaser =
+        """
+        <Launcher PartId="TestPack_Prefab_Laser" DisplayName="Laser" Sensor="Eye"
+                  FiresBeam="true" BeamArmamentLabel="Beam" MintRows="false">
+          <Provides Role="Camera" DisplayName="Laser head" />
+          <Provides Role="FireControl" DisplayName="Laser fire control" />
+        </Launcher>
+        """;
+
+    [Fact]
+    public void ABeamWeaponNeedsNoRoundAndFiresItsHeadsBeam()
+    {
+        PackContents pack = Read(Wrap(ASet + ALaserHead + ALaser));
+
+        Assert.Empty(pack.Faults);
+        LauncherProfile laser = Assert.Single(pack.Launchers);
+        Assert.True(laser.FiresBeam);
+        Assert.Equal(("", "Beam"), (laser.Munition, laser.BeamArmamentLabel));
+
+        BeamProfile beam = Assert.Single(pack.Optics).Beam!;
+        Assert.Equal((2e6f, 1.2f, 3f), (beam.PowerWatts, beam.ApertureMetres, beam.ShotSeconds));
+        Assert.Equal(new BeamProfile().ChemicalSeconds, beam.ChemicalSeconds);
+    }
+
+    [Fact]
+    public void MintRowsFalseListsExactlyTheDeclaredRows()
+    {
+        ComponentProfile row = Assert.Single(Read(Wrap(ASet + ALaserHead + ALaser)).Components);
+
+        Assert.Equal([(WeaponRole.Camera, "Laser head"), (WeaponRole.FireControl, "Laser fire control")],
+                     row.Provides.Select(p => (p.Role, p.DisplayName)));
+    }
+
+    [Fact]
+    public void ABeamWeaponWhoseHeadCarriesNoBeamIsRefused()
+    {
+        string noBeam = ALaserHead.Replace("<Beam PowerWatts=\"2e6\" ApertureMetres=\"1.2\" ShotSeconds=\"3\" />", "");
+
+        PackContents pack = Read(Wrap(ASet + noBeam + ALaser));
+
+        Assert.Empty(pack.Launchers);
+        Assert.DoesNotContain(pack.Components, c => c.Role == WeaponRole.Launcher);
+        Assert.Contains(pack.Faults, f => f.Element == "Launcher" && f.Reason.Contains("<Beam>"));
+    }
+
+    [Fact]
+    public void AHeadCarriesOneBeam()
+    {
+        string twoBeams = ALaserHead.Replace("<Beam ", "<Beam /><Beam ");
+
+        Assert.Contains(Read(Wrap(ASet + twoBeams)).Faults, f => f.Reason.Contains("one beam"));
+    }
+
     // ---- Refusing -------------------------------------------------------
 
     [Fact]
