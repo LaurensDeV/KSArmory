@@ -35,5 +35,5 @@ public static class PointGravity
     /// </summary>
     public static double3 OnRound(double mu, double3 bodySampleEcl, double3 bodyVelocityEcl,
                                   double3 bodyFallEcl, double3 positionEcl, double secondsIntoFrame)
-        => Toward(bodySampleEcl + (bodyVelocityEcl * secondsIntoFrame), mu, positionEcl) + bodyFallEcl;
+        => Toward(InFrame.AtBurst(bodySampleEcl, bodyVelocityEcl, secondsIntoFrame), mu, positionEcl) + bodyFallEcl;
 }

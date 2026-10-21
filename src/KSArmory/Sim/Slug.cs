@@ -607,7 +607,7 @@ internal sealed class Slug : IProjectile
         SteeringCommandEcl = Vec.Zero;
         if (munition.SteersItsFall && target is { } aim)
         {
-            double3 aimPos = aim.PositionEcl + aim.VelocityEcl * (elapsedInFrame - frameSeconds);
+            double3 aimPos = InFrame.AtBurst(aim.PositionEcl, aim.VelocityEcl, elapsedInFrame - frameSeconds);
 
             SteeringCommandEcl = TailKit.Command(aimPos - PositionEcl, aim.VelocityEcl - VelocityEcl,
                                                  localVelocity, gravity, -drag, munition);
@@ -626,8 +626,7 @@ internal sealed class Slug : IProjectile
 
             if (target is { } fused)
             {
-                double3 at = fused.PositionEcl
-                             + fused.VelocityEcl * (elapsedInFrame + tBurst - frameSeconds);
+                double3 at = InFrame.AtBurst(fused.PositionEcl, fused.VelocityEcl, DetonationElapsedInFrame);
 
                 MissDistance = Vec.Len(at - PositionEcl);
                 ClosestApproach = Math.Min(ClosestApproach, MissDistance);
