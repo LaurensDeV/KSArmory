@@ -3088,6 +3088,13 @@ Every built-in now registers from `src/KSArmory/KSArmory/<Family>.xml` (`docs/BU
 - [x] **16.5** `KSARMORY_NO_BUILTINS=1`: the log says none registered, and every KSArmory part loads as
       structure. *Flown 2026-10-21 on `5inch_gun` (through `WSLENV`): "none registered", the example mod's
       Mk 82 the only weapon, the save loaded and crewed nothing, no exceptions.*
+- [x] **16.7** Every weapon flies as a pack. The example mod's copy (`tools/export-example-copy.py`, every Id
+      renamed to `ExampleCopy_`) with every family off, on saves turned onto its parts by `tools/copy-save.py`,
+      flown 2026-10-21: `gunnery` on `5inch_gun (copy)` 4 of 4 drones; `gunnery:2,head-on` on `CIWS (copy)` PASS;
+      `head-on` on `rocket missile (copy)` 15 m from the drone; `drop` on `B61-13 (copy)` 0 m from the ring;
+      `mirv` on `TEST PBB GeoSat FAT (copy)` 7 of 7 within a millimetre. No exceptions. Found and fixed on the
+      way: a pack's files were read one at a time (`Sim/PackFiles.cs`).
+- [ ] **16.8** The copy's sights, IRST, dispensers and YAL-1 in flight, and *All on* / *All off* clicked.
 
 ## Reporting back
 
