@@ -13,12 +13,18 @@ namespace KSArmory.Tests;
 ///
 /// <para>Registered rather than merely parsed, so `Catalogue` in a test holds what the game holds
 /// and the lookups behave identically.</para>
+///
+/// <para>Name lookups throw on a miss from here on. A weapon renamed in the move would otherwise
+/// come back as whichever round registered first, and every test asking for it would fly that
+/// instead.</para>
 /// </summary>
 public static class BuiltIns
 {
     [ModuleInitializer]
     internal static void Register()
     {
+        Catalogue.MissingNameThrows = true;
+
         DirectoryInfo? at = new(AppContext.BaseDirectory);
         while (at is not null && !File.Exists(Path.Combine(at.FullName, "KSArmory.sln"))) at = at.Parent;
         if (at is null) throw new InvalidOperationException("cannot find the repository root");

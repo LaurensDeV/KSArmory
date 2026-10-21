@@ -223,18 +223,31 @@ public static class Catalogue
         return null;
     }
 
+    /// <summary>
+    /// Whether a name that matches nothing throws rather than answering the first entry. Off in the
+    /// game, where the fallback keeps a flight going; on in the tests, where it would let a renamed
+    /// weapon be silently replaced by whichever registered first.
+    /// </summary>
+    internal static bool MissingNameThrows { get; set; }
+
     /// <summary>The named expendable, falling back to the first as <see cref="Arsenal.Named{T}"/> does.</summary>
-    public static DecoyProfile DecoyNamed(string name) => Arsenal.Named(Arsenal.Decoys, name, d => d.Name);
+    public static DecoyProfile DecoyNamed(string name) => Resolve(Arsenal.Decoys, name, d => d.Name, "decoy");
 
     /// <summary>
     /// The named round, falling back to the first registered rather than throwing — see
     /// <see cref="Arsenal.Named{T}"/> for why, and for what that costs.
     /// </summary>
-    public static MunitionProfile MunitionNamed(string name)
-        => Arsenal.Named(_munitions, name, m => m.Name);
+    public static MunitionProfile MunitionNamed(string name) => Resolve(_munitions, name, m => m.Name, "round");
 
     /// <inheritdoc cref="MunitionNamed"/>
-    public static SensorProfile SensorNamed(string name) => Arsenal.Named(_sensors, name, s => s.Name);
+    public static SensorProfile SensorNamed(string name) => Resolve(_sensors, name, s => s.Name, "sensor");
+
+    private static T Resolve<T>(IReadOnlyList<T> from, string name, Func<T, string> key, string kind)
+        where T : class
+        => Find(from, name, key)
+           ?? (MissingNameThrows
+                   ? throw new KeyNotFoundException($"no {kind} is registered as '{name}'")
+                   : Arsenal.Named(from, name, key));
 
     /// <summary>
     /// The named round, or null when nothing carries that name.
@@ -264,5 +277,6 @@ public static class Catalogue
     /// <see cref="Arsenal.LoadoutFor"/> for why the pairing is made in one place.
     /// </summary>
     public static (MunitionProfile Munition, SensorProfile Sensor) LoadoutFor(LauncherProfile launcher)
-        => Arsenal.LoadoutFor(launcher, _munitions, _sensors);
+        => (launcher.Munition.Length == 0 ? MunitionProfile.None : MunitionNamed(launcher.Munition),
+            SensorNamed(launcher.Sensor));
 }

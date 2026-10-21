@@ -10,6 +10,7 @@ namespace KSArmory.Tests;
 /// can be told apart from one that does not, and that a weapons system with no launcher yet says
 /// so rather than impersonating whichever launcher happens to be registered first.
 /// </summary>
+[Collection("catalogue")]
 public class CatalogueTests
 {
     [Fact]
@@ -30,6 +31,14 @@ public class CatalogueTests
         Assert.Same(Arsenal.EoDirector, Catalogue.OpticForPart(Arsenal.EoDirector.PartId));
     }
 
+    // The suite runs strict, so a weapon renamed in a move fails here rather than flying as another.
+    [Fact]
+    public void ANameMatchingNothingThrowsUnderTest()
+    {
+        Assert.Throws<KeyNotFoundException>(() => Catalogue.MunitionNamed("no such round"));
+        Assert.Throws<KeyNotFoundException>(() => Catalogue.SensorNamed("no such sensor"));
+    }
+
     /// <summary>
     /// The capability the fallback cannot offer. <c>MunitionNamed</c> answers element zero for a
     /// name nobody carries, which keeps a typo playable and is indistinguishable from a hit; a
@@ -40,11 +49,20 @@ public class CatalogueTests
     {
         const string missing = "no such round";
 
-        Assert.NotNull(Catalogue.MunitionNamed(missing));
-        Assert.NotEqual(missing, Catalogue.MunitionNamed(missing).Name);
-        Assert.Null(Catalogue.TryMunitionNamed(missing));
+        // The suite runs strict; the fallback being described is the game's.
+        Catalogue.MissingNameThrows = false;
+        try
+        {
+            Assert.NotNull(Catalogue.MunitionNamed(missing));
+            Assert.NotEqual(missing, Catalogue.MunitionNamed(missing).Name);
+            Assert.NotNull(Catalogue.SensorNamed(missing));
+        }
+        finally
+        {
+            Catalogue.MissingNameThrows = true;
+        }
 
-        Assert.NotNull(Catalogue.SensorNamed(missing));
+        Assert.Null(Catalogue.TryMunitionNamed(missing));
         Assert.Null(Catalogue.TrySensorNamed(missing));
 
         // And it still finds what is there, so the null above means "absent" and not "broken".

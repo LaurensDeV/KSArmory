@@ -12,6 +12,7 @@ namespace KSArmory.Tests;
 /// silently switched its bomb sight off at the same time. Both are invisible to every other check
 /// in the repository: the part loads, the round seats, the log says nothing.</para>
 /// </summary>
+[Collection("catalogue")]
 public class ReleasedStoreTests
 {
     private static MunitionProfile With(GuidanceMode mode)

@@ -10,6 +10,7 @@ namespace KSArmory.Tests;
 /// typo in a name or a mismatched count, and neither shows up until something silently picks
 /// the wrong profile in game.
 /// </summary>
+[Collection("catalogue")]
 public class ArsenalTests
 {
     [Fact]
@@ -90,9 +91,17 @@ public class ArsenalTests
     public void UnknownNamesFallBackRatherThanThrow()
     {
         // A launcher naming a round that does not exist is a typo in Arsenal, not a reason for
-        // the game to fall over mid-flight.
-        Assert.NotNull(Catalogue.MunitionNamed("no such round"));
-        Assert.NotNull(Catalogue.SensorNamed("no such sensor"));
+        // the game to fall over mid-flight. The suite runs strict, so this asks as the game does.
+        Catalogue.MissingNameThrows = false;
+        try
+        {
+            Assert.NotNull(Catalogue.MunitionNamed("no such round"));
+            Assert.NotNull(Catalogue.SensorNamed("no such sensor"));
+        }
+        finally
+        {
+            Catalogue.MissingNameThrows = true;
+        }
     }
 
     [Fact]
@@ -224,7 +233,8 @@ public class ArsenalTests
     {
         string[] byHand = ["AIM9J", "AIM120C", "AGM88", "57E6", "B61", "MK21"];
 
-        foreach (MunitionProfile round in Catalogue.Munitions)
+        // The shipped rounds only: a pack's name is qualified, and a pack may type its drag by hand.
+        foreach (MunitionProfile round in Catalogue.Munitions.Where(m => !m.Name.Contains(':')))
         {
             Assert.True(round.DragFromShape != byHand.Contains(round.Name),
                         $"{round.Name}: drag {(round.DragFromShape ? "from its shape" : "by hand")}");
@@ -232,7 +242,10 @@ public class ArsenalTests
 
         foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
-            if (launcher.GunMunition is { } gun) Assert.True(Catalogue.MunitionNamed(gun).DragFromShape, gun);
+            if (launcher.GunMunition is { } gun && !gun.Contains(':'))
+            {
+                Assert.True(Catalogue.MunitionNamed(gun).DragFromShape, gun);
+            }
         }
     }
 

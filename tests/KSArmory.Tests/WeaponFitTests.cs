@@ -12,6 +12,7 @@ namespace KSArmory.Tests;
 /// suite that only asks about the Pantsir cannot tell that apart from a description that happens
 /// to fit the Pantsir.</para>
 /// </summary>
+[Collection("catalogue")]
 public class WeaponFitTests
 {
     private static SensorProfile Sensor(float range = 20000f) =>
@@ -20,11 +21,11 @@ public class WeaponFitTests
     private static readonly SensorProfile Blind = Sensor(0f);
 
     // A turret with two pods of missiles and a belt-fed cannon on the same mount.
-    private static LauncherProfile Weapon(int magazineDepth = 0) => new()
+    private static LauncherProfile Weapon(int magazineDepth = 0, string munition = "round") => new()
     {
         PartId = "Mod_Prefab_Battery",
         DisplayName = "system",
-        Munition = "round",
+        Munition = munition,
         Sensor = "set",
         Tubes = [new(1, 0, 0), new(1, 0, 0.4)],
         MagazineDepth = magazineDepth,
@@ -153,7 +154,8 @@ public class WeaponFitTests
     [Fact]
     public void AFullBatteryAnswersYesToEveryFaculty()
     {
-        WeaponFit fit = WeaponFit.Of(Weapon(), Sensor());
+        // A registered guided round: whether it steers is the round's to say.
+        WeaponFit fit = WeaponFit.Of(Weapon(munition: BuiltIns.Missile57E6.Name), Sensor());
 
         Assert.True(fit.Aims);
         Assert.True(fit.Traverses);

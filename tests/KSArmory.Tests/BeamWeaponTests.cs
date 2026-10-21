@@ -3,6 +3,7 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>The YAL-1's laser as a weapon: its registry entry, its fit, its ladder and its trigger.</summary>
+[Collection("catalogue")]
 public class BeamWeaponTests
 {
     private static readonly LauncherProfile Yal = Catalogue.LauncherForPart(Arsenal.Yal1Turret.PartId)!;

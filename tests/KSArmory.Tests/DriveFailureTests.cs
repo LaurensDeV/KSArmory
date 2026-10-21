@@ -10,6 +10,7 @@ namespace KSArmory.Tests;
 /// leave tubes. Only the drawn facing line disagrees. These pin the two rules that keep that from
 /// turning into rounds fired along a stale transform.</para>
 /// </summary>
+[Collection("catalogue")]
 public class DriveFailureTests
 {
     private static LauncherProfile Profile(string? turretMarker = null, double podPoseRad = 0.0) => new()

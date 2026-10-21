@@ -16,6 +16,7 @@ namespace KSArmory.Tests;
 /// designation is accepted and then discarded a frame later, and the only symptom is a weapon
 /// that will not fire.
 /// </summary>
+[Collection("catalogue")]
 public class BoresightTests
 {
     private static double AngleToTubeDeg(double3 boresight, double3 tube)

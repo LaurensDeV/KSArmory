@@ -5,6 +5,7 @@ namespace KSArmory.Tests;
 /// <summary>
 /// The target list, which is data only: nothing here flies a bus anywhere.
 /// </summary>
+[Collection("catalogue")]
 public class TargetSetTests
 {
     private static AimSite At(double lat, double lon) => new("Earth", lat, lon, "");
