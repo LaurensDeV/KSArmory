@@ -1442,10 +1442,12 @@ _CSHARP_NAME = {
     ("Optic", "KSArmory_Prefab_Launcher6"): "PantsirDirector",
     ("Optic", "KSArmory_Prefab_Litening"): "Litening",
     ("Optic", "KSArmory_Prefab_Yal1Turret"): "Yal1Turret",
+    ("SearchSet", "KSArmory_Prefab_Irst"): "Irst",
 }
 
 # Which registry list in Arsenal.cs each kind belongs to.
-_REGISTRY = {"Launcher": "Launchers", "Optic": "Optics", "Munition": "Munitions", "Sensor": "Sensors"}
+_REGISTRY = {"Launcher": "Launchers", "Optic": "Optics", "Munition": "Munitions", "Sensor": "Sensors",
+             "SearchSet": "SearchSets"}
 
 
 def _definition_files():
@@ -1465,7 +1467,7 @@ def _shipped(kind):
 
 
 def _key(kind, el):
-    return el.get("PartId") if kind in ("Launcher", "Optic") else el.get("Name", "")
+    return el.get("PartId") if kind in ("Launcher", "Optic", "SearchSet") else el.get("Name", "")
 
 
 def _render(el):

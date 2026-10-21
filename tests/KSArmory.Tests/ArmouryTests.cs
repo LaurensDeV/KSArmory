@@ -56,6 +56,27 @@ public class ArmouryTests
                         c => c.PartId == "BravoPack_Prefab_Rail" && c.Role == WeaponRole.Launcher);
     }
 
+    // A craft carrying nothing but a director is an observation post, and the switcher lists only
+    // parts with a row.
+    [Fact]
+    public void AStandaloneDirectorAndSearchSetAreRecognisedComponents()
+    {
+        PackResult result = Armoury.Register(
+            """
+            <WeaponPack Schema="1">
+              <Sensor Name="Eye" DisplayName="Eye" CuedOnly="true" />
+              <Optic PartId="LookoutPack_Prefab_Mast" DisplayName="Mast" Sensor="Eye"
+                     BaseMarker="Base" HeadMarker="Head" HeadPivot="0.6, 0, 0" />
+              <SearchSet PartId="LookoutPack_Prefab_Irst" DisplayName="IRST" Sensor="Eye" />
+            </WeaponPack>
+            """, "LookoutPack");
+
+        Assert.True(result.Complete, string.Join("; ", result.Faults));
+        Assert.Contains(Catalogue.Components, c => c.PartId == "LookoutPack_Prefab_Mast" && c.Role == WeaponRole.Camera);
+        Assert.Contains(Catalogue.Components, c => c.PartId == "LookoutPack_Prefab_Irst" && c.Role == WeaponRole.Sensor);
+        Assert.NotNull(Catalogue.SearchSetForPart("LookoutPack_Prefab_Irst"));
+    }
+
     [Fact]
     public void APartIdSomethingElseAlreadyClaimsIsRefused()
     {

@@ -189,6 +189,67 @@ public class PackReaderTests
         Assert.Contains(pack.Faults, f => f.Reason.Contains(pin));
     }
 
+    [Fact]
+    public void ADirectorsAndAnInfraredSetsSensorFieldsAreRead()
+    {
+        PackContents pack = Read(Wrap(
+            """
+            <Sensor Name="Eye" DisplayName="Eye" CuedOnly="true" />
+            <Sensor Name="Heat" DisplayName="Heat" Infrared="true" IrThresholdWPerM2="1e-6" LookDownPenalty="10" />
+            """));
+
+        Assert.Empty(pack.Faults);
+        Assert.True(pack.Sensors[0].CuedOnly);
+        Assert.False(pack.Sensors[1].CuedOnly);
+        Assert.True(pack.Sensors[1].Infrared);
+        Assert.Equal((1e-6f, 10f), (pack.Sensors[1].IrThresholdWPerM2, pack.Sensors[1].LookDownPenalty));
+    }
+
+    private const string AMast =
+        """
+        <Optic PartId="TestPack_Prefab_Mast" DisplayName="Mast sight" Sensor="Eye"
+               BaseMarker="Base" HeadMarker="Head" HeadPivot="0.6, 0, 0" />
+        """;
+
+    [Fact]
+    public void ADirectorStandingAloneBringsItsOwnCameraRow()
+    {
+        PackContents pack = Read(Wrap(ASet + AMast));
+
+        ComponentProfile row = Assert.Single(pack.Components);
+        Assert.Equal(("TestPack_Prefab_Mast", WeaponRole.Camera, "Mast sight"), (row.PartId, row.Role, row.DisplayName));
+    }
+
+    // A director on a launcher's own part is that launcher's to declare, with <Provides>.
+    [Fact]
+    public void ADirectorOnALaunchersPartBringsNoSecondRow()
+    {
+        string onTheRail = AMast.Replace("TestPack_Prefab_Mast", "TestPack_Prefab_Rail");
+
+        PackContents pack = Read(Wrap(ARound + ASet + ARail + onTheRail));
+
+        Assert.Equal(WeaponRole.Launcher, Assert.Single(pack.Components).Role);
+    }
+
+    [Fact]
+    public void ASearchSetIsReadWithItsSensorRowNamedByPanelName()
+    {
+        PackContents pack = Read(Wrap(ASet +
+            """
+            <SearchSet PartId="TestPack_Prefab_Irst" DisplayName="IRST" Sensor="Eye"
+                       PanelName="Infrared search" HeadMarker="Head" HeadPivot="0.1, 0.2, 0"
+                       HeadTravelDeg="50" ScanPeriodSeconds="4" />
+            """));
+
+        Assert.Empty(pack.Faults);
+        SearchSetProfile set = Assert.Single(pack.SearchSets);
+        Assert.Equal(("Head", 50f, 4f), (set.HeadMarker, set.HeadTravelDeg, set.ScanPeriodSeconds));
+        Assert.Equal("TestPack:Eye", set.Sensor);
+
+        ComponentProfile row = Assert.Single(pack.Components);
+        Assert.Equal((WeaponRole.Sensor, "Infrared search"), (row.Role, row.DisplayName));
+    }
+
     // ---- Refusing -------------------------------------------------------
 
     [Fact]

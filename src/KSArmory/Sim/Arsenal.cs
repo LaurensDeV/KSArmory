@@ -399,90 +399,6 @@ public static class Arsenal
     };
 
     /// <summary>
-    /// The EO director's own sensor, also the Pantsir's roof director's. A telescope rather than a
-    /// set: it holds what it is handed, in detail, and finds nothing on its own.
-    ///
-    /// <para><see cref="BoresightMode.PartForward"/>, so its volume follows the craft's attitude
-    /// rather than pointing at the sky — a director bolted to the side of a hull looks out of
-    /// that side.</para>
-    /// </summary>
-    public static readonly SensorProfile EoSensor = new()
-    {
-        Name = "EO",
-        DisplayName = "EO director",
-        Range = 12000f,
-        CuedOnly = true,
-
-        // Wide enough to cover the head's own travel, and that is where the number comes from
-        // rather than from taste: the boresight is the mounting face's normal, which is 90 deg
-        // elevation, and the mount reaches 20 deg below horizontal. 110 deg is exactly the two.
-        //
-        // Anything narrower leaves a band the head can point into and is forbidden to look at. At
-        // 75 that band is everything within 15 deg of the horizon, which on an air-defence
-        // vehicle is where the attack comes from: an incoming round sits in it, undetected, while
-        // the mount could swing onto it in a second.
-        ConeDeg = 110f,
-
-        // A mast head looks out of the face it stands on, which is also where it parks.
-        BoresightSource = BoresightMode.MountNormal,
-        ThreatRadius = 4000f,
-        ThreatHorizonSeconds = 30f,
-        LockSeconds = 0.6f,
-
-        // It watches rather than engages, so it has no reason to ignore something slow. A search
-        // set does, because a docked craft is not a threat; a sight pointed at one is doing its
-        // job.
-        MinTargetSpeed = 0f,
-    };
-
-    /// <summary>
-    /// A standalone electro-optical director. Geometry from <c>tools/model/optic.py</c>.
-    /// </summary>
-    public static readonly OpticProfile EoDirector = new()
-    {
-        PartId = "KSArmory_Prefab_Optic",
-        DisplayName = "EO Director",
-        Sensor = EoSensor.Name,
-
-        BaseMarker = "Optic_Base",
-        HeadMarker = "Optic_Head",
-
-        HeadPivot = new(0.63000, 0.00000, 0.00000),
-        EyeForward = 0.300f,
-        MinElevationDeg = -20f,
-        MaxElevationDeg = 85f,
-    };
-
-    /// <summary>
-    /// The set inside a targeting pod. Longer-ranged than a mast director and looking down rather
-    /// than out. Like every director's it holds what it is handed and searches for nothing.
-    ///
-    /// <para><see cref="BoresightMode.PartForward"/>, as the mast director's is, and for a pod that
-    /// resolves to the mounting face's own normal — away from the pylon, so a wing store looks at
-    /// the ground below the aircraft. A cone about the pod's <em>centreline</em> would be the
-    /// literal field of regard and would also point straight into the wing, which is the one
-    /// direction the airframe masks and nothing here models.</para>
-    /// </summary>
-    public static readonly SensorProfile PodSensor = new()
-    {
-        Name = "Litening",
-        DisplayName = "LITENING",
-        Range = 20000f,
-        CuedOnly = true,
-        ConeDeg = 100f,
-
-        // Out of the mounting face, matching where the pod stows. Along the pod's own centreline
-        // is its keyhole, which is the one direction it cannot look.
-        BoresightSource = BoresightMode.MountNormal,
-        ThreatRadius = 6000f,
-        ThreatHorizonSeconds = 30f,
-        LockSeconds = 0.6f,
-
-        // An instrument rather than a weapon's eye: something parked is exactly what it is for.
-        MinTargetSpeed = 0f,
-    };
-
-    /// <summary>
     /// What the YAL-1's turret tracks with. The aircraft's six IRSTs did the detecting, so it holds
     /// only what it is handed.
     ///
@@ -507,83 +423,9 @@ public static class Arsenal
     };
 
     /// <summary>
-    /// An infrared search set, after the six the YAL-1 carried along its forward fuselage: passive, a
-    /// faceted window set nearly flush in a smooth fairing, over a turning head, after the F-35's EOTS,
-    /// with a 120 deg cone along the part's +Y, so several turned different ways on a hull give
-    /// all-round cover.
-    /// </summary>
-    public static readonly SensorProfile InfraredSearchSet = new()
-    {
-        Name = "Irst",
-        DisplayName = "IRST",
-        Infrared = true,
-        Scope = ScopePresentation.Search,
-        LookDownPenalty = 10f,
-
-        // A ceiling only: the heat decides. A 1 MN booster in thin air is seen at about 250 km.
-        Range = 400000f,
-        ConeDeg = 60f,
-
-        BoresightSource = BoresightMode.PartForward,
-        ThreatRadius = 8000f,
-        ThreatHorizonSeconds = 40f,
-        LockSeconds = 1.0f,
-    };
-
-    /// <summary>
-    /// A Rafael LITENING pod. Geometry from <c>tools/model/import-litening.py</c>.
-    ///
-    /// <para>The first <see cref="GimbalKind.RollNod"/> head, and the reason that enum exists. Its
-    /// nose turns continuously about the pod's own centreline and the line of sight tilts within
-    /// that turning frame — so it has no bearing and no elevation, and its travel is one number:
-    /// how far the nod carries the sight off the centreline.</para>
-    ///
-    /// <para><see cref="OpticProfile.MaxOffBoresightDeg"/> is the <em>gimbal's</em> stop, and the
-    /// importer measures the nose's aperture beside it so the binding one is known rather than
-    /// assumed: the shell clears the line of sight to 158° on the side the recession is cut into,
-    /// so the mechanism stops first with 8° in hand. The other side clears only 107°, which never
-    /// binds — the nod is always non-negative and the roll puts the open side on the target.</para>
-    ///
-    /// <para>The 150° is their rig's limit and the AselPOD-class figure it came from. Rafael does
-    /// not publish Litening's, and any specific number attributed to it online is worth
-    /// suspicion.</para>
-    /// </summary>
-    public static readonly OpticProfile Litening = new()
-    {
-        PartId = "KSArmory_Prefab_Litening",
-        DisplayName = "LITENING",
-        Sensor = PodSensor.Name,
-        Gimbal = GimbalKind.RollNod,
-
-        BaseMarker = "Litening_Body",
-        RollMarker = "Litening_Roll",
-        HeadMarker = "Litening_Head",
-
-        HeadPivot = new(0.26669, 0.94282, 0.00000),
-
-        // The ball's own radius, so the eye sits just outside the glass rather than inside it.
-        EyeForward = 0.223f,
-
-        // The roll axis carries its mass close to the axis of symmetry, so a roll-nod head slews
-        // and settles faster than an az-el one of the same mass. That is most of why pods are
-        // built this way, and it is the one performance number that follows from the mechanism.
-        SlewRateDeg = 140f,
-
-        MaxOffBoresightDeg = 150f,
-        KeyholeDeg = 4f,
-
-        // Its narrow field is 1° (GlobalSecurity's AN/AAQ-28 page, and the SAAF's Litening III),
-        // which is x53 against the 50° the zoom is measured from.
-        MaxMagnification = 53f,
-
-        // A rangefinder and designator, as every pod of the class carries.
-        HasLaser = true,
-    };
-
-    /// <summary>
     /// The beam director in the YAL-1 Airborne Laser's nose. Geometry from its Blender export.
     ///
-    /// <para>A <see cref="GimbalKind.RollNod"/> head like <see cref="Litening"/>: Lockheed Martin's
+    /// <para>A <see cref="GimbalKind.RollNod"/> head like the LITENING pod: Lockheed Martin's
     /// turret ball "yaws and rolls in flight" inside a roll shell. Its base is turned a quarter turn
     /// in the part XML, so its centreline is the stack axis and the window looks forward at zero
     /// nod.</para>
@@ -711,30 +553,17 @@ public static class Arsenal
     public static readonly IReadOnlyList<MunitionProfile> Munitions =
         [NukeB61, ReentryVehicleMk21];
     public static readonly IReadOnlyList<SensorProfile> Sensors =
-        [BombSight, EoSensor, PodSensor, BeamDirectorSensor, BusDesignation, InfraredSearchSet];
+        [BombSight, BeamDirectorSensor, BusDesignation];
 
     /// <summary>
     /// Optical heads. Most are parts in their own right; one rides a launcher's turret, and
     /// nothing downstream can tell which is which — nor which gimbal any of them is hung on.
     /// </summary>
     public static readonly IReadOnlyList<OpticProfile> Optics =
-        [EoDirector, Litening, Yal1Turret];
-
-    /// <summary>
-    /// The IRST part. Its head turns about <see cref="SearchSetProfile.HeadPivot"/>, which the asset
-    /// XML's head <c>&lt;Position&gt;</c> repeats and validate-parts.py holds the two to.
-    /// </summary>
-    public static readonly SearchSetProfile Irst = new()
-    {
-        PartId = "KSArmory_Prefab_Irst",
-        DisplayName = "IRST",
-        Sensor = InfraredSearchSet.Name,
-        HeadMarker = "Irst_Head",
-        HeadPivot = new(0.09000, 0.16650, 0.00000),
-    };
+        [Yal1Turret];
 
     /// <summary>Parts that only search.</summary>
-    public static readonly IReadOnlyList<SearchSetProfile> SearchSets = [Irst];
+    public static readonly IReadOnlyList<SearchSetProfile> SearchSets = [];
 
     public static readonly IReadOnlyList<DecoyProfile> Decoys = [FlareMju7, ChaffRr170];
     public static readonly IReadOnlyList<DispenserProfile> Dispensers = [Ale47Flare, Ale47Chaff];
@@ -752,34 +581,6 @@ public static class Arsenal
     /// </summary>
     public static readonly IReadOnlyList<ComponentProfile> Components =
     [
-        new ComponentProfile
-        {
-            PartId = EoDirector.PartId,
-            Role = WeaponRole.Camera,
-            DisplayName = EoDirector.DisplayName,
-
-            // Nothing declared, and that is the whole point of the distinction. Provides exists
-            // for a prefab whose gear is subparts the survey cannot see -- the Pantsir's search
-            // radar. A director's sensor is not gear it carries, it *is* the director, and the
-            // survey walks parts and finds it directly. Declaring one anyway mints a second row for
-            // one object, filed under Sensors, with no control on it and nothing to say but that
-            // there is no weapons system to belong to.
-        },
-        new ComponentProfile
-        {
-            PartId = Irst.PartId,
-            Role = WeaponRole.Sensor,
-            DisplayName = "Infrared Search and Track Sensor",
-        },
-        new ComponentProfile
-        {
-            PartId = Litening.PartId,
-            Role = WeaponRole.Camera,
-            DisplayName = Litening.DisplayName,
-
-            // Nothing declared, for the mast director's reason: its sensor is not gear it
-            // carries, it *is* the pod, and the survey walks parts and finds it directly.
-        },
         new ComponentProfile
         {
             PartId = Yal1Turret.PartId,

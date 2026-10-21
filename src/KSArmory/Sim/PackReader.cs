@@ -79,7 +79,9 @@ public static class PackReader
         List<SensorProfile> sensors = [];
         List<LauncherProfile> launchers = [];
         List<OpticProfile> optics = [];
+        List<SearchSetProfile> searchSets = [];
         List<ComponentProfile> components = [];
+        List<ComponentProfile> partRows = [];
 
         foreach (XElement el in root.Elements())
         {
@@ -87,7 +89,7 @@ public static class PackReader
             {
                 case "Munition": ReadMunition(el, source, faults, munitions); break;
                 case "Sensor": ReadSensor(el, source, faults, sensors); break;
-                case "Launcher" or "Optic": break;
+                case "Launcher" or "Optic" or "SearchSet": break;
                 default:
                     faults.Add(new PackFault(source, el.Name.LocalName, "",
                                              "not a definition this build knows"));
@@ -106,8 +108,26 @@ public static class PackReader
                 case "Optic":
                     ReadOptic(el, source, faults, sensors, knownSensors, optics);
                     break;
+                case "SearchSet":
+                    ReadSearchSet(el, source, faults, sensors, knownSensors, searchSets, partRows);
+                    break;
             }
         }
+
+        // A director on a launcher's own part is that launcher's row, declared with <Provides>; one
+        // standing alone is a part the survey has to recognise by itself.
+        foreach (OpticProfile head in optics)
+        {
+            if (launchers.Exists(l => l.PartId == head.PartId)) continue;
+            components.Add(new ComponentProfile
+            {
+                PartId = head.PartId,
+                Role = WeaponRole.Camera,
+                DisplayName = head.DisplayName,
+            });
+        }
+
+        components.AddRange(partRows);
 
         return new PackContents
         {
@@ -116,6 +136,7 @@ public static class PackReader
             Sensors = sensors,
             Launchers = launchers,
             Optics = optics,
+            SearchSets = searchSets,
             Components = components,
             Faults = faults,
         };
@@ -239,6 +260,11 @@ public static class PackReader
             TerrainMarginMetres = r.Number("TerrainMarginMetres", 0f),
             TerrainSamples = r.Count("TerrainSamples", 0),
             TerrainClearanceMetres = r.Number("TerrainClearanceMetres", 30f),
+
+            CuedOnly = r.Flag("CuedOnly", false),
+            Infrared = r.Flag("Infrared", false),
+            IrThresholdWPerM2 = r.Number("IrThresholdWPerM2", 6.0e-7f),
+            LookDownPenalty = r.Number("LookDownPenalty", 1f),
         };
 
         if (!r.Sound()) return;
@@ -288,6 +314,36 @@ public static class PackReader
         if (Duplicate(head.PartId, into, o => o.PartId, r)) return;
 
         into.Add(head);
+    }
+
+    private static void ReadSearchSet(XElement el, string source, List<PackFault> faults,
+                                      List<SensorProfile> own, IReadOnlyList<SensorProfile> known,
+                                      List<SearchSetProfile> into, List<ComponentProfile> rows)
+    {
+        Reader r = new(el, source, "SearchSet", faults);
+        string partId = r.Required("PartId");
+        r.Describe(partId);
+
+        SearchSetProfile set = new()
+        {
+            PartId = partId,
+            DisplayName = r.Required("DisplayName"),
+            Sensor = r.Reference("Sensor", own, known, s => s.Name),
+            HeadMarker = r.Text("HeadMarker"),
+            HeadPivot = r.Vector("HeadPivot", default),
+            HeadTravelDeg = r.Number("HeadTravelDeg", 60f),
+            HeadSlewDegPerSecond = r.Number("HeadSlewDegPerSecond", 90f),
+            ScanHalfWidthDeg = r.Number("ScanHalfWidthDeg", 45f),
+            ScanPeriodSeconds = r.Number("ScanPeriodSeconds", 6f),
+            ScanNodDeg = r.Number("ScanNodDeg", 8f),
+        };
+        string row = r.Text("PanelName") ?? set.DisplayName;
+
+        if (!r.Sound()) return;
+        if (Duplicate(set.PartId, into, x => x.PartId, r)) return;
+
+        into.Add(set);
+        rows.Add(new ComponentProfile { PartId = set.PartId, Role = WeaponRole.Sensor, DisplayName = row });
     }
 
     private static void ReadLauncher(XElement el, string source, List<PackFault> faults,

@@ -5,7 +5,7 @@ namespace KSArmory.Tests;
 
 public class InfraredSearchTests
 {
-    private static readonly SensorProfile Irst = Arsenal.InfraredSearchSet;
+    private static readonly SensorProfile Irst = BuiltIns.InfraredSearchSet;
 
     // ISA density ratios.
     private const double SeaLevel = 1.0;

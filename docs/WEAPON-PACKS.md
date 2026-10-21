@@ -188,6 +188,10 @@ each `<Stage>` follows it in order:
 | `TerrainMarginMetres` | `0` | inflates the masking sphere |
 | `TerrainSamples` | `0` (off) | height-map lookups one contact may cost. Real terrain masking, at a real per-frame price |
 | `TerrainClearanceMetres` | `30` | how far terrain must stand above the line of sight before it blocks. Without it a site on any slope is blind along its own ground |
+| `CuedOnly` | `false` | it finds nothing by itself and only tracks what it is handed. Every director's sensor is; without it a director searches the sky on its own |
+| `Infrared` | `false` | passive: it sees a contact by its heat rather than by transmitting, and `Range` is then only a ceiling |
+| `IrThresholdWPerM2` | `6e-7` | the faintest heat an `Infrared` set detects, in W/m² |
+| `LookDownPenalty` | `1` | how much higher that threshold is for a contact seen against the ground |
 
 ### `<Launcher>` — the part, and what it does with the round
 
@@ -279,7 +283,11 @@ is given a ballistic computer, and nothing else is. The built-in MIRV bus declar
 ### `<Optic>` — a sighting head
 
 Its own part, needing no weapon on the craft at all: a hull with one director on it is an
-observation post. `PartId`, `DisplayName`, `Sensor`, `BaseMarker`, `HeadMarker` are required.
+observation post. `PartId`, `DisplayName`, `Sensor`, `BaseMarker`, `HeadMarker` are required. Give
+it a `CuedOnly` sensor.
+
+An `<Optic>` on a part of its own gets a camera row in the panel automatically. One on a launcher's
+part gets none: the launcher declares it with `<Provides Role="Camera">`, as the Pantsir does.
 
 | | Default | |
 | --- | --- | --- |
@@ -294,6 +302,20 @@ observation post. `PartId`, `DisplayName`, `Sensor`, `BaseMarker`, `HeadMarker` 
 | `MaxMagnification` | `16` | how far the optics wind in, against KSA's 50° view; the zoom steps x1, x2, x4… up to it and ends on it. 53 is a 1° field; the camera takes down to 0.05°, and the most any optic may be fitted with is 1024 |
 | `HasLaser` | `false` | a laser rangefinder and designator on the line of sight, fired from the camera window's LASE button; its spot is what a laser-guided weapon homes on, by its code |
 | `LaserRangeMetres` | `20000` | how far the laser returns from; past it the beam lases at nothing |
+
+### `<SearchSet>` — a part that searches and does nothing else
+
+An IRST bolted to a hull. What it finds goes into its craft's picture, for the directors and a beam
+weapon to take. `PartId`, `DisplayName` and `Sensor` are required; it gets a sensor row in the panel.
+
+| | Default | |
+| --- | --- | --- |
+| `PanelName` | *DisplayName* | what the panel's row for the part is called |
+| `HeadMarker` | *none* | the head that turns behind the window, drawn only: the set sees its whole cone wherever the head points |
+| `HeadPivot` | `0,0,0` | where the head turns, in part space |
+| `HeadTravelDeg` | `60` | how far the head turns off its rest direction |
+| `HeadSlewDegPerSecond` | `90` | |
+| `ScanHalfWidthDeg`, `ScanPeriodSeconds`, `ScanNodDeg` | `45`, `6`, `8` | the figure of eight the head sweeps with nothing to look at |
 
 ---
 

@@ -16,12 +16,14 @@ public static class Catalogue
     private static readonly List<MunitionProfile> _munitions = [.. Arsenal.Munitions];
     private static readonly List<SensorProfile> _sensors = [.. Arsenal.Sensors];
     private static readonly List<OpticProfile> _optics = [.. Arsenal.Optics];
+    private static readonly List<SearchSetProfile> _searchSets = [.. Arsenal.SearchSets];
     private static readonly List<ComponentProfile> _components = [.. Arsenal.Components];
 
     public static IReadOnlyList<LauncherProfile> Launchers => _launchers;
     public static IReadOnlyList<MunitionProfile> Munitions => _munitions;
     public static IReadOnlyList<SensorProfile> Sensors => _sensors;
     public static IReadOnlyList<OpticProfile> Optics => _optics;
+    public static IReadOnlyList<SearchSetProfile> SearchSets => _searchSets;
 
     /// <summary>
     /// The parts recognised on a craft the mod did not design. Separate from
@@ -50,7 +52,7 @@ public static class Catalogue
     /// the same silence as a pack's, and has never had anything to report it.</para>
     /// </summary>
     internal static IReadOnlyList<PackFault> Audit(IPartCatalogue parts)
-        => PackAudit.Run(_launchers, _optics, parts,
+        => PackAudit.Run(_launchers, _optics, _searchSets, parts,
                          partId => _packOf.GetValueOrDefault(partId, PackReader.BuiltInSource));
 
     /// <summary>Shut the door. Called once the roster is about to be built.</summary>
@@ -84,6 +86,8 @@ public static class Catalogue
         registered += Merge(pack.Sensors, _sensors, s => s.Name, "Sensor", pack.Source, faults, refused);
         registered += Merge(pack.Optics, _optics, o => o.PartId, "Optic", pack.Source, faults, refused);
         foreach (OpticProfile head in pack.Optics) _packOf.TryAdd(head.PartId, pack.Source);
+        registered += Merge(pack.SearchSets, _searchSets, x => x.PartId, "SearchSet", pack.Source, faults, refused);
+        foreach (SearchSetProfile set in pack.SearchSets) _packOf.TryAdd(set.PartId, pack.Source);
 
         foreach (LauncherProfile launcher in pack.Launchers)
         {
@@ -105,6 +109,19 @@ public static class Catalogue
             {
                 if (component.PartId == launcher.PartId) _components.Add(component);
             }
+        }
+
+        // A standalone director's or search set's row, when that part registered from this pack and
+        // nothing has a row for it yet.
+        foreach (ComponentProfile component in pack.Components)
+        {
+            if (component.Role is not (WeaponRole.Camera or WeaponRole.Sensor)) continue;
+            if (refused.Contains(component.PartId)) continue;
+            if (!pack.Optics.Any(o => o.PartId == component.PartId)
+                && !pack.SearchSets.Any(x => x.PartId == component.PartId)) continue;
+            if (_components.Any(c => c.PartId == component.PartId)) continue;
+
+            _components.Add(component);
         }
 
         return Record(new PackResult(pack.Source, registered, faults));
@@ -202,7 +219,7 @@ public static class Catalogue
     {
         if (string.IsNullOrEmpty(partId)) return null;
 
-        foreach (SearchSetProfile s in Arsenal.SearchSets)
+        foreach (SearchSetProfile s in _searchSets)
         {
             if (s.PartId == partId) return s;
         }

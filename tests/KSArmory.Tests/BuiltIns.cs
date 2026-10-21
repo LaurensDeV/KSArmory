@@ -65,4 +65,11 @@ public static class BuiltIns
     public static SensorProfile SearchRadarVps2 => Catalogue.SensorNamed("VPS2");
     public static SensorProfile FireControlMk68 => Catalogue.SensorNamed("MK68");
     public static SensorProfile TurretSight => Catalogue.SensorNamed("TSU");
+
+    public static OpticProfile EoDirector => Catalogue.OpticForPart("KSArmory_Prefab_Optic")!;
+    public static OpticProfile Litening => Catalogue.OpticForPart("KSArmory_Prefab_Litening")!;
+    public static SearchSetProfile Irst => Catalogue.SearchSetForPart("KSArmory_Prefab_Irst")!;
+    public static SensorProfile EoSensor => Catalogue.SensorNamed("EO");
+    public static SensorProfile PodSensor => Catalogue.SensorNamed("Litening");
+    public static SensorProfile InfraredSearchSet => Catalogue.SensorNamed("Irst");
 }

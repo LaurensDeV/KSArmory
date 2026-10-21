@@ -28,7 +28,7 @@ public class CatalogueTests
         // Same instances, not copies: the panel tunes a profile by reference and every system
         // running that loadout is meant to feel it.
         Assert.Same(BuiltIns.PantsirS1, Catalogue.LauncherForPart(BuiltIns.PantsirS1.PartId));
-        Assert.Same(Arsenal.EoDirector, Catalogue.OpticForPart(Arsenal.EoDirector.PartId));
+        Assert.Same(BuiltIns.EoDirector, Catalogue.OpticForPart(BuiltIns.EoDirector.PartId));
     }
 
     // The suite runs strict, so a weapon renamed in a move fails here rather than flying as another.

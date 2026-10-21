@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The parts that look rather than shoot: the EO director on a mast, the Rafael LITENING pod, and the
+  IRST. A director finds nothing by itself; it looks at what it is handed. The IRST searches, and
+  what it finds goes into its craft's picture for the directors to take. Part definitions are in
+  ../KSArmory*.xml, which KSA reads and this does not.
+-->
+<WeaponPack Schema="1">
+
+  <!--
+    The EO director's sensor, which the Pantsir's roof director uses too. CuedOnly="true": a telescope,
+    not a search set - it tracks what it is handed and finds nothing on its own.
+
+    BoresightSource="MountNormal": a mast head looks out of the face it stands on, which is also where
+    it parks. ConeDeg="110" covers the head's whole travel: the boresight is the face's normal (90
+    degrees of elevation) and the mount reaches 20 degrees below horizontal, and 90 + 20 is 110. Any
+    narrower leaves a band near the horizon the head can point into but is not allowed to see, which on
+    an air-defence vehicle is exactly where an incoming round comes from.
+
+    MinTargetSpeed="0": it watches rather than engages, so something parked is a fair thing to look at.
+  -->
+  <Sensor Name="EO" DisplayName="EO director"
+          Range="12000" CuedOnly="true" ConeDeg="110" BoresightSource="MountNormal"
+          ThreatRadius="4000" ThreatHorizonSeconds="30" LockSeconds="0.6"
+          MinTargetSpeed="0" />
+
+  <!--
+    The sensor inside a targeting pod: longer-ranged than a mast director's, and like every director's,
+    CuedOnly. BoresightSource="MountNormal" points it away from the pylon, so a pod under a wing looks
+    at the ground below the aircraft, which is also where it stows. Its own centreline would point
+    into the wing, and is the one direction the pod cannot look (its keyhole). MinTargetSpeed="0":
+    something parked is exactly what a pod is for.
+  -->
+  <Sensor Name="Litening" DisplayName="LITENING"
+          Range="20000" CuedOnly="true" ConeDeg="100" BoresightSource="MountNormal"
+          ThreatRadius="6000" ThreatHorizonSeconds="30" LockSeconds="0.6"
+          MinTargetSpeed="0" />
+
+  <!--
+    The IRST's infrared search set, after the six the YAL-1 carried along its forward fuselage.
+    Infrared="true": passive, and it sees a contact by its heat, so Range="400000" is only a ceiling -
+    a 1 MN booster in thin air is seen at about 250 km. LookDownPenalty="10" raises the detection
+    threshold for a contact seen against the ground. ConeDeg="60" is a half-angle, so 120 degrees along
+    the part's +Y (PartForward): several turned different ways on a hull give all-round cover.
+  -->
+  <Sensor Name="Irst" DisplayName="IRST" Infrared="true" Scope="Search" LookDownPenalty="10"
+          Range="400000" ConeDeg="60" BoresightSource="PartForward"
+          ThreatRadius="8000" ThreatHorizonSeconds="40" LockSeconds="1.0" />
+
+  <!--
+    The standalone EO director: a ball on a mast. Geometry printed by tools/model/optic.py.
+  -->
+  <Optic PartId="KSArmory_Prefab_Optic" DisplayName="EO Director" Sensor="EO"
+         BaseMarker="Optic_Base" HeadMarker="Optic_Head"
+         HeadPivot="0.63000, 0.00000, 0.00000" EyeForward="0.300"
+         MinElevationDeg="-20" MaxElevationDeg="85" />
+
+  <!--
+    A Rafael LITENING pod. Geometry from tools/model/import-litening.py.
+
+    Gimbal="RollNod": the whole nose turns about the pod's centreline (RollMarker) and the sight tilts
+    within it, so its travel is one number, how far the tilt carries the sight off the centreline.
+    MaxOffBoresightDeg="150" is the mechanism's stop. The importer measures the nose's opening beside
+    it: the shell clears the sight to 158 degrees on its open side, so the mechanism stops first.
+    The 150 is an AselPOD-class figure; Rafael does not publish LITENING's.
+
+    EyeForward="0.223" is the ball's radius, so the eye sits just outside the glass. SlewRateDeg="140":
+    a roll-nod head slews faster than an az-el head of the same mass, which is most of why pods are
+    built this way. MaxMagnification="53": its narrow field is 1 degree (GlobalSecurity's AN/AAQ-28
+    page), against the 50 degrees zoom is measured from. HasLaser="true": a rangefinder and designator,
+    as every pod of the class carries.
+  -->
+  <Optic PartId="KSArmory_Prefab_Litening" DisplayName="LITENING" Sensor="Litening" Gimbal="RollNod"
+         BaseMarker="Litening_Body" RollMarker="Litening_Roll" HeadMarker="Litening_Head"
+         HeadPivot="0.26669, 0.94282, 0.00000" EyeForward="0.223"
+         SlewRateDeg="140" MaxOffBoresightDeg="150" KeyholeDeg="4"
+         MaxMagnification="53" HasLaser="true" />
+
+  <!--
+    The IRST part. Its head turns about HeadPivot, which the head's <Position> in KSArmoryAssets.xml
+    repeats; tools/validate-parts.py holds the two together.
+  -->
+  <SearchSet PartId="KSArmory_Prefab_Irst" DisplayName="IRST" Sensor="Irst"
+             PanelName="Infrared Search and Track Sensor"
+             HeadMarker="Irst_Head" HeadPivot="0.09000, 0.16650, 0.00000" />
+
+</WeaponPack>

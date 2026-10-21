@@ -84,7 +84,7 @@ public class SightZoomTests
         Assert.Equal(53f, SightZoom.Stepped(32f, 1, 53f));
         Assert.Equal(53f, SightZoom.Stepped(53f, 1, 53f));
         Assert.Equal(32f, SightZoom.Stepped(53f, -1, 53f));
-        Assert.Equal(1.0, SightZoom.FovDegreesFor(SightZoom.DefaultFovDeg, Arsenal.Litening.MaxMagnification), 1);
+        Assert.Equal(1.0, SightZoom.FovDegreesFor(SightZoom.DefaultFovDeg, BuiltIns.Litening.MaxMagnification), 1);
     }
 
     /// <summary>

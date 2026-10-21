@@ -25,9 +25,9 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     public OpticConfig Policy => _policy;
 
     /// <summary>Which director this is, and what it sees with.</summary>
-    public OpticProfile Profile { get; private set; } = Arsenal.EoDirector;
+    public OpticProfile Profile { get; private set; } = OpticProfile.None;
 
-    public SensorProfile Sensor { get; private set; } = Arsenal.EoSensor;
+    public SensorProfile Sensor { get; private set; } = SensorProfile.None;
 
     /// <summary>
     /// The craft it is bolted to. It moves for exactly one reason: <see cref="Rehome"/>, when a
