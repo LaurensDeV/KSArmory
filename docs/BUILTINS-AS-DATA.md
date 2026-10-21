@@ -6,8 +6,8 @@ file:line below was checked by at least one reviewer.*
 
 **Status, 2026-10-21: Phases 0-4 built.** Every built-in is in one of seven family files and
 `Sim/Arsenal.cs` is deleted; `validate-parts.py` reads the XML through its renderer. The disable switch is
-in the mod's menu under "Built-in weapons", and `tools/export-reference.py` writes the example mod's
-reference copy. Phase 5, the release pass, is next.
+in the mod's menu under "Built-in weapons", and `tools/export-example-copy.py` writes the example mod's
+working copy of every weapon. Phase 5, the release pass, is next.
 
 ## Decisions
 
@@ -218,10 +218,14 @@ long weapon-data writes have been stopped by the classifier before.
 
 ### Phase 4 — the example mod's reference copy (≈0.5 session)
 
-- *As built:* the reference also carries the part XML (`KSArmory*.xml`) and every mesh, texture and sound,
-  laid out as the mod's root, and its index is generated: each family's parts, and the meshes, textures and
-  sounds those parts name, are read off the XML and the meshes rather than typed.
-- `tools/export-reference.py` copies the core family files into `../KSArmory-example-mod/reference/`,
+- *As built, and changed from what follows:* a reference that cannot load proves nothing, so the copy is a
+  **working pack** (`tools/export-example-copy.py`): the definitions in the example mod's own `KSArmory/`,
+  and the parts, meshes, textures and gun sounds under `ExampleCopy_` Ids, renamed inside the `.glb`s too,
+  so it loads beside KSArmory. With every family off (*All off* in the menu) it is the only arsenal, and
+  `tools/copy-save.py` makes a test save's craft carry its parts. Its index is generated from the XML and
+  the meshes. Flying it found that a pack's files were read one at a time, so a launcher could not name a
+  sensor in a later file; `Sim/PackFiles.cs` now reads a pack as one unit, as the core always was.
+- `tools/export-reference.py` (the first form) copied the core family files into `../KSArmory-example-mod/reference/`,
   each headed `Generated from KSArmory <commit> (<date>) — do not edit; the live file is
   src/KSArmory/KSArmory/<name>.xml`, plus a hand-written `reference/README.md` index ("rotary cannon
   linkage → `Guns.xml`, `GunCylinderMarker`…", "a beam → `DirectedEnergy.xml`, `<Beam>`") that also links

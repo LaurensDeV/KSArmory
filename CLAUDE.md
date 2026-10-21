@@ -346,7 +346,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/PackAudit.cs` | whether what registered can actually be found — the half of validation that has to wait until the world has loaded |
 | `Sim/IPartCatalogue.cs` | **the seam the audit asks what parts exist through** |
 | `Sim/PackResult.cs` | what one pack got out of registering: how much stuck, and everything that did not |
-| `Sim/CoreDefinitions.cs` | this mod's own definition files, registered **as one unit and before anyone else's** — from its own `[StarMapBeforeMain]`, which StarMap runs ahead of every pack that ships code, and with every file's names collected first so a launcher may name a round in another file |
+| `Sim/CoreDefinitions.cs` | this mod's own definition files, registered **as one unit and before anyone else's** — from its own `[StarMapBeforeMain]`, which StarMap runs ahead of every pack that ships code, and its files read as one unit through `PackFiles` |
+| `Sim/PackFiles.cs` | one mod's definition files read **as one unit** -- every name each declares known to the others, so a launcher may name a round in another file whatever order they sort in; the built-ins and every pack go through it |
 | `Sim/BuiltInSwitches.cs` | which of KSArmory's own weapon families the player switched off, as the file it is kept in -- **anything unreadable switches nothing off** |
 | `Sim/PackContents.cs` | what reading one pack produced: what may register, and what may not |
 | `Sim/PackFault.cs` | one definition that was refused, and the reason an author can act on |
@@ -795,7 +796,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/validate-parts.py` | checks asset Ids, texture paths, and launch geometry vs the mesh |
 | `tools/listing.py` | `listing/` as Borea's TOML and SpaceDock's markdown — printed to paste; it publishes nothing |
 | `tools/spacedock-changelog.py` | a release's notes cut to what SpaceDock accepts — **10,000 characters**, which one after a long run on `dev` overruns six times over |
-| `tools/export-reference.py` | the family files, the part XML and the art copied into the example mod's `reference/`, laid out as the mod's root so every path resolves, with an index of each family's parts, meshes, textures and sounds worked out from them -- **read from HEAD** so each header names the commit it came from; run by hand, `--check` to compare |
+| `tools/export-example-copy.py` | **a working copy of every weapon as a pack**, written into the example mod: the definitions, the parts and the art, every Id renamed `KSArmory_` to `ExampleCopy_` -- inside the meshes too, since KSA matches a mesh by name -- so it loads beside KSArmory, with an index of what each family uses. **Read from HEAD** so each header names its commit; run by hand, `--check` to compare |
+| `tools/copy-save.py` | a save copied with its craft carrying the example copy's parts instead of KSArmory's -- so with every family switched off, a scenario flown on it flies the pack |
 | `tools/pack-api.py` | records the API a weapon pack binds to, and fails when it moves — **the mirror of `api-surface.sh`**, because a pack lives in somebody else's repository and never builds here |
 | `tools/check-studies.py` | which tests are tagged out of the push loop, as a committed record — **it cannot tell a mis-tag from a real one**, and does not try: it puts the change in the author's own diff, where a human can still ask |
 | `tools/repair-saves.py` | realigns saves written before a part lost a subpart |
