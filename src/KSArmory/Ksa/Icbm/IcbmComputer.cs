@@ -553,40 +553,12 @@ internal sealed partial class IcbmComputer
     public void Designate(AimSite site)
     {
         _targets.SetOnly(site, WarheadsAboard);
-        Program.Reset();
-        _releasedTheArrival = false;
+        ForgetTheFlight();
         _reported = IcbmPhase.Idle;
         _aim.Reset();
         _sequence.Reset();
-        _trim.Reset();
-        _postBoost.Reset();
-        _postBoostSaid = false;
-        _measureDue = false;
-        _freshMiss = double.NaN;
-        _holdingCost = double.NaN;
-        _holdingCostForPass = -1;
-        _trimFloor = double.NaN;
-        _trimFloorForPass = -1;
-        _resumedForCoast = false;
-        _aimResetForTheOutrun = false;
-        _aimRebasedForTheSolids = false;
-        _trimAbandoned = false;
-        _trimShape = "";
-        ResetTurn();
-        _saidTrim = "";
-        _separatedFrom = null;
-        _didSplit = false;
-        _proximity.Reset();
-        _saidProximity = false;
-        _saidCleared = false;
-        _keepOutTowardCci = double3.Zero;
-        _sinceSplit = 0.0;
-        _mayTrim = true;
-        _saidBudget = false;
-        _saidFloorUnaffordable = false;
         WarheadsAway = 0;
         _salvoSize = 0;
-        _owedAtSplit = double.NaN;
         _rollReference = Vec.Zero;
         PredictedImpact = null;
         PredictedMissMetres = double.NaN;
@@ -604,10 +576,6 @@ internal sealed partial class IcbmComputer
         _flownKick = null;
         _walker.Reset();
         _spentAtStopStart = 0.0;
-        _hopCeilingMetresPerSecond = double.NaN;
-        _hopBurnSeconds = 0.0;
-        _hopRound = -1;
-        ResetTheHop();
         _sentTo.Clear();
         _watchedRelease = 0;
         _wentTo.Clear();
@@ -755,6 +723,14 @@ internal sealed partial class IcbmComputer
         VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
         AttitudeHook.PulseMode(Craft, pulsing: false);
 
+        ForgetTheFlight();
+        Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} stood down: {why}");
+    }
+
+    // What a new aim and a stand-down both forget. Designate also forgets the aim, the salvo and
+    // the walk; Abort keeps what has already flown.
+    private void ForgetTheFlight()
+    {
         Program.Reset();
         _releasedTheArrival = false;
         _trim.Reset();
@@ -788,7 +764,6 @@ internal sealed partial class IcbmComputer
         _hopBurnSeconds = 0.0;
         _hopRound = -1;
         ResetTheHop();
-        Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} stood down: {why}");
     }
 
     /// <param name="release">
