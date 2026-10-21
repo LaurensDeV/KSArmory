@@ -469,8 +469,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private bool _operatorBurst;
     private bool _manualTrigger;
 
-    // Whether the turret is laid on the cannon's ballistic lead rather than on the target. Set by
-    // AimPointEcl, which is the only place the choice is made.
+    // Whether the turret is laid on the cannon's ballistic lead rather than on the target. Solved by
+    // AimPointEcl, and kept only while the ring is tracking (TurretMode.Claims).
     private bool _ringIsOnGunLead;
 
     // Whether the ring is laid on the operator's cursor. The same problem as _ringIsOnGunLead and
@@ -1861,16 +1861,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // the belt -- takes the step as the engine reports it.
         dt = _driveStep.Next(dt);
 
-        // Cleared here rather than in the branches that do not set it, so a rung added later
-        // cannot leave a stale claim on the ring.
-        _ringIsOnCursor = false;
+        // Cleared so the lead claim read after the chain is the one AimPointEcl made this frame.
+        _ringIsOnGunLead = false;
         _ringAimValid = false;
         _gunLayRangeMetres = 0.0;
         _gunLayShortMetres = 0.0;
         bool watchedLay = false;
+        TurretRung rung;
 
         if (_policy.TurretSpin)
         {
+            rung = TurretRung.Spin;
             // Command a bearing that runs away at the slew rate, so the turret chases it
             // forever. Nothing depends on this - it exists so "does the mesh move at all" can
             // be answered from across the launchpad.
@@ -1881,6 +1882,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
         else if (_policy.TurretManual)
         {
+            rung = TurretRung.Manual;
             Turret.Point(double.DegreesToRadians(_policy.TurretManualBearingDeg),
                          double.DegreesToRadians(_policy.TurretManualElevationDeg));
         }
@@ -1889,8 +1891,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // Ahead of the radar, and ahead of the tracking switch: with mouse aim on the operator
             // *is* the sensor, so needing to enable radar tracking first would be surprising. The
             // drives stay rate-limited, so this points towards the cursor rather than snapping.
-            _ringIsOnGunLead = false;
-            _ringIsOnCursor = true;
+            rung = TurretRung.Cursor;
 
             // Over ground a gun is laid to land where the cursor is. Over sky or a craft the operator
             // is the solution, as FireBurst says.
@@ -1909,11 +1910,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // The operator's choice, ahead of the radar and ahead of the tracking switch: naming
             // something is itself the instruction to follow it, so requiring tracking as well
             // would be a click that silently does nothing.
-            _ringIsOnGunLead = false;
+            rung = TurretRung.Designated;
             Turret.Track(designated);
         }
         else if (!_policy.TurretTracking)
         {
+            rung = TurretRung.Stowed;
             Turret.Stow();
         }
         else
@@ -1924,16 +1926,19 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             if (aim is not null && Platform is not null
                 && LauncherPart.TryDirectionToPartFrame(Platform, Launcher, aimEcl, out double3 partFrame))
             {
+                rung = TurretRung.Tracking;
                 Turret.Track(partFrame);
                 WatchLay(aim, aimEcl, partFrame);
                 watchedLay = true;
             }
             else
             {
+                rung = TurretRung.Stowed;
                 Turret.Stow();
             }
         }
 
+        (_ringIsOnGunLead, _ringIsOnCursor) = TurretMode.Claims(rung, _ringIsOnGunLead);
         if (!watchedLay) _layHandle = null;
 
         Turret.Update(dt, Profile.SlewRateRad, Profile.ElevationRateRad);

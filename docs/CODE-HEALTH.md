@@ -63,8 +63,10 @@ Added 2026-10-21 against `df6549a0`, from a second review of the same shape.
 - [ ] **The panel holds the concrete `WeaponSystem` and writes through it** —
   `_system.Radar.ManualDesignation` from `UiSystem` — and `UiScope` merges the search sets' tracks
   itself, which `CraftPicture` already does.
-- [ ] **The turret mode ladder** — see `docs/BATTERY-SPLIT.md` item 7, which carries the stale
-  `_ringIsOnGunLead` it leaves behind.
+- [~] **The turret mode ladder** — the ring claims are `Sim/TurretMode.cs`, decided from each frame's
+  rung, and the order stays in `Ksa/`; see `docs/BATTERY-SPLIT.md` item 7. Flown 2026-10-21: a Pantsir
+  switched to manual after its cannon had the lead held "the cannon has the bearing" for 2.3 s before
+  the change and cleared it within 0.3 s after.
 
 
 ## Copies that disagree

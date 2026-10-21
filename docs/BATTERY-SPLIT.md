@@ -317,11 +317,13 @@ this list one at a time as they land.
    keys on `(Vehicle, ordinal)` and crews one whole system per launcher part, with the panel's
    selector choosing which the trigger drives. So a craft carrying two rails fires both, item 5 was
    not a precondition after all, and no `FireUnit` type was needed to say it.
-7. **The turret mode ladder into `Sim/`.** Named in `docs/MODULARITY.md` as what the `FireGate`
-   extraction left behind. Below the seam because the seam changes what its inputs are. It carries a
-   defect of the item-5 kind: `_ringIsOnGunLead` is cleared only by the cursor and designation rungs
-   and by `AimPointEcl`, so a ring that was on the gun lead keeps that claim through manual, spin and
-   stow, and `FireGate.MissilesMayFire` reads it. Unflown.
+7. **The turret mode ladder into `Sim/`** — **half done**. The claims each rung makes on the ring
+   are `Sim/TurretMode.cs`, which is what carried the defect: `_ringIsOnGunLead` was cleared only by
+   the cursor and designation rungs and by `AimPointEcl`, so a ring that had been on the gun lead kept
+   that claim through manual, spin and stow, and `FireGate.MissilesMayFire` read it: auto-engage never
+   launched, and the line beside the trigger said it was holding, though the manual trigger fires
+   tubes without asking the ladder.
+   The rung order stays in `Ksa/`, because two of its conditions are engine lookups taken lazily.
 8. ~~**Narrow the effects consumers to a rounds-in-flight interface.**~~ **Done**, and wider than
    proposed: twelve consumers now take one of eight roles. See `Ksa/WeaponSystemRoles.cs`.
    `MotorSound`, `MotorPlume`, `TracerTrail` and `ChaseCamera` need five members; give them five.

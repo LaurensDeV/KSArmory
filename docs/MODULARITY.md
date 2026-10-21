@@ -206,8 +206,10 @@ Extraction has limits, and these remain untestable because they genuinely need a
 
 - fire-control *sequencing* — salvo spacing and the reload timer. The magazine is out; the timing
   is not. The `IsLaid` *decision* is out too, into `FireGate`: it depends on four booleans and a
-  settle time, none of them KSA types. What is still in `Ksa/` is the mode ladder above it —
-  spin, manual, stow, track — and the ordering of the five transform writes.
+  settle time, none of them KSA types. What is still in `Ksa/` is the order of the mode ladder above it —
+  spin, manual, cursor, designated, stow, track, two of them engine lookups taken lazily — and the
+  ordering of the five transform writes. The claims each rung makes on the ring are out, into
+  `Sim/TurretMode.cs`.
 - `ResolvePlatform`, and the platform-election order.
 - `LauncherPart.Find` and subpart resolution by marker substring.
 - the centre-of-mass correction in `TryGetTubeMuzzleEcl`, and `ResolveOriginEcl`'s camera round trip.

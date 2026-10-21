@@ -415,6 +415,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Magazine.cs` | which tubes hold a round, which fires next, what each body does |
 | `Sim/RoundLabel.cs` | what to call a round in a line somebody reads — **the one place the tube field's sentinel is decoded**, because a shell has no tube |
 | `Sim/TubeGeometry.cs` | tube positions and directions, pod and radar pose, body placement |
+| `Sim/TurretMode.cs` | which rung the ring was laid on this frame, and **the claims each rung makes on it** — decided from this frame's rung alone, because the fire ladder holds the missiles on them |
 | `Sim/Turret.cs` | rate-limited traverse and elevation drives — **a limited traverse turns the long way round**, never through the host behind it |
 | `Sim/TravelMap.cs` | where a gun can point without its barrels or its line of fire meeting its own craft — **a traverse arc and a band of elevation per bearing**, which replace the profile's fixed limit once swept |
 | `Sim/TravelSweep.cs` | which poses of that map to test — **coarse first, then only where the answer changes**, so an obstacle smaller than 10 deg both ways can be missed |
