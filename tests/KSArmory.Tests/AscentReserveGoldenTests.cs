@@ -82,7 +82,7 @@ public class AscentReserveGoldenTests
     {
         (IcbmFlightRig rig, IcbmConfig config, double3 aim) = Fixture(name, reserve, anyRange, slowLine);
         // Both arms carry the warhead, so a drag solve that engaged where it should not would show.
-        rig.Warhead = Arsenal.ReentryVehicleMk21.Copy();
+        rig.Warhead = BuiltIns.ReentryVehicleMk21.Copy();
         return rig.Fly(new IcbmProgram(config), aim, 0.02, 6_000.0);
     }
 

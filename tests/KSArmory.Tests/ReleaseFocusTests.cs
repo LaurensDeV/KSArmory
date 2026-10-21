@@ -59,7 +59,7 @@ public class ReleaseFocusTests(ITestOutputHelper Out)
         doubleQuat bus = doubleQuat.CreateFromAxisAngle(line, rollTurns * 2.0 * Math.PI)
                          * Vec.RotationFromTo(new double3(1, 0, 0), line);
 
-        LauncherProfile launcher = Arsenal.MirvBus;
+        LauncherProfile launcher = BuiltIns.MirvBus;
         List<double3> offsets = [];
 
         for (int tube = 0; tube < launcher.TubeCount; tube++)
@@ -79,7 +79,7 @@ public class ReleaseFocusTests(ITestOutputHelper Out)
         groundCci = Vec.Zero;
 
         if (!ImpactPredictor.TryPredict(Earth, positionCci, velocityCci, 2.0, 20_000.0, out hit, null, null,
-                                        new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21)))
+                                        new ImpactPredictor.Drag(DensityAt, BuiltIns.ReentryVehicleMk21)))
         {
             return false;
         }
@@ -258,7 +258,7 @@ public class ReleaseFocusTests(ITestOutputHelper Out)
     [Fact]
     public void AKickIsRefusedOnceTheRoundHasFlown()
     {
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
         double3 kick = new(0.002, -0.001, 0.0005);
 
         Slug round = new(TracedPositionCci, TracedVelocityCci, null, 1, TracedPositionCci, Vec.Zero)

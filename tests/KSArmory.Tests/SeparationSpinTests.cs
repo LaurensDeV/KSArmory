@@ -105,7 +105,7 @@ public class SeparationSpinTests(ITestOutputHelper Out)
                               * Vec.RotationFromTo(new double3(1, 0, 0), line);
         Assert.True(Vec.AngleBetween(asmb2Cci * new double3(1, 0, 0), line) < 1e-9, "the bus is not on its line");
 
-        LauncherProfile bus = Arsenal.MirvBus;
+        LauncherProfile bus = BuiltIns.MirvBus;
         double3[] mouths = new double3[bus.TubeCount];
         double3 meanMouth = Vec.Zero;
 

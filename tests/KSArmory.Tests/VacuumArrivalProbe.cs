@@ -45,7 +45,7 @@ public class VacuumArrivalProbe(ITestOutputHelper Out)
         // What the release probe does: a DRAG prediction, and its flight time.
         Assert.True(ImpactPredictor.TryPredict(earth, from, v, 2.0, 12_000.0,
             out ImpactPredictor.Impact hit, null, null,
-            new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21),
+            new ImpactPredictor.Drag(DensityAt, BuiltIns.ReentryVehicleMk21),
             atmosphericStepSeconds: 0.25, stopOnTheSurface: true));
 
         double T = hit.Seconds;
@@ -93,7 +93,7 @@ public class VacuumArrivalProbe(ITestOutputHelper Out)
 
             Assert.True(ImpactPredictor.TryPredict(earth, from, v + nudge, 2.0, 12_000.0,
                 out ImpactPredictor.Impact nh, null, null,
-                new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21),
+                new ImpactPredictor.Drag(DensityAt, BuiltIns.ReentryVehicleMk21),
                 atmosphericStepSeconds: 0.25, stopOnTheSurface: true));
             double dragMove = Vec.Len(nh.GroundFixedPointCci - hit.GroundFixedPointCci);
 
@@ -118,7 +118,7 @@ public class VacuumArrivalProbe(ITestOutputHelper Out)
         {
             Assert.True(ImpactPredictor.TryPredict(earth, p0, v0, 2.0, 12_000.0,
                 out ImpactPredictor.Impact h, null, null,
-                new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21),
+                new ImpactPredictor.Drag(DensityAt, BuiltIns.ReentryVehicleMk21),
                 atmosphericStepSeconds: 0.25, stopOnTheSurface: true));
             return h.GroundFixedPointCci;
         }

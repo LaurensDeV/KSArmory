@@ -16,7 +16,7 @@ public class WarheadExplosionTests
 
         Assert.True(WarheadExplosion.Joules(BuiltIns.MissileAgm88.ChargeKg) < floor,
                     "the heaviest conventional warhead should be under the floor, or the preset need not carry size");
-        Assert.True(WarheadExplosion.Joules(Arsenal.NukeB61.ChargeKg) > floor,
+        Assert.True(WarheadExplosion.Joules(BuiltIns.NukeB61.ChargeKg) > floor,
                     "a nuclear charge should be large enough for its energy to grow the explosion");
     }
 
@@ -32,7 +32,7 @@ public class WarheadExplosionTests
 
         // And a charge that grows a cloud takes this mod's own, which is that same preset without
         // Core's smoke volume -- the mod is drawing the smoke itself, a thousand times the size.
-        Assert.Equal(WarheadExplosion.NuclearBurst, WarheadExplosion.PresetFor(Arsenal.NukeB61.ChargeKg));
+        Assert.Equal(WarheadExplosion.NuclearBurst, WarheadExplosion.PresetFor(BuiltIns.NukeB61.ChargeKg));
         Assert.Equal(WarheadExplosion.NuclearBurst, WarheadExplosion.PresetFor(MushroomCloud.ThresholdKg));
         Assert.Equal(WarheadExplosion.Conflagration,
                      WarheadExplosion.PresetFor(MushroomCloud.ThresholdKg - 1.0));

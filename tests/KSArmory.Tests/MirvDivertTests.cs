@@ -32,7 +32,7 @@ public sealed class MirvDivertTests(ITestOutputHelper Out)
     /// <summary>The predictor's coarse step, as the flight itself flies it.</summary>
     private const double Step = 0.25;
 
-    private static ImpactPredictor.Drag Air => new(DeorbitShot.DensityAt, Arsenal.ReentryVehicleMk21);
+    private static ImpactPredictor.Drag Air => new(DeorbitShot.DensityAt, BuiltIns.ReentryVehicleMk21);
 
     /// <summary>One shot, as a release state: where the bus is and what it is doing.</summary>
     private readonly record struct Shot(string Name, double3 PositionCci, double3 VelocityCci);
@@ -579,7 +579,7 @@ public sealed class MirvDivertTests(ITestOutputHelper Out)
     [Fact]
     public void WhatAStaggeredArrivalCosts()
     {
-        double lethal = Warhead.LethalRadius(Arsenal.ReentryVehicleMk21.ChargeKg);
+        double lethal = Warhead.LethalRadius(BuiltIns.ReentryVehicleMk21.ChargeKg);
 
         Shot[] shots = [Release2000, Flown6179, Cutoff6179, Cutoff12902];
 
@@ -661,7 +661,7 @@ public sealed class MirvDivertTests(ITestOutputHelper Out)
                 Jacobian j = Columns(at);
                 (double major, double minor, _, _) = Footprint(j);
 
-                double3 kick = Vec.Unit(at.VelocityCci) * Arsenal.ReentryVehicleMk21.LaunchSpeed;
+                double3 kick = Vec.Unit(at.VelocityCci) * BuiltIns.ReentryVehicleMk21.LaunchSpeed;
 
                 bool held = HoldingCost.TryMeasure(Earth, at.PositionCci, at.VelocityCci, kick, Step,
                                                   out double holding, Air, stopOnTheSurface: true);

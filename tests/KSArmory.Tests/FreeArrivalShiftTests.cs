@@ -24,7 +24,7 @@ public class FreeArrivalShiftTests(ITestOutputHelper Out)
                                                           double flownEarlierSeconds)
     {
         BallisticBody earth = new(3.986004418e14, R, new double3(0, 0, 1), 7.2921159e-5);
-        ReleaseFocus.Air air = new(new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21.Copy()),
+        ReleaseFocus.Air air = new(new ImpactPredictor.Drag(DensityAt, BuiltIns.ReentryVehicleMk21.Copy()),
                                    0.5, R, StopOnTheSurface: true);
         ReleaseFocus.FlownSensitivity? flown =
             ReleaseFocus.FlownSensitivity.TryFly(earth, new double3(x, y, z), new double3(vx, vy, vz), air);

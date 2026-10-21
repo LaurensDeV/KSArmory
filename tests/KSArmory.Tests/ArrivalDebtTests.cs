@@ -62,7 +62,7 @@ public class ArrivalDebtTests(ITestOutputHelper Out)
         bool flew = ImpactPredictor.TryPredict(
             Earth, flight.CutoffPositionCci, flight.CutoffVelocityCci, 1.0,
             ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact wet, null, null,
-            new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21));
+            new ImpactPredictor.Drag(DensityAt, BuiltIns.ReentryVehicleMk21));
 
         Assert.True(flew);
 

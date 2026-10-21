@@ -67,11 +67,11 @@ public class StoreLoadTests
     public void EveryShippedStoreIsLighterThanTheRoundsItRidesWith()
     {
         // The masses come from the part file's own comments; a typo of a zero would shed a craft away.
-        Assert.Equal(374f, Arsenal.NukeRack.StoreMassKg);
+        Assert.Equal(374f, BuiltIns.NukeRack.StoreMassKg);
         Assert.True(BuiltIns.HarmRail.StoreMassKg is > 0f and < 405f);
         Assert.True(BuiltIns.AmraamRail.StoreMassKg is > 0f and < 201f);
         Assert.True(BuiltIns.SidewinderRail.StoreMassKg is > 0f and < 120f);
-        Assert.True(Arsenal.MirvBus.StoreMassKg * Arsenal.MirvBus.TubeCount < 3450f);
+        Assert.True(BuiltIns.MirvBus.StoreMassKg * BuiltIns.MirvBus.TubeCount < 3450f);
         Assert.True(BuiltIns.Ciws.GunRoundMassKg * BuiltIns.Ciws.GunAmmo < 6200f);
         Assert.True(BuiltIns.M197.GunRoundMassKg * BuiltIns.M197.GunAmmo < 330f);
     }

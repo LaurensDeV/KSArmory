@@ -72,7 +72,7 @@ public class PredictedMediumTests(ITestOutputHelper Out)
     [Fact]
     public void AtTheWaterlineTheOceanMovesTheLandingRatherThanFailing()
     {
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
         int moved = 0, failed = 0;
         double worst = 0.0;
 

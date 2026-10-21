@@ -1397,8 +1397,7 @@ internal sealed class Bridge : IViewPose
         {
             if (_systemFor(craft) is not { } system) return Failed("the craft carries no weapons system to judge the burst by");
 
-            MunitionProfile warhead = Arsenal.NukeB61.Copy();
-            warhead.ChargeKg = (float)charge;
+            MunitionProfile warhead = new() { Name = "bridge burst", DisplayName = "bridge burst", ChargeKg = (float)charge };
             // in_frame_s sets it off that long before the end of the step, from where the ground was
             // then, as a round that detonates part-way through a step reports it: the case a burst on
             // the step boundary never exercises.

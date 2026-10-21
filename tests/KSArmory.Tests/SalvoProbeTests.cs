@@ -130,7 +130,7 @@ public class SalvoProbeTests(ITestOutputHelper Out)
     public void ABorrowedProbeLandsTheWarheadWhereItsOwnWould(double age, double withinMetres)
     {
         BallisticBody earth = new(Mu, R, new double3(0, 0, 1), 7.2921159e-5);
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
 
         double3 busAtThen = PredictorEndingTests.FlownPositionCci;
         double3 busVelocityThen = PredictorEndingTests.FlownVelocityCci;

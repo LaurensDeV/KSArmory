@@ -58,7 +58,7 @@ public class ArrivalFloorAffordabilityTests(ITestOutputHelper Out)
             if (flight.Reached && ImpactPredictor.TryPredict(
                     Earth, flight.CutoffPositionCci, flight.CutoffVelocityCci, 1.0,
                     ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit, null, null,
-                    new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21)))
+                    new ImpactPredictor.Drag(DensityAt, BuiltIns.ReentryVehicleMk21)))
             {
                 miss = $"{R * Vec.AngleBetween(hit.GroundFixedPointCci, Earth.CarryCci(aim, flight.CutoffSeconds + hit.Seconds)) / 1000.0:F2}";
                 arrival = $"{program.Arc?.ArrivalAngleDeg ?? double.NaN:F1}";

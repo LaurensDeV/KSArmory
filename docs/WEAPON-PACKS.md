@@ -137,6 +137,7 @@ Four rules that between them explain most refusals:
 | `FuseRadius` | `15` | proximity burst, m |
 | `TimedFuse` | `false` | flak: also burst at the flight time the lead solution asked for. The proximity fuse still runs |
 | `FuseArmSeconds` | `0.6` | how long the proximity fuse is dead after release. A shell still strikes what it touches |
+| `MaxChargeKg` | `0` | the top of the panel's yield slider; `0` is the slider's own ceiling |
 | `ChargeKg` | `20` | **the warhead, as one number.** Lethal radius, blast radius and fireball are all derived from it by the cube-root law, so doubling it multiplies reach by 1.26 |
 | `HitsTerrain` | `false` | stops at the ground. Costs a terrain sample per round per frame |
 | `BurstHeightMetres` | `0` | an air-burst fuse: fires this far over the ground on the way down. `0` bursts on contact. Needs `HitsTerrain` |
@@ -152,6 +153,8 @@ Four rules that between them explain most refusals:
 | `FinsPerRound` | `0` | blades; `0` means the older single-set scheme |
 | `FinStowedScale` | `0.06` | |
 | `MaxFaithfulStepSeconds` | `0.32` | beyond this a step is too coarse to integrate honestly |
+| `PreferredStepSeconds` | `0` | the frame the world is held to while this round flies; `0` is `MaxFaithfulStepSeconds` |
+| `SubStepSeconds` | `0` | the round's own integration step; `0` is 5 ms |
 
 A staged motor adds stages **after** the first. `BoostSeconds` and `BoostAccel` are stage one, and
 each `<Stage>` follows it in order:
@@ -246,6 +249,8 @@ tubes, a cannon, or both; the Phalanx has no tubes at all.
 | | Default | |
 | --- | --- | --- |
 | `GunAmmo` | `480` | belt |
+| `TrimAccelerationMetresPerSecond2`, `TrimWorstAxisExhaustVelocity` | *none* | a post-boost bus's attitude nozzles: the acceleration they give the loaded bus, and the exhaust velocity of its worst axis |
+| `HopEngineThrustNewtons`, `HopEngineExhaustVelocity`, `HopEngineAccelerationMetresPerSecond2` | *none* | a bus's main engine, lit to hop between targets. Without them it never is |
 | `StoreMassKg` | `0` | what one tube round weighs as carried (kg). The part's declared mass should include its full load: each round fired takes this much off it, and a reload puts it back. `0` sheds nothing |
 | `GunRoundMassKg` | `0` | the same for one complete round in the belt, case and charge included |
 | `GunRoundsPerMinute` | `2500` | |
@@ -264,6 +269,11 @@ marker needs its pin or pivot, measured from the turret pivot, or it is refused:
 | `GunCylinderMarker` + `GunCylinderPinFromTurret`, `GunRodMarker` + `GunRodPinFromTurret` | *none* | an elevation actuator: a cylinder on the traverse and a rod on the gun, posed from the elevation |
 | `GunFeedMarker` + `GunFeedPivotFromTurret`, `GunFeedRatio` | *none*, `0` | an ammunition feed turning by that fraction of the elevation |
 | `GunRotorMarker` + `GunRotorPivotFromTurret`, `GunRotorSpinUpSeconds`, `GunRotorSpinDownSeconds` | *none*, `0.2`, `1.0` | a rotary barrel cluster, spun up to a barrel per round while firing |
+
+**A round can be spun as it leaves**, drawn only, with a `<ReleaseSpin RateDegPerSecond SpinUpSeconds
+IgnitionSeconds>` holding one `<Nozzle Mouth="x, y, z" Exhaust="x, y, z" />` per spin motor, in the
+round's own frame: the Heavy MIRV Bus's reentry vehicles light two base motors two seconds out and turn at
+half a turn a second.
 
 **A launcher declares gear it carries inside itself**, with a `<Provides>` row per assembly that is
 a subpart rather than a part of its own. The survey walks *parts*, so a director on a turret roof is

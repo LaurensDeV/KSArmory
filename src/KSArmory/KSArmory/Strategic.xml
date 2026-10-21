@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The strategic weapons: a B61 bomb on an ejector rack, and the Heavy MIRV Bus with seven Mk 21 reentry
+  vehicles. The bus is the part that gives a craft a ballistic computer. Part definitions are in
+  ../KSArmory*.xml, which KSA reads and this does not.
+-->
+<WeaponPack Schema="1">
+
+  <!--
+    A B61-pattern tactical nuclear bomb at its lowest selectable yield. The only nuclear thing about it
+    is ChargeKg: reach comes from the charge by the cube root, and nuclear airblast scales that way, so
+    0.3 kt gives about 490 m lethal and 1.5 km of blast with no special case. MaxChargeKg is the yield
+    dial's top, the real weapon's 340 kt; it ships at the bottom, because 340 kt is a 5.1 km lethal
+    radius, most of a launch site's horizon.
+
+    BodyLength is the B61-12's published 11 ft 8 in, and the mesh is built to it. BodyMarker names this
+    rack's own subpart; naming another part's would release the bomb invisibly.
+
+    Guidance="Inertial" is the guided tail kit: it steers a fall onto a designated point and cannot
+    follow anything that moves. Undesignated it is a dumb bomb. The four blades (FinMarker) are what
+    steers, so they are drawn deflecting, further than the real few degrees. MaxLateralG="0.4": a tail kit
+    steers with body lift off a slender 330 mm body, enough to correct a release error of a few hundred
+    metres, not to glide; at 3 g it flew a kilometre of cross-range per kilometre of drop.
+
+    DragK is typed by hand rather than taken from mass and calibre: a bomb's drag rises steeply through
+    the speed of sound, which no constant coefficient follows. It gives a Mk 82's terminal velocity, about
+    280 m/s. MaxFlightSeconds counts only time in the air; a store that can never arrive is removed by
+    RoundReach instead. FuseArmSeconds="4": at 490 m lethal, what has to be cleared is the blast.
+
+    MaxFaithfulStepSeconds and PreferredStepSeconds are 30 s because the ground stops this store, not a
+    proximity fuse. The default 0.32 s bounds how far a round may move past its own fuse radius, which
+    for this store is zero; left at the default, a high release holds the world at about 19x for a
+    fall of minutes, and the engine refuses that during its own warp-to-a-time, which abandons
+    everything in the air. Flown from 250 km at frames of 0.32 to 20 s it lands in the same place to the
+    metre, because it sub-steps at 5 ms whatever the frame. Smaller is not safer here: the step bounds a
+    clamp that throws away the rest of the frame, and at 8 s, 400x warp landed it 2,776 m off.
+  -->
+  <Munition Name="B61" DisplayName="B61 tactical bomb"
+            BodyMarker="B61" BodyLength="3.556"
+            FinMarker="Blade" FinsPerRound="4" FinHingeStation="-1.521" FinDeflectionDeg="12"
+            Guidance="Inertial" NavConstant="3" MaxLateralG="0.4"
+            LaunchSpeed="4" BoostSeconds="0" BoostAccel="0"
+            MinRange="0" MaxRange="20000" MaxFlightSeconds="300"
+            DragK="1.25e-4" FuseRadius="0" FuseArmSeconds="4"
+            ChargeKg="300000" MaxChargeKg="340000000" HitsTerrain="true"
+            MaxFaithfulStepSeconds="30" PreferredStepSeconds="30" />
+
+  <!--
+    A Mk 21-pattern reentry vehicle, let go from the bus. Guidance="None" on purpose: a W87 has no
+    seeker and no control surfaces, and no deployed strategic MIRV does; steering one would take a 500 m
+    release error to 2 m and make the arrival angle stop mattering. docs/KINETIC-FLOOR.md section 8.
+
+    LaunchSpeed="0.5" is a separation spring, not a motor. MaxRange is half a circumference, the
+    geometric limit: an RV has no motor, so its reach is the arc the bus put it on, and a smaller number
+    would stop fire control releasing it over a target the bus was flown to. MaxFlightSeconds is thirty
+    minutes, what a ballistic arc takes.
+
+    Its drag is its shape's: about 270 kg on a 55 cm base at a slender cone's hypersonic Cd of 0.1,
+    about 2,300 lb/ft2 of ballistic coefficient, inside the 100 to 5,000 published for ICBM warheads
+    (ACCURACY-PLAN 3eu). The yield is a playability choice: a W87 is 300 kt; 20 kt gives exactly 2.0 km
+    lethal and 6.0 km of blast. FuseArmSeconds="10" clears the bus and the other RVs at 0.5 m/s.
+
+    SubStepSeconds="0.001": the round's own integrator was 143 m of a 149 m miss at the default step,
+    falling about 31 m per millisecond, so this is where it stops being the largest term. Affordable for
+    seven warheads (about 300 sub-steps a frame) and nowhere else. PreferredStepSeconds="0.180": the
+    world is held to a coast frame of about 96 ms, where the round and its own prediction disagree least,
+    flown five against five (median 1.66 to 1.06 km). docs/MIRV-NEXT.md item 7e.
+  -->
+  <Munition Name="MK21" DisplayName="Mk 21 reentry vehicle"
+            BodyMarker="Mirv_Rv" BodyLength="1.80"
+            Guidance="None"
+            LaunchSpeed="0.5" BoostSeconds="0" BoostAccel="0"
+            MinRange="0" MaxRange="20000000" MaxFlightSeconds="1800"
+            MassKg="270" CalibreMm="550" DragCoefficient="0.1"
+            SubStepSeconds="0.001" PreferredStepSeconds="0.180"
+            FuseRadius="0" FuseArmSeconds="10" ChargeKg="20000000" HitsTerrain="true" />
+
+  <!--
+    The bus's designation set: where the warheads are being sent. Ranges are an ICBM's, because a bus
+    releases hundreds of kilometres out. MountNormal is up the stack, where the tubes point.
+  -->
+  <Sensor Name="MIRVBUS" DisplayName="PBV designation set"
+          Range="400000" ConeDeg="100" BoresightSource="MountNormal"
+          ThreatRadius="200000" ThreatHorizonSeconds="600" LockSeconds="1.0" />
+
+  <!--
+    The sight a bomb is released on. Not a radar and not a seeker: it lets the rack draw a sight and
+    name what is ahead. MountNormal points out of the pylon, downward under a wing, where the bomb falls.
+  -->
+  <Sensor Name="BOMBSIGHT" DisplayName="Mk 9 bombsight"
+          Range="8000" ConeDeg="60" BoresightSource="MountNormal"
+          ThreatRadius="3000" ThreatHorizonSeconds="20" LockSeconds="0.8" />
+
+  <!--
+    The Heavy MIRV Bus: seven reentry vehicles, an axial engine to divert on, and twenty nozzles for
+    attitude (docs/POSTBOOST-BUS.md). One RV a tube, all parallel along the bus's axis: a real bus aims by
+    manoeuvring between releases, not by ejecting at angles. Nothing trains; the bus is aimed by flying
+    it. The tubes must match KSArmory_Prefab_MirvBus in the asset XML. <Provides Role="Guidance"> is what
+    gives a craft carrying it a ballistic computer.
+
+    StoreMassKg="250": about what one Mk 21 weighs, taken off the bus as each leaves.
+    TrimAccelerationMetresPerSecond2="0.40": the four forward nozzles, 7.92 m/s in 20 s, measured.
+    TrimWorstAxisExhaustVelocity is 2,912 / 1.414: an exhaust velocity of 2,912 m/s measured on this bus,
+    with a sideways m/s costing 1.414 times an axial one (docs/ICBM-GUIDANCE.md).
+    HopEngineThrustNewtons and HopEngineExhaustVelocity: 2.27 kg/s at 2,996 m/s, measured.
+    HopEngineAccelerationMetresPerSecond2="1.70": 95.3 m/s in 56 s on the loaded bus (docs/WIDE-SPREAD.md
+    step 5, C).
+
+    ReleaseSpin is drawn only: each RV's two base motors, at 45 and 225 degrees round the axis, exhaust
+    45 degrees off straight aft so their sideways pushes cancel and their turning adds. They light 2 s
+    after release, about a metre clear of the bus, and spin it at half a turn a second.
+  -->
+  <Launcher PartId="KSArmory_Prefab_MirvBus" DisplayName="Heavy MIRV Bus"
+            FireControlLabel="Warhead deployment"
+            Munition="MK21" Sensor="MIRVBUS" StoreMassKg="250" TubeArmamentLabel="Warheads"
+            TrimAccelerationMetresPerSecond2="0.40" TrimWorstAxisExhaustVelocity="2059.4059405940593"
+            HopEngineThrustNewtons="6800" HopEngineExhaustVelocity="2996"
+            HopEngineAccelerationMetresPerSecond2="1.70"
+            MuzzleForwardOffset="0" LaunchAlongTube="true" EjectAwayFromMount="0" LaunchLoft="0"
+            MuzzleOffset="0" SettleSeconds="0">
+    <Tube Position="3.04000,  0.86000,  0.00000" Direction="1, 0, 0" />
+    <Tube Position="3.04000,  0.43000,  0.74478" Direction="1, 0, 0" />
+    <Tube Position="3.04000, -0.43000,  0.74478" Direction="1, 0, 0" />
+    <Tube Position="3.04000, -0.86000,  0.00000" Direction="1, 0, 0" />
+    <Tube Position="3.04000, -0.43000, -0.74478" Direction="1, 0, 0" />
+    <Tube Position="3.04000,  0.43000, -0.74478" Direction="1, 0, 0" />
+    <Tube Position="3.04000,  0.00000,  0.00000" Direction="1, 0, 0" />
+    <ReleaseSpin RateDegPerSecond="-180" SpinUpSeconds="0.6" IgnitionSeconds="2.0">
+      <Nozzle Mouth="-0.876,  0.10607,  0.10607" Exhaust="-0.70711, -0.5,  0.5" />
+      <Nozzle Mouth="-0.876, -0.10607, -0.10607" Exhaust="-0.70711,  0.5, -0.5" />
+    </ReleaseSpin>
+    <Provides Role="Guidance" DisplayName="Ballistic computer" />
+  </Launcher>
+
+  <!--
+    An ejector rack carrying a B61. A separate part because a launcher names one round, so the loadout is
+    the part. The seat is authored: a B61-12 hangs from 30-inch lugs, and the seat clears the hooks by the
+    bomb's own radius.
+  -->
+  <Launcher PartId="KSArmory_Prefab_NukeRack" DisplayName="B61 bomb rack"
+            FireControlLabel="B61 release"
+            Munition="B61" Sensor="BOMBSIGHT" StoreMassKg="374" TubeArmamentLabel="Bombs"
+            MuzzleForwardOffset="0.435" LaunchAlongTube="true" EjectAwayFromMount="1.2" LaunchLoft="0"
+            MuzzleOffset="2" ReloadSeconds="0" SettleSeconds="0">
+    <Tube Position="0.43510, 1.77800, 0.00000" Direction="0, 1, 0" />
+  </Launcher>
+
+</WeaponPack>

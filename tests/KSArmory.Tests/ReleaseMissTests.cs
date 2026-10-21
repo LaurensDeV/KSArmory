@@ -77,7 +77,7 @@ public class ReleaseMissTests(ITestOutputHelper Out)
     private static bool TryPredict(double3 positionCci, double3 velocityCci, bool onTheSurface,
                                    out ImpactPredictor.Impact hit)
         => ImpactPredictor.TryPredict(Earth, positionCci, velocityCci, 2.0, 20_000.0, out hit, null, null,
-                                      new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21),
+                                      new ImpactPredictor.Drag(DensityAt, BuiltIns.ReentryVehicleMk21),
                                       stopOnTheSurface: onTheSurface);
 
     // Where a round from this state stops, carried up its own velocity to the sphere and fixed to the

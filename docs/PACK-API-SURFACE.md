@@ -11,7 +11,7 @@ ignored.
 
 `docs/WEAPON-PACKS.md` is the same surface written for the author, with the reasons attached.
 
-**Definition schema 1.** 8 elements, 160 attributes, 15 entry-point lines.
+**Definition schema 1.** 8 elements, 168 attributes, 15 entry-point lines.
 
 ## Entry point
 
@@ -58,6 +58,8 @@ to build; widening it to take a profile type would put that back.
 | `BoostAccel` | number | `520` |
 | `MaxFlightSeconds` | number | `30` |
 | `MaxFaithfulStepSeconds` | number | *the flight model's own* |
+| `PreferredStepSeconds` | number | `0` |
+| `SubStepSeconds` | number | `0` |
 | `MinRange` | number | `0` |
 | `MaxRange` | number | `20000` |
 | `NavConstant` | number | `4` |
@@ -79,6 +81,7 @@ to build; widening it to take a profile type would put that back.
 | `TimedFuse` | true or false | `false` |
 | `FuseArmSeconds` | number | `0.6` |
 | `ChargeKg` | number | `20` |
+| `MaxChargeKg` | number | `0` |
 | `HitsTerrain` | true or false | `false` |
 | `BurstHeightMetres` | number | `0` |
 | `ChuteSinkMetresPerSecond` | number | `0` |
@@ -184,6 +187,11 @@ to build; widening it to take a profile type would put that back.
 | `GunRotorSpinDownSeconds` | number | `1.0` |
 | `GunSoundId` | text | *none* |
 | `GunshotSoundId` | text | *none* |
+| `TrimAccelerationMetresPerSecond2` | number | `double.NaN` |
+| `TrimWorstAxisExhaustVelocity` | number | `double.NaN` |
+| `HopEngineThrustNewtons` | number | `double.NaN` |
+| `HopEngineExhaustVelocity` | number | `double.NaN` |
+| `HopEngineAccelerationMetresPerSecond2` | number | `double.NaN` |
 | `FireControlLabel` | text | *none* |
 | `MintRows` | true or false | `true` |
 

@@ -146,7 +146,7 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     /// <summary>The Mk 21 with a stated sub-step, which is the knob the term turned out to hang on.</summary>
     private static MunitionProfile AtSubStep(double seconds)
     {
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21.Copy();
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21.Copy();
         warhead.SubStepSeconds = (float)seconds;
         return warhead;
     }
@@ -159,7 +159,7 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     public void TheRigArrivesWhereTheFlownShotDoes()
     {
         double3 velocity = ReleaseArc(out double3 from, out double3 _);
-        ImpactPredictor.Impact hit = Predict(from, velocity, Arsenal.ReentryVehicleMk21, 2.0, 0.25);
+        ImpactPredictor.Impact hit = Predict(from, velocity, BuiltIns.ReentryVehicleMk21, 2.0, 0.25);
 
         double3 up = Vec.Unit(hit.PointCci);
         double arrival = Vec.AngleBetween(up, hit.VelocityCci) * 180.0 / Math.PI - 90.0;
@@ -182,7 +182,7 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     [Fact]
     public void TheRigFliesTheRoundTheGameFlies()
     {
-        MunitionProfile shipped = Arsenal.ReentryVehicleMk21;
+        MunitionProfile shipped = BuiltIns.ReentryVehicleMk21;
 
         // The registered round is the one a released warhead flies, its drag from its shape.
         Assert.True(shipped.DragFromShape, "the registered Mk 21 carries its drag from its shape");
@@ -213,7 +213,7 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     public void ThePredictorsOwnStepBuysNothing()
     {
         double3 velocity = ReleaseArc(out double3 from, out double3 _);
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
         double3 landed = FlyTheRound(from, velocity, warhead, 1.0 / 60.0);
 
         Out.WriteLine($"{"vacuum (s)",12} {"air (s)",10} {"gap to the round (m)",24}");
@@ -260,7 +260,7 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     public void TheSubStepIsMillimetresOnTheRoundTheGameFlies()
     {
         double3 velocity = ReleaseArc(out double3 from, out double3 _);
-        double3 predicted = Predict(from, velocity, Arsenal.ReentryVehicleMk21, 2.0, 0.25)
+        double3 predicted = Predict(from, velocity, BuiltIns.ReentryVehicleMk21, 2.0, 0.25)
             .GroundFixedPointCci;
 
         Out.WriteLine($"{"sub-step (ms)",14} {"gap to the prediction (m)",26}");
@@ -310,7 +310,7 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
         BallisticBody spinning = new(Mu, R, new double3(0, 0, 1), EarthSpin);
 
         double3 velocity = ReleaseArc(out double3 from, out double3 _);
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
 
         Out.WriteLine($"{"body",10} {"gap to the prediction (mm)",28}");
 
@@ -383,7 +383,7 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     public void TakingTheDragAtTheMidpointVelocityClosesTheGap()
     {
         double3 velocity = ReleaseArc(out double3 from, out double3 _);
-        double3 predicted = Predict(from, velocity, Arsenal.ReentryVehicleMk21, 2.0, 0.25)
+        double3 predicted = Predict(from, velocity, BuiltIns.ReentryVehicleMk21, 2.0, 0.25)
             .GroundFixedPointCci;
 
         Out.WriteLine($"{"sub-step (ms)",14} {"start-of-step v (mm)",22} {"midpoint v (mm)",18}");
@@ -426,7 +426,7 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     public void AccumulatingThePositionAtEclMagnitudeCostsMillimetres()
     {
         double3 velocity = ReleaseArc(out double3 from, out double3 _);
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
 
         // One astronomical unit along x, which is where a planet actually sits in Ecl.
         double3 carried = new(1.495978707e11, 0, 0);
@@ -504,7 +504,7 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
         BallisticBody spinning = new(Mu, R, new double3(0, 0, 1), EarthSpin);
 
         double3 velocity = ReleaseArc(out double3 from, out double3 _);
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
 
         double3 held = FlySpinning(spinning, from, velocity, warhead, perSubStep: false);
         double3 fresh = FlySpinning(spinning, from, velocity, warhead, perSubStep: true);
@@ -559,7 +559,7 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     public void TheFrameRateNeverReachesTheSubStep()
     {
         double3 velocity = ReleaseArc(out double3 from, out double3 _);
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
         double3 predicted = Predict(from, velocity, warhead, 2.0, 0.25).GroundFixedPointCci;
 
         double at30 = GroundMetres(predicted, FlyTheRound(from, velocity, warhead, 1.0 / 30.0));

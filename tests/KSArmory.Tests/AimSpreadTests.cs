@@ -10,7 +10,7 @@ public class AimSpreadTests
     private const double EarthRadius = 6_371_000.0;
 
     // The Mk 21 as shipped: 20 kt scales to 2.0 km lethal through Warhead's cube root.
-    private static double Mk21Lethal => Warhead.LethalRadius(Arsenal.ReentryVehicleMk21.ChargeKg);
+    private static double Mk21Lethal => Warhead.LethalRadius(BuiltIns.ReentryVehicleMk21.ChargeKg);
 
     [Fact]
     public void TheSpacingClearsTheLethalRadiusOfTheRoundBeingSpread()

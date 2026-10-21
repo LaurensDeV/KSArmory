@@ -200,6 +200,8 @@ public static class PackReader
             BoostAccel = r.Number("BoostAccel", 520f),
             MaxFlightSeconds = r.Number("MaxFlightSeconds", 30f),
             MaxFaithfulStepSeconds = r.Number("MaxFaithfulStepSeconds", (float)Interceptor.MaxFaithfulStep),
+            PreferredStepSeconds = r.Number("PreferredStepSeconds", 0f),
+            SubStepSeconds = r.Number("SubStepSeconds", 0f),
             MinRange = r.Number("MinRange", 0f),
             MaxRange = r.Number("MaxRange", 20000f),
 
@@ -223,6 +225,7 @@ public static class PackReader
             TimedFuse = r.Flag("TimedFuse", false),
             FuseArmSeconds = r.Number("FuseArmSeconds", 0.6f),
             ChargeKg = r.Number("ChargeKg", 20f),
+            MaxChargeKg = r.Number("MaxChargeKg", 0f),
             HitsTerrain = r.Flag("HitsTerrain", false),
             BurstHeightMetres = r.Number("BurstHeightMetres", 0f),
             ChuteSinkMetresPerSecond = r.Number("ChuteSinkMetresPerSecond", 0f),
@@ -525,6 +528,13 @@ public static class PackReader
             GunRotorSpinDownSeconds = r.Number("GunRotorSpinDownSeconds", 1.0f),
             GunSoundId = r.Text("GunSoundId"),
             GunshotSoundId = r.Text("GunshotSoundId"),
+
+            TrimAccelerationMetresPerSecond2 = r.Number("TrimAccelerationMetresPerSecond2", double.NaN),
+            TrimWorstAxisExhaustVelocity = r.Number("TrimWorstAxisExhaustVelocity", double.NaN),
+            HopEngineThrustNewtons = r.Number("HopEngineThrustNewtons", double.NaN),
+            HopEngineExhaustVelocity = r.Number("HopEngineExhaustVelocity", double.NaN),
+            HopEngineAccelerationMetresPerSecond2 = r.Number("HopEngineAccelerationMetresPerSecond2", double.NaN),
+            ReleaseSpin = r.ReleaseSpin(),
         };
 
         List<BuiltInComponent> declared = r.Provides();
@@ -854,6 +864,61 @@ public static class PackReader
 
         // Gear this launcher carries as subparts. The survey walks *parts*, so a role that lives
         // inside one has to be declared or the system reports as not having it at all.
+        public RoundSpin? ReleaseSpin()
+        {
+            _taken.Add("ReleaseSpin");
+
+            RoundSpin? spin = null;
+            foreach (XElement el in element.Elements("ReleaseSpin"))
+            {
+                Reader s = new(el, source, "ReleaseSpin", faults);
+                s.Describe(_name);
+
+                if (spin is not null)
+                {
+                    s.Fault("a launcher spins its rounds one way");
+                    _sound = false;
+                    continue;
+                }
+
+                if (el.Attribute("RateDegPerSecond") is null) s.Fault("needs a RateDegPerSecond");
+                if (el.Attribute("SpinUpSeconds") is null) s.Fault("needs a SpinUpSeconds");
+
+                double rate = s.Number("RateDegPerSecond", 0.0);
+                double spinUp = s.Number("SpinUpSeconds", 0.0);
+                double ignition = s.Number("IgnitionSeconds", 0.0);
+                List<SpinNozzle> nozzles = [];
+
+                s._taken.Add("Nozzle");
+                foreach (XElement n in el.Elements("Nozzle"))
+                {
+                    Reader z = new(n, source, "Nozzle", faults);
+                    z.Describe(_name);
+
+                    if (n.Attribute("Mouth") is null) z.Fault("needs a Mouth");
+                    if (n.Attribute("Exhaust") is null) z.Fault("needs an Exhaust");
+                    SpinNozzle nozzle = new(z.Vector("Mouth", default), z.Vector("Exhaust", default));
+
+                    if (z.Sound()) nozzles.Add(nozzle);
+                    else s._sound = false;
+                }
+
+                if (s.Sound())
+                {
+                    spin = new RoundSpin
+                    {
+                        RateDegPerSecond = rate,
+                        SpinUpSeconds = spinUp,
+                        IgnitionSeconds = ignition,
+                        Nozzles = [.. nozzles],
+                    };
+                }
+                else _sound = false;
+            }
+
+            return spin;
+        }
+
         public BeamProfile? Beam()
         {
             _taken.Add("Beam");

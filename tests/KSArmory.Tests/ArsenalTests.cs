@@ -351,7 +351,7 @@ public class ArsenalTests
         foreach (ComponentProfile component in Catalogue.Components)
         {
             List<SurveyedPart> parts = [new SurveyedPart(component.PartId, default, doubleQuat.Identity)];
-            bool isBus = component.PartId == Arsenal.MirvBus.PartId;
+            bool isBus = component.PartId == BuiltIns.MirvBus.PartId;
 
             Assert.True(isBus == WeaponSurvey.Survey(parts, Catalogue.Components).HasGuidance,
                         $"{component.DisplayName} gets a ballistic computer only if it is a bus");
@@ -599,7 +599,7 @@ public class ArsenalTests
     [Fact]
     public void TheReentryVehicleCanBeReleasedAtIntercontinentalRange()
     {
-        MunitionProfile rv = Catalogue.MunitionNamed(Arsenal.MirvBus.Munition);
+        MunitionProfile rv = Catalogue.MunitionNamed(BuiltIns.MirvBus.Munition);
 
         Assert.Equal(GuidanceMode.None, rv.Guidance);
 
@@ -628,7 +628,7 @@ public class ArsenalTests
     [Fact]
     public void TheReentryVehicleAsksForAFinerStepAndNothingElseDoes()
     {
-        MunitionProfile rv = Arsenal.ReentryVehicleMk21;
+        MunitionProfile rv = BuiltIns.ReentryVehicleMk21;
 
         Assert.True(rv.SubStep < Interceptor.SubStep,
                     $"the Mk 21 integrates at {rv.SubStep * 1000.0:F2} ms, the shared default");
@@ -662,7 +662,7 @@ public class ArsenalTests
     [Fact]
     public void TheMk21sDragIsItsShapes()
     {
-        MunitionProfile rv = Arsenal.ReentryVehicleMk21;
+        MunitionProfile rv = BuiltIns.ReentryVehicleMk21;
 
         Assert.True(rv.DragFromShape);
         Assert.Equal(0.5 * 1.225 * 0.1 * Math.PI * 0.275 * 0.275 / 270.0, rv.AppliedDragK, 9);
@@ -675,12 +675,12 @@ public class ArsenalTests
     [Fact]
     public void FlyingARoundAtAnotherSubStepLeavesTheRegisteredProfileAlone()
     {
-        double was = Arsenal.ReentryVehicleMk21.SubStep;
+        double was = BuiltIns.ReentryVehicleMk21.SubStep;
 
-        MunitionProfile fine = Arsenal.RoundAtSubStep(Arsenal.ReentryVehicleMk21, 0.000125);
+        MunitionProfile fine = Arsenal.RoundAtSubStep(BuiltIns.ReentryVehicleMk21, 0.000125);
 
         Assert.Equal(0.000125, fine.SubStep, 9);
-        Assert.Equal(was, Arsenal.ReentryVehicleMk21.SubStep, 9);
+        Assert.Equal(was, BuiltIns.ReentryVehicleMk21.SubStep, 9);
     }
 
     /// <summary>
@@ -692,7 +692,7 @@ public class ArsenalTests
     [Fact]
     public void AFinerSubStepDoesNotMoveTheFaithfulStep()
     {
-        MunitionProfile shipped = Arsenal.ReentryVehicleMk21;
+        MunitionProfile shipped = BuiltIns.ReentryVehicleMk21;
         MunitionProfile fine = Arsenal.RoundAtSubStep(shipped, shipped.SubStep / 8.0);
 
         Assert.True(fine.SubStep * fine.MaxSubSteps >= shipped.MaxFaithfulStepSeconds,

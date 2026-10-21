@@ -14,7 +14,7 @@ internal static class RetiredRounds
     {
         get
         {
-            MunitionProfile round = Arsenal.ReentryVehicleMk21.Copy();
+            MunitionProfile round = BuiltIns.ReentryVehicleMk21.Copy();
             round.MassKg = 0f;
             round.CalibreMm = 0f;
             round.DragCoefficient = 0f;

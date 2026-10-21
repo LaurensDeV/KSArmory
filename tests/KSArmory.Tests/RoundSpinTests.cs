@@ -5,7 +5,7 @@ namespace KSArmory.Tests;
 
 public class RoundSpinTests
 {
-    private static readonly RoundSpin Spin = Arsenal.MirvBus.ReleaseSpin!;
+    private static readonly RoundSpin Spin = BuiltIns.MirvBus.ReleaseSpin!;
 
     [Fact]
     public void NothingRollsBeforeRelease()
@@ -21,7 +21,7 @@ public class RoundSpinTests
         Assert.False(Spin.Burning(Spin.IgnitionSeconds - 0.01));
         Assert.True(Spin.Burning(Spin.IgnitionSeconds + 0.01));
         Assert.False(Spin.Burning(Spin.IgnitionSeconds + Spin.SpinUpSeconds));
-        Assert.True(Spin.IgnitionSeconds * Arsenal.ReentryVehicleMk21.LaunchSpeed >= 1.0);
+        Assert.True(Spin.IgnitionSeconds * BuiltIns.ReentryVehicleMk21.LaunchSpeed >= 1.0);
     }
 
     [Fact]
@@ -77,6 +77,6 @@ public class RoundSpinTests
     public void OnlyTheBusWhoseRvsCarrySpinMotorsSpinsThem()
     {
         foreach (LauncherProfile launcher in Arsenal.Launchers)
-            Assert.True((launcher.ReleaseSpin is not null) == ReferenceEquals(launcher, Arsenal.MirvBus), launcher.DisplayName);
+            Assert.True((launcher.ReleaseSpin is not null) == ReferenceEquals(launcher, BuiltIns.MirvBus), launcher.DisplayName);
     }
 }

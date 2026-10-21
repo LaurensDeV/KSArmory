@@ -698,15 +698,15 @@ as a `--paired` arm (`Sim/ShotArms.cs`) rather than a commit:
 | the arm | file, and what to change |
 | --- | --- |
 | ~~gravity re-read per sub-step~~ | **Shipped 2026-08-24** (`aea3e2a`), for 0.44 → 0.05 km. Item 2d's warning against flying it alone stands, but its pair was the **pull centre**, not the sub-step — and both went together. Against the round the game now flies, gravity's own marginal contribution is zero. |
-| the warhead's own sub-step | `src/KSArmory/Sim/Arsenal.cs`, `ReentryVehicleMk21.SubStepSeconds` at ~1 ms. A **lone** term now, not half of a pair: it takes the round's gap with its own predictor from −149 m to −6 m, flat at every frame from 25 ms to 320 ms. `arm/substep` is built. |
-| the coast step the warhead is integrated across | `src/KSArmory/Sim/Arsenal.cs`, `ReentryVehicleMk21.PreferredStepSeconds`. **Not `MaxFaithfulStepSeconds`** — that bounds a clamp that *discards* time, and tightening it flew at 48–60 km (item −0b). Two questions with one shape; the answer to one is never the answer to the other. |
+| the warhead's own sub-step | `src/KSArmory/KSArmory/Strategic.xml`, the `MK21` round's `SubStepSeconds` at ~1 ms. A **lone** term now, not half of a pair: it takes the round's gap with its own predictor from −149 m to −6 m, flat at every frame from 25 ms to 320 ms. `arm/substep` is built. |
+| the coast step the warhead is integrated across | `src/KSArmory/KSArmory/Strategic.xml`, the `MK21` round's `PreferredStepSeconds`. **Not `MaxFaithfulStepSeconds`** — that bounds a clamp that *discards* time, and tightening it flew at 48–60 km (item −0b). Two questions with one shape; the answer to one is never the answer to the other. |
 | how far after cutoff the aim reopens | `src/KSArmory/Sim/PostBoostAim.cs` — `MaxSeconds`, `MaxCycles`, `PassesWithoutImprovement`. The largest single term at 740 m, and the one the rig cannot price. |
 | what a pass has to beat, and what one costs | `AimCorrection.ImprovedByFraction`/`ImprovedByFloorMetres`, `PostBoostAim.HoldingCostsMetresPerSecond`, `BusTrim.SettledMetresPerSecond` — **one arm, not three**: the bar cannot go below the trim's leavings, because those are what moves the reading it is judging. Item 7f. |
-| the warhead's own sub-step | `src/KSArmory/Sim/Arsenal.cs`, `ReentryVehicleMk21.SubStepSeconds`. First order at 30.6 m per ms, and `ProbeGapTests` says it *widens* the round-versus-probe gap alone (591 -> 754 m) — the same cancelling-pair shape as item 2d. Fly it paired or not at all. |
+| the warhead's own sub-step | `src/KSArmory/KSArmory/Strategic.xml`, the `MK21` round's `SubStepSeconds`. First order at 30.6 m per ms, and `ProbeGapTests` says it *widens* the round-versus-probe gap alone (591 -> 754 m) — the same cancelling-pair shape as item 2d. Fly it paired or not at all. |
 | predicting the warhead with the warhead's integrator | `src/KSArmory/Sim/ImpactPredictor.cs` — the other side of the same gap, 591 -> 47 m headless. Item 2h. |
 | re-pointing between releases | removed 2026-10-06 (`RepointBetweenReleases`, off on a flown verdict); `Sim/ReleaseSequence.cs` would have to be wired back in |
 | the arrival-angle floor | `src/KSArmory/Sim/IcbmConfig.cs`, `MinArrivalAngleDeg` — the largest lever there is, and it changes every other term's price, so it is a poor thing to have as a *factor* alongside others. Fly it as its own night. |
-| the ejection kick | `src/KSArmory/Sim/Arsenal.cs`, `ReentryVehicleMk21.LaunchSpeed` |
+| the ejection kick | `src/KSArmory/KSArmory/Strategic.xml`, the `MK21` round's `LaunchSpeed` |
 
 **Pick factors whose mechanisms are separate.** Two arms that both act on the aim correction
 interact by construction, and a 2×2 that spends its interaction budget on something already known

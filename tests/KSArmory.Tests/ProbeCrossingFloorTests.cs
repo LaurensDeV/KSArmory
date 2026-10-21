@@ -28,7 +28,7 @@ public class ProbeCrossingFloorTests(ITestOutputHelper Out)
     private static double DensityAt(double3 p) => Math.Exp(-Math.Max(0.0, Vec.Len(p) - R) / 8_000.0);
 
     private static MunitionProfile Constant => RetiredRounds.Mk21Constant;
-    private static MunitionProfile Shape => Arsenal.ReentryVehicleMk21.Copy();
+    private static MunitionProfile Shape => BuiltIns.ReentryVehicleMk21.Copy();
 
     /// <summary>
     /// <see cref="WalkFloorTests"/>' surface: seven octaves from 600 m down to 9 m, read at a
@@ -330,7 +330,7 @@ public class ProbeCrossingFloorTests(ITestOutputHelper Out)
     [Fact]
     public void TheShippedFlagPutsTheCrossingOnTheGroundAndLeavesLevelGroundAlone()
     {
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21.Copy();
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21.Copy();
 
         Out.WriteLine("the predicted crossing's own height over the ground under it, mm\n");
         Out.WriteLine("slope      off        on      ceiling");

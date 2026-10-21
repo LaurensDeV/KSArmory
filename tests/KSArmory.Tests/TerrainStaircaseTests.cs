@@ -101,10 +101,10 @@ public class TerrainStaircaseTests(ITestOutputHelper Out)
         Assert.True(ImpactPredictor.TryPredict(Earth, from, v, 2.0, 12_000.0,
                                                out ImpactPredictor.Impact hit,
                                                p => Surface(p, slope, packed), null,
-                                               new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21),
+                                               new ImpactPredictor.Drag(DensityAt, BuiltIns.ReentryVehicleMk21),
                                                atmosphericStepSeconds: predictorStep, stopOnTheSurface: true));
 
-        MunitionProfile warhead = Arsenal.RoundAtSubStep(Arsenal.ReentryVehicleMk21, subStepMs / 1000.0);
+        MunitionProfile warhead = Arsenal.RoundAtSubStep(BuiltIns.ReentryVehicleMk21, subStepMs / 1000.0);
         Slug round = new(from, v, null, 1, from, Vec.Zero)
         {
             Munition = warhead,

@@ -22,7 +22,7 @@ namespace KSArmory.Tests;
 /// </summary>
 public class ReleaseFrameTests(ITestOutputHelper Out)
 {
-    private static readonly double Ejection = Arsenal.ReentryVehicleMk21.LaunchSpeed;
+    private static readonly double Ejection = BuiltIns.ReentryVehicleMk21.LaunchSpeed;
 
     private const double Step = 1.0 / 60.0;
 
@@ -31,7 +31,7 @@ public class ReleaseFrameTests(ITestOutputHelper Out)
     // The bus's tubes in its own body frame.
     private static double3[] BodyTubes()
     {
-        Tube[] tubes = Arsenal.MirvBus.Tubes;
+        Tube[] tubes = BuiltIns.MirvBus.Tubes;
         double3[] axes = new double3[tubes.Length];
         for (int i = 0; i < tubes.Length; i++) axes[i] = Vec.Unit(tubes[i].Direction);
         return axes;
@@ -60,7 +60,7 @@ public class ReleaseFrameTests(ITestOutputHelper Out)
 
     private static ReleaseSituation At(int tube, double3 axisNow, double3 noseNow,
                                        double3 held, double3 heldRoll)
-        => new(ReadyToDeploy: true, NextTube: tube, TubesLeft: Arsenal.MirvBus.TubeCount - tube, NextTubeAxisCci: axisNow,
+        => new(ReadyToDeploy: true, NextTube: tube, TubesLeft: BuiltIns.MirvBus.TubeCount - tube, NextTubeAxisCci: axisNow,
                NoseAxisCci: noseNow, EjectionMetresPerSecond: Ejection,
                SweepMetresPerSecond: 0.0, SecondsLeftToDeploy: double.PositiveInfinity,
                HeldDirectionCci: held, HeldRollCci: heldRoll);

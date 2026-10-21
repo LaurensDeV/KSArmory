@@ -359,6 +359,69 @@ public class PackReaderTests
         Assert.Contains(Read(Wrap(ASet + twoBeams)).Faults, f => f.Reason.Contains("one beam"));
     }
 
+    [Fact]
+    public void ARoundsStepsAndYieldCeilingAreRead()
+    {
+        PackContents pack = Read(Wrap(
+            """<Munition Name="Rv" DisplayName="Rv" SubStepSeconds="0.001" PreferredStepSeconds="0.18" MaxChargeKg="3e8" />"""));
+
+        Assert.Empty(pack.Faults);
+        MunitionProfile rv = Assert.Single(pack.Munitions);
+        Assert.Equal((0.001f, 0.18f, 3e8f), (rv.SubStepSeconds, rv.PreferredStepSeconds, rv.MaxChargeKg));
+    }
+
+    private const string ABus =
+        """
+        <Launcher PartId="TestPack_Prefab_Bus" DisplayName="Bus" Munition="Dart" Sensor="Eye"
+                  TrimAccelerationMetresPerSecond2="0.4" TrimWorstAxisExhaustVelocity="2059.4"
+                  HopEngineThrustNewtons="6800" HopEngineExhaustVelocity="2996"
+                  HopEngineAccelerationMetresPerSecond2="1.7">
+          <Tube Position="3, 0.8, 0" Direction="1, 0, 0" />
+          <ReleaseSpin RateDegPerSecond="-180" SpinUpSeconds="0.6" IgnitionSeconds="2">
+            <Nozzle Mouth="-0.9, 0.1, 0.1" Exhaust="-0.7, -0.5, 0.5" />
+            <Nozzle Mouth="-0.9, -0.1, -0.1" Exhaust="-0.7, 0.5, -0.5" />
+          </ReleaseSpin>
+        </Launcher>
+        """;
+
+    [Fact]
+    public void ABussTrimHopAndReleaseSpinAreRead()
+    {
+        PackContents pack = Read(Wrap(ARound + ASet + ABus));
+
+        Assert.Empty(pack.Faults);
+        LauncherProfile bus = Assert.Single(pack.Launchers);
+        Assert.Equal((0.4, 2059.4), (bus.TrimAccelerationMetresPerSecond2, bus.TrimWorstAxisExhaustVelocity));
+        Assert.Equal((6800.0, 2996.0, 1.7),
+                     (bus.HopEngineThrustNewtons, bus.HopEngineExhaustVelocity, bus.HopEngineAccelerationMetresPerSecond2));
+
+        RoundSpin spin = bus.ReleaseSpin!;
+        Assert.Equal((-180.0, 0.6, 2.0), (spin.RateDegPerSecond, spin.SpinUpSeconds, spin.IgnitionSeconds));
+        Assert.Equal(2, spin.Nozzles.Length);
+        Assert.Equal(-0.5, spin.Nozzles[0].ExhaustBody.Y, 9);
+    }
+
+    [Fact]
+    public void ALauncherWithoutTheBusFieldsHasNoneOfThem()
+    {
+        LauncherProfile rail = Assert.Single(Read(Wrap(ARound + ASet + ARail)).Launchers);
+
+        Assert.True(double.IsNaN(rail.TrimAccelerationMetresPerSecond2));
+        Assert.True(double.IsNaN(rail.HopEngineThrustNewtons));
+        Assert.Null(rail.ReleaseSpin);
+    }
+
+    [Fact]
+    public void AReleaseSpinWithNoRateIsRefused()
+    {
+        string noRate = ABus.Replace("RateDegPerSecond=\"-180\" ", "");
+
+        PackContents pack = Read(Wrap(ARound + ASet + noRate));
+
+        Assert.Empty(pack.Launchers);
+        Assert.Contains(pack.Faults, f => f.Reason.Contains("RateDegPerSecond"));
+    }
+
     // ---- Refusing -------------------------------------------------------
 
     [Fact]

@@ -121,7 +121,7 @@ public class PredictedDragTests(ITestOutputHelper Out)
     public void TheAirIsMeasuredOverTheRoundRatherThanOverAStationaryPlatform()
     {
         BallisticArc.Solution arc = Deorbit(out double3 from, out double3 _);
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
 
         double3 atRound = FlyOverSpinningGround(from, arc.RequiredVelocityCci, warhead, true);
         double3 atPlatform = FlyOverSpinningGround(from, arc.RequiredVelocityCci, warhead, false);
@@ -142,7 +142,7 @@ public class PredictedDragTests(ITestOutputHelper Out)
         Assert.True(ImpactPredictor.TryPredict(Earth, from, arc.RequiredVelocityCci, 1.0, 12_000.0,
                                                out ImpactPredictor.Impact vacuum));
 
-        double3 landed = FlyTheRound(from, arc.RequiredVelocityCci, Arsenal.ReentryVehicleMk21);
+        double3 landed = FlyTheRound(from, arc.RequiredVelocityCci, BuiltIns.ReentryVehicleMk21);
         double apart = GroundMetres(vacuum.GroundFixedPointCci, landed);
 
         Out.WriteLine($"vacuum prediction to round: {apart / 1000.0:F1} km");
@@ -157,7 +157,7 @@ public class PredictedDragTests(ITestOutputHelper Out)
     public void PredictingWithTheWarheadsDragLandsWhereTheRoundLands()
     {
         BallisticArc.Solution arc = Deorbit(out double3 from, out double3 target);
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
 
         Assert.True(ImpactPredictor.TryPredict(Earth, from, arc.RequiredVelocityCci, 1.0, 12_000.0,
                                                out ImpactPredictor.Impact predicted, null, null,
@@ -186,7 +186,7 @@ public class PredictedDragTests(ITestOutputHelper Out)
     {
         Deorbit(out double3 from, out double3 target);
         double3 circular = new(0, Math.Sqrt(Mu / (R + 200_000.0)), 0);
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
 
         AimCorrection correction = new();
         double3 flown = default;
@@ -221,7 +221,7 @@ public class PredictedDragTests(ITestOutputHelper Out)
     public void TheTwoMetresPerSecondOffTheTubeIsWorthKilometres()
     {
         BallisticArc.Solution arc = Deorbit(out double3 from, out double3 _);
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
 
         // The bus is pointing retrograde, so the tube throws the warhead backwards along its track.
         double3 retrograde = -Vec.Unit(arc.RequiredVelocityCci);
@@ -253,7 +253,7 @@ public class PredictedDragTests(ITestOutputHelper Out)
     public void TheFrameLengthDoesNotChangeWhereTheRoundLands(double dt)
     {
         BallisticArc.Solution arc = Deorbit(out double3 from, out double3 _);
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
 
         double3 fine = FlyAtStep(from, arc.RequiredVelocityCci, warhead, 1.0 / 240.0);
         double3 coarse = FlyAtStep(from, arc.RequiredVelocityCci, warhead, dt);

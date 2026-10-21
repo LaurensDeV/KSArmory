@@ -81,4 +81,11 @@ public static class BuiltIns
     public static OpticProfile Yal1Turret => Catalogue.OpticForPart("KSArmory_Prefab_Yal1Turret")!;
     public static LauncherProfile Yal1Beam => Catalogue.LauncherForPart("KSArmory_Prefab_Yal1Turret")!;
     public static SensorProfile BeamDirectorSensor => Catalogue.SensorNamed("Yal1BeamDirector");
+
+    public static LauncherProfile MirvBus => Catalogue.LauncherForPart("KSArmory_Prefab_MirvBus")!;
+    public static LauncherProfile NukeRack => Catalogue.LauncherForPart("KSArmory_Prefab_NukeRack")!;
+    public static MunitionProfile ReentryVehicleMk21 => Catalogue.MunitionNamed("MK21");
+    public static MunitionProfile NukeB61 => Catalogue.MunitionNamed("B61");
+    public static SensorProfile BusDesignation => Catalogue.SensorNamed("MIRVBUS");
+    public static SensorProfile BombSight => Catalogue.SensorNamed("BOMBSIGHT");
 }

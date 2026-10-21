@@ -71,11 +71,11 @@ public class WarheadFootprintTests(ITestOutputHelper Out)
         Assert.True(WarheadFootprint.WidestAt(Flight * 2.0) > widest);
 
         // Against what the warhead actually is: two body lengths, and nothing beside its fireball.
-        Out.WriteLine($"   the Mk 21 is {Arsenal.ReentryVehicleMk21.BodyLength:F2} m long and its "
-                      + $"fireball {Warhead.FireballRadius(Arsenal.ReentryVehicleMk21.ChargeKg):F0} m");
-        Assert.True(widest > Arsenal.ReentryVehicleMk21.BodyLength,
+        Out.WriteLine($"   the Mk 21 is {BuiltIns.ReentryVehicleMk21.BodyLength:F2} m long and its "
+                      + $"fireball {Warhead.FireballRadius(BuiltIns.ReentryVehicleMk21.ChargeKg):F0} m");
+        Assert.True(widest > BuiltIns.ReentryVehicleMk21.BodyLength,
                     "a footprint that cannot clear one body length is not worth the setting");
-        Assert.True(widest < Warhead.FireballRadius(Arsenal.ReentryVehicleMk21.ChargeKg),
+        Assert.True(widest < Warhead.FireballRadius(BuiltIns.ReentryVehicleMk21.ChargeKg),
                     "if the cap ever cleared the fireball this would be a MIRV footprint and the "
                     + "documentation saying it is not would be wrong");
     }

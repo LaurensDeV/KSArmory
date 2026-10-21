@@ -56,7 +56,7 @@ public sealed class PredictorAgreementTests
 
         // The reentry vehicle's own, which is the whole point: it already sub-steps at a
         // millisecond, so a comparison run at the profile default measures a round nobody flies.
-        SubStepSeconds = Arsenal.ReentryVehicleMk21.SubStepSeconds,
+        SubStepSeconds = BuiltIns.ReentryVehicleMk21.SubStepSeconds,
     };
 
     /// <summary>Fly the round to the ground on the same inverse-square field the predictor uses.</summary>

@@ -64,7 +64,7 @@ public class ProbeRepeatabilityTests(ITestOutputHelper Out)
     {
         Assert.True(ImpactPredictor.TryPredict(Earth, positionCci, velocityCci, 2.0, 12_000.0,
                                                out ImpactPredictor.Impact hit, null, null,
-                                               new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21),
+                                               new ImpactPredictor.Drag(DensityAt, BuiltIns.ReentryVehicleMk21),
                                                atmosphericStepSeconds: 0.25, stopOnTheSurface: true));
         return hit.GroundFixedPointCci;
     }
@@ -78,8 +78,8 @@ public class ProbeRepeatabilityTests(ITestOutputHelper Out)
     {
         double3 v = Release(out double3 from);
 
-        // A 0.5 m/s ejection along the bus's track, as Arsenal.ReentryVehicleMk21 carries.
-        double3 eject = Vec.Unit(v) * Arsenal.ReentryVehicleMk21.LaunchSpeed;
+        // A 0.5 m/s ejection along the bus's track, as BuiltIns.ReentryVehicleMk21 carries.
+        double3 eject = Vec.Unit(v) * BuiltIns.ReentryVehicleMk21.LaunchSpeed;
 
         List<double3> withEject = [];
         List<double3> without = [];
@@ -92,7 +92,7 @@ public class ProbeRepeatabilityTests(ITestOutputHelper Out)
             Assert.True(Kepler.TryCoast(Mu, from, v, t, out double3 p, out double3 bv));
 
             // Along the bus's TRACK, which rotates as it coasts...
-            withEject.Add(PredictedLanding(p, bv + Vec.Unit(bv) * Arsenal.ReentryVehicleMk21.LaunchSpeed, t));
+            withEject.Add(PredictedLanding(p, bv + Vec.Unit(bv) * BuiltIns.ReentryVehicleMk21.LaunchSpeed, t));
             // ...and along a FIXED direction, which is what a tube on an attitude-held bus is.
             fixedAxis.Add(PredictedLanding(p, bv + eject, t));
             without.Add(PredictedLanding(p, bv, t));

@@ -175,7 +175,7 @@ public class AimConvergenceTests(ITestOutputHelper Out)
                             MunitionProfile? warhead = null)
     {
         IcbmFlightRig rig = InOrbit();
-        Loop loop = new(rig, warhead ?? Arsenal.ReentryVehicleMk21);
+        Loop loop = new(rig, warhead ?? BuiltIns.ReentryVehicleMk21);
         configure?.Invoke(loop);
         rig.AimLoop = loop;
 

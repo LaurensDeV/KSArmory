@@ -39,7 +39,7 @@ public class PredictorEndingTests(ITestOutputHelper Out)
         Assert.True(ImpactPredictor.TryPredict(Earth, FlownPositionCci, FlownVelocityCci, 2.0,
                                                ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit,
                                                out ImpactPredictor.Ending ending, _ => R + 4_000.0, null,
-                                               new ImpactPredictor.Drag(KsaMedium, Arsenal.ReentryVehicleMk21),
+                                               new ImpactPredictor.Drag(KsaMedium, BuiltIns.ReentryVehicleMk21),
                                                stopOnTheSurface: true));
 
         Assert.Equal(ImpactPredictor.Exit.Landed, ending.Exit);
@@ -88,7 +88,7 @@ public class PredictorEndingTests(ITestOutputHelper Out)
     {
         Assert.False(ImpactPredictor.TryPredict(Earth, FlownPositionCci, FlownVelocityCci, 2.0, 600.0,
                                                 out _, out ImpactPredictor.Ending ending, null, null,
-                                                new ImpactPredictor.Drag(_ => 1e300, Arsenal.ReentryVehicleMk21)));
+                                                new ImpactPredictor.Drag(_ => 1e300, BuiltIns.ReentryVehicleMk21)));
 
         Assert.Equal(ImpactPredictor.Exit.NotFinite, ending.Exit);
     }

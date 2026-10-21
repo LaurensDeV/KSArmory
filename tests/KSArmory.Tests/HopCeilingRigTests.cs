@@ -26,7 +26,7 @@ public class HopCeilingRigTests(ITestOutputHelper Out)
         });
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
-                                              Arsenal.ReentryVehicleMk21.Copy(), DensityAt);
+                                              BuiltIns.ReentryVehicleMk21.Copy(), DensityAt);
         rig.ThrusterMetresPerSecond2 = 0.55;
         rig.ShoveMetresPerSecond = 1.0;
         for (int k = 0; k < 6; k++)

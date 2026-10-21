@@ -30,7 +30,7 @@ public class PerTubeTrimTests(ITestOutputHelper Out)
 
     private static BallisticBody Earth => new(Mu, R, new double3(0, 0, 1), 7.2921159e-5);
 
-    private static MunitionProfile Warhead => Arsenal.ReentryVehicleMk21;
+    private static MunitionProfile Warhead => BuiltIns.ReentryVehicleMk21;
 
     private static double DensityAt(double3 pointCci)
         => Math.Exp(-Math.Max(0.0, Vec.Len(pointCci) - R) / ScaleHeight);

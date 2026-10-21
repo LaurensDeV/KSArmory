@@ -29,7 +29,7 @@ public class WalkRigTests(ITestOutputHelper Out)
         });
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
-                                              Arsenal.ReentryVehicleMk21.Copy(), DensityAt);
+                                              BuiltIns.ReentryVehicleMk21.Copy(), DensityAt);
         rig.ThrusterMetresPerSecond2 = 0.55;
         rig.ShoveMetresPerSecond = 1.0;
         for (int k = 1; k < 4; k++) rig.WalkAimsAtEpoch.Add(GameStackShortRangeTests.South(2_000_000.0 - k * 4_000.0));
@@ -78,7 +78,7 @@ public class WalkRigTests(ITestOutputHelper Out)
         });
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
-                                              Arsenal.ReentryVehicleMk21.Copy(), DensityAt);
+                                              BuiltIns.ReentryVehicleMk21.Copy(), DensityAt);
         rig.ThrusterMetresPerSecond2 = 0.55;
         rig.ShoveMetresPerSecond = 1.0;
         for (int k = 0; k < 6; k++) rig.PlannedTargets.Add((GameStackShortRangeTests.South(6_181_000.0 - k * 4_000.0), 1));

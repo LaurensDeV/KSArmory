@@ -32,7 +32,7 @@ public class ReachDisplayTests(ITestOutputHelper Out)
 
     private static DivertFootprint Pinned()
     {
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
         ReleaseFocus.Air air = new(new ImpactPredictor.Drag(DensityAt, warhead), 2.0, R, true);
 
         ReleaseFocus.FlownSensitivity columns =

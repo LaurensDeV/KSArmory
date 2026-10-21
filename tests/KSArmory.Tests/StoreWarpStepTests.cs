@@ -107,7 +107,7 @@ public class StoreWarpStepTests(ITestOutputHelper Out)
     [Fact]
     public void TheShippedStoreDoesNotAskForAProximityFusesStep()
     {
-        MunitionProfile b61 = Arsenal.NukeB61;
+        MunitionProfile b61 = BuiltIns.NukeB61;
 
         Assert.Equal(0f, b61.FuseRadius);
         Assert.True(b61.MaxFaithfulStepSeconds > Interceptor.MaxFaithfulStep,
@@ -129,8 +129,8 @@ public class StoreWarpStepTests(ITestOutputHelper Out)
     [Fact]
     public void OnlyRoundsTheGroundStopsSurviveAWorldThatOutranThem()
     {
-        Assert.True(Arsenal.NukeB61.HitsTerrain);
-        Assert.True(Arsenal.ReentryVehicleMk21.HitsTerrain);
+        Assert.True(BuiltIns.NukeB61.HitsTerrain);
+        Assert.True(BuiltIns.ReentryVehicleMk21.HitsTerrain);
         Assert.True(BuiltIns.Shell5In54.HitsTerrain);
 
         Assert.False(BuiltIns.Missile9J.HitsTerrain);

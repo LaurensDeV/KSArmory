@@ -67,7 +67,7 @@ public class ThrottleFloorPulseTests(ITestOutputHelper Out)
     public void APulsedShotLandsOnItsTarget(double km)
     {
         IcbmFlightRig rig = OneStage();
-        PastCutoffRig past = PastCutoffRig.For(rig, Program(pulses: true), Arsenal.ReentryVehicleMk21.Copy(),
+        PastCutoffRig past = PastCutoffRig.For(rig, Program(pulses: true), BuiltIns.ReentryVehicleMk21.Copy(),
                                                p => Math.Exp(-Math.Max(0.0, Vec.Len(p) - R) / 8_000.0));
         past.ShoveMetresPerSecond = 1.0;
 

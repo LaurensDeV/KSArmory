@@ -27,7 +27,7 @@ public class DivertFootprintTests(ITestOutputHelper Out)
 
     private static ReleaseFocus.FlownSensitivity Columns()
     {
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
         ReleaseFocus.Air air = new(new ImpactPredictor.Drag(DensityAt, warhead), 2.0, R, true);
 
         return ReleaseFocus.FlownSensitivity.TryFly(Earth, FlownPositionCci, FlownVelocityCci, air)
@@ -148,7 +148,7 @@ public class DivertFootprintTests(ITestOutputHelper Out)
         Assert.True(Kepler.TryCoast(Mu, FlownPositionCci, FlownVelocityCci, tau, out double3 later,
                                     out double3 laterVelocity));
 
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
         ReleaseFocus.Air air = new(new ImpactPredictor.Drag(DensityAt, warhead), 2.0, R, true);
 
         ReleaseFocus.FlownSensitivity direct =
@@ -381,7 +381,7 @@ public class DivertFootprintTests(ITestOutputHelper Out)
                                      out double3 velocity)) continue;
                 if (Vec.Len(atRelease) < R + 100_000.0) continue;
 
-                ReleaseFocus.Air air = new(new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21), 2.0, R, true);
+                ReleaseFocus.Air air = new(new ImpactPredictor.Drag(DensityAt, BuiltIns.ReentryVehicleMk21), 2.0, R, true);
                 ReleaseFocus.FlownSensitivity? columns =
                     ReleaseFocus.FlownSensitivity.TryFly(Earth, atRelease, velocity, air);
 
@@ -447,7 +447,7 @@ public class DivertFootprintTests(ITestOutputHelper Out)
                                  out double3 velocity)) continue;
             if (Vec.Len(atRelease) < R + 100_000.0) continue;
 
-            MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+            MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
             ReleaseFocus.Air air = new(new ImpactPredictor.Drag(DensityAt, warhead), 2.0, R, true);
 
             ReleaseFocus.FlownSensitivity? columns =

@@ -20,7 +20,7 @@ namespace KSArmory.Tests;
 /// </summary>
 public class TumblingBusTests(ITestOutputHelper Out)
 {
-    private static readonly double Ejection = Arsenal.ReentryVehicleMk21.LaunchSpeed;
+    private static readonly double Ejection = BuiltIns.ReentryVehicleMk21.LaunchSpeed;
 
     private static double Degrees(double radians) => radians * 180.0 / Math.PI;
 
