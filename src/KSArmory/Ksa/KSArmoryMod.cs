@@ -269,8 +269,9 @@ public sealed class KSArmoryMod
                      ? "developer install: the bridge, the scenario runner and the developer controls are on"
                      : "player install: developer tools are off");
         _ui = new Ui(_config, _roster, _heads, _countermeasures, _searchSets, _picture, _icbms, _warp, _watch, _mover, _bursts, ReachFor);
-        Log.Info($"ready - {string.Join(", ", Catalogue.Launchers.Select(l => l.DisplayName))}, safe. "
-                 + "Open the 'KSArmory' panel to arm.");
+        Log.Info(Catalogue.Launchers.Count > 0
+                     ? $"ready - {string.Join(", ", Catalogue.Launchers.Select(l => l.DisplayName))}"
+                     : "ready - no weapons: every built-in family is switched off and no installed pack defines one");
 
         // Logged, not just shown in the panel. Every link of this chain fails silently inside
         // KSA, so without a record the only symptom is a kitten with no gun -- and that looks

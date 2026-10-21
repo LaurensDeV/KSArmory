@@ -109,8 +109,9 @@ A further weapon is an entry in the registry plus its art: see
 
 **Or it need not be in this mod at all.** A *weapon pack* is an ordinary KSA mod with a `KSArmory/`
 folder of definitions in it and no code; KSArmory reads that folder inside every installed mod and
-holds no list of packs. `KSArmory-example-mod` is a complete worked example — a Mk 82 bomb rack, which
-used to ship here — and `docs/WEAPON-PACKS.md` is the reference.
+holds no list of packs. `KSArmory-example-mod` (installed as `KSArmoryExamplePack`) is a complete
+worked example — a Mk 82 bomb rack, which used to ship here, and a working copy of every weapon this
+mod ships — and `docs/WEAPON-PACKS.md` is the reference.
 
 **KSArmory's own weapons are defined the same way**, one file per family in its `KSArmory/` folder
 (`Pantsir.xml`, `Rails.xml`, `Guns.xml`, `Sensors.xml`, `Countermeasures.xml`, `DirectedEnergy.xml`,
@@ -204,7 +205,7 @@ truncated each session. You should see:
 
 ```
 loading (mod id: KSArmory)
-ready - Pantsir-S1, LAU-7 Sidewinder rail, ..., safe. Open the 'KSArmory' panel to arm.
+ready - Pantsir-S1, LAU-7 Sidewinder rail, ...
 ```
 
 The `ready` line arrives roughly **20 seconds after** the first, because the loader waits for
