@@ -42,4 +42,13 @@ public class PackFilesTests
         Assert.False(Armoury.Register(launcher, "LonePack").Complete);
         Assert.Null(Catalogue.LauncherForPart("LonePack_Prefab_Rail"));
     }
+
+    [Fact]
+    public void ACodePackRegisteringSeveralTextsGetsTheSameCrossFileReading()
+    {
+        IReadOnlyList<PackResult> results = Armoury.Register([Launcher("CodePack"), Library], "CodePack");
+
+        Assert.All(results, r => Assert.True(r.Complete, string.Join("; ", r.Faults)));
+        Assert.NotNull(Catalogue.LauncherForPart("CodePack_Prefab_Rail"));
+    }
 }

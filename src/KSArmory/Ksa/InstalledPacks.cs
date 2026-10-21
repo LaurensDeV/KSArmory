@@ -60,7 +60,20 @@ public static class InstalledPacks
             }
 
             // Already registered by RegisterCore, before any pack could need them.
-            if (!core) PackFiles.Register(definitions, id);
+            if (core) continue;
+
+            // A pack that registered from code under its own Id has said what it is; read again here,
+            // every definition would be refused as already claimed.
+            if (Catalogue.Registrations.Any(r => r.Source == id))
+            {
+                if (definitions.Count > 0)
+                {
+                    Log.Info($"pack '{id}' registered from code, so its {PackScan.FolderName}/ folder is not read as well");
+                }
+                continue;
+            }
+
+            PackFiles.Register(definitions, id);
         }
     }
 

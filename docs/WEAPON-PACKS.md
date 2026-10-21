@@ -67,7 +67,17 @@ would not be a weapon.
 A pack that needs to build definitions at runtime can ship an assembly instead, declare
 `ModDependencies = [ { ModId = "KSArmory" } ]` under `[StarMap]`, and call
 `KSArmory.Armoury.Register(xml, "MyWeaponPack")` from `[StarMapBeforeMain]`. StarMap holds it back
-until KSArmory is up and shares KSArmory's assembly out of *its* load context, both by default.
+until KSArmory is up and shares KSArmory's assembly out of *its* load context, both by default, and
+KSArmory registers its own weapons from its own `[StarMapBeforeMain]`, so `KSArmory:20MM` already
+resolves when yours runs.
+
+Register several texts in one call, `Armoury.Register([("rounds", a), ("launchers", b)], "MyWeaponPack")`,
+when one names what another declares: they are read as one unit, as a folder is, and separate calls
+are not.
+
+**Register by code or by folder, not both.** Use your mod's Id as the source: a mod that has registered
+from code under its own Id has its `KSArmory/` folder skipped, with a line in the log saying so, because
+read a second time every definition would be refused as already claimed.
 
 `Register` takes **text**, not profiles, and that is worth preserving: constructing a
 `LauncherProfile` in C# needs `double3` from `Brutal.Numerics`, which is RocketWerkz's and not

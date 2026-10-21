@@ -340,7 +340,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | --- | --- |
 | **`src/KSArmory/Sim/`** | **no KSA types, linked into the tests wholesale** |
 | `Sim/Catalogue.cs` | **what the mod reads** — the built-ins from `KSArmory/*.xml` plus anything else registered; the only registry |
-| `Sim/Armoury.cs` | **the code surface a weapon pack may bind to**, for the pack that ships an assembly — three members, taking text rather than profiles so a pack needs no game assemblies. A pack with no code never calls it: `InstalledPacks` reads its folder and registers through the same `Register` |
+| `Sim/Armoury.cs` | **the code surface a weapon pack may bind to**, for the pack that ships an assembly — four members, taking text rather than profiles so a pack needs no game assemblies. A pack with no code never calls it: `InstalledPacks` reads its folder and registers through the same `Register` |
 | `Sim/PackReader.cs` | somebody else's weapon definitions, read into profiles — **text in, no file access**, so every refusal is testable headlessly |
 | `Sim/PackScan.cs` | where KSArmory looks for somebody else's weapons — **a convention, not a list** |
 | `Sim/PackAudit.cs` | whether what registered can actually be found — the half of validation that has to wait until the world has loaded |
