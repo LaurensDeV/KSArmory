@@ -4,7 +4,7 @@
   vehicles. The bus is the part that gives a craft a ballistic computer. Part definitions are in
   ../KSArmory*.xml, which KSA reads and this does not.
 -->
-<WeaponPack Schema="1">
+<WeaponPack Schema="1" Family="Strategic">
 
   <!--
     A B61-pattern tactical nuclear bomb at its lowest selectable yield. The only nuclear thing about it

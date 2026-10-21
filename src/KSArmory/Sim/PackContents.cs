@@ -12,6 +12,9 @@ public sealed class PackContents
     /// <summary>The pack, as it named itself. Nothing looks this up; it is supplied.</summary>
     public required string Source { get; init; }
 
+    /// <summary>Which of KSArmory's own families the file is, or null for a pack's.</summary>
+    public string? Family { get; init; }
+
     public IReadOnlyList<MunitionProfile> Munitions { get; init; } = [];
     public IReadOnlyList<SensorProfile> Sensors { get; init; } = [];
     public IReadOnlyList<LauncherProfile> Launchers { get; init; } = [];

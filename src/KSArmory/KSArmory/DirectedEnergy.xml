@@ -4,7 +4,7 @@
   chemical laser it fires down its own line of sight. Part definitions are in ../KSArmory*.xml, which
   KSA reads and this does not.
 -->
-<WeaponPack Schema="1">
+<WeaponPack Schema="1" Family="DirectedEnergy">
 
   <!--
     What the turret tracks with. The aircraft's six IRSTs did the detecting, so it is CuedOnly and

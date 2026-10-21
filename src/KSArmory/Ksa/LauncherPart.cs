@@ -77,6 +77,33 @@ internal static class LauncherPart
         }
     }
 
+    /// <summary>
+    /// What a launcher's settings are filed under: its <paramref name="ordinal"/>, moved past any switched-off
+    /// family's launchers before <paramref name="part"/> on the craft (<see cref="SettingsOrdinal"/>).
+    /// </summary>
+    public static int FiledOrdinal(Vehicle vehicle, Part part, int ordinal)
+    {
+        if (Catalogue.DisabledParts.Count == 0) return ordinal;
+
+        try
+        {
+            ReadOnlySpan<Part> parts = vehicle.Parts.Parts;
+            List<string> ids = new(parts.Length);
+            int at = -1;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (ReferenceEquals(parts[i], part)) at = i;
+                ids.Add(parts[i]?.Id ?? "");
+            }
+
+            return at < 0 ? ordinal : SettingsOrdinal.Of(ordinal, ids, at, Catalogue.IsDisabledLauncher);
+        }
+        catch
+        {
+            return ordinal;
+        }
+    }
+
     /// <summary>The nth launcher on a vehicle, or null once that many are no longer fitted.</summary>
     public static (Part Part, LauncherProfile Profile)? FindNth(Vehicle vehicle, int ordinal,
                                                                 List<(Part, LauncherProfile)> scratch)

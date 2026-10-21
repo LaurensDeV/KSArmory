@@ -75,6 +75,22 @@ public static class PackReader
                            + (schema > Schema ? "Update KSArmory." : "Update the pack."));
         }
 
+        // Family is how KSArmory's own files are switched off one at a time; a pack is switched off by
+        // uninstalling it, so on a pack's root it means nothing and is refused.
+        string? family = null;
+        foreach (XAttribute a in root.Attributes())
+        {
+            if (a.IsNamespaceDeclaration) continue;
+            string name = a.Name.LocalName;
+            if (name == "Schema") continue;
+            if (name == "Family" && source == BuiltInSource) { family = a.Value; continue; }
+
+            faults.Add(new PackFault(source, "WeaponPack", "",
+                                     name == "Family"
+                                         ? "Family belongs to KSArmory's own files; a pack is switched off by uninstalling it"
+                                         : $"'{name}' is not an attribute this build knows"));
+        }
+
         // Rounds and sensors first, because a launcher names them and the reference is resolved
         // here rather than left to fail in flight.
         List<MunitionProfile> munitions = [];
@@ -151,6 +167,7 @@ public static class PackReader
         return new PackContents
         {
             Source = source,
+            Family = family,
             Munitions = munitions,
             Sensors = sensors,
             Launchers = launchers,

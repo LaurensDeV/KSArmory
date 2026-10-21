@@ -76,6 +76,9 @@ Most packs will never need any of this.
 
 ## Weapons.xml
 
+A pack's root is `<WeaponPack Schema="1">`. `Family` is KSArmory's own, for switching a family of its
+built-ins off, and is refused on a pack's: a pack is switched off by uninstalling it.
+
 ```xml
 <WeaponPack Schema="1">
   <Munition Name="AIM-9X" DisplayName="AIM-9X Sidewinder II" BodyMarker="Aim9x"

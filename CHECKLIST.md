@@ -3064,6 +3064,26 @@ played through by the owner on 2026-09-29.
       growing to 36 m) and that has not been looked at.
 - [x] No puff from a shell bursting on the ground, and none on the Moon.
 
+## 16. Built-in weapon families as data, and switching one off
+
+Every built-in now registers from `src/KSArmory/KSArmory/<Family>.xml` (`docs/BUILTINS-AS-DATA.md`).
+
+- [x] **16.1** Each family flew after its move: rails (`head-on`), guns (`gunnery` on the Mk 42, CIWS and
+      M197), sensors and countermeasures and the YAL-1 through the bridge, strategic (`drop`, `mirv`).
+- [ ] **16.2** Untick **Guns** under KSArmory > Built-in weapons, restart, and load `CIWS`: the craft is
+      there with its Phalanx as plain structure, the Phalanx is gone from the editor's list, and the log
+      says "family Guns switched off".
+      *Flown 2026-10-21 with Guns off in `builtins.json` rather than the menu, on `5inch_gun`: the log
+      said it, hid 3 parts, the save loaded with all six vehicles and crewed nothing, no exceptions. The
+      menu and the editor list not yet seen.*
+- [ ] **16.3** With Guns off, a craft carrying a Phalanx and a B61 rack: the rack keeps the settings it
+      had (its arm switch, its team), not the Phalanx's.
+- [ ] **16.4** Tick it back, restart: the Phalanx is a weapon again and both keep their settings.
+      *Flown 2026-10-21: switched back on, Guns registered 8 and `gunnery` passed, 4 of 4 drones. The
+      settings half not yet checked.*
+- [ ] **16.5** `KSARMORY_NO_BUILTINS=1`: the log says none registered, and every KSArmory part loads as
+      structure.
+
 ## Reporting back
 
 Most useful, in order:

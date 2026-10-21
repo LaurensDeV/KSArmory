@@ -425,6 +425,19 @@ public class PackReaderTests
     // ---- Refusing -------------------------------------------------------
 
     [Fact]
+    public void AFamilyOnAPacksRootIsRefusedAndOnTheCoresIsRead()
+    {
+        string file = """<WeaponPack Schema="1" Family="Guns"><Sensor Name="Eye" DisplayName="Eye" /></WeaponPack>""";
+
+        Assert.Contains(Read(file).Faults, f => f.Reason.Contains("Family"));
+        Assert.Null(Read(file).Family);
+
+        PackContents core = PackReader.Read(file, PackReader.BuiltInSource, NoRounds, NoSets);
+        Assert.Empty(core.Faults);
+        Assert.Equal("Guns", core.Family);
+    }
+
+    [Fact]
     public void OneBadDefinitionDoesNotCostThePackItsOthers()
     {
         PackContents pack = Read(Wrap(

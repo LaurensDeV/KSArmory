@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-333 types and 887 members across 12 assemblies.
+334 types and 890 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -908,6 +908,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `double Value`
 
+### KSA.EditorTag
+
+- `KSA.EditorTag Hidden`
+
 ### KSA.EmptyStruct
 
 *referenced as a type only*
@@ -1441,9 +1445,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.PartTemplate
 
+- `System.Collections.Generic.List`1<KSA.EditorTag> EditorTags`
 - `System.Collections.Generic.List`1<KSA.PartInstance> SubPartInstances`
 - `System.Collections.Generic.List`1<TemplateBase> Connectors`
 - `System.Collections.Generic.List`1<TemplateDataBase> Components`
+- `bool get_IsHidden()`
 
 ### KSA.PartTree
 

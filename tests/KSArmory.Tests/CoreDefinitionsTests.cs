@@ -74,4 +74,30 @@ public class CoreDefinitionsTests
         Assert.False(Assert.Single(results).Result.Complete);
         Assert.Null(Catalogue.LauncherForPart("CORETEST_Prefab_Orphan"));
     }
+
+    // A switched-off family's parts must still load on a craft, and a pack using its rounds must too.
+    [Fact]
+    public void ASwitchedOffFamilyKeepsItsRoundsAndSensorsAndLosesItsParts()
+    {
+        string family = """
+            <WeaponPack Schema="1" Family="CoreTestOff">
+              <Munition Name="CORETEST_OFFROUND" DisplayName="Round" MassKg="10" CalibreMm="100" DragCoefficient="0.3" />
+              <Sensor Name="CORETEST_OFFEYE" DisplayName="Eye" />
+              <Launcher PartId="CORETEST_Prefab_OffRail" DisplayName="Rail" Munition="CORETEST_OFFROUND" Sensor="CORETEST_OFFEYE">
+                <Tube Position="0, 0, 0.8" Direction="1, 0, 0" />
+              </Launcher>
+            </WeaponPack>
+            """;
+
+        CoreFileResult result = Assert.Single(CoreDefinitions.Register([("off.xml", family)], new HashSet<string> { "CoreTestOff" }));
+
+        Assert.True(result.Disabled);
+        Assert.Equal("CoreTestOff", result.Family);
+        Assert.NotNull(Catalogue.TryMunitionNamed("CORETEST_OFFROUND"));
+        Assert.NotNull(Catalogue.TrySensorNamed("CORETEST_OFFEYE"));
+        Assert.Null(Catalogue.LauncherForPart("CORETEST_Prefab_OffRail"));
+        Assert.DoesNotContain(Catalogue.Components, c => c.PartId == "CORETEST_Prefab_OffRail");
+        Assert.True(Catalogue.IsDisabledLauncher("CORETEST_Prefab_OffRail"));
+        Assert.Contains("CORETEST_Prefab_OffRail", Catalogue.DisabledParts);
+    }
 }

@@ -64,6 +64,13 @@ public static class InstalledPacks
     /// </summary>
     public static void RegisterCore()
     {
+        // For testing a pack against an empty catalogue: nothing of KSArmory's, not even its rounds.
+        if (Environment.GetEnvironmentVariable("KSARMORY_NO_BUILTINS") == "1")
+        {
+            Log.Info("built-in definitions: none registered (KSARMORY_NO_BUILTINS)");
+            return;
+        }
+
         string folder = Path.Combine(ModFolder, PackScan.FolderName);
 
         List<(string, string)> files = [];
@@ -80,9 +87,11 @@ public static class InstalledPacks
             return;
         }
 
-        foreach (CoreFileResult file in CoreDefinitions.Register(files))
+        foreach (CoreFileResult file in CoreDefinitions.Register(files, BuiltInFamilies.ReadSwitches()))
         {
+            BuiltInFamilies.Remember(file.Family);
             Log.Info($"built-in definitions '{file.FileName}': {file.Result.Registered} registered"
+                     + (file.Disabled ? $", family {file.Family} switched off: its parts are structure" : "")
                      + (file.Result.Complete ? "" : $", {file.Result.Faults.Count} refused"));
 
             foreach (PackFault fault in file.Result.Faults) Log.Warn($"{file.FileName}: {fault}");

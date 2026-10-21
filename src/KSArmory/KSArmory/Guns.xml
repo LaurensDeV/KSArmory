@@ -4,7 +4,7 @@
   carries a missile, so each declares no <Tube> and fires through its GunMunition alone. Part
   definitions are in ../KSArmory*.xml, which KSA reads and this does not.
 -->
-<WeaponPack Schema="1">
+<WeaponPack Schema="1" Family="Guns">
 
   <!--
     The M61A2's 20 mm round, fired by both the Phalanx and the M197. LaunchSpeed, MaxRange and the

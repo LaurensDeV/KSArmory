@@ -4,7 +4,7 @@
   AGM-88 HARM. Nothing on any of them moves, so each is laid from the moment it exists and is aimed by
   pointing the craft. Part definitions are in ../KSArmory*.xml, which KSA reads and this does not.
 -->
-<WeaponPack Schema="1">
+<WeaponPack Schema="1" Family="Rails">
 
   <!--
     AIM-9J. Length, mass, speed (about Mach 2.5) and MaxRange are the real weapon's. Guidance="Seeker":

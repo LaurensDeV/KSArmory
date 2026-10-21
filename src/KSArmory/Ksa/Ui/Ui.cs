@@ -165,6 +165,35 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     {
         bool visible = Visible;
         if (ImGui.MenuItem("Panel", default, ref visible, true)) Visible = visible;
+
+        if (BuiltInFamilies.Loaded.Count > 0 && ImGui.BeginMenu("Built-in weapons"))
+        {
+            foreach (string family in BuiltInFamilies.Loaded)
+            {
+                bool on = !BuiltInFamilies.Wanted.Contains(family);
+                if (ImGui.MenuItem(FamilyLabel(family), default, ref on, true)) BuiltInFamilies.Want(family, on);
+                Tip("Off, its parts still load on craft that carry them, as plain structure, and leave the "
+                    + "editor's list; its rounds and sensors stay available to other packs. Takes effect "
+                    + "when KSA next starts.");
+            }
+
+            if (BuiltInFamilies.RestartOwed) ImGui.TextColored(Amber, "Restart KSA to apply");
+            ImGui.EndMenu();
+        }
+    }
+
+    // "DirectedEnergy" -> "Directed energy".
+    private static string FamilyLabel(string family)
+    {
+        System.Text.StringBuilder label = new();
+        for (int i = 0; i < family.Length; i++)
+        {
+            char c = family[i];
+            if (i > 0 && char.IsUpper(c)) label.Append(' ').Append(char.ToLowerInvariant(c));
+            else label.Append(c);
+        }
+
+        return label.ToString();
     }
 
     /// <summary>

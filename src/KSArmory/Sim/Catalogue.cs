@@ -30,6 +30,24 @@ public static class Catalogue
     /// </summary>
     public static IReadOnlyList<ComponentProfile> Components => _components;
 
+    private static readonly HashSet<string> _disabledLaunchers = [];
+    private static readonly HashSet<string> _disabledParts = [];
+
+    /// <summary>Every part of a built-in family the player switched off: it loads, and is nothing.</summary>
+    public static IReadOnlyCollection<string> DisabledParts => _disabledParts;
+
+    /// <summary>
+    /// Whether this part is a launcher of a switched-off family. Counted beside the registered launchers
+    /// where a craft's weapons are numbered, so switching a family off does not renumber the rest.
+    /// </summary>
+    public static bool IsDisabledLauncher(string? partId) => partId is not null && _disabledLaunchers.Contains(partId);
+
+    internal static void Disable(IEnumerable<string> launcherParts, IEnumerable<string> parts)
+    {
+        _disabledLaunchers.UnionWith(launcherParts);
+        _disabledParts.UnionWith(parts);
+    }
+
     private static readonly List<PackResult> _registrations = [];
     private static readonly Dictionary<string, string> _packOf = [];
     private static bool _open = true;

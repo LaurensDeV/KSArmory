@@ -166,6 +166,7 @@ public sealed class KSArmoryMod
         // already called Armoury.Register from its own entry point by now; this is for the ones
         // with no assembly at all, which is most of them.
         InstalledPacks.RegisterAll();
+        BuiltInFamilies.HideDisabledParts();
 
         JitWarmup.Start();
 

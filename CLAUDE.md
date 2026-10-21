@@ -347,6 +347,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/IPartCatalogue.cs` | **the seam the audit asks what parts exist through** |
 | `Sim/PackResult.cs` | what one pack got out of registering: how much stuck, and everything that did not |
 | `Sim/CoreDefinitions.cs` | this mod's own definition files, registered **as one unit and before anyone else's** — from its own `[StarMapBeforeMain]`, which StarMap runs ahead of every pack that ships code, and with every file's names collected first so a launcher may name a round in another file |
+| `Sim/BuiltInSwitches.cs` | which of KSArmory's own weapon families the player switched off, as the file it is kept in -- **anything unreadable switches nothing off** |
 | `Sim/PackContents.cs` | what reading one pack produced: what may register, and what may not |
 | `Sim/PackFault.cs` | one definition that was refused, and the reason an author can act on |
 | `Sim/WeaponSurvey.cs` | reads a weapons system off a craft the mod did not design |
@@ -545,6 +546,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/CursorAim.cs` | cursor to viewport coordinates, and the bearing from a mount to what it points at |
 | `Sim/WeaponFit.cs` | **what a weapons system is fitted with** — the panel asks this rather than testing profile fields |
 | `Sim/WeaponSelection.cs` | stepping round a craft's weapons, wrapping — the half of the selector a test can reach |
+| `Sim/SettingsOrdinal.cs` | the number a weapon's settings are filed under -- **moved past a switched-off family's launchers**, so the weapons after one keep their own |
 | `Sim/StepGate.cs` | hands a simulation step out once and only once |
 | `Sim/FrameLatch.cs` | hands a **frame's** work out once, to whichever hook reaches it first — **the UI pass is skipped while the UI is hidden and the frame postfix is not** |
 | `Sim/SmoothedStep.cs` | the step evened out, for the one consumer that wants a smooth clock |
@@ -595,6 +597,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/StoreMass.cs` | a launcher or dispenser part made lighter by what it has fired, through KSA's own per-part mass slot and in `AttitudeHook`'s window — **scaled where the part declares it, never moved to the tube**, because the bus's mass sits on its thruster ring on purpose. Not saved, which matches a magazine |
 | `Ksa/Countermeasures.cs` | every dispenser fitted and every decoy in the air — **stepped after the airborne sample and before any round**, so a seeker reads a decoy as it reads a craft, at the end of the step it integrates |
 | `Ksa/InstalledPacks.cs` | reads those folders and registers what is in them — **what lets a pack be assets only**; this mod's own folder it reads earlier, through `CoreDefinitions` |
+| `Ksa/BuiltInFamilies.cs` | the player's switch for each built-in family, in `builtins.json` beside the loose settings, **read before any save is open**, so a change waits for a restart; and a switched-off family's parts hidden from the editor |
 | `Ksa/DeclaredParts.cs` | the part library as that seam — off `PartTemplate`, because the question is what was *declared*, not what is on a craft |
 | `Ksa/HullTest.cs` | whether a round's step meets a craft's actual geometry, per triangle |
 | `Ksa/GroundTest.cs` | the surface under a round, off the engine's own height field |
@@ -744,7 +747,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 887 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 890 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1358,7 +1361,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 333 types this mod actually uses.
+defining the 334 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —

@@ -5,7 +5,7 @@
   what it finds goes into its craft's picture for the directors to take. Part definitions are in
   ../KSArmory*.xml, which KSA reads and this does not.
 -->
-<WeaponPack Schema="1">
+<WeaponPack Schema="1" Family="Sensors">
 
   <!--
     The EO director's sensor, which the Pantsir's roof director uses too. CuedOnly="true": a telescope,

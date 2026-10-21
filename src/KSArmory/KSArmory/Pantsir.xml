@@ -6,7 +6,7 @@
   pack replace it. Part definitions stay in ../KSArmory*.xml, because those are KSA's to read and
   these are not.
 -->
-<WeaponPack Schema="1">
+<WeaponPack Schema="1" Family="Pantsir">
 
   <!--
     The 57E6, as flown by the real Pantsir-S1: a two-stage round that boosts hard and then coasts

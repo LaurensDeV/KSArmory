@@ -5,7 +5,7 @@
   from the craft carrying it. Part definitions are in ../KSArmory*.xml, which KSA reads and this does
   not.
 -->
-<WeaponPack Schema="1">
+<WeaponPack Schema="1" Family="Countermeasures">
 
   <!--
     The MJU-7: a 1 x 2 x 8 inch magnesium-Teflon-Viton flare, burning white-hot for about four seconds
