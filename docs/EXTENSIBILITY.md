@@ -464,8 +464,10 @@ It also settles what the format cannot answer on paper — whether an entry lose
 translation. `Arsenal.cs` carries a paragraph per number on which figures are the real weapon's and
 which are gameplay, and that is what the move was judged on: `KSArmory/Weapons.xml` carries the same
 paragraphs as XML comments, which is most of why the format is XML rather than something terser. The
-remaining six launchers have not moved, so **the built-ins stay in C# and packs are XML** — two
-spellings of one catalogue — is still a live answer rather than a rejected one.
+other nine launchers have not moved, and decoys, dispensers and search sets have no XML spelling at
+all — `PackReader` knows `Munition`, `Sensor`, `Launcher` and `Optic` — so each new kind of profile
+widens the gap. **The built-ins stay in C# and packs are XML** — two spellings of one catalogue — is
+still a live answer rather than a rejected one, and the reader not keeping up is its cost.
 
 ---
 

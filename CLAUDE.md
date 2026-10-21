@@ -2971,14 +2971,17 @@ not. `docs/BATTERY-SPLIT.md` has the argument, and the word for a launcher that 
 if a craft ever carries two.
 
 **Consumers take a role, not the system.** `Ksa/WeaponSystemRoles.cs` names what each one actually
-needs: rounds in flight, an effect source, an optical head, a manual trigger, a read-only view.
-Twelve of the twenty consumers take one and nothing else, and `Visuals` is one method short of a
-thirteenth — `DrawShellStream` takes the class for three members `IRoundsInFlight` already carries.
+needs: rounds in flight, an effect source, an optical head, manual fire, a read-only view. Every
+effect — plume, smoke, spin jets, muzzle flash, motor and gun sound — the chase camera, the sight
+and the ballistic computer take one and nothing else.
 
-Of the seven that take the class, five have to: the frame hook, the panel, the two scenario runners
-and `TargetLock` command it rather than read it, and designating is a command, which is why
-`IOpticalHead.Designation` is read-only. The other two only read — `BombSightOverlay` stays within
-`IWeaponSystemView`, and `LockCueOverlay` reaches one member past it for `Hold`.
+What takes the class either commands it — the frame hook, the roster, the panel, the bridge and the
+scenario runners — or reads a member no role carries yet: `Visuals` and `ShellTracers` for
+`ShellDrawnAsBody`, `LockCueOverlay` for `Hold`, `StoreReach` for `Steerable`, `TargetLock` for the
+designation and the gun lay's reach, and `TravelSweeps`, which writes the turret's travel map.
+`BombSightOverlay` stays within `IWeaponSystemView` and could take it. Designating is a command,
+which is why `IOpticalHead.Designation` is read-only and `TargetLock` designates through a delegate
+it is handed rather than through the system.
 
 ## Testing
 

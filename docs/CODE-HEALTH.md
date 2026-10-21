@@ -44,6 +44,29 @@ not will be found again by the next reader.
   separate shots, and flare cores lit again after sixteen had burnt at once against the twelve-core
   cap -- no `no free emitters` line, no sound warning, no exception in KSA's log.
 
+Added 2026-10-21 against `df6549a0`, from a second review of the same shape.
+
+- [ ] **`Ksa/KsaWorld.cs` is one static class of about 6,300 lines that a hundred files call.** Most of
+  it is a thin wrapper round one engine call each, which is what it is for, so the split is by
+  concern into partial files and no call site moves.
+- [ ] **`KsaWorld.TryEclToEgo` answers only after `BeginDraw` has run that frame**, and its name does
+  not say so. Three other conversions from Ecl to Ego sit beside it with different meanings.
+- [ ] **`KsaWorld` carries two copies of project-or-clamp** — one for an ecliptic point, one for an
+  Ego point re-based through the ecliptic — and two rules for the nearest body, by depth under the
+  mean sphere and by distance to the centre.
+- [ ] **`Ksa/GroundTest.cs` walks the system, reads the height field and the ocean itself** rather
+  than through `KsaWorld`, which already does all three.
+- [ ] **`KSArmoryMod` copies `Config` fields into static managers every frame** (`BulletHoles.Enabled`,
+  `Leaks.Enabled`, `ShellTracers.BallBrightness`, `NuclearClouds.RedWaves`), where every other
+  consumer is handed the `Config`. Each copy is a setting that can be added and never forwarded.
+- [ ] **`Sim/WeaponFit.cs` reads the global `Catalogue`** for what a craft is fitted with, so a
+  value-shaped answer depends on registry state the tests have to serialise around.
+- [ ] **The panel holds the concrete `WeaponSystem` and writes through it** —
+  `_system.Radar.ManualDesignation` from `UiSystem` — and `UiScope` merges the search sets' tracks
+  itself, which `CraftPicture` already does.
+- [ ] **The turret mode ladder** — see `docs/BATTERY-SPLIT.md` item 7, which carries the stale
+  `_ringIsOnGunLead` it leaves behind.
+
 
 ## The ballistic computer
 
