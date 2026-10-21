@@ -92,22 +92,7 @@ internal static class Markers
         Age(dt);
         if (systems.Count == 0) return;
 
-        ImGuiViewportPtr main = ImGui.GetMainViewport();
-        ImGui.SetNextWindowPos(main.Pos, ImGuiCond.Always);
-        ImGui.SetNextWindowSize(main.Size, ImGuiCond.Always);
-        ImGui.SetNextWindowBgAlpha(0f);
-
-        // NoInputs: the overlay covers the screen, so anything else would swallow every click in
-        // the game. Hovering is worked out from the pointer position instead.
-        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoDecoration
-                                       | ImGuiWindowFlags.NoInputs
-                                       | ImGuiWindowFlags.NoNav
-                                       | ImGuiWindowFlags.NoFocusOnAppearing
-                                       | ImGuiWindowFlags.NoBringToFrontOnFocus
-                                       | ImGuiWindowFlags.NoSavedSettings
-                                       | ImGuiWindowFlags.NoBackground;
-
-        if (!ImGui.Begin("##KSArmoryMarkers", flags))
+        if (!ScreenOverlay.Begin("##KSArmoryMarkers", out ImGuiViewportPtr main))
         {
             ImGui.End();
             return;

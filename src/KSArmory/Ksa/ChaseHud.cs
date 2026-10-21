@@ -64,20 +64,7 @@ internal static class ChaseHud
         int count = Reticle.Build(centre, half, settled: true, _strokes, ladder: false);
         if (count == 0) return;
 
-        ImGuiViewportPtr main = ImGui.GetMainViewport();
-        ImGui.SetNextWindowPos(main.Pos, ImGuiCond.Always);
-        ImGui.SetNextWindowSize(main.Size, ImGuiCond.Always);
-        ImGui.SetNextWindowBgAlpha(0f);
-
-        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoDecoration
-                                       | ImGuiWindowFlags.NoInputs
-                                       | ImGuiWindowFlags.NoNav
-                                       | ImGuiWindowFlags.NoFocusOnAppearing
-                                       | ImGuiWindowFlags.NoBringToFrontOnFocus
-                                       | ImGuiWindowFlags.NoSavedSettings
-                                       | ImGuiWindowFlags.NoBackground;
-
-        if (ImGui.Begin("##KSArmoryChaseHud", flags))
+        if (ScreenOverlay.Begin("##KSArmoryChaseHud"))
         {
             ImDrawListPtr draw = ImGui.GetWindowDrawList();
 
