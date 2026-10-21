@@ -250,22 +250,43 @@ def placement(pivot_from_turret, reference_rad, elevation_rad, bearing_rad, turr
     return fn
 
 
-# Weapons that have moved out of Arsenal.cs and into the shipped definitions file. Both readers
+# Weapons that have moved out of Arsenal.cs and into the shipped definitions files. Both readers
 # below are driven by the registry, so a weapon leaving the C# takes its coverage with it and
 # this tool goes on printing "clear" -- the exact silence the coverage gate exists to prevent.
-WEAPONS_XML = MOD / "KSArmory" / "Weapons.xml"
+DEFINITIONS = MOD / "KSArmory"
 
-_SHIPPED_NAME = {"KSArmory_Prefab_Launcher6": "PantsirS1"}
+# The C# field each launcher had in Arsenal.cs, which vehicles() and AUTHORED_TRAINERS are keyed on.
+_SHIPPED_NAME = {
+    "KSArmory_Prefab_Launcher6": "PantsirS1",
+    "KSArmory_Prefab_SidewinderRail": "SidewinderRail",
+    "KSArmory_Prefab_AmraamRail": "AmraamRail",
+    "KSArmory_Prefab_HarmRail": "HarmRail",
+    "KSArmory_Prefab_NukeRack": "NukeRack",
+    "KSArmory_Prefab_MirvBus": "MirvBus",
+    "KSArmory_Prefab_Ciws": "Ciws",
+    "KSArmory_Prefab_Mk42": "Mk42",
+    "KSArmory_Prefab_M197": "M197",
+    "KSArmory_Prefab_Yal1Turret": "Yal1Beam",
+}
+
+
+def arsenal():
+    source = MOD / "Sim" / "Arsenal.cs"
+    return source.read_text() if source.is_file() else ""
 
 
 def shipped_launchers():
     """{profile name: its <Launcher> attributes}, for weapons defined as data."""
-    if not WEAPONS_XML.is_file():
-        return {}
-
     import xml.etree.ElementTree as ET
-    return {_SHIPPED_NAME.get(el.get("PartId", ""), el.get("PartId", "")): el.attrib
-            for el in ET.parse(WEAPONS_XML).getroot().findall("Launcher")}
+
+    launchers = {}
+    for path in sorted(DEFINITIONS.glob("*.xml"), key=lambda f: f.name):
+        root = ET.parse(path).getroot()
+        if root.tag != "WeaponPack":
+            continue
+        for el in root.findall("Launcher"):
+            launchers[_SHIPPED_NAME.get(el.get("PartId", ""), el.get("PartId", ""))] = el.attrib
+    return launchers
 
 
 def read_travel(profile="PantsirS1"):
@@ -276,9 +297,8 @@ def read_travel(profile="PantsirS1"):
     below level -- through poses its drives will never command, and reported the collisions.
     """
     defaults = (MOD / "Sim" / "LauncherProfile.cs").read_text()
-    arsenal = (MOD / "Sim" / "Arsenal.cs").read_text()
 
-    block = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", arsenal, re.S)
+    block = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", arsenal(), re.S)
     if block is not None:
         overrides = block.group(1)
     else:
@@ -350,22 +370,24 @@ def check_every_articulated_launcher_is_swept(swept):
     declares a TurretMarker moves, and a body set nobody named is silently not swept while this
     tool still prints "clear". The registry is the authority on which those are.
     """
-    arsenal = (MOD / "Sim" / "Arsenal.cs").read_text()
+    text = arsenal()
+    shipped = shipped_launchers()
 
-    registered = re.search(r"Launchers\s*=\s*\[(.*?)\];", arsenal, re.S)
-    if registered is None:
+    registered = re.search(r"Launchers\s*=\s*\[(.*?)\];", text, re.S)
+    if registered is None and text:
         print("  cannot read Arsenal.Launchers -- coverage unchecked")
         return 1
 
     covered = {v["profile"] for v in swept}
     problems = 0
 
-    names = [n.strip() for n in registered.group(1).split(",") if n.strip()]
-    names += sorted(shipped_launchers())
+    names = [] if registered is None else [n.strip() for n in registered.group(1).split(",") if n.strip()]
+    names += [n for n in sorted(shipped) if n not in names]
 
     for profile in names:
-        block = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", arsenal, re.S)
-        if block is None or "TurretMarker" not in block.group(1):
+        block = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
+        trains = (block is not None and "TurretMarker" in block.group(1)) or "TurretMarker" in shipped.get(profile, {})
+        if not trains:
             continue                    # does not train, so it has nothing to sweep
         if profile in AUTHORED_TRAINERS:
             print(f"  not swept {profile}: {AUTHORED_TRAINERS[profile]}")

@@ -208,7 +208,6 @@ def check_turret_launcher_geometry(profile, key, label):
     by tools/model/build.sh, which needs Blender.
     """
     muzzles = REPO / "tools" / "model" / "muzzles.json"
-    source = MOD / "Sim" / "Arsenal.cs"
     if not muzzles.is_file():
         print("  (no tools/model/muzzles.json -- run tools/model/build.sh to enable this check)")
         return 0, 0
@@ -218,7 +217,7 @@ def check_turret_launcher_geometry(profile, key, label):
     if expected is None:
         return 0, 0
 
-    text = source.read_text()
+    text = arsenal_text()
 
     problems = 0
     checked = 0
@@ -347,7 +346,7 @@ def check_fixed_launcher_geometry(profile, munition, key, label):
     if expected is None:
         return 0, 0
 
-    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    text = arsenal_text()
     problems = 0
     checked = 0
 
@@ -476,8 +475,7 @@ def check_subpart_positions():
     Also checks each marker resolves to exactly one subpart. LauncherPart.FindSubPart matches on
     the Id *containing* the marker and takes the first hit, so two matches is a silent coin toss.
     """
-    source = MOD / "Sim" / "Arsenal.cs"
-    text = source.read_text()
+    text = arsenal_text()
 
     def vector(field):
         match = re.search(
@@ -698,14 +696,13 @@ def check_body_markers():
     a nuclear rack instancing the Mk 82's bodies shipped with BodyMarker "Mk82": the name existed,
     on the other rack, and the bomb was released invisibly.
     """
-    source = MOD / "Sim" / "Arsenal.cs"
 
     instances = set()
     for path in sorted(MOD.glob("KSArmory*.xml")):
         instances |= set(re.findall(r'<SubPart\s+Id="([^"]+)"\s+InstanceOf=', path.read_text()))
 
     problems = checked = 0
-    text = source.read_text()
+    text = arsenal_text()
 
     for munition, body in re.findall(r'(\w+)\s*=\s*new\(\)\s*\{(.*?)\n\s*\};', text, re.S):
         for field in ("BodyMarker", "FinMarker"):
@@ -965,7 +962,7 @@ def check_authored_gun_geometry(profile, part_id, cannon_id, barrel_id, muzzle_m
     shells leave from somewhere that is not the end of the barrel, or the barrel swings on a trunnion
     of its own and parts company with the breech.
     """
-    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    text = arsenal_text()
 
     found = _as_match(profile_block(text, profile))
     if found is None:
@@ -1077,7 +1074,7 @@ def check_authored_launcher_geometry(profile, part_id, seat_id, mesh_id, munitio
     the first plus half the second. Nothing in the build would notice -- the part loads, the round
     renders, and it leaves from a point that is not its nose.
     """
-    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    text = arsenal_text()
     problems = checked = 0
 
     found = _as_match(profile_block(text, profile))
@@ -1213,7 +1210,7 @@ def check_hinged_blade_seats(munition, part_id, body_id, blade_prefix, label):
         return 1
 
     problems = checked = 0
-    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    text = arsenal_text()
     block = re.search(rf"{munition}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
     if not block:
         print(f"  UNRESOLVED " + f"{label}: no munition profile {munition}", file=sys.stderr)
@@ -1285,7 +1282,7 @@ def check_cluster_launcher_geometry(profile, part_id, seat_prefix, mesh_id, muni
     tube paired with the wrong seat puts a warhead on a neighbour's vector. That is invisible until
     two of them are in the air.
     """
-    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    text = arsenal_text()
     problems = checked = 0
 
     found = _as_match(profile_block(text, profile))
@@ -1387,76 +1384,145 @@ def registered(text, registry):
     driven from. Naming the launchers here by hand instead is how a fifth one gets no check at
     all while this script still exits 0 -- the shape tools/model/CLAUDE.md warns about, reached at four.
 
-    Launchers that have moved into the shipped definitions file are appended, because a weapon
+    Definitions that have moved into the shipped XML files are appended, because a weapon
     that leaves Arsenal.cs otherwise leaves every gate below with it and this script goes on
     reporting all clear. That is the same failure by another route.
     """
     found = re.search(rf"{registry}\s*=\s*\[(.*?)\];", text, re.S)
     names = [] if found is None else [n.strip() for n in found.group(1).split(",") if n.strip()]
 
-    if registry == "Launchers":
-        names += sorted(shipped_launchers())
+    kind = {v: k for k, v in _REGISTRY.items()}.get(registry)
+    if kind is not None:
+        names += [n for n in sorted(shipped(kind)) if n not in names]
 
     return names
 
 
-# --- weapons that live in the definitions file rather than in Arsenal.cs ---------------------
+# --- weapons that live in the definitions files rather than in Arsenal.cs --------------------
 #
 # Every gate below reads a C# object-initialiser block and pulls fields out of it by regex. Rather
-# than teach each one a second syntax, an XML <Launcher> is rendered into the block those regexes
-# already expect. It is a bridge and is meant to be temporary: when the last weapon has moved, the
-# gates should read the XML directly and this goes. Until then it is what keeps the coverage.
+# than teach each one a second syntax, every definition in the core's KSArmory/*.xml is rendered into
+# the block those regexes already expect, and appended to Arsenal.cs's text. It is a bridge and is
+# meant to be temporary: when the last weapon has moved, the gates should read the XML directly and
+# this goes. Until then it is what keeps the coverage on both sides of the move.
 
-WEAPONS_XML = MOD / "KSArmory" / "Weapons.xml"
+DEFINITIONS = MOD / "KSArmory"
 
 # Attributes whose C# field is spelled differently, or is held in different units.
 _XML_FIELD = {"GunReferenceElevationDeg": ("GunReferenceElevationRad", "rad"),
-              "PodReferenceElevationDeg": ("PodReferenceElevationRad", "rad")}
+              "PodReferenceElevationDeg": ("PodReferenceElevationRad", "rad"),
+              "SeekerBand": ("Band", None)}
+
+# The C# field each built-in had in Arsenal.cs, which is what the gate tables are keyed on. A
+# definition missing here is rendered under its own key, and no gate names it.
+_CSHARP_NAME = {
+    ("Munition", "AIM9J"): "Missile9J", ("Munition", "AIM120C"): "Missile120C",
+    ("Munition", "AGM88"): "MissileAgm88", ("Munition", "20MM"): "Cannon20Mm",
+    ("Munition", "5IN54"): "Shell5In54", ("Munition", "B61"): "NukeB61",
+    ("Munition", "MK21"): "ReentryVehicleMk21",
+    ("Munition", "57E6"): "Missile57E6", ("Munition", "30MM"): "Cannon30Mm",
+    ("Sensor", "AIM9SEEK"): "SeekerHeadAim9", ("Sensor", "AIM120SEEK"): "SeekerHeadAim120",
+    ("Sensor", "AGM88SEEK"): "SeekerHeadAgm88", ("Sensor", "VPS2"): "SearchRadarVps2",
+    ("Sensor", "MK68"): "FireControlMk68", ("Sensor", "MIRVBUS"): "BusDesignation",
+    ("Sensor", "TSU"): "TurretSight", ("Sensor", "BOMBSIGHT"): "BombSight",
+    ("Sensor", "EO"): "EoSensor", ("Sensor", "Litening"): "PodSensor",
+    ("Sensor", "Yal1BeamDirector"): "BeamDirectorSensor", ("Sensor", "Irst"): "InfraredSearchSet",
+    ("Sensor", "1RS1"): "SearchRadar1Rs1",
+    ("Launcher", "KSArmory_Prefab_Launcher6"): "PantsirS1",
+    ("Launcher", "KSArmory_Prefab_MirvBus"): "MirvBus",
+    ("Launcher", "KSArmory_Prefab_SidewinderRail"): "SidewinderRail",
+    ("Launcher", "KSArmory_Prefab_AmraamRail"): "AmraamRail",
+    ("Launcher", "KSArmory_Prefab_HarmRail"): "HarmRail",
+    ("Launcher", "KSArmory_Prefab_NukeRack"): "NukeRack",
+    ("Launcher", "KSArmory_Prefab_Ciws"): "Ciws",
+    ("Launcher", "KSArmory_Prefab_Mk42"): "Mk42",
+    ("Launcher", "KSArmory_Prefab_M197"): "M197",
+    ("Launcher", "KSArmory_Prefab_Yal1Turret"): "Yal1Beam",
+    ("Optic", "KSArmory_Prefab_Optic"): "EoDirector",
+    ("Optic", "KSArmory_Prefab_Launcher6"): "PantsirDirector",
+    ("Optic", "KSArmory_Prefab_Litening"): "Litening",
+    ("Optic", "KSArmory_Prefab_Yal1Turret"): "Yal1Turret",
+}
+
+# Which registry list in Arsenal.cs each kind belongs to.
+_REGISTRY = {"Launcher": "Launchers", "Optic": "Optics", "Munition": "Munitions", "Sensor": "Sensors"}
 
 
-def _shipped():
-    if not WEAPONS_XML.is_file():
+def _definition_files():
+    """Every weapon-definition file in the core's folder, in the order the mod registers them."""
+    if not DEFINITIONS.is_dir():
         return []
-    return ET.parse(WEAPONS_XML).getroot().findall("Launcher")
+    files = []
+    for path in sorted(DEFINITIONS.glob("*.xml"), key=lambda f: f.name):
+        root = ET.parse(path).getroot()
+        if root.tag == "WeaponPack":
+            files.append(root)
+    return files
+
+
+def _shipped(kind):
+    return [el for root in _definition_files() for el in root.findall(kind)]
+
+
+def _key(kind, el):
+    return el.get("PartId") if kind in ("Launcher", "Optic") else el.get("Name", "")
+
+
+def _render(el):
+    lines = []
+    for name, value in el.attrib.items():
+        field, unit = _XML_FIELD.get(name, (name, None))
+        if unit == "rad":
+            lines.append(f"        {field} = {math.radians(float(value)):.5f},")
+        elif re.fullmatch(r"-?[\d.]+(e-?\d+)?", value):
+            # No f suffix: a launcher's distances are double in C#, and the gates that read
+            # them match on a bare number followed by the comma.
+            lines.append(f"        {field} = {value},")
+        elif value in ("true", "false"):
+            lines.append(f"        {field} = {value},")
+        elif re.fullmatch(r"\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*", value):
+            lines.append(f"        {field} = new({value.strip()}),")
+        else:
+            lines.append(f'        {field} = "{value}",')
+
+    tubes = [f"            new({t.get('Position')})," for t in el.findall("Tube")]
+    if tubes:
+        lines.append("        Tubes =\n        [\n" + "\n".join(tubes) + "\n        ],")
+
+    muzzles = [f"            new({m.get('At')})," for m in el.findall("Muzzle")]
+    if muzzles:
+        lines.append("        GunMuzzles =\n        [\n" + "\n".join(muzzles) + "\n        ],")
+
+    return "\n" + "\n".join(lines)
+
+
+def shipped(kind):
+    """{profile name: rendered block} for one kind, keyed the way Arsenal.cs would have named it."""
+    return {profile_name(kind, _key(kind, el)): _render(el) for el in _shipped(kind)}
 
 
 def shipped_launchers():
-    """{profile name: rendered block}, keyed the way Arsenal.cs would have named the field."""
-    blocks = {}
-
-    for el in _shipped():
-        lines = []
-        for name, value in el.attrib.items():
-            field, unit = _XML_FIELD.get(name, (name, None))
-            if unit == "rad":
-                lines.append(f"        {field} = {math.radians(float(value)):.5f},")
-            elif re.fullmatch(r"-?[\d.]+(e-?\d+)?", value):
-                # No f suffix: a launcher's distances are double in C#, and the gates that read
-                # them match on a bare number followed by the comma.
-                lines.append(f"        {field} = {value},")
-            elif value in ("true", "false"):
-                lines.append(f"        {field} = {value},")
-            elif re.fullmatch(r"\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*", value):
-                lines.append(f"        {field} = new({value.strip()}),")
-            else:
-                lines.append(f'        {field} = "{value}",')
-
-        tubes = [f"            new({t.get('Position')})," for t in el.findall("Tube")]
-        if tubes:
-            lines.append("        Tubes =\n        [\n" + "\n".join(tubes) + "\n        ],")
-
-        muzzles = [f"            new({m.get('At')})," for m in el.findall("Muzzle")]
-        if muzzles:
-            lines.append("        GunMuzzles =\n        [\n" + "\n".join(muzzles) + "\n        ],")
-
-        blocks[profile_name(el.get("PartId", ""))] = "\n" + "\n".join(lines)
-
-    return blocks
+    return shipped("Launcher")
 
 
-def profile_name(part_id):
-    """The C# field name a part Id would have had, which is what the gate tables are keyed on."""
-    return {"KSArmory_Prefab_Launcher6": "PantsirS1"}.get(part_id, part_id)
+def profile_name(kind, key):
+    """The C# field a definition would have had, which is what the gate tables are keyed on."""
+    return _CSHARP_NAME.get((kind, key), key)
+
+
+def arsenal_text():
+    """Arsenal.cs with every XML definition rendered after it as the C# it replaced.
+
+    What every gate below reads, so a weapon reaches the same checks whichever side of the move
+    it is on. Arsenal.cs's own block is found first where both exist.
+    """
+    source = MOD / "Sim" / "Arsenal.cs"
+    text = source.read_text() if source.is_file() else ""
+    rendered = []
+    for kind in _REGISTRY:
+        for name, body in shipped(kind).items():
+            rendered.append(f"    public static readonly {kind}Profile {name} = new()\n    {{{body}\n    }};")
+    return text + "\n" + "\n\n".join(rendered) + "\n"
 
 
 class _Found:
@@ -1479,7 +1545,7 @@ def profile_block(text, profile):
     if found is not None:
         return found.group(1)
 
-    return shipped_launchers().get(profile)
+    return None
 
 
 def trains(text, profile):
@@ -1494,7 +1560,7 @@ def check_launcher_geometry():
     Turreted or fixed is read off the profile rather than listed, so a launcher that grows a
     turret is checked as one without this script being told.
     """
-    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    text = arsenal_text()
     problems = 0
     checked = 0
 
@@ -1580,7 +1646,7 @@ def check_optic_geometry(profile="EoDirector"):
     problems = 0
     checked = 0
 
-    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    text = arsenal_text()
     found = _as_match(profile_block(text, profile))
     if found is None:
         print(f"  MISSING Arsenal.{profile}", file=sys.stderr)
@@ -1688,7 +1754,7 @@ def check_search_set_heads():
     the same point back each frame. Disagreeing, the head jumps from where the editor drew it to
     where the mod puts it on the first frame, and the window shows it off centre.
     """
-    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    text = arsenal_text()
     problems = checked = 0
     for name in registered(text, "SearchSets"):
         found = _as_match(profile_block(text, name))
@@ -1733,21 +1799,20 @@ def check_registered_part_ids():
     the two sides. A profile naming a part that exists nowhere passes the build, the tests, the
     boundary and comment checks and this validator, and then finds no launcher at run time.
     """
-    source = MOD / "Sim" / "Arsenal.cs"
     declared = set()
     for path in sorted(MOD.glob("KSArmory*.xml")):
         declared |= set(re.findall(r'<Part\s+Id="([^"]+)"', path.read_text()))
 
     problems = checked = 0
-    for part_id in re.findall(r'PartId\s*=\s*"([^"]+)"', source.read_text()):
+    for part_id in re.findall(r'PartId\s*=\s*"([^"]+)"', arsenal_text()):
         checked += 1
         if part_id not in declared:
-            print(f'  MISSING <Part Id="{part_id}"> -- registered in Arsenal.cs, declared in no XML',
+            print(f'  MISSING <Part Id="{part_id}"> -- registered, declared in no XML',
                   file=sys.stderr)
             problems += 1
 
     if not checked:
-        print("  no PartId in Arsenal.cs -- nothing registered?", file=sys.stderr)
+        print("  no PartId registered anywhere -- nothing registered?", file=sys.stderr)
         problems += 1
 
     return problems, checked
@@ -2091,7 +2156,7 @@ def main():
     checked += c
 
     print("checking a round's body and fin markers do not select the same subparts")
-    p, c = check_markers_select_disjoint_subparts((MOD / "Sim" / "Arsenal.cs").read_text())
+    p, c = check_markers_select_disjoint_subparts(arsenal_text())
     problems += p
     checked += c
 
@@ -2101,7 +2166,7 @@ def main():
     checked += c
 
     print("checking every optical head's pivot against the mesh and the XML")
-    for optic in registered((MOD / "Sim" / "Arsenal.cs").read_text(), "Optics"):
+    for optic in registered(arsenal_text(), "Optics"):
         p, c = check_optic_geometry(optic)
         problems += p
         checked += c
