@@ -52,11 +52,61 @@ public static class InstalledPacks
                     continue;
             }
 
-            foreach (string file in files) Read(id, file);
+            bool core = SameFolder(FolderOf(entry), ModFolder);
+            foreach (string file in files.Order(StringComparer.Ordinal)) Read(id, file, core);
         }
     }
 
-    private static void Read(string id, string file)
+    /// <summary>
+    /// This mod's own definitions, registered as one unit. Called from KSArmory's own
+    /// <c>[StarMapBeforeMain]</c>, ahead of every pack that ships code — see
+    /// <see cref="CoreDefinitions"/>.
+    /// </summary>
+    public static void RegisterCore()
+    {
+        string folder = Path.Combine(ModFolder, PackScan.FolderName);
+
+        List<(string, string)> files = [];
+        try
+        {
+            foreach (string file in Directory.GetFiles(folder, PackScan.FilePattern))
+            {
+                files.Add((Path.GetFileName(file), File.ReadAllText(file)));
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Log.Error($"built-in definitions cannot be read from {folder} - {e.Message}");
+            return;
+        }
+
+        foreach (CoreFileResult file in CoreDefinitions.Register(files))
+        {
+            Log.Info($"built-in definitions '{file.FileName}': {file.Result.Registered} registered"
+                     + (file.Result.Complete ? "" : $", {file.Result.Faults.Count} refused"));
+
+            foreach (PackFault fault in file.Result.Faults) Log.Warn($"{file.FileName}: {fault}");
+        }
+    }
+
+    private static string ModFolder => Path.GetDirectoryName(typeof(InstalledPacks).Assembly.Location) ?? "";
+
+    private static bool SameFolder(string a, string b)
+    {
+        try
+        {
+            return a.Length > 0 && b.Length > 0
+                   && string.Equals(Path.GetFullPath(a).TrimEnd(Path.DirectorySeparatorChar),
+                                    Path.GetFullPath(b).TrimEnd(Path.DirectorySeparatorChar),
+                                    StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void Read(string id, string file, bool core)
     {
         string definitions;
         try
@@ -77,6 +127,9 @@ public static class InstalledPacks
             Log.Info($"pack '{id}': {Path.GetFileName(file)} describes bodies");
             return;
         }
+
+        // Already registered by RegisterCore, before any pack could need them.
+        if (core) return;
 
         Armoury.Register(definitions, id);
     }

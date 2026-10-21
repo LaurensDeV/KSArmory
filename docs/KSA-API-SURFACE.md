@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-332 types and 886 members across 12 assemblies.
+333 types and 887 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -2025,6 +2025,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void .ctor()`
 
 ### StarMap.API.StarMapBeforeGuiAttribute
+
+- `void .ctor()`
+
+### StarMap.API.StarMapBeforeMainAttribute
 
 - `void .ctor()`
 

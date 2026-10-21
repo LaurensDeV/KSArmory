@@ -134,6 +134,11 @@ public sealed class KSArmoryMod
     private ScenarioRunner _scenario = null!;
     private Bridge? _bridge;
 
+    // StarMap runs this before the BeforeMain of any mod depending on this one, which is every pack
+    // that ships code; ImmediateLoad comes after all of them.
+    [StarMapBeforeMain]
+    public void OnBeforeMain() => InstalledPacks.RegisterCore();
+
     [StarMapImmediateLoad]
     public void OnImmediateLoad(Mod mod)
     {
@@ -285,6 +290,9 @@ public sealed class KSArmoryMod
 
         foreach (PackResult pack in Catalogue.Registrations)
         {
+            // Reported file by file when they registered.
+            if (pack.Source == PackReader.BuiltInSource) continue;
+
             Log.Info($"pack '{pack.Source}': {pack.Registered} registered"
                      + (pack.Complete ? "" : $", {pack.Faults.Count} refused"));
 

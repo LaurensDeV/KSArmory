@@ -450,9 +450,11 @@ wants it — the pattern `docs/AUDIT-2026-08.md` names, and why `docs/MODULARITY
 **Change 5: move one shipped weapon out of `Arsenal.cs` and register it over the same reader a
 stranger's pack goes through.** The Pantsir went, not the LAU-7 rail the plan named — the largest
 system rather than the smallest, so twelve tubes, a cannon, five articulation markers and a declared
-subpart role all had to survive the translation. It is not even registered specially: this mod's own
-`KSArmory/Weapons.xml` is found by `InstalledPacks` inside this mod's folder exactly as a stranger's
-is inside theirs.
+subpart role all had to survive the translation. It goes through the same reader a stranger's file
+does; what is special is only *when*. This mod's own folder is registered from its own
+`[StarMapBeforeMain]` (`Sim/CoreDefinitions.cs`), which StarMap runs before any dependent mod's, so a
+pack that ships code can name a built-in round from its entry point — the convention scan runs too
+late for that.
 
 Until a shipped weapon goes through that path, it is exercised only by files written by whoever
 wrote the reader. This repository already knows what that is worth: *"a registry test written

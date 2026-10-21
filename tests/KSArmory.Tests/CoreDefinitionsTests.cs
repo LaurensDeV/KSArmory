@@ -1,0 +1,77 @@
+using Xunit;
+
+namespace KSArmory.Tests;
+
+/// <summary>
+/// KSArmory's own files registered as one unit. These register into the one static catalogue under
+/// the built-in source, so every name is one nothing shipped will ever use, and every round declares
+/// its shape so the registry-wide drag invariant holds over them too.
+/// </summary>
+[Collection("catalogue")]
+public class CoreDefinitionsTests
+{
+    private const string Rounds = """
+        <WeaponPack Schema="1">
+          <Munition Name="CORETEST_BOLT" DisplayName="Bolt" MaxRange="7000" MassKg="10" CalibreMm="100" DragCoefficient="0.3" />
+          <Sensor Name="CORETEST_EYE" DisplayName="Eye" Range="9000" />
+        </WeaponPack>
+        """;
+
+    private static string RailNaming(string part, string round, string sensor) => $"""
+        <WeaponPack Schema="1">
+          <Launcher PartId="{part}" DisplayName="Rail" Munition="{round}" Sensor="{sensor}">
+            <Tube Position="0, 0, 0.8" Direction="1, 0, 0" />
+          </Launcher>
+        </WeaponPack>
+        """;
+
+    // The launcher's file sorts first, so a reader resolving against what is registered so far
+    // would refuse it.
+    [Fact]
+    public void ALauncherMayNameARoundDeclaredInALaterFile()
+    {
+        IReadOnlyList<CoreFileResult> results = CoreDefinitions.Register(
+        [
+            ("b-rounds.xml", Rounds),
+            ("a-rail.xml", RailNaming("CORETEST_Prefab_Rail", "CORETEST_BOLT", "KSArmory:CORETEST_EYE")),
+        ]);
+
+        Assert.All(results, r => Assert.True(r.Result.Complete, string.Join("; ", r.Result.Faults)));
+
+        LauncherProfile? rail = Catalogue.LauncherForPart("CORETEST_Prefab_Rail");
+        Assert.NotNull(rail);
+        Assert.Equal(7000f, Catalogue.LoadoutFor(rail).Munition.MaxRange);
+    }
+
+    [Fact]
+    public void FilesRegisterInOrdinalOrderWhateverOrderTheyAreHandedIn()
+    {
+        IReadOnlyList<CoreFileResult> results = CoreDefinitions.Register(
+        [
+            ("c.xml", """<WeaponPack Schema="1"><Munition Name="CORETEST_C" DisplayName="C" MassKg="10" CalibreMm="100" DragCoefficient="0.3" /></WeaponPack>"""),
+            ("B.xml", """<WeaponPack Schema="1"><Munition Name="CORETEST_B" DisplayName="B" MassKg="10" CalibreMm="100" DragCoefficient="0.3" /></WeaponPack>"""),
+            ("a.xml", """<WeaponPack Schema="1"><Munition Name="CORETEST_A" DisplayName="A" MassKg="10" CalibreMm="100" DragCoefficient="0.3" /></WeaponPack>"""),
+        ]);
+
+        Assert.Equal(["B.xml", "a.xml", "c.xml"], results.Select(r => r.FileName));
+    }
+
+    [Fact]
+    public void ABodiesFileIsLeftForTheBodyCatalogue()
+    {
+        IReadOnlyList<CoreFileResult> results = CoreDefinitions.Register(
+            [("Bodies.xml", """<Bodies><Body Id="CoreTestWorld" /></Bodies>""")]);
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void AReferenceToNothingAnyFileDeclaresIsStillRefused()
+    {
+        IReadOnlyList<CoreFileResult> results = CoreDefinitions.Register(
+            [("rail.xml", RailNaming("CORETEST_Prefab_Orphan", "CORETEST_NOTHING", "CORETEST_NOTHING"))]);
+
+        Assert.False(Assert.Single(results).Result.Complete);
+        Assert.Null(Catalogue.LauncherForPart("CORETEST_Prefab_Orphan"));
+    }
+}

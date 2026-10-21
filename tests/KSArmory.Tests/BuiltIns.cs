@@ -3,16 +3,14 @@ using System.Runtime.CompilerServices;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// The weapons this mod ships as data, read out of `src/KSArmory/KSArmory/Weapons.xml` and
+/// The weapons this mod ships as data, read out of every file in `src/KSArmory/KSArmory/` and
 /// registered before any test runs.
 ///
-/// <para><b>The suite exercises the shipped file, not a copy of it.</b> A weapon that has moved
-/// out of <see cref="Arsenal"/> would otherwise leave every registry-wide invariant — that each
-/// launcher names a registered round, that each is also a recognised component — quietly covering
-/// one weapon fewer, with nothing failing to say so.</para>
-///
-/// <para>Registered rather than merely parsed, so `Catalogue` in a test holds what the game holds
-/// and the lookups behave identically.</para>
+/// <para><b>The suite exercises the shipped files, not a copy of them, through the game's own
+/// <see cref="CoreDefinitions"/>.</b> A weapon that has moved out of <see cref="Arsenal"/> would
+/// otherwise leave every registry-wide invariant — that each launcher names a registered round, that
+/// each is also a recognised component — quietly covering one weapon fewer, with nothing failing to
+/// say so.</para>
 ///
 /// <para>Name lookups throw on a miss from here on. A weapon renamed in the move would otherwise
 /// come back as whichever round registered first, and every test asking for it would fly that
@@ -29,13 +27,18 @@ public static class BuiltIns
         while (at is not null && !File.Exists(Path.Combine(at.FullName, "KSArmory.sln"))) at = at.Parent;
         if (at is null) throw new InvalidOperationException("cannot find the repository root");
 
-        string file = Path.Combine(at.FullName, "src", "KSArmory", "KSArmory", "Weapons.xml");
-        PackResult result = Armoury.Register(File.ReadAllText(file), PackReader.BuiltInSource);
+        string folder = Path.Combine(at.FullName, "src", "KSArmory", PackScan.FolderName);
+        List<(string, string)> files =
+            [.. Directory.GetFiles(folder, PackScan.FilePattern)
+                         .Select(f => (Path.GetFileName(f), File.ReadAllText(f)))];
 
-        if (!result.Complete)
+        foreach (CoreFileResult file in CoreDefinitions.Register(files))
         {
-            throw new InvalidOperationException(
-                $"the shipped definitions were refused: {string.Join("; ", result.Faults)}");
+            if (!file.Result.Complete)
+            {
+                throw new InvalidOperationException(
+                    $"the shipped {file.FileName} was refused: {string.Join("; ", file.Result.Faults)}");
+            }
         }
     }
 
