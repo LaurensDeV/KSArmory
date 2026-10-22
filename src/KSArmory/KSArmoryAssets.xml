@@ -1282,6 +1282,15 @@
       </Transform>
     </Connector>
 
+    <!-- Mates with the weapons pylon's station node, which lines the pod up along the pylon. -->
+    <Connector Id="_lau10ConnectorPylon">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+        <Scale X="0.40000" Y="0.40000" Z="0.40000" />
+      </Transform>
+    </Connector>
+
     <SubPart Id="KSArmory_Lau10_Zuni_Round00" InstanceOf="KSArmory_ZuniRound_SubPart">
       <Transform>
         <Position X="0.29882" Y="0.33809" Z="0.06841" />
@@ -1353,6 +1362,15 @@
       <Transform>
         <Position X="0.00000" />
         <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+
+    <!-- Mates with the weapons pylon's station node, which lines the pod up along the pylon. -->
+    <Connector Id="_zuni6ConnectorPylon">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+        <Scale X="0.45000" Y="0.45000" Z="0.45000" />
       </Transform>
     </Connector>
 
@@ -1575,7 +1593,7 @@
 
   <!--
     A 14-inch suspension rail: the beam a store hangs from, with a hook at each lug station. The
-    editor offers it as the weapons pylon the LAU-7, LAU-128 and LAU-118 hang under.
+    editor offers it as the weapons pylon the pylon-free rails and the Zuni pods click into.
 
     Structure and nothing else: no definition names it, because it neither shoots nor sees.
   -->

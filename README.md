@@ -40,7 +40,7 @@ KSArmory adds eleven weapons, three sights, an infrared search sensor and two de
 
 **LAU-118 HARM rail.** A single launch rail carrying one AGM-88 HARM, an anti-radiation missile. It homes on radar transmissions, so it can only engage a target whose radar is switched on. It cannot be used against aircraft. If the target radar goes quiet before launch, there is nothing to lock. A missile already in the air flies on to where the signal was last heard. A boost motor and a sustainer keep it fast over its full range of 1.2 km to 148 km. It attaches to any surface and is aimed by pointing the craft. It also comes without its pylon, to hang under the weapons pylon.
 
-**Weapons pylon.** A 14-inch suspension rail that attaches to any surface. The pylon-free LAU-7, LAU-128 and LAU-118 rails hang under it. It fires nothing itself.
+**Weapons pylon.** A 14-inch suspension rail that attaches to any surface. The pylon-free LAU-7, LAU-128 and LAU-118 rails and both Zuni pods click into it. It fires nothing itself.
 
 **LAU-10 Zuni pod.** A pod of four Zuni 5-inch unguided rockets. It attaches to any surface and is aimed by pointing the craft. Each press of the trigger fires one rocket, with no lock needed. The motor burns for about a second and takes the rocket past Mach 2, and it bursts on whatever it hits. A sight draws where a rocket fired now would land. Effective out to about 8 km. The pod does not reload on its own. Pod, rocket and textures by **Mallikas**.
 

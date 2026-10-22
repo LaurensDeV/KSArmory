@@ -391,9 +391,11 @@
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.4" />
 
+    <!-- Clicks into the weapons pylon's station, or sticks free-hand onto any surface. -->
     <Connector Id="_lau10ConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
+    <Connector Id="_lau10ConnectorPylon" />
 
     <!-- Four Zunis at 48.5 kg each in a LAU-10 at 59 kg. -->
     <SolidSphereMass>
@@ -419,9 +421,11 @@
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.45" />
 
+    <!-- Clicks into the weapons pylon's station, or sticks free-hand onto any surface. -->
     <Connector Id="_zuni6ConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
+    <Connector Id="_zuni6ConnectorPylon" />
 
     <!-- Six Zunis at 48.5 kg each in a pod at 80 kg. -->
     <SolidSphereMass>
