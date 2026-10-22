@@ -11,10 +11,6 @@ locals {
     ${var.api_domain} {
       reverse_proxy feedback:${var.feedback_port}
     }
-
-    ${var.root_domain}, www.${var.root_domain} {
-      redir ${var.project_url}{uri} permanent
-    }
   EOT
 }
 

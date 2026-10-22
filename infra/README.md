@@ -36,26 +36,25 @@ the API reports as an empty list rather than an error.
 
 | Name | Type | Points at |
 | --- | --- | --- |
-| `ksarmory.com` | A | `var.vps_ipv4` |
-| `ksarmory.com` | AAAA | `var.vps_ipv6`, omitted when empty — **and it is** |
-| `www.ksarmory.com` | CNAME | `ksarmory.com` |
-| `api.ksarmory.com` | CNAME | `ksarmory.com` |
+| `ksarmory.com` | CNAME, proxied | the `ksarmory` Cloudflare Pages project, the site; flattened at the apex |
+| `www.ksarmory.com` | CNAME, proxied | the same |
+| `vps.ksarmory.com` | A | `var.vps_ipv4` |
+| `vps.ksarmory.com` | AAAA | `var.vps_ipv6`, omitted when empty; `.env` sets it |
+| `api.ksarmory.com` | CNAME | `vps.ksarmory.com` |
 | `_discord.ksarmory.com` | TXT | `dh=…`, proving the zone to Discord |
 
-**`var.vps_ipv6` is deliberately empty.** The machine holds an IPv6 address, but
-Docker's ingress network has `EnableIPv6=false` and `dockerd` binds `:80` and
-`:443` on IPv4 only, so nothing accepts a connection on it. Publishing the AAAA
-made every client that prefers IPv6 — which is most browsers on an IPv6
-connection — fail or stall into a fallback, while `curl` from a v4 host said the
-site was fine.
+**The AAAA is published, and whether the VPS answers on it has not been rechecked.** Docker's
+ingress network once had `EnableIPv6=false`, with `dockerd` binding `:80` and `:443` on IPv4
+only, so every client preferring IPv6 stalled into a fallback while `curl` from a v4 host said
+the site was fine. If that is back, empty `TF_VAR_vps_ipv6` rather than chase it: serving IPv6
+needs `ip6tables` in `daemon.json` and the `ingress` network recreated, which drops every
+service while it happens.
 
-Setting it is not a DNS change on its own: Docker needs `ip6tables` enabled in
-`daemon.json` and the `ingress` network recreated, which drops every service
-while it happens.
-
-Everything but the apex is a CNAME, so the VPS address appears once and moving
-the site is one change rather than four. Add a name by putting it in
-`var.subdomains`; `api` is there by default.
+Everything the VPS serves is a CNAME to `vps`, so its address appears once and
+moving the machine is one change. Add a name by putting it in
+`var.subdomains`; `api` is there by default. **The apex is not the VPS**: it and
+`www` are the Pages site, declared with their project in `site.tf`, which needs
+the token to carry Account → Cloudflare Pages → Edit as well.
 
 **The TXT record is the exception to the rule at the top of `dns.tf`**, which
 says to declare only hostnames the VPS serves. Nothing resolves `_discord` to
@@ -65,8 +64,8 @@ re-reads it and a zone that stops proving itself loses the link.
 
 ## Services
 
-`api.ksarmory.com` serves the feedback endpoint. The apex and `www` redirect to
-the project page, there being no site to serve yet.
+`api.ksarmory.com` serves the feedback endpoint, and is all the VPS serves: the apex
+and `www` are the site on Cloudflare Pages.
 
 The image is built by `.github/workflows/feedback-image.yml` and deployed **by
 digest**, so a moved tag cannot silently change what runs. `var.feedback_image`
@@ -99,7 +98,7 @@ So `deploy.yml` waits for port 22 before applying and retries the apply, rather
 than losing a release to a transient. A deploy that fails every attempt is a
 different fault and worth reading the log for.
 
-**Records are DNS-only, not proxied.** Caddy answers the ACME HTTP-01 challenge
+**The VPS's records are DNS-only, not proxied** (the site's are, which Pages needs). Caddy answers the ACME HTTP-01 challenge
 on the origin and holds the certificate. Turning Cloudflare's proxy on puts a
 second TLS terminator in front of that, and unless the origin is set to **Full
 (strict)** the result is a redirect loop rather than an error. `var.proxied`
