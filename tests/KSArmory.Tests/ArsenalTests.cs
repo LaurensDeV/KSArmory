@@ -249,6 +249,25 @@ public class ArsenalTests
         }
     }
 
+    [Theory]
+    [InlineData("KSArmory_Prefab_Lau7", "KSArmory_Prefab_SidewinderRail")]
+    [InlineData("KSArmory_Prefab_Lau128", "KSArmory_Prefab_AmraamRail")]
+    [InlineData("KSArmory_Prefab_Lau118", "KSArmory_Prefab_HarmRail")]
+    public void APylonlessRailFiresWhatItsTwinFiresFromNearerItsMount(string bare, string twin)
+    {
+        LauncherProfile cut = Catalogue.LauncherForPart(bare)!;
+        LauncherProfile whole = Catalogue.LauncherForPart(twin)!;
+
+        Assert.Equal(whole.Munition, cut.Munition);
+        Assert.Equal(whole.Sensor, cut.Sensor);
+        Assert.Equal(whole.StoreMassKg, cut.StoreMassKg);
+        Assert.Equal(whole.LaunchAlongTube, cut.LaunchAlongTube);
+        Assert.Equal(1, cut.TubeCount);
+        Assert.Equal(whole.Tubes[0].Direction, cut.Tubes[0].Direction);
+        Assert.Equal(whole.Tubes[0].Position.Y, cut.Tubes[0].Position.Y);
+        Assert.InRange(whole.Tubes[0].Position.X - cut.Tubes[0].Position.X, 0.15, 0.25);
+    }
+
     /// <summary>
     /// The rail is the shipped example of a launcher with nothing that moves, so the shape
     /// <see cref="AFixedLauncherIsJustAProfileWithNothingThatMoves"/> describes has to hold for a

@@ -160,6 +160,13 @@
   </PbrMaterial>
 
   <!--
+    The three launch rails without their pylons, cut out of the meshes above by
+    tools/model/bare-rails.py, so each uses its source's material and unwrap. Rerun that after
+    either source changes; validate-parts.py fails if it has not been.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_BareRails.glb" />
+
+  <!--
     The Heavy MIRV Bus atlas and its one material: the bus, its main engine, its RCS nozzle and its
     RV, an Mk 21 in outline with two spin nozzles cut into its base.
   -->
@@ -530,6 +537,38 @@
       <Mesh Id="KSArmory_Subpart_Harm_VM" />
     </MeshView>
   </SubPart>
+
+  <!-- The three launch rails without their pylons. Nothing on them moves. -->
+  <SubPart Id="KSArmory_Lau7_SubPart">
+    <PartModel Id="KSArmory_Subpart_Lau7_Model">
+      <Mesh Id="KSArmory_Subpart_Lau7" />
+      <Material Id="KSArmory_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Lau7_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_Lau128_SubPart">
+    <PartModel Id="KSArmory_Subpart_Lau128_Model">
+      <Mesh Id="KSArmory_Subpart_Lau128" />
+      <Material Id="KSArmory_Amraam_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Lau128_VM" />
+    </MeshView>
+  </SubPart>
+
+  <SubPart Id="KSArmory_Lau118_SubPart">
+    <PartModel Id="KSArmory_Subpart_Lau118_Model">
+      <Mesh Id="KSArmory_Subpart_Lau118" />
+      <Material Id="KSArmory_Harm_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Subpart_Lau118_VM" />
+    </MeshView>
+  </SubPart>
+
 
   <!--
     MAU-12 ejector rack. Nothing on it moves.
@@ -1168,6 +1207,81 @@
   </Part>
 
   <!--
+    LAU-7 rail with one AIM-9J, without its pylon, to hang under the suspension rail. The round is
+    seated where the pylon-carrying part seats it, less the depth tools/model/bare-rails.py cut off.
+  -->
+  <Part Id="KSArmory_Prefab_Lau7">
+
+    <SubPart Id="KSArmory_Lau7_Beam" InstanceOf="KSArmory_Lau7_SubPart" />
+
+    <!-- Attaches by the rail's upper face, which the cut puts on the mesh origin. -->
+    <Connector Id="_l7ConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+
+    <SubPart Id="KSArmory_Lau7_Aim900" InstanceOf="KSArmory_Aim9_SubPart">
+      <Transform>
+        <Position X="0.23696" Y="0.00000" Z="0.00000" />
+        <Rotation Z="1.57080" />
+      </Transform>
+    </SubPart>
+
+  </Part>
+
+  <!--
+    LAU-128 rail with one AIM-120C-7, without its pylon, to hang under the suspension rail. The round is
+    seated where the pylon-carrying part seats it, less the depth tools/model/bare-rails.py cut off.
+  -->
+  <Part Id="KSArmory_Prefab_Lau128">
+
+    <SubPart Id="KSArmory_Lau128_Beam" InstanceOf="KSArmory_Lau128_SubPart" />
+
+    <!-- Attaches by the rail's upper face, which the cut puts on the mesh origin. -->
+    <Connector Id="_l128ConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+
+    <SubPart Id="KSArmory_Lau128_Amraam_Round00" InstanceOf="KSArmory_Amraam_SubPart">
+      <Transform>
+        <Position X="0.23600" Y="0.00000" Z="0.00000" />
+        <Rotation Z="1.57080" />
+      </Transform>
+    </SubPart>
+
+  </Part>
+
+  <!--
+    LAU-118 rail with one AGM-88 HARM, without its pylon, to hang under the suspension rail. The round is
+    seated where the pylon-carrying part seats it, less the depth tools/model/bare-rails.py cut off.
+  -->
+  <Part Id="KSArmory_Prefab_Lau118">
+
+    <SubPart Id="KSArmory_Lau118_Beam" InstanceOf="KSArmory_Lau118_SubPart" />
+
+    <!-- Attaches by the rail's upper face, which the cut puts on the mesh origin. -->
+    <Connector Id="_l118ConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+
+    <SubPart Id="KSArmory_Lau118_Harm_Round00" InstanceOf="KSArmory_Harm_SubPart">
+      <Transform>
+        <Position X="0.34000" Y="0.00000" Z="0.00000" />
+        <Rotation Z="1.57080" />
+      </Transform>
+    </SubPart>
+
+  </Part>
+
+  <!--
     Electro-optical director, radially mounted like the rail.
 
     The sight, as its own part. It finds its own targets, drives the player's view and needs no
@@ -1201,11 +1315,10 @@
   </Part>
 
   <!--
-    A 14-inch suspension rail: the beam a store hangs from, with a hook at each lug station.
+    A 14-inch suspension rail: the beam a store hangs from, with a hook at each lug station. The
+    editor offers it as the weapons pylon the LAU-7, LAU-128 and LAU-118 hang under.
 
-    Structure and nothing else — it has no profile in Sim/Arsenal.cs, because it neither shoots
-    nor sees. It is here so a pod or a rack can be carried on something that looks like what
-    carries one, rather than floating off a wing.
+    Structure and nothing else: no definition names it, because it neither shoots nor sees.
   -->
   <Part Id="KSArmory_Prefab_Rail">
 

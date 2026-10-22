@@ -274,6 +274,114 @@
     </Collider>
   </PartGameData>
 
+  <PartGameData Id="KSArmory_Prefab_Lau7" DisplayName="AIM-9J Sidewinder, LAU-7 rail">
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.5" />
+
+    <!-- Attaches by the rail's top, under the suspension rail or straight to a hull. -->
+    <Connector Id="_l7ConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!-- AIM-9J at 78 kg and the rail; the rail's 25 kg is an estimate, not a sourced figure. -->
+    <SolidSphereMass>
+      <Mass Kg="103" />
+      <Radius M="0.8" />
+    </SolidSphereMass>
+
+    <Collider Id="KSArmory_Lau7Collider">
+      <!-- Bounds off the cut mesh. -->
+      <Box Id="KSArmory_Lau7BeamCollider">
+        <LocationAsmb X="0.094" Y="0.030" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.187" />
+        <LengthY M="2.558" />
+        <LengthZ M="0.206" />
+      </Box>
+      <Box Id="KSArmory_Lau7RoundCollider">
+        <LocationAsmb X="0.238" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.34" />
+        <LengthY M="3.09" />
+        <LengthZ M="0.34" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
+  <PartGameData Id="KSArmory_Prefab_Lau128" DisplayName="AIM-120C AMRAAM, LAU-128 rail">
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.55" />
+
+    <!-- Attaches by the rail's top, under the suspension rail or straight to a hull. -->
+    <Connector Id="_l128ConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!-- AIM-120C-7 at 161.5 kg and the rail; the rail's 25 kg is an estimate, not a sourced figure. -->
+    <SolidSphereMass>
+      <Mass Kg="186.5" />
+      <Radius M="0.95" />
+    </SolidSphereMass>
+
+    <Collider Id="KSArmory_Lau128Collider">
+      <!-- Bounds off the cut mesh. -->
+      <Box Id="KSArmory_Lau128BeamCollider">
+        <LocationAsmb X="0.082" Y="0.145" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.164" />
+        <LengthY M="2.690" />
+        <LengthZ M="0.112" />
+      </Box>
+      <Box Id="KSArmory_Lau128RoundCollider">
+        <LocationAsmb X="0.236" Y="0.002" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.350" />
+        <LengthY M="3.645" />
+        <LengthZ M="0.350" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
+  <PartGameData Id="KSArmory_Prefab_Lau118" DisplayName="AGM-88 HARM, LAU-118 rail">
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.85" />
+
+    <!-- Attaches by the rail's top, under the suspension rail or straight to a hull. -->
+    <Connector Id="_l118ConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <!-- AGM-88 at 360 kg and the rail; the rail's 25 kg is an estimate, not a sourced figure. -->
+    <SolidSphereMass>
+      <Mass Kg="385" />
+      <Radius M="1.1" />
+    </SolidSphereMass>
+
+    <Collider Id="KSArmory_Lau118Collider">
+      <!-- Bounds off the cut mesh. -->
+      <Box Id="KSArmory_Lau118BeamCollider">
+        <LocationAsmb X="0.123" Y="0.175" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.246" />
+        <LengthY M="2.850" />
+        <LengthZ M="0.144" />
+      </Box>
+      <Box Id="KSArmory_Lau118RoundCollider">
+        <LocationAsmb X="0.340" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.802" />
+        <LengthY M="4.170" />
+        <LengthZ M="0.802" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
   <PartGameData Id="KSArmory_Prefab_Optic" DisplayName="EO Director">
     <EditorTag Value="Sensors" />
     <EditorTag Value="Radial" />
@@ -316,21 +424,12 @@
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_Rail" DisplayName="14-inch Suspension Rail">
+  <PartGameData Id="KSArmory_Prefab_Rail" DisplayName="Weapons Pylon (14-inch rail)">
     <!-- Weapons rather than Structural: it is carriage gear, and it belongs beside the stores it
          carries rather than next to girders. Both tags carry FaceSnapTargetWhitelist, which is
          what the comment below depends on. -->
     <EditorTag Value="Weapons" />
     <EditorTag Value="NoFaceSnapping" />
-
-    <!--
-      Hidden from the builder rather than deleted. A bare rail carries nothing and is registered as
-      no launcher, so placing one does nothing at all; but a part removed outright stops every
-      saved craft carrying it from loading, and this asset is shared with the stores that ship.
-      PartTemplate.IsHidden is EditorTags.Contains(Hidden), which VehicleEditor checks in the part
-      list, the diameter filter and the root-part test.
-    -->
-    <EditorTag Value="Hidden" />
     <Diameter M="0.4" />
 
     <!--
