@@ -215,3 +215,7 @@ model-viewer.part-preview {
   --poster-color: transparent;
 }
 model-viewer.part-preview img[slot="poster"] { width: 100%; height: 100%; object-fit: contain; }
+
+/* A section's link, shown on hover and on arrival from the gallery: the theme's pilcrow read as a stray mark. */
+.md-typeset .headerlink { color: var(--ks-muted); font-family: "IBM Plex Mono", monospace; font-weight: 400; }
+.md-typeset .headerlink:hover, .md-typeset [id]:target .headerlink { color: var(--ks-accent-text); }

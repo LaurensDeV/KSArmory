@@ -45,7 +45,7 @@ markdown_extensions:
   - md_in_html
   - tables
   - toc:
-      permalink: true
+      permalink: "#"
   - pymdownx.superfences
   - pymdownx.highlight
 
