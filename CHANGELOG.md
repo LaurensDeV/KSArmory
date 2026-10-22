@@ -1,3 +1,28 @@
+## [0.9.8](https://github.com/LaurensDeV/KSArmory/compare/v0.9.7...v0.9.8) (2026-10-22)
+
+### Features
+
+* **packs:** declare a beam weapon; the YAL-1 moves to XML ([b80af98](https://github.com/LaurensDeV/KSArmory/commit/b80af9849dad3e13bc14bb8f8d9ef71893ae6db1))
+* **packs:** declare a bus's trim, hop and spin; strategic moves to XML ([5eaa903](https://github.com/LaurensDeV/KSArmory/commit/5eaa9036d037ffd00604f9e6cd0d1d10cffd2f88))
+* **packs:** declare a gun's drawn gear and sounds; guns move to XML ([10202df](https://github.com/LaurensDeV/KSArmory/commit/10202df897e5089877fc008d23f3b442ccc470af))
+* **packs:** declare decoys and dispensers; countermeasures move to XML ([bf98959](https://github.com/LaurensDeV/KSArmory/commit/bf98959205eaa4a3c6366ccfb1a7054a6fa9725c))
+* **packs:** declare directors, search sets, IR sensors; sights to XML ([e385c2b](https://github.com/LaurensDeV/KSArmory/commit/e385c2bd6f6ededf22383e57484e7c7d86f07f8a))
+* **packs:** let a launcher name its fire-control row; rails move to XML ([39e01c3](https://github.com/LaurensDeV/KSArmory/commit/39e01c309c8464574a60b3d039acd368bce0b025))
+* **packs:** let a pack name a round's burst and plume and a gun's flash ([dcd2eff](https://github.com/LaurensDeV/KSArmory/commit/dcd2eff379d158340ca9178b9f53c33c1840c066))
+* **packs:** let a pack replace a switched-off built-in on its own part ([eecf7bd](https://github.com/LaurensDeV/KSArmory/commit/eecf7bd8e78e8759ce690dedfb0b016ae009712f))
+* **packs:** register a code pack's texts as one unit, and read it once ([a1137e6](https://github.com/LaurensDeV/KSArmory/commit/a1137e6023fb53b8fc40657e9366443a20f646b9))
+* **packs:** switch a built-in weapon family off ([ca0f7b4](https://github.com/LaurensDeV/KSArmory/commit/ca0f7b43ff3f4c4d5a801935e6cdb1eaa65ac459))
+* **ui:** say restart to apply on the family that needs it ([5a86c16](https://github.com/LaurensDeV/KSArmory/commit/5a86c1607455c653f16bba260485d320d4c9fa9e))
+* **ui:** switch every built-in family on or off at once ([09ce299](https://github.com/LaurensDeV/KSArmory/commit/09ce299c2bdaf2bc687df13818f03d74f5bfe3bc))
+
+### Fixes
+
+* **icbm:** say a post-boost miss in the unit that shows it ([166c987](https://github.com/LaurensDeV/KSArmory/commit/166c98765241bcc426f529c4517be1e39d35a0d5))
+* **mod:** remove the cloud pass's hook when the mod lets go of the game ([331a21c](https://github.com/LaurensDeV/KSArmory/commit/331a21caa0a1573f58edca7e1c5dc297d6da7ca6))
+* **packs:** read a pack's files as one unit ([26bb156](https://github.com/LaurensDeV/KSArmory/commit/26bb15682f8f7ec527ac7ce06a3f78c112c3a1b3))
+* **turret:** decide the ring's claims from this frame's rung alone ([f141ae2](https://github.com/LaurensDeV/KSArmory/commit/f141ae2936dc1aa43f5459b3648880118eb76738))
+* **ui:** say plainly when no weapon is registered ([f7e6eac](https://github.com/LaurensDeV/KSArmory/commit/f7e6eacd062ae537074b7d02d63fd7444dd970ab))
+
 ## [0.9.7](https://github.com/LaurensDeV/KSArmory/compare/v0.9.6...v0.9.7) (2026-10-20)
 
 ### Features
