@@ -79,58 +79,33 @@ KSArmory's own weapons are defined the same way, one file per family in its `KSA
 
 ### With Borea (recommended)
 
-[Borea](https://github.com/KSAModding/Borea/releases/latest) is the community mod manager for KSA,
-on Windows, Linux and macOS. It installs the StarMap loader for you, registers the mod and
-launches the game through the loader, so none of the manual steps below apply.
+[Borea](https://github.com/KSAModding/Borea/releases/latest) is the community mod manager for KSA. It runs on Windows, Linux and macOS, installs the StarMap loader for you and keeps the mod up to date.
 
 1. Install Borea from its [releases page](https://github.com/KSAModding/Borea/releases/latest).
-2. Open **[KSArmory on Borea](https://ksamodding.github.io/Borea/mod/KSArmory/)** and click
-   **Install with Borea**, or search for KSArmory on Borea's Discover page.
-3. Start the game **from Borea**. Starting KSA directly bypasses the loader: the parts still
-   appear in the editor, but none of the behaviour runs.
-
-Borea also installs updates when a new release appears.
+2. Open [KSArmory on Borea](https://ksamodding.github.io/Borea/mod/KSArmory/) and click **Install with Borea**. You can also search for KSArmory on Borea's Discover page.
+3. Always start the game from Borea. If you start KSA directly, the parts show up in the editor but the weapons do nothing.
 
 ### By hand
 
-You need **Kitten Space Agency**, built against build `2026.10.19.5638`. A different build may
-need a rebuild of the mod. **Windows and Linux both work**: the mod is a portable .NET assembly
-with no native code, so one release archive covers both. You also need
-**[StarMap](https://github.com/StarMapLoader/StarMap/releases)**, the community mod loader. KSA has
-no official code-modding API, so nothing here runs without it. Edit its `StarMapConfig.json` to
-point at your KSA install. StarMap reads that file **relative to its own directory**, so launch it
-from where it lives.
+You need:
 
-1. **Get the mod.** Download `KSArmory-<version>.zip` from
-   [Releases](../../releases), or build it yourself with `./tools/package.sh`.
+- Kitten Space Agency, build `2026.10.19.5638`. Other builds may not work until the mod is updated.
+- [StarMap](https://github.com/StarMapLoader/StarMap/releases), the community mod loader. KSArmory does not run without it.
 
-2. **Unzip it into your mods folder.** That folder lives inside KSA's user directory:
+Windows and Linux use the same download.
 
-   | Platform | KSA user directory |
+1. Install StarMap and edit its `StarMapConfig.json` so it points at your KSA install. Run StarMap from its own folder, because it looks for that file next to itself.
+2. Download `KSArmory-<version>.zip` from [Releases](../../releases).
+3. Find your KSA user folder:
+
+   | Platform | KSA user folder |
    | --- | --- |
    | Windows | `Documents\My Games\Kitten Space Agency\` |
-   | Linux | wherever KSA keeps its user data, commonly `~/.local/share/Kitten Space Agency/`; the folder containing `manifest.toml` and `Logs/` is the one you want |
-   | Proton / Wine | inside the prefix, at `.../drive_c/users/steamuser/Documents/My Games/Kitten Space Agency/` |
+   | Linux | usually `~/.local/share/Kitten Space Agency/` (the folder that has `manifest.toml` and `Logs/` in it) |
+   | Proton / Wine | inside the prefix, at `.../drive_c/users/<user>/Documents/My Games/Kitten Space Agency/` |
 
-   You should end up with:
-
-   ```
-   <KSA user directory>/mods/KSArmory/
-     KSArmory.dll
-     mod.toml
-     KSArmory{Assets,GameData,Particles,Sounds,Characters}.xml
-     KSArmory/*.xml               (the built-in weapons, one file per family)
-     Meshes/*.glb
-     Textures/*.png
-     Sounds/*.wav
-   ```
-
-   The folder layout matters, and on Linux so does the **case**. `KSArmoryAssets.xml` refers
-   to `Meshes/` and `Textures/` by relative path. A case mismatch is silently tolerated on
-   Windows and fails on Linux, so unzip rather than retyping the names.
-
-3. **Register it in `manifest.toml`.** This step is required: *dropping the folder in is not
-   enough*. Open `manifest.toml` in the same user directory and add:
+4. Unzip the archive into the `mods` folder there. You should end up with `mods/KSArmory/KSArmory.dll`, with the `Meshes`, `Textures`, `Sounds`, `Shaders` and `KSArmory` folders beside it. Unzip it as it is: don't flatten the folders or rename anything. Linux cares about upper and lower case.
+5. Open `manifest.toml` in the KSA user folder and add:
 
    ```toml
    [[mods]]
@@ -138,172 +113,140 @@ from where it lives.
    enabled = true
    ```
 
-   KSA discovers mods through that list, and StarMap walks the same list to find code mods.
-   Without an entry, nothing loads and nothing tells you why.
-
-4. **Launch through StarMap, not the game directly.** On Windows that is `StarMap.exe`. StarMap
-   also ships `StarMap.dll`, a portable .NET assembly, so on Linux `dotnet StarMap.dll` from the
-   same folder is the equivalent.
+   Copying the folder in is not enough. Without this entry the mod does not load, and nothing tells you.
+6. Start the game with StarMap: `StarMap.exe` on Windows, or `dotnet StarMap.dll` from the StarMap folder on Linux.
 
 ### Check it worked
 
-The mod writes its own log to `Logs/KSArmory.log` under the KSA user directory, and prints
-the path it chose to stdout on startup — handy if it ended up somewhere unexpected. **Under Borea
-it is currently written to the shared profile in `Documents`, not to the instance's own folder.** The file is
-truncated each session. You should see:
+1. Open `Logs/KSArmory.log` in the KSA user folder. (With Borea, look in the folder under `Documents`, not in Borea's instance folder.) The previous session's log is kept as `KSArmory.prev.log`.
+2. You should see a `loading (mod id: KSArmory)` line, and about 20 seconds later a `ready - Pantsir-S1, ...` line. The wait is normal: the mod waits for the game to finish loading.
+3. In the editor, open the **Weapons** tab, build a craft with the **Pantsir-S1 Point Defence System** and launch it.
+4. Open **KSArmory > Panel** from the menu bar. The panel lists the craft and its weapons.
 
-```
-loading (mod id: KSArmory)
-ready - Pantsir-S1, LAU-7 Sidewinder rail, ...
-```
+### If it doesn't work
 
-The `ready` line arrives roughly **20 seconds after** the first, because the loader waits for
-the game to finish loading. That delay is normal, not a hang.
-
-Then: build a craft with the **Pantsir-S1 Point Defence System** (under *Weapons*), launch,
-and the **KSArmory** panel appears once you are in flight.
-
-### If it doesn't
-
-| Symptom | Cause |
+| What you see | What to check |
 | --- | --- |
-| No `KSArmory.log` at all | StarMap never ran the mod. Under Borea, check the game was started from Borea. By hand, check the `manifest.toml` entry, and that you launched `StarMap.exe`. |
-| Part missing from the editor | The asset XML did not load. KSA's own log, the newest `KittenSpaceAgency.*.log` in the same folder, is where XML and asset errors appear. |
-| Part is there but nothing happens in flight | The DLL did not load, but the XML did — check `mod.toml`'s `EntryAssembly = "KSArmory"` matches the DLL name. |
-| Part renders untextured or invisible | `Meshes/` or `Textures/` did not come across, or the folder layout was flattened. |
-| Panel says `no weapons system on this craft` | The part is not on the craft you are flying, or its Id did not match a registered launcher. |
-| Works on Windows, part untextured on Linux | A case mismatch in a file or folder name. Linux filesystems are case-sensitive; Windows is not. Re-unzip rather than renaming by hand. |
-
-Developing rather than just playing? `./tools/deploy.sh` builds, installs and registers the mod
-in one go — including the `manifest.toml` entry.
+| No `KSArmory.log` | With Borea: that you started the game from Borea, and that you are looking in the `Documents` folder. By hand: the `manifest.toml` entry, and that you started StarMap rather than KSA. |
+| The parts are missing from the editor | KSA could not read the mod's files. Look in KSA's own log, the newest `KittenSpaceAgency.*.log` in the same `Logs` folder. |
+| The parts are there but nothing happens in flight | The game was started without StarMap. |
+| A part is untextured or invisible | The `Meshes` or `Textures` folder is missing or in the wrong place. Unzip again. |
+| Works on Windows, untextured on Linux | A file or folder name has the wrong case. Unzip again instead of renaming by hand. |
+| The panel says `no weapons system on this craft` | The weapon is not on the craft you are looking at, or its family is switched off under **KSArmory > Built-in weapons**. |
 
 ## Use
 
 ### Fitting a weapon
 
-Every part is under **Weapons** in the editor, but for the EO director, the LITENING pod and the IRST, which are under **Sensors**. The big
-mounts stack on a 3 m node: the Pantsir, the Phalanx, the 5"/54, the YAL-1 turret and the MIRV bus.
-Everything else attaches to a surface: the missile rails, the B61 rack, the M197 under a nose, the EO
-director, the LITENING pod, the IRST and the dispensers. The Pantsir is its own command source, so a
-craft that is nothing but a Pantsir builds and launches.
+Weapons are on the **Weapons** tab in the editor. The EO director, the LITENING pod and the IRST are on the **Sensors** tab.
+
+- **Stack on a 3 m node:** the Pantsir, the Phalanx, the 5"/54, the YAL-1 turret and the MIRV bus.
+- **Attach to a surface:** the missile rails, the B61 rack, the M197 (under a nose), the EO director, the LITENING pod, the IRST and the flare and chaff dispensers.
+
+The Pantsir can control itself, so a craft made of nothing but a Pantsir can be launched on its own.
 
 ### The panel
 
-Open it from the **KSArmory** menu → **Panel**. The switcher lists every craft carrying something of
-this mod's, grouped by team, with a row per weapon; the picker beside **FIRE** chooses which weapon the
-trigger and the panel are pointed at. A weapon fitted twice, such as two rails, is one weapon with two
-stations, and the trigger steps between them.
+Open it from **KSArmory > Panel** on the menu bar. (If you use the ModMenu mod, KSArmory is listed in its menu instead.)
 
-A weapon belongs to the craft carrying it, not to the one you are flying, so you can take control of
-something else and watch a site defend itself.
+The panel lists every craft that carries something from this mod, grouped by team. Each row has the craft's name (click it to fly that craft) and buttons for its weapons, auto engage (the shield), the chase camera and its team (the flag).
+
+Pick a weapon with the picker next to **FIRE**. The rest of the panel then shows that weapon. If you fit the same weapon twice, for example two rails, it shows as one weapon with two stations and **FIRE** uses them in turn.
+
+Weapons keep working when you fly something else. You can switch to another craft and watch a site defend itself.
 
 ### Firing
 
-- **FIRE** shoots the selected weapon. There is nothing to arm first. A missile needs something locked;
-  a gun fires where it is laid; a bomb rack lets its store go.
-- **Auto engage** lets a weapon pick its own targets and fire. It starts off, so nothing opens fire on
-  its own until you say so. The shield in the switcher is auto engage for every weapon on a craft.
-- The line beside the trigger says why a weapon is not firing: no lock, out of reach, still slewing, out
-  of rounds.
+1. Press **FIRE** to shoot the selected weapon. There is no master arm. A missile needs a target locked first; a gun fires wherever it is pointing; a bomb rack drops its bomb.
+2. Read the line next to **FIRE**. **Ready** means it will fire. **Holding** tells you why it won't: no lock, out of reach, still turning, out of rounds.
+3. Tick **Auto engage** to let the weapon choose targets and fire by itself. It is off by default. The shield button in the craft list turns it on or off for every weapon on that craft.
 
-A contact becomes a *threat* when its closest point of approach falls inside **Threat radius** within
-**Threat horizon** seconds, and shootable once held for **Lock time**. A launcher commits **Rounds per
-target** before it looks again. A turret traverses and elevates onto its target and will not fire until
-it has settled.
+Under auto engage, a weapon fires at a contact that will pass within its threat radius soon, once it has held a lock for long enough. **Rounds per target** (on the weapon's component row) sets how many it fires at each one. **Threat radius**, **Threat horizon** and **Lock time** are on the **Tuning** tab. A turret waits until it has finished turning before it fires.
+
+To stop a weapon firing at the craft you are flying, tick **Never target the vehicle I'm flying**.
 
 ### Aiming
 
-- **Shift-click** anything, a craft or a place on the ground, to designate it. The turret follows it, the
-  trigger shoots at it, and a falling guided store is steered onto it.
-- **Fire at the mouse** turns an ordinary click into a shot at what is under the cursor; its own tick
-  box arms it.
-- **Aim with the mouse** points the turret at the cursor without firing; auto engage still decides
-  when to shoot.
+- **Shift-click** a craft or a spot on the ground to designate it. The turret follows it, **FIRE** shoots at it, and a guided bomb that is already falling steers onto it if it can still reach.
+- **Aim with the mouse** points the turret wherever the cursor is. It doesn't fire; auto engage or **FIRE** still does that.
+- **Fire at the mouse** makes a click on the ground fire a round at that spot. Tick it only when you want clicks to shoot.
 
-A gun over the ground is laid to land where you point, not along the line to it, and the line beside
-the trigger says when a place is beyond its reach.
+Guns are aimed to land where you point, allowing for the drop. If a spot is too far for the gun, the line next to **FIRE** says so.
 
 ### Sights
 
-The EO director, the LITENING pod, the YAL-1 turret and the Pantsir's roof director are sights. Each
-has its own row: **Main view** looks through it with the view you fly from, **Camera** opens it in a
-window of its own, which can be dragged onto another monitor, and **Zoom** magnifies. **Track** slews
-it onto what the craft's sensors hold, **Mouse** points it at the cursor, **Hand** with sliders, and
-**Spot** finds a laser spot on its code. A sight finds nothing by itself: an IRST on the same craft is
-what hands it contacts.
+The EO director, the LITENING pod, the YAL-1 turret and the Pantsir's roof camera are sights. Each one has its own row under **Components**:
 
-### Bombs and the ballistic bus
+- **Main view** shows the sight's picture in your main view.
+- **Camera** opens it in a separate window. You can drag that window onto another monitor.
+- **Zoom** sets the magnification.
+- **Track** points it at what the craft's sensors are tracking.
+- **Mouse** points it at the cursor.
+- **Hand** lets you point it with sliders.
+- **Spot** looks for a laser spot on the sight's laser code.
 
-The B61 rack draws a ring where the bomb will land if released now, flown rather than solved, and a
-blue ring of where its fins can still move it once it falls. The MIRV bus is flown by its ballistic
-computer, on the **Ballistic** tab: designate the targets, by clicking the world or KSA's ground-track
-map, arm it and launch. [`docs/ICBM-GUIDANCE.md`](docs/ICBM-GUIDANCE.md) has how it flies.
+A sight can't find targets by itself. Fit an IRST or a radar on the same craft to give it something to look at, or shift-click a target.
+
+A sight's **Fire laser** button turns on its laser designator, which marks a spot for laser-guided weapons. The YAL-1's high-energy laser is fired with **FIRE**, like any other weapon.
+
+### Bombs and the MIRV bus
+
+With a B61 rack selected, an orange ring shows where the bomb will land if you drop it now. After you drop it, a blue ring shows how far its fins can still move it; shift-click inside that ring to steer it.
+
+The MIRV bus is flown by its own computer, on the **Ballistic** tab:
+
+1. Designate the targets by clicking the world or KSA's ground-track map.
+2. Tick **Ballistic computer armed**.
+3. Launch.
+
+[`docs/ICBM-GUIDANCE.md`](docs/ICBM-GUIDANCE.md) explains how it flies.
 
 ### Teams
 
-A craft with no team is fair game. The flag in the switcher puts a craft on a team, and the **Teams**
-window sets who each team is allied with, neutral to, and fires on. Every weapon on a team follows its
-team's rules.
+A craft with no team can be shot at by anyone. Use the flag button in the craft list to put a craft on a team. The **Teams** window sets which teams are allies or neutral, and whether each team fires on unknown craft and on neutrals. Every weapon on a team follows those rules.
 
-### KSArmory's own weapons
+### Switching off built-in weapons
 
-Every weapon family can be switched off under **KSArmory** → **Built-in weapons**, at the next start.
-Its parts still load on a saved craft, as plain structure, and a weapon pack may then define a weapon of
-its own on them.
+Under **KSArmory > Built-in weapons** you can switch off any weapon family. The change takes effect the next time you start the game. Saved craft that carry those parts still load, but the parts do nothing.
 
-### Tuning a guided round
+### Tuning a guided missile
 
-| Setting | Effect |
+These sliders are on the **Tuning** tab. They change that missile type everywhere in the game, not just on one craft.
+
+| Setting | What it does |
 | --- | --- |
-| **Nav constant N** | 3–5 is the realistic band. Higher leads harder and pulls more g; too high oscillates. |
-| **Max lateral g** | The airframe limit. Drop it and fast crossing targets start escaping. |
-| **Seeker FOV** | How far off its own nose the round can still see. Narrow means broken locks on hard crossers. |
-| **Fuse radius** | Trigger distance. Larger is more forgiving; it does not increase lethality. |
-| **Explosive charge** | What actually kills. Lethal and blast radius are both read off it by the cube root, so doubling it multiplies the reach by 1.26. Between the two the target survives. |
-| **Gravity compensation** | 1.0 makes guidance ignore the fall. Drop it for lobbed, ballistic-looking shots. |
+| **Nav constant N** | How hard the missile leads its target. 3 to 5 is realistic. Too high and it weaves. |
+| **Max lateral (g)** | How hard it can turn. Lower it and fast crossing targets get away. |
+| **Seeker FOV (deg)** | How far off its nose the missile can still see the target. Too narrow and it loses hard crossers. |
+| **Fuse radius (m)** | How close it has to get before it goes off. A bigger radius goes off more often but doesn't do more damage. |
+| **Explosive charge** | How much damage it does. Twice the charge reaches about a quarter further. |
+| **Gravity compensation** | How much it allows for gravity. Lower it for lobbed, arcing shots. |
 
 ### Countermeasures
 
-A guided round's seeker is one of three kinds, and that is what decides which decoy can take it:
+Which decoy works depends on the missile's seeker:
 
-| Round | Seeker | Flares | Chaff |
+| Missile | Seeker | Flares | Chaff |
 | --- | --- | --- | --- |
-| AIM-9J | infrared, no counter-countermeasures | usually decoyed | ignored |
-| AIM-120C | radar, pulse-Doppler | ignored | only while the target beams |
-| AGM-88 | homes on emission | ignored | ignored |
-| 57E6 | command link from the launcher | ignored | breaks the Pantsir's track while you beam it — see below |
+| AIM-9J | heat | usually fooled | no effect |
+| AIM-120C | radar | no effect | only if you fly side-on to it |
+| AGM-88 | homes on radar transmitters | no effect | no effect |
+| 57E6 (Pantsir) | guided by the Pantsir's radar | no effect | can break the Pantsir's track, see below |
 
-A decoy is in the running once it outshines the target in the seeker's field: heat falls with the
-square of range and a radar return with the fourth power. A radar seeker holds its target in a range
-gate, so only chaff within 150 m of the target counts; a heat seeker sees every flare in its field. Each decoy is judged **once**, the first
-moment it does, and takes the seeker with an 80% chance less the round's resistance. A seeker that
-is taken follows the decoy until it is spent, and its fuse fires on it, so a missile seduced close
-to the craft can still hurt it. Then it looks for its target again, or flies on blind.
+Each flare or chaff cloud gets one chance to pull a missile away, when it first looks brighter to the seeker than you do. A fooled missile follows the decoy and can still explode near you if the decoy is close. Once the decoy burns out, the missile may find you again.
 
-**Notching the Pantsir.** A 57E6 has nothing aboard to fool, but the set steering it can lose its
-track. Turn square to the Pantsir so you are closing on it at under 30 m/s, and drop chaff: a bigger
-return beside you with the same Doppler takes the set's gate, the track breaks, and any 57E6 already
-in the air loses its uplink and flies on unguided. The set takes three seconds to find you again,
-then holds you on its optical channel for as long as you stay in the notch — so it works once per
-pass, and turning back towards it ends it. Flares do nothing to it. A sensor's `ChaffNotchMps`,
-`ChaffReacquireSeconds` and `OpticalBackup` set this, on the Tuning tab under the sensor.
+Chaff only counts if it is close to you (within about 150 m). Flares count anywhere in the seeker's view.
 
-Every seeker setting is on the **Tuning** tab under Guidance, and a weapon pack sets them as
-attributes on its `<Munition>`:
+**Beating the Pantsir.** Fly side-on to the Pantsir, so you are barely closing on it, and drop chaff. Its radar loses you, and any 57E6 already in the air flies on unguided. It finds you again after about three seconds and then follows you with its camera while you stay side-on, so this works once per pass. Flares do nothing against it.
 
-| Setting | Attribute | Default | |
-| --- | --- | --- | --- |
-| **Seeker** | `SeekerBand` | `Radar` | `Radar`, `Infrared`, or `None` for a seeker no decoy fools. Read only for `Guidance="Seeker"` |
-| **Countermeasure resistance** | `CountermeasureResistance` | `0` | 0 to 1: how much of a decoy's chance the seeker refuses |
-| **Looks again after a decoy** | `ReacquiresAfterDecoy` | `true` | whether a seeker goes back to its target once the decoy is spent |
-| **Doppler gate** | `DopplerGateMps` | `0` | m/s; chaff is only seen within this of the target's closing speed. Zero is no gate |
+**Using the dispensers.** Each dispenser's row shows how many it has left. The first one has the controls for the whole craft:
 
-Each dispenser's component row shows what it has left, and the first carries the craft's controls:
-**Flares**, **Chaff** or **Both** throw a salvo of two cartridges a quarter of a second apart from
-every dispenser holding that load, together, so a symmetric pair throws either side of the craft and
-each dispenser fitted makes a press heavier. **Auto-dispense** throws on its own when a
-missile whose seeker is on the craft closes inside 6 km: flares for a heat seeker, chaff for a radar
-one, both for anything it cannot place, at most once a second. A dispenser is never reloaded.
+- **Flares**, **Chaff** or **Both** fires two of each from every dispenser loaded with that type. A pair of dispensers fires to both sides at once.
+- **Auto-dispense** fires by itself when a missile tracking you comes within 6 km: flares against a heat seeker, chaff against a radar seeker, both if it can't tell. It fires at most once a second.
+
+Dispensers can't be reloaded in flight.
+
+Missile seeker settings (seeker type, countermeasure resistance, Doppler gate) are on the **Tuning** tab under **Guidance**. Weapon pack authors: the matching `<Munition>` attributes are in [`docs/WEAPON-PACKS.md`](docs/WEAPON-PACKS.md).
 
 ## Testing
 
