@@ -97,6 +97,8 @@ run "Part XML is well formed"       ./tools/check-xml.sh
 run "Asset paths resolve"           ./tools/validate-parts.py --offline
 run "Every setting is reachable"    ./tools/check-tunables.py
 run "Pack API surface"              ./tools/pack-api.py --check
+run "The wiki assembles"            ./tools/wiki/build.py --pages-only
+run "Every part has a 3D model"      ./tools/wiki/models.py --check
 run "The study set is as recorded"  ./tools/check-studies.py --check
 run "Shaders compile"               ./tools/check-shaders.sh
 run "Comment rules"                 ./tools/check-comments.sh

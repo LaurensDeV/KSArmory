@@ -301,6 +301,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/check-comments.sh                  # history in comments, XML docs on privates, ratios
 ./tools/check-shaders.sh                   # the compute shaders compile, against the game's library
 ./tools/check-docs.sh                      # layout table, API counts and KSA build vs reality
+./tools/wiki/build.py --serve              # the wiki with its 3D models, at http://127.0.0.1:8000
 ./tools/package.sh                         # release zip into dist/ -- no symbols, no game DLLs
 ./tools/deploy.sh                          # build and install into the KSA mods folder
 ./tools/run.sh                             # build, deploy, launch, show the mod's output
@@ -798,6 +799,11 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/spacedock-changelog.py` | a release's notes cut to what SpaceDock accepts — **10,000 characters**, which one after a long run on `dev` overruns six times over |
 | `tools/export-example-copy.py` | **a working copy of every weapon as a pack**, written into the example mod: the definitions, the parts and the art, every Id renamed `KSArmory_` to `ExampleCopy_` -- inside the meshes too, since KSA matches a mesh by name -- so it loads beside KSArmory, with an index of what each family uses. **Read from HEAD** so each header names its commit; run by hand, `--check` to compare |
 | `tools/copy-save.py` | a save copied with its craft carrying the example copy's parts instead of KSArmory's -- so with every family switched off, a scenario flown on it flies the pack |
+| `tools/wiki/build.py` | **ksarmory.com, assembled from what the repository already maintains** -- the weapon pages from the family files and README's "What ships with it", the pack pages from `docs/`, the player pages from README's own sections, every outside link pointed at GitHub; `--pages-only` is the check-all step, `--serve` the local preview |
+| `tools/wiki/models.py` | one viewable `.glb` per part for the wiki, **assembled as KSA assembles it** -- mesh by name with the first atlas winning, the XML's transforms through `checkmesh.euler_quaternion`, the `PbrMaterial` as a glTF material, stood on its mounting face; standard library only, `--check` in check-all |
+| `tools/wiki/compress.mjs` | those models to WebP textures at 1024 and meshopt geometry, normal maps lossless: 27 MB to 4.5 MB; its npm packages are pinned in `tools/wiki/package-lock.json` |
+| `tools/wiki/stills.mjs` | a still of every model, drawn by the same viewer at the same camera in headless Chromium -- the gallery's pictures and each viewer's poster, so a still and its model cannot disagree |
+| `wiki/` | the site's MkDocs config, the home page and the brand's stylesheet (`pages/assets/ksarmory.css`: `branding/`'s palette in both schemes, its fonts served from the site); everything else is generated into `wiki/build/` |
 | `tools/pack-api.py` | records the API a weapon pack binds to, and fails when it moves — **the mirror of `api-surface.sh`**, because a pack lives in somebody else's repository and never builds here |
 | `tools/check-studies.py` | which tests are tagged out of the push loop, as a committed record — **it cannot tell a mis-tag from a real one**, and does not try: it puts the change in the author's own diff, where a human can still ask |
 | `tools/repair-saves.py` | realigns saves written before a part lost a subpart |
@@ -831,8 +837,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/mk42-sounds.py` | cuts the Mk 42's recording into its mono gunshot |
 | `tools/m197-sounds.py` | cuts the M197's recordings into a seamless mono loop and its tail |
 | `tools/audio/` | the recordings the shipped gun sounds are cut from — the CC0 Phalanx and the Mk 42's — and the provenance of each |
-| `tools/logo.py` | the Kessler Systems wordmark and icon, into `branding/` |
-| `branding/` | the generated logo the README and SpaceDock point at |
+| `branding/` | **the brand's sources**: the mark, its small and favicon forms, the light mark and the patch, as SVG; and the PNGs rendered from them -- the README's lockup for each of GitHub's themes, the mod icon and the patch |
+| `tools/wiki/branding.mjs` | those PNGs, rendered from `branding/`'s SVGs in the brand fonts by headless Chromium, and refusing to write one set in a fallback font |
 | `listing/` | **the store page**, Borea's and SpaceDock's, apart from the developers' `README.md` — abstract, description, icon and screenshots, rendered for each site by `tools/listing.py`. Every image URL is pinned to a commit and Borea's record pins its hash, so replacing one means sending new records |
 
 ## 3D model pipeline

@@ -1,0 +1,3 @@
+# MkDocs 2 drops the plugin and theme system Material is built on, so the pin is not optional.
+mkdocs>=1.6,<2
+mkdocs-material==9.7.7

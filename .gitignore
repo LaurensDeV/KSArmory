@@ -37,3 +37,7 @@ StarMapConfig.json
 
 # Scratch checkouts for parallel agents. Real git worktrees, not content.
 .claude/worktrees/
+
+# The wiki's assembled pages and built site; tools/wiki/build.py writes both.
+wiki/build/
+tools/wiki/node_modules/

@@ -1,0 +1,217 @@
+/* The brand of branding/mark.svg and its lockup: amber, ground, ink, muted and tint, Saira Condensed for
+   the wordmark and headings and IBM Plex Mono for its labels, all served from this site. */
+
+@font-face { font-family: "Saira Condensed"; font-weight: 600; font-display: swap; src: url("fonts/saira-condensed-600.woff2") format("woff2"); }
+@font-face { font-family: "Saira Condensed"; font-weight: 700; font-display: swap; src: url("fonts/saira-condensed-700.woff2") format("woff2"); }
+@font-face { font-family: "Saira Condensed"; font-weight: 800; font-display: swap; src: url("fonts/saira-condensed-800.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 400; font-display: swap; src: url("fonts/ibm-plex-mono-400.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 500; font-display: swap; src: url("fonts/ibm-plex-mono-500.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 400; font-display: swap; src: url("fonts/ibm-plex-sans-400.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 500; font-display: swap; src: url("fonts/ibm-plex-sans-500.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 600; font-display: swap; src: url("fonts/ibm-plex-sans-600.woff2") format("woff2"); }
+
+:root {
+  --ks-deep: #0d0d0d;
+  --md-text-font: "IBM Plex Sans";
+  --md-code-font: "IBM Plex Mono";
+}
+
+/* The header stays dark in both schemes: the mark in it is drawn for a dark ground. */
+[data-md-color-scheme] {
+  --md-primary-fg-color: var(--ks-deep);
+  --md-primary-bg-color: #edebe6;
+  --md-footer-bg-color: var(--ks-deep);
+  --md-footer-bg-color--dark: var(--ks-deep);
+  --md-footer-fg-color: #edebe6;
+}
+
+[data-md-color-scheme="slate"] {
+  --ks-ground: #171717;
+  --ks-raised: #1f1f1e;
+  --ks-line: #2f2e2b;
+  --ks-glow: #2a2a28;
+  --ks-accent: #f2a900;
+  --ks-accent-text: #f2a900;
+  --ks-tint: #f0ca73;
+  --ks-ink: #edebe6;
+  --ks-muted: #a19d94;
+  --md-typeset-color: #d8d5cf;
+}
+
+/* The light mark's own colours: its ink is the dark ground and its amber is deeper, #c98500. Text in amber
+   goes deeper again, because #c98500 on this page is too faint to read at small sizes. */
+[data-md-color-scheme="default"] {
+  --ks-ground: #f4f2ed;
+  --ks-raised: #e9e6df;
+  --ks-line: #d6d2c8;
+  --ks-glow: #fbfaf7;
+  --ks-accent: #c98500;
+  --ks-accent-text: #996400;
+  --ks-tint: #b8892e;
+  --ks-ink: #171717;
+  --ks-muted: #5f5c56;
+  --md-typeset-color: #2a2926;
+}
+
+[data-md-color-scheme] {
+  --md-default-bg-color: var(--ks-ground);
+  --md-default-fg-color: var(--ks-ink);
+  --md-default-fg-color--light: var(--ks-muted);
+  --md-default-fg-color--lighter: color-mix(in srgb, var(--ks-muted) 70%, var(--ks-ground));
+  --md-default-fg-color--lightest: var(--ks-line);
+  --md-accent-fg-color: var(--ks-accent);
+  --md-typeset-a-color: var(--ks-accent-text);
+  --md-code-bg-color: var(--ks-raised);
+  --md-code-fg-color: var(--ks-ink);
+}
+
+body { font-family: "IBM Plex Sans", system-ui, sans-serif; }
+
+/* Room between a page's last line and the footer. */
+.md-content__inner { padding-bottom: 4rem; }
+
+/* The header: the deep ground, with an amber rule. */
+.md-header, .md-tabs { background-color: var(--ks-deep); color: #edebe6; }
+.md-header { border-bottom: 2px solid #f2a900; box-shadow: none; }
+.md-header__title { font-family: "Saira Condensed", sans-serif; font-weight: 800; letter-spacing: .04em; font-size: 1.05rem; }
+.md-tabs__link, .md-nav__title {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: .62rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.md-tabs__link--active, .md-tabs__link:hover { color: #f2a900; }
+.md-search__form { border-radius: 0; background: #1f1f1e; }
+.md-nav__link--active { color: var(--ks-accent-text) !important; }
+
+/* Headings in the wordmark's face. */
+.md-typeset h1, .md-typeset h2, .md-typeset h3 {
+  font-family: "Saira Condensed", sans-serif;
+  font-weight: 800;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: var(--ks-ink);
+}
+.md-typeset h1 { font-size: 2.2rem; border-bottom: 4px solid color-mix(in srgb, var(--ks-ink) 18%, transparent); padding-bottom: .25em; }
+.md-typeset h2 { font-size: 1.5rem; margin-top: 2.2em; }
+.md-typeset h2::before { content: ""; display: inline-block; width: .45em; height: .45em; margin-right: .45em; background: var(--ks-accent); border-radius: 50%; vertical-align: .12em; }
+
+/* Square, ruled and quiet. */
+.md-typeset table:not([class]) { border: 1px solid var(--ks-line); border-radius: 0; font-size: .72rem; }
+.md-typeset table:not([class]) th {
+  background: var(--ks-raised);
+  color: var(--ks-accent-text);
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.md-typeset code { border-radius: 0; }
+
+/* The home page's title, for a screen reader and the tab: the lockup under it says it to everyone else. */
+.md-typeset h1.ks-offscreen {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* The home page's opening: the primary lockup, then the patch beside it. */
+.ks-hero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2rem;
+  align-items: center;
+  margin: 1.5rem 0 2.5rem;
+}
+.ks-lockup { display: flex; align-items: center; gap: 1.6rem; }
+.ks-lockup img { width: 7.5rem; height: 7.5rem; flex: none; }
+[data-md-color-scheme="slate"] .ks-mark--light, [data-md-color-scheme="default"] .ks-mark--dark { display: none; }
+.ks-wordmark {
+  font-family: "Saira Condensed", sans-serif;
+  font-weight: 800;
+  font-size: 4.6rem;
+  line-height: .9;
+  letter-spacing: .02em;
+  color: var(--ks-ink);
+}
+.ks-wordmark .ks-k { color: var(--ks-accent); }
+.ks-wordmark .ks-a { color: var(--ks-tint); }
+.ks-rule { height: 4px; background: var(--ks-ink); opacity: .18; margin: .4rem 0 .5rem; }
+.ks-tagline {
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 500;
+  font-size: .6rem;
+  letter-spacing: .24em;
+  color: var(--ks-muted);
+}
+.ks-patch svg { width: 15rem; height: 15rem; display: block; }
+.ks-hero p.ks-intro { grid-column: 1 / -1; font-size: .95rem; color: var(--ks-muted); max-width: 42rem; margin: 0; }
+.ks-actions { grid-column: 1 / -1; display: flex; gap: .8rem; flex-wrap: wrap; }
+.md-typeset .ks-button {
+  border: 1px solid var(--ks-accent);
+  color: var(--ks-accent-text);
+  padding: .5em 1.2em;
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 500;
+  font-size: .65rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.md-typeset .ks-button:hover, .md-typeset .ks-button--primary { background: var(--ks-accent); color: #171717; }
+@media (max-width: 60em) {
+  .ks-hero { grid-template-columns: 1fr; }
+  .ks-patch { display: none; }
+  .ks-wordmark { font-size: 3rem; }
+  .ks-lockup img { width: 4.5rem; height: 4.5rem; }
+}
+
+/* Every weapon at once. */
+.ks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0 2rem;
+}
+.md-typeset a.ks-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--ks-raised);
+  border: 1px solid var(--ks-line);
+  color: var(--ks-ink);
+  transition: border-color .15s, transform .15s;
+}
+.md-typeset a.ks-card:hover { border-color: var(--ks-accent); transform: translateY(-2px); }
+.ks-card img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  background: radial-gradient(ellipse at 50% 60%, var(--ks-glow) 0%, var(--ks-raised) 70%);
+}
+.ks-card__body { padding: .6rem .8rem .8rem; border-top: 1px solid var(--ks-line); }
+.ks-card__family {
+  display: block;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: .55rem;
+  color: var(--ks-accent-text);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.ks-card__name {
+  display: block;
+  font-family: "Saira Condensed", sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: .2rem 0 .3rem;
+}
+.ks-card__stats { display: block; font-family: "IBM Plex Mono", monospace; font-size: .6rem; color: var(--ks-muted); }
+
+/* A part's 3D model. */
+.md-typeset figure.part-figure { display: block; width: 100%; margin: 1rem 0; }
+.md-typeset figure.part-figure figcaption { font-family: "IBM Plex Mono", monospace; color: var(--ks-muted); font-size: .6rem; letter-spacing: .1em; }
+model-viewer.part-preview {
+  width: 100%;
+  height: 24rem;
+  background: radial-gradient(ellipse at 50% 60%, var(--ks-glow) 0%, var(--ks-raised) 70%);
+  border: 1px solid var(--ks-line);
+  --poster-color: transparent;
+}
+model-viewer.part-preview img[slot="poster"] { width: 100%; height: 100%; object-fit: contain; }

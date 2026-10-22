@@ -1,0 +1,88 @@
+name: Wiki
+
+# Builds ksarmory.com, and uploads it to its Cloudflare Pages project from main. Built on dev too, so
+# a change that no longer generates or assembles fails before the merge rather than on the live site. Every
+# push to main deploys, rather than each release: a merge carrying only docs cuts no release and still
+# changes the site. tools/wiki/build.py says what the site is made of; infra/dns/site.tf declares the
+# project and its domains.
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wiki-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The npm packages run here, in a job holding no secret, so a compromised one cannot reach the token the
+  # deploy uses: the site leaves as an artifact.
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: tools/wiki/package-lock.json
+
+      - name: Install MkDocs and the model tools
+        run: |
+          pip install -r wiki/requirements.txt
+          npm ci --prefix tools/wiki
+          # The stills are drawn by the 3D viewer, in a browser with no GPU.
+          npx --prefix tools/wiki playwright install --with-deps chromium
+
+      - name: Build
+        run: python tools/wiki/build.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wiki-site
+          path: wiki/build/site
+          retention-days: 7
+
+  deploy:
+    name: Deploy
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      # Both, or the upload is skipped with a notice: a fork cannot have them. CLOUDFLARE_ACCOUNT_ID is a
+      # repository variable; the token, with Account > Cloudflare Pages > Edit, a secret.
+      HAVE_PAGES: ${{ vars.CLOUDFLARE_ACCOUNT_ID != '' && secrets.CLOUDFLARE_PAGES_TOKEN != '' }}
+      PROJECT: ksarmory
+    steps:
+      - name: Cloudflare Pages not configured
+        if: env.HAVE_PAGES != 'true'
+        run: |
+          echo "::notice::Wiki upload skipped. Set the repository variable CLOUDFLARE_ACCOUNT_ID"
+          echo "::notice::and the secret CLOUDFLARE_PAGES_TOKEN."
+
+      - uses: actions/download-artifact@v4
+        if: env.HAVE_PAGES == 'true'
+        with:
+          name: wiki-site
+          path: site
+
+      - name: Upload to Cloudflare Pages
+        if: env.HAVE_PAGES == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_PAGES_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy site --project-name=${{ env.PROJECT }} --branch=main
