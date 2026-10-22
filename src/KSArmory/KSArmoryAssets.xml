@@ -1222,6 +1222,15 @@
       </Transform>
     </Connector>
 
+    <!-- Mates with the pylon's station node, which lines the rail up along the pylon. -->
+    <Connector Id="_l7ConnectorPylon">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+        <Scale X="0.50000" Y="0.50000" Z="0.50000" />
+      </Transform>
+    </Connector>
+
     <SubPart Id="KSArmory_Lau7_Aim900" InstanceOf="KSArmory_Aim9_SubPart">
       <Transform>
         <Position X="0.23696" Y="0.00000" Z="0.00000" />
@@ -1247,6 +1256,15 @@
       </Transform>
     </Connector>
 
+    <!-- Mates with the pylon's station node, which lines the rail up along the pylon. -->
+    <Connector Id="_l128ConnectorPylon">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+        <Scale X="0.55000" Y="0.55000" Z="0.55000" />
+      </Transform>
+    </Connector>
+
     <SubPart Id="KSArmory_Lau128_Amraam_Round00" InstanceOf="KSArmory_Amraam_SubPart">
       <Transform>
         <Position X="0.23600" Y="0.00000" Z="0.00000" />
@@ -1269,6 +1287,15 @@
       <Transform>
         <Position X="0.00000" />
         <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+
+    <!-- Mates with the pylon's station node, which lines the rail up along the pylon. -->
+    <Connector Id="_l118ConnectorPylon">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+        <Scale X="0.85000" Y="0.85000" Z="0.85000" />
       </Transform>
     </Connector>
 
@@ -1329,6 +1356,17 @@
       <Transform>
         <Position X="0.00000" />
         <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+
+    <!--
+      The station a pylon-free rail clicks into, on the hooks' underside. A node rather than a face,
+      because a rail placed free-hand on a beam this small lands wherever the cursor touched it.
+    -->
+    <Connector Id="_rlConnectorStore">
+      <Transform>
+        <Position X="0.22006" />
+        <Scale X="0.40000" Y="0.40000" Z="0.40000" />
       </Transform>
     </Connector>
   </Part>

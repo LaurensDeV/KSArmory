@@ -280,10 +280,11 @@
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.5" />
 
-    <!-- Attaches by the rail's top, under the suspension rail or straight to a hull. -->
+    <!-- Clicks into the weapons pylon's station, or sticks free-hand onto any surface. -->
     <Connector Id="_l7ConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
+    <Connector Id="_l7ConnectorPylon" />
 
     <!-- AIM-9J at 78 kg and the rail; the rail's 25 kg is an estimate, not a sourced figure. -->
     <SolidSphereMass>
@@ -316,10 +317,11 @@
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.55" />
 
-    <!-- Attaches by the rail's top, under the suspension rail or straight to a hull. -->
+    <!-- Clicks into the weapons pylon's station, or sticks free-hand onto any surface. -->
     <Connector Id="_l128ConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
+    <Connector Id="_l128ConnectorPylon" />
 
     <!-- AIM-120C-7 at 161.5 kg and the rail; the rail's 25 kg is an estimate, not a sourced figure. -->
     <SolidSphereMass>
@@ -352,10 +354,11 @@
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.85" />
 
-    <!-- Attaches by the rail's top, under the suspension rail or straight to a hull. -->
+    <!-- Clicks into the weapons pylon's station, or sticks free-hand onto any surface. -->
     <Connector Id="_l118ConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
+    <Connector Id="_l118ConnectorPylon" />
 
     <!-- AGM-88 at 360 kg and the rail; the rail's 25 kg is an estimate, not a sourced figure. -->
     <SolidSphereMass>
@@ -442,6 +445,7 @@
     <Connector Id="_rlConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
+    <Connector Id="_rlConnectorStore" />
 
     <!-- An empty 14-inch rail is a few tens of kilogrammes of alloy. -->
     <SolidSphereMass>
