@@ -44,6 +44,8 @@ SHOWS = {
                "traverse, and a director on its roof (`<Optic>` beside a `<Launcher>` on one part)",
     "Rails": "a launcher with nothing that moves; a heat seeker, an active radar seeker, an "
              "anti-radiation round, and a boost motor with a `<Stage>`",
+    "Rockets": "unguided rockets: a `Guidance=\"None\"` round with a motor, released rather than launched, "
+               "several tubes on a part that does not move, and a fin set folded in the tube (`FinMarker`)",
     "Guns": "guns with no tubes: `<Muzzle>`, belts and bursts, a rotary cluster, a time-fuzed shell, "
             "a chin turret's travel limit, and the cylinder and rod drawn on its linkage",
     "Sensors": "sights as their own parts: a mast head, a roll-nod pod (`Gimbal`), and a search set "

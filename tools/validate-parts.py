@@ -905,6 +905,8 @@ LAUNCHER_GEOMETRY = {
     "AmraamRail": (None, "AMRAAM rail"),      # authored -- see AUTHORED_LAUNCHERS below
     "HarmRail": (None, "HARM rail"),          # authored, as above
     "MirvBus": (None, "Heavy MIRV Bus"),      # authored, clustered -- CLUSTER_LAUNCHERS
+    "Lau10": (None, "LAU-10 Zuni pod"),       # authored, clustered, as above
+    "ZuniPod6": (None, "Zuni six-round pod"), # authored, clustered, as above
     "Mk42": (None, "Mk 42 mount"),            # authored gun -- AUTHORED_GUNS below
     "M197": (None, "M197 chin turret"),       # authored gun -- AUTHORED_GUNS below
     "Yal1Beam": (None, "YAL-1 laser"),        # fires the director on its part; nothing of its own
@@ -1255,6 +1257,10 @@ def check_bare_rail_geometry(profile, part_id, seat_id, mesh_id, twin, twin_part
 CLUSTER_LAUNCHERS = {
     "MirvBus": ("KSArmory_Prefab_MirvBus", "KSArmory_PostBoost_Mirv_Rv",
                 "KSArmory_Subpart_PostBoostRv", "ReentryVehicleMk21", 7, "Heavy MIRV Bus"),
+    "Lau10": ("KSArmory_Prefab_Lau10", "KSArmory_Lau10_Zuni_Round",
+              "KSArmory_Subpart_ZuniRound", "RocketZuni", 4, "LAU-10 Zuni pod"),
+    "ZuniPod6": ("KSArmory_Prefab_ZuniPod6", "KSArmory_ZuniPod6_Zuni_Round",
+                 "KSArmory_Subpart_ZuniRound", "RocketZuni", 6, "Zuni six-round pod"),
 }
 
 
@@ -1499,7 +1505,7 @@ _CSHARP_NAME = {
     ("Munition", "AIM9J"): "Missile9J", ("Munition", "AIM120C"): "Missile120C",
     ("Munition", "AGM88"): "MissileAgm88", ("Munition", "20MM"): "Cannon20Mm",
     ("Munition", "5IN54"): "Shell5In54", ("Munition", "B61"): "NukeB61",
-    ("Munition", "MK21"): "ReentryVehicleMk21",
+    ("Munition", "MK21"): "ReentryVehicleMk21", ("Munition", "ZUNI"): "RocketZuni",
     ("Munition", "57E6"): "Missile57E6", ("Munition", "30MM"): "Cannon30Mm",
     ("Sensor", "AIM9SEEK"): "SeekerHeadAim9", ("Sensor", "AIM120SEEK"): "SeekerHeadAim120",
     ("Sensor", "AGM88SEEK"): "SeekerHeadAgm88", ("Sensor", "VPS2"): "SearchRadarVps2",
@@ -1507,7 +1513,7 @@ _CSHARP_NAME = {
     ("Sensor", "TSU"): "TurretSight", ("Sensor", "BOMBSIGHT"): "BombSight",
     ("Sensor", "EO"): "EoSensor", ("Sensor", "Litening"): "PodSensor",
     ("Sensor", "Yal1BeamDirector"): "BeamDirectorSensor", ("Sensor", "Irst"): "InfraredSearchSet",
-    ("Sensor", "1RS1"): "SearchRadar1Rs1",
+    ("Sensor", "1RS1"): "SearchRadar1Rs1", ("Sensor", "ZUNISIGHT"): "RocketSight",
     ("Launcher", "KSArmory_Prefab_Launcher6"): "PantsirS1",
     ("Launcher", "KSArmory_Prefab_MirvBus"): "MirvBus",
     ("Launcher", "KSArmory_Prefab_SidewinderRail"): "SidewinderRail",
@@ -1517,6 +1523,8 @@ _CSHARP_NAME = {
     ("Launcher", "KSArmory_Prefab_Lau128"): "Lau128",
     ("Launcher", "KSArmory_Prefab_Lau118"): "Lau118",
     ("Launcher", "KSArmory_Prefab_NukeRack"): "NukeRack",
+    ("Launcher", "KSArmory_Prefab_Lau10"): "Lau10",
+    ("Launcher", "KSArmory_Prefab_ZuniPod6"): "ZuniPod6",
     ("Launcher", "KSArmory_Prefab_Ciws"): "Ciws",
     ("Launcher", "KSArmory_Prefab_Mk42"): "Mk42",
     ("Launcher", "KSArmory_Prefab_M197"): "M197",

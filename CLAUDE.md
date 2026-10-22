@@ -12,7 +12,8 @@ is the one that cannot engage an aircraft at all and whose target has a say in w
 minute to the Phalanx's four and a half thousand, and shells that burst on a time fuze rather than
 having to hit — an **M197 chin turret**, a three-barrel 20 mm cannon that hangs under a nose and
 traverses ±110° — and a **B61 rack**, which is the one that neither aims nor fires: it lets a bomb go
-and the ground does the rest. The **ALE-47 dispensers**, one of flares and one of chaff, shoot nothing:
+and the ground does the rest — and two **Zuni pods**, a LAU-10 of four and a pod of six, which are that rack's
+release with a motor behind it: unguided rockets, fired without a lock and flown on their own burn. The **ALE-47 dispensers**, one of flares and one of chaff, shoot nothing:
 they throw decoys that take a missile's seeker away from the craft carrying them. The **IRST** finds what the sights look at: a
 passive heat sensor whose head turns behind a faceted window, feeding one picture per craft. Three sights come with them, and they are the
 same instrument on different mechanisms: an **EO director** on a mast, a **Rafael LITENING
@@ -368,7 +369,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/IProjectile.cs` | **what everything in the air must be** — a weapon kind is an implementation, not a profile field |
 | `Sim/RoundDriver.cs` | **the one place a round is advanced by one frame** — the game and the rig both come through it, so neither can differ about which fields a round re-reads within a frame |
 | `Sim/Interceptor.cs` | guided round: proportional navigation, boost, fuse, and the ground it stops on |
-| `Sim/Slug.cs` | unguided kinetic round: ballistics and a contact fuse |
+| `Sim/Slug.cs` | unguided round — shell, bomb or rocket: ballistics, a contact fuse, and a motor pushing along the velocity it gained when the munition declares a boost |
 | `Sim/TailKit.cs` | steering a falling store onto a place on the ground — **the landing it predicts, moved onto the designation**, because a store thrown from a climb flies away from where it lands and a line-of-sight law turns the wrong way |
 | `Sim/TailKitReach.cs` | how far a store already falling can still move its landing — **flown, because `½·a·t²` is not a bound**: a lateral push does not accumulate against drag, it settles where fin authority and lateral drag balance, so the share of `a·t²` delivered runs 0.46 at a 21 s fall and 0.18 at 95 s and a constant fitted at two kilometres promises three times the truth from twenty. **It decides what a falling store may be sent to**, so it has to stay a floor |
 | `Sim/BlastSweep.cs` | how near a burst a body was, and what that does to it — shared by the sweep over craft and the one over rounds |
@@ -730,6 +731,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `src/KSArmory/KSArmory/Pantsir.xml` | **this mod's own weapons, as data** — the Pantsir and its roof director; read by the pack reader through `CoreDefinitions`, not by KSA |
 | `src/KSArmory/KSArmory/Weapons.xml` | **empty on purpose** — where the Pantsir used to be, so an install unzipped over an older one does not keep the old file and register it twice |
 | `src/KSArmory/KSArmory/Rails.xml` | the LAU-7, LAU-128 and LAU-118 rails, each with its pylon and without, their rounds and their seekers, the same way |
+| `src/KSArmory/KSArmory/Rockets.xml` | the LAU-10 and the six-round pod, their Zuni and their sight |
 | `src/KSArmory/KSArmory/Guns.xml` | the Phalanx, the 5"/54 Mk 42 and the M197, their two rounds and their three sets |
 | `src/KSArmory/KSArmory/Sensors.xml` | the EO director, the LITENING pod and the IRST, with their three sensors |
 | `src/KSArmory/KSArmory/Countermeasures.xml` | the two AN/ALE-47 dispensers and the flares and chaff they throw |
@@ -817,6 +819,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/bare-rails.py` | the three rails cut off their pylons, out of the meshes that carry them — **derived, never edited**: rerun after either source changes, and `validate-parts.py` fails until it is |
 | `tools/model/mk42-textures.py` | composes the Mk 42's KSA maps, mount and shell, from the set its author paints — **rerun it on every version he sends**, because the unwraps are his and nothing else has to move |
 | `tools/model/m197-textures.py` | the same for the M197, from his `M197_*` set |
+| `tools/model/zuni-textures.py` | the same for the Zuni and both pods, one set on one unwrap, from his `5InchRocketCamo_*` |
 | `tools/model/preview-glb.py` | renders any `.glb` from a few angles, so an authored asset can be judged before it is declared |
 | `tools/model/preview.sh` | runs that from WSL, which is the only comfortable way: Blender is a Windows binary and wants Windows paths for the script *and* for everywhere it writes |
 | `tools/model/checkmesh.py` | finds unpaired node/mesh names, zero-UV-area triangles and coplanar faces in a `.glb`; takes several at once, and `--compare` diffs two atlases by geometry *and* node transform |

@@ -30,7 +30,7 @@ What that machinery gives any system built on it:
 
 ## What ships with it
 
-KSArmory adds nine weapons, three sights, an infrared search sensor and two decoy dispensers.
+KSArmory adds eleven weapons, three sights, an infrared search sensor and two decoy dispensers.
 
 **Pantsir-S1 Point Defence System.** A Russian short-range air-defence vehicle on an 8×8 truck chassis. It carries twelve 57E6 missiles in two pods of six, two twin-barrel 2A38M 30 mm cannon, a spinning 1RS1 search radar and a 1TPP1 electro-optical director on the turret roof that you can look through. The missiles reach from 1.2 km to 20 km. They are command-guided: the vehicle tracks the target and steers each missile, so a missile is lost if the vehicle loses the track. The cannon cover 200 m to 4 km. The pods refill 12 seconds after the last missile leaves, and the cannon 20 seconds after they run dry. The Pantsir stacks on a 3 m node and has its own command module, so a craft made of nothing but the Pantsir can be built and launched.
 
@@ -41,6 +41,10 @@ KSArmory adds nine weapons, three sights, an infrared search sensor and two deco
 **LAU-118 HARM rail.** A single launch rail carrying one AGM-88 HARM, an anti-radiation missile. It homes on radar transmissions, so it can only engage a target whose radar is switched on. It cannot be used against aircraft. If the target radar goes quiet before launch, there is nothing to lock. A missile already in the air flies on to where the signal was last heard. A boost motor and a sustainer keep it fast over its full range of 1.2 km to 148 km. It attaches to any surface and is aimed by pointing the craft. It also comes without its pylon, to hang under the weapons pylon.
 
 **Weapons pylon.** A 14-inch suspension rail that attaches to any surface. The pylon-free LAU-7, LAU-128 and LAU-118 rails hang under it. It fires nothing itself.
+
+**LAU-10 Zuni pod.** A pod of four Zuni 5-inch unguided rockets. It attaches to any surface and is aimed by pointing the craft. Each press of the trigger fires one rocket, with no lock needed. The motor burns for about a second and takes the rocket past Mach 2, and it bursts on whatever it hits. A sight draws where a rocket fired now would land. Effective out to about 8 km. The pod does not reload on its own. Pod, rocket and textures by **Mallikas**.
+
+**Zuni six-round pod.** The same rockets in a larger pod of six. It is not a real launcher. Model and textures by **Mallikas**.
 
 **Mk 15 Phalanx CIWS.** An American close-in weapon system: a six-barrel 20 mm rotary cannon with its own search and track radar. It stacks on a 3 m node. It holds 1,550 rounds, fires 4,500 a minute, and is effective to 1,486 m. The barrels elevate from -25° to +85°, and the radome moves with them so the radar stays lined up with the guns.
 
@@ -70,7 +74,7 @@ To add a weapon of your own, see [Adding a weapon system](#adding-a-weapon-syste
 
 You can also add weapons without changing this mod. A *weapon pack* is an ordinary KSA mod with a `KSArmory/` folder of definition files and no code. KSArmory reads that folder in every installed mod. `KSArmory-example-mod` (installed as `KSArmoryExamplePack`) is a complete example: it contains a Mk 82 bomb rack and a working copy of every weapon in KSArmory. `docs/WEAPON-PACKS.md` is the reference.
 
-KSArmory's own weapons are defined the same way, one file per family in its `KSArmory/` folder: `Pantsir.xml`, `Rails.xml`, `Guns.xml`, `Sensors.xml`, `Countermeasures.xml`, `DirectedEnergy.xml` and `Strategic.xml`. If you edited the old `Weapons.xml`, move your changes to the family file that now holds that weapon. You can switch any family off under **KSArmory > Built-in weapons**. The change takes effect the next time the game starts. A switched-off family's parts disappear from the editor but still load on saved craft as plain structure. Its rounds and sensors stay available to packs, and a pack can then define its own weapon on that family's part.
+KSArmory's own weapons are defined the same way, one file per family in its `KSArmory/` folder: `Pantsir.xml`, `Rails.xml`, `Rockets.xml`, `Guns.xml`, `Sensors.xml`, `Countermeasures.xml`, `DirectedEnergy.xml` and `Strategic.xml`. If you edited the old `Weapons.xml`, move your changes to the family file that now holds that weapon. You can switch any family off under **KSArmory > Built-in weapons**. The change takes effect the next time the game starts. A switched-off family's parts disappear from the editor but still load on saved craft as plain structure. Its rounds and sensors stay available to packs, and a pack can then define its own weapon on that family's part.
 
 > Built against KSA build `2026.10.19.5638`. KSA is pre-release and has no official code-modding
 > API. This mod uses the community [StarMap](https://github.com/StarMapLoader/StarMap) loader and

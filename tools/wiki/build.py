@@ -45,6 +45,7 @@ BRANCH = "main"
 FAMILIES = {
     "Pantsir": "Air defence",
     "Rails": "Missile rails",
+    "Rockets": "Rocket pods",
     "Guns": "Guns",
     "Sensors": "Sights and sensors",
     "Countermeasures": "Countermeasures",

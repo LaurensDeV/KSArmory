@@ -186,7 +186,7 @@ How a round flies and what it does when it arrives. **Required:** `Name`, `Displ
 | `BodyModel` | none | For a gun round: the Id of a `<SubPart>` template to draw for each shell in the air. It does not need a subpart on the launcher, so any number of shells can be shown. |
 | `FinMarker` | none | Subpart holding one fin blade. |
 | `FinsPerRound` | `0` | Number of fin blades. `0` uses the older single-set scheme. |
-| `FinDeploySeconds` | `0.18` | Time for the fins to unfold after release. |
+| `FinDeploySeconds` | `0.18` | Time for the fins to unfold after release; until then they are folded in the tube. |
 | `FinDeflectionDeg` | `0` | How far the fins visibly swing when steering. |
 | `FinHingeStation` | `0` | Where along the body the fins hinge. |
 | `FinStowedScale` | `0.06` | Scale of a folded fin. |
@@ -201,8 +201,8 @@ How a round flies and what it does when it arrives. **Required:** `Name`, `Displ
 | --- | --- | --- |
 | `LaunchSpeed` | `45` | Speed added at release, m/s. A rail adds very little. |
 | `SeparationSeconds` | `0` | Coast time before the motor lights. |
-| `BoostSeconds` | `2.4` | Motor burn time (first stage). |
-| `BoostAccel` | `520` | Acceleration while the motor burns, m/s². |
+| `BoostSeconds` | `2.4`, or `0` for `Guidance="None"` and `"Inertial"` | Motor burn time (first stage). On an unguided round it makes a rocket: fired without a lock and pushed along its tube, and the launcher's sight flies the burn. The Zuni in `Rockets.xml` is one. |
+| `BoostAccel` | `520`, or `0` for `Guidance="None"` and `"Inertial"` | Acceleration while the motor burns, m/s². |
 | `MaxFlightSeconds` | `30` | The round self-destructs after this. For a round with `HitsTerrain`, only time on a path that might not land is counted, so a long fall is never cut short. |
 | `MinRange`, `MaxRange` | `0`, `20000` | Engagement range in metres. Automatic fire stays inside it. |
 | `MassKg`, `CalibreMm`, `DragCoefficient` | none | Drag worked out from mass in flight (kg), diameter (mm) and a shape coefficient (about `0.3` for a supersonic shell). Give all three or none. |
