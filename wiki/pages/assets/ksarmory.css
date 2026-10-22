@@ -116,12 +116,13 @@ body { font-family: "IBM Plex Sans", system-ui, sans-serif; }
 /* The home page's opening: the primary lockup, then the patch beside it. */
 .ks-hero {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 2rem;
   align-items: center;
   margin: 1.5rem 0 2.5rem;
 }
-.ks-lockup { display: flex; align-items: center; gap: 1.6rem; }
+.ks-lockup { display: flex; align-items: center; gap: 1.6rem; min-width: 0; }
+.ks-lockup > div { min-width: 0; }
 .ks-lockup img { width: 7.5rem; height: 7.5rem; flex: none; }
 [data-md-color-scheme="slate"] .ks-mark--light, [data-md-color-scheme="default"] .ks-mark--dark { display: none; }
 .ks-wordmark {
@@ -157,10 +158,13 @@ body { font-family: "IBM Plex Sans", system-ui, sans-serif; }
 }
 .md-typeset .ks-button:hover, .md-typeset .ks-button--primary { background: var(--ks-accent); color: #171717; }
 @media (max-width: 60em) {
-  .ks-hero { grid-template-columns: 1fr; }
+  .ks-hero { grid-template-columns: minmax(0, 1fr); }
   .ks-patch { display: none; }
-  .ks-wordmark { font-size: 3rem; }
-  .ks-lockup img { width: 4.5rem; height: 4.5rem; }
+  /* Sized by the screen, so the lockup never sets the page's width on a phone. */
+  .ks-wordmark { font-size: clamp(2rem, 11vw, 3rem); }
+  .ks-lockup { gap: 1rem; }
+  .ks-lockup img { width: clamp(3rem, 15vw, 4.5rem); height: auto; }
+  .ks-tagline { letter-spacing: .14em; }
 }
 
 /* Every weapon at once. */
