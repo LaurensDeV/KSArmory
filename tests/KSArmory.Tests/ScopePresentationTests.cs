@@ -76,7 +76,7 @@ public class ScopePresentationTests
     [Fact]
     public void ASeekerHeadNeverPresentsASearchPicture()
     {
-        foreach (LauncherProfile launcher in Arsenal.Launchers)
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
             SensorProfile sensor = Catalogue.SensorNamed(launcher.Sensor);
             if (sensor.BoresightSource != BoresightMode.PartForward) continue;

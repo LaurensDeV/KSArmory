@@ -35,7 +35,7 @@ internal static class DeorbitShot
 
     public static BallisticBody Earth => new(Mu, R, new double3(0, 0, 1), EarthSpin);
 
-    public static MunitionProfile Warhead => Arsenal.ReentryVehicleMk21;
+    public static MunitionProfile Warhead => BuiltIns.ReentryVehicleMk21;
 
     public static double DensityAt(double3 pointCci)
         => Math.Exp(-Math.Max(0.0, Vec.Len(pointCci) - R) / ScaleHeight);

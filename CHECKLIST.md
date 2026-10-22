@@ -104,8 +104,8 @@ Four things changed shape and need watching, worst first:
 1. **The camera and the sight.** `MainViewportIndex`, `CollectUsableViewports`,
    `TryProjectIntoViewport`, `ViewportFovRad`, `TryLookFromViewport` and both cursor-ray paths now
    index `ViewportRegistry.GameViews` instead of `Program.Viewports`. Viewport *numbers* therefore
-   mean a position in a different list, and a persisted `OpticConfig.Viewport` could select a
-   different window than it did. Watch: the sight centres its target at 16x, the chase camera, and
+   mean a position in a different list. `OpticConfig` is not saved at all (flown 2026-10-21), so no
+   stored viewport number can select a different window than it did. Watch: the sight centres its target at 16x, the chase camera, and
    the secondary-viewport picker naming the windows that actually exist.
 2. **The levelled horizon is installed by reflection now.** `IGameViewport.FixedController` is
    get-only, so `KsaWorld.LevelTheHorizon` writes `GameViewport`'s backing field. It verifies the
@@ -453,7 +453,7 @@ cannot build it — the scripts put the right SDK on PATH for you.
 - [x] **0.4** `./tools/validate-parts.py` — ends "OK: N asset reference(s) resolve" with no
       errors above it.
 - [ ] **0.5** `./tools/deploy.sh` — prints an install path containing `KSArmory.dll`,
-      `mod.toml`, **the `KSArmory*.xml` files at the root**, `KSArmory/Weapons.xml`, and the
+      `mod.toml`, **the `KSArmory*.xml` files at the root**, the `KSArmory/*.xml` files, and the
       `Meshes/`, `Textures/` and `Sounds/` folders. An `Assets/` folder left by a previous layout
       must have been deleted by the script — two copies of the part would fight over one Id.
 - [ ] **0.6** Re-run `./tools/deploy.sh` — it must say it **registered the mod in
@@ -3063,6 +3063,40 @@ played through by the owner on 2026-09-29.
       seen as faint smudges beside KSA's white explosion smoke; it was then made larger (12 m,
       growing to 36 m) and that has not been looked at.
 - [x] No puff from a shell bursting on the ground, and none on the Moon.
+
+## 16. Built-in weapon families as data, and switching one off
+
+Every built-in now registers from `src/KSArmory/KSArmory/<Family>.xml` (`docs/BUILTINS-AS-DATA.md`).
+
+- [x] **16.1** Each family flew after its move: rails (`head-on`), guns (`gunnery` on the Mk 42, CIWS and
+      M197), sensors and countermeasures and the YAL-1 through the bridge, strategic (`drop`, `mirv`).
+- [ ] **16.2** Untick **Guns** under KSArmory > Built-in weapons, restart, and load `CIWS`: the craft is
+      there with its Phalanx as plain structure, the Phalanx is gone from the editor's list, and the log
+      says "family Guns switched off".
+      *Flown 2026-10-21 with Guns off in `builtins.json` rather than the menu, on `5inch_gun`: the log
+      said it, hid 3 parts, the save loaded with all six vehicles and crewed nothing, no exceptions. The
+      menu and the editor list not yet seen.*
+- [ ] **16.3** With Guns off, a craft carrying a Phalanx and a B61 rack: the rack keeps the settings it
+      had (its arm switch, its team), not the Phalanx's.
+- [ ] **16.4** Tick it back, restart: the Phalanx is a weapon again and both keep their settings.
+      *Flown 2026-10-21: switched back on, Guns registered 8 and `gunnery` passed, 4 of 4 drones. The
+      settings half not yet checked.*
+- [x] **16.6** With Guns off, a pack defining `KSArmory_Prefab_Ciws` again owns the part: flown
+      2026-10-21 with a 99-round belt on `CIWS`, `gunnery:2,head-on` PASS, 99 shells, 2 of 2 drones, and the
+      Phalanx left in the editor (2 parts hidden, not 3). With Guns on, the pack is refused and told which
+      family to switch off (`ArmouryTests`).
+- [x] **16.5** `KSARMORY_NO_BUILTINS=1`: the log says none registered, and every KSArmory part loads as
+      structure. *Flown 2026-10-21 on `5inch_gun` (through `WSLENV`): "none registered", the example mod's
+      Mk 82 the only weapon, the save loaded and crewed nothing, no exceptions.*
+- [x] **16.7** Every weapon flies as a pack. The example mod's copy (`tools/export-example-copy.py`, every Id
+      renamed to `ExampleCopy_`) with every family off, on saves turned onto its parts by `tools/copy-save.py`,
+      flown 2026-10-21: `gunnery` on `5inch_gun (copy)` 4 of 4 drones; `gunnery:2,head-on` on `CIWS (copy)` PASS;
+      `head-on` on `rocket missile (copy)` 15 m from the drone; `drop` on `B61-13 (copy)` 0 m from the ring;
+      `mirv` on `TEST PBB GeoSat FAT (copy)` 7 of 7 within a millimetre. No exceptions. Found and fixed on the
+      way: a pack's files were read one at a time (`Sim/PackFiles.cs`).
+- [ ] **16.8** The copy's sights, IRST, dispensers and YAL-1 in flight. *All off* and *All on* were clicked
+      in game on 2026-10-21: the 22:02 session started with every family off and no weapons, and the switch
+      file was then left at `"Disabled": []` in the menu's own format.
 
 ## Reporting back
 

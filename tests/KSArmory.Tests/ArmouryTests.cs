@@ -56,6 +56,45 @@ public class ArmouryTests
                         c => c.PartId == "BravoPack_Prefab_Rail" && c.Role == WeaponRole.Launcher);
     }
 
+    // A craft carrying nothing but a director is an observation post, and the switcher lists only
+    // parts with a row.
+    [Fact]
+    public void AStandaloneDirectorAndSearchSetAreRecognisedComponents()
+    {
+        PackResult result = Armoury.Register(
+            """
+            <WeaponPack Schema="1">
+              <Sensor Name="Eye" DisplayName="Eye" CuedOnly="true" />
+              <Optic PartId="LookoutPack_Prefab_Mast" DisplayName="Mast" Sensor="Eye"
+                     BaseMarker="Base" HeadMarker="Head" HeadPivot="0.6, 0, 0" />
+              <SearchSet PartId="LookoutPack_Prefab_Irst" DisplayName="IRST" Sensor="Eye" />
+            </WeaponPack>
+            """, "LookoutPack");
+
+        Assert.True(result.Complete, string.Join("; ", result.Faults));
+        Assert.Contains(Catalogue.Components, c => c.PartId == "LookoutPack_Prefab_Mast" && c.Role == WeaponRole.Camera);
+        Assert.Contains(Catalogue.Components, c => c.PartId == "LookoutPack_Prefab_Irst" && c.Role == WeaponRole.Sensor);
+        Assert.NotNull(Catalogue.SearchSetForPart("LookoutPack_Prefab_Irst"));
+    }
+
+    [Fact]
+    public void ARegisteredDispenserIsFoundByPartIdAndThrowsItsOwnDecoy()
+    {
+        PackResult result = Armoury.Register(
+            """
+            <WeaponPack Schema="1">
+              <Decoy Name="Glint" DisplayName="Glint" Kind="Chaff" PeakSignature="300" />
+              <Dispenser PartId="ChaffPack_Prefab_Pod" DisplayName="Chaff pod" Decoy="Glint" />
+            </WeaponPack>
+            """, "ChaffPack");
+
+        Assert.True(result.Complete, string.Join("; ", result.Faults));
+        DispenserProfile? pod = Catalogue.DispenserForPart("ChaffPack_Prefab_Pod");
+        Assert.NotNull(pod);
+        Assert.Equal(300f, Catalogue.DecoyNamed(pod.Decoy).PeakSignature);
+        Assert.Contains(Catalogue.Components, c => c.PartId == "ChaffPack_Prefab_Pod" && c.Role == WeaponRole.Countermeasures);
+    }
+
     [Fact]
     public void APartIdSomethingElseAlreadyClaimsIsRefused()
     {
@@ -72,7 +111,7 @@ public class ArmouryTests
 
         PackResult result = Armoury.Register(stealing, "ThiefPack");
 
-        Assert.Contains(result.Faults, f => f.Reason.Contains("already registered"));
+        Assert.Contains(result.Faults, f => f.Reason.Contains("built-in family Pantsir"));
         Assert.Same(BuiltIns.PantsirS1, Catalogue.LauncherForPart(BuiltIns.PantsirS1.PartId));
     }
 

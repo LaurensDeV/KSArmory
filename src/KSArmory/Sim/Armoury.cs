@@ -3,7 +3,7 @@ namespace KSArmory;
 /// <summary>
 /// What a mod depending on KSArmory calls to add its weapons.
 ///
-/// <para><b>This is the whole code surface</b>, and it is deliberately three members wide. It is
+/// <para><b>This is the whole code surface</b>, and it is deliberately four members wide. It is
 /// for the pack that ships an assembly: a pack with no code needs none of it, because
 /// <c>InstalledPacks</c> reads a <c>KSArmory/</c> folder in every installed mod and registers what
 /// it finds through the same <see cref="Register"/>. A pack with code is an ordinary StarMap mod
@@ -36,5 +36,15 @@ public static class Armoury
     /// and it is what keeps two packs' identically named rounds apart.</param>
     public static PackResult Register(string definitions, string source)
         => Catalogue.Register(
-            PackReader.Read(definitions, source, Catalogue.Munitions, Catalogue.Sensors));
+            PackReader.Read(definitions, source, Catalogue.Munitions, Catalogue.Sensors, Catalogue.Decoys));
+
+    /// <summary>
+    /// Several definition texts read as one unit, as a pack's folder is: a launcher may name a round
+    /// or a sensor declared in another of them, whatever order they come in. One result per text.
+    /// </summary>
+    /// <param name="definitions">Each text, under a name the log can report it by, such as its file name.</param>
+    /// <param name="source">What the pack calls itself: its mod Id, so the folder scan knows it has registered.</param>
+    public static IReadOnlyList<PackResult> Register(IEnumerable<(string Name, string Definitions)> definitions,
+                                                     string source)
+        => [.. PackFiles.Register(definitions, source).Select(r => r.Result)];
 }

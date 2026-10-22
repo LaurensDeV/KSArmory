@@ -27,8 +27,8 @@ public class ProbeCrossingFloorTests(ITestOutputHelper Out)
 
     private static double DensityAt(double3 p) => Math.Exp(-Math.Max(0.0, Vec.Len(p) - R) / 8_000.0);
 
-    private static MunitionProfile Constant => Arsenal.ReentryVehicleMk21;
-    private static MunitionProfile Shape => Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21);
+    private static MunitionProfile Constant => RetiredRounds.Mk21Constant;
+    private static MunitionProfile Shape => BuiltIns.ReentryVehicleMk21.Copy();
 
     /// <summary>
     /// <see cref="WalkFloorTests"/>' surface: seven octaves from 600 m down to 9 m, read at a
@@ -304,7 +304,7 @@ public class ProbeCrossingFloorTests(ITestOutputHelper Out)
         {
             foreach (double ms in new[] { 1.0, 0.25 })
             {
-                MunitionProfile warhead = Arsenal.RoundAtSubStep(Constant, ms / 1000.0);
+                MunitionProfile warhead = (Constant).AtSubStep(ms / 1000.0);
                 Say($"constant at {ms:F2} ms, {slope:F3}, as it ships",
                     Sample(11, N, warhead, slope, true, 0.2, 1_500_000.0, false));
                 Say($"constant at {ms:F2} ms, {slope:F3}, probe on the terrain",
@@ -330,7 +330,7 @@ public class ProbeCrossingFloorTests(ITestOutputHelper Out)
     [Fact]
     public void TheShippedFlagPutsTheCrossingOnTheGroundAndLeavesLevelGroundAlone()
     {
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21.Copy();
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21.Copy();
 
         Out.WriteLine("the predicted crossing's own height over the ground under it, mm\n");
         Out.WriteLine("slope      off        on      ceiling");

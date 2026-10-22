@@ -12,7 +12,7 @@ public class UnarmedStrikeTests
 {
     private const double Frame = 1.0 / 60.0;
 
-    private static MunitionProfile Shell => Arsenal.Shell5In54;
+    private static MunitionProfile Shell => BuiltIns.Shell5In54;
 
     private static Slug Fire(TargetState body)
     {

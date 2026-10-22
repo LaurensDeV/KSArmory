@@ -357,15 +357,16 @@ public class ArrivalFloorTests(ITestOutputHelper Out)
     /// lives in <c>ImpactPredictor</c>, and flying one per candidate flight time would put a
     /// trajectory integration inside a golden section.
     ///
-    /// <para>What that costs is measured here. Over 10 to 30 degrees the arc and the flown arrival
-    /// agree to within half a degree, and drag only bends the answer where the arrival is already a
-    /// graze — a 3.6 degree arc arrives at 7.1, per <c>docs/ARRIVAL-ANGLE.md</c>. So the floor is
-    /// conservative at the shallow end and optimistic at the steep, by less than the resolution
-    /// anyone would set it to.</para>
+    /// <para>What that costs is measured here. Over 10 to 30 degrees the flown arrival is within
+    /// 2.2 degrees of the arc: steeper below about 13 degrees, where the air bends a graze up, and
+    /// shallower above, where it bleeds the speed that held the arc steep. So a floor set at 30
+    /// lands nearer 28 (<c>docs/ARRIVAL-ANGLE.md</c>).</para>
     /// </summary>
     [Fact]
-    public void TheArcAndWhatLandsAgreeToWithinHalfADegree()
+    public void TheArcAndWhatLandsDifferByUnderTwoAndAHalfDegreesTheAirsWay()
     {
+        Dictionary<double, double> gap = [];
+
         Out.WriteLine("floor | arc arrives | flown arrives | downrange");
 
         foreach (double floor in new[] { 10.0, 12.0, 15.0, 20.0, 30.0 })
@@ -386,9 +387,13 @@ public class ArrivalFloorTests(ITestOutputHelper Out)
             Out.WriteLine($"  {floor,5:F0} | {s.ArrivalAngleDeg,11:F2} | {flown,13:F2} | "
                           + $"{R * Vec.AngleBetween(Platform, hit.PointCci) / 1000,6:F0} km");
 
-            Assert.True(Math.Abs(flown - s.ArrivalAngleDeg) < 0.5,
-                        $"a {floor:F0} deg arc landed at {flown:F2} deg");
+            gap[floor] = flown - s.ArrivalAngleDeg;
+            Assert.True(Math.Abs(gap[floor]) < 2.5, $"a {floor:F0} deg arc landed at {flown:F2} deg");
         }
+
+        // With no drag reaching the flight, every gap would be nought.
+        Assert.True(gap[10.0] > 0.5, $"a 10 deg arc landed only {gap[10.0]:F2} deg steeper");
+        Assert.True(gap[30.0] < -0.5, $"a 30 deg arc landed only {-gap[30.0]:F2} deg shallower");
     }
 
     /// <summary>

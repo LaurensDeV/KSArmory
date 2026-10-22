@@ -74,7 +74,7 @@ public class WaterlineDragProbe(ITestOutputHelper Out)
 
     private static Landing Fly(Func<double3, double> medium, double groundMetres)
     {
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
         List<string> said = [];
         int wet = 0;
 

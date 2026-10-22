@@ -490,7 +490,7 @@ internal sealed class WeaponSystems(Config config)
                 // Whatever this weapon was last set to. Applied before the system exists so its
                 // first frame runs on the restored settings rather than on defaults it then
                 // overwrites.
-                if (SettingsStore.For(SettingsKey(craft, ordinal)) is { } stored)
+                if (SettingsStore.For(SettingsKey(craft, ordinal, _launcherScratch[ordinal].Part)) is { } stored)
                 {
                     stored.ApplyTo(policy);
 
@@ -801,7 +801,7 @@ internal sealed class WeaponSystems(Config config)
 
         Log.Info($"{KsaWorld.DisplayName(key.Craft)} launcher {key.Ordinal + 1} followed its "
                  + $"launcher onto {KsaWorld.DisplayName(to)} launcher {ordinal + 1} "
-                 + $"({why}); settings now filed under \"{SettingsKey(to, filed)}\"");
+                 + $"({why}); settings now filed under \"{SettingsKey(to, filed, entry.Weapon.HeldPart)}\"");
 
         return true;
     }
@@ -812,8 +812,13 @@ internal sealed class WeaponSystems(Config config)
     // several still restores. Anything beyond it is suffixed, because two racks on one craft
     // sharing one entry would share an arm switch -- and arming one to drop a bomb would arm the
     // other.
-    private static string SettingsKey(Vehicle craft, int ordinal)
-        => ordinal == 0 ? KsaWorld.DisplayName(craft) : $"{KsaWorld.DisplayName(craft)}#{ordinal + 1}";
+    //
+    // Moved past a switched-off family's launchers, so the weapons after one keep their own settings.
+    private static string SettingsKey(Vehicle craft, int ordinal, Part? part)
+    {
+        int filed = part is null ? ordinal : LauncherPart.FiledOrdinal(craft, part, ordinal);
+        return filed == 0 ? KsaWorld.DisplayName(craft) : $"{KsaWorld.DisplayName(craft)}#{filed + 1}";
+    }
 
     /// <summary>
     /// The system to show when nothing has been chosen — the one being flown if it carries a weapon,
@@ -886,7 +891,7 @@ internal sealed class WeaponSystems(Config config)
         foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
         {
             if (!KsaWorld.IsAlive(kv.Key.Craft)) continue;
-            changed |= SettingsStore.Remember(SettingsKey(kv.Key.Craft, kv.Key.Ordinal),
+            changed |= SettingsStore.Remember(SettingsKey(kv.Key.Craft, kv.Key.Ordinal, kv.Value.Weapon.HeldPart),
                                               kv.Value.Policy);
         }
 
@@ -902,7 +907,7 @@ internal sealed class WeaponSystems(Config config)
         foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
         {
             if (!KsaWorld.IsAlive(kv.Key.Craft)) continue;
-            if (SettingsStore.For(SettingsKey(kv.Key.Craft, kv.Key.Ordinal)) is not { } stored) continue;
+            if (SettingsStore.For(SettingsKey(kv.Key.Craft, kv.Key.Ordinal, kv.Value.Weapon.HeldPart)) is not { } stored) continue;
 
             stored.ApplyTo(kv.Value.Policy);
             applied++;
@@ -921,7 +926,7 @@ internal sealed class WeaponSystems(Config config)
         foreach (KeyValuePair<(Vehicle Craft, int Ordinal), Entry> kv in _entries)
         {
             if (!KsaWorld.IsAlive(kv.Key.Craft)) continue;
-            changed |= SettingsStore.Remember(SettingsKey(kv.Key.Craft, kv.Key.Ordinal),
+            changed |= SettingsStore.Remember(SettingsKey(kv.Key.Craft, kv.Key.Ordinal, kv.Value.Weapon.HeldPart),
                                               kv.Value.Policy);
         }
 

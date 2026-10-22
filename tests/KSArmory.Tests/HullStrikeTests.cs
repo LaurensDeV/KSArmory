@@ -13,7 +13,7 @@ namespace KSArmory.Tests;
 public class HullStrikeTests
 {
     private const double Dt = 1.0 / 60.0;
-    private static readonly MunitionProfile Shell = Arsenal.Cannon20Mm;
+    private static readonly MunitionProfile Shell = BuiltIns.Cannon20Mm;
 
     /// <summary>A hull test the test drives, which also records everything it was asked.</summary>
     private sealed class Hull : IHullTest

@@ -11,9 +11,6 @@ namespace KSArmory;
 /// </summary>
 public static class WarheadExplosion
 {
-    /// <summary>A kilogram of TNT, in joules — what <see cref="MunitionProfile.ChargeKg"/> is measured in.</summary>
-    public const double JoulesPerKg = 4.184e6;
-
     /// <summary>KSA's <c>ExplosionSystem.ReferenceExplosionEnergyJ</c>: the energy a preset is authored at.</summary>
     public const double KsaReferenceJoules = 5.0e10;
 
@@ -71,5 +68,5 @@ public static class WarheadExplosion
 
     /// <summary>The energy KSA is handed for a charge, in joules.</summary>
     public static float Joules(double chargeKg)
-        => double.IsFinite(chargeKg) && chargeKg > 0.0 ? (float)(chargeKg * JoulesPerKg) : 0f;
+        => double.IsFinite(chargeKg) && chargeKg > 0.0 ? (float)(chargeKg * Charge.JoulesPerKg) : 0f;
 }

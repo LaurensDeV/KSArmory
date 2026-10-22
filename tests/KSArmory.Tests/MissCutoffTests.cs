@@ -59,7 +59,7 @@ public class MissCutoffTests
         IcbmFlightRig rig = GameStackShortRangeTests.GameStack(true);
         rig.AttitudeHasInertia = true;
         rig.StepJitter = 0.5;
-        rig.Warhead = Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21);
+        rig.Warhead = BuiltIns.ReentryVehicleMk21.Copy();
         IcbmConfig config = FloorHoldTests.Config(0.5, true, true);
         config.ShortShotCutsOffOnTheMiss = cutsOnTheMiss;
         IcbmProgram program = new(config);

@@ -49,6 +49,23 @@ public class PackReaderTests
     }
 
     [Fact]
+    public void ARoundAndALauncherNameTheirOwnEffectsAndNamingNoneLeavesKSArmorys()
+    {
+        PackContents pack = Read(Wrap(
+            """<Munition Name="Fancy" DisplayName="Fancy" BurstEffect="MyBurst" PlumeEffect="MyPlume" />"""
+            + ARound + ASet
+            + AChinGun.Replace("GunSoundId=", "MuzzleFlashEffect=\"MyFlash\" GunSoundId=")));
+
+        Assert.Empty(pack.Faults);
+        MunitionProfile fancy = pack.Munitions.Single(m => m.DisplayName == "Fancy");
+        Assert.Equal(("MyBurst", "MyPlume"), (fancy.BurstEffect, fancy.PlumeEffect));
+        Assert.Equal("MyFlash", Assert.Single(pack.Launchers).MuzzleFlashEffect);
+
+        MunitionProfile plain = pack.Munitions.Single(m => m.DisplayName == "Dart");
+        Assert.Equal((null, null), (plain.BurstEffect, plain.PlumeEffect));
+    }
+
+    [Fact]
     public void AWholePackComesThroughWithItsNumbers()
     {
         PackContents pack = Read(Wrap(ARound + ASet + ARail));
@@ -125,7 +142,317 @@ public class PackReaderTests
         Assert.Contains(component.Provides, p => p.Role == WeaponRole.Sensor && p.DisplayName == "Eye");
     }
 
+    [Fact]
+    public void AFireControlLabelNamesTheRowAndAbsentItFollowsTheDisplayName()
+    {
+        string labelled = ARail.Replace("<Launcher ", "<Launcher FireControlLabel=\"Rail fire control\" ");
+
+        ComponentProfile named = Assert.Single(Read(Wrap(ARound + ASet + labelled)).Components);
+        ComponentProfile plain = Assert.Single(Read(Wrap(ARound + ASet + ARail)).Components);
+
+        Assert.Equal("Rail fire control", Assert.Single(named.Provides, p => p.Role == WeaponRole.FireControl).DisplayName);
+        Assert.Equal($"{Read(Wrap(ARound + ASet + ARail)).Launchers[0].DisplayName} fire control",
+                     Assert.Single(plain.Provides, p => p.Role == WeaponRole.FireControl).DisplayName);
+    }
+
+    private const string AChinGun =
+        """
+        <Launcher PartId="TestPack_Prefab_Chin" DisplayName="Chin gun" Munition="Dart" Sensor="Eye"
+                  TurretMarker="Yoke" GunsMarker="Gun" GunPivotFromTurret="0.3, -0.1, 0"
+                  GunMunition="Dart" GunBarrelMarker="Barrel"
+                  GunCylinderMarker="Cyl" GunCylinderPinFromTurret="0.03, 0.37, 0"
+                  GunRodMarker="Rod" GunRodPinFromTurret="0.33, 0.37, 0"
+                  GunFeedMarker="Belt" GunFeedPivotFromTurret="0.06, -0.1, 0" GunFeedRatio="0.2"
+                  GunRotorMarker="Barrels" GunRotorPivotFromTurret="0.5, 0.7, 0"
+                  GunRotorSpinUpSeconds="0.3" GunRotorSpinDownSeconds="1.5"
+                  GunRecoilMetres="0.3" GunRecoilSeconds="0.1" GunReturnSeconds="0.5"
+                  TraverseLimitDeg="110" GunSoundId="Loop" GunshotSoundId="Bang">
+          <Muzzle At="0, 2.6, 0" />
+        </Launcher>
+        """;
+
+    [Fact]
+    public void AGunsArticulationAndSoundsAreReadAsDeclared()
+    {
+        PackContents pack = Read(Wrap(ARound + ASet + AChinGun));
+        Assert.Empty(pack.Faults);
+        LauncherProfile gun = Assert.Single(pack.Launchers);
+
+        Assert.Equal(("Barrel", "Cyl", "Rod", "Belt", "Barrels"),
+                     (gun.GunBarrelMarker, gun.GunCylinderMarker, gun.GunRodMarker, gun.GunFeedMarker, gun.GunRotorMarker));
+        Assert.Equal(0.37, gun.GunCylinderPinFromTurret.Y, 9);
+        Assert.Equal(0.33, gun.GunRodPinFromTurret.X, 9);
+        Assert.Equal(0.06, gun.GunFeedPivotFromTurret.X, 9);
+        Assert.Equal(0.2, gun.GunFeedRatio, 9);
+        Assert.Equal(0.7, gun.GunRotorPivotFromTurret.Y, 9);
+        Assert.Equal((0.3f, 1.5f), (gun.GunRotorSpinUpSeconds, gun.GunRotorSpinDownSeconds));
+        Assert.Equal((0.3f, 0.1f, 0.5f), (gun.GunRecoilMetres, gun.GunRecoilSeconds, gun.GunReturnSeconds));
+        Assert.Equal(110f, gun.TraverseLimitDeg);
+        Assert.Equal(("Loop", "Bang"), (gun.GunSoundId, gun.GunshotSoundId));
+    }
+
+    [Theory]
+    [InlineData("GunCylinderPinFromTurret")]
+    [InlineData("GunRodPinFromTurret")]
+    [InlineData("GunFeedPivotFromTurret")]
+    [InlineData("GunRotorPivotFromTurret")]
+    public void ALinkageMarkerWithNoPinIsRefused(string pin)
+    {
+        string unpinned = System.Text.RegularExpressions.Regex.Replace(AChinGun, $"{pin}=\"[^\"]*\"", "");
+
+        PackContents pack = Read(Wrap(ARound + ASet + unpinned));
+
+        Assert.Empty(pack.Launchers);
+        Assert.Contains(pack.Faults, f => f.Reason.Contains(pin));
+    }
+
+    [Fact]
+    public void ADirectorsAndAnInfraredSetsSensorFieldsAreRead()
+    {
+        PackContents pack = Read(Wrap(
+            """
+            <Sensor Name="Eye" DisplayName="Eye" CuedOnly="true" />
+            <Sensor Name="Heat" DisplayName="Heat" Infrared="true" IrThresholdWPerM2="1e-6" LookDownPenalty="10" />
+            """));
+
+        Assert.Empty(pack.Faults);
+        Assert.True(pack.Sensors[0].CuedOnly);
+        Assert.False(pack.Sensors[1].CuedOnly);
+        Assert.True(pack.Sensors[1].Infrared);
+        Assert.Equal((1e-6f, 10f), (pack.Sensors[1].IrThresholdWPerM2, pack.Sensors[1].LookDownPenalty));
+    }
+
+    private const string AMast =
+        """
+        <Optic PartId="TestPack_Prefab_Mast" DisplayName="Mast sight" Sensor="Eye"
+               BaseMarker="Base" HeadMarker="Head" HeadPivot="0.6, 0, 0" />
+        """;
+
+    [Fact]
+    public void ADirectorStandingAloneBringsItsOwnCameraRow()
+    {
+        PackContents pack = Read(Wrap(ASet + AMast));
+
+        ComponentProfile row = Assert.Single(pack.Components);
+        Assert.Equal(("TestPack_Prefab_Mast", WeaponRole.Camera, "Mast sight"), (row.PartId, row.Role, row.DisplayName));
+    }
+
+    // A director on a launcher's own part is that launcher's to declare, with <Provides>.
+    [Fact]
+    public void ADirectorOnALaunchersPartBringsNoSecondRow()
+    {
+        string onTheRail = AMast.Replace("TestPack_Prefab_Mast", "TestPack_Prefab_Rail");
+
+        PackContents pack = Read(Wrap(ARound + ASet + ARail + onTheRail));
+
+        Assert.Equal(WeaponRole.Launcher, Assert.Single(pack.Components).Role);
+    }
+
+    [Fact]
+    public void ASearchSetIsReadWithItsSensorRowNamedByPanelName()
+    {
+        PackContents pack = Read(Wrap(ASet +
+            """
+            <SearchSet PartId="TestPack_Prefab_Irst" DisplayName="IRST" Sensor="Eye"
+                       PanelName="Infrared search" HeadMarker="Head" HeadPivot="0.1, 0.2, 0"
+                       HeadTravelDeg="50" ScanPeriodSeconds="4" />
+            """));
+
+        Assert.Empty(pack.Faults);
+        SearchSetProfile set = Assert.Single(pack.SearchSets);
+        Assert.Equal(("Head", 50f, 4f), (set.HeadMarker, set.HeadTravelDeg, set.ScanPeriodSeconds));
+        Assert.Equal("TestPack:Eye", set.Sensor);
+
+        ComponentProfile row = Assert.Single(pack.Components);
+        Assert.Equal((WeaponRole.Sensor, "Infrared search"), (row.Role, row.DisplayName));
+    }
+
+    private const string AFlare =
+        """<Decoy Name="Spark" DisplayName="Spark" Kind="Flare" MassKg="0.4" PeakSignature="25" LifeSeconds="4.5" DragPerMetre="0.004" />""";
+
+    [Fact]
+    public void ADispenserTakesItsKindFromItsDecoyAndBringsACountermeasuresRow()
+    {
+        PackContents pack = Read(Wrap(AFlare +
+            """<Dispenser PartId="TestPack_Prefab_Pod" DisplayName="Flare pod" Decoy="Spark" Count="15" EjectSpeed="20" />"""));
+
+        Assert.Empty(pack.Faults);
+        DecoyProfile decoy = Assert.Single(pack.Decoys);
+        Assert.Equal(("TestPack:Spark", DecoyKind.Flare, 25f, 4.5f), (decoy.Name, decoy.Kind, decoy.PeakSignature, decoy.LifeSeconds));
+
+        DispenserProfile pod = Assert.Single(pack.Dispensers);
+        Assert.Equal((DecoyKind.Flare, "TestPack:Spark", 15, 20f), (pod.Kind, pod.Decoy, pod.Count, pod.EjectSpeed));
+
+        ComponentProfile row = Assert.Single(pack.Components);
+        Assert.Equal((WeaponRole.Countermeasures, "Flare pod"), (row.Role, row.DisplayName));
+    }
+
+    [Fact]
+    public void ADispenserStatingAKindItsDecoyIsNotIsRefused()
+    {
+        PackContents pack = Read(Wrap(AFlare +
+            """<Dispenser PartId="TestPack_Prefab_Pod" DisplayName="Pod" Decoy="Spark" Kind="Chaff" />"""));
+
+        Assert.Empty(pack.Dispensers);
+        Assert.Contains(pack.Faults, f => f.Element == "Dispenser" && f.Reason.Contains("Flare"));
+    }
+
+    [Fact]
+    public void ADispenserNamingNoDecoyAnywhereIsRefused()
+    {
+        PackContents pack = Read(Wrap("""<Dispenser PartId="TestPack_Prefab_Pod" DisplayName="Pod" Decoy="Nothing" />"""));
+
+        Assert.Empty(pack.Dispensers);
+        Assert.Contains(pack.Faults, f => f.Element == "Dispenser");
+    }
+
+    [Fact]
+    public void ADecoyWithNoKindIsRefused()
+    {
+        PackContents pack = Read(Wrap("""<Decoy Name="Spark" DisplayName="Spark" />"""));
+
+        Assert.Empty(pack.Decoys);
+        Assert.Contains(pack.Faults, f => f.Reason.Contains("Kind"));
+    }
+
+    private const string ALaserHead =
+        """
+        <Optic PartId="TestPack_Prefab_Laser" DisplayName="Laser head" Sensor="Eye"
+               BaseMarker="Base" HeadMarker="Head" HeadPivot="0, 2.5, 0">
+          <Beam PowerWatts="2e6" ApertureMetres="1.2" ShotSeconds="3" />
+        </Optic>
+        """;
+
+    private const string ALaser =
+        """
+        <Launcher PartId="TestPack_Prefab_Laser" DisplayName="Laser" Sensor="Eye"
+                  FiresBeam="true" BeamArmamentLabel="Beam" MintRows="false">
+          <Provides Role="Camera" DisplayName="Laser head" />
+          <Provides Role="FireControl" DisplayName="Laser fire control" />
+        </Launcher>
+        """;
+
+    [Fact]
+    public void ABeamWeaponNeedsNoRoundAndFiresItsHeadsBeam()
+    {
+        PackContents pack = Read(Wrap(ASet + ALaserHead + ALaser));
+
+        Assert.Empty(pack.Faults);
+        LauncherProfile laser = Assert.Single(pack.Launchers);
+        Assert.True(laser.FiresBeam);
+        Assert.Equal(("", "Beam"), (laser.Munition, laser.BeamArmamentLabel));
+
+        BeamProfile beam = Assert.Single(pack.Optics).Beam!;
+        Assert.Equal((2e6f, 1.2f, 3f), (beam.PowerWatts, beam.ApertureMetres, beam.ShotSeconds));
+        Assert.Equal(new BeamProfile().ChemicalSeconds, beam.ChemicalSeconds);
+    }
+
+    [Fact]
+    public void MintRowsFalseListsExactlyTheDeclaredRows()
+    {
+        ComponentProfile row = Assert.Single(Read(Wrap(ASet + ALaserHead + ALaser)).Components);
+
+        Assert.Equal([(WeaponRole.Camera, "Laser head"), (WeaponRole.FireControl, "Laser fire control")],
+                     row.Provides.Select(p => (p.Role, p.DisplayName)));
+    }
+
+    [Fact]
+    public void ABeamWeaponWhoseHeadCarriesNoBeamIsRefused()
+    {
+        string noBeam = ALaserHead.Replace("<Beam PowerWatts=\"2e6\" ApertureMetres=\"1.2\" ShotSeconds=\"3\" />", "");
+
+        PackContents pack = Read(Wrap(ASet + noBeam + ALaser));
+
+        Assert.Empty(pack.Launchers);
+        Assert.DoesNotContain(pack.Components, c => c.Role == WeaponRole.Launcher);
+        Assert.Contains(pack.Faults, f => f.Element == "Launcher" && f.Reason.Contains("<Beam>"));
+    }
+
+    [Fact]
+    public void AHeadCarriesOneBeam()
+    {
+        string twoBeams = ALaserHead.Replace("<Beam ", "<Beam /><Beam ");
+
+        Assert.Contains(Read(Wrap(ASet + twoBeams)).Faults, f => f.Reason.Contains("one beam"));
+    }
+
+    [Fact]
+    public void ARoundsStepsAndYieldCeilingAreRead()
+    {
+        PackContents pack = Read(Wrap(
+            """<Munition Name="Rv" DisplayName="Rv" SubStepSeconds="0.001" PreferredStepSeconds="0.18" MaxChargeKg="3e8" />"""));
+
+        Assert.Empty(pack.Faults);
+        MunitionProfile rv = Assert.Single(pack.Munitions);
+        Assert.Equal((0.001f, 0.18f, 3e8f), (rv.SubStepSeconds, rv.PreferredStepSeconds, rv.MaxChargeKg));
+    }
+
+    private const string ABus =
+        """
+        <Launcher PartId="TestPack_Prefab_Bus" DisplayName="Bus" Munition="Dart" Sensor="Eye"
+                  TrimAccelerationMetresPerSecond2="0.4" TrimWorstAxisExhaustVelocity="2059.4"
+                  HopEngineThrustNewtons="6800" HopEngineExhaustVelocity="2996"
+                  HopEngineAccelerationMetresPerSecond2="1.7">
+          <Tube Position="3, 0.8, 0" Direction="1, 0, 0" />
+          <ReleaseSpin RateDegPerSecond="-180" SpinUpSeconds="0.6" IgnitionSeconds="2">
+            <Nozzle Mouth="-0.9, 0.1, 0.1" Exhaust="-0.7, -0.5, 0.5" />
+            <Nozzle Mouth="-0.9, -0.1, -0.1" Exhaust="-0.7, 0.5, -0.5" />
+          </ReleaseSpin>
+        </Launcher>
+        """;
+
+    [Fact]
+    public void ABussTrimHopAndReleaseSpinAreRead()
+    {
+        PackContents pack = Read(Wrap(ARound + ASet + ABus));
+
+        Assert.Empty(pack.Faults);
+        LauncherProfile bus = Assert.Single(pack.Launchers);
+        Assert.Equal((0.4, 2059.4), (bus.TrimAccelerationMetresPerSecond2, bus.TrimWorstAxisExhaustVelocity));
+        Assert.Equal((6800.0, 2996.0, 1.7),
+                     (bus.HopEngineThrustNewtons, bus.HopEngineExhaustVelocity, bus.HopEngineAccelerationMetresPerSecond2));
+
+        RoundSpin spin = bus.ReleaseSpin!;
+        Assert.Equal((-180.0, 0.6, 2.0), (spin.RateDegPerSecond, spin.SpinUpSeconds, spin.IgnitionSeconds));
+        Assert.Equal(2, spin.Nozzles.Length);
+        Assert.Equal(-0.5, spin.Nozzles[0].ExhaustBody.Y, 9);
+    }
+
+    [Fact]
+    public void ALauncherWithoutTheBusFieldsHasNoneOfThem()
+    {
+        LauncherProfile rail = Assert.Single(Read(Wrap(ARound + ASet + ARail)).Launchers);
+
+        Assert.True(double.IsNaN(rail.TrimAccelerationMetresPerSecond2));
+        Assert.True(double.IsNaN(rail.HopEngineThrustNewtons));
+        Assert.Null(rail.ReleaseSpin);
+    }
+
+    [Fact]
+    public void AReleaseSpinWithNoRateIsRefused()
+    {
+        string noRate = ABus.Replace("RateDegPerSecond=\"-180\" ", "");
+
+        PackContents pack = Read(Wrap(ARound + ASet + noRate));
+
+        Assert.Empty(pack.Launchers);
+        Assert.Contains(pack.Faults, f => f.Reason.Contains("RateDegPerSecond"));
+    }
+
     // ---- Refusing -------------------------------------------------------
+
+    [Fact]
+    public void AFamilyOnAPacksRootIsRefusedAndOnTheCoresIsRead()
+    {
+        string file = """<WeaponPack Schema="1" Family="Guns"><Sensor Name="Eye" DisplayName="Eye" /></WeaponPack>""";
+
+        Assert.Contains(Read(file).Faults, f => f.Reason.Contains("Family"));
+        Assert.Null(Read(file).Family);
+
+        PackContents core = PackReader.Read(file, PackReader.BuiltInSource, NoRounds, NoSets);
+        Assert.Empty(core.Faults);
+        Assert.Equal("Guns", core.Family);
+    }
 
     [Fact]
     public void OneBadDefinitionDoesNotCostThePackItsOthers()

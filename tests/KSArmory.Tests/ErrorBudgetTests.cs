@@ -254,7 +254,7 @@ public class ErrorBudgetTests(ITestOutputHelper Out)
         doubleQuat attitude = doubleQuat.CreateFromAxisAngle(nose, rollTurns * 2.0 * Math.PI)
                               * Vec.RotationFromTo(new double3(1, 0, 0), nose);
 
-        Tube[] tubes = Arsenal.MirvBus.Tubes;
+        Tube[] tubes = BuiltIns.MirvBus.Tubes;
         double3[] landed = new double3[tubes.Length];
 
         for (int i = 0; i < tubes.Length; i++)

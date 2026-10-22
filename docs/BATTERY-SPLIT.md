@@ -154,11 +154,11 @@ is already there, and the on-disk format does not move: `BatterySettings` is ser
 `Dictionary<string, BatterySettings>`, so the JSON carries property names and craft names and no
 type name.
 
-**The cost, stated plainly.** `Arsenal`'s `LauncherProfile` entries are also called weapon systems
+**The cost, stated plainly.** The built-in `LauncherProfile` definitions are also called weapon systems
 in the docs, so the word would name both the design and the fitted instance. The answer is the
 relation the mod already has and already documents: `MunitionProfile` is a round's design and
 `Interceptor` is one in the air. `LauncherProfile` is a system's design and `WeaponSystem` is one
-fitted to a craft. Say that once in `Arsenal`'s summary and the ambiguity is spent.
+fitted to a craft. Say that once in `LauncherProfile`'s summary and the ambiguity is spent.
 
 ### For the per-launcher weapon: `FireUnit`
 
@@ -292,8 +292,9 @@ this list one at a time as they land.
    `Sim/FireLadder.cs`, with `FireLadder.Holding` a pure function over `FireConditions` and the two
    channels alternative rungs off `HasTubes`. `FireLadderTests` asserts the order the panel prints.
    **The launch cycle timers did not come with it**: salvo spacing and the missile reload gate are
-   computed in `Ksa/` and handed down as numbers, and the seven remaining `TubeCount == 0` special
-   cases — `Commit`, `FireAtLock`, `ReadyToFire`, `Reload` — are still where they were. That
+   computed in `Ksa/` and handed down as numbers, and the kind guards — `TubeCount`, `HasCannon` and
+   `FiresBeam` tested inline in `SampleWorld`, `UpdateFireControl`, `Commit`, `Reload` and the beam's
+   cue — are still where they were; only `ReadyToFire` has become a switch on `TriggerArmament`. That
    remainder is the half of a third weapon channel that can be built without touching `Ksa/`
    structure at all, and it still wants the per-armament answer `Sim/WeaponFit.cs` gives the panel.
 2. ~~**Extract the blast sweep into `Sim/`.**~~ **Done**, as `Sim/BlastSweep.cs` with
@@ -316,8 +317,13 @@ this list one at a time as they land.
    keys on `(Vehicle, ordinal)` and crews one whole system per launcher part, with the panel's
    selector choosing which the trigger drives. So a craft carrying two rails fires both, item 5 was
    not a precondition after all, and no `FireUnit` type was needed to say it.
-7. **The turret mode ladder into `Sim/`.** Named in `docs/MODULARITY.md` as what the `FireGate`
-   extraction left behind. Below the seam because the seam changes what its inputs are.
+7. **The turret mode ladder into `Sim/`** — **half done**. The claims each rung makes on the ring
+   are `Sim/TurretMode.cs`, which is what carried the defect: `_ringIsOnGunLead` was cleared only by
+   the cursor and designation rungs and by `AimPointEcl`, so a ring that had been on the gun lead kept
+   that claim through manual, spin and stow, and `FireGate.MissilesMayFire` read it: auto-engage never
+   launched, and the line beside the trigger said it was holding, though the manual trigger fires
+   tubes without asking the ladder.
+   The rung order stays in `Ksa/`, because two of its conditions are engine lookups taken lazily.
 8. ~~**Narrow the effects consumers to a rounds-in-flight interface.**~~ **Done**, and wider than
    proposed: twelve consumers now take one of eight roles. See `Ksa/WeaponSystemRoles.cs`.
    `MotorSound`, `MotorPlume`, `TracerTrail` and `ChaseCamera` need five members; give them five.
@@ -329,3 +335,8 @@ this list one at a time as they land.
 `partial class` pieces, or renaming before the seam is chosen. Every one of those is either an
 abstraction with fewer instances than it has cases, or a change that hides the problem it claims
 to solve.
+
+**That condition is closer than when it was written.** There are four channels now — tubes, belt,
+beam and a steered store — each an if-chain on profile fields inside the class, so a fifth kind is
+an edit to `SampleWorld`, `UpdateFireControl`, `Commit`, `Reload` and `Remaining`. Re-rank this list
+before building the next kind, not after.

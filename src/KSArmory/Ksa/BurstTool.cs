@@ -101,5 +101,5 @@ internal sealed class BurstTool
 
     /// <summary>What the next click would set off, in kg, whichever unit the panel is dialling.</summary>
     public static double ChargeOf(Config config)
-        => config.BurstNuclear ? config.BurstYieldKt * 1.0e6 : config.BurstChargeKg;
+        => config.BurstNuclear ? config.BurstYieldKt * Charge.KgPerKiloton : config.BurstChargeKg;
 }

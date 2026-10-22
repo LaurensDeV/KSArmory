@@ -39,7 +39,7 @@ public static class FlashGlare
                                  : MushroomCloud.ThermalMaximumSeconds(yieldKt) * scale;
         if (!(peakSeconds > 0.0) || !(range > 1.0) || !(glow > 0.0)) return 0.0;
 
-        double watts = ThermalAltitude.ThermalFraction(airRatio) * yieldKt * 4.184e12 / (PulseWidthInPeaks * peakSeconds);
+        double watts = ThermalAltitude.ThermalFraction(airRatio) * yieldKt * Charge.JoulesPerKiloton / (PulseWidthInPeaks * peakSeconds);
         double atEye = watts / (4.0 * Math.PI * range * range);
 
         return atEye / SolarConstant * Math.Clamp(glow / MushroomCloud.PeakGlow, 0.0, 1.0);

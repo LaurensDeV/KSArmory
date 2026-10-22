@@ -1,6 +1,9 @@
 # KSArmory
 
-<img src="branding/logo.png" alt="KSArmory — Kessler Systems Armory" width="620">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="branding/logo.png">
+  <img src="branding/logo-light.png" alt="KSArmory: weapon systems for Kitten Space Agency" width="620">
+</picture>
 
 Weapon systems for **[Kitten Space Agency](https://ahwoo.com/app/100000/kitten-space-agency)**
 — sensors, fire control, guided and unguided rounds, and the parts to mount them on.
@@ -93,6 +96,12 @@ hangs from stays at the top of it.
 1.5 m telescope behind a 1.8 m window, stacking on a 3 m node. It tracks, and fires a megawatt beam
 that burns through whatever part it is held on: a few seconds at 100 km, with about twenty shots a load.
 
+**Infrared Search and Track Sensor** — what finds targets for the sights, which find nothing by
+themselves. A passive heat sensor, so it never gives itself away, whose head turns behind a faceted
+window; it sees a contact by the heat it makes, a booster at about 250 km in thin air and less against
+the ground, across a 120° cone. Several on one hull, turned different ways, give all-round cover, and
+every set aboard feeds one picture of the craft's contacts that its directors can track.
+
 And one piece of kit that shoots nothing:
 
 **AN/ALE-47 flare and chaff dispensers** — two parts on one 30-cell body, one loaded with fifteen
@@ -109,8 +118,17 @@ A further weapon is an entry in the registry plus its art: see
 
 **Or it need not be in this mod at all.** A *weapon pack* is an ordinary KSA mod with a `KSArmory/`
 folder of definitions in it and no code; KSArmory reads that folder inside every installed mod and
-holds no list of packs. `KSArmory-example-mod` is a complete worked example — a Mk 82 bomb rack, which
-used to ship here — and `docs/WEAPON-PACKS.md` is the reference.
+holds no list of packs. `KSArmory-example-mod` (installed as `KSArmoryExamplePack`) is a complete
+worked example — a Mk 82 bomb rack, which used to ship here, and a working copy of every weapon this
+mod ships — and `docs/WEAPON-PACKS.md` is the reference.
+
+**KSArmory's own weapons are defined the same way**, one file per family in its `KSArmory/` folder
+(`Pantsir.xml`, `Rails.xml`, `Guns.xml`, `Sensors.xml`, `Countermeasures.xml`, `DirectedEnergy.xml`,
+`Strategic.xml`). If you edited the old `Weapons.xml`, your edits now belong in the family file that
+holds that weapon. Any family can be switched off under **KSArmory > Built-in weapons**, which takes
+effect at the next start: its parts still load on a saved craft as plain structure and leave the
+editor, its rounds and sensors stay available to packs, and a pack may then define a weapon of its own
+on that family's part.
 
 > Built against KSA build `2026.10.19.5638`. KSA is pre-release and has no official code-modding
 > API; this uses the community [StarMap](https://github.com/StarMapLoader/StarMap) loader and
@@ -161,7 +179,7 @@ from where it lives.
      KSArmory.dll
      mod.toml
      KSArmory{Assets,GameData,Particles,Sounds,Characters}.xml
-     KSArmory/Weapons.xml
+     KSArmory/*.xml               (the built-in weapons, one file per family)
      Meshes/*.glb
      Textures/*.png
      Sounds/*.wav
@@ -196,7 +214,7 @@ truncated each session. You should see:
 
 ```
 loading (mod id: KSArmory)
-ready - Pantsir-S1, LAU-7 Sidewinder rail, ..., safe. Open the 'KSArmory' panel to arm.
+ready - Pantsir-S1, LAU-7 Sidewinder rail, ...
 ```
 
 The `ready` line arrives roughly **20 seconds after** the first, because the loader waits for
@@ -221,31 +239,79 @@ in one go — including the `manifest.toml` entry.
 
 ## Use
 
-1. In the editor, attach the **Pantsir-S1 Point Defence System** to your craft. It is under
-   *Weapons* and stacks on a 3 m node. It is also its own command source, so a craft consisting of
-   nothing but the Pantsir builds and launches.
-2. In flight, press **FIRE** to shoot at the current lock. There is nothing to arm first.
-3. Tick **Auto engage** to let it pick targets and fire on its own. It starts off, so a site never
-   opens fire by itself until you say so.
-4. A system stays on the craft carrying its launcher whatever you take control of, so you can
-   switch away and watch it defend itself.
+### Fitting a weapon
 
-The launcher **traverses and elevates onto the target**, and will not fire until it has settled
-on the aim point. The radar's own boresight stays local "up" — a hemisphere is what you want for
-a defence site. Green dots mark loaded tubes, grey ones spent.
+Every part is under **Weapons** in the editor, but for the EO director, the LITENING pod and the IRST, which are under **Sensors**. The big
+mounts stack on a 3 m node: the Pantsir, the Phalanx, the 5"/54, the YAL-1 turret and the MIRV bus.
+Everything else attaches to a surface: the missile rails, the B61 rack, the M197 under a nose, the EO
+director, the LITENING pod, the IRST and the dispensers. The Pantsir is its own command source, so a
+craft that is nothing but a Pantsir builds and launches.
 
-**Missiles** and **Cannon** can be switched on and off independently. The cannon engage inside 4 km, overlapping
-the missiles' 1.2 km minimum so nothing can sit in a gap between them, and the mount solves a
-ballistic lead for them rather than pointing straight at the contact. Set **Director view** to
-*main view* to look through the tracker, which borrows the player's own camera and hands it back.
-A second camera window is offered too and renders without KSA's atmosphere pass, so that one has
-no sky. See [`docs/BLOCKED-ON-KSA.md`](docs/BLOCKED-ON-KSA.md).
+### The panel
 
-A contact becomes a *threat* when its closest point of approach falls inside **Threat radius**
-within **Threat horizon** seconds. It becomes shootable once held for **Lock time**. The
-launcher commits **Rounds per target** rounds before re-evaluating.
+Open it from the **KSArmory** menu → **Panel**. The switcher lists every craft carrying something of
+this mod's, grouped by team, with a row per weapon; the picker beside **FIRE** chooses which weapon the
+trigger and the panel are pointed at. A weapon fitted twice, such as two rails, is one weapon with two
+stations, and the trigger steps between them.
 
-### Tuning that actually matters
+A weapon belongs to the craft carrying it, not to the one you are flying, so you can take control of
+something else and watch a site defend itself.
+
+### Firing
+
+- **FIRE** shoots the selected weapon. There is nothing to arm first. A missile needs something locked;
+  a gun fires where it is laid; a bomb rack lets its store go.
+- **Auto engage** lets a weapon pick its own targets and fire. It starts off, so nothing opens fire on
+  its own until you say so. The shield in the switcher is auto engage for every weapon on a craft.
+- The line beside the trigger says why a weapon is not firing: no lock, out of reach, still slewing, out
+  of rounds.
+
+A contact becomes a *threat* when its closest point of approach falls inside **Threat radius** within
+**Threat horizon** seconds, and shootable once held for **Lock time**. A launcher commits **Rounds per
+target** before it looks again. A turret traverses and elevates onto its target and will not fire until
+it has settled.
+
+### Aiming
+
+- **Shift-click** anything, a craft or a place on the ground, to designate it. The turret follows it, the
+  trigger shoots at it, and a falling guided store is steered onto it.
+- **Fire at the mouse** turns an ordinary click into a shot at what is under the cursor; its own tick
+  box arms it.
+- **Aim with the mouse** points the turret at the cursor without firing; auto engage still decides
+  when to shoot.
+
+A gun over the ground is laid to land where you point, not along the line to it, and the line beside
+the trigger says when a place is beyond its reach.
+
+### Sights
+
+The EO director, the LITENING pod, the YAL-1 turret and the Pantsir's roof director are sights. Each
+has its own row: **Main view** looks through it with the view you fly from, **Camera** opens it in a
+window of its own, which can be dragged onto another monitor, and **Zoom** magnifies. **Track** slews
+it onto what the craft's sensors hold, **Mouse** points it at the cursor, **Hand** with sliders, and
+**Spot** finds a laser spot on its code. A sight finds nothing by itself: an IRST on the same craft is
+what hands it contacts.
+
+### Bombs and the ballistic bus
+
+The B61 rack draws a ring where the bomb will land if released now, flown rather than solved, and a
+blue ring of where its fins can still move it once it falls. The MIRV bus is flown by its ballistic
+computer, on the **Ballistic** tab: designate the targets, by clicking the world or KSA's ground-track
+map, arm it and launch. [`docs/ICBM-GUIDANCE.md`](docs/ICBM-GUIDANCE.md) has how it flies.
+
+### Teams
+
+A craft with no team is fair game. The flag in the switcher puts a craft on a team, and the **Teams**
+window sets who each team is allied with, neutral to, and fires on. Every weapon on a team follows its
+team's rules.
+
+### KSArmory's own weapons
+
+Every weapon family can be switched off under **KSArmory** → **Built-in weapons**, at the next start.
+Its parts still load on a saved craft, as plain structure, and a weapon pack may then define a weapon of
+its own on them.
+
+### Tuning a guided round
 
 | Setting | Effect |
 | --- | --- |
@@ -436,8 +502,8 @@ The part itself is inert — KSA sees structure with mass and a collider. The C#
 the vehicle and mounts the battery there. That split avoids registering a custom module type
 into the engine's internal update lists, which is not reachable without patching.
 
-**Adding a weapon system is data, not code.** `src/KSArmory/Sim/Arsenal.cs` and
-`src/KSArmory/KSArmory/Weapons.xml` register each launcher, round and sensor as a profile; discovery is by part Id, so nothing in the simulation
+**Adding a weapon system is data, not code.** The files in `src/KSArmory/KSArmory/` define each
+launcher, round and sensor, one file per family; discovery is by part Id, so nothing in the simulation
 or the game binding names a particular vehicle. A new system is an entry there plus its art.
 
 The source is split by whether it can see KSA at all: `Sim/` cannot, `Ksa/` does. The test
@@ -598,16 +664,14 @@ because they live there rather than inside `LauncherPart`.
 
 ### Adding a weapon system
 
-It is data, not code. Nothing in `Sim/` or `Ksa/` names the Pantsir outside the registry.
+It is data, not code. Nothing in `Sim/` or `Ksa/` names a built-in weapon.
 
 1. Model it — authored in Blender, following `.claude/skills/ksa-blender/SKILL.md`. The headless
    generator builds the three parts that predate that and is not extended.
 2. Declare the part in `KSArmoryAssets.xml` and `KSArmoryGameData.xml`.
-3. Register a `LauncherProfile` in [`src/KSArmory/Sim/Arsenal.cs`](src/KSArmory/Sim/Arsenal.cs),
-   naming the munition and sensor it uses. Add a `MunitionProfile` if the round differs.
-4. And a `ComponentProfile` in `Arsenal.Components`. Without it the launcher loads, resolves its
-   tubes and is then completely invisible — the panel says there is no weapons system on the craft
-   and nothing appears in any log.
+3. Define a `<Launcher>` for it in a file in [`src/KSArmory/KSArmory/`](src/KSArmory/KSArmory/),
+   naming the `<Munition>` and `<Sensor>` it uses; [`docs/WEAPON-PACKS.md`](docs/WEAPON-PACKS.md) has
+   every attribute. The definition also gives the part its row in the panel.
 
 Discovery is by part Id, so the system picks up whatever is fitted. A launcher that cannot
 train is the same profile with `TurretMarker` left null.

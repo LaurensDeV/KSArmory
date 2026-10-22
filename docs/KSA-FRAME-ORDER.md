@@ -402,7 +402,7 @@ double3 fromCentre = positionEcl - body.GetPositionEcl();            // KsaWorld
 double  altitude = Vec.Len(positionEcl - body.GetPositionEcl()) - …; // KsaWorld.MediumDensityRatioAt
 ```
 
-`KsaWorld.cs:1013`, `:959`, `:1069`. The round side is at `NextTime(k−1)`, the body side at
+The round side is at `NextTime(k−1)`, the body side at
 `NextTime(k)`, so each separation is short by `bodyVelocityEcl * dt` — **the same
 ~0.9 km at 1× and ~3.9 km at 8× that the air lookup was wrong by**, in the same direction, for the
 same reason.

@@ -52,11 +52,91 @@ public static class InstalledPacks
                     continue;
             }
 
-            foreach (string file in files) Read(id, file);
+            bool core = SameFolder(FolderOf(entry), ModFolder);
+            List<(string, string)> definitions = [];
+            foreach (string file in files.Order(StringComparer.Ordinal))
+            {
+                if (Read(id, file) is { } text) definitions.Add((Path.GetFileName(file), text));
+            }
+
+            // Already registered by RegisterCore, before any pack could need them.
+            if (core) continue;
+
+            // A pack that registered from code under its own Id has said what it is; read again here,
+            // every definition would be refused as already claimed.
+            if (Catalogue.Registrations.Any(r => r.Source == id))
+            {
+                if (definitions.Count > 0)
+                {
+                    Log.Info($"pack '{id}' registered from code, so its {PackScan.FolderName}/ folder is not read as well");
+                }
+                continue;
+            }
+
+            PackFiles.Register(definitions, id);
         }
     }
 
-    private static void Read(string id, string file)
+    /// <summary>
+    /// This mod's own definitions, registered as one unit. Called from KSArmory's own
+    /// <c>[StarMapBeforeMain]</c>, ahead of every pack that ships code — see
+    /// <see cref="CoreDefinitions"/>.
+    /// </summary>
+    public static void RegisterCore()
+    {
+        // For testing a pack against an empty catalogue: nothing of KSArmory's, not even its rounds.
+        if (Environment.GetEnvironmentVariable("KSARMORY_NO_BUILTINS") == "1")
+        {
+            Log.Info("built-in definitions: none registered (KSARMORY_NO_BUILTINS)");
+            return;
+        }
+
+        string folder = Path.Combine(ModFolder, PackScan.FolderName);
+
+        List<(string, string)> files = [];
+        try
+        {
+            foreach (string file in Directory.GetFiles(folder, PackScan.FilePattern))
+            {
+                files.Add((Path.GetFileName(file), File.ReadAllText(file)));
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Log.Error($"built-in definitions cannot be read from {folder} - {e.Message}");
+            return;
+        }
+
+        foreach (CoreFileResult file in CoreDefinitions.Register(files, BuiltInFamilies.ReadSwitches()))
+        {
+            BuiltInFamilies.Remember(file.Family);
+            Log.Info($"built-in definitions '{file.FileName}': {file.Result.Registered} registered"
+                     + (file.Disabled ? $", family {file.Family} switched off: its parts are structure" : "")
+                     + (file.Result.Complete ? "" : $", {file.Result.Faults.Count} refused"));
+
+            foreach (PackFault fault in file.Result.Faults) Log.Warn($"{file.FileName}: {fault}");
+        }
+    }
+
+    private static string ModFolder => Path.GetDirectoryName(typeof(InstalledPacks).Assembly.Location) ?? "";
+
+    private static bool SameFolder(string a, string b)
+    {
+        try
+        {
+            return a.Length > 0 && b.Length > 0
+                   && string.Equals(Path.GetFullPath(a).TrimEnd(Path.DirectorySeparatorChar),
+                                    Path.GetFullPath(b).TrimEnd(Path.DirectorySeparatorChar),
+                                    StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // A weapon file's text, or null for one that could not be read or that describes bodies instead.
+    private static string? Read(string id, string file)
     {
         string definitions;
         try
@@ -66,7 +146,7 @@ public static class InstalledPacks
         catch (IOException e)
         {
             Log.Warn($"pack '{id}': {Path.GetFileName(file)} cannot be read - {e.Message}");
-            return;
+            return null;
         }
 
         // A bodies file sits beside the weapon packs and is told from one by its root: handed to the pack
@@ -75,10 +155,10 @@ public static class InstalledPacks
         {
             foreach (PackFault fault in BodyCatalogue.Register(definitions, id)) Log.Warn(fault.ToString());
             Log.Info($"pack '{id}': {Path.GetFileName(file)} describes bodies");
-            return;
+            return null;
         }
 
-        Armoury.Register(definitions, id);
+        return definitions;
     }
 
     private static IEnumerable<ModEntry> Installed()

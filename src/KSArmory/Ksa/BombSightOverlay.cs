@@ -240,7 +240,7 @@ internal sealed class BombSightOverlay
 
     // A point behind the camera breaks the line there rather than folding it across the screen.
     private void AddScreenPoint(double3 pointEcl)
-        => _screen.Add(KsaWorld.TryEclToEgo(pointEcl, out double3 ego) && KsaWorld.TryProjectEgo(ego, out float2 at)
+        => _screen.Add(KsaWorld.TryAnchoredEgo(pointEcl, out double3 ego) && KsaWorld.TryProjectEgo(ego, out float2 at)
                            ? at
                            : null);
 

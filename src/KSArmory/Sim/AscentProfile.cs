@@ -102,6 +102,6 @@ internal static class AscentProfile
     }
 
     /// <summary>Dynamic pressure, as the thing that decides when steering is free.</summary>
-    public static double DynamicPressure(double densityRatio, double airspeed, double seaLevelDensity = 1.225)
+    public static double DynamicPressure(double densityRatio, double airspeed, double seaLevelDensity = Medium.ReferenceDensityKgPerM3)
         => 0.5 * Math.Max(densityRatio, 0.0) * seaLevelDensity * airspeed * airspeed;
 }

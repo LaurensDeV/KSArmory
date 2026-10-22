@@ -24,7 +24,7 @@ internal static class LauncherPart
     /// <summary>
     /// Finds a launcher on a vehicle, or null if it carries none.
     ///
-    /// <para>Matches against every launcher in <see cref="Arsenal"/> rather than one hardcoded
+    /// <para>Matches against every launcher in <see cref="Catalogue"/> rather than one hardcoded
     /// Id, so adding a weapon system is a registry entry and needs no change here. Answers the
     /// "does this craft carry one at all" question and stops at the first match; a system
     /// resolves its <em>own</em> launcher through <see cref="FindNth"/> on its ordinal, because
@@ -74,6 +74,33 @@ internal static class LauncherPart
         catch
         {
             // Part tree can be mid-rebuild during staging or docking.
+        }
+    }
+
+    /// <summary>
+    /// What a launcher's settings are filed under: its <paramref name="ordinal"/>, moved past any switched-off
+    /// family's launchers before <paramref name="part"/> on the craft (<see cref="SettingsOrdinal"/>).
+    /// </summary>
+    public static int FiledOrdinal(Vehicle vehicle, Part part, int ordinal)
+    {
+        if (Catalogue.DisabledParts.Count == 0) return ordinal;
+
+        try
+        {
+            ReadOnlySpan<Part> parts = vehicle.Parts.Parts;
+            List<string> ids = new(parts.Length);
+            int at = -1;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (ReferenceEquals(parts[i], part)) at = i;
+                ids.Add(parts[i]?.Id ?? "");
+            }
+
+            return at < 0 ? ordinal : SettingsOrdinal.Of(ordinal, ids, at, Catalogue.IsDisabledLauncher);
+        }
+        catch
+        {
+            return ordinal;
         }
     }
 

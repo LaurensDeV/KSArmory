@@ -163,16 +163,22 @@ internal readonly record struct TailKitReach(
         if (stage == 1) alongMetres = Probe(track);
         else if (stage == 2) acrossMetres = Probe(Vec.Unit(Vec.Cross(up, track)));
 
+        // A probe that did not land measures nothing, and nothing is not zero: there is a landing to
+        // move, and what is missing is one of the two axes the circle is inscribed in. The remaining
+        // one cannot stand in for it — the narrower axis is the whole point, and which of the two it
+        // is swaps with release speed — so the region is unknown rather than absent.
         double radius = alongMetres > 0.0 && acrossMetres > 0.0
                             ? SettlingMargin * Math.Min(alongMetres, acrossMetres)
                             : 0.0;
-
-        // Known only once both axes have been flown at least once. Until then the landing is
-        // already worth having, but a region is not: the narrower axis is the whole point.
         return radius > 0.0
                    ? new(TailKitHold.Known, seconds, impact, radius)
                    : new(TailKitHold.Unreadable, seconds, impact, 0.0);
 
+        // How far full authority along one direction moves the landing. The probe is put back onto
+        // the surface rather than left out in space: the law solves the fall to the aim's own
+        // level, so an aim kilometres up shortens the flight it is steering. Around the body's
+        // centre, which the ground test is asked for: built about the ecliptic origin it is a
+        // sphere centred on the Sun, invisible in any rig that puts its planet at the origin.
         double Probe(double3 direction)
         {
             if (ground is null
@@ -189,6 +195,8 @@ internal readonly record struct TailKitReach(
 
         bool Drop(double3? steerAt, out double3 impactEcl, out double fallSeconds)
         {
+            // Per flight: the cache skips lookups down one trajectory, and the three flights end
+            // up in different places.
             (ground as CoarseGroundTest)?.Reset();
 
             bool landed = BombSight.TryPredict(roundPositionEcl, velocityOverGround, groundVelocityEcl,
@@ -250,76 +258,20 @@ internal readonly record struct TailKitReach(
     {
         ArgumentNullException.ThrowIfNull(munition);
         ArgumentNullException.ThrowIfNull(scratch);
-        ArgumentNullException.ThrowIfNull(gravityAt);
 
-        if (!munition.SteersItsFall) return new(TailKitHold.Unguided, 0.0, Vec.Zero, 0.0);
+        double along = 0.0, across = 0.0;
+        TailKitReach reach = new(TailKitHold.Unreadable, 0.0, Vec.Zero, 0.0);
 
-        if (!Drop(null, out double3 impact, out double seconds))
+        for (int stage = 0; stage <= 2; stage++)
         {
-            return new(TailKitHold.NoLanding, 0.0, Vec.Zero, 0.0);
+            reach = FlyStage(stage, reach, roundPositionEcl, velocityOverGround, groundVelocityEcl,
+                             groundAccelerationEcl, bodyVelocityEcl, groundVelocityAt, munition,
+                             gravityAt, densityAt, ground, stepSeconds, scratch,
+                             ref along, ref across, startAge);
         }
 
-        double3 up = Vec.Unit(-gravityAt(impact));
-        if (Vec.Len2(up) < 0.5) return new(TailKitHold.Unreadable, 0.0, Vec.Zero, 0.0);
-
-        // The ground track, which is what the two probes are measured along and across. A store
-        // released with no horizontal motion at all has none, and any horizontal direction is then
-        // as good as any other.
-        double3 track = Vec.Unit(Vec.RejectFrom(velocityOverGround, up));
-        if (Vec.Len2(track) < 0.5) track = Vec.AnyPerpendicular(up);
-
-        double ceiling = ProbeSaturation * 0.5 * munition.MaxLateralAccel * seconds * seconds;
-        double along = Probe(track);
-        double across = Probe(Vec.Unit(Vec.Cross(up, track)));
-
-        // A probe that did not land measures nothing, and nothing is not zero: the ballistic flight
-        // above landed, so there is a landing here to move. What is missing is one of the two axes
-        // the circle is inscribed in, and the remaining one cannot stand in for it — the narrower
-        // axis is the whole point, and which of the two it is swaps with release speed. So the
-        // region is unknown rather than absent, and rather than guessed at.
-        double radius = along > 0.0 && across > 0.0 ? SettlingMargin * Math.Min(along, across) : 0.0;
-
-        return radius > 0.0
-                   ? new(TailKitHold.Known, seconds, impact, radius)
-                   : new(TailKitHold.Unreadable, 0.0, Vec.Zero, 0.0);
-
-        // How far full authority along one direction moves the landing. The probe is put back onto
-        // the surface rather than left out in space: the law solves the fall to the aim's own
-        // level, so an aim kilometres up shortens the flight it is steering.
-        //
-        // Around the BODY's centre, which the ground test is asked for rather than assumed. Built
-        // about the ecliptic origin instead it is a sphere centred on the Sun, and the probe is
-        // then aimed ~1.5e11 m away -- which is invisible in any rig that puts its planet at the
-        // origin, and is every rig that has no reason not to.
-        double Probe(double3 direction)
-        {
-            if (ground is null
-                || !ground.TryGround(impact, out double3 centre, out double surfaceRadius))
-            {
-                return 0.0;
-            }
-
-            double3 out2 = (impact - centre) + (direction * ceiling);
-            double3 at = centre + (Vec.Unit(out2) * surfaceRadius);
-
-            return Drop(at, out double3 moved, out _) ? Vec.Len(moved - impact) : 0.0;
-        }
-
-        bool Drop(double3? steerAt, out double3 impactEcl, out double fallSeconds)
-        {
-            // Per flight, not per solve. The cache exists to skip lookups down one trajectory, and
-            // these three deliberately end up in different places -- so the second and third would
-            // otherwise start against a surface sampled along the first.
-            (ground as CoarseGroundTest)?.Reset();
-
-            bool landed = BombSight.TryPredict(roundPositionEcl, velocityOverGround, groundVelocityEcl,
-                                               groundAccelerationEcl, bodyVelocityEcl, groundVelocityAt,
-                                               munition, gravityAt, densityAt, ground, stepSeconds,
-                                               scratch, out impactEcl, steerAt, startAge);
-
-            fallSeconds = Math.Max(0, scratch.Count - 1) * stepSeconds;
-            return landed;
-        }
+        // All at one instant, so an unknown region carries no landing for a later stage to start from.
+        return reach.Hold == TailKitHold.Unreadable ? new(TailKitHold.Unreadable, 0.0, Vec.Zero, 0.0) : reach;
     }
 
     /// <summary>What to tell an operator about a place, in one clause.</summary>

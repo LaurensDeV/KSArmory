@@ -120,6 +120,16 @@ public sealed class MunitionProfile
     public string? BodyModel { get; init; }
 
     /// <summary>
+    /// The KSA explosion the warhead goes off as, by <c>ModLibrary</c> Id, in place of the one its charge
+    /// picks (<see cref="WarheadExplosion.PresetFor"/>). Only the look: the blast, its reach and a nuclear
+    /// charge's cloud and flash are the charge's whatever is named here.
+    /// </summary>
+    public string? BurstEffect { get; init; }
+
+    /// <summary>The particle emitter at the nozzle while the motor burns, by <c>ModLibrary</c> Id. Null is KSArmory's.</summary>
+    public string? PlumeEffect { get; init; }
+
+    /// <summary>
     /// Subpart marker for this round's fin set, matched the same way as <see cref="BodyMarker"/>.
     /// Null means the round has no separate fins, and nothing is animated.
     /// </summary>
@@ -308,6 +318,17 @@ public sealed class MunitionProfile
 
     /// <summary>This round's integration step, resolved against the shared default.</summary>
     public double SubStep => SubStepSeconds > 0.0f ? SubStepSeconds : Interceptor.SubStep;
+
+    /// <summary>
+    /// This round integrating at a stated sub-step. What <see cref="IcbmConfig.WarheadSubStepMs"/> flies; a copy
+    /// rather than an edit, because the registered profile is shared by every rocket in the world.
+    /// </summary>
+    public MunitionProfile AtSubStep(double seconds)
+    {
+        MunitionProfile stepped = Copy();
+        stepped.SubStepSeconds = (float)seconds;
+        return stepped;
+    }
 
     /// <summary>
     /// How many sub-steps one frame may be cut into for this round, chosen so that

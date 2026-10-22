@@ -29,7 +29,7 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
         });
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
-                                              Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21), DensityAt);
+                                              BuiltIns.ReentryVehicleMk21.Copy(), DensityAt);
         rig.ThrusterMetresPerSecond2 = 0.55;
         rig.ShoveMetresPerSecond = 1.0;
         rig.BusMassKg = 2_900.0;
@@ -120,8 +120,8 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
         });
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
-                                              Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21), DensityAt);
-        rig.ThrusterMetresPerSecond2 = Arsenal.MirvBus.TrimAccelerationMetresPerSecond2;
+                                              BuiltIns.ReentryVehicleMk21.Copy(), DensityAt);
+        rig.ThrusterMetresPerSecond2 = BuiltIns.MirvBus.TrimAccelerationMetresPerSecond2;
         rig.ShoveMetresPerSecond = 1.0;
         rig.BusMassKg = 3_800.0;
         rig.PropellantKg = 500.0;
@@ -154,16 +154,16 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
         });
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
-                                              Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21), DensityAt);
+                                              BuiltIns.ReentryVehicleMk21.Copy(), DensityAt);
         rig.ShoveMetresPerSecond = 1.0;
         if (postBoostBus)
         {
-            rig.ThrusterMetresPerSecond2 = Arsenal.MirvBus.TrimAccelerationMetresPerSecond2;
+            rig.ThrusterMetresPerSecond2 = BuiltIns.MirvBus.TrimAccelerationMetresPerSecond2;
             rig.BusMassKg = 3_800.0;
             rig.PropellantKg = 500.0;
             rig.JetExhaustVelocity = 2_912.0;
-            rig.EngineThrustNewtons = Arsenal.MirvBus.HopEngineThrustNewtons;
-            rig.EngineExhaustVelocity = Arsenal.MirvBus.HopEngineExhaustVelocity;
+            rig.EngineThrustNewtons = BuiltIns.MirvBus.HopEngineThrustNewtons;
+            rig.EngineExhaustVelocity = BuiltIns.MirvBus.HopEngineExhaustVelocity;
         }
         else
         {

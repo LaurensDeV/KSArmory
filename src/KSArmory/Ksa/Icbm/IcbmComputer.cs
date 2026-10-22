@@ -553,40 +553,12 @@ internal sealed partial class IcbmComputer
     public void Designate(AimSite site)
     {
         _targets.SetOnly(site, WarheadsAboard);
-        Program.Reset();
-        _releasedTheArrival = false;
+        ForgetTheFlight();
         _reported = IcbmPhase.Idle;
         _aim.Reset();
         _sequence.Reset();
-        _trim.Reset();
-        _postBoost.Reset();
-        _postBoostSaid = false;
-        _measureDue = false;
-        _freshMiss = double.NaN;
-        _holdingCost = double.NaN;
-        _holdingCostForPass = -1;
-        _trimFloor = double.NaN;
-        _trimFloorForPass = -1;
-        _resumedForCoast = false;
-        _aimResetForTheOutrun = false;
-        _aimRebasedForTheSolids = false;
-        _trimAbandoned = false;
-        _trimShape = "";
-        ResetTurn();
-        _saidTrim = "";
-        _separatedFrom = null;
-        _didSplit = false;
-        _proximity.Reset();
-        _saidProximity = false;
-        _saidCleared = false;
-        _keepOutTowardCci = double3.Zero;
-        _sinceSplit = 0.0;
-        _mayTrim = true;
-        _saidBudget = false;
-        _saidFloorUnaffordable = false;
         WarheadsAway = 0;
         _salvoSize = 0;
-        _owedAtSplit = double.NaN;
         _rollReference = Vec.Zero;
         PredictedImpact = null;
         PredictedMissMetres = double.NaN;
@@ -604,10 +576,6 @@ internal sealed partial class IcbmComputer
         _flownKick = null;
         _walker.Reset();
         _spentAtStopStart = 0.0;
-        _hopCeilingMetresPerSecond = double.NaN;
-        _hopBurnSeconds = 0.0;
-        _hopRound = -1;
-        ResetTheHop();
         _sentTo.Clear();
         _watchedRelease = 0;
         _wentTo.Clear();
@@ -755,6 +723,14 @@ internal sealed partial class IcbmComputer
         VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
         AttitudeHook.PulseMode(Craft, pulsing: false);
 
+        ForgetTheFlight();
+        Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} stood down: {why}");
+    }
+
+    // What a new aim and a stand-down both forget. Designate also forgets the aim, the salvo and
+    // the walk; Abort keeps what has already flown.
+    private void ForgetTheFlight()
+    {
         Program.Reset();
         _releasedTheArrival = false;
         _trim.Reset();
@@ -788,7 +764,6 @@ internal sealed partial class IcbmComputer
         _hopBurnSeconds = 0.0;
         _hopRound = -1;
         ResetTheHop();
-        Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} stood down: {why}");
     }
 
     /// <param name="release">
@@ -831,24 +806,13 @@ internal sealed partial class IcbmComputer
         _roundsInFlight = roundsInFlight;
         _traceWanted = traceWarhead;
 
-        // What the prediction is of. The bus cuts off above the air; the warheads it drops fly all
-        // the way down through it, and they are the things that have to arrive.
         // Before the round is read, so the prediction and the warheads it lets go are the same profile.
-        if (Config.WarheadDragFromItsShape && release is { } launcher
-            && launcher.Munition.Name == Arsenal.ReentryVehicleMk21.Name && !launcher.Munition.DragFromShape)
-        {
-            launcher.FlyRoundsAs(Arsenal.Mk21WithDragFromShape(launcher.Munition));
-            Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: warheads drag from their shape, "
-                     + $"k {launcher.Munition.AppliedDragK:E3}");
-        }
-
-        // After the drag swap and not instead of it: each takes the round as it stands, so the two compose
-        // and a night may fly either alone. Guarded on the value rather than on a flag because the swap is
-        // idempotent only while the step already matches.
+        // Guarded on the value rather than on a flag because the swap is idempotent only while the step
+        // already matches.
         if (Config.WarheadSubStepMs > 0.0 && release is { } stepped
             && Math.Abs(stepped.Munition.SubStep - Config.WarheadSubStepMs / 1000.0) > 1e-9)
         {
-            stepped.FlyRoundsAs(Arsenal.RoundAtSubStep(stepped.Munition, Config.WarheadSubStepMs / 1000.0));
+            stepped.FlyRoundsAs(stepped.Munition.AtSubStep(Config.WarheadSubStepMs / 1000.0));
             Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: warheads integrate at "
                      + $"{stepped.Munition.SubStep * 1000.0:F3} ms, {stepped.Munition.MaxSubSteps} sub-steps "
                      + "to a frame at most");

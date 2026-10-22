@@ -30,7 +30,7 @@ public class ReleaseTradeTests(ITestOutputHelper Out)
     private const double Mu = DeorbitShot.Mu;
 
     private static ReleaseFocus.Air Air
-        => new(new ImpactPredictor.Drag(DeorbitShot.DensityAt, Arsenal.ReentryVehicleMk21), 2.0, R, true);
+        => new(new ImpactPredictor.Drag(DeorbitShot.DensityAt, BuiltIns.ReentryVehicleMk21), 2.0, R, true);
 
     /// <summary>A bus somewhere on its coast, with the seconds it has left to arrival.</summary>
     private readonly record struct Shot(string Name, double3 PositionCci, double3 VelocityCci,
@@ -229,7 +229,7 @@ public class ReleaseTradeTests(ITestOutputHelper Out)
     [Fact]
     public void TheWindowBetweenTheWarheadAndTheBudget()
     {
-        double charge = Arsenal.ReentryVehicleMk21.ChargeKg;
+        double charge = BuiltIns.ReentryVehicleMk21.ChargeKg;
         double lethal = Warhead.LethalRadius(charge);
         double blast = Warhead.BlastRadius(charge);
 

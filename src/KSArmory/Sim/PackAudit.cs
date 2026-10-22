@@ -22,6 +22,8 @@ public static class PackAudit
     public static IReadOnlyList<PackFault> Run(
         IReadOnlyList<LauncherProfile> launchers,
         IReadOnlyList<OpticProfile> optics,
+        IReadOnlyList<SearchSetProfile> searchSets,
+        IReadOnlyList<DispenserProfile> dispensers,
         IPartCatalogue parts,
         Func<string, string> sourceOf)
     {
@@ -48,6 +50,15 @@ public static class PackAudit
             Marker(head.PartId, "Optic", "HeadMarker", head.HeadMarker, subParts, sourceOf, faults);
             Marker(head.PartId, "Optic", "RollMarker", head.RollMarker, subParts, sourceOf, faults);
         }
+
+        foreach (SearchSetProfile set in searchSets)
+        {
+            if (Missing(set.PartId, "SearchSet", parts, sourceOf, faults)) continue;
+
+            Marker(set.PartId, "SearchSet", "HeadMarker", set.HeadMarker, parts.SubPartIdsOf(set.PartId), sourceOf, faults);
+        }
+
+        foreach (DispenserProfile dispenser in dispensers) Missing(dispenser.PartId, "Dispenser", parts, sourceOf, faults);
 
         return faults;
     }

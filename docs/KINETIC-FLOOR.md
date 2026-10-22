@@ -107,7 +107,7 @@ guess.
 
 **Re-flown 2026-10-12, and the table above is wrong where the step exceeds 1 ms.** The rig handed the
 round its step as the frame, and the round sub-steps at its own 1 ms whatever the frame is, so every
-row above 1 ms flew at 1 ms. Flown at the stated sub-step (`Arsenal.RoundAtSubStep`), on this harness's
+row above 1 ms flew at 1 ms. Flown at the stated sub-step (`MunitionProfile.AtSubStep`), on this harness's
 first-order round: 5 ms 68.7 m, 2.5 ms 30.5 m, 1 ms 22.9 m, 0.5 ms 7.6 m -- not linear, and the
 shipped Mk 21 is the 1 ms row, 22.9 m on this first-order flight. The 153 m and every figure built on
 it below are an artefact; the integrator term the table at the top carries, 5.4 mm, is the
@@ -470,7 +470,7 @@ is not in these numbers. It *multiplies* whatever is left rather than adding to 
 0.46 m residue far less than a 153 m one; but it is the one reason left to prefer a steeper arrival
 for a round that steers.
 
-Nothing in `Sim/Arsenal.cs` is such a round today: the Mk 21 is `GuidanceMode.None`.
+No built-in is such a round today: the Mk 21 is `GuidanceMode.None`.
 
 ### And it stays that way, because that is what a Mk 21 is
 
@@ -624,7 +624,7 @@ pick-up. The term is real, first-order and cleanly measured; it is simply five t
 noise floor of the only instrument that can confirm it.
 
 **It is now enabled**, and the paragraphs below are the argument that was open at the time. The
-Mk 21 ships `SubStepSeconds = 0.001f` (`Sim/Arsenal.cs`, commit `065907a`), so **the largest single
+Mk 21 ships `SubStepSeconds` 0.001 (`KSArmory/Strategic.xml`, first in commit `065907a`), so **the largest single
 term in the budget above has been removed** and this file's headline number is stale by that much.
 It is affordable on this round and nowhere else: six warheads at a millisecond is ~300 sub-steps a
 frame, where a 150-shell CIWS burst at the same step would be 7,500.

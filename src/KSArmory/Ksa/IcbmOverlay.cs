@@ -157,22 +157,7 @@ internal static class IcbmOverlay
 
         if (!anything) return;
 
-        ImGuiViewportPtr main = ImGui.GetMainViewport();
-        ImGui.SetNextWindowPos(main.Pos, ImGuiCond.Always);
-        ImGui.SetNextWindowSize(main.Size, ImGuiCond.Always);
-        ImGui.SetNextWindowBgAlpha(0f);
-
-        // NoInputs: the overlay covers the screen, so anything else would swallow every click in
-        // the game.
-        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoDecoration
-                                       | ImGuiWindowFlags.NoInputs
-                                       | ImGuiWindowFlags.NoNav
-                                       | ImGuiWindowFlags.NoFocusOnAppearing
-                                       | ImGuiWindowFlags.NoBringToFrontOnFocus
-                                       | ImGuiWindowFlags.NoSavedSettings
-                                       | ImGuiWindowFlags.NoBackground;
-
-        if (!ImGui.Begin("##KSArmoryIcbmTargets", flags))
+        if (!ScreenOverlay.Begin("##KSArmoryIcbmTargets"))
         {
             ImGui.End();
             return;

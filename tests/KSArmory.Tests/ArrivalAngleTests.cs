@@ -7,7 +7,7 @@ namespace KSArmory.Tests;
 /// <summary>
 /// What the angle a round arrives at is worth, measured rather than argued about.
 ///
-/// <para>Every ballistic shot this mod has flown arrives at about seven degrees, because the
+/// <para>Every ballistic shot this mod flies arrives at about twelve degrees, because the
 /// guidance picks the cheapest transfer and the cheapest transfer from orbit is a graze. That is
 /// the worst arrival there is for precision on four separate counts, and each of them has a number
 /// here. <c>docs/ARRIVAL-ANGLE.md</c> is the account; this file is where the figures in it come
@@ -128,12 +128,12 @@ public class ArrivalAngleTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// Seven degrees is the air's answer, not the guidance's.
+    /// Twelve degrees is the air's answer, not the guidance's.
     ///
-    /// <para>The shot in <see cref="DeorbitShot"/> leaves on a 3.6 degree vacuum arc and arrives at
-    /// 7.1, because entry bends a graze back up to whatever the round's own sectional density can
-    /// hold. So the arrival angle of a cheap deorbit is a property of the warhead, and the five
-    /// degrees this budget was asked about is not reachable with a Mk 21 at all.</para>
+    /// <para>A cheap deorbit leaves on a vacuum arc of a few degrees and arrives at about 12.2,
+    /// because entry bends a graze back up to whatever the round's own sectional density can hold. So
+    /// the arrival angle of a cheap deorbit is a property of the warhead, and the five degrees this
+    /// budget was asked about is not reachable with a Mk 21 at all.</para>
     /// </summary>
     [Fact]
     public void TheShallowestArrivalBelongsToTheRoundNotTheGuidance()
@@ -144,7 +144,7 @@ public class ArrivalAngleTests(ITestOutputHelper Out)
             Out.WriteLine($"from {altitude / 1000:F0} km: nothing arrives shallower than "
                           + $"{degrees:F2} deg, reached by braking {brake:F0} m/s");
 
-            Assert.InRange(degrees, 6.5, 7.5);
+            Assert.InRange(degrees, 11.5, 12.5);
         }
 
         double3 from = new(R + 400_000.0, 0, 0);
@@ -169,7 +169,7 @@ public class ArrivalAngleTests(ITestOutputHelper Out)
 
             double3 dropped = Fly(from, Vec.Zero, Sectional(dragK)).VelocityCci;
 
-            Out.WriteLine($"  DragK {dragK:E1} ({1.5e-5 / dragK,5:F1}x the Mk 21's density): "
+            Out.WriteLine($"  DragK {dragK:E1} ({DeorbitShot.Warhead.AppliedDragK / dragK,5:F1}x the Mk 21's density): "
                           + $"floor {best,5:F2} deg at {atRange / 1000,6:F0} km keeping {keptSpeed,5:F0} m/s; "
                           + $"a straight drop lands at {Vec.Len(dropped),5:F0} m/s");
         }
@@ -387,7 +387,7 @@ public class ArrivalAngleTests(ITestOutputHelper Out)
         Out.WriteLine($"fastest arrival {bestSpeed:F0} m/s at {atAngle:F2} deg");
 
         // The energy comes from the orbit, so the steep arrivals are the slow ones.
-        Assert.InRange(atAngle, 10.0, 20.0);
+        Assert.InRange(atAngle, 25.0, 35.0);
     }
 
     /// <summary>

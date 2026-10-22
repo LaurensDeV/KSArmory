@@ -530,43 +530,29 @@ internal sealed class BusTrim
     public void Resume()
     {
         _armed = true;
-        _done = false;
-        _gaveUp = false;
-        _since = 0.0;
-        _firingFor = 0;
-        _fire = TrimAxes.None;
-        _gaveWayToHolding = false;
-        _pulsedLast = false;
-        _pulsedBefore = false;
-        _pulsingFor = 0.0;
-        _pulsesFelt = 0;
-        _pulseAsked = 0.0;
-        _pulseGot = 0.0;
-        _pulses = 0;
-        _dead = TrimAxes.None;
-        _pushDirCci = Vec.Zero;
-        _pushDirLast = Vec.Zero;
-        _pushDirBefore = Vec.Zero;
-        _pulseAlong = 0.0;
-        _pushed = 0.0;
-        _watching = TrimAxes.None;
-        _watchedFrom = double.NaN;
-        _watchingFor = 0.0;
-        _watched = false;
-        _lowest = double.PositiveInfinity;
-        _sinceProgress = 0.0;
+        ForgetThisNull();
     }
 
     public void Reset()
     {
         _armed = false;
-        _done = false;
-        _gaveUp = false;
-        _since = 0.0;
+        ForgetThisNull();
         _accel = 0.0;
         _spent = 0.0;
         _velocityPrev = Vec.Zero;
         _havePrev = false;
+        _toGain = double.NaN;
+        _toGainCci = Vec.Zero;
+        _atRelease = double.NaN;
+        _said = "";
+    }
+
+    // What records how one null went. Resume keeps the rest, which is about the bus.
+    private void ForgetThisNull()
+    {
+        _done = false;
+        _gaveUp = false;
+        _since = 0.0;
         _firingFor = 0;
         _fire = TrimAxes.None;
         _gaveWayToHolding = false;
@@ -586,13 +572,9 @@ internal sealed class BusTrim
         _watching = TrimAxes.None;
         _watchedFrom = double.NaN;
         _watchingFor = 0.0;
-        _toGain = double.NaN;
-        _toGainCci = Vec.Zero;
         _watched = false;
-        _atRelease = double.NaN;
         _lowest = double.PositiveInfinity;
         _sinceProgress = 0.0;
-        _said = "";
     }
 
     public TrimCommand Update(double stepSeconds, in TrimSituation now)

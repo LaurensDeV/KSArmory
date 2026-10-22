@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640">
+
+<defs>
+<clipPath id="ksa-inner"><circle cx="320" cy="320" r="248"></circle></clipPath>
+<path id="ksa-top" d="M 52 320 A 268 268 0 0 1 588 320"></path>
+<path id="ksa-bottom" d="M 30 320 A 290 290 0 0 0 610 320"></path>
+</defs>
+<circle cx="320" cy="320" r="312" fill="#171717" stroke="#F2A900" stroke-width="10"></circle>
+<circle cx="320" cy="320" r="250" fill="#171717" stroke="#EDEBE6" stroke-width="3"></circle>
+<g clip-path="url(#ksa-inner)">
+<circle cx="320" cy="770" r="340" fill="#2A2A28"></circle>
+<circle cx="120" cy="190" r="2.5" fill="#EDEBE6" opacity="0.6"></circle>
+<circle cx="168" cy="120" r="1.8" fill="#EDEBE6" opacity="0.5"></circle>
+<circle cx="470" cy="150" r="2.5" fill="#EDEBE6" opacity="0.6"></circle>
+<circle cx="520" cy="240" r="1.8" fill="#EDEBE6" opacity="0.5"></circle>
+<circle cx="410" cy="96" r="1.8" fill="#EDEBE6" opacity="0.45"></circle>
+<circle cx="96" cy="300" r="1.8" fill="#EDEBE6" opacity="0.45"></circle>
+<path d="M 120 455 Q 320 330 520 455" fill="none" stroke="#F2A900" stroke-width="3" stroke-dasharray="10 9"></path>
+<g transform="translate(460 423) rotate(23.6)">
+<rect x="-18" y="-4" width="31" height="8" rx="2" fill="#EDEBE6"></rect>
+<polygon points="13,-4 23,0 13,4" fill="#EDEBE6"></polygon>
+<polygon points="-18,-4 -26,-11 -10,-4" fill="#EDEBE6"></polygon>
+<polygon points="-18,4 -26,11 -10,4" fill="#EDEBE6"></polygon>
+</g>
+</g>
+<g transform="translate(205 140) scale(1.15)">
+<polygon points="44,84 51,18 96,52" fill="#EDEBE6"></polygon>
+<polygon points="156,84 149,18 104,52" fill="#EDEBE6"></polygon>
+<polygon points="55,68 58,34 82,52" fill="#F2A900"></polygon>
+<polygon points="145,68 142,34 118,52" fill="#F2A900"></polygon>
+<circle cx="100" cy="110" r="60" fill="#171717" stroke="#EDEBE6" stroke-width="11"></circle>
+<line x1="100" y1="55" x2="100" y2="80" stroke="#EDEBE6" stroke-width="8"></line>
+<line x1="100" y1="165" x2="100" y2="140" stroke="#EDEBE6" stroke-width="8"></line>
+<line x1="45" y1="110" x2="70" y2="110" stroke="#EDEBE6" stroke-width="8"></line>
+<line x1="155" y1="110" x2="130" y2="110" stroke="#EDEBE6" stroke-width="8"></line>
+<circle cx="100" cy="110" r="7" fill="#F2A900"></circle>
+<line x1="28" y1="99" x2="6" y2="91" stroke="#EDEBE6" stroke-width="5" stroke-linecap="round"></line>
+<line x1="28" y1="112" x2="4" y2="112" stroke="#EDEBE6" stroke-width="5" stroke-linecap="round"></line>
+<line x1="28" y1="125" x2="6" y2="133" stroke="#EDEBE6" stroke-width="5" stroke-linecap="round"></line>
+<line x1="172" y1="99" x2="194" y2="91" stroke="#EDEBE6" stroke-width="5" stroke-linecap="round"></line>
+<line x1="172" y1="112" x2="196" y2="112" stroke="#EDEBE6" stroke-width="5" stroke-linecap="round"></line>
+<line x1="172" y1="125" x2="194" y2="133" stroke="#EDEBE6" stroke-width="5" stroke-linecap="round"></line>
+</g>
+<text font-family="'Saira Condensed', sans-serif" font-weight="800" font-size="46" letter-spacing="10" fill="#EDEBE6" text-anchor="middle"><textPath href="#ksa-top" startOffset="50%">KSARMORY</textPath></text>
+<text font-family="'IBM Plex Mono', monospace" font-weight="500" font-size="22" letter-spacing="6" fill="#EDEBE6" text-anchor="middle"><textPath href="#ksa-bottom" startOffset="50%">WEAPON SYSTEMS DIVISION</textPath></text>
+<circle cx="38" cy="320" r="6" fill="#F2A900"></circle>
+<circle cx="602" cy="320" r="6" fill="#F2A900"></circle>
+
+</svg>

@@ -54,7 +54,7 @@ public class ChordCrossingTests(ITestOutputHelper Out)
         double3 from = new(R + 4_000.0, 0, 0);
         double3 velocity = new(-2_900.0, 4_600.0, 0);
 
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21.Copy();
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21.Copy();
         warhead.SubStepSeconds = 0.001f;
 
         Slug round = new(from, velocity, null, 1, from, Vec.Zero)

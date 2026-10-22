@@ -29,7 +29,7 @@ public class ShortShotCompletionTests
     [InlineData("hot liquid", 80.0)]
     public void EveryStackCutsOffAtEveryRangeNearItsAscentFloor(string stack, double boundKm)
     {
-        MunitionProfile warhead = Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21);
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21.Copy();
         BallisticBody earth = new(3.986004418e14, R, new double3(0, 0, 1), 7.2921159e-5);
 
         foreach (double km in Ranges)

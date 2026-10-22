@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The air-launched rails: a LAU-7 with an AIM-9J, a LAU-128 with an AIM-120C-7 and a LAU-118 with an
+  AGM-88 HARM. Nothing on any of them moves, so each is laid from the moment it exists and is aimed by
+  pointing the craft. Part definitions are in ../KSArmory*.xml, which KSA reads and this does not.
+-->
+<WeaponPack Schema="1" Family="Rails">
+
+  <!--
+    AIM-9J. Length, mass, speed (about Mach 2.5) and MaxRange are the real weapon's. Guidance="Seeker":
+    it homes on the target itself, so it keeps guiding after the launcher loses the track, but loses the
+    target if it leaves the seeker's field of view.
+
+    The motor burns for 2.2 s and the missile coasts the rest of the way, so a long shot arrives slow.
+    BoostAccel="370" is the Mach 2.5 peak divided by the 2.2 s burn: the real acceleration rises as
+    the propellant burns off, and this model has no mass to burn, so it uses the average.
+
+    CountermeasureResistance="0.1": an early infrared seeker with no flare rejection, so it follows the
+    brightest thing it sees. SeparationSeconds="0.4" carries it about 40 m clear of the craft before it
+    turns. There is no FinMarker because a rail-launched missile carries its fins already deployed.
+  -->
+  <Munition Name="AIM9J" DisplayName="AIM-9J Sidewinder"
+            BodyMarker="Aim9" BodyLength="3.05"
+            MinRange="400" MaxRange="14000"
+            LaunchSpeed="25" BoostSeconds="2.2" BoostAccel="370" MaxFlightSeconds="40"
+            DragK="4.2e-5"
+            Guidance="Seeker" SeekerFovDeg="40" SeekerBand="Infrared" CountermeasureResistance="0.1"
+            NavConstant="4" MaxLateralG="30" SeparationSeconds="0.4"
+            FuseRadius="12" FuseArmSeconds="1.0" ChargeKg="9.4" />
+
+  <!--
+    AIM-120C-7. Length, mass and the 20 kg warhead are the real weapon's. It reaches much further than
+    the AIM-9J: it boosts to about Mach 4 and then coasts, so a shot near maximum range arrives slow and
+    turns badly. MaxRange="105000" is the figure for a launch at altitude and speed; a low shot gets far
+    less.
+
+    Guidance="Seeker" even though the real missile flies the middle of its flight on a datalink from
+    the aircraft, which this mod does not model. Command guidance would make it lose the target the
+    moment the launcher lost its track, which is exactly what an AMRAAM is designed not to do. The wide
+    SeekerFovDeg="60" makes up for having no datalink. DopplerGateMps="40": chaff, which stops almost
+    dead in the air, is ignored unless the target is flying across the seeker's line of sight.
+  -->
+  <Munition Name="AIM120C" DisplayName="AIM-120C-7 AMRAAM"
+            BodyMarker="Amraam_Round" BodyLength="3.645"
+            MinRange="900" MaxRange="105000"
+            LaunchSpeed="25" BoostSeconds="5.5" BoostAccel="235" MaxFlightSeconds="120"
+            DragK="2.6e-5"
+            Guidance="Seeker" SeekerFovDeg="60" SeekerBand="Radar" CountermeasureResistance="0.3"
+            DopplerGateMps="40"
+            NavConstant="4" MaxLateralG="40" SeparationSeconds="0.4"
+            FuseRadius="14" FuseArmSeconds="1.2" ChargeKg="20" />
+
+  <!--
+    AGM-88 HARM. Length, mass and the 66 kg warhead are the real weapon's (designation-systems.net).
+    Guidance="AntiRadiation": it homes on radar transmissions, so anything not transmitting is not a
+    target, however large or close. Useless against aircraft, decisive against a radar site.
+
+    The real motor has two phases: BoostSeconds/BoostAccel is the boost, and the Stage is the sustainer,
+    which keeps it accelerating where a coasting missile is already slowing. SeekerFovDeg="70": it finds
+    a transmitter by listening across the whole forward view, not through a dish that has to be aimed.
+  -->
+  <Munition Name="AGM88" DisplayName="AGM-88 HARM"
+            BodyMarker="Harm_Round" BodyLength="4.17"
+            MinRange="1200" MaxRange="148000"
+            LaunchSpeed="25" BoostSeconds="5.0" BoostAccel="210" MaxFlightSeconds="180"
+            DragK="3.1e-5"
+            Guidance="AntiRadiation" SeekerFovDeg="70"
+            NavConstant="4" MaxLateralG="20" SeparationSeconds="0.4"
+            FuseRadius="16" FuseArmSeconds="1.5" ChargeKg="66">
+    <Stage Seconds="18.0" Accel="26" />
+  </Munition>
+
+  <!--
+    Nothing on a rail searches for targets, so each rail uses its missile's seeker as its search sensor.
+    BoresightSource="PartForward" points it where the rail points; the default, local up, would have a
+    rail on a rocket searching whichever way gravity happened to be.
+  -->
+  <Sensor Name="AIM9SEEK" DisplayName="AIM-9 seeker head"
+          Range="16000" ConeDeg="50" BoresightSource="PartForward"
+          ThreatRadius="6000" ThreatHorizonSeconds="30" LockSeconds="1.0" />
+
+  <!--
+    Radar rather than infrared, so the target does not need to be hot. ReferenceCrossSectionM2="5" is a
+    fighter-sized target; smaller targets are detected closer, by the fourth root of their size.
+    Emits="true": the seeker transmits, so an anti-radiation missile could home on it.
+  -->
+  <Sensor Name="AIM120SEEK" DisplayName="AIM-120 seeker head"
+          Range="40000" ConeDeg="60" BoresightSource="PartForward"
+          ThreatRadius="30000" ThreatHorizonSeconds="60" LockSeconds="1.4"
+          ReferenceCrossSectionM2="5" Emits="true" />
+
+  <!--
+    Emits="false": the seeker only listens, so a craft carrying only this rail cannot itself be homed on
+    by another anti-radiation missile. Detection depends on whether the target transmits, not on its
+    size, so there is no ReferenceCrossSectionM2. MinTargetSpeed="0" because a radar site does not
+    move.
+  -->
+  <Sensor Name="AGM88SEEK" DisplayName="AGM-88 seeker head"
+          Range="60000" ConeDeg="70" BoresightSource="PartForward" Scope="Emitters"
+          ThreatRadius="50000" ThreatHorizonSeconds="90" LockSeconds="1.0"
+          MinTargetSpeed="0" Emits="false" />
+
+  <!--
+    Each rail holds one missile and never reloads (ReloadSeconds="0"); a second rail on the same craft is
+    a second weapon. The Tube gives the nose of the seated missile and the direction it leaves in, since
+    a launcher that does not move has no other way to say which way it fires.
+
+    LaunchAlongTube and EjectAwayFromMount: the missile leaves along the rail, pushed clear of the
+    craft, flies straight for its SeparationSeconds, and only then turns toward the target. A rail on
+    a rocket cannot be aimed by turning the craft, so a ground target can sit 92-116 degrees off it;
+    the missile is still steered onto a designated place even though its seeker cannot see it
+    (Interceptor's SeekerInView, FireGate.CanGuideOntoAimpoint).
+
+    The LAU-7 Tube is printed by tools/model/sidewinder.py. The LAU-128 and LAU-118 were modelled by hand,
+    so their Tube is the seat position in KSArmoryAssets.xml plus half the missile's length. Their .blend
+    files are not in this repository, so tools/validate-parts.py is the only check that these agree.
+  -->
+  <Launcher PartId="KSArmory_Prefab_SidewinderRail" DisplayName="LAU-7 Sidewinder rail"
+            FireControlLabel="LAU-7 fire control"
+            Munition="AIM9J" Sensor="AIM9SEEK" StoreMassKg="78"
+            MuzzleForwardOffset="0.408"
+            LaunchAlongTube="true" EjectAwayFromMount="0.55" LaunchLoft="0" MuzzleOffset="2"
+            ReloadSeconds="0" SettleSeconds="0">
+    <Tube Position="0.40850, 1.52500, 0.00000" Direction="0, 1, 0" />
+  </Launcher>
+
+  <Launcher PartId="KSArmory_Prefab_AmraamRail" DisplayName="LAU-128 AMRAAM rail"
+            FireControlLabel="LAU-128 fire control"
+            Munition="AIM120C" Sensor="AIM120SEEK" StoreMassKg="161.5"
+            MuzzleForwardOffset="0.424"
+            LaunchAlongTube="true" EjectAwayFromMount="0.55" LaunchLoft="0" MuzzleOffset="2"
+            ReloadSeconds="0" SettleSeconds="0">
+    <Tube Position="0.42400, 1.82250, 0.00000" Direction="0, 1, 0" />
+  </Launcher>
+
+  <Launcher PartId="KSArmory_Prefab_HarmRail" DisplayName="LAU-118 HARM rail"
+            FireControlLabel="LAU-118 fire control"
+            Munition="AGM88" Sensor="AGM88SEEK" StoreMassKg="360"
+            MuzzleForwardOffset="0.540"
+            LaunchAlongTube="true" EjectAwayFromMount="0.55" LaunchLoft="0" MuzzleOffset="2"
+            ReloadSeconds="0" SettleSeconds="0">
+    <Tube Position="0.54000, 2.08500, 0.00000" Direction="0, 1, 0" />
+  </Launcher>
+
+</WeaponPack>

@@ -19,7 +19,7 @@ variable "domain" {
 # fails the TLS handshake for names it does not serve, so an unmatched record
 # reads as a broken site rather than an absent one.
 variable "subdomains" {
-  description = "Hostnames served from the same machine as the apex."
+  description = "Hostnames served from the VPS."
   type        = set(string)
   default     = ["api"]
 }
@@ -64,4 +64,17 @@ variable "vps_ipv6" {
   description = "Public IPv6 of the same machine. Empty skips the AAAA record."
   type        = string
   default     = ""
+}
+
+# The site is a Pages project, which belongs to the account rather than the zone, so the token needs
+# Account > Cloudflare Pages > Edit as well.
+variable "account_id" {
+  description = "Cloudflare account ID, for the site's Pages project."
+  type        = string
+}
+
+variable "pages_project" {
+  description = "The site's Cloudflare Pages project, which .github/workflows/wiki.yml deploys into."
+  type        = string
+  default     = "ksarmory"
 }

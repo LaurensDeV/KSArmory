@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The YAL-1 Airborne Laser's nose turret: a beam director stacked on a 3 m node, and the megawatt
+  chemical laser it fires down its own line of sight. Part definitions are in ../KSArmory*.xml, which
+  KSA reads and this does not.
+-->
+<WeaponPack Schema="1" Family="DirectedEnergy">
+
+  <!--
+    What the turret tracks with. The aircraft's six IRSTs did the detecting, so it is CuedOnly and
+    holds only what it is handed. Range="300000" is the design range against a solid-fuelled booster
+    (APS, 2003); against a liquid-fuelled one it was twice that. BoresightSource="MountNormal" is the
+    part's +X, which for a turret on a nose is straight ahead along its roll axis.
+  -->
+  <Sensor Name="Yal1BeamDirector" DisplayName="YAL-1 beam director" CuedOnly="true"
+          Range="300000" ConeDeg="120" BoresightSource="MountNormal"
+          ThreatRadius="6000" ThreatHorizonSeconds="30" LockSeconds="0.6"
+          MinTargetSpeed="0" />
+
+  <!--
+    The beam director in the nose. Geometry from its Blender export. Gimbal="RollNod", like the
+    LITENING pod: Lockheed Martin's turret ball "yaws and rolls in flight" inside a roll shell. Its base
+    is turned a quarter turn in the part XML, so its centreline is the stack axis and the window looks
+    forward at zero nod.
+
+    SlewRateDeg="30" is a guess: it is not published, and a 6.4 t ball turns slower than the pod's 140.
+    MaxOffBoresightDeg="120" is Laserstars' field of regard; the shell's slot clears the window that far.
+    MaxMagnification="932": the fine tracker looks through the beam's own telescope, and telescopes of
+    that class have a field of 1 mrad or less (US 12171055); 1 mrad against the 50 degrees zoom is
+    measured from is x932. HasLaser="true": the tracking and beacon illuminators leave through this
+    window, and so does the beam.
+
+    The <Beam> takes every default, which are the YAL-1's own COIL laser; see Sim/BeamProfile.cs.
+  -->
+  <Optic PartId="KSArmory_Prefab_Yal1Turret" DisplayName="YAL-1 beam director" Sensor="Yal1BeamDirector"
+         Gimbal="RollNod"
+         BaseMarker="Yal1_Base" RollMarker="Yal1_Roll" HeadMarker="Yal1_Head"
+         HeadPivot="0.00000, 2.50000, 0.00000" EyeForward="1.400"
+         SlewRateDeg="30" MaxOffBoresightDeg="120" KeyholeDeg="4"
+         MaxMagnification="932" HasLaser="true" LaserRangeMetres="300000">
+    <Beam />
+  </Optic>
+
+  <!--
+    The laser as a weapon: the same part as the director, firing that director's beam. FiresBeam="true"
+    with no Munition: it throws no round and nothing of its own moves; fire control picks the target
+    and cues the director, which aims, casts and burns.
+
+    MintRows="false" lists the panel's rows exactly: the director is the part itself and its sensor is
+    the director's, whose row already says what it watches, so there is no sensor row.
+  -->
+  <Launcher PartId="KSArmory_Prefab_Yal1Turret" DisplayName="YAL-1 laser"
+            Sensor="Yal1BeamDirector" FiresBeam="true" BeamArmamentLabel="COIL laser"
+            MintRows="false">
+    <Provides Role="Camera" DisplayName="YAL-1 beam director" />
+    <Provides Role="FireControl" DisplayName="YAL-1 fire control" />
+  </Launcher>
+
+</WeaponPack>

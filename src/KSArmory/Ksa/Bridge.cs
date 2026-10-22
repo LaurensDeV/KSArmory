@@ -52,8 +52,10 @@ internal sealed class Bridge : IViewPose
                   Countermeasures countermeasures, Action<Vehicle> focus,
                   Func<IEnumerable<OpticalHeads.Entry>> heads,
                   Func<Vehicle?, IcbmComputer?> computerFor,
-                  Func<IEnumerable<SearchSet>> searchSets, Func<Vehicle?, object?> pictureFor)
+                  Func<IEnumerable<SearchSet>> searchSets, Func<Vehicle?, object?> pictureFor,
+                  Action tripFaultLimit)
     {
+        _tripFaultLimit = tripFaultLimit;
         _searchSets = searchSets;
         _pictureFor = pictureFor;
         _computerFor = computerFor;
@@ -67,6 +69,7 @@ internal sealed class Bridge : IViewPose
     }
 
     private readonly Func<Vehicle?, IcbmComputer?> _computerFor;
+    private readonly Action _tripFaultLimit;
     private readonly Func<IEnumerable<SearchSet>> _searchSets;
     private readonly Func<Vehicle?, object?> _pictureFor;
 
@@ -259,6 +262,7 @@ internal sealed class Bridge : IViewPose
             "capture" => BeginCapture(command),
             "load" => BeginLoad(command),
             "system" => System(command),
+            "disable" => Disable(),
             "optic" => Optic(command),
             "search" => Search(command),
             "clouds" => Clouds(command),
@@ -905,6 +909,14 @@ internal sealed class Bridge : IViewPose
         return null;
     }
 
+    // Trips the fault limit, so what the mod lets go of when it disables itself can be flown. The bridge
+    // goes with it: nothing answers after this one.
+    private Reply Disable()
+    {
+        _tripFaultLimit();
+        return Done(new() { ["disabled"] = true });
+    }
+
     // One craft's weapons settings, as the panel would set them, and optionally its missiles flown on a
     // seeker of the named band for testing a decoy against it: "infrared", "radar", "radar-gated", "stock".
     private Reply System(BridgeCommand command)
@@ -925,6 +937,17 @@ internal sealed class Bridge : IViewPose
             if (command.Has("guns")) p.GunsEnabled = command.Flag("guns", p.GunsEnabled);
             if (command.Has("beam")) p.BeamEnabled = command.Flag("beam", p.BeamEnabled);
             if (command.Has("chase")) p.ChaseRounds = command.Flag("chase", p.ChaseRounds);
+
+            // The panel's turret controls: track the radar, hold where the sliders say, stow, or spin.
+            string turret = command.String("turret");
+            if (turret.Length > 0)
+            {
+                p.TurretSpin = turret == "spin";
+                p.TurretManual = turret == "manual";
+                p.TurretTracking = turret is "track" or "manual" or "spin";
+            }
+            if (command.Has("bearing_deg")) p.TurretManualBearingDeg = (float)command.Number("bearing_deg", 0.0);
+            if (command.Has("elevation_deg")) p.TurretManualElevationDeg = (float)command.Number("elevation_deg", 55.0);
 
             string trigger = command.String("trigger");
             if (trigger == "cannon") e.Weapon.TriggerArmament = ArmamentKind.Belt;
@@ -959,6 +982,8 @@ internal sealed class Bridge : IViewPose
                     _ => "tubes",
                 },
                 ["hold"] = e.Weapon.Hold,
+                ["turret"] = p.TurretSpin ? "spin" : p.TurretManual ? "manual" : p.TurretTracking ? "track" : "stow",
+                ["ring_on_gun_lead"] = e.Weapon.RingClaimsGunLead,
                 ["beam_s_left"] = e.Weapon.Profile.FiresBeam ? e.Weapon.BeamSecondsLeft : null,
                 ["beam_lasing"] = e.Weapon.Profile.FiresBeam ? e.Weapon.BeamLasing : null,
                 ["protect"] = p.ProtectControlledVehicle,
@@ -1359,11 +1384,16 @@ internal sealed class Bridge : IViewPose
         // count sets off that many in the same frame, spacing_m apart eastward: a bus's salvo, which a
         // burst a call can never be, since calls are further apart than one burst stays one event.
         int count = Math.Clamp((int)command.Number("count", 1.0), 1, 12);
+        // effect names an explosion as a munition's BurstEffect would, through the same fallback.
+        string effect = command.String("effect");
         double spacing = command.Number("spacing_m", 0.0);
         for (int i = 0; i < count; i++)
         {
             double3 offset = frame.East * (spacing * i);
-            if (command.Flag("explode", true)) Detonation.Explode(lifted + offset, charge, craft);
+            if (command.Flag("explode", true))
+            {
+                Detonation.Explode(lifted + offset, charge, craft, named: effect.Length > 0 ? effect : null);
+            }
             NuclearClouds.Begin(ground + offset, craft, charge);
         }
 
@@ -1372,8 +1402,7 @@ internal sealed class Bridge : IViewPose
         {
             if (_systemFor(craft) is not { } system) return Failed("the craft carries no weapons system to judge the burst by");
 
-            MunitionProfile warhead = Arsenal.NukeB61.Copy();
-            warhead.ChargeKg = (float)charge;
+            MunitionProfile warhead = new() { Name = "bridge burst", DisplayName = "bridge burst", ChargeKg = (float)charge };
             // in_frame_s sets it off that long before the end of the step, from where the ground was
             // then, as a round that detonates part-way through a step reports it: the case a burst on
             // the step boundary never exercises.

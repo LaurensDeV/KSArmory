@@ -202,7 +202,7 @@ internal static class Visuals
 
             // End the line on the engine's position for the contact, not its analytic one, so
             // it touches the craft rather than pointing near it.
-            if (KsaWorld.TryEclToEgo(origin, out double3 originEgo) && track.Contact.TryDrawEgo(out double3 endEgo))
+            if (KsaWorld.TryAnchoredEgo(origin, out double3 originEgo) && track.Contact.TryDrawEgo(out double3 endEgo))
             {
                 KsaWorld.DrawLineEgo(originEgo, endEgo, colour);
             }
@@ -247,7 +247,7 @@ internal static class Visuals
             {
                 KsaWorld.DrawSphereEgo(muzzles[tube], 0.16f, colour);
             }
-            else if (KsaWorld.TryEclToEgo(LauncherPart.MuzzleEcl(profile, origin, system.Boresight, tube), out double3 ego))
+            else if (KsaWorld.TryAnchoredEgo(LauncherPart.MuzzleEcl(profile, origin, system.Boresight, tube), out double3 ego))
             {
                 KsaWorld.DrawSphereEgo(ego, 0.16f, colour);
             }

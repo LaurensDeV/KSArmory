@@ -57,9 +57,11 @@ internal static class Detonation
     /// <param name="body">
     /// The body the firing system is over, for when no craft near the burst is left to ask.
     /// </param>
-    public static void Explode(double3 burstEcl, double chargeKg, Vehicle? near, Celestial? body = null)
+    /// <param name="named">The munition's own <see cref="MunitionProfile.BurstEffect"/>, if it names one.</param>
+    public static void Explode(double3 burstEcl, double chargeKg, Vehicle? near, Celestial? body = null,
+                               string? named = null)
     {
-        if (WarheadExplosion.PresetFor(chargeKg) is not { } preset) return;
+        if (Chosen(named, chargeKg) is not { } preset) return;
 
         string why = TryExplode(preset, burstEcl, chargeKg, near, body);
         if (why.Length == 0) return;
@@ -70,6 +72,20 @@ internal static class Detonation
     }
 
     private static readonly HashSet<string> _reported = [];
+
+    // A named explosion that does not resolve falls back to the charge's own, so a pack's typo costs the
+    // look and not the burst; said once, because KSA would otherwise drop it with nothing in this log.
+    private static string? Chosen(string? named, double chargeKg)
+    {
+        if (string.IsNullOrEmpty(named)) return WarheadExplosion.PresetFor(chargeKg);
+        if (Resolves(named)) return named;
+
+        if (_reported.Add($"unresolved:{named}"))
+        {
+            Log.Warn($"explosion '{named}' is not declared by any mod; bursting as the charge's own instead");
+        }
+        return WarheadExplosion.PresetFor(chargeKg);
+    }
 
     // Once per preset, so a salvo does not bury the engagement it belongs to.
     private static readonly HashSet<string> _described = [];

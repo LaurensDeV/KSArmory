@@ -170,10 +170,16 @@ public class PredictorStepTests(ITestOutputHelper Out)
 
         double onBall = Moved(null);
         double onKsa = Moved(DeorbitShot.ErodedGroundKsaSpectrum);
-        double onTall = Moved(DeorbitShot.ErodedGroundOf(100.0, 800.0));
+
+        // An octave that can hide between two of the shipped step's samples: shorter than twice their
+        // spacing, and taller than the arc drops across one. Read off this round's own arrival.
+        (double track, double drop) = SpacingAtArrival(shipped, 4_640.0, 7.0);
+        double wavelength = 1.5 * track, height = 2.0 * drop;
+        double onTall = Moved(DeorbitShot.ErodedGroundOf(height, wavelength));
 
         Out.WriteLine($"shipped {shipped * 1000.0:F0} ms step against a {ConvergedSeconds * 1000.0:F0} ms one: "
-                      + $"sphere {onBall:F2} m, KSA erosion {onKsa:F2} m, 100 m over 800 m {onTall:F1} m");
+                      + $"sphere {onBall:F2} m, KSA erosion {onKsa:F2} m; samples {track:F0} m apart dropping "
+                      + $"{drop:F0} m, so {height:F0} m over {wavelength:F0} m moves it {onTall:F1} m");
 
         Assert.True(onBall < 5.0, $"the sphere leg moved {onBall:F2} m, so the rig is at fault");
 
@@ -183,9 +189,31 @@ public class PredictorStepTests(ITestOutputHelper Out)
                     + "table -- see docs/ACCURACY-PLAN.md 3z and 3ab.");
 
         Assert.True(onTall > 100.0,
-                    $"an octave 100 m tall and 800 m across moved the impact only {onTall:F1} m, so "
+                    $"an octave {height:F0} m tall and {wavelength:F0} m across moved the impact only {onTall:F1} m, so "
                     + "this file can no longer see the effect it exists to rule out, and the KSA "
                     + "leg above proves nothing. Fix the rig before trusting either.");
+    }
+
+    // Ground track and drop between two of a step's samples as it arrives over the bare sphere.
+    private static (double Track, double Drop) SpacingAtArrival(double step, double speed, double gammaDeg)
+    {
+        (double3 position, double3 velocity) = Entry(speed, gammaDeg);
+        List<double3> path = [];
+        Assert.True(ImpactPredictor.TryPredict(Earth, position, velocity, 2.0, 3_000.0,
+                                               out ImpactPredictor.Impact _, pathCci: path,
+                                               drag: new ImpactPredictor.Drag(DeorbitShot.DensityAt,
+                                                                             DeorbitShot.Warhead),
+                                               atmosphericStepSeconds: step));
+
+        // The last samples are refined onto the ground, so the widest of the last few is a whole step.
+        (double Track, double Drop) widest = (0.0, 0.0);
+        for (int i = 1; i <= 6 && i < path.Count; i++)
+        {
+            double track = DeorbitShot.GroundMetres(path[^i], path[^(i + 1)]);
+            if (track > widest.Track) widest = (track, path[^(i + 1)].Length() - path[^i].Length());
+        }
+
+        return widest;
     }
 
     /// <summary>

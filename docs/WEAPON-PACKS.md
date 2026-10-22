@@ -52,6 +52,10 @@ KSArmory looks in that folder inside **every** installed mod and reads the `.xml
 It holds no list of packs and never learns yours by name — the convention is the whole mechanism,
 the same relationship KSA has with its own mods folder.
 
+**Split a pack across as many files as you like, named as you like.** A mod's files are read as one
+unit: every name each declares is known to the others, so a launcher may name a round or a sensor
+in another file whichever order they sort in. KSArmory's own files are read the same way.
+
 **`KSArmory/Weapons.xml` must not be in `mod.toml`'s `assets` array.** KSA hands every entry there
 to its own asset-bundle loader, so a weapon file named there is parsed by the wrong reader.
 
@@ -63,7 +67,17 @@ would not be a weapon.
 A pack that needs to build definitions at runtime can ship an assembly instead, declare
 `ModDependencies = [ { ModId = "KSArmory" } ]` under `[StarMap]`, and call
 `KSArmory.Armoury.Register(xml, "MyWeaponPack")` from `[StarMapBeforeMain]`. StarMap holds it back
-until KSArmory is up and shares KSArmory's assembly out of *its* load context, both by default.
+until KSArmory is up and shares KSArmory's assembly out of *its* load context, both by default, and
+KSArmory registers its own weapons from its own `[StarMapBeforeMain]`, so `KSArmory:20MM` already
+resolves when yours runs.
+
+Register several texts in one call, `Armoury.Register([("rounds", a), ("launchers", b)], "MyWeaponPack")`,
+when one names what another declares: they are read as one unit, as a folder is, and separate calls
+are not.
+
+**Register by code or by folder, not both.** Use your mod's Id as the source: a mod that has registered
+from code under its own Id has its `KSArmory/` folder skipped, with a line in the log saying so, because
+read a second time every definition would be refused as already claimed.
 
 `Register` takes **text**, not profiles, and that is worth preserving: constructing a
 `LauncherProfile` in C# needs `double3` from `Brutal.Numerics`, which is RocketWerkz's and not
@@ -75,6 +89,15 @@ Most packs will never need any of this.
 ---
 
 ## Weapons.xml
+
+A pack's root is `<WeaponPack Schema="1">`. `Family` is KSArmory's own, for switching a family of its
+built-ins off, and is refused on a pack's: a pack is switched off by uninstalling it.
+
+**A pack may replace one of KSArmory's own weapons on KSArmory's own part.** While its family is on,
+the part is taken and the refusal names the family; once a player switches that family off under
+*KSArmory > Built-in weapons*, the pack's definition is the part's, and the part stays in the editor.
+The family's rounds and sensors stay registered either way, so the replacement can still name
+`KSArmory:20MM`.
 
 ```xml
 <WeaponPack Schema="1">
@@ -137,6 +160,7 @@ Four rules that between them explain most refusals:
 | `FuseRadius` | `15` | proximity burst, m |
 | `TimedFuse` | `false` | flak: also burst at the flight time the lead solution asked for. The proximity fuse still runs |
 | `FuseArmSeconds` | `0.6` | how long the proximity fuse is dead after release. A shell still strikes what it touches |
+| `MaxChargeKg` | `0` | the top of the panel's yield slider; `0` is the slider's own ceiling |
 | `ChargeKg` | `20` | **the warhead, as one number.** Lethal radius, blast radius and fireball are all derived from it by the cube-root law, so doubling it multiplies reach by 1.26 |
 | `HitsTerrain` | `false` | stops at the ground. Costs a terrain sample per round per frame |
 | `BurstHeightMetres` | `0` | an air-burst fuse: fires this far over the ground on the way down. `0` bursts on contact. Needs `HitsTerrain` |
@@ -144,6 +168,8 @@ Four rules that between them explain most refusals:
 | `ChuteOpensSeconds` | `1.5` | when after release the chute opens; it fills over a second |
 | `BodyLength` | `3.10` | m, for drawing |
 | `BodyModel` | *none* | a gun round's model: the Id of a `<SubPart>` template, drawn once per shell in the air with no subpart on the launcher, so there is no limit on how many are seen. Without one a shell is a streak |
+| `BurstEffect` | *chosen by the charge* | an `<Explosion>` your asset XML declares, which the warhead goes off as. Only the look: the blast, its reach and a nuclear charge's cloud stay the charge's |
+| `PlumeEffect` | *KSArmory's* | a `<ParticleEmitter>` your asset XML declares, held at the nozzle while the motor burns |
 | `TracerEvery` | `0` | a gun round: one in this many burns a tracer, as a belt is loaded. The rest are drawn as a faint grey streak, as bright as the player's **Rounds between tracers** setting in daylight and fading with the sun, so at night only the tracers are seen. `0` is none |
 | `TracerBurnSeconds` | `3` | how long a tracer burns before it goes out; the round flies on unseen |
 | `FinDeploySeconds` | `0.18` | |
@@ -152,6 +178,8 @@ Four rules that between them explain most refusals:
 | `FinsPerRound` | `0` | blades; `0` means the older single-set scheme |
 | `FinStowedScale` | `0.06` | |
 | `MaxFaithfulStepSeconds` | `0.32` | beyond this a step is too coarse to integrate honestly |
+| `PreferredStepSeconds` | `0` | the frame the world is held to while this round flies; `0` is `MaxFaithfulStepSeconds` |
+| `SubStepSeconds` | `0` | the round's own integration step; `0` is 5 ms |
 
 A staged motor adds stages **after** the first. `BoostSeconds` and `BoostAccel` are stage one, and
 each `<Stage>` follows it in order:
@@ -188,6 +216,10 @@ each `<Stage>` follows it in order:
 | `TerrainMarginMetres` | `0` | inflates the masking sphere |
 | `TerrainSamples` | `0` (off) | height-map lookups one contact may cost. Real terrain masking, at a real per-frame price |
 | `TerrainClearanceMetres` | `30` | how far terrain must stand above the line of sight before it blocks. Without it a site on any slope is blind along its own ground |
+| `CuedOnly` | `false` | it finds nothing by itself and only tracks what it is handed. Every director's sensor is; without it a director searches the sky on its own |
+| `Infrared` | `false` | passive: it sees a contact by its heat rather than by transmitting, and `Range` is then only a ceiling |
+| `IrThresholdWPerM2` | `6e-7` | the faintest heat an `Infrared` set detects, in W/m² |
+| `LookDownPenalty` | `1` | how much higher that threshold is for a contact seen against the ground |
 
 ### `<Launcher>` — the part, and what it does with the round
 
@@ -211,6 +243,9 @@ holds fire on for ever, with no gate reporting why.
 | `MuzzleForwardOffset` | `0` | m from the part origin to the tube muzzles, along the boresight |
 | `TubeRingRadius` | `0` | m; the ring the launch positions fall back to when the subpart carrying the tubes will not resolve |
 | `TubeArmamentLabel` | `Missiles` | what the panel calls it. A rack says "Bombs" |
+| `FireControlLabel` | *DisplayName* `fire control` | what the panel's fire-control row for this part is called |
+| `MintRows` | `true` | `false` lists the panel's rows for this part exactly as its `<Provides>` declare them, with no sensor, gun or fire-control row added |
+| `FiresBeam`, `BeamArmamentLabel` | `false`, `Laser` | fires the beam an `<Optic>` on the same part carries, and needs no `Munition`. Refused if no `<Optic>` in the pack on its part has a `<Beam>` |
 
 **Trainable launchers** name the subparts that move. Leave them all out and the launcher is fixed:
 `Trains` is false, the drives are skipped, and fire control never waits for it to settle.
@@ -228,6 +263,7 @@ holds fire on for ever, with no gate reporting why.
 | `ForwardMinElevationDeg`, `ForwardArcDeg`, `ForwardPlateauDeg` | `15`, `80`, `62` | a raised floor over an arc, so the gear does not swing through its own bodywork |
 | `RestElevationDeg` | *modelled pose* | where it stows |
 | `SearchRadarRpm`, `SearchRadarFaces` | `20`, `1` | a search array turns off the clock, never off the track |
+| `TraverseLimitDeg` | `180` | ° either side of the modelled bearing; under 180 the traverse turns the long way round rather than through what is behind it |
 
 Declaring elevating gear with **no trunnion offset is refused**: an assembly pivoting about the
 turret's own centre reads as a pod orbiting the vehicle.
@@ -238,12 +274,32 @@ tubes, a cannon, or both; the Phalanx has no tubes at all.
 | | Default | |
 | --- | --- | --- |
 | `GunAmmo` | `480` | belt |
+| `TrimAccelerationMetresPerSecond2`, `TrimWorstAxisExhaustVelocity` | *none* | a post-boost bus's attitude nozzles: the acceleration they give the loaded bus, and the exhaust velocity of its worst axis |
+| `HopEngineThrustNewtons`, `HopEngineExhaustVelocity`, `HopEngineAccelerationMetresPerSecond2` | *none* | a bus's main engine, lit to hop between targets. Without them it never is |
 | `StoreMassKg` | `0` | what one tube round weighs as carried (kg). The part's declared mass should include its full load: each round fired takes this much off it, and a reload puts it back. `0` sheds nothing |
 | `GunRoundMassKg` | `0` | the same for one complete round in the belt, case and charge included |
 | `GunRoundsPerMinute` | `2500` | |
 | `GunBurstRounds`, `GunBurstGapSeconds` | `12`, `0.55` | |
 | `GunReloadSeconds` | `0` | the same for the belt |
 | `GunArmamentLabel` | `Cannon` | |
+| `GunSoundId` | *the default cannon loop* | a `<CompoundSound>` your asset XML declares, played while the gun fires |
+| `GunshotSoundId` | *none* | a `<Sound>` played once per round, for a gun slow enough to be heard shot by shot; alone, it replaces the loop |
+| `MuzzleFlashEffect` | *KSArmory's* | a `<ParticleEmitter>` your asset XML declares, at the muzzles while the guns fire |
+
+**Gun gear that is drawn only** rides the elevating gun and never changes where a round goes. Each
+marker needs its pin or pivot, measured from the turret pivot, or it is refused:
+
+| | Default | |
+| --- | --- | --- |
+| `GunBarrelMarker`, `GunRecoilMetres`, `GunRecoilSeconds`, `GunReturnSeconds` | *none*, `0`, `0.08`, `0.6` | a barrel that runs back as the gun fires and returns |
+| `GunCylinderMarker` + `GunCylinderPinFromTurret`, `GunRodMarker` + `GunRodPinFromTurret` | *none* | an elevation actuator: a cylinder on the traverse and a rod on the gun, posed from the elevation |
+| `GunFeedMarker` + `GunFeedPivotFromTurret`, `GunFeedRatio` | *none*, `0` | an ammunition feed turning by that fraction of the elevation |
+| `GunRotorMarker` + `GunRotorPivotFromTurret`, `GunRotorSpinUpSeconds`, `GunRotorSpinDownSeconds` | *none*, `0.2`, `1.0` | a rotary barrel cluster, spun up to a barrel per round while firing |
+
+**A round can be spun as it leaves**, drawn only, with a `<ReleaseSpin RateDegPerSecond SpinUpSeconds
+IgnitionSeconds>` holding one `<Nozzle Mouth="x, y, z" Exhaust="x, y, z" />` per spin motor, in the
+round's own frame: the Heavy MIRV Bus's reentry vehicles light two base motors two seconds out and turn at
+half a turn a second.
 
 **A launcher declares gear it carries inside itself**, with a `<Provides>` row per assembly that is
 a subpart rather than a part of its own. The survey walks *parts*, so a director on a turret roof is
@@ -265,7 +321,11 @@ is given a ballistic computer, and nothing else is. The built-in MIRV bus declar
 ### `<Optic>` — a sighting head
 
 Its own part, needing no weapon on the craft at all: a hull with one director on it is an
-observation post. `PartId`, `DisplayName`, `Sensor`, `BaseMarker`, `HeadMarker` are required.
+observation post. `PartId`, `DisplayName`, `Sensor`, `BaseMarker`, `HeadMarker` are required. Give
+it a `CuedOnly` sensor.
+
+An `<Optic>` on a part of its own gets a camera row in the panel automatically. One on a launcher's
+part gets none: the launcher declares it with `<Provides Role="Camera">`, as the Pantsir does.
 
 | | Default | |
 | --- | --- | --- |
@@ -281,7 +341,69 @@ observation post. `PartId`, `DisplayName`, `Sensor`, `BaseMarker`, `HeadMarker` 
 | `HasLaser` | `false` | a laser rangefinder and designator on the line of sight, fired from the camera window's LASE button; its spot is what a laser-guided weapon homes on, by its code |
 | `LaserRangeMetres` | `20000` | how far the laser returns from; past it the beam lases at nothing |
 
+A `<Beam>` inside an `<Optic>` makes its head a high-energy laser, fired down its own line of sight by
+a `<Launcher FiresBeam="true">` on the same part. An empty `<Beam />` is the YAL-1's.
+
+| | Default | |
+| --- | --- | --- |
+| `PowerWatts` | `1e6` | |
+| `WavelengthMetres`, `ApertureMetres` | `1.315e-6`, `1.5` | with the aperture, what sets how small the spot can be focused |
+| `JitterRad` | `2e-7` | how far the pointing wanders, smearing the spot |
+| `BurnThroughJoulesPerM2` | `6e7` | energy per area that burns through one part's whole health |
+| `ExtinctionPerMetre` | `2e-5` | what the air takes out per metre at sea-level density |
+| `ChemicalSeconds`, `ShotSeconds` | `100`, `5` | seconds of lasing in a full load, and how long one press holds it on |
+
+### `<SearchSet>` — a part that searches and does nothing else
+
+An IRST bolted to a hull. What it finds goes into its craft's picture, for the directors and a beam
+weapon to take. `PartId`, `DisplayName` and `Sensor` are required; it gets a sensor row in the panel.
+
+| | Default | |
+| --- | --- | --- |
+| `PanelName` | *DisplayName* | what the panel's row for the part is called |
+| `HeadMarker` | *none* | the head that turns behind the window, drawn only: the set sees its whole cone wherever the head points |
+| `HeadPivot` | `0,0,0` | where the head turns, in part space |
+| `HeadTravelDeg` | `60` | how far the head turns off its rest direction |
+| `HeadSlewDegPerSecond` | `90` | |
+| `ScanHalfWidthDeg`, `ScanPeriodSeconds`, `ScanNodDeg` | `45`, `6`, `8` | the figure of eight the head sweeps with nothing to look at |
+
+### `<Decoy>` — what a dispenser throws
+
+A flare or a chaff cloud: a point with a signature, falling through the air. `Name`, `DisplayName`
+and `Kind` (`Flare` or `Chaff`) are required. A flare fools infrared seekers, chaff radar ones.
+
+| | Default | |
+| --- | --- | --- |
+| `PeakSignature` | `0` | a flare's in kW/sr of heat; chaff's in m² of radar return, on the scale where a craft of 11 m mean radius reads 400 |
+| `RiseSeconds` | `0` | how long it takes to reach its peak |
+| `LifeSeconds` | `4` | when it has faded to nothing |
+| `MassKg` | `0` | what one weighs, taken off the dispenser's part as it is thrown |
+| `DragPerMetre` | `0` | how quickly the air stops it |
+
+### `<Dispenser>` — a part that throws decoys
+
+`PartId`, `DisplayName` and `Decoy` are required. It gets a countermeasures row in the panel. Its
+kind is its decoy's; `Kind` may be stated too, and is refused if the two disagree. Every dispenser of
+one kind on a craft throws on each press.
+
+| | Default | |
+| --- | --- | --- |
+| `Count` | `30` | decoys loaded |
+| `SalvoSize`, `SalvoIntervalSeconds` | `2`, `0.25` | how many one press throws, and how far apart |
+| `EjectDirection` | `1,0,0` | which way they leave, in part space |
+| `EjectSpeed` | `30` | m/s |
+
 ---
+
+## Effects of your own
+
+A round's burst and plume and a gun's muzzle flash are KSA assets, so a pack brings its own look the way
+it brings a sound: declare an `<Explosion>` or a `<ParticleEmitter>` in an asset file listed in
+`mod.toml`, under an Id of your own, and name it with `BurstEffect`, `PlumeEffect` or
+`MuzzleFlashEffect`. KSArmory's own, in its `KSArmoryParticles.xml`, are the examples to start from.
+
+An Id no mod declares is reported in `KSArmory.log` when the world loads, and the weapon keeps
+KSArmory's effect rather than losing it.
 
 ## Bodies.xml -- describing a planet
 
@@ -399,11 +521,12 @@ Data covers a great deal: every flight, warhead, sensor and optic number, tube p
 directions, magazine and belt, articulation markers, and which round and sensor a launcher pairs
 with. What it cannot do is add a *kind*:
 
-- **a new weapon kind** — a beam, a hitscan, anything without a discrete round.
+- **a new weapon kind** — a hitscan, anything without a discrete round other than a beam.
 - **a new guidance law**, as opposed to new numbers for one of the five.
 - **a new gimbal**, beyond `Mast` and `RollNod`.
 - **articulation beyond traverse-then-elevate.** A drum, a translating rail, per-tube motion or a
-  radar that trains independently of the turret has no expression here.
+  radar that trains independently of the turret has no expression here. Gear drawn on an elevating
+  gun -- a recoiling barrel, an actuator, a feed, a barrel cluster -- does, above.
 
 Those are C# changes to KSArmory itself. If you want one, `MODULARITY.md` is the argument about
 what each would cost and `EXTENSIBILITY.md` is where a registration seam for them would go.

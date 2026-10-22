@@ -113,7 +113,7 @@ public sealed class RoundIntegratorOrderTests
     public void ASecondOrderWarheadLandsWhereTheConicDoes()
     {
         var (point, velocity) = Exact();
-        double3 landed = Fly(secondOrder: true, Arsenal.ReentryVehicleMk21.SubStepSeconds);
+        double3 landed = Fly(secondOrder: true, BuiltIns.ReentryVehicleMk21.SubStepSeconds);
 
         double gap = Vec.Len(landed - point);
         _out.WriteLine($"second order: {gap:F3} m from the conic, {Downrange(landed, point, velocity):F3} m downrange");
@@ -125,7 +125,7 @@ public sealed class RoundIntegratorOrderTests
     public void AFirstOrderWarheadLandsMetresShortOfTheConic()
     {
         var (point, velocity) = Exact();
-        double3 landed = Fly(secondOrder: false, Arsenal.ReentryVehicleMk21.SubStepSeconds);
+        double3 landed = Fly(secondOrder: false, BuiltIns.ReentryVehicleMk21.SubStepSeconds);
 
         double downrange = Downrange(landed, point, velocity);
         _out.WriteLine($"first order: {downrange:+0.000;-0.000} m downrange of the conic");

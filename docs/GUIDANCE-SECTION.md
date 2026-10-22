@@ -1,7 +1,7 @@
 # The guidance section
 
 **A plan, half built.** The design for making the ballistic computer something a craft is
-*fitted with*, written to be handed to `.claude/skills/ksa-blender/` and to `Sim/Arsenal.cs` in
+*fitted with*, written to be handed to `.claude/skills/ksa-blender/` and to a definition file in
 that order.
 
 **Built:** the `Guidance` role below, and the crewing rule that reads it. The MIRV bus provides it
@@ -22,8 +22,8 @@ rocket that today has no way to get one.
 ## The role is `Guidance`, not `FireControl`
 
 `WeaponRole.FireControl` is taken, and it is taken by everything: the LAU-7, LAU-128, LAU-118,
-Mk 15, Mk 42, M197, B61 rack and MIRV bus all declare a built-in `FireControl` in
-`Arsenal.Components`. So tightening `IsWeaponSystem` to require one changes nothing, and the
+Mk 15, Mk 42, M197, B61 rack and MIRV bus all declare a built-in `FireControl`
+row. So tightening `IsWeaponSystem` to require one changes nothing, and the
 `IsWeaponSystem` remark asking for "an explicit fire-control part" is asking for something that
 already exists eight times over.
 

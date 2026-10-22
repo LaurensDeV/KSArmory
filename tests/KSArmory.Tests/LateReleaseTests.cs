@@ -31,7 +31,7 @@ public class LateReleaseTests(ITestOutputHelper Out)
     private static double DensityAt(double3 pointCci)
         => Math.Exp(-Math.Max(0.0, Vec.Len(pointCci) - R) / ScaleHeight);
 
-    private static readonly MunitionProfile Warhead = Arsenal.ReentryVehicleMk21;
+    private static readonly MunitionProfile Warhead = BuiltIns.ReentryVehicleMk21;
 
     private static ImpactPredictor.Drag Air => new(DensityAt, Warhead);
 

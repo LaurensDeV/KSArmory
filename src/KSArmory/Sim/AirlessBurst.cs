@@ -39,11 +39,9 @@ public static class AirlessBurst
     {
         if (chargeKg < MushroomCloud.ThresholdKg) return 0.0;
 
-        double joules = chargeKg * JoulesPerKgTnt * RadiatedFraction;
+        double joules = chargeKg * Charge.JoulesPerKg * RadiatedFraction;
         return Math.Sqrt(joules / (4.0 * Math.PI * ScorchFluence));
     }
-
-    private const double JoulesPerKgTnt = 4.184e6;
 
     // Most of a burst's energy leaves as X-rays where nothing absorbs them: Glasstone puts it at
     // seventy to eighty per cent above the atmosphere.

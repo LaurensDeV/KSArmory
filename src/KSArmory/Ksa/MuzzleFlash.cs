@@ -104,7 +104,7 @@ internal sealed class MuzzleFlash
 
         if (!_firing.TryGetValue(system, out Live? live))
         {
-            if (Acquire(platform, count) is not { } fresh) return;
+            if (Acquire(platform, count, EmitterPool.Chosen(system.Profile.MuzzleFlashEffect, FlashId)) is not { } fresh) return;
 
             live = fresh;
             _firing[system] = live;
@@ -128,7 +128,7 @@ internal sealed class MuzzleFlash
     // per-frame path allocates nothing.
     private const int MaxClusters = 8;
 
-    private static Live? Acquire(Vehicle platform, int clusters)
+    private static Live? Acquire(Vehicle platform, int clusters, string id)
     {
         try
         {
@@ -139,12 +139,12 @@ internal sealed class MuzzleFlash
             var sets = new List<List<ParticleEmitter<ParticleUpdateData, ParticleRenderData>.Handle>>();
             for (int i = 0; i < clusters; i++)
             {
-                if (EmitterPool.Take(FlashId, body) is not { } set)
+                if (EmitterPool.Take(id, body) is not { } set)
                 {
                     if (!_warned)
                     {
                         _warned = true;
-                        Log.Warn($"no free emitters for '{FlashId}'; the cannon will fire without it");
+                        Log.Warn($"no free emitters for '{id}'; the cannon will fire without it");
                     }
 
                     // Give back whatever was taken, or they leak for the session.

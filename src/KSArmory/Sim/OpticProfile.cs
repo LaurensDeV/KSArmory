@@ -48,6 +48,17 @@ public enum GimbalKind
 /// </summary>
 public sealed class OpticProfile
 {
+    /// <summary>What a head holds before it is crewed: no part, no sensor, nothing to point.</summary>
+    public static readonly OpticProfile None = new()
+    {
+        PartId = "",
+        DisplayName = "",
+        Sensor = "",
+        BaseMarker = "",
+        HeadMarker = "",
+        HeadPivot = default,
+    };
+
     public required string PartId { get; init; }
     public required string DisplayName { get; init; }
 

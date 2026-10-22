@@ -363,7 +363,7 @@ Writing a subpart's transform each frame moves it. Confirmed in game.
   value is silently ignored.
 - **A subpart rotates about its own mesh origin.** So export a moving body *recentred on its pivot*
   and put the offset back with `<Position>`. Three copies of that pivot then exist — the model, the
-  XML and `Sim/Arsenal.cs` — and `validate-parts.py` is what stops them drifting.
+  XML and its definition in `src/KSArmory/KSArmory/` — and `validate-parts.py` is what stops them drifting.
 - **Bodies turning on one bearing share one pivot.** The pod's shell and ball do, which is what lets
   the ball sweep its travel without leaving the shroud.
 - **SubParts do not nest.** Every `<SubPart>` is placed against the `<Part>`; the mod composes the
@@ -463,8 +463,8 @@ If you do have to touch it:
    its round along +X will cross each other, and that is correct rather than a fault.
 7. **Declare it**: a `<SubPart>` per moving body, a `<Part>`, and a `<PartGameData>` with the collider
    read off `_ColPrim_` or off the mesh bounds, mass and editor tags.
-8. **Register it** in `Sim/Arsenal.cs` — and there are **two** registries. Missing from `Components`,
-   a part loads, resolves, matches, and is completely invisible with nothing in any log.
+8. **Define it** in a file in `src/KSArmory/KSArmory/`: a `<Launcher>`, `<Optic>`, `<SearchSet>` or
+   `<Dispenser>` on its part Id, which also gives the part its panel row (`docs/WEAPON-PACKS.md`).
 9. **`validate-parts.py`**, then **`./tools/check-all.sh`**.
 10. **Deploy it, and look at what you are replacing first.** `./tools/deploy.sh` overwrites the
     installed mod wholesale, so a build from a worktree quietly removes whatever the last build

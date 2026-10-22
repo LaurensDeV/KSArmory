@@ -674,7 +674,7 @@ public class ProbeGapTests(ITestOutputHelper Out)
     /// <para><see cref="Slug"/> takes gravity through <see cref="Medium.Buoyancy"/> and
     /// <see cref="ImpactPredictor"/> takes it raw, so a round that declares a
     /// <see cref="MunitionProfile.NeutralDensityRatio"/> is predicted by a model that does not know
-    /// it floats. Nothing in <see cref="Arsenal"/> declares one — which is why it contributes
+    /// it floats. No built-in round declares one — which is why it contributes
     /// nothing here — but <c>Sim/PackReader.cs</c> reads the field, so a weapon pack can.</para>
     /// </summary>
     [Fact]

@@ -134,6 +134,11 @@ public sealed class KSArmoryMod
     private ScenarioRunner _scenario = null!;
     private Bridge? _bridge;
 
+    // StarMap runs this before the BeforeMain of any mod depending on this one, which is every pack
+    // that ships code; ImmediateLoad comes after all of them.
+    [StarMapBeforeMain]
+    public void OnBeforeMain() => InstalledPacks.RegisterCore();
+
     [StarMapImmediateLoad]
     public void OnImmediateLoad(Mod mod)
     {
@@ -161,6 +166,7 @@ public sealed class KSArmoryMod
         // already called Armoury.Register from its own entry point by now; this is for the ones
         // with no assembly at all, which is most of them.
         InstalledPacks.RegisterAll();
+        BuiltInFamilies.HideDisabledParts();
 
         JitWarmup.Start();
 
@@ -251,15 +257,21 @@ public sealed class KSArmoryMod
                                  () => _roster?.All ?? [], () => _roster?.Loose ?? [],
                                  _countermeasures, craft => _ui?.Manage(craft),
                                  () => _heads?.All ?? [], craft => _icbms?.For(craft),
-                                 () => _searchSets?.All ?? [], _picture.BestFor);
+                                 () => _searchSets?.All ?? [], _picture.BestFor,
+                                 () =>
+                                 {
+                                     _faults = FaultLimit - 1;
+                                     Fault("bridge", new InvalidOperationException("the fault limit was tripped from the bridge"));
+                                 });
         }
 
         Log.Info(Build.Developer
                      ? "developer install: the bridge, the scenario runner and the developer controls are on"
                      : "player install: developer tools are off");
         _ui = new Ui(_config, _roster, _heads, _countermeasures, _searchSets, _picture, _icbms, _warp, _watch, _mover, _bursts, ReachFor);
-        Log.Info($"ready - {string.Join(", ", Catalogue.Launchers.Select(l => l.DisplayName))}, safe. "
-                 + "Open the 'KSArmory' panel to arm.");
+        Log.Info(Catalogue.Launchers.Count > 0
+                     ? $"ready - {string.Join(", ", Catalogue.Launchers.Select(l => l.DisplayName))}"
+                     : "ready - no weapons: every built-in family is switched off and no installed pack defines one");
 
         // Logged, not just shown in the panel. Every link of this chain fails silently inside
         // KSA, so without a record the only symptom is a kitten with no gun -- and that looks
@@ -268,6 +280,20 @@ public sealed class KSArmoryMod
         foreach (string preset in WarheadExplosion.Presets)
         {
             Log.Info($"warhead explosion {preset}: {(Detonation.Resolves(preset) ? "ok" : "DID NOT RESOLVE")}");
+        }
+
+        // A pack's own effects, checked now rather than at the first shot, which would fall back quietly.
+        foreach (MunitionProfile round in Catalogue.Munitions)
+        {
+            if (round.BurstEffect is { } burst && !Detonation.Resolves(burst))
+                Log.Warn($"{round.Name}: BurstEffect=\"{burst}\" is not an explosion any mod declares; it bursts as its charge's own");
+            if (round.PlumeEffect is { } plume && !EmitterPool.Declared(plume))
+                Log.Warn($"{round.Name}: PlumeEffect=\"{plume}\" is not a particle emitter any mod declares; it burns with KSArmory's");
+        }
+        foreach (LauncherProfile launcher in Catalogue.Launchers)
+        {
+            if (launcher.MuzzleFlashEffect is { } flash && !EmitterPool.Declared(flash))
+                Log.Warn($"{launcher.PartId}: MuzzleFlashEffect=\"{flash}\" is not a particle emitter any mod declares; it flashes with KSArmory's");
         }
     }
 
@@ -280,6 +306,9 @@ public sealed class KSArmoryMod
 
         foreach (PackResult pack in Catalogue.Registrations)
         {
+            // Reported file by file when they registered.
+            if (pack.Source == PackReader.BuiltInSource) continue;
+
             Log.Info($"pack '{pack.Source}': {pack.Registered} registered"
                      + (pack.Complete ? "" : $", {pack.Faults.Count} refused"));
 
@@ -1074,29 +1103,7 @@ public sealed class KSArmoryMod
         // Markers pin the craft they are showing, so a destroyed one stays reachable otherwise.
         Markers.Forget();
 
-        _icbms?.WriteDown();
-        _roster?.Clear();
-        _armaments.Clear();
-        _picture.Clear();
-        _heads?.Clear();
-        _heads = null;
-        _searchSets?.Clear();
-        _searchSets = null;
-        _countermeasures?.Discard();
-        _countermeasures = null;
-        _icbms?.Clear();
-        _icbms = null;
-        KsaWorld.Wreckage.Clear();
-        AttitudeHook.Remove();
-        PreRenderHook.Remove();
-        WorldReloadHook.Remove();
-        DoseRateHook.Remove();
-        Radioactivity.Clear();
-        GroundTrackHook.Remove();
-        PlanetMapHook.Remove();
-        SaveHook.Remove();
-        RoundBodyDrawHook.Remove();
-        LooseBodyDrawHook.Remove();
+        LetGoOfTheGame();
         KsaWorld.ResetSimStepTracking();
         _roster = null;
         _ui = null;
@@ -1528,6 +1535,13 @@ public sealed class KSArmoryMod
         if (_faults < FaultLimit) return;
 
         _disabled = true;
+        LetGoOfTheGame();
+        Log.Error("too many faults - air defence disabled for this session");
+    }
+
+    // Shared by unloading and by the fault limit, so a hook added to one cannot be missed by the other.
+    private void LetGoOfTheGame()
+    {
         _icbms?.WriteDown();
         _roster?.Clear();
         _armaments.Clear();
@@ -1543,6 +1557,7 @@ public sealed class KSArmoryMod
         KsaWorld.Wreckage.Clear();
         AttitudeHook.Remove();
         PreRenderHook.Remove();
+        CloudPassHook.Remove();
         WorldReloadHook.Remove();
         DoseRateHook.Remove();
         Radioactivity.Clear();
@@ -1551,6 +1566,5 @@ public sealed class KSArmoryMod
         SaveHook.Remove();
         RoundBodyDrawHook.Remove();
         LooseBodyDrawHook.Remove();
-        Log.Error("too many faults - air defence disabled for this session");
     }
 }

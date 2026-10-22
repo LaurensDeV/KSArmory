@@ -91,6 +91,8 @@ internal static class Vec
     }
 
     /// <summary>Any unit vector perpendicular to <paramref name="v"/>. Used for drawing cones.</summary>
+    public static double3 Lerp(double3 a, double3 b, double t) => a + ((b - a) * t);
+
     public static double3 AnyPerpendicular(double3 v)
     {
         double3 n = Unit(v);

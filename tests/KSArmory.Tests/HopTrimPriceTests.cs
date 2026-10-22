@@ -28,7 +28,7 @@ public class HopTrimPriceTests(ITestOutputHelper Out)
 
     private static ReleaseFocus.FlownSensitivity Columns()
     {
-        ReleaseFocus.Air air = new(new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21), 2.0, R, true);
+        ReleaseFocus.Air air = new(new ImpactPredictor.Drag(DensityAt, BuiltIns.ReentryVehicleMk21), 2.0, R, true);
         return ReleaseFocus.FlownSensitivity.TryFly(Earth, FlownPositionCci, FlownVelocityCci, air)
                ?? throw new InvalidOperationException("the columns did not come down");
     }

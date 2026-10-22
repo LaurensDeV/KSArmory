@@ -37,13 +37,77 @@ not will be found again by the next reader.
   and give-back that `MotorPlume`, `MuzzleFlash` and `DecoyEffects` each copied, with the
   Kill-before-`RemoveEmitter` rule in one place, and `Ksa/SoundChannels.cs` holds the listener,
   pressure, move and stop that `MotorSound` and `GunSound` copied. Leaf functions, not a base class:
-  the keys, cardinality and lifetimes genuinely differ. The chaff puff is left as it was, because it
-  sets a burst's origin before attaching it and the pool helper attaches first.
+  the keys, cardinality and lifetimes genuinely differ. The one-shot sets -- blast dust, ejecta, flak
+  smoke and the chaff puff -- point and tune before they register, which `Take` cannot, so they share
+  `EmitterPool.Fire` beside it.
 
   Flown on 2026-09-29: an AIM-9J's flame and trail at the nozzle, a Mk 42 flash after twenty-odd
   separate shots, and flare cores lit again after sixteen had burnt at once against the twelve-core
   cap -- no `no free emitters` line, no sound warning, no exception in KSA's log.
 
+Added 2026-10-21 against `df6549a0`, from a second review of the same shape.
+
+- [x] **`Ksa/KsaWorld.cs` was one static class of 6,278 lines that a hundred files call.** Most of it
+  is a thin wrapper round one engine call each, which is what it is for, so it is split by concern
+  into twelve partial files and no call site moved.
+- [x] **The Ecl-to-Ego conversion through the draw anchor answers only after `BeginDraw` that
+  frame**, and is now `TryAnchoredEgo` so a call site says so.
+- [x] **`KsaWorld` carried two copies of project-or-clamp and two rules for the nearest body.** The
+  edge fallback is one helper under both projections, and the ring's body walk asks `NearestBody`'s
+  depth rule.
+- [ ] **`KSArmoryMod` copies `Config` fields into static managers every frame** (`BulletHoles.Enabled`,
+  `Leaks.Enabled`, `ShellTracers.BallBrightness`, `NuclearClouds.RedWaves`), where every other
+  consumer is handed the `Config`. Each copy is a setting that can be added and never forwarded.
+- [ ] **`Sim/WeaponFit.cs` reads the global `Catalogue`** for what a craft is fitted with, so a
+  value-shaped answer depends on registry state the tests have to serialise around.
+- [ ] **The panel holds the concrete `WeaponSystem` and writes through it** —
+  `_system.Radar.ManualDesignation` from `UiSystem` — and `UiScope` merges the search sets' tracks
+  itself, which `CraftPicture` already does.
+- [~] **The turret mode ladder** — the ring claims are `Sim/TurretMode.cs`, decided from each frame's
+  rung, and the order stays in `Ksa/`; see `docs/BATTERY-SPLIT.md` item 7. Flown 2026-10-21: a Pantsir
+  switched to manual after its cannon had the lead held "the cannon has the bearing" for 2.3 s before
+  the change and cleared it within 0.3 s after.
+
+
+## Copies that disagree
+
+Found 2026-10-21 by a duplicate sweep: places where the same job is written twice and the copies
+have already drifted apart. Each is read from the source and none is flown; each is a behaviour
+change, so each wants a flight before it is fixed.
+
+- [x] **`CloudPassHook` is installed with the other nine hooks and removed by neither teardown**, so
+  after the fault limit disables the mod its compute pass is still dispatched inside KSA's renderer.
+  Flown with the bridge's `disable`: a 0.3 kt cloud stayed drawn after the trip before the change and
+  was gone after it, with nothing in KSA's log either way.
+- [ ] **A director re-finds its part by ordinal every frame** (`OpticalHead.SampleWorld` through
+  `OpticParts.FindNth`) — the pattern that swapped two racks' magazines, which is why `WeaponSystem`
+  holds its part by reference. Two pods, the first dropped: the second is likely driven by head 0, with
+  its settings and a YAL-1's chemical seconds. `OpticalHeads` also carries its own copy of the
+  decoupled-part follow, without the held-part match, the `HasPlatform` filter or the
+  survived-on-a-fragment case `WeaponSystems` has since gained. `OpticParts.FindAll` and
+  `LauncherPart.FindAll` say opposite things about whether the ordinal survives a split.
+- [ ] **A handover made in the step is cleared before anything reads it.** `RetireDestroyed` runs in
+  `StepSimulation` and `MoveTo` records the handover; the UI pass's `WeaponSystems.Sync` then clears
+  `_handovers` in `FollowDecoupledLaunchers` before `IcbmComputers.Sync` and the panel's selection
+  read them, so neither follows a launcher that survived its craft on a fragment.
+- [ ] **A world click adds a target with no warheads; a map click gives it one**
+  (`SiteDesignator` against `GroundTrackDesignator`), where both are meant to decide alike. Which is
+  right is the owner's call.
+- [ ] **A director's settings are not saved.** `SettingsStore` writes `systems.json` and
+  `ballistic.json` and nothing carries an `OpticConfig`. Flown: a LITENING set to 8x, tracking off and
+  white-hot, saved and reloaded, came back at 1x, tracking and TV.
+- [ ] **`SensorPass.ViewFor` replaces its 1x1 image and its pipeline without disposing either**, on
+  every camera-window resize. `CloudPass`'s graveyard is the fix it could share.
+- [ ] **The director's hold reason is derived twice** — `OpticalHead.AimPartFrame` takes seven rungs,
+  `OpticFollow.Why` re-derives five — so a head held by a beam's cue reads "NOT TRACKING". The
+  turret's version of this is `Sim/TurretMode.cs`.
+- [ ] **The rosters disagree about an empty part read.** `WeaponSystems` reads one as a tree
+  mid-rebuild and searches 120 times; `Countermeasures` and `SearchSets` drop the entry at once, so a
+  dispenser may come back with a full magazine after staging. Flown: two stagings that split nothing
+  kept the magazine (18/30 flares, then 14/30); a staging that splits the craft is the case still open,
+  and no save carries dispensers on a craft with a decoupler.
+- [x] **`PostBoostAim` prints its misses as fixed-width km**, so 30 m reads `0.0 km`; `Distance.Say`
+  is what the rest of the log uses. Flown on `mirv:24S,62W`: "3 passes without beating 0.4 m".
 
 ## The ballistic computer
 
@@ -72,6 +136,13 @@ stale in two places at once.
 
 
 ## Known gaps, recorded rather than fixed
+
+- **`KsaWorld.TrySnapToGround` answers with the seabed under the sea.** It reads the height field
+  alone, where `GroundTest` puts a round on the waterline through `GroundSurface.Height`. So a decoy
+  over the sea (`Countermeasures.LandIfUnderground`) sinks to the bottom before it lands, and the
+  scenarios and the bridge read the seabed as the ground. Its near-ground gate also uses
+  `MaxTerrainHeightApprox`, which is not a sphere containing the terrain (`docs/ACCURACY-PLAN.md`
+  3z). Unflown; wants a flare dropped over water before anything changes.
 
 - **Hand-copied counts in prose drift, and nothing checks most of them.** `check-docs.sh` reads
   back the API totals, the KSA build and the layout table's coverage; every other figure in
@@ -117,6 +188,18 @@ stale in two places at once.
 ## Did not survive
 
 Reported and checked; leave these alone.
+
+- **Duplicates that are not.** From the 2026-10-21 sweep: the three density-to-altitude inversions
+  share one expression under three different guards; the Harmony hooks share six lines each and
+  differ in targets, state and failure wording on purpose; the compute pipelines differ in their
+  image sets, buffers and specialization; `ChaseView.AnyPerpendicular` re-normalised through `Vec`
+  would move a camera direction by an ulp; `BombSight`, `ImpactPredictor` and `BallisticLead` integrate
+  different questions in different frames; and the lag filters run on different clocks.
+
+- **`Ksa/GroundTest.cs` walking the system itself rather than through `KsaWorld`.** It is asked
+  once per round per sub-step, and its shared cache of the body underfoot, with the runner-up
+  guard, is what keeps that from walking the system thousands of times a frame. Routing it through
+  the uncached walk would undo the reason it exists.
 
 - **`PlumeSmoke`'s reflection.** One site in the whole mod, not a family, and the file says why it
   must stay visible.

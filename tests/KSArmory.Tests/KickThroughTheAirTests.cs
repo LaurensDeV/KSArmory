@@ -39,8 +39,8 @@ public class KickThroughTheAirTests(ITestOutputHelper Out)
 
     private const double ReleaseGapSeconds = 0.022;
 
-    private static MunitionProfile Constant => Arsenal.ReentryVehicleMk21;
-    private static MunitionProfile Shape => Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21);
+    private static MunitionProfile Constant => RetiredRounds.Mk21Constant;
+    private static MunitionProfile Shape => BuiltIns.ReentryVehicleMk21.Copy();
 
     private sealed class Sphere : IGroundTest
     {
@@ -67,7 +67,7 @@ public class KickThroughTheAirTests(ITestOutputHelper Out)
         double3 line = track * Math.Cos(thrown) + down * Math.Sin(thrown);
         doubleQuat bus = Vec.RotationFromTo(new double3(1, 0, 0), line);
 
-        LauncherProfile launcher = Arsenal.MirvBus;
+        LauncherProfile launcher = BuiltIns.MirvBus;
         List<double3> offsets = [];
 
         for (int tube = 0; tube < launcher.TubeCount; tube++)
@@ -292,7 +292,8 @@ public class KickThroughTheAirTests(ITestOutputHelper Out)
     [Fact]
     public void WithNoAirTheKickThroughTheAirIsTheCoastedOne()
     {
-        MunitionProfile vacuum = Arsenal.ReentryVehicleMk21.Copy();
+        MunitionProfile vacuum = BuiltIns.ReentryVehicleMk21.Copy();
+        vacuum.DragCoefficient = 0f;
         vacuum.DragK = 0f;
         Assert.Equal(0.0, vacuum.AppliedDragK);
 

@@ -476,7 +476,7 @@ internal sealed class Interceptor : IProjectile
             //
             // Subtracting frameSeconds puts the target back at the instant the round is actually
             // at, which is what makes the common ecliptic motion cancel.
-            double3 targetPos = t.PositionEcl + t.VelocityEcl * (elapsedInFrame - frameSeconds);
+            double3 targetPos = InFrame.AtBurst(t.PositionEcl, t.VelocityEcl, elapsedInFrame - frameSeconds);
             double3 targetVel = t.VelocityEcl;
 
             // An anti-radiation round is homing on the emission, so a set that stops transmitting

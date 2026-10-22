@@ -37,7 +37,7 @@ public class FloorHoldTests(ITestOutputHelper Out)
         IcbmFlightRig rig = GameStackShortRangeTests.GameStack(true);
         rig.AttitudeHasInertia = true;
         rig.StepJitter = jitter;
-        rig.Warhead = Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21);
+        rig.Warhead = BuiltIns.ReentryVehicleMk21.Copy();
         rig.ReleaseLaunchSpeed = throw_;
         rig.HandsOverTheThrow = throwHandedOver;
 
@@ -51,7 +51,7 @@ public class FloorHoldTests(ITestOutputHelper Out)
         if (ImpactPredictor.TryPredict(Earth, flight.CutoffPositionCci, thrown, 1.0,
                                        ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit, null, null,
                                        new ImpactPredictor.Drag(p => Math.Exp(-Math.Max(0.0, Vec.Len(p) - R) / 8_000.0),
-                                                                Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21))))
+                                                                BuiltIns.ReentryVehicleMk21.Copy())))
         {
             miss = R * Vec.AngleBetween(hit.GroundFixedPointCci, Earth.CarryCci(aim, flight.CutoffSeconds)) / 1000.0;
         }
@@ -150,7 +150,7 @@ public class SolidsLeaveTests(ITestOutputHelper Out)
         rig.AttitudeHasInertia = true;
         rig.StepJitter = 0.5;
         rig.LeverMovesUnderSolids = true;
-        rig.Warhead = Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21);
+        rig.Warhead = BuiltIns.ReentryVehicleMk21.Copy();
 
         IcbmConfig config = FloorHoldTests.Config(0.5, true, true);
         config.SolidsLeaveMetresPerSecond = leave;
@@ -222,7 +222,7 @@ public class LowArcSensitivityStudy(ITestOutputHelper Out)
     [Fact]
     public void WhatAMetreASecondAtCutoffCosts()
     {
-        MunitionProfile warhead = Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21);
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21.Copy();
         Func<double3, double> air = p => Math.Exp(-Math.Max(0.0, Vec.Len(p) - FloorHoldTests.R) / 8_000.0);
         BallisticBody earth = FloorHoldTests.Earth;
 

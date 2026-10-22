@@ -53,17 +53,9 @@ internal static class BurstEjecta
 
             double gravity = GravityAt(body, burstCcf);
 
-            BubbleOrigin origin = new()
-            {
-                Time = Universe.GetElapsedTime(),
-                Parent = body,
-                BubFrame = BubbleFrame.Ccf,
-                PositionBub = burstCcf,
-
-                // At rest in the body's frame: the dust belongs to the ground, not to whatever was
-                // hit, and it has to still be over the crater when it lands.
-                VelocityBub = double3.Zero,
-            };
+            // At rest in the body's frame: the dust belongs to the ground, not to whatever was hit,
+            // and it has to still be over the crater when it lands.
+            BubbleOrigin origin = EmitterPool.At(body, burstCcf, double3.Zero);
 
             double shellRadius = AirlessBurst.ShellRadius(chargeKg);
             double shellSeconds = AirlessBurst.ShellSeconds(chargeKg);
@@ -155,14 +147,7 @@ internal static class BurstEjecta
             double seconds = MushroomCloud.WilsonSeconds(chargeKg);
             if (!(radius > 0.0) || !(seconds > 0.0)) return;
 
-            BubbleOrigin origin = new()
-            {
-                Time = Universe.GetElapsedTime(),
-                Parent = body,
-                BubFrame = BubbleFrame.Ccf,
-                PositionBub = burstCcf,
-                VelocityBub = double3.Zero,
-            };
+            BubbleOrigin origin = EmitterPool.At(body, burstCcf, double3.Zero);
 
             // KSA's volumetric particle takes its density per METRE: the depth to the sun through it is
             // about 0.31 x radius x density, and along the view 1.12 x (Shared.glsl, Volumetric.comp).
@@ -242,29 +227,9 @@ internal static class BurstEjecta
     private static void Fire(string id, Celestial body, BubbleOrigin origin,
                              Action<ParticleEmitter<ParticleUpdateData, ParticleRenderData>> tune)
     {
-        if (!Program.Instance.ParticleSystem.GetAndInitializeEmitters(id, out var handles)
-            || handles is null || handles.Count == 0)
-        {
-            if (!_warned)
-            {
-                _warned = true;
-                Log.Warn($"no free emitters for '{id}'; the burst will draw without it");
-            }
-            return;
-        }
+        if (EmitterPool.Fire(id, body, origin, tune) > 0 || _warned) return;
 
-        // The order KSA's own ExplosionSystem.FireStage uses: point it, tune it, then register it.
-        foreach (var handle in handles)
-        {
-            if (handle.TryGet() is not { } emitter) continue;
-
-            emitter.LocalOffset = float4x4.Identity;
-            emitter.Context.Vehicle = null;
-            emitter.Context.Part = null;
-            emitter.Context.Astronomical = body;
-            emitter.Origin = origin;
-            tune(emitter);
-            body.AddEmitter(handle);
-        }
+        _warned = true;
+        Log.Warn($"no free emitters for '{id}'; the burst will draw without it");
     }
 }

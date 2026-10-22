@@ -14,6 +14,34 @@ namespace KSArmory;
 /// </summary>
 internal static class EmitterPool
 {
+    private static readonly HashSet<string> _unresolved = [];
+
+    /// <summary>
+    /// <paramref name="named"/> when some mod declares that emitter, otherwise <paramref name="own"/>: a
+    /// pack's typo costs the look, not the effect, and is said once.
+    /// </summary>
+    public static string Chosen(string? named, string own)
+    {
+        if (string.IsNullOrEmpty(named)) return own;
+        if (Declared(named)) return named;
+
+        if (_unresolved.Add(named)) Log.Warn($"particle emitter '{named}' is not declared by any mod; using '{own}' instead");
+        return own;
+    }
+
+    /// <summary>Whether some mod declares an emitter by this Id.</summary>
+    public static bool Declared(string id)
+    {
+        try
+        {
+            return ModLibrary.TryGet<ParticleEmitterReference>(id, out var found) && found is not null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>
     /// A set of emitters for <paramref name="id"/>, attached to <paramref name="body"/>, or null when
     /// the pool has none free. Exceptions are the caller's, so each effect can say what it lost.
@@ -38,6 +66,36 @@ internal static class EmitterPool
         }
 
         return [.. handles];
+    }
+
+    /// <summary>
+    /// Fires a one-shot set for <paramref name="id"/> at <paramref name="origin"/>, and says how many
+    /// went; none when the pool is empty. Nothing is held: a one-shot set returns itself.
+    /// </summary>
+    // The order KSA's own ExplosionSystem.FireStage uses: point it, tune it, then register it, which
+    // is why this is not Take, which registers first.
+    public static int Fire(string id, Celestial body, BubbleOrigin origin, Action<ParticleEmitter<ParticleUpdateData, ParticleRenderData>>? tune = null)
+    {
+        if (!Program.Instance.ParticleSystem.GetAndInitializeEmitters(id, out var handles)
+            || handles is null || handles.Count == 0)
+        {
+            return 0;
+        }
+
+        foreach (var handle in handles)
+        {
+            if (handle.TryGet() is not { } emitter) continue;
+
+            emitter.LocalOffset = float4x4.Identity;
+            emitter.Context.Vehicle = null;
+            emitter.Context.Part = null;
+            emitter.Context.Astronomical = body;
+            emitter.Origin = origin;
+            tune?.Invoke(emitter);
+            body.AddEmitter(handle);
+        }
+
+        return handles.Count;
     }
 
     /// <summary>Where a set of emitters spawns from, at a point in <paramref name="body"/>'s rotating frame.</summary>

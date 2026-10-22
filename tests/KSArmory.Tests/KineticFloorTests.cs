@@ -770,7 +770,7 @@ public class KineticFloorTests(ITestOutputHelper Out)
     {
         BallisticBody body = Earth;
 
-        MunitionProfile stepped = Arsenal.RoundAtSubStep(Warhead, dt);
+        MunitionProfile stepped = (Warhead).AtSubStep(dt);
 
         Slug round = new(fromCci + centre, velocityCci, null, 1, fromCci + centre, Vec.Zero)
         {

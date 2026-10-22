@@ -324,7 +324,7 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
                       + $"{"q Pa",6} {"climb",5} {"apogee",6} {"SRB on",11} {"least to gain pre-loop",22} "
                       + $"{"lands",6} {"miss",7} {"hdovr gain",10} {"left t",6}");
 
-        MunitionProfile warhead = Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21);
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21.Copy();
 
         foreach (double km in ranges ?? [50.0, 100.0, 150.0, 200.0, 300.0, 418.0, 500.0, 700.0, 1_000.0, 1_200.0, 2_000.0])
         {
@@ -338,7 +338,7 @@ public class GameStackShortRangeTests(ITestOutputHelper Out)
             };
             Watch watch = new(rig);
             rig.AimLoop = aimInTheAir is { } inAir
-                              ? new AimingWatch(rig, watch, Arsenal.Mk21WithDragFromShape(Arsenal.ReentryVehicleMk21), inAir)
+                              ? new AimingWatch(rig, watch, BuiltIns.ReentryVehicleMk21.Copy(), inAir)
                               : watch;
 
             IcbmProgram program = new(ScenarioConfig(arrivalPreference, reserveSeconds, flyAnyRange));

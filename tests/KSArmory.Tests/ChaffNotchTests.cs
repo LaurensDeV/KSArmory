@@ -27,7 +27,7 @@ public class ChaffNotchTests
     private static Decoy Cloud(double3 targetEcl, double3 carrier, double age = 1.0)
     {
         // Started where the frame's motion over its age leaves it 40 m behind the target.
-        var d = new Decoy(Arsenal.ChaffRr170, targetEcl + new double3(0, -40, 0) - (carrier * age), carrier, null);
+        var d = new Decoy(BuiltIns.ChaffRr170, targetEcl + new double3(0, -40, 0) - (carrier * age), carrier, null);
         d.Step(age, Vec.Zero, carrier, 1.0);
         return d;
     }
@@ -68,10 +68,10 @@ public class ChaffNotchTests
     [Fact]
     public void ChaffStillBloomingOrOutOfTheCellTakesNothing()
     {
-        var young = new Decoy(Arsenal.ChaffRr170, At + new double3(0, -40, 0), Vec.Zero, null);
+        var young = new Decoy(BuiltIns.ChaffRr170, At + new double3(0, -40, 0), Vec.Zero, null);
         Assert.False(Hides(new ChaffNotch(), Set(), BeamVelocity, [young]));
 
-        var far = new Decoy(Arsenal.ChaffRr170, At + new double3(0, -400, 0), Vec.Zero, null);
+        var far = new Decoy(BuiltIns.ChaffRr170, At + new double3(0, -400, 0), Vec.Zero, null);
         far.Step(1.0, Vec.Zero, Vec.Zero, 1.0);
         Assert.False(Hides(new ChaffNotch(), Set(), BeamVelocity, [far]));
     }
@@ -79,7 +79,7 @@ public class ChaffNotchTests
     [Fact]
     public void FlaresNeverBreakARadarTrack()
     {
-        var flare = new Decoy(Arsenal.FlareMju7, At + new double3(0, -40, 0), Vec.Zero, null);
+        var flare = new Decoy(BuiltIns.FlareMju7, At + new double3(0, -40, 0), Vec.Zero, null);
         Assert.False(Hides(new ChaffNotch(), Set(), BeamVelocity, [flare]));
     }
 

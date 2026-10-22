@@ -59,7 +59,7 @@ public class MovingMountLayStudy(ITestOutputHelper output)
             }
 
             BallisticLead.TrySolveFlownOrReach(muzzle, mountVelocity, VelocityOf(muzzle), AccelerationOf(muzzle), Vec.Zero,
-                                               place, targetVelocity, targetAcceleration, null, Arsenal.Shell5In54,
+                                               place, targetVelocity, targetAcceleration, null, BuiltIns.Shell5In54,
                                                GravityAt, DensityAt, hint, reach, out double3 lay, out _, out reach,
                                                null, VelocityOf);
             bool isShort = reach < 1.0;

@@ -139,20 +139,7 @@ internal static class TargetLock
         bool blocked = KsaWorld.IsOccluded(KsaWorld.CameraPositionEcl(), atEcl, out _);
         ImColor8 colour = blocked ? DesignatedHidden : Designated;
 
-        ImGuiViewportPtr main = ImGui.GetMainViewport();
-        ImGui.SetNextWindowPos(main.Pos, ImGuiCond.Always);
-        ImGui.SetNextWindowSize(main.Size, ImGuiCond.Always);
-        ImGui.SetNextWindowBgAlpha(0f);
-
-        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoDecoration
-                                       | ImGuiWindowFlags.NoInputs
-                                       | ImGuiWindowFlags.NoNav
-                                       | ImGuiWindowFlags.NoFocusOnAppearing
-                                       | ImGuiWindowFlags.NoBringToFrontOnFocus
-                                       | ImGuiWindowFlags.NoSavedSettings
-                                       | ImGuiWindowFlags.NoBackground;
-
-        if (ImGui.Begin("##KSArmoryDesignation", flags))
+        if (ScreenOverlay.Begin("##KSArmoryDesignation"))
         {
             ImDrawListPtr draw = ImGui.GetWindowDrawList();
 

@@ -1,33 +1,70 @@
 namespace KSArmory;
 
 /// <summary>
-/// Every weapon the mod knows about right now: the built-ins from <see cref="Arsenal"/>, plus
-/// whatever else was registered before the roster was built.
-///
-/// <para><b>This is what the mod reads.</b> <see cref="Arsenal"/> is the hand-written catalogue of
-/// what ships in this archive and stays that way; a lookup taken against it directly sees only the
-/// built-ins, which is a weapon somebody registered going silently unrecognised. The two are kept
-/// apart rather than merged because the split is what lets the registry grow at runtime while
-/// <c>tools/validate-parts.py</c> goes on reading the built-ins out of one file.</para>
+/// Every weapon the mod knows about: KSArmory's own definition files and whatever any pack registered, until
+/// the roster is built. <b>This is what the mod reads</b>; nothing else holds a registry.
 /// </summary>
 public static class Catalogue
 {
-    private static readonly List<LauncherProfile> _launchers = [.. Arsenal.Launchers];
-    private static readonly List<MunitionProfile> _munitions = [.. Arsenal.Munitions];
-    private static readonly List<SensorProfile> _sensors = [.. Arsenal.Sensors];
-    private static readonly List<OpticProfile> _optics = [.. Arsenal.Optics];
-    private static readonly List<ComponentProfile> _components = [.. Arsenal.Components];
+    private static readonly List<LauncherProfile> _launchers = [];
+    private static readonly List<MunitionProfile> _munitions = [];
+    private static readonly List<SensorProfile> _sensors = [];
+    private static readonly List<OpticProfile> _optics = [];
+    private static readonly List<SearchSetProfile> _searchSets = [];
+    private static readonly List<DecoyProfile> _decoys = [];
+    private static readonly List<DispenserProfile> _dispensers = [];
+    private static readonly List<ComponentProfile> _components = [];
 
     public static IReadOnlyList<LauncherProfile> Launchers => _launchers;
     public static IReadOnlyList<MunitionProfile> Munitions => _munitions;
     public static IReadOnlyList<SensorProfile> Sensors => _sensors;
     public static IReadOnlyList<OpticProfile> Optics => _optics;
+    public static IReadOnlyList<SearchSetProfile> SearchSets => _searchSets;
+    public static IReadOnlyList<DecoyProfile> Decoys => _decoys;
+    public static IReadOnlyList<DispenserProfile> Dispensers => _dispensers;
 
     /// <summary>
     /// The parts recognised on a craft the mod did not design. Separate from
-    /// <see cref="Launchers"/> for the reason <see cref="Arsenal.Components"/> gives.
+    /// <see cref="Launchers"/>: a launcher describes how a part shoots, a component is what tells the survey a
+    /// craft carries a weapons system at all.
     /// </summary>
     public static IReadOnlyList<ComponentProfile> Components => _components;
+
+    private static readonly HashSet<string> _disabledLaunchers = [];
+    private static readonly HashSet<string> _disabledParts = [];
+
+    /// <summary>
+    /// Every part of a built-in family the player switched off that no pack has claimed since: it loads, and
+    /// is nothing. A part a pack defines again is that pack's weapon, which is what switching a family off
+    /// for a replacement is for.
+    /// </summary>
+    public static IReadOnlyCollection<string> DisabledParts => [.. _disabledParts.Where(id => !Claimed(id))];
+
+    /// <summary>
+    /// Whether this part is an unclaimed launcher of a switched-off family. Counted beside the registered
+    /// launchers where a craft's weapons are numbered, so switching a family off does not renumber the rest;
+    /// a claimed one is a registered launcher already, and counting it here too would number it twice.
+    /// </summary>
+    public static bool IsDisabledLauncher(string? partId)
+        => partId is not null && _disabledLaunchers.Contains(partId) && !Claimed(partId);
+
+    private static bool Claimed(string partId)
+        => LauncherForPart(partId) is not null || OpticForPart(partId) is not null
+        || SearchSetForPart(partId) is not null || DispenserForPart(partId) is not null;
+
+    internal static void Disable(IEnumerable<string> launcherParts, IEnumerable<string> parts)
+    {
+        _disabledLaunchers.UnionWith(launcherParts);
+        _disabledParts.UnionWith(parts);
+    }
+
+    private static readonly Dictionary<string, string> _familyOf = [];
+
+    // So a pack refused a built-in's part is told which family to switch off to replace it.
+    internal static void Owns(string family, IEnumerable<string> parts)
+    {
+        foreach (string part in parts) _familyOf.TryAdd(part, family);
+    }
 
     private static readonly List<PackResult> _registrations = [];
     private static readonly Dictionary<string, string> _packOf = [];
@@ -50,7 +87,7 @@ public static class Catalogue
     /// the same silence as a pack's, and has never had anything to report it.</para>
     /// </summary>
     internal static IReadOnlyList<PackFault> Audit(IPartCatalogue parts)
-        => PackAudit.Run(_launchers, _optics, parts,
+        => PackAudit.Run(_launchers, _optics, _searchSets, _dispensers, parts,
                          partId => _packOf.GetValueOrDefault(partId, PackReader.BuiltInSource));
 
     /// <summary>Shut the door. Called once the roster is about to be built.</summary>
@@ -82,8 +119,28 @@ public static class Catalogue
         int registered = 0;
         registered += Merge(pack.Munitions, _munitions, m => m.Name, "Munition", pack.Source, faults, refused);
         registered += Merge(pack.Sensors, _sensors, s => s.Name, "Sensor", pack.Source, faults, refused);
+        registered += Merge(pack.Decoys, _decoys, d => d.Name, "Decoy", pack.Source, faults, refused);
         registered += Merge(pack.Optics, _optics, o => o.PartId, "Optic", pack.Source, faults, refused);
         foreach (OpticProfile head in pack.Optics) _packOf.TryAdd(head.PartId, pack.Source);
+        registered += Merge(pack.SearchSets, _searchSets, x => x.PartId, "SearchSet", pack.Source, faults, refused);
+        foreach (SearchSetProfile set in pack.SearchSets) _packOf.TryAdd(set.PartId, pack.Source);
+
+        // A dispenser loaded with a decoy that lost a collision would throw somebody else's.
+        foreach (DispenserProfile dispenser in pack.Dispensers)
+        {
+            if (refused.Contains(dispenser.Decoy))
+            {
+                faults.Add(new PackFault(pack.Source, "Dispenser", dispenser.PartId,
+                                         $"names '{dispenser.Decoy}', which something else already claims"));
+                refused.Add(dispenser.PartId);
+                continue;
+            }
+
+            if (Merge([dispenser], _dispensers, d => d.PartId, "Dispenser", pack.Source, faults, refused) == 0) continue;
+
+            registered++;
+            _packOf.TryAdd(dispenser.PartId, pack.Source);
+        }
 
         foreach (LauncherProfile launcher in pack.Launchers)
         {
@@ -105,6 +162,20 @@ public static class Catalogue
             {
                 if (component.PartId == launcher.PartId) _components.Add(component);
             }
+        }
+
+        // A standalone director's, search set's or dispenser's row, when that part registered from
+        // this pack and nothing has a row for it yet.
+        foreach (ComponentProfile component in pack.Components)
+        {
+            if (component.Role is not (WeaponRole.Camera or WeaponRole.Sensor or WeaponRole.Countermeasures)) continue;
+            if (refused.Contains(component.PartId)) continue;
+            if (!pack.Optics.Any(o => o.PartId == component.PartId)
+                && !pack.SearchSets.Any(x => x.PartId == component.PartId)
+                && !pack.Dispensers.Any(d => d.PartId == component.PartId)) continue;
+            if (_components.Any(c => c.PartId == component.PartId)) continue;
+
+            _components.Add(component);
         }
 
         return Record(new PackResult(pack.Source, registered, faults));
@@ -146,7 +217,11 @@ public static class Catalogue
             if (clash)
             {
                 refused.Add(key);
-                faults.Add(new PackFault(source, kind, key, "something already registered claims this"));
+                faults.Add(new PackFault(source, kind, key,
+                                         _familyOf.TryGetValue(key, out string? family)
+                                             ? $"claimed by built-in family {family}; switch that family off under "
+                                               + "KSArmory > Built-in weapons to replace it"
+                                             : "something already registered claims this"));
                 continue;
             }
 
@@ -182,7 +257,7 @@ public static class Catalogue
 
     /// <summary>The launcher matching a part Id, or null if that part is not one of ours.</summary>
     public static LauncherProfile? LauncherForPart(string? partId)
-        => Arsenal.LauncherForPart(_launchers, partId);
+        => LauncherForPart(_launchers, partId);
 
     /// <summary>The optical head a part Id names, or null if it names none.</summary>
     public static OpticProfile? OpticForPart(string? partId)
@@ -202,7 +277,7 @@ public static class Catalogue
     {
         if (string.IsNullOrEmpty(partId)) return null;
 
-        foreach (SearchSetProfile s in Arsenal.SearchSets)
+        foreach (SearchSetProfile s in _searchSets)
         {
             if (s.PartId == partId) return s;
         }
@@ -215,7 +290,7 @@ public static class Catalogue
     {
         if (string.IsNullOrEmpty(partId)) return null;
 
-        foreach (DispenserProfile d in Arsenal.Dispensers)
+        foreach (DispenserProfile d in _dispensers)
         {
             if (d.PartId == partId) return d;
         }
@@ -223,18 +298,31 @@ public static class Catalogue
         return null;
     }
 
-    /// <summary>The named expendable, falling back to the first as <see cref="Arsenal.Named{T}"/> does.</summary>
-    public static DecoyProfile DecoyNamed(string name) => Arsenal.Named(Arsenal.Decoys, name, d => d.Name);
+    /// <summary>
+    /// Whether a name that matches nothing throws rather than answering the first entry. Off in the
+    /// game, where the fallback keeps a flight going; on in the tests, where it would let a renamed
+    /// weapon be silently replaced by whichever registered first.
+    /// </summary>
+    internal static bool MissingNameThrows { get; set; }
+
+    /// <summary>The named expendable, falling back to the first as <see cref="Named{T}"/> does.</summary>
+    public static DecoyProfile DecoyNamed(string name) => Resolve(_decoys, name, d => d.Name, "decoy");
 
     /// <summary>
     /// The named round, falling back to the first registered rather than throwing — see
-    /// <see cref="Arsenal.Named{T}"/> for why, and for what that costs.
+    /// <see cref="Named{T}"/> for why, and for what that costs.
     /// </summary>
-    public static MunitionProfile MunitionNamed(string name)
-        => Arsenal.Named(_munitions, name, m => m.Name);
+    public static MunitionProfile MunitionNamed(string name) => Resolve(_munitions, name, m => m.Name, "round");
 
     /// <inheritdoc cref="MunitionNamed"/>
-    public static SensorProfile SensorNamed(string name) => Arsenal.Named(_sensors, name, s => s.Name);
+    public static SensorProfile SensorNamed(string name) => Resolve(_sensors, name, s => s.Name, "sensor");
+
+    private static T Resolve<T>(IReadOnlyList<T> from, string name, Func<T, string> key, string kind)
+        where T : class
+        => Find(from, name, key)
+           ?? (MissingNameThrows
+                   ? throw new KeyNotFoundException($"no {kind} is registered as '{name}'")
+                   : Named(from, name, key));
 
     /// <summary>
     /// The named round, or null when nothing carries that name.
@@ -261,8 +349,59 @@ public static class Catalogue
 
     /// <summary>
     /// The round and sensor a launcher names, resolved together — see
-    /// <see cref="Arsenal.LoadoutFor"/> for why the pairing is made in one place.
+    /// <see cref="LoadoutFor(LauncherProfile, IReadOnlyList{MunitionProfile}, IReadOnlyList{SensorProfile})"/> for why the pairing is made in one place.
     /// </summary>
     public static (MunitionProfile Munition, SensorProfile Sensor) LoadoutFor(LauncherProfile launcher)
-        => Arsenal.LoadoutFor(launcher, _munitions, _sensors);
+        => (launcher.Munition.Length == 0 ? MunitionProfile.None : MunitionNamed(launcher.Munition),
+            SensorNamed(launcher.Sensor));
+
+    /// <summary>
+    /// The same lookup against an explicit registry.
+    ///
+    /// <para>Exists so the selection logic can be tested against a registry of any size. With one
+    /// entry every registry assertion is trivially satisfied and cannot distinguish "picks the
+    /// right one" from "picks the only one".</para>
+    /// </summary>
+    internal static LauncherProfile? LauncherForPart(IReadOnlyList<LauncherProfile> from, string? partId)
+    {
+        if (string.IsNullOrEmpty(partId)) return null;
+
+        for (int i = 0; i < from.Count; i++)
+        {
+            if (from[i].PartId == partId) return from[i];
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// The round and sensor a launcher names, resolved together against explicit registries.
+    ///
+    /// <para>Together because a launcher left holding another system's round is a wrong-weapon
+    /// bug with nothing on screen to show for it. Every caller that adopts a launcher takes all
+    /// three, and this is the one place that pairing is made.</para>
+    /// </summary>
+    internal static (MunitionProfile Munition, SensorProfile Sensor) LoadoutFor(
+        LauncherProfile launcher,
+        IReadOnlyList<MunitionProfile> munitions,
+        IReadOnlyList<SensorProfile> sensors)
+        => (launcher.Munition.Length == 0 ? MunitionProfile.None : Named(munitions, launcher.Munition, m => m.Name),
+            Named(sensors, launcher.Sensor, s => s.Name));
+
+    /// <summary>
+    /// First entry whose key matches, or the first entry as a fallback. Internal rather than
+    /// private so the fallback can be tested against a registry with more than one candidate,
+    /// where "matched" and "fell back to element zero" are actually distinguishable.
+    ///
+    /// <para>The fallback keeps a typo in a shipped profile playable and cannot report one.
+    /// <see cref="Catalogue.TryMunitionNamed"/> is the form that can, and is what anything
+    /// judging a name rather than flying a round asks.</para>
+    /// </summary>
+    internal static T Named<T>(IReadOnlyList<T> from, string name, Func<T, string> key)
+    {
+        for (int i = 0; i < from.Count; i++)
+        {
+            if (key(from[i]) == name) return from[i];
+        }
+        return from[0];
+    }
 }

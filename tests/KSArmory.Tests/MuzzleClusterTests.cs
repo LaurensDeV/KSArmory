@@ -16,7 +16,7 @@ public class MuzzleClusterTests
     [Fact]
     public void ARotaryClusterStaysOneGroup()
     {
-        // Arsenal.Ciws.GunMuzzles, which span about 0.21 m.
+        // BuiltIns.Ciws.GunMuzzles, which span about 0.21 m.
         double3[] muzzles =
         [
             new(-0.19500, 1.98000,  0.00000),

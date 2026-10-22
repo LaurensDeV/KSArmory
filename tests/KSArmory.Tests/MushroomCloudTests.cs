@@ -410,7 +410,7 @@ public class MushroomCloudTests
     [Fact]
     public void TheShippedYieldFlashesForItsRealDuration()
     {
-        double kt = MushroomCloud.KilotonsFor(Arsenal.NukeB61.ChargeKg);
+        double kt = MushroomCloud.KilotonsFor(BuiltIns.NukeB61.ChargeKg);
         Assert.Equal(MushroomCloud.DarkAfter(kt), MushroomCloud.FlashSeconds(kt), 6);
     }
 
@@ -419,7 +419,7 @@ public class MushroomCloudTests
     public void AChemicalChargeHasNoCloud()
     {
         Assert.True(BuiltIns.Missile57E6.ChargeKg < MushroomCloud.ThresholdKg);
-        Assert.True(Arsenal.NukeB61.ChargeKg > MushroomCloud.ThresholdKg);
+        Assert.True(BuiltIns.NukeB61.ChargeKg > MushroomCloud.ThresholdKg);
     }
 
     /// <summary>

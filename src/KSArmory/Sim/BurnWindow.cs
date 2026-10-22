@@ -384,24 +384,8 @@ internal static class BurnWindow
     private static double Refine(BallisticBody body, double3 positionCci, double3 velocityCci,
                                  double3 aimNowCci, double loft, double period,
                                  double lo, double hi, double seed, double minArrivalDeg)
-    {
-        const double Ratio = 0.6180339887498949;
-        double c = hi - (hi - lo) * Ratio;
-        double d = lo + (hi - lo) * Ratio;
-
-        for (int i = 0; i < 24 && hi - lo > 1.0; i++)
-        {
-            double costC = CostAt(body, positionCci, velocityCci, aimNowCci, c, loft, period, seed,
-                                  minArrivalDeg, out _, out _, out _);
-            double costD = CostAt(body, positionCci, velocityCci, aimNowCci, d, loft, period, seed,
-                                  minArrivalDeg, out _, out _, out _);
-
-            if (costC < costD) hi = d; else lo = c;
-
-            c = hi - (hi - lo) * Ratio;
-            d = lo + (hi - lo) * Ratio;
-        }
-
-        return 0.5 * (lo + hi);
-    }
+        => GoldenSection.Minimise(
+            t => CostAt(body, positionCci, velocityCci, aimNowCci, t, loft, period, seed, minArrivalDeg,
+                        out _, out _, out _),
+            lo, hi, 24, 1.0);
 }

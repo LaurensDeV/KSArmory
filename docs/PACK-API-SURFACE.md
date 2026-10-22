@@ -11,7 +11,7 @@ ignored.
 
 `docs/WEAPON-PACKS.md` is the same surface written for the author, with the reasons attached.
 
-**Definition schema 1.** 8 elements, 134 attributes, 15 entry-point lines.
+**Definition schema 1.** 8 elements, 171 attributes, 15 entry-point lines.
 
 ## Entry point
 
@@ -44,6 +44,8 @@ to build; widening it to take a profile type would put that back.
 | `DisplayName` | text, required | **required** |
 | `BodyMarker` | text | *none* |
 | `BodyModel` | text | *none* |
+| `BurstEffect` | text | *none* |
+| `PlumeEffect` | text | *none* |
 | `FinMarker` | text | *none* |
 | `BodyLength` | number | `3.10` |
 | `TracerEvery` | whole number | `0` |
@@ -58,6 +60,8 @@ to build; widening it to take a profile type would put that back.
 | `BoostAccel` | number | `520` |
 | `MaxFlightSeconds` | number | `30` |
 | `MaxFaithfulStepSeconds` | number | *the flight model's own* |
+| `PreferredStepSeconds` | number | `0` |
+| `SubStepSeconds` | number | `0` |
 | `MinRange` | number | `0` |
 | `MaxRange` | number | `20000` |
 | `NavConstant` | number | `4` |
@@ -79,6 +83,7 @@ to build; widening it to take a profile type would put that back.
 | `TimedFuse` | true or false | `false` |
 | `FuseArmSeconds` | number | `0.6` |
 | `ChargeKg` | number | `20` |
+| `MaxChargeKg` | number | `0` |
 | `HitsTerrain` | true or false | `false` |
 | `BurstHeightMetres` | number | `0` |
 | `ChuteSinkMetresPerSecond` | number | `0` |
@@ -109,14 +114,20 @@ to build; widening it to take a profile type would put that back.
 | `TerrainMarginMetres` | number | `0` |
 | `TerrainSamples` | whole number | `0` |
 | `TerrainClearanceMetres` | number | `30` |
+| `CuedOnly` | true or false | `false` |
+| `Infrared` | true or false | `false` |
+| `IrThresholdWPerM2` | number | `6.0e-7` |
+| `LookDownPenalty` | number | `1` |
 
 ### `<Launcher>` - the part, and what it does with the round
 
 | Attribute | Reads | Default |
 | --- | --- | --- |
 | `PartId` | text, required | **required** |
+| `FiresBeam` | true or false | `false` |
 | `DisplayName` | text, required | **required** |
-| `Munition` | name, required | **required** |
+| `Munition` | text | **required** |
+| `BeamArmamentLabel` | text | `Laser` |
 | `Sensor` | name, required | **required** |
 | `TubeArmamentLabel` | text | `Missiles` |
 | `GunArmamentLabel` | text | `Cannon` |
@@ -125,11 +136,21 @@ to build; widening it to take a profile type would put that back.
 | `RadarMarker` | text | *none* |
 | `GunsMarker` | text | *none* |
 | `OpticBaseMarker` | text | *none* |
+| `GunBarrelMarker` | text | *none* |
+| `GunCylinderMarker` | text | *none* |
+| `GunRodMarker` | text | *none* |
+| `GunFeedMarker` | text | *none* |
+| `GunRotorMarker` | text | *none* |
 | `TurretPivot` | three numbers | `0, 0, 0` |
 | `PodPivotFromTurret` | three numbers | `0, 0, 0` |
 | `RadarPivotFromTurret` | three numbers | `0, 0, 0` |
 | `OpticBaseFromTurret` | three numbers | `0, 0, 0` |
 | `GunPivotFromTurret` | three numbers | `0, 0, 0` |
+| `GunCylinderPinFromTurret` | three numbers | `0, 0, 0` |
+| `GunRodPinFromTurret` | three numbers | `0, 0, 0` |
+| `GunFeedPivotFromTurret` | three numbers | `0, 0, 0` |
+| `GunFeedRatio` | number | `0.0` |
+| `GunRotorPivotFromTurret` | three numbers | `0, 0, 0` |
 | `GunReferenceElevationDeg` | degrees | `0.0` |
 | `PodReferenceElevationDeg` | degrees | `0.0` |
 | `MuzzleForwardOffset` | number | `0.0` |
@@ -146,6 +167,7 @@ to build; widening it to take a profile type would put that back.
 | `ForwardArcDeg` | number | `80` |
 | `ForwardPlateauDeg` | number | `62` |
 | `RestElevationDeg` | number | *the modelled pose* |
+| `TraverseLimitDeg` | number | `180` |
 | `MagazineDepth` | whole number | `0` |
 | `SalvoSpacing` | number | `0.45` |
 | `ReloadSeconds` | number | `0` |
@@ -160,6 +182,21 @@ to build; widening it to take a profile type would put that back.
 | `GunBurstRounds` | whole number | `12` |
 | `GunBurstGapSeconds` | number | `0.55` |
 | `GunReloadSeconds` | number | `0` |
+| `GunRecoilMetres` | number | `0` |
+| `GunRecoilSeconds` | number | `0.08` |
+| `GunReturnSeconds` | number | `0.6` |
+| `GunRotorSpinUpSeconds` | number | `0.2` |
+| `GunRotorSpinDownSeconds` | number | `1.0` |
+| `GunSoundId` | text | *none* |
+| `GunshotSoundId` | text | *none* |
+| `MuzzleFlashEffect` | text | *none* |
+| `TrimAccelerationMetresPerSecond2` | number | `double.NaN` |
+| `TrimWorstAxisExhaustVelocity` | number | `double.NaN` |
+| `HopEngineThrustNewtons` | number | `double.NaN` |
+| `HopEngineExhaustVelocity` | number | `double.NaN` |
+| `HopEngineAccelerationMetresPerSecond2` | number | `double.NaN` |
+| `FireControlLabel` | text | *none* |
+| `MintRows` | true or false | `true` |
 
 ### `<Optic>` - a sighting head, needing no weapon on the craft
 

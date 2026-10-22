@@ -78,22 +78,7 @@ internal static class LockCueOverlay
             return;
         }
 
-        ImGuiViewportPtr main = ImGui.GetMainViewport();
-        ImGui.SetNextWindowPos(main.Pos, ImGuiCond.Always);
-        ImGui.SetNextWindowSize(main.Size, ImGuiCond.Always);
-        ImGui.SetNextWindowBgAlpha(0f);
-
-        // NoInputs: this covers the screen, and anything else would swallow every click in the
-        // game. Same reasoning as Markers.
-        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoDecoration
-                                       | ImGuiWindowFlags.NoInputs
-                                       | ImGuiWindowFlags.NoNav
-                                       | ImGuiWindowFlags.NoFocusOnAppearing
-                                       | ImGuiWindowFlags.NoBringToFrontOnFocus
-                                       | ImGuiWindowFlags.NoSavedSettings
-                                       | ImGuiWindowFlags.NoBackground;
-
-        if (!ImGui.Begin("##KSArmoryLockCue", flags))
+        if (!ScreenOverlay.Begin("##KSArmoryLockCue", out ImGuiViewportPtr main))
         {
             ImGui.End();
             return;

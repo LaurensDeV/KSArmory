@@ -192,7 +192,7 @@ def check_turret_launcher_geometry(profile, key, label):
     """Verifies one turreted launcher's profile still agrees with the mesh it was modelled in.
 
     The launch positions exist twice: once in the model script, which places the containers and
-    the barrels, and once in Sim/Arsenal.cs, which draws markers on them and spawns rounds from
+    the barrels, and once in its definition file, which draws markers on them and spawns rounds from
     them. Nothing at build or run time connects the two, and a silent disagreement puts the
     launch markers in mid-air beside the vehicle. So compare them here.
 
@@ -208,7 +208,6 @@ def check_turret_launcher_geometry(profile, key, label):
     by tools/model/build.sh, which needs Blender.
     """
     muzzles = REPO / "tools" / "model" / "muzzles.json"
-    source = MOD / "Sim" / "Arsenal.cs"
     if not muzzles.is_file():
         print("  (no tools/model/muzzles.json -- run tools/model/build.sh to enable this check)")
         return 0, 0
@@ -218,7 +217,7 @@ def check_turret_launcher_geometry(profile, key, label):
     if expected is None:
         return 0, 0
 
-    text = source.read_text()
+    text = arsenal_text()
 
     problems = 0
     checked = 0
@@ -227,7 +226,7 @@ def check_turret_launcher_geometry(profile, key, label):
 
     found = _as_match(profile_block(text, profile))
     if found is None:
-        print(f"  MISSING Arsenal.{profile}", file=sys.stderr)
+        print(f"  MISSING {profile}", file=sys.stderr)
         return 1, 1
     text = found.group(1)
 
@@ -245,10 +244,10 @@ def check_turret_launcher_geometry(profile, key, label):
         checked += 1
         match = re.search(rf"{field}\s*=\s*([0-9.]+)\s*,", text)
         if match is None:
-            print(f"  MISSING Arsenal.{profile}.{field}", file=sys.stderr)
+            print(f"  MISSING {profile}.{field}", file=sys.stderr)
             problems += 1
         elif abs(float(match.group(1)) - want) > 5e-4:
-            print(f"  STALE Arsenal.{profile}.{field} = {match.group(1)}, "
+            print(f"  STALE {profile}.{field} = {match.group(1)}, "
                   f"mesh says {want:.5f}", file=sys.stderr)
             problems += 1
 
@@ -265,12 +264,12 @@ def check_turret_launcher_geometry(profile, key, label):
         checked += 1
         match = re.search(rf"{field}\s*=\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)", text)
         if match is None:
-            print(f"  MISSING Arsenal.{profile}.{field}", file=sys.stderr)
+            print(f"  MISSING {profile}.{field}", file=sys.stderr)
             problems += 1
         else:
             got = [float(v) for v in match.groups()]
             if any(abs(a - b) > 5e-4 for a, b in zip(got, expected[name])):
-                print(f"  STALE Arsenal.{profile}.{field} = {tuple(got)}, "
+                print(f"  STALE {profile}.{field} = {tuple(got)}, "
                       f"mesh says {tuple(expected[name])}", file=sys.stderr)
                 problems += 1
 
@@ -289,11 +288,11 @@ def check_turret_launcher_geometry(profile, key, label):
     checked += max(len(want), 1)
 
     if block is None:
-        print(f"  MISSING Arsenal.{profile}.Tubes", file=sys.stderr)
+        print(f"  MISSING {profile}.Tubes", file=sys.stderr)
         return problems + 1, checked
 
     if found != want:
-        print(f"  STALE Arsenal.{profile}.Tubes: {len(found)} entries, "
+        print(f"  STALE {profile}.Tubes: {len(found)} entries, "
               f"mesh has {len(want)}", file=sys.stderr)
         for i, (a, b) in enumerate(zip(found + [None] * len(want), want)):
             if a != b:
@@ -311,7 +310,7 @@ def check_turret_launcher_geometry(profile, key, label):
         want_guns = [tuple(m) for m in expected["gun_muzzles"]]
         checked += len(want_guns)
         if guns is None:
-            print(f"  MISSING Arsenal.{profile}.GunMuzzles", file=sys.stderr)
+            print(f"  MISSING {profile}.GunMuzzles", file=sys.stderr)
             problems += 1
         else:
             found_guns = [
@@ -319,7 +318,7 @@ def check_turret_launcher_geometry(profile, key, label):
                 for m in re.findall(r"new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)",
                                     guns.group(1))]
             if found_guns != want_guns:
-                print(f"  STALE Arsenal.{profile}.GunMuzzles: {len(found_guns)} entries, "
+                print(f"  STALE {profile}.GunMuzzles: {len(found_guns)} entries, "
                       f"mesh has {len(want_guns)}", file=sys.stderr)
                 for i, (a, b) in enumerate(zip(found_guns + [None] * len(want_guns), want_guns)):
                     if a != b:
@@ -347,13 +346,13 @@ def check_fixed_launcher_geometry(profile, munition, key, label):
     if expected is None:
         return 0, 0
 
-    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    text = arsenal_text()
     problems = 0
     checked = 0
 
     found = _as_match(profile_block(text, profile))
     if found is None:
-        print(f"  MISSING Arsenal.{profile}", file=sys.stderr)
+        print(f"  MISSING {profile}", file=sys.stderr)
         return 1, 1
     block = found.group(1)
 
@@ -361,25 +360,25 @@ def check_fixed_launcher_geometry(profile, munition, key, label):
     # rounds to follow and the axis is the only thing saying which way they leave.
     checked += 1
     tube = re.search(r"Tubes\s*=\s*\[\s*new\(new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\),"
-                     r"\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)\s*\)\s*\]", block)
+                     r"\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)\s*\)\s*,?\s*\]", block)
     if tube is None:
-        print(f"  MISSING Arsenal.{profile}.Tubes", file=sys.stderr)
+        print(f"  MISSING {profile}.Tubes", file=sys.stderr)
         problems += 1
     else:
         got = [float(v) for v in tube.groups()]
         want = list(expected["tubes"][0]) + list(expected["tube_directions"][0])
         if any(abs(a - b) > 5e-4 for a, b in zip(got, want)):
-            print(f"  STALE Arsenal.{profile}.Tubes = {tuple(got)}, "
+            print(f"  STALE {profile}.Tubes = {tuple(got)}, "
                   f"mesh says {tuple(want)}", file=sys.stderr)
             problems += 1
 
     checked += 1
     offset = re.search(r"MuzzleForwardOffset\s*=\s*([\d.]+)\s*,", block)
     if offset is None:
-        print(f"  MISSING Arsenal.{profile}.MuzzleForwardOffset", file=sys.stderr)
+        print(f"  MISSING {profile}.MuzzleForwardOffset", file=sys.stderr)
         problems += 1
     elif abs(float(offset.group(1)) - expected["muzzle_forward_offset"]) > 5e-4:
-        print(f"  STALE Arsenal.{profile}.MuzzleForwardOffset = {offset.group(1)}, "
+        print(f"  STALE {profile}.MuzzleForwardOffset = {offset.group(1)}, "
               f"mesh says {expected['muzzle_forward_offset']}", file=sys.stderr)
         problems += 1
 
@@ -390,10 +389,10 @@ def check_fixed_launcher_geometry(profile, munition, key, label):
     body = (None if round_block is None
             else re.search(r"BodyLength\s*=\s*([\d.]+)f\s*,", round_block.group(1)))
     if body is None:
-        print(f"  MISSING Arsenal.{munition}.BodyLength", file=sys.stderr)
+        print(f"  MISSING {munition}.BodyLength", file=sys.stderr)
         problems += 1
     elif abs(float(body.group(1)) - expected["body_length"]) > 5e-4:
-        print(f"  STALE Arsenal.{munition}.BodyLength = {body.group(1)}, "
+        print(f"  STALE {munition}.BodyLength = {body.group(1)}, "
               f"mesh says {expected['body_length']}", file=sys.stderr)
         problems += 1
 
@@ -466,18 +465,17 @@ def check_cross_body_planes():
 
 
 def check_subpart_positions():
-    """Verifies the asset XML places each articulated subpart where Arsenal.cs says its pivot is.
+    """Verifies the asset XML places each articulated subpart where the definitions say its pivot is.
 
-    Every pivot exists three times: in pantsir.py, which recentres that mesh on it; in Arsenal.cs,
+    Every pivot exists three times: in pantsir.py, which recentres that mesh on it; in its definition,
     which composes the runtime pose from it; and in the XML, which places the subpart at rest. The
-    mod rewrites PositionParentAsmb every frame from the Arsenal value, so an XML that disagrees
+    mod rewrites PositionParentAsmb every frame from the definition's value, so an XML that disagrees
     looks correct until the drives run and then snaps.
 
     Also checks each marker resolves to exactly one subpart. LauncherPart.FindSubPart matches on
     the Id *containing* the marker and takes the first hit, so two matches is a silent coin toss.
     """
-    source = MOD / "Sim" / "Arsenal.cs"
-    text = source.read_text()
+    text = arsenal_text()
 
     def vector(field):
         match = re.search(
@@ -497,7 +495,7 @@ def check_subpart_positions():
 
     turret_pivot = vector("TurretPivot")
     if turret_pivot is None:
-        print("  MISSING Arsenal.TurretPivot", file=sys.stderr)
+        print("  MISSING TurretPivot", file=sys.stderr)
         return 1, 1
 
     # Marker, and the offset from the traverse axis. The turret sits on the axis itself.
@@ -581,7 +579,7 @@ def _check_markers(profile_name, body, placed, assemblies):
 
         offset = [0.0, 0.0, 0.0] if offset_field is None else vector(offset_field)
         if offset is None:
-            print(f"  MISSING Arsenal.{offset_field}", file=sys.stderr)
+            print(f"  MISSING {offset_field}", file=sys.stderr)
             problems += 1
             continue
 
@@ -591,7 +589,7 @@ def _check_markers(profile_name, body, placed, assemblies):
         if any(abs(a - b) > 5e-4 for a, b in zip(got, want)):
             show = lambda v: "(" + ", ".join(f"{x:g}" for x in v) + ")"  # noqa: E731
             print(f"  STALE <SubPart Id=\"{hits[0]}\"> at {show(got)}, "
-                  f"Arsenal.cs says {show(want)}", file=sys.stderr)
+                  f"the definitions say {show(want)}", file=sys.stderr)
             problems += 1
 
     return problems, checked
@@ -698,14 +696,13 @@ def check_body_markers():
     a nuclear rack instancing the Mk 82's bodies shipped with BodyMarker "Mk82": the name existed,
     on the other rack, and the bomb was released invisibly.
     """
-    source = MOD / "Sim" / "Arsenal.cs"
 
     instances = set()
     for path in sorted(MOD.glob("KSArmory*.xml")):
         instances |= set(re.findall(r'<SubPart\s+Id="([^"]+)"\s+InstanceOf=', path.read_text()))
 
     problems = checked = 0
-    text = source.read_text()
+    text = arsenal_text()
 
     for munition, body in re.findall(r'(\w+)\s*=\s*new\(\)\s*\{(.*?)\n\s*\};', text, re.S):
         for field in ("BodyMarker", "FinMarker"):
@@ -939,7 +936,7 @@ AUTHORED_GUNS = {
 # Launchers whose art was authored rather than generated, and whose geometry is therefore checked
 # against the committed mesh and XML instead of against muzzles.json.
 #
-# The generated path can compare Arsenal.cs to what the model script printed, because that script
+# The generated path can compare a definition to what the model script printed, because that script
 # is in the repository and anyone can rerun it. An authored part's source is a .blend that is
 # deliberately not, so there is nothing to rerun and nothing to print -- and the numbers still
 # exist three times over: in the mesh, in the seat position the part XML declares, and here.
@@ -951,7 +948,7 @@ AUTHORED_LAUNCHERS = {
     "HarmRail": ("KSArmory_Prefab_HarmRail", "KSArmory_Harm_Round00",
                  "KSArmory_Subpart_Harm", "MissileAgm88", "HARM rail"),
     # Its beam is generated and its round is not, so only the round is checked here. The beam
-    # carries no geometry Arsenal.cs names -- the seat and the tube both come off the round.
+    # carries no geometry its definition names -- the seat and the tube both come off the round.
     "NukeRack": ("KSArmory_Prefab_NukeRack", "KSArmory_NukeRack_B6100",
                  "KSArmory_Subpart_B61", "NukeB61", "nuclear rack"),
 }
@@ -965,11 +962,11 @@ def check_authored_gun_geometry(profile, part_id, cannon_id, barrel_id, muzzle_m
     shells leave from somewhere that is not the end of the barrel, or the barrel swings on a trunnion
     of its own and parts company with the breech.
     """
-    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    text = arsenal_text()
 
     found = _as_match(profile_block(text, profile))
     if found is None:
-        print(f"  MISSING Arsenal.{profile}", file=sys.stderr)
+        print(f"  MISSING {profile}", file=sys.stderr)
         return 1, 1
     block = found.group(1)
 
@@ -1008,7 +1005,7 @@ def check_authored_gun_geometry(profile, part_id, cannon_id, barrel_id, muzzle_m
 
     turret, gun = vector("TurretPivot"), vector("GunPivotFromTurret")
     if turret is None or gun is None:
-        print(f"  MISSING Arsenal.{profile}.TurretPivot or .GunPivotFromTurret", file=sys.stderr)
+        print(f"  MISSING {profile}.TurretPivot or .GunPivotFromTurret", file=sys.stderr)
         return 1, 1
     trunnion = [turret[i] + gun[i] for i in range(3)]
 
@@ -1020,7 +1017,7 @@ def check_authored_gun_geometry(profile, part_id, cannon_id, barrel_id, muzzle_m
             report("MISSING", f'<SubPart Id="{sub_id}"> position in the part XML')
         elif any(abs(placed[sub_id][i] - trunnion[i]) > 5e-4 for i in range(3)):
             report("STALE", f'<SubPart Id="{sub_id}"> is at {fmt(placed[sub_id])}, but '
-                            f"Arsenal.{profile}'s trunnion is {fmt(trunnion)}")
+                            f"{profile}'s trunnion is {fmt(trunnion)}")
 
     checked += 1
     muzzles = re.search(r"GunMuzzles\s*=\s*\[(.*?)\]", block, re.S)
@@ -1028,7 +1025,7 @@ def check_authored_gun_geometry(profile, part_id, cannon_id, barrel_id, muzzle_m
                if muzzles else [])
     tip = bounds.get(muzzle_mesh)
     if not barrels:
-        report("MISSING", f"Arsenal.{profile}.GunMuzzles")
+        report("MISSING", f"{profile}.GunMuzzles")
     elif tip is None or tip[0] is None:
         report("MISSING", f"mesh {muzzle_mesh} in any declared atlas")
     else:
@@ -1036,12 +1033,12 @@ def check_authored_gun_geometry(profile, part_id, cannon_id, barrel_id, muzzle_m
         if muzzle_mesh_pivot is not None:
             pivot = vector(muzzle_mesh_pivot)
             if pivot is None:
-                report("MISSING", f"Arsenal.{profile}.{muzzle_mesh_pivot}")
+                report("MISSING", f"{profile}.{muzzle_mesh_pivot}")
             else:
                 reach += pivot[1] - gun[1]
         for barrel in barrels:
             if abs(float(barrel[1]) - reach) > 5e-4:
-                report("STALE", f"Arsenal.{profile}.GunMuzzles: barrel ends at Y={barrel[1]} "
+                report("STALE", f"{profile}.GunMuzzles: barrel ends at Y={barrel[1]} "
                                 f"but {muzzle_mesh} reaches {reach:.5f} from the trunnion")
                 break
 
@@ -1053,11 +1050,11 @@ def check_authored_gun_geometry(profile, part_id, cannon_id, barrel_id, muzzle_m
         if shell is None or shell[0] is None:
             report("MISSING", f"mesh {shell_mesh} in any declared atlas")
         elif length is None:
-            report("MISSING", f"Arsenal.{munition}.BodyLength")
+            report("MISSING", f"{munition}.BodyLength")
         else:
             lo, hi = shell
             if abs((hi[0] - lo[0]) - float(length.group(1))) > 5e-4:
-                report("STALE", f"Arsenal.{munition}.BodyLength = {length.group(1)}, "
+                report("STALE", f"{munition}.BodyLength = {length.group(1)}, "
                                 f"but {shell_mesh} is {hi[0] - lo[0]:.5f} long")
             if abs(hi[0] + lo[0]) / 2 > 5e-4:
                 report("STALE", f"{shell_mesh} is centred at X={(hi[0] + lo[0]) / 2:.5f}; fire control "
@@ -1077,12 +1074,12 @@ def check_authored_launcher_geometry(profile, part_id, seat_id, mesh_id, munitio
     the first plus half the second. Nothing in the build would notice -- the part loads, the round
     renders, and it leaves from a point that is not its nose.
     """
-    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    text = arsenal_text()
     problems = checked = 0
 
     found = _as_match(profile_block(text, profile))
     if found is None:
-        print(f"  MISSING Arsenal.{profile}", file=sys.stderr)
+        print(f"  MISSING {profile}", file=sys.stderr)
         return 1, 1
     block = found.group(1)
 
@@ -1129,20 +1126,20 @@ def check_authored_launcher_geometry(profile, part_id, seat_id, mesh_id, munitio
     body = re.search(rf"{munition}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
     body = None if body is None else re.search(r"BodyLength\s*=\s*([\d.]+)f\s*,", body.group(1))
     if body is None:
-        print(f"  MISSING Arsenal.{munition}.BodyLength", file=sys.stderr)
+        print(f"  MISSING {munition}.BodyLength", file=sys.stderr)
         problems += 1
     elif abs(float(body.group(1)) - length) > 5e-4:
-        print(f"  STALE Arsenal.{munition}.BodyLength = {body.group(1)}, "
+        print(f"  STALE {munition}.BodyLength = {body.group(1)}, "
               f"mesh is {length:.4f}", file=sys.stderr)
         problems += 1
 
     checked += 1
     offset = re.search(r"MuzzleForwardOffset\s*=\s*([\d.]+)\s*,", block)
     if offset is None:
-        print(f"  MISSING Arsenal.{profile}.MuzzleForwardOffset", file=sys.stderr)
+        print(f"  MISSING {profile}.MuzzleForwardOffset", file=sys.stderr)
         problems += 1
     elif abs(float(offset.group(1)) - seat[0]) > 5e-4:
-        print(f"  STALE Arsenal.{profile}.MuzzleForwardOffset = {offset.group(1)}, "
+        print(f"  STALE {profile}.MuzzleForwardOffset = {offset.group(1)}, "
               f"the XML seats the round at {seat[0]}", file=sys.stderr)
         problems += 1
 
@@ -1150,16 +1147,16 @@ def check_authored_launcher_geometry(profile, part_id, seat_id, mesh_id, munitio
     # leaves on. Getting this wrong by the whole length is what firing from the tail looks like.
     checked += 1
     tube = re.search(r"Tubes\s*=\s*\[\s*new\(new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\),"
-                     r"\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)\s*\)\s*\]", block)
+                     r"\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)\s*\)\s*,?\s*\]", block)
     if tube is None:
-        print(f"  MISSING Arsenal.{profile}.Tubes", file=sys.stderr)
+        print(f"  MISSING {profile}.Tubes", file=sys.stderr)
         problems += 1
     else:
         got = [float(v) for v in tube.groups()]
         axis = got[3:]
         want = [seat[i] + axis[i] * length / 2 for i in range(3)] + axis
         if any(abs(a - b) > 5e-4 for a, b in zip(got, want)):
-            print(f"  STALE Arsenal.{profile}.Tubes = {tuple(got)}, the seat and the mesh "
+            print(f"  STALE {profile}.Tubes = {tuple(got)}, the seat and the mesh "
                   f"say {tuple(round(v, 5) for v in want)}", file=sys.stderr)
             problems += 1
 
@@ -1213,7 +1210,7 @@ def check_hinged_blade_seats(munition, part_id, body_id, blade_prefix, label):
         return 1
 
     problems = checked = 0
-    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    text = arsenal_text()
     block = re.search(rf"{munition}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
     if not block:
         print(f"  UNRESOLVED " + f"{label}: no munition profile {munition}", file=sys.stderr)
@@ -1285,12 +1282,12 @@ def check_cluster_launcher_geometry(profile, part_id, seat_prefix, mesh_id, muni
     tube paired with the wrong seat puts a warhead on a neighbour's vector. That is invisible until
     two of them are in the air.
     """
-    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    text = arsenal_text()
     problems = checked = 0
 
     found = _as_match(profile_block(text, profile))
     if found is None:
-        print(f"  MISSING Arsenal.{profile}", file=sys.stderr)
+        print(f"  MISSING {profile}", file=sys.stderr)
         return 1, 1
     block = found.group(1)
 
@@ -1323,7 +1320,7 @@ def check_cluster_launcher_geometry(profile, part_id, seat_prefix, mesh_id, muni
     checked += 1
     if len(seats) != count:
         print(f"  MISCOUNT {part_id}: {len(seats)} <SubPart Id=\"{seat_prefix}..\">, "
-              f"Arsenal.{profile} declares {count} tubes", file=sys.stderr)
+              f"{profile} declares {count} tubes", file=sys.stderr)
         return problems + 1, checked
     if bounds is None or bounds[0] is None:
         print(f"  MISSING mesh {mesh_id} in any declared atlas", file=sys.stderr)
@@ -1342,10 +1339,10 @@ def check_cluster_launcher_geometry(profile, part_id, seat_prefix, mesh_id, muni
     body = re.search(rf"{munition}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
     body = None if body is None else re.search(r"BodyLength\s*=\s*([\d.]+)f\s*,", body.group(1))
     if body is None:
-        print(f"  MISSING Arsenal.{munition}.BodyLength", file=sys.stderr)
+        print(f"  MISSING {munition}.BodyLength", file=sys.stderr)
         problems += 1
     elif abs(float(body.group(1)) - length) > 5e-4:
-        print(f"  STALE Arsenal.{munition}.BodyLength = {body.group(1)}, "
+        print(f"  STALE {munition}.BodyLength = {body.group(1)}, "
               f"mesh is {length:.4f}", file=sys.stderr)
         problems += 1
 
@@ -1353,7 +1350,7 @@ def check_cluster_launcher_geometry(profile, part_id, seat_prefix, mesh_id, muni
                        r"\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)\s*\)", block)
     checked += 1
     if len(tubes) != count:
-        print(f"  MISCOUNT Arsenal.{profile}.Tubes: {len(tubes)}, expected {count}", file=sys.stderr)
+        print(f"  MISCOUNT {profile}.Tubes: {len(tubes)}, expected {count}", file=sys.stderr)
         return problems + 1, checked
 
     for i, sid in enumerate(sorted(seats)):
@@ -1363,7 +1360,7 @@ def check_cluster_launcher_geometry(profile, part_id, seat_prefix, mesh_id, muni
         got = [float(v) for v in tubes[i]]
         checked += 1
         if any(abs(a - b) > 5e-4 for a, b in zip(got, want)):
-            print(f"  STALE Arsenal.{profile}.Tubes[{i}] = {tuple(got)}, {sid} and the mesh "
+            print(f"  STALE {profile}.Tubes[{i}] = {tuple(got)}, {sid} and the mesh "
                   f"say {tuple(round(v, 5) for v in want)}", file=sys.stderr)
             problems += 1
 
@@ -1381,82 +1378,147 @@ FIXED_LAUNCHER_MUNITION = {
 
 
 def registered(text, registry):
-    """The profile field names in one of Arsenal's registry lists, in declared order.
+    """The profile names of one kind of definition, as the gate tables key them.
 
     The registry is what the mod actually loads, so it is what the geometry checks below must be
     driven from. Naming the launchers here by hand instead is how a fifth one gets no check at
     all while this script still exits 0 -- the shape tools/model/CLAUDE.md warns about, reached at four.
 
-    Launchers that have moved into the shipped definitions file are appended, because a weapon
-    that leaves Arsenal.cs otherwise leaves every gate below with it and this script goes on
+    Definitions that have moved into the shipped XML files are appended, because a weapon
+    left out of this list leaves every gate below with it and this script goes on
     reporting all clear. That is the same failure by another route.
     """
     found = re.search(rf"{registry}\s*=\s*\[(.*?)\];", text, re.S)
     names = [] if found is None else [n.strip() for n in found.group(1).split(",") if n.strip()]
 
-    if registry == "Launchers":
-        names += sorted(shipped_launchers())
+    kind = {v: k for k, v in _REGISTRY.items()}.get(registry)
+    if kind is not None:
+        names += [n for n in sorted(shipped(kind)) if n not in names]
 
     return names
 
 
-# --- weapons that live in the definitions file rather than in Arsenal.cs ---------------------
+# --- the weapon definitions, read for the gates ---------------------------------------------
 #
-# Every gate below reads a C# object-initialiser block and pulls fields out of it by regex. Rather
-# than teach each one a second syntax, an XML <Launcher> is rendered into the block those regexes
-# already expect. It is a bridge and is meant to be temporary: when the last weapon has moved, the
-# gates should read the XML directly and this goes. Until then it is what keeps the coverage.
+# Every gate below was written against C# object-initialiser blocks and pulls fields out of them by
+# regex. Every definition in the core's KSArmory/*.xml is rendered into that block shape, keyed on the C#
+# field name the gate tables use, so the gates read the XML without each learning a second syntax.
 
-WEAPONS_XML = MOD / "KSArmory" / "Weapons.xml"
+DEFINITIONS = MOD / "KSArmory"
 
 # Attributes whose C# field is spelled differently, or is held in different units.
 _XML_FIELD = {"GunReferenceElevationDeg": ("GunReferenceElevationRad", "rad"),
-              "PodReferenceElevationDeg": ("PodReferenceElevationRad", "rad")}
+              "PodReferenceElevationDeg": ("PodReferenceElevationRad", "rad"),
+              "SeekerBand": ("Band", None)}
+
+# The name the gate tables key each built-in on. A
+# definition missing here is rendered under its own key, and no gate names it.
+_CSHARP_NAME = {
+    ("Munition", "AIM9J"): "Missile9J", ("Munition", "AIM120C"): "Missile120C",
+    ("Munition", "AGM88"): "MissileAgm88", ("Munition", "20MM"): "Cannon20Mm",
+    ("Munition", "5IN54"): "Shell5In54", ("Munition", "B61"): "NukeB61",
+    ("Munition", "MK21"): "ReentryVehicleMk21",
+    ("Munition", "57E6"): "Missile57E6", ("Munition", "30MM"): "Cannon30Mm",
+    ("Sensor", "AIM9SEEK"): "SeekerHeadAim9", ("Sensor", "AIM120SEEK"): "SeekerHeadAim120",
+    ("Sensor", "AGM88SEEK"): "SeekerHeadAgm88", ("Sensor", "VPS2"): "SearchRadarVps2",
+    ("Sensor", "MK68"): "FireControlMk68", ("Sensor", "MIRVBUS"): "BusDesignation",
+    ("Sensor", "TSU"): "TurretSight", ("Sensor", "BOMBSIGHT"): "BombSight",
+    ("Sensor", "EO"): "EoSensor", ("Sensor", "Litening"): "PodSensor",
+    ("Sensor", "Yal1BeamDirector"): "BeamDirectorSensor", ("Sensor", "Irst"): "InfraredSearchSet",
+    ("Sensor", "1RS1"): "SearchRadar1Rs1",
+    ("Launcher", "KSArmory_Prefab_Launcher6"): "PantsirS1",
+    ("Launcher", "KSArmory_Prefab_MirvBus"): "MirvBus",
+    ("Launcher", "KSArmory_Prefab_SidewinderRail"): "SidewinderRail",
+    ("Launcher", "KSArmory_Prefab_AmraamRail"): "AmraamRail",
+    ("Launcher", "KSArmory_Prefab_HarmRail"): "HarmRail",
+    ("Launcher", "KSArmory_Prefab_NukeRack"): "NukeRack",
+    ("Launcher", "KSArmory_Prefab_Ciws"): "Ciws",
+    ("Launcher", "KSArmory_Prefab_Mk42"): "Mk42",
+    ("Launcher", "KSArmory_Prefab_M197"): "M197",
+    ("Launcher", "KSArmory_Prefab_Yal1Turret"): "Yal1Beam",
+    ("Optic", "KSArmory_Prefab_Optic"): "EoDirector",
+    ("Optic", "KSArmory_Prefab_Launcher6"): "PantsirDirector",
+    ("Optic", "KSArmory_Prefab_Litening"): "Litening",
+    ("Optic", "KSArmory_Prefab_Yal1Turret"): "Yal1Turret",
+    ("SearchSet", "KSArmory_Prefab_Irst"): "Irst",
+}
+
+# The registry name each kind is listed under.
+_REGISTRY = {"Launcher": "Launchers", "Optic": "Optics", "Munition": "Munitions", "Sensor": "Sensors",
+             "SearchSet": "SearchSets"}
 
 
-def _shipped():
-    if not WEAPONS_XML.is_file():
+def _definition_files():
+    """Every weapon-definition file in the core's folder, in the order the mod registers them."""
+    if not DEFINITIONS.is_dir():
         return []
-    return ET.parse(WEAPONS_XML).getroot().findall("Launcher")
+    files = []
+    for path in sorted(DEFINITIONS.glob("*.xml"), key=lambda f: f.name):
+        root = ET.parse(path).getroot()
+        if root.tag == "WeaponPack":
+            files.append(root)
+    return files
+
+
+def _shipped(kind):
+    return [el for root in _definition_files() for el in root.findall(kind)]
+
+
+def _key(kind, el):
+    return el.get("PartId") if kind in ("Launcher", "Optic", "SearchSet") else el.get("Name", "")
+
+
+def _render(el):
+    # A launcher's distances are double in C# and its gates match a bare number; everything else is
+    # float and written with the suffix, which some gates require.
+    suffix = "" if el.tag == "Launcher" else "f"
+    lines = []
+    for name, value in el.attrib.items():
+        field, unit = _XML_FIELD.get(name, (name, None))
+        if unit == "rad":
+            lines.append(f"        {field} = {math.radians(float(value)):.5f},")
+        elif re.fullmatch(r"-?[\d.]+(e-?\d+)?", value):
+            lines.append(f"        {field} = {value}{suffix},")
+        elif value in ("true", "false"):
+            lines.append(f"        {field} = {value},")
+        elif re.fullmatch(r"\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*", value):
+            lines.append(f"        {field} = new({value.strip()}),")
+        else:
+            lines.append(f'        {field} = "{value}",')
+
+    tubes = [f"            new(new({t.get('Position')}), new({t.get('Direction')}))," if t.get("Direction")
+             else f"            new({t.get('Position')})," for t in el.findall("Tube")]
+    if tubes:
+        lines.append("        Tubes =\n        [\n" + "\n".join(tubes) + "\n        ],")
+
+    muzzles = [f"            new({m.get('At')})," for m in el.findall("Muzzle")]
+    if muzzles:
+        lines.append("        GunMuzzles =\n        [\n" + "\n".join(muzzles) + "\n        ],")
+
+    return "\n" + "\n".join(lines)
+
+
+def shipped(kind):
+    """{profile name: rendered block} for one kind, keyed on the C# field name the gate tables use."""
+    return {profile_name(kind, _key(kind, el)): _render(el) for el in _shipped(kind)}
 
 
 def shipped_launchers():
-    """{profile name: rendered block}, keyed the way Arsenal.cs would have named the field."""
-    blocks = {}
-
-    for el in _shipped():
-        lines = []
-        for name, value in el.attrib.items():
-            field, unit = _XML_FIELD.get(name, (name, None))
-            if unit == "rad":
-                lines.append(f"        {field} = {math.radians(float(value)):.5f},")
-            elif re.fullmatch(r"-?[\d.]+(e-?\d+)?", value):
-                # No f suffix: a launcher's distances are double in C#, and the gates that read
-                # them match on a bare number followed by the comma.
-                lines.append(f"        {field} = {value},")
-            elif value in ("true", "false"):
-                lines.append(f"        {field} = {value},")
-            elif re.fullmatch(r"\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*", value):
-                lines.append(f"        {field} = new({value.strip()}),")
-            else:
-                lines.append(f'        {field} = "{value}",')
-
-        tubes = [f"            new({t.get('Position')})," for t in el.findall("Tube")]
-        if tubes:
-            lines.append("        Tubes =\n        [\n" + "\n".join(tubes) + "\n        ],")
-
-        muzzles = [f"            new({m.get('At')})," for m in el.findall("Muzzle")]
-        if muzzles:
-            lines.append("        GunMuzzles =\n        [\n" + "\n".join(muzzles) + "\n        ],")
-
-        blocks[profile_name(el.get("PartId", ""))] = "\n" + "\n".join(lines)
-
-    return blocks
+    return shipped("Launcher")
 
 
-def profile_name(part_id):
-    """The C# field name a part Id would have had, which is what the gate tables are keyed on."""
-    return {"KSArmory_Prefab_Launcher6": "PantsirS1"}.get(part_id, part_id)
+def profile_name(kind, key):
+    """The C# field a definition would have had, which is what the gate tables are keyed on."""
+    return _CSHARP_NAME.get((kind, key), key)
+
+
+def arsenal_text():
+    """Every XML definition rendered as the C# initialiser block the gates below parse."""
+    rendered = []
+    for kind in _REGISTRY:
+        for name, body in shipped(kind).items():
+            rendered.append(f"    public static readonly {kind}Profile {name} = new()\n    {{{body}\n    }};")
+    return "\n" + "\n\n".join(rendered) + "\n"
 
 
 class _Found:
@@ -1474,12 +1536,12 @@ def _as_match(body):
 
 
 def profile_block(text, profile):
-    """One profile's object initialiser, from Arsenal.cs or rendered from the definitions file."""
+    """One profile's object initialiser, rendered from the definition files."""
     found = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
     if found is not None:
         return found.group(1)
 
-    return shipped_launchers().get(profile)
+    return None
 
 
 def trains(text, profile):
@@ -1494,13 +1556,13 @@ def check_launcher_geometry():
     Turreted or fixed is read off the profile rather than listed, so a launcher that grows a
     turret is checked as one without this script being told.
     """
-    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    text = arsenal_text()
     problems = 0
     checked = 0
 
     for profile in registered(text, "Launchers"):
         if profile not in LAUNCHER_GEOMETRY:
-            print(f"  UNCHECKED Arsenal.{profile}: no geometry check. Add it to "
+            print(f"  UNCHECKED {profile}: no geometry check. Add it to "
                   f"LAUNCHER_GEOMETRY in tools/validate-parts.py", file=sys.stderr)
             problems += 1
             checked += 1
@@ -1557,7 +1619,7 @@ def rotate_inverse(euler, v):
 def check_optic_geometry(profile="EoDirector"):
     """Verifies the optical head's pivot agrees in all three places it is written down.
 
-    The model script recentres the moving meshes on it, Sim/Arsenal.cs aims from it, and the asset
+    The model script recentres the moving meshes on it, the definition aims from it, and the asset
     XML puts the bodies back at it. A disagreement between the first two swings the head around its
     mount instead of turning it in place; between the first and third it draws the head somewhere
     the mod is not aiming from, and the picture points somewhere the model does not.
@@ -1566,7 +1628,7 @@ def check_optic_geometry(profile="EoDirector"):
     """
     block_name = OPTIC_GEOMETRY.get(profile)
     if block_name is None:
-        print(f"  UNCHECKED Arsenal.{profile}: no entry in OPTIC_GEOMETRY, so its pivot is "
+        print(f"  UNCHECKED {profile}: no entry in OPTIC_GEOMETRY, so its pivot is "
               f"compared against nothing", file=sys.stderr)
         return 1, 1
 
@@ -1580,10 +1642,10 @@ def check_optic_geometry(profile="EoDirector"):
     problems = 0
     checked = 0
 
-    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    text = arsenal_text()
     found = _as_match(profile_block(text, profile))
     if found is None:
-        print(f"  MISSING Arsenal.{profile}", file=sys.stderr)
+        print(f"  MISSING {profile}", file=sys.stderr)
         return 1, 1
     block = found.group(1)
 
@@ -1591,22 +1653,22 @@ def check_optic_geometry(profile="EoDirector"):
     pivot = re.search(r"HeadPivot\s*=\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)", block)
     want = expected["head_pivot"]
     if pivot is None:
-        print(f"  MISSING Arsenal.{profile}.HeadPivot", file=sys.stderr)
+        print(f"  MISSING {profile}.HeadPivot", file=sys.stderr)
         problems += 1
     else:
         got = [float(v) for v in pivot.groups()]
         if any(abs(a - b) > 5e-4 for a, b in zip(got, want)):
-            print(f"  STALE Arsenal.{profile}.HeadPivot = {tuple(got)}, "
+            print(f"  STALE {profile}.HeadPivot = {tuple(got)}, "
                   f"mesh says {tuple(want)}", file=sys.stderr)
             problems += 1
 
     checked += 1
     eye = re.search(r"EyeForward\s*=\s*([\d.]+)f\s*,", block)
     if eye is None:
-        print(f"  MISSING Arsenal.{profile}.EyeForward", file=sys.stderr)
+        print(f"  MISSING {profile}.EyeForward", file=sys.stderr)
         problems += 1
     elif abs(float(eye.group(1)) - expected["eye_forward"]) > 5e-4:
-        print(f"  STALE Arsenal.{profile}.EyeForward = {eye.group(1)}, "
+        print(f"  STALE {profile}.EyeForward = {eye.group(1)}, "
               f"mesh says {expected['eye_forward']}", file=sys.stderr)
         problems += 1
 
@@ -1624,10 +1686,10 @@ def check_optic_geometry(profile="EoDirector"):
         checked += 1
         reach = re.search(r"MaxOffBoresightDeg\s*=\s*([\d.]+)f\s*,", block)
         if reach is None:
-            print(f"  MISSING Arsenal.{profile}.MaxOffBoresightDeg", file=sys.stderr)
+            print(f"  MISSING {profile}.MaxOffBoresightDeg", file=sys.stderr)
             problems += 1
         elif abs(float(reach.group(1)) - expected["max_off_boresight_deg"]) > 0.5:
-            print(f"  STALE Arsenal.{profile}.MaxOffBoresightDeg = {reach.group(1)}, "
+            print(f"  STALE {profile}.MaxOffBoresightDeg = {reach.group(1)}, "
                   f"the model says {expected['max_off_boresight_deg']}", file=sys.stderr)
             problems += 1
 
@@ -1641,7 +1703,7 @@ def check_optic_geometry(profile="EoDirector"):
            if re.search(rf'{marker}\s*=\s*"([^"]+)"', block)}
 
     if len(ids) != len(wanted):
-        print(f"  MISSING Arsenal.{profile}.BaseMarker or .HeadMarker", file=sys.stderr)
+        print(f"  MISSING {profile}.BaseMarker or .HeadMarker", file=sys.stderr)
         return problems + 1, checked
 
     placed = {}
@@ -1682,18 +1744,18 @@ def check_optic_geometry(profile="EoDirector"):
 
 
 def check_search_set_heads():
-    """Verifies a search set's head pivot agrees between Sim/Arsenal.cs and the asset XML.
+    """Verifies a search set's head pivot agrees between its definition and the asset XML.
 
     The head's mesh is exported centred on the pivot, the XML puts it back there, and the C# writes
     the same point back each frame. Disagreeing, the head jumps from where the editor drew it to
     where the mod puts it on the first frame, and the window shows it off centre.
     """
-    text = (MOD / "Sim" / "Arsenal.cs").read_text()
+    text = arsenal_text()
     problems = checked = 0
     for name in registered(text, "SearchSets"):
         found = _as_match(profile_block(text, name))
         if found is None:
-            print(f"  MISSING Arsenal.{name}", file=sys.stderr)
+            print(f"  MISSING {name}", file=sys.stderr)
             problems += 1
             continue
         block = found.group(1)
@@ -1713,12 +1775,12 @@ def check_search_set_heads():
                         position = sub.find("Transform/Position")
                         placed = [float(position.get(axis, "0")) for axis in "XYZ"] if position is not None else [0.0] * 3
         if pivot is None or placed is None:
-            print(f"  MISSING Arsenal.{name}.HeadPivot or the <SubPart> its marker names", file=sys.stderr)
+            print(f"  MISSING {name}.HeadPivot or the <SubPart> its marker names", file=sys.stderr)
             problems += 1
             continue
         want = [float(v) for v in pivot.groups()]
         if any(abs(a - b) > 5e-4 for a, b in zip(want, placed)):
-            print(f"  STALE Arsenal.{name}.HeadPivot = {tuple(want)}, the XML puts the head at {tuple(placed)}",
+            print(f"  STALE {name}.HeadPivot = {tuple(want)}, the XML puts the head at {tuple(placed)}",
                   file=sys.stderr)
             problems += 1
     if problems == 0 and checked:
@@ -1733,21 +1795,20 @@ def check_registered_part_ids():
     the two sides. A profile naming a part that exists nowhere passes the build, the tests, the
     boundary and comment checks and this validator, and then finds no launcher at run time.
     """
-    source = MOD / "Sim" / "Arsenal.cs"
     declared = set()
     for path in sorted(MOD.glob("KSArmory*.xml")):
         declared |= set(re.findall(r'<Part\s+Id="([^"]+)"', path.read_text()))
 
     problems = checked = 0
-    for part_id in re.findall(r'PartId\s*=\s*"([^"]+)"', source.read_text()):
+    for part_id in re.findall(r'PartId\s*=\s*"([^"]+)"', arsenal_text()):
         checked += 1
         if part_id not in declared:
-            print(f'  MISSING <Part Id="{part_id}"> -- registered in Arsenal.cs, declared in no XML',
+            print(f'  MISSING <Part Id="{part_id}"> -- registered, declared in no XML',
                   file=sys.stderr)
             problems += 1
 
     if not checked:
-        print("  no PartId in Arsenal.cs -- nothing registered?", file=sys.stderr)
+        print("  no PartId registered anywhere -- nothing registered?", file=sys.stderr)
         problems += 1
 
     return problems, checked
@@ -2091,17 +2152,17 @@ def main():
     checked += c
 
     print("checking a round's body and fin markers do not select the same subparts")
-    p, c = check_markers_select_disjoint_subparts((MOD / "Sim" / "Arsenal.cs").read_text())
+    p, c = check_markers_select_disjoint_subparts(arsenal_text())
     problems += p
     checked += c
 
-    print("checking src/KSArmory/Sim/Arsenal.cs against the mesh")
+    print("checking the weapon definitions against the mesh")
     p, c = check_launcher_geometry()
     problems += p
     checked += c
 
     print("checking every optical head's pivot against the mesh and the XML")
-    for optic in registered((MOD / "Sim" / "Arsenal.cs").read_text(), "Optics"):
+    for optic in registered(arsenal_text(), "Optics"):
         p, c = check_optic_geometry(optic)
         problems += p
         checked += c
@@ -2118,7 +2179,7 @@ def main():
     problems += p
     checked += c
 
-    print("checking subpart placement against src/KSArmory/Sim/Arsenal.cs")
+    print("checking subpart placement against the weapon definitions")
     p, c = check_subpart_positions()
     problems += p
     checked += c

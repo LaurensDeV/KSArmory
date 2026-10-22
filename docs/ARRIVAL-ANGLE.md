@@ -46,9 +46,8 @@ and that is 8.1 at seven degrees, 4.4 at 12.9, and **1.6 at the 32.0 the mod now
 
 **Re-measured 2026-09-18, when the Mk 21 started flying its real drag** (`docs/ACCURACY-PLAN.md` 3eu).
 Every number in this section was computed at the hand-typed `DragK = 1.5e-5` the round no longer flies;
-the shipped round is **3.59x** that, and the floor moves with it. Both are given below, because the
-constant is still what a paired night flies as its comparator arm. `ShapeDragArrivalTests` reproduces
-every published constant-drag figure exactly and then re-measures each one.
+the shipped round is **3.59x** that, and the floor moves with it. Both are given below. The constant was
+retired on 2026-10-21 and its figures are history; the test that measured both went with it.
 
 The cheapest deorbit leaves on a **3.6 degree** vacuum arc and the constant arrives at **7.1**; the
 shipped round arrives at **13.2**. Entry bends a graze

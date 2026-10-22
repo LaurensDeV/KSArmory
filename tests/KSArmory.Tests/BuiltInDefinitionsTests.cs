@@ -4,12 +4,10 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// The shipped definitions file, read and compared field by field against the C# it is replacing.
-///
-/// <para>This is the gate that makes moving the built-ins out of <see cref="Arsenal"/> a
-/// translation rather than a rewrite. Until every weapon is through it, the two live side by side
-/// and this says whether they still agree.</para>
+/// The Pantsir's definitions file read on its own, and compared field by field against what the game
+/// registered from it.
 /// </summary>
+[Collection("catalogue")]
 public class BuiltInDefinitionsTests
 {
     private static readonly PackContents Shipped = Read();
@@ -20,11 +18,12 @@ public class BuiltInDefinitionsTests
         while (at is not null && !File.Exists(Path.Combine(at.FullName, "KSArmory.sln"))) at = at.Parent;
         Assert.NotNull(at);
 
-        string file = Path.Combine(at.FullName, "src", "KSArmory", "KSArmory", "Weapons.xml");
+        string file = Path.Combine(at.FullName, "src", "KSArmory", "KSArmory", "Pantsir.xml");
         Assert.True(File.Exists(file), $"no definitions file at {file}");
 
-        // Read against empty registries: everything the file references, it must also declare.
-        return PackReader.Read(File.ReadAllText(file), PackReader.BuiltInSource, [], []);
+        // Read against what is registered, as the game reads it: the director names the EO sensor,
+        // which another family's file declares.
+        return PackReader.Read(File.ReadAllText(file), PackReader.BuiltInSource, Catalogue.Munitions, Catalogue.Sensors);
     }
 
     private static T Named<T>(IReadOnlyList<T> from, string name, Func<T, string> key)

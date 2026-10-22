@@ -250,41 +250,51 @@ def placement(pivot_from_turret, reference_rad, elevation_rad, bearing_rad, turr
     return fn
 
 
-# Weapons that have moved out of Arsenal.cs and into the shipped definitions file. Both readers
-# below are driven by the registry, so a weapon leaving the C# takes its coverage with it and
-# this tool goes on printing "clear" -- the exact silence the coverage gate exists to prevent.
-WEAPONS_XML = MOD / "KSArmory" / "Weapons.xml"
+# The weapon definitions. Both readers below are driven by them, so a launcher missing from them takes
+# its coverage with it and this tool goes on printing "clear" -- the silence the coverage gate prevents.
+DEFINITIONS = MOD / "KSArmory"
 
-_SHIPPED_NAME = {"KSArmory_Prefab_Launcher6": "PantsirS1"}
+# The name vehicles() and AUTHORED_TRAINERS key each launcher on.
+_SHIPPED_NAME = {
+    "KSArmory_Prefab_Launcher6": "PantsirS1",
+    "KSArmory_Prefab_SidewinderRail": "SidewinderRail",
+    "KSArmory_Prefab_AmraamRail": "AmraamRail",
+    "KSArmory_Prefab_HarmRail": "HarmRail",
+    "KSArmory_Prefab_NukeRack": "NukeRack",
+    "KSArmory_Prefab_MirvBus": "MirvBus",
+    "KSArmory_Prefab_Ciws": "Ciws",
+    "KSArmory_Prefab_Mk42": "Mk42",
+    "KSArmory_Prefab_M197": "M197",
+    "KSArmory_Prefab_Yal1Turret": "Yal1Beam",
+}
 
 
 def shipped_launchers():
     """{profile name: its <Launcher> attributes}, for weapons defined as data."""
-    if not WEAPONS_XML.is_file():
-        return {}
-
     import xml.etree.ElementTree as ET
-    return {_SHIPPED_NAME.get(el.get("PartId", ""), el.get("PartId", "")): el.attrib
-            for el in ET.parse(WEAPONS_XML).getroot().findall("Launcher")}
+
+    launchers = {}
+    for path in sorted(DEFINITIONS.glob("*.xml"), key=lambda f: f.name):
+        root = ET.parse(path).getroot()
+        if root.tag != "WeaponPack":
+            continue
+        for el in root.findall("Launcher"):
+            launchers[_SHIPPED_NAME.get(el.get("PartId", ""), el.get("PartId", ""))] = el.attrib
+    return launchers
 
 
 def read_travel(profile="PantsirS1"):
-    """Elevation travel and the forward depression floor, from the C# rather than a fourth copy.
+    """Elevation travel and the forward depression floor, from the definition rather than a fourth copy.
 
     Scoped to one profile's initialiser. Swept over the whole file it takes whichever launcher
     appears first, so adding a CIWS that depresses to -25 sent the Pantsir -- which cannot go
     below level -- through poses its drives will never command, and reported the collisions.
     """
     defaults = (MOD / "Sim" / "LauncherProfile.cs").read_text()
-    arsenal = (MOD / "Sim" / "Arsenal.cs").read_text()
 
-    block = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", arsenal, re.S)
-    if block is not None:
-        overrides = block.group(1)
-    else:
-        # Rendered into the same shape, so the field reader below needs no second syntax.
-        attrs = shipped_launchers().get(profile, {})
-        overrides = "\n".join(f"{k} = {v}f," for k, v in attrs.items())
+    # Rendered into an initialiser's shape, so the field reader below needs no second syntax.
+    attrs = shipped_launchers().get(profile, {})
+    overrides = "\n".join(f"{k} = {v}f," for k, v in attrs.items())
 
     def value(field, fallback):
         match = re.search(rf"{field}\s*=\s*(-?[\d.]+)f\s*[,;]", overrides)
@@ -350,22 +360,16 @@ def check_every_articulated_launcher_is_swept(swept):
     declares a TurretMarker moves, and a body set nobody named is silently not swept while this
     tool still prints "clear". The registry is the authority on which those are.
     """
-    arsenal = (MOD / "Sim" / "Arsenal.cs").read_text()
-
-    registered = re.search(r"Launchers\s*=\s*\[(.*?)\];", arsenal, re.S)
-    if registered is None:
-        print("  cannot read Arsenal.Launchers -- coverage unchecked")
+    shipped = shipped_launchers()
+    if not shipped:
+        print("  no launcher definitions found -- coverage unchecked")
         return 1
 
     covered = {v["profile"] for v in swept}
     problems = 0
 
-    names = [n.strip() for n in registered.group(1).split(",") if n.strip()]
-    names += sorted(shipped_launchers())
-
-    for profile in names:
-        block = re.search(rf"{profile}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", arsenal, re.S)
-        if block is None or "TurretMarker" not in block.group(1):
+    for profile in sorted(shipped):
+        if "TurretMarker" not in shipped[profile]:
             continue                    # does not train, so it has nothing to sweep
         if profile in AUTHORED_TRAINERS:
             print(f"  not swept {profile}: {AUTHORED_TRAINERS[profile]}")

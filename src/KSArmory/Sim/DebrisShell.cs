@@ -72,17 +72,17 @@ internal static class DebrisShell
 
         MushroomCloud.Flash flash = MushroomCloud.FlashAt(chargeKg, age, burstHeight, airRatio);
         double hot = Math.Max(flash.Glow, 0.0);
-        double ending = 1.0 - Smooth((age - (LifeSeconds - 30.0)) / 30.0);
+        double ending = 1.0 - Ramp.Smooth((age - (LifeSeconds - 30.0)) / 30.0);
         double after = AfterglowGlow * Math.Exp(-age / AfterglowFadeSeconds) * ending;
         double glow = Math.Max(hot, after);
         if (!(glow > 0.0)) return default;
 
         double hotShare = hot / (hot + after);
-        double3 colour = hot > 0.0 ? Lerp(AfterglowColour, flash.Colour, hotShare) : AfterglowColour;
+        double3 colour = hot > 0.0 ? Vec.Lerp(AfterglowColour, flash.Colour, hotShare) : AfterglowColour;
 
-        double fill = 1.0 - Smooth(age / Math.Max(MushroomCloud.FlashSeconds(kt, airRatio), 1e-6));
+        double fill = 1.0 - Ramp.Smooth(age / Math.Max(MushroomCloud.FlashSeconds(kt, airRatio), 1e-6));
         double held = FieldHold(airRatio);
-        double elongation = 1.0 + ((MostElongation - 1.0) * held * Smooth(age / StretchSeconds));
+        double elongation = 1.0 + ((MostElongation - 1.0) * held * Ramp.Smooth(age / StretchSeconds));
 
         return new Look(RadiancePerGlow * glow, colour, fill, elongation);
     }
@@ -95,12 +95,4 @@ internal static class DebrisShell
         double span = Math.Log10(FieldLetsGoAbove) - Math.Log10(FieldHoldsBelow);
         return Math.Clamp((Math.Log10(FieldLetsGoAbove) - Math.Log10(airRatio)) / span, 0.0, 1.0);
     }
-
-    private static double Smooth(double x)
-    {
-        double t = Math.Clamp(x, 0.0, 1.0);
-        return t * t * (3.0 - (2.0 * t));
-    }
-
-    private static double3 Lerp(double3 a, double3 b, double t) => a + ((b - a) * t);
 }

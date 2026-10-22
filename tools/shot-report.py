@@ -269,7 +269,7 @@ RELEASEWALK = re.compile(
 # are still read. When it is there the terminator is attributable to one flight; when it is not,
 # every rocket in the shot gets the same answer -- which is what `why_it_ended` says it is doing.
 POSTBOOST = re.compile(r"INFO  post-boost(?: on (.+?))?: (.+)$", re.M)
-PASS = re.compile(r"post-boost: correcting the aim, ([\d.]+) km out \(pass (\d+)\)")
+PASS = re.compile(r"post-boost: correcting the aim, (-?[\d.]+ k?m|unknown) out \(pass (\d+)\)")
 TOGAIN = re.compile(r"trimming ([\d.]+) m/s on")
 
 WHY = [

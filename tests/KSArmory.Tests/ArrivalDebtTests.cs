@@ -62,7 +62,7 @@ public class ArrivalDebtTests(ITestOutputHelper Out)
         bool flew = ImpactPredictor.TryPredict(
             Earth, flight.CutoffPositionCci, flight.CutoffVelocityCci, 1.0,
             ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact wet, null, null,
-            new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21));
+            new ImpactPredictor.Drag(DensityAt, BuiltIns.ReentryVehicleMk21));
 
         Assert.True(flew);
 
@@ -93,7 +93,7 @@ public class ArrivalDebtTests(ITestOutputHelper Out)
     /// The demands in the flown traces are aim movements, not a diverging solve.
     /// </summary>
     [Theory]
-    [InlineData(3_459_000.0, 2.48)]
+    [InlineData(3_459_000.0, 2.40)]
     [InlineData(8_500_000.0, 1.03)]
     [InlineData(12_902_000.0, 0.53)]
     public void AnAimMoveCostsMetresPerSecondPerKilometre(double shotMetres, double expected)

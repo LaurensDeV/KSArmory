@@ -12,20 +12,27 @@ public sealed class PackContents
     /// <summary>The pack, as it named itself. Nothing looks this up; it is supplied.</summary>
     public required string Source { get; init; }
 
+    /// <summary>Which of KSArmory's own families the file is, or null for a pack's.</summary>
+    public string? Family { get; init; }
+
     public IReadOnlyList<MunitionProfile> Munitions { get; init; } = [];
     public IReadOnlyList<SensorProfile> Sensors { get; init; } = [];
     public IReadOnlyList<LauncherProfile> Launchers { get; init; } = [];
     public IReadOnlyList<OpticProfile> Optics { get; init; } = [];
+    public IReadOnlyList<SearchSetProfile> SearchSets { get; init; } = [];
+    public IReadOnlyList<DecoyProfile> Decoys { get; init; } = [];
+    public IReadOnlyList<DispenserProfile> Dispensers { get; init; } = [];
 
     /// <summary>
-    /// One per launcher, minted rather than written. A launcher absent from the components
-    /// registry loads, resolves its tubes, matches a part Id and is then invisible to the panel,
-    /// so the pairing is made here instead of being a rule an author has to know.
+    /// One per launcher, standalone director, search set and dispenser, minted rather than written. A part
+    /// absent from the components registry loads and is then invisible to the panel, so the pairing
+    /// is made here instead of being a rule an author has to know.
     /// </summary>
     public IReadOnlyList<ComponentProfile> Components { get; init; } = [];
 
     public IReadOnlyList<PackFault> Faults { get; init; } = [];
 
     /// <summary>How many definitions came through.</summary>
-    public int Accepted => Munitions.Count + Sensors.Count + Launchers.Count + Optics.Count;
+    public int Accepted => Munitions.Count + Sensors.Count + Launchers.Count + Optics.Count + SearchSets.Count
+                          + Decoys.Count + Dispensers.Count;
 }

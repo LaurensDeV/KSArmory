@@ -210,7 +210,7 @@ this shot arrives at, a Mk 21 keeps about a quarter of its speed:
 
 Measured, same cutoff state through both models: the vacuum arc lands 2,764 km downrange and the
 constant-drag round 2,709 — **54.6 km short**. **The shipped round lands at 2,626 km, 138 km short**
-(`ShapeDragArrivalTests`), because it flies 3.59x the drag since 2026-09-18. With the warhead's own `DragK` in the predictor
+because it flies 3.59x the drag since 2026-09-18. With the warhead's own `DragK` in the predictor
 the two agree to **40 m**.
 
 **And the arrival angle is the round's, not the trajectory's.** No brake from any circular orbit puts
@@ -234,11 +234,11 @@ keeping:
   stages read 837x the air there and throw the warhead off the planet — the release probe's only flown
   failure (`docs/ACCURACY-PLAN.md` 3ep).
 
-**The warhead's drag is its own shape's, and it ships with the kick flown through the air.** The Mk 21
-is registered with a hand-typed `DragK` of 1.5e-5 — a ballistic coefficient near 8,400 lb/ft² against
-the 100 to 5,000 published for reentry vehicles, **known unphysical** — and
-`IcbmConfig.WarheadDragFromItsShape` swaps in the drag from its mass, calibre and coefficient; the
-constant survives only as the arm a paired night flies against. It is **one change with
+**The warhead's drag is its own shape's, and it ships with the kick flown through the air.** The Mk 21's
+drag comes from its mass, calibre and coefficient — 270 kg, 55 cm, 0.1, about 2,300 lb/ft² — where it
+was once a hand-typed `DragK` of 1.5e-5, near 8,400 lb/ft² against the 100 to 5,000 published for
+reentry vehicles. That constant was kept as a paired-night comparator until the comparison was settled,
+and then retired. It is **one change with
 `IcbmConfig.KickThroughTheAir`, and neither ships alone**: a warhead at 3.6x the drag leaves 8.8 mm of
 the ring's image in its group where the constant leaves 2.1. Together, over 20 paired blocks against a
 declared non-inferiority bar, the worst warhead went **0.80x** with a 97.5% upper bound of 0.985 and the

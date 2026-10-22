@@ -228,7 +228,7 @@ public class MirvBudgetTests(ITestOutputHelper Out)
     /// <summary>The six tube axes in the frame a bus holding <paramref name="noseCci"/> is in.</summary>
     private static double3[] TubeAxes(double3 noseCci, double rollTurns = 0.0)
     {
-        Tube[] tubes = Arsenal.MirvBus.Tubes;
+        Tube[] tubes = BuiltIns.MirvBus.Tubes;
         doubleQuat attitude = doubleQuat.CreateFromAxisAngle(noseCci, rollTurns * 2.0 * Math.PI)
                               * Vec.RotationFromTo(new double3(1, 0, 0), noseCci);
 
@@ -668,7 +668,7 @@ public class MirvBudgetTests(ITestOutputHelper Out)
                                    b => bias = b);
 
             double3[] landed = Group(d, TubeAxes(d.NoseCci),
-                                     FlownSalvoSeconds / (Arsenal.MirvBus.Tubes.Length - 1));
+                                     FlownSalvoSeconds / (BuiltIns.MirvBus.Tubes.Length - 1));
 
             Out.WriteLine($"{what}: aim moved {bias / 1000.0:F1} km, the loop last reported "
                           + $"{predicted / 1000.0:F2} km, residual {residual:F3} m/s");
@@ -703,7 +703,7 @@ public class MirvBudgetTests(ITestOutputHelper Out)
                                    b => moved = b, rangeMetres, (o, r) => (seen, refused) = (o, r));
 
             double3[] landed = Group(d, TubeAxes(d.NoseCci),
-                                     FlownSalvoSeconds / (Arsenal.MirvBus.Tubes.Length - 1));
+                                     FlownSalvoSeconds / (BuiltIns.MirvBus.Tubes.Length - 1));
 
             Out.WriteLine($"  {rangeMetres / 1000.0,6:F0} km, {what,-14}: "
                           + $"bias {DeorbitShot.CommonBias(landed, d.TargetCci) / 1000.0,8:F2} km, "
@@ -740,7 +740,7 @@ public class MirvBudgetTests(ITestOutputHelper Out)
                                    l => { seen = l; configure?.Invoke(l); }, null, rangeMetres);
 
             double3[] landed = Group(d, TubeAxes(d.NoseCci),
-                                     FlownSalvoSeconds / (Arsenal.MirvBus.Tubes.Length - 1));
+                                     FlownSalvoSeconds / (BuiltIns.MirvBus.Tubes.Length - 1));
 
             Out.WriteLine($"{rangeMetres / 1000.0:F0} km, {what}: "
                           + $"group {DeorbitShot.CommonBias(landed, d.TargetCci) / 1000.0:F2} km");

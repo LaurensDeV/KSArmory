@@ -24,7 +24,7 @@ public class GroundLayTests(ITestOutputHelper output)
     private const double MountHeight = 4.0;
     private static readonly double3 Centre = new(0, 0, -(Radius + MountHeight));
 
-    private static MunitionProfile Shell => Arsenal.Shell5In54;
+    private static MunitionProfile Shell => BuiltIns.Shell5In54;
 
     // The same shell with no air to fly through and no fuse, for the world that turns.
     private static MunitionProfile Airless(float lifetimeSeconds = 40f) => new()
@@ -409,7 +409,7 @@ public class GroundLayTests(ITestOutputHelper output)
         const double awayKm = 2000.0;
 
         Assert.True(BallisticLead.TrySolveFlownOrReach(Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Ground(awayKm),
-                                                       Vec.Zero, Vec.Zero, null, Arsenal.Cannon20Mm, GravityAt, DensityAt,
+                                                       Vec.Zero, Vec.Zero, null, BuiltIns.Cannon20Mm, GravityAt, DensityAt,
                                                        Vec.Zero, 1.0, out _, out _, out double fraction));
 
         double reachedKm = fraction * Vec.Len(Ground(awayKm)) / 1000.0;

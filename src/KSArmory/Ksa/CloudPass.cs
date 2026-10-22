@@ -1371,20 +1371,12 @@ internal static class CloudPass
         Renderer renderer = Program.GetRenderer();
         _holeFrames = Math.Max(renderer.MaxFramesInFlight, 1);
 
-        if (typeof(Renderer).GetProperty("Allocator")?.GetValue(renderer) is not IBufferAllocator allocator)
+        if (HostBuffer<HoleData>("KSArmory holes", _holeFrames * HoleViewsPerFrame * MostHolesPainted) is not { } buffer)
         {
             Warn("no buffer allocator on the renderer; shell holes are not painted");
             BulletHoles.Enabled = false;
             return false;
         }
-
-        BufferEx buffer = allocator.CreateBuffer(new BufferEx.CreateInfo
-        {
-            Name = "KSArmory holes",
-            BufferUsage = VkBufferUsageFlags.StorageBufferBit,
-            BufferSize = ByteSize.Of<HoleData>(_holeFrames * HoleViewsPerFrame * MostHolesPainted),
-            AllocRequiredProperties = VkMemoryPropertyFlags.HostVisibleBit | VkMemoryPropertyFlags.HostCoherentBit,
-        });
 
         _holeMemory = buffer.Map();
         _holeBuffer = buffer;
@@ -1567,19 +1559,11 @@ internal static class CloudPass
         Renderer renderer = Program.GetRenderer();
         _streamFrames = Math.Max(renderer.MaxFramesInFlight, 1);
 
-        if (typeof(Renderer).GetProperty("Allocator")?.GetValue(renderer) is not IBufferAllocator allocator)
+        if (HostBuffer<StreamSegment>("KSArmory leaks", _streamFrames * HoleViewsPerFrame * StreamSegmentsPerView) is not { } buffer)
         {
             Warn("no buffer allocator on the renderer; leaks are not drawn");
             return false;
         }
-
-        BufferEx buffer = allocator.CreateBuffer(new BufferEx.CreateInfo
-        {
-            Name = "KSArmory leaks",
-            BufferUsage = VkBufferUsageFlags.StorageBufferBit,
-            BufferSize = ByteSize.Of<StreamSegment>(_streamFrames * HoleViewsPerFrame * StreamSegmentsPerView),
-            AllocRequiredProperties = VkMemoryPropertyFlags.HostVisibleBit | VkMemoryPropertyFlags.HostCoherentBit,
-        });
 
         _streamMemory = buffer.Map();
         _streamBuffer = buffer;
@@ -1599,15 +1583,7 @@ internal static class CloudPass
         IRenderImage[] storageTargets = [view.Target];
         IRenderImage[] depthTargets = [depth];
         VkBuffer[] buffers = [_streamBuffer!.Value.VkBuffer];
-        VkPushConstantRange[] ranges =
-        [
-            new VkPushConstantRange
-            {
-                Offset = (ByteSize32)0,
-                Size = (ByteSize32)Marshal.SizeOf<StreamPush>(),
-                StageFlags = VkShaderStageFlags.ComputeBit,
-            },
-        ];
+        VkPushConstantRange[] ranges = PushRanges<StreamPush>();
 
         view.Leaks = new ComputePipelineWrapper(
             storageTargets, depthTargets, default, default, shader,
@@ -1838,15 +1814,7 @@ internal static class CloudPass
         }
 
         Renderer renderer = Program.GetRenderer();
-        VkPushConstantRange[] ranges =
-        [
-            new VkPushConstantRange
-            {
-                Offset = (ByteSize32)0,
-                Size = (ByteSize32)Marshal.SizeOf<BeamPush>(),
-                StageFlags = VkShaderStageFlags.ComputeBit,
-            },
-        ];
+        VkPushConstantRange[] ranges = PushRanges<BeamPush>();
 
         // With no weather a descriptor still cannot be left empty: the pass's own distance layer stands
         // in, as it does for the clouds, and the push says not to read it.
@@ -1866,26 +1834,46 @@ internal static class CloudPass
 
     // Written by the CPU each frame and read by the GPU, one run per frame in flight -- the shape of
     // KSA's own gizmo buffers. Kept for the process: it names no image, so a rebuilt view reuses it.
+    // The one push-constant range every compute pass here takes: the whole push struct, compute only.
+    internal static VkPushConstantRange[] PushRanges<T>() where T : struct =>
+    [
+        new VkPushConstantRange
+        {
+            Offset = (ByteSize32)0,
+            Size = (ByteSize32)Marshal.SizeOf<T>(),
+            StageFlags = VkShaderStageFlags.ComputeBit,
+        },
+    ];
+
+    // A host-visible storage buffer of count Ts, or null with no allocator. Read by reflection and
+    // used through the interface: the allocator's own type implements one from Brutal.Vulkan.Vma,
+    // which this mod does not reference.
+    private static BufferEx? HostBuffer<T>(string name, int count) where T : unmanaged
+    {
+        if (typeof(Renderer).GetProperty("Allocator")?.GetValue(Program.GetRenderer()) is not IBufferAllocator allocator)
+        {
+            return null;
+        }
+
+        return allocator.CreateBuffer(new BufferEx.CreateInfo
+        {
+            Name = name,
+            BufferUsage = VkBufferUsageFlags.StorageBufferBit,
+            BufferSize = ByteSize.Of<T>(count),
+            AllocRequiredProperties = VkMemoryPropertyFlags.HostVisibleBit | VkMemoryPropertyFlags.HostCoherentBit,
+        });
+    }
+
     private static bool BuildTracerBuffer()
     {
         Renderer renderer = Program.GetRenderer();
         _tracerFrames = Math.Max(renderer.MaxFramesInFlight, 1);
 
-        // Read by reflection and used through the interface, because the allocator's own type
-        // implements one from Brutal.Vulkan.Vma, which this mod does not reference.
-        if (typeof(Renderer).GetProperty("Allocator")?.GetValue(renderer) is not IBufferAllocator allocator)
+        if (HostBuffer<ShellTracers.Segment>("KSArmory tracers", _tracerFrames * TracerViewsPerFrame * ShellTracers.MostPerView) is not { } buffer)
         {
             Warn("no buffer allocator on the renderer; shells are drawn as lines");
             return false;
         }
-
-        BufferEx buffer = allocator.CreateBuffer(new BufferEx.CreateInfo
-        {
-            Name = "KSArmory tracers",
-            BufferUsage = VkBufferUsageFlags.StorageBufferBit,
-            BufferSize = ByteSize.Of<ShellTracers.Segment>(_tracerFrames * TracerViewsPerFrame * ShellTracers.MostPerView),
-            AllocRequiredProperties = VkMemoryPropertyFlags.HostVisibleBit | VkMemoryPropertyFlags.HostCoherentBit,
-        });
 
         _tracerMemory = buffer.Map();
         _tracerBuffer = buffer;
@@ -1905,15 +1893,7 @@ internal static class CloudPass
         IRenderImage[] storageTargets = [view.Target];
         IRenderImage[] depthTargets = [depth];
         VkBuffer[] buffers = [_tracerBuffer!.Value.VkBuffer];
-        VkPushConstantRange[] ranges =
-        [
-            new VkPushConstantRange
-            {
-                Offset = (ByteSize32)0,
-                Size = (ByteSize32)Marshal.SizeOf<TracerPush>(),
-                StageFlags = VkShaderStageFlags.ComputeBit,
-            },
-        ];
+        VkPushConstantRange[] ranges = PushRanges<TracerPush>();
 
         view.Tracers = new ComputePipelineWrapper(
             storageTargets, depthTargets, default, default, shader,
@@ -1937,15 +1917,7 @@ internal static class CloudPass
 
         IRenderImage[] storageTargets = [view.Target];
         IRenderImage[] depthTargets = [depth];
-        VkPushConstantRange[] ranges =
-        [
-            new VkPushConstantRange
-            {
-                Offset = (ByteSize32)0,
-                Size = (ByteSize32)Marshal.SizeOf<HolePush>(),
-                StageFlags = VkShaderStageFlags.ComputeBit,
-            },
-        ];
+        VkPushConstantRange[] ranges = PushRanges<HolePush>();
 
         VkBuffer[] buffers = [_holeBuffer!.Value.VkBuffer];
         view.Holes = new ComputePipelineWrapper(
@@ -1969,15 +1941,7 @@ internal static class CloudPass
 
         IRenderImage[] storageTargets = [view.Target, view.SceneCopy];
         IRenderImage[] depthTargets = [depth];
-        VkPushConstantRange[] ranges =
-        [
-            new VkPushConstantRange
-            {
-                Offset = (ByteSize32)0,
-                Size = (ByteSize32)Marshal.SizeOf<RingPush>(),
-                StageFlags = VkShaderStageFlags.ComputeBit,
-            },
-        ];
+        VkPushConstantRange[] ranges = PushRanges<RingPush>();
 
         view.Rings = new ComputePipelineWrapper(
             storageTargets, depthTargets, default, default, shader,
@@ -2170,15 +2134,7 @@ internal static class CloudPass
         IRenderImage[] storageTargets = [view.Target];
         IRenderImage[] depthTargets = [depth, prePassDepth];
         VkImageView[] readOnly = [normal.ImageView, irradiance.ImageView];
-        VkPushConstantRange[] ranges =
-        [
-            new VkPushConstantRange
-            {
-                Offset = (ByteSize32)0,
-                Size = (ByteSize32)Marshal.SizeOf<FireLightPush>(),
-                StageFlags = VkShaderStageFlags.ComputeBit,
-            },
-        ];
+        VkPushConstantRange[] ranges = PushRanges<FireLightPush>();
 
         VkDescriptorSetLayout[] external = [Program.Instance.TextureSystem.Layout];
         view.FireLight = new ComputePipelineWrapper(
@@ -2205,15 +2161,7 @@ internal static class CloudPass
 
         IRenderImage[] storageTargets = [view.Target, view.SceneCopy];
         IRenderImage[] depthTargets = [depth];
-        VkPushConstantRange[] ranges =
-        [
-            new VkPushConstantRange
-            {
-                Offset = (ByteSize32)0,
-                Size = (ByteSize32)Marshal.SizeOf<ShockPush>(),
-                StageFlags = VkShaderStageFlags.ComputeBit,
-            },
-        ];
+        VkPushConstantRange[] ranges = PushRanges<ShockPush>();
 
         view.Shock = new ComputePipelineWrapper(
             storageTargets, depthTargets, default, default, shader,
@@ -2386,15 +2334,7 @@ internal static class CloudPass
             (IRenderImage?)weatherColour ?? view.LayerDistance,
             (IRenderImage?)weatherDistance ?? view.LayerDistance,
         ];
-        VkPushConstantRange[] ranges =
-        [
-            new VkPushConstantRange
-            {
-                Offset = (ByteSize32)0,
-                Size = (ByteSize32)Marshal.SizeOf<Push>(),
-                StageFlags = VkShaderStageFlags.ComputeBit,
-            },
-        ];
+        VkPushConstantRange[] ranges = PushRanges<Push>();
 
         // KSA's bindless textures at set 2, which the weather's coverage maps are read out of; the
         // builder numbers external sets from 2, and KSA declares this one for compute as well. Then
@@ -2461,15 +2401,7 @@ internal static class CloudPass
         // hard-edged block of the screen, a dark grainy rectangle on the young cloud.
         IRenderImage[] storageTargets =
             [view.Target, view.LayerColour, view.LayerDistance, view.History[1 - from], view.History[from]];
-        VkPushConstantRange[] ranges =
-        [
-            new VkPushConstantRange
-            {
-                Offset = (ByteSize32)0,
-                Size = (ByteSize32)Marshal.SizeOf<ResolvePush>(),
-                StageFlags = VkShaderStageFlags.ComputeBit,
-            },
-        ];
+        VkPushConstantRange[] ranges = PushRanges<ResolvePush>();
 
         using Specialization tuned = new();
         view.Resolve[from] = new ComputePipelineWrapper(

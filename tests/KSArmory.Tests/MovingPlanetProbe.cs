@@ -72,7 +72,7 @@ public class MovingPlanetProbe(ITestOutputHelper Out)
         double3 v = Release(out double3 from);
 
         World world = new(origin, bodyVelocity);
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
 
         Slug round = new(origin + from, bodyVelocity + v, null, 1, origin + from, Vec.Zero)
         {

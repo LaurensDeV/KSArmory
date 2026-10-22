@@ -55,7 +55,7 @@ public class CoastStepTests(ITestOutputHelper Out)
         Assert.True(ImpactPredictor.TryPredict(
             Earth, flight.CutoffPositionCci, flight.CutoffVelocityCci, 1.0,
             ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact impact, null, null,
-            new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21)));
+            new ImpactPredictor.Drag(DensityAt, BuiltIns.ReentryVehicleMk21)));
 
         return R * Vec.AngleBetween(impact.GroundFixedPointCci,
                                     Earth.CarryCci(aim, flight.CutoffSeconds + impact.Seconds));

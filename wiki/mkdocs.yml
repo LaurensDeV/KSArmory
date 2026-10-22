@@ -1,0 +1,63 @@
+# ksarmory.com. tools/wiki/build.py assembles the pages into build/docs and writes this file to
+# build/mkdocs.yml with the weapon pages filled in where the marker is; run that, not mkdocs directly.
+site_name: KSArmory
+site_url: https://ksarmory.com/
+site_description: Weapon systems for Kitten Space Agency, and how to make your own.
+repo_url: https://github.com/LaurensDeV/KSArmory
+edit_uri: ""
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  # Off: the default loads Roboto from Google on every page. assets/ksarmory.css serves the brand fonts from here.
+  font: false
+  logo: assets/mark.svg
+  favicon: assets/favicon.svg
+  # Dark first, as the logo is; the visitor's own setting chooses, and the toggle overrides it.
+  # assets/ksarmory.css carries both schemes' colours.
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle: { icon: material/weather-sunny, name: Light mode }
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle: { icon: material/weather-night, name: Dark mode }
+  features:
+    - navigation.tabs
+    - navigation.sections
+    # A page's sections indented under it in the navigation, rather than in a column of their own.
+    - toc.integrate
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+
+extra_css:
+  - assets/ksarmory.css
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+  - pymdownx.highlight
+
+nav:
+  - Home: index.md
+  - Players:
+      - Installing: players/install.md
+      - Using it: players/using.md
+  - Weapons:
+      - Every weapon: weapons/index.md
+      # generated: one entry per family
+  - Making weapon packs:
+      - Weapon pack reference: modding/weapon-packs.md
+      - Coming from KSP modding: modding/from-ksp.md
+      - Pack API surface: modding/pack-api.md

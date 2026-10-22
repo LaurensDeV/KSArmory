@@ -604,7 +604,7 @@ public static class ChaseView
             return false;
         }
 
-        double e = Smoothstep(Math.Clamp(t, 0.0, 1.0));
+        double e = Ramp.Smooth(t);
 
         eyeEcl = fromEcl + ((toEcl - fromEcl) * e);
 
@@ -630,8 +630,6 @@ public static class ChaseView
     }
 
     // Flat at both ends, so the camera leaves and arrives without a kick at either.
-    private static double Smoothstep(double t) => t * t * (3.0 - (2.0 * t));
-
     private static double3 AnyPerpendicular(double3 axis)
     {
         double3 candidate = Math.Abs(axis.X) < 0.9 ? new double3(1, 0, 0) : new double3(0, 1, 0);

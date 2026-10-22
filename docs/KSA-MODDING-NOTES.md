@@ -881,7 +881,7 @@ so a mod object can be driven by the engine's own `UpdateAudio` pass. `CreateFmo
 
 **`SpatialAudio` is in Ego, and carries velocity and pressure.** Its constructor is
 `(double3 posEgo, double3 velEgo, double atmosphericPressure)`. So it wants the same frame the mod
-already converts to for drawing — `KsaWorld.TryEclToEgo` — and *needs* the velocity, which makes
+already converts to for drawing — `KsaWorld.TryAnchoredEgo` — and *needs* the velocity, which makes
 Doppler the engine's job rather than the mod's. Pressure is a parameter, so thinning air is
 modelled.
 

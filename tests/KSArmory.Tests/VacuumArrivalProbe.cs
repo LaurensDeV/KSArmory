@@ -8,21 +8,16 @@ namespace KSArmory.Tests;
 /// What the release kick's vacuum solve actually costs, measured rather than estimated.
 /// </summary>
 /// <remarks>
-/// <para><see cref="ReleaseFocus"/> builds its sensitivity and its arrival from
+/// <para><see cref="ReleaseFocus"/>'s vacuum solve builds its sensitivity and its arrival from
 /// <see cref="Kepler.TryCoast"/> — gravity only — and propagates it for the flight time of a
-/// <em>drag</em> arc. That is real: at the flown release the vacuum arc is 3.7 km from the drag
-/// impact and 1,331 m/s faster.</para>
+/// <em>drag</em> arc. On the Mk 21 at the flown release the vacuum arc is 15 km from the drag impact,
+/// more than twice as fast, and arriving 0.27 degrees off the real direction.</para>
 ///
 /// <para><b>And it very nearly cancels.</b> <c>TryKick</c> flies the offset's own displacement
-/// through the <em>same</em> vacuum propagator it builds the columns from, so a uniform error
-/// divides out exactly and only the anisotropy of the ratio survives. End to end the solve leaves
-/// <b>0.15%</b> of a 0.86 m ring — 1.6 mm — against a flown residue of 0.6%. So the vacuum solve
-/// is <b>not</b> the main cause of the flown ring residue, and replacing it buys millimetres rather
-/// than the centimetre it looks worth from the 32% sensitivity error alone.
-/// <c>docs/ACCURACY-PLAN.md</c> 3eb.</para>
-///
-/// <para><b>On the constant's drag.</b> On 3.6x the drag the same solve leaves 0.80% of the ring,
-/// which is the physical round's flown spread — <see cref="KickThroughTheAirTests"/>, 3eq.</para>
+/// through the <em>same</em> vacuum propagator it builds the columns from, so a uniform error divides
+/// out exactly and only the anisotropy of the ratio survives: end to end it leaves 0.61% of a 0.86 m
+/// ring. That residue is why the kick ships solved through the air instead
+/// (<see cref="KickThroughTheAirTests"/>, <c>docs/ACCURACY-PLAN.md</c> 3eb, 3eq).</para>
 /// </remarks>
 public class VacuumArrivalProbe(ITestOutputHelper Out)
 {
@@ -50,7 +45,7 @@ public class VacuumArrivalProbe(ITestOutputHelper Out)
         // What the release probe does: a DRAG prediction, and its flight time.
         Assert.True(ImpactPredictor.TryPredict(earth, from, v, 2.0, 12_000.0,
             out ImpactPredictor.Impact hit, null, null,
-            new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21),
+            new ImpactPredictor.Drag(DensityAt, BuiltIns.ReentryVehicleMk21),
             atmosphericStepSeconds: 0.25, stopOnTheSurface: true));
 
         double T = hit.Seconds;
@@ -98,7 +93,7 @@ public class VacuumArrivalProbe(ITestOutputHelper Out)
 
             Assert.True(ImpactPredictor.TryPredict(earth, from, v + nudge, 2.0, 12_000.0,
                 out ImpactPredictor.Impact nh, null, null,
-                new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21),
+                new ImpactPredictor.Drag(DensityAt, BuiltIns.ReentryVehicleMk21),
                 atmosphericStepSeconds: 0.25, stopOnTheSurface: true));
             double dragMove = Vec.Len(nh.GroundFixedPointCci - hit.GroundFixedPointCci);
 
@@ -123,7 +118,7 @@ public class VacuumArrivalProbe(ITestOutputHelper Out)
         {
             Assert.True(ImpactPredictor.TryPredict(earth, p0, v0, 2.0, 12_000.0,
                 out ImpactPredictor.Impact h, null, null,
-                new ImpactPredictor.Drag(DensityAt, Arsenal.ReentryVehicleMk21),
+                new ImpactPredictor.Drag(DensityAt, BuiltIns.ReentryVehicleMk21),
                 atmosphericStepSeconds: 0.25, stopOnTheSurface: true));
             return h.GroundFixedPointCci;
         }
@@ -142,8 +137,8 @@ public class VacuumArrivalProbe(ITestOutputHelper Out)
 
         // The three numbers this exists to hold. The first two are the fault; the third is why it
         // is small anyway, and it is the one that would be missed by reading the code alone.
-        Assert.InRange(deg, 0.02, 0.10);            // the arrival direction, degrees
-        Assert.InRange(Vec.Len(vacVel) / Vec.Len(hit.VelocityCci), 1.15, 1.35);   // the speed
+        Assert.InRange(deg, 0.2, 0.35);             // the arrival direction, degrees
+        Assert.InRange(Vec.Len(vacVel) / Vec.Len(hit.VelocityCci), 1.9, 2.3);     // the speed
         Assert.True(left < 0.01,
                     $"the vacuum solve leaves {100.0 * left:F2}% of the ring; it cancels against "
                     + "itself and should stay under 1%, which is what makes it a millimetre term");

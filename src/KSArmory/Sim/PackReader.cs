@@ -36,8 +36,10 @@ public static class PackReader
         string definitions,
         string source,
         IReadOnlyList<MunitionProfile> knownMunitions,
-        IReadOnlyList<SensorProfile> knownSensors)
+        IReadOnlyList<SensorProfile> knownSensors,
+        IReadOnlyList<DecoyProfile>? knownDecoys = null)
     {
+        knownDecoys ??= [];
         List<PackFault> faults = [];
 
         XElement? root;
@@ -73,13 +75,33 @@ public static class PackReader
                            + (schema > Schema ? "Update KSArmory." : "Update the pack."));
         }
 
+        // Family is how KSArmory's own files are switched off one at a time; a pack is switched off by
+        // uninstalling it, so on a pack's root it means nothing and is refused.
+        string? family = null;
+        foreach (XAttribute a in root.Attributes())
+        {
+            if (a.IsNamespaceDeclaration) continue;
+            string name = a.Name.LocalName;
+            if (name == "Schema") continue;
+            if (name == "Family" && source == BuiltInSource) { family = a.Value; continue; }
+
+            faults.Add(new PackFault(source, "WeaponPack", "",
+                                     name == "Family"
+                                         ? "Family belongs to KSArmory's own files; a pack is switched off by uninstalling it"
+                                         : $"'{name}' is not an attribute this build knows"));
+        }
+
         // Rounds and sensors first, because a launcher names them and the reference is resolved
         // here rather than left to fail in flight.
         List<MunitionProfile> munitions = [];
         List<SensorProfile> sensors = [];
         List<LauncherProfile> launchers = [];
         List<OpticProfile> optics = [];
+        List<SearchSetProfile> searchSets = [];
+        List<DecoyProfile> decoys = [];
+        List<DispenserProfile> dispensers = [];
         List<ComponentProfile> components = [];
+        List<ComponentProfile> partRows = [];
 
         foreach (XElement el in root.Elements())
         {
@@ -87,7 +109,8 @@ public static class PackReader
             {
                 case "Munition": ReadMunition(el, source, faults, munitions); break;
                 case "Sensor": ReadSensor(el, source, faults, sensors); break;
-                case "Launcher" or "Optic": break;
+                case "Decoy": ReadDecoy(el, source, faults, decoys); break;
+                case "Launcher" or "Optic" or "SearchSet" or "Dispenser": break;
                 default:
                     faults.Add(new PackFault(source, el.Name.LocalName, "",
                                              "not a definition this build knows"));
@@ -106,16 +129,52 @@ public static class PackReader
                 case "Optic":
                     ReadOptic(el, source, faults, sensors, knownSensors, optics);
                     break;
+                case "SearchSet":
+                    ReadSearchSet(el, source, faults, sensors, knownSensors, searchSets, partRows);
+                    break;
+                case "Dispenser":
+                    ReadDispenser(el, source, faults, decoys, knownDecoys, dispensers, partRows);
+                    break;
             }
         }
+
+        // The director on its part is what aims and fires the beam, so one with no beam has nothing to fire.
+        foreach (LauncherProfile laser in launchers.Where(l => l.FiresBeam).ToList())
+        {
+            if (optics.Exists(o => o.PartId == laser.PartId && o.Beam is not null)) continue;
+
+            faults.Add(new PackFault(source, "Launcher", laser.PartId,
+                                     "fires a beam, but no <Optic> in this pack on its part carries a <Beam>"));
+            launchers.Remove(laser);
+            components.RemoveAll(c => c.PartId == laser.PartId && c.Role == WeaponRole.Launcher);
+        }
+
+        // A director on a launcher's own part is that launcher's row, declared with <Provides>; one
+        // standing alone is a part the survey has to recognise by itself.
+        foreach (OpticProfile head in optics)
+        {
+            if (launchers.Exists(l => l.PartId == head.PartId)) continue;
+            components.Add(new ComponentProfile
+            {
+                PartId = head.PartId,
+                Role = WeaponRole.Camera,
+                DisplayName = head.DisplayName,
+            });
+        }
+
+        components.AddRange(partRows);
 
         return new PackContents
         {
             Source = source,
+            Family = family,
             Munitions = munitions,
             Sensors = sensors,
             Launchers = launchers,
             Optics = optics,
+            SearchSets = searchSets,
+            Decoys = decoys,
+            Dispensers = dispensers,
             Components = components,
             Faults = faults,
         };
@@ -142,6 +201,8 @@ public static class PackReader
             DisplayName = r.Required("DisplayName"),
             BodyMarker = r.Text("BodyMarker"),
             BodyModel = r.Text("BodyModel"),
+            BurstEffect = r.Text("BurstEffect"),
+            PlumeEffect = r.Text("PlumeEffect"),
             FinMarker = r.Text("FinMarker"),
 
             BodyLength = r.Number("BodyLength", 3.10f),
@@ -158,6 +219,8 @@ public static class PackReader
             BoostAccel = r.Number("BoostAccel", 520f),
             MaxFlightSeconds = r.Number("MaxFlightSeconds", 30f),
             MaxFaithfulStepSeconds = r.Number("MaxFaithfulStepSeconds", (float)Interceptor.MaxFaithfulStep),
+            PreferredStepSeconds = r.Number("PreferredStepSeconds", 0f),
+            SubStepSeconds = r.Number("SubStepSeconds", 0f),
             MinRange = r.Number("MinRange", 0f),
             MaxRange = r.Number("MaxRange", 20000f),
 
@@ -181,6 +244,7 @@ public static class PackReader
             TimedFuse = r.Flag("TimedFuse", false),
             FuseArmSeconds = r.Number("FuseArmSeconds", 0.6f),
             ChargeKg = r.Number("ChargeKg", 20f),
+            MaxChargeKg = r.Number("MaxChargeKg", 0f),
             HitsTerrain = r.Flag("HitsTerrain", false),
             BurstHeightMetres = r.Number("BurstHeightMetres", 0f),
             ChuteSinkMetresPerSecond = r.Number("ChuteSinkMetresPerSecond", 0f),
@@ -239,6 +303,11 @@ public static class PackReader
             TerrainMarginMetres = r.Number("TerrainMarginMetres", 0f),
             TerrainSamples = r.Count("TerrainSamples", 0),
             TerrainClearanceMetres = r.Number("TerrainClearanceMetres", 30f),
+
+            CuedOnly = r.Flag("CuedOnly", false),
+            Infrared = r.Flag("Infrared", false),
+            IrThresholdWPerM2 = r.Number("IrThresholdWPerM2", 6.0e-7f),
+            LookDownPenalty = r.Number("LookDownPenalty", 1f),
         };
 
         if (!r.Sound()) return;
@@ -275,6 +344,7 @@ public static class PackReader
             MaxMagnification = r.Number("MaxMagnification", 16f),
             HasLaser = r.Flag("HasLaser", false),
             LaserRangeMetres = r.Number("LaserRangeMetres", 20000f),
+            Beam = r.Beam(),
         };
 
         // A roll-nod head with no roll body cannot show what it is doing; a mast head having
@@ -290,6 +360,100 @@ public static class PackReader
         into.Add(head);
     }
 
+    private static void ReadDecoy(XElement el, string source, List<PackFault> faults, List<DecoyProfile> into)
+    {
+        Reader r = new(el, source, "Decoy", faults);
+        string name = r.Required("Name");
+        r.Describe(name);
+
+        DecoyProfile decoy = new()
+        {
+            Name = Qualify(source, name),
+            DisplayName = r.Required("DisplayName"),
+            Kind = r.Choice("Kind", DecoyKind.Flare),
+            MassKg = r.Number("MassKg", 0f),
+            PeakSignature = r.Number("PeakSignature", 0f),
+            RiseSeconds = r.Number("RiseSeconds", 0f),
+            LifeSeconds = r.Number("LifeSeconds", 4f),
+            DragPerMetre = r.Number("DragPerMetre", 0f),
+        };
+        if (el.Attribute("Kind") is null) r.Fault("needs a Kind: Flare or Chaff");
+
+        if (!r.Sound()) return;
+        if (Duplicate(decoy.Name, into, d => d.Name, r)) return;
+
+        into.Add(decoy);
+    }
+
+    // A dispenser's kind is its decoy's; stating it is allowed, and refused when the two disagree.
+    private static void ReadDispenser(XElement el, string source, List<PackFault> faults,
+                                      List<DecoyProfile> own, IReadOnlyList<DecoyProfile> known,
+                                      List<DispenserProfile> into, List<ComponentProfile> rows)
+    {
+        Reader r = new(el, source, "Dispenser", faults);
+        string partId = r.Required("PartId");
+        r.Describe(partId);
+
+        string decoy = r.Reference("Decoy", own, known, d => d.Name);
+        DecoyKind loaded = Resolved(decoy, own, known, d => d.Name)?.Kind ?? DecoyKind.Flare;
+        DecoyKind kind = r.Choice("Kind", loaded);
+        if (kind != loaded) r.Fault($"Kind=\"{kind}\" but its Decoy is a {loaded}");
+
+        DispenserProfile dispenser = new()
+        {
+            PartId = partId,
+            DisplayName = r.Required("DisplayName"),
+            Kind = kind,
+            Decoy = decoy,
+            Count = r.Count("Count", 30),
+            SalvoSize = r.Count("SalvoSize", 2),
+            SalvoIntervalSeconds = r.Number("SalvoIntervalSeconds", 0.25f),
+            EjectDirection = r.Vector("EjectDirection", new(1, 0, 0)),
+            EjectSpeed = r.Number("EjectSpeed", 30f),
+        };
+
+        if (!r.Sound()) return;
+        if (Duplicate(dispenser.PartId, into, d => d.PartId, r)) return;
+
+        into.Add(dispenser);
+        rows.Add(new ComponentProfile
+        {
+            PartId = dispenser.PartId,
+            Role = WeaponRole.Countermeasures,
+            DisplayName = dispenser.DisplayName,
+        });
+    }
+
+    private static void ReadSearchSet(XElement el, string source, List<PackFault> faults,
+                                      List<SensorProfile> own, IReadOnlyList<SensorProfile> known,
+                                      List<SearchSetProfile> into, List<ComponentProfile> rows)
+    {
+        Reader r = new(el, source, "SearchSet", faults);
+        string partId = r.Required("PartId");
+        r.Describe(partId);
+
+        SearchSetProfile set = new()
+        {
+            PartId = partId,
+            DisplayName = r.Required("DisplayName"),
+            Sensor = r.Reference("Sensor", own, known, s => s.Name),
+            HeadMarker = r.Text("HeadMarker"),
+            HeadPivot = r.Vector("HeadPivot", default),
+            HeadTravelDeg = r.Number("HeadTravelDeg", 60f),
+            HeadSlewDegPerSecond = r.Number("HeadSlewDegPerSecond", 90f),
+            ScanHalfWidthDeg = r.Number("ScanHalfWidthDeg", 45f),
+            ScanPeriodSeconds = r.Number("ScanPeriodSeconds", 6f),
+            ScanNodDeg = r.Number("ScanNodDeg", 8f),
+        };
+        string row = r.Text("PanelName") ?? set.DisplayName;
+
+        if (!r.Sound()) return;
+        if (Duplicate(set.PartId, into, x => x.PartId, r)) return;
+
+        into.Add(set);
+        rows.Add(new ComponentProfile { PartId = set.PartId, Role = WeaponRole.Sensor, DisplayName = row });
+    }
+
     private static void ReadLauncher(XElement el, string source, List<PackFault> faults,
                                      List<MunitionProfile> ownRounds, List<SensorProfile> ownSets,
                                      IReadOnlyList<MunitionProfile> knownRounds,
@@ -300,11 +464,18 @@ public static class PackReader
         string partId = r.Required("PartId");
         r.Describe(partId);
 
+        // A beam weapon throws no round, and an empty name is what loadout resolution reads as none.
+        bool firesBeam = r.Flag("FiresBeam", false);
+
         LauncherProfile launcher = new()
         {
             PartId = partId,
             DisplayName = r.Required("DisplayName"),
-            Munition = r.Reference("Munition", ownRounds, knownRounds, m => m.Name),
+            Munition = firesBeam && el.Attribute("Munition") is null
+                           ? r.Text("Munition") ?? ""
+                           : r.Reference("Munition", ownRounds, knownRounds, m => m.Name),
+            FiresBeam = firesBeam,
+            BeamArmamentLabel = r.Text("BeamArmamentLabel") ?? "Laser",
             Sensor = r.Reference("Sensor", ownSets, knownSets, s => s.Name),
 
             TubeArmamentLabel = r.Text("TubeArmamentLabel") ?? "Missiles",
@@ -315,6 +486,11 @@ public static class PackReader
             RadarMarker = r.Text("RadarMarker"),
             GunsMarker = r.Text("GunsMarker"),
             OpticBaseMarker = r.Text("OpticBaseMarker"),
+            GunBarrelMarker = r.Text("GunBarrelMarker"),
+            GunCylinderMarker = r.Text("GunCylinderMarker"),
+            GunRodMarker = r.Text("GunRodMarker"),
+            GunFeedMarker = r.Text("GunFeedMarker"),
+            GunRotorMarker = r.Text("GunRotorMarker"),
 
             Tubes = r.Tubes(),
             TurretPivot = r.Vector("TurretPivot", default),
@@ -322,6 +498,11 @@ public static class PackReader
             RadarPivotFromTurret = r.Vector("RadarPivotFromTurret", default),
             OpticBaseFromTurret = r.Vector("OpticBaseFromTurret", default),
             GunPivotFromTurret = r.Vector("GunPivotFromTurret", default),
+            GunCylinderPinFromTurret = r.Vector("GunCylinderPinFromTurret", default),
+            GunRodPinFromTurret = r.Vector("GunRodPinFromTurret", default),
+            GunFeedPivotFromTurret = r.Vector("GunFeedPivotFromTurret", default),
+            GunFeedRatio = r.Number("GunFeedRatio", 0.0),
+            GunRotorPivotFromTurret = r.Vector("GunRotorPivotFromTurret", default),
             GunReferenceElevationRad = r.Angle("GunReferenceElevationDeg", 0.0),
             PodReferenceElevationRad = r.Angle("PodReferenceElevationDeg", 0.0),
             MuzzleForwardOffset = r.Number("MuzzleForwardOffset", 0.0),
@@ -342,6 +523,7 @@ public static class PackReader
             ForwardArcDeg = r.Number("ForwardArcDeg", 80f),
             ForwardPlateauDeg = r.Number("ForwardPlateauDeg", 62f),
             RestElevationDeg = r.Number("RestElevationDeg", float.NaN),
+            TraverseLimitDeg = r.Number("TraverseLimitDeg", 180f),
 
             MagazineDepth = r.Count("MagazineDepth", 0),
             SalvoSpacing = r.Number("SalvoSpacing", 0.45f),
@@ -358,15 +540,32 @@ public static class PackReader
             GunBurstRounds = r.Count("GunBurstRounds", 12),
             GunBurstGapSeconds = r.Number("GunBurstGapSeconds", 0.55f),
             GunReloadSeconds = r.Number("GunReloadSeconds", 0f),
+            GunRecoilMetres = r.Number("GunRecoilMetres", 0f),
+            GunRecoilSeconds = r.Number("GunRecoilSeconds", 0.08f),
+            GunReturnSeconds = r.Number("GunReturnSeconds", 0.6f),
+            GunRotorSpinUpSeconds = r.Number("GunRotorSpinUpSeconds", 0.2f),
+            GunRotorSpinDownSeconds = r.Number("GunRotorSpinDownSeconds", 1.0f),
+            GunSoundId = r.Text("GunSoundId"),
+            GunshotSoundId = r.Text("GunshotSoundId"),
+            MuzzleFlashEffect = r.Text("MuzzleFlashEffect"),
+
+            TrimAccelerationMetresPerSecond2 = r.Number("TrimAccelerationMetresPerSecond2", double.NaN),
+            TrimWorstAxisExhaustVelocity = r.Number("TrimWorstAxisExhaustVelocity", double.NaN),
+            HopEngineThrustNewtons = r.Number("HopEngineThrustNewtons", double.NaN),
+            HopEngineExhaustVelocity = r.Number("HopEngineExhaustVelocity", double.NaN),
+            HopEngineAccelerationMetresPerSecond2 = r.Number("HopEngineAccelerationMetresPerSecond2", double.NaN),
+            ReleaseSpin = r.ReleaseSpin(),
         };
 
         List<BuiltInComponent> declared = r.Provides();
+        string fireControl = r.Text("FireControlLabel") ?? $"{launcher.DisplayName} fire control";
+        bool mintRows = r.Flag("MintRows", true);
 
         // A launcher that can shoot with nothing is a part fire control adopts and then holds
         // fire on for ever, with no gate reporting why.
-        if (launcher.TubeCount == 0 && !launcher.HasCannon)
+        if (launcher.TubeCount == 0 && !launcher.HasCannon && !launcher.FiresBeam)
         {
-            r.Fault("declares no Tube and no GunMunition, so it cannot shoot with anything");
+            r.Fault("declares no Tube, no GunMunition and no FiresBeam, so it cannot shoot with anything");
         }
 
         // Elevation gear with no trunnion offset swings the assembly about the turret's own
@@ -389,18 +588,38 @@ public static class PackReader
             }
         }
 
+        // A drawn assembly with nowhere to hinge spins about the turret's own centre.
+        foreach ((string? marker, double3 pin, string names) in new[]
+                 {
+                     (launcher.GunCylinderMarker, launcher.GunCylinderPinFromTurret, "GunCylinderMarker with no GunCylinderPinFromTurret"),
+                     (launcher.GunRodMarker, launcher.GunRodPinFromTurret, "GunRodMarker with no GunRodPinFromTurret"),
+                     (launcher.GunFeedMarker, launcher.GunFeedPivotFromTurret, "GunFeedMarker with no GunFeedPivotFromTurret"),
+                     (launcher.GunRotorMarker, launcher.GunRotorPivotFromTurret, "GunRotorMarker with no GunRotorPivotFromTurret"),
+                 })
+        {
+            if (marker is not null && Vec.Len(pin) <= 0.0) r.Fault($"declares a {names} to turn about");
+        }
+
         if (!r.Sound()) return;
         if (Duplicate(launcher.PartId, into, l => l.PartId, r)) return;
 
         into.Add(launcher);
-        components.Add(ComponentFor(launcher, declared, ownRounds, ownSets, knownRounds, knownSets));
+        components.Add(mintRows
+                           ? ComponentFor(launcher, fireControl, declared, ownRounds, ownSets, knownRounds, knownSets)
+                           : new ComponentProfile
+                           {
+                               PartId = launcher.PartId,
+                               Role = WeaponRole.Launcher,
+                               DisplayName = launcher.DisplayName,
+                               Provides = declared,
+                           });
     }
 
     // The component row a launcher implies. Minted rather than asked for: the two registries have
     // to agree, and a launcher missing from this one is recognised by fire control and invisible to
     // the panel, which looks exactly like a part that never loaded.
     private static ComponentProfile ComponentFor(
-        LauncherProfile launcher, List<BuiltInComponent> declared,
+        LauncherProfile launcher, string fireControl, List<BuiltInComponent> declared,
         List<MunitionProfile> ownRounds, List<SensorProfile> ownSets,
         IReadOnlyList<MunitionProfile> knownRounds, IReadOnlyList<SensorProfile> knownSets)
     {
@@ -415,7 +634,7 @@ public static class PackReader
                              Resolved(shell, ownRounds, knownRounds, m => m.Name)?.DisplayName ?? shell));
         }
 
-        provides.Add(new(WeaponRole.FireControl, $"{launcher.DisplayName} fire control"));
+        provides.Add(new(WeaponRole.FireControl, fireControl));
 
         // Whatever the launcher carries that no reader could infer -- a director on its turret
         // roof is a subpart, so the survey walks past it and only the profile knows it is there.
@@ -639,7 +858,9 @@ public static class PackReader
         // the reference's; naming nothing registered sends the author looking for a typo.
         private string Unresolved<T>(string attribute, string raw)
         {
-            string definition = typeof(T) == typeof(SensorProfile) ? "Sensor" : "Munition";
+            string definition = typeof(T) == typeof(SensorProfile) ? "Sensor"
+                                : typeof(T) == typeof(DecoyProfile) ? "Decoy"
+                                : "Munition";
             foreach (PackFault f in faults)
             {
                 if (f.Source == source && f.Element == definition && f.Name == raw)
@@ -663,6 +884,97 @@ public static class PackReader
 
         // Gear this launcher carries as subparts. The survey walks *parts*, so a role that lives
         // inside one has to be declared or the system reports as not having it at all.
+        public RoundSpin? ReleaseSpin()
+        {
+            _taken.Add("ReleaseSpin");
+
+            RoundSpin? spin = null;
+            foreach (XElement el in element.Elements("ReleaseSpin"))
+            {
+                Reader s = new(el, source, "ReleaseSpin", faults);
+                s.Describe(_name);
+
+                if (spin is not null)
+                {
+                    s.Fault("a launcher spins its rounds one way");
+                    _sound = false;
+                    continue;
+                }
+
+                if (el.Attribute("RateDegPerSecond") is null) s.Fault("needs a RateDegPerSecond");
+                if (el.Attribute("SpinUpSeconds") is null) s.Fault("needs a SpinUpSeconds");
+
+                double rate = s.Number("RateDegPerSecond", 0.0);
+                double spinUp = s.Number("SpinUpSeconds", 0.0);
+                double ignition = s.Number("IgnitionSeconds", 0.0);
+                List<SpinNozzle> nozzles = [];
+
+                s._taken.Add("Nozzle");
+                foreach (XElement n in el.Elements("Nozzle"))
+                {
+                    Reader z = new(n, source, "Nozzle", faults);
+                    z.Describe(_name);
+
+                    if (n.Attribute("Mouth") is null) z.Fault("needs a Mouth");
+                    if (n.Attribute("Exhaust") is null) z.Fault("needs an Exhaust");
+                    SpinNozzle nozzle = new(z.Vector("Mouth", default), z.Vector("Exhaust", default));
+
+                    if (z.Sound()) nozzles.Add(nozzle);
+                    else s._sound = false;
+                }
+
+                if (s.Sound())
+                {
+                    spin = new RoundSpin
+                    {
+                        RateDegPerSecond = rate,
+                        SpinUpSeconds = spinUp,
+                        IgnitionSeconds = ignition,
+                        Nozzles = [.. nozzles],
+                    };
+                }
+                else _sound = false;
+            }
+
+            return spin;
+        }
+
+        public BeamProfile? Beam()
+        {
+            _taken.Add("Beam");
+
+            BeamProfile? beam = null;
+            foreach (XElement el in element.Elements("Beam"))
+            {
+                Reader b = new(el, source, "Beam", faults);
+                b.Describe(_name);
+
+                if (beam is not null)
+                {
+                    b.Fault("a head carries one beam");
+                    _sound = false;
+                    continue;
+                }
+
+                BeamProfile read = new()
+                {
+                    PowerWatts = b.Number("PowerWatts", 1.0e6f),
+                    WavelengthMetres = b.Number("WavelengthMetres", 1.315e-6f),
+                    ApertureMetres = b.Number("ApertureMetres", 1.5f),
+                    JitterRad = b.Number("JitterRad", 0.2e-6f),
+                    BurnThroughJoulesPerM2 = b.Number("BurnThroughJoulesPerM2", 6.0e7f),
+                    ExtinctionPerMetre = b.Number("ExtinctionPerMetre", 2.0e-5f),
+                    ChemicalSeconds = b.Number("ChemicalSeconds", 100f),
+                    ShotSeconds = b.Number("ShotSeconds", 5f),
+                };
+
+                if (b.Sound()) beam = read;
+                else _sound = false;
+            }
+
+            return beam;
+        }
+
         public List<BuiltInComponent> Provides()
         {
             _taken.Add("Provides");

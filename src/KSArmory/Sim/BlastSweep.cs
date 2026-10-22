@@ -41,7 +41,7 @@ internal static class BlastSweep
     /// </summary>
     public static double SurfaceGap(double3 sampledPositionEcl, double3 velocityEcl,
                                     double sinceSample, double3 burstEcl, double meanRadius)
-        => Vec.Len(sampledPositionEcl + (velocityEcl * sinceSample) - burstEcl) - meanRadius;
+        => Vec.Len(InFrame.AtBurst(sampledPositionEcl, velocityEcl, sinceSample) - burstEcl) - meanRadius;
 
     /// <summary>
     /// Where the ground a burst went off on is at the world sample: the burst carried by that

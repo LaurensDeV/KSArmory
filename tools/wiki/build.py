@@ -1,0 +1,496 @@
+#!/usr/bin/env python3
+"""Build ksarmory.com from what the repository already maintains.
+
+    ./tools/wiki/build.py              # the site, into wiki/build/site
+    ./tools/wiki/build.py --serve      # ...and serve it at http://127.0.0.1:8000 while editing
+    ./tools/wiki/build.py --pages-only # the Markdown alone, into wiki/build/check
+
+Nothing on the site is written for the site except wiki/pages/. The weapon pages are generated from
+the family files and the part XML, with each weapon's description taken from README.md's "What ships
+with it"; the pack-author pages are docs/WEAPON-PACKS.md and docs/PACK-API-SURFACE.md; the player
+pages are README.md's own sections. A link into the repository is pointed at GitHub, at the branch
+the site describes.
+"""
+
+import argparse
+import html
+import math
+import os
+import re
+import shutil
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+from urllib.parse import urljoin
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from models import slug  # noqa: E402
+
+ROOT = Path(__file__).resolve().parents[2]
+MOD = ROOT / "src/KSArmory"
+WIKI = ROOT / "wiki"
+BUILD = WIKI / "build"
+DOCS = BUILD / "docs"
+REPO = "https://github.com/LaurensDeV/KSArmory"
+NODE = Path(__file__).resolve().parent / "node_modules"
+
+# Hosts a page may never load from: the site serves its own viewer and decoder. model-viewer's defaults point
+# its decoders at Google, and the setting that stops that is not in its documentation.
+FORBIDDEN_HOSTS = ("gstatic.com", "googleapis.com", "jsdelivr.net", "unpkg.com")
+BRANCH = "main"
+
+# The order families appear in, and what each is called on the site.
+FAMILIES = {
+    "Pantsir": "Air defence",
+    "Rails": "Missile rails",
+    "Guns": "Guns",
+    "Sensors": "Sights and sensors",
+    "Countermeasures": "Countermeasures",
+    "DirectedEnergy": "Directed energy",
+    "Strategic": "Bombs and ballistic missiles",
+}
+
+# Pages lifted whole from the repository: (source, page, title).
+DOC_PAGES = [
+    ("docs/WEAPON-PACKS.md", "modding/weapon-packs.md", "Weapon pack reference"),
+    ("docs/PACK-API-SURFACE.md", "modding/pack-api.md", "Pack API surface"),
+    ("docs/FROM-KSP-MODDING.md", "modding/from-ksp.md", "Coming from KSP modding"),
+]
+
+# README.md sections that are the player's own pages: (heading, page, title).
+README_PAGES = [
+    ("Install", "players/install.md", "Installing"),
+    ("Use", "players/using.md", "Using it"),
+]
+
+
+
+def csharp_defaults(*files: str) -> dict[str, str]:
+    """A profile field's default as written in its source, so an attribute left out shows what the game uses."""
+    found: dict[str, str] = {}
+    pattern = re.compile(r"public\s+[\w?<>\[\]]+\s+(\w+)\s*(?:\{[^}]*\})?\s*=\s*([^;]+);")
+    for name in files:
+        for field, raw in pattern.findall((MOD / "Sim" / name).read_text()):
+            raw = raw.strip()
+            if re.fullmatch(r"-?[\d.]+(?:e-?\d+)?[fdm]?", raw):
+                raw = raw.rstrip("fdm")
+            elif re.fullmatch(r"\w+\.\w+", raw):
+                raw = raw.split(".")[-1]  # an enum member: GuidanceMode.Seeker reads as Seeker
+            found.setdefault(field, raw)
+    return found
+
+
+MUNITION = csharp_defaults("MunitionProfile.cs")
+SENSOR = csharp_defaults("SensorProfile.cs")
+OPTIC = csharp_defaults("OpticProfile.cs")
+
+
+def value(element: ET.Element, name: str, defaults: dict[str, str]) -> str | None:
+    return element.get(name) if element.get(name) is not None else defaults.get(name)
+
+
+def number(text: str | None) -> float | None:
+    try:
+        return float(text) if text is not None else None
+    except ValueError:
+        return None
+
+
+def distance(metres: float | None) -> str:
+    if metres is None or not math.isfinite(metres):
+        return "-"
+    if metres >= 100_000:
+        return f"{metres / 1000:,.0f} km"
+    return f"{metres / 1000:.3g} km" if metres >= 1000 else f"{metres:.3g} m"
+
+
+# GuidanceMode as a reader would say it; a mode not here is shown as the code names it.
+GUIDANCE = {"Seeker": "seeker", "AntiRadiation": "anti-radiation", "CommandLink": "command link",
+            "Inertial": "inertial", "None": "unguided"}
+
+
+def charge(kg: float | None) -> str:
+    if not kg:
+        return "none"
+    for scale, unit in ((1e9, "Mt"), (1e6, "kt"), (1e3, "t")):
+        if kg >= scale:
+            return f"{kg / scale:.3g} {unit}"
+    return f"{kg:.3g} kg"
+
+
+
+def part_names() -> dict[str, str]:
+    root = ET.parse(MOD / "KSArmoryGameData.xml").getroot()
+    return {p.get("Id"): html.unescape(p.get("DisplayName", p.get("Id"))) for p in root.iter("PartGameData")}
+
+
+
+STOP = {"and", "the", "a", "of", "on", "with"}
+
+
+def words(text: str) -> set[str]:
+    found = set()
+    for word in re.findall(r"[\w/\"-]+", text.lower()):
+        word = word.strip('"')
+        if word in STOP or not word:
+            continue
+        found.add(word[:-1] if word.endswith("s") and len(word) > 3 else word)
+    return found
+
+
+def readme_blurbs() -> list[tuple[str, str]]:
+    """(name, paragraph) for every weapon README.md's "What ships with it" describes."""
+    text = (ROOT / "README.md").read_text()
+    section = text.split("## What ships with it", 1)[1].split("\n## ", 1)[0]
+    blurbs = []
+    for paragraph in section.split("\n\n"):
+        if m := re.match(r"\*\*(.+?)\*\*\s*[—-]+\s*(.*)", paragraph.strip(), re.S):
+            blurbs.append((m.group(1), " ".join(m.group(2).split())))
+    return blurbs
+
+
+def blurb_for(names: list[str], blurbs: list[tuple[str, str]]) -> str | None:
+    best, score = None, 0.0
+    for heading, body in blurbs:
+        for name in names:
+            a, b = words(heading), words(name)
+            s = len(a & b) / len(a | b) if a | b else 0.0
+            if s > score:
+                best, score = body, s
+    return best if score >= 0.5 else None
+
+
+
+def relink(text: str, source: Path, pages: dict[str, str]) -> str:
+    """Point every link that leaves the site at GitHub; one to a page the site carries stays on the site."""
+    def fix(m: re.Match) -> str:
+        label, target = m.group(1), m.group(2)
+        if re.match(r"^(https?:|mailto:|#)", target):
+            return m.group(0)
+        path, _, anchor = target.partition("#")
+        resolved = os.path.relpath((source.parent / path).resolve(), ROOT)
+        if resolved in pages:
+            return f"[{label}]({pages[resolved]}{'#' + anchor if anchor else ''})"
+        # Resolved as GitHub resolves it from the file's own page, which also covers ../../releases.
+        return f"[{label}]({urljoin(f'{REPO}/blob/{BRANCH}/{source.relative_to(ROOT).as_posix()}', target)})"
+
+    return re.sub(r"(?<!!)\[([^\]]+)\]\(([^)\s]+)\)", fix, text)
+
+
+def readme_section(heading: str) -> str:
+    text = (ROOT / "README.md").read_text()
+    m = re.search(rf"^## {re.escape(heading)}\n(.*?)(?=^## |\Z)", text, re.S | re.M)
+    if not m:
+        sys.exit(f"wiki: README.md has no '## {heading}' section")
+    # One level up: a README "###" is a page's "##".
+    return re.sub(r"^#(#+) ", r"\1 ", m.group(1), flags=re.M)
+
+
+
+def family_files() -> list[tuple[str, ET.Element, str]]:
+    found = []
+    for path in sorted((MOD / "KSArmory").glob("*.xml")):
+        root = ET.parse(path).getroot()
+        if root.tag == "WeaponPack" and root.get("Family"):
+            found.append((root.get("Family"), root, path.name))
+    unknown = [f for f, _, _ in found if f not in FAMILIES]
+    if unknown:
+        sys.exit(f"wiki: no title for families {unknown}; add them to FAMILIES in tools/wiki/build.py")
+    return sorted(found, key=lambda f: list(FAMILIES).index(f[0]))
+
+
+def round_row(m: ET.Element, shell: bool) -> str:
+    # A gun's round is flown as a shell whatever its profile's guidance says, which is only the default.
+    guidance = "shell" if shell else GUIDANCE.get(value(m, "Guidance", MUNITION) or "", value(m, "Guidance", MUNITION))
+    reach = f"{distance(number(value(m, 'MinRange', MUNITION)))} – {distance(number(value(m, 'MaxRange', MUNITION)))}"
+    fuse = number(value(m, "FuseRadius", MUNITION))
+    return (f"| {m.get('DisplayName')} | {guidance} | {reach} | {charge(number(value(m, 'ChargeKg', MUNITION)))} | "
+            f"{'contact' if not fuse else distance(fuse)} |")
+
+
+def sensor_row(s: ET.Element) -> str:
+    kind = "cued only" if s.get("CuedOnly") == "true" else ("infrared" if s.get("Infrared") == "true" else
+                                                             ("radar" if s.get("Emits") == "true" else "passive"))
+    return (f"| {s.get('DisplayName')} | {kind} | {distance(number(value(s, 'Range', SENSOR)))} | "
+            f"{value(s, 'ConeDeg', SENSOR)}° |")
+
+
+def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], list[str]]:
+    """The family pages, one entry per part for the gallery and the table, and every part no README
+    paragraph describes."""
+    blurbs = readme_blurbs()
+    pages, weapons, undescribed = {}, [], []
+    for family, root, file_name in family_files():
+        munitions = {m.get("Name"): m for m in root.iter("Munition")}
+        sensors = {s.get("Name"): s for s in root.iter("Sensor")}
+        decoys = {d.get("Name"): d for d in root.iter("Decoy")}
+        out = [f"# {FAMILIES[family]}", "",
+               f"Generated from [`{file_name}`]({REPO}/blob/{BRANCH}/src/KSArmory/KSArmory/{file_name}), the "
+               f"family KSArmory files these under (*KSArmory → Built-in weapons → {family}*).", ""]
+
+        parts: dict[str, list[ET.Element]] = {}
+        for element in root:
+            if element.get("PartId"):
+                parts.setdefault(element.get("PartId"), []).append(element)
+
+        for part_id, elements in parts.items():
+            name = names.get(part_id, part_id)
+            own_names = [name] + [e.get("DisplayName", "") for e in elements]
+            blurb = blurb_for(own_names, blurbs)
+            if blurb is None:
+                undescribed.append(name)
+            out += [f"## {name}", ""]
+            if blurb:
+                blurb = blurb[0].upper() + blurb[1:]
+                out += [relink(blurb, ROOT / "README.md", site_links(f"weapons/{family.lower()}.md")), ""]
+            out += [viewer(part_id, name), "", f"Part `{part_id}`.", ""]
+
+            fires, sees, kinds, shells = [], [], [], set()
+            for e in elements:
+                if e.tag == "Launcher":
+                    if e.get("FiresBeam") == "true":
+                        kinds.append("beam")
+                    if e.findall("Tube"):
+                        kinds.append("launcher")
+                    if e.get("GunMunition"):
+                        kinds.append("gun")
+                        shells.add((e.get("GunMunition") or "").split(":")[-1])
+                    for key in ("Munition", "GunMunition"):
+                        if (m := munitions.get((e.get(key) or "").split(":")[-1])) is not None and m not in fires:
+                            fires.append(m)
+                    if (s := sensors.get((e.get("Sensor") or "").split(":")[-1])) is not None:
+                        sees.append(s)
+                    tubes = len(e.findall("Tube"))
+                    ammo = e.get("GunAmmo")
+                    rate = e.get("GunRoundsPerMinute")
+                    facts = [f"{tubes} tube{'s' if tubes != 1 else ''}" if tubes else None,
+                             f"{ammo} rounds" if ammo else None, f"{rate} a minute" if rate else None,
+                             f"traverses at {e.get('SlewRateDeg')}°/s" if e.get("TurretMarker") and e.get("SlewRateDeg") else None]
+                    if facts := [f for f in facts if f]:
+                        out += [f"**{e.get('DisplayName')}**: {', '.join(facts)}.", ""]
+                elif e.tag in ("Optic", "SearchSet"):
+                    kinds.append("sight" if e.tag == "Optic" else "search set")
+                    if (s := sensors.get((e.get("Sensor") or "").split(":")[-1])) is not None and s not in sees:
+                        sees.append(s)
+                    if e.tag == "Optic":
+                        zoom = value(e, "MaxMagnification", OPTIC)
+                        gimbal = value(e, "Gimbal", OPTIC)
+                        out += [f"**{e.get('DisplayName')}**: up to ×{zoom} magnification, "
+                                f"{'roll-nod' if gimbal == 'RollNod' else 'mast'} head"
+                                f"{', with a laser' if e.get('HasLaser') == 'true' else ''}.", ""]
+                elif e.tag == "Dispenser":
+                    kinds.append("dispenser")
+                    d = decoys.get(e.get("Decoy", ""))
+                    out += [f"**{e.get('DisplayName')}**: {e.get('Count')} × "
+                            f"{d.get('DisplayName') if d is not None else e.get('Decoy')}, "
+                            f"{e.get('SalvoSize')} a salvo.", ""]
+
+            if fires:
+                out += ["| Round | Guidance | Reach | Warhead | Fuse |", "| --- | --- | --- | --- | --- |",
+                        *[round_row(m, m.get("Name") in shells) for m in fires], ""]
+            if sees:
+                out += ["| Sensor | Kind | Range | Cone |", "| --- | --- | --- | --- |", *[sensor_row(s) for s in sees], ""]
+
+            first = fires[0] if fires else None
+            weapons.append({
+                "name": name, "part": part_id, "family": FAMILIES[family],
+                "href": f"/weapons/{family.lower()}/#{anchor(name)}",
+                "kinds": ", ".join(dict.fromkeys(kinds)),
+                "reach": distance(number(value(first, "MaxRange", MUNITION))) if first is not None else None,
+                "warhead": charge(number(value(first, "ChargeKg", MUNITION))) if first is not None else None,
+            })
+
+        # The viewer is a megabyte, so it is loaded only by a page that shows a model.
+        out[1:1] = ["", '<script src="/assets/3d/config.js"></script>',
+                    '<script type="module" src="/assets/3d/model-viewer.min.js"></script>']
+        pages[f"weapons/{family.lower()}.md"] = "\n".join(out)
+    return pages, weapons, undescribed
+
+
+def viewer(part_id: str, name: str) -> str:
+    """A part's 3D model, loaded as it scrolls into view. Root-absolute paths: the site is always at a root."""
+    label = html.escape(name, quote=True)
+    return (f'<figure class="part-figure">\n'
+            f'<model-viewer class="part-preview" src="/models/{slug(part_id)}.glb" alt="{label}, a 3D model"\n'
+            f'  camera-controls auto-rotate rotation-per-second="15deg" camera-orbit="35deg 70deg auto"\n'
+            f'  environment-image="neutral" shadow-intensity="0.6" interaction-prompt="none"\n'
+            f'  loading="lazy" reveal="auto" touch-action="pan-y">\n'
+            f'  <img slot="poster" src="/models/{slug(part_id)}.webp" alt="{label}">\n'
+            f'</model-viewer>\n'
+            f'<figcaption>Drag to turn, scroll to zoom.</figcaption>\n'
+            f'</figure>')
+
+
+def gallery(weapons: list[dict]) -> str:
+    """Every weapon at once: its still, family, name and what it reaches and carries."""
+    cards = []
+    for w in weapons:
+        stats = " · ".join(x for x in (w["reach"], w["warhead"]) if x and x != "none") or w["kinds"]
+        cards.append(f'<a class="ks-card" href="{w["href"]}">'
+                     f'<img src="/models/{slug(w["part"])}.webp" alt="{html.escape(w["name"], quote=True)}" loading="lazy">'
+                     f'<span class="ks-card__body"><span class="ks-card__family">{html.escape(w["family"])}</span>'
+                     f'<span class="ks-card__name">{html.escape(w["name"])}</span>'
+                     f'<span class="ks-card__stats">{html.escape(stats)}</span></span></a>')
+    return '<div class="ks-grid">\n' + "\n".join(cards) + "\n</div>"
+
+
+def weapon_table(weapons: list[dict]) -> list[str]:
+    return ["| Part | Family | Kind | Reach | Warhead |", "| --- | --- | --- | --- | --- |",
+            *[f"| [{w['name']}]({w['href']}) | {w['family']} | {w['kinds']} | {w['reach'] or '-'} | "
+              f"{w['warhead'] or '-'} |" for w in weapons]]
+
+
+def anchor(title: str) -> str:
+    """The id MkDocs gives a heading: lower case, punctuation dropped, spaces to hyphens."""
+    return re.sub(r"[\s]+", "-", re.sub(r"[^\w\s-]", "", title.lower())).strip("-")
+
+
+
+VIEWER_CONFIG = """// Before the viewer's module: it reads this once, as it loads, to find the decoder on this site.
+self.ModelViewerElement = {
+  meshoptDecoderLocation: new URL('meshopt_decoder.js', document.currentScript.src).href,
+};
+"""
+
+GALLERY_MARKER = "<!-- every weapon -->"
+PATCH_MARKER = "<!-- patch -->"
+
+# Models change only with a release and the viewer only with its pinned version.
+HEADERS = """/models/*
+  Cache-Control: public, max-age=86400
+/assets/3d/*
+  Cache-Control: public, max-age=604800
+"""
+
+
+def models() -> None:
+    """Every part's model, assembled and compressed, and the viewer and its decoder beside them."""
+    if not NODE.is_dir():
+        sys.exit("wiki: the 3D models need tools/wiki's npm packages; run: cd tools/wiki && npm ci")
+    raw = BUILD / "models-raw"
+    if raw.exists():
+        shutil.rmtree(raw)
+    here = Path(__file__).resolve().parent
+    subprocess.run([sys.executable, str(here / "models.py"), str(raw)], check=True)
+    subprocess.run(["node", str(here / "compress.mjs"), str(raw), str(DOCS / "models")], check=True)
+
+    three_d = DOCS / "assets/3d"
+
+    shutil.copy(NODE / "@google/model-viewer/dist/model-viewer.min.js", three_d / "model-viewer.min.js")
+    # The classic build: model-viewer loads the decoder as a plain script that defines MeshoptDecoder.
+    shutil.copy(NODE / "meshoptimizer/meshopt_decoder.cjs", three_d / "meshopt_decoder.js")
+
+    fonts = DOCS / "assets/fonts"
+    fonts.mkdir(exist_ok=True)
+    for family, weights in (("saira-condensed", (600, 700, 800)), ("ibm-plex-mono", (400, 500)),
+                            ("ibm-plex-sans", (400, 500, 600))):
+        for weight in weights:
+            shutil.copy(NODE / f"@fontsource/{family}/files/{family}-latin-{weight}-normal.woff2",
+                        fonts / f"{family}-{weight}.woff2")
+
+    # After the viewer is in place: the stills are drawn by it.
+    subprocess.run(["node", str(here / "stills.mjs"), str(DOCS)], check=True)
+
+
+def assemble(with_models: bool) -> None:
+    if DOCS.exists():
+        shutil.rmtree(DOCS)
+    shutil.copytree(WIKI / "pages", DOCS)
+
+    (DOCS / "assets/3d").mkdir(parents=True, exist_ok=True)
+    shutil.copy(ROOT / "branding/mark.svg", DOCS / "assets/mark.svg")
+    shutil.copy(ROOT / "branding/mark-light.svg", DOCS / "assets/mark-light.svg")
+    shutil.copy(ROOT / "branding/favicon.svg", DOCS / "assets/favicon.svg")
+    (DOCS / "assets/3d/config.js").write_text(VIEWER_CONFIG)
+    (DOCS / "_headers").write_text(HEADERS)
+
+    config = (WIKI / "mkdocs.yml").read_text()
+    marker = "      # generated: one entry per family\n"
+    if marker not in config:
+        sys.exit("wiki: wiki/mkdocs.yml has lost the marker the family pages are written at")
+    entries = "".join(f"      - {title}: weapons/{family.lower()}.md\n"
+                      for family, title in FAMILIES.items()
+                      if any(f == family for f, _, _ in family_files()))
+    (BUILD / "mkdocs.yml").write_text(config.replace(marker, entries))
+
+    names = part_names()
+    pages, weapons, undescribed = weapon_pages(names)
+    for page, text in pages.items():
+        write(page, text)
+    write("weapons/index.md", "\n".join([
+        "# Weapons", "",
+        "Every weapon KSArmory ships, generated from its definition files at the release this site "
+        "describes. A family can be switched off in game under *KSArmory → Built-in weapons*.", "",
+        gallery(weapons), "", *weapon_table(weapons), ""]))
+    home = DOCS / "index.md"
+    if GALLERY_MARKER not in home.read_text():
+        sys.exit(f"wiki: wiki/pages/index.md has lost the line {GALLERY_MARKER!r} the gallery is written at")
+    # Inline rather than an <img>: its lettering is set on a circle in the site's own fonts.
+    patch = (ROOT / "branding/patch.svg").read_text().replace('<svg ', '<svg aria-label="KSArmory mission patch" ', 1)
+    home.write_text(home.read_text().replace(GALLERY_MARKER, gallery(weapons)).replace(PATCH_MARKER, patch))
+
+    for src, page, _ in DOC_PAGES:
+        write(page, relink((ROOT / src).read_text(), ROOT / src, site_links(page)))
+    for heading, page, title in README_PAGES:
+        write(page, f"# {title}\n\n" + relink(readme_section(heading), ROOT / "README.md", site_links(page)))
+
+    if with_models:
+        models()
+        # Strict mode does not follow a URL in raw HTML, so a page naming a model nobody built would pass it.
+        for page in (DOCS / "weapons").glob("*.md"):
+            for model in re.findall(r'src="/models/([^"]+)"', page.read_text()):
+                if not (DOCS / "models" / model).is_file():
+                    sys.exit(f"wiki: {page.name} shows models/{model}, which was not built")
+
+    for name in undescribed:
+        print(f"wiki: no paragraph in README.md's \"What ships with it\" describes '{name}'", file=sys.stderr)
+    if undescribed:
+        sys.exit(1)
+
+
+def site_links(page: str) -> dict[str, str]:
+    """Every repository file the site carries, as a link from this page to its own copy."""
+    here = Path(page).parent
+    return {src: Path(os.path.relpath(target, here)).as_posix() for src, target, _ in DOC_PAGES}
+
+
+def write(page: str, text: str) -> None:
+    target = DOCS / page
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--serve", action="store_true")
+    parser.add_argument("--pages-only", action="store_true")
+    args = parser.parse_args()
+
+    if args.pages_only:
+        # Its own folder: assembled where the site is, it would strip the models from a preview being served.
+        global DOCS
+        DOCS = BUILD / "check"
+        assemble(with_models=False)
+        return 0
+    assemble(with_models=True)
+    mkdocs = shutil.which("mkdocs")
+    if mkdocs is None:
+        print("wiki: mkdocs is not installed; pip install -r wiki/requirements.txt", file=sys.stderr)
+        return 2
+    command = [mkdocs, "serve" if args.serve else "build", "-f", str(BUILD / "mkdocs.yml")]
+    if args.serve:
+        return subprocess.run(command).returncode
+
+    command.append("--strict")
+    if (code := subprocess.run(command).returncode) != 0:
+        return code
+    for page in (BUILD / "site").rglob("*.html"):
+        if found := [host for host in FORBIDDEN_HOSTS if host in page.read_text()]:
+            print(f"wiki: {page.relative_to(BUILD)} loads from {', '.join(found)}", file=sys.stderr)
+            return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

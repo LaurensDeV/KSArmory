@@ -731,14 +731,6 @@ internal sealed class IcbmConfig
     public bool ProbeMissFollowsTheGround = true;
 
     /// <summary>
-    /// Fly and predict this rocket's warheads with the Mk 21's drag from its shape
-    /// (<see cref="Arsenal.Mk21WithDragFromShape"/>), 3.6x the constant's. On, with
-    /// <see cref="KickThroughTheAir"/>, which it requires: worst warhead 0.80x, upper bound 0.985.
-    /// Off is the old baseline as an arm. <c>docs/ACCURACY-PLAN.md</c> 3eu; 3dk and 3eo lost.
-    /// </summary>
-    public bool WarheadDragFromItsShape = true;
-
-    /// <summary>
     /// Take each warhead's mass off the bus as it leaves, where the part declares it. On: non-inferior at
     /// 0.89x on one target and 0.90x on a four-target walk. <c>docs/ACCURACY-PLAN.md</c> 3fm, 3fn.
     /// </summary>
@@ -746,7 +738,7 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// Solve each warhead's separation kick through the air rather than in vacuum
-    /// (<see cref="ReleaseFocus.FlownSensitivity"/>). On, with <see cref="WarheadDragFromItsShape"/>;
+    /// (<see cref="ReleaseFocus.FlownSensitivity"/>). On, with the warhead's drag from its shape;
     /// it does nothing unless a kick is on, and on an airless body it pays and cannot help.
     /// <c>docs/ACCURACY-PLAN.md</c> 3eq, 3eu.
     /// </summary>

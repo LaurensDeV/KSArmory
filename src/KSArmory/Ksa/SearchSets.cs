@@ -179,7 +179,7 @@ internal sealed class SearchSets(Config config)
 
     public void Sync(IReadOnlyList<Vehicle> craft)
     {
-        if (Arsenal.SearchSets.Count == 0)
+        if (Catalogue.SearchSets.Count == 0)
         {
             _sets.Clear();
             return;

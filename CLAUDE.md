@@ -180,7 +180,7 @@ Scope is optional but useful; prefer the area touched — `turret`, `rounds`, `r
 say *why* when the reason is not obvious from the diff.
 
 **`feat` still means a player can observe the difference in the shipped archive.** Capability that
-nothing in `Arsenal.cs` or the panel yet uses is `refactor` — it becomes a feature in the commit
+nothing in the definition files or the panel yet uses is `refactor` — it becomes a feature in the commit
 that uses it, which is also the first commit whose behaviour anyone can check. This matters for
 the changelog rather than for the version now: a Features section listing things nobody can reach
 is worse than a short one.
@@ -301,6 +301,7 @@ merges, reverts, `fixup!`/`squash!` and semantic-release's own `chore(release):`
 ./tools/check-comments.sh                  # history in comments, XML docs on privates, ratios
 ./tools/check-shaders.sh                   # the compute shaders compile, against the game's library
 ./tools/check-docs.sh                      # layout table, API counts and KSA build vs reality
+./tools/wiki/build.py --serve              # the wiki with its 3D models, at http://127.0.0.1:8000
 ./tools/package.sh                         # release zip into dist/ -- no symbols, no game DLLs
 ./tools/deploy.sh                          # build and install into the KSA mods folder
 ./tools/run.sh                             # build, deploy, launch, show the mod's output
@@ -339,14 +340,16 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | Path | What |
 | --- | --- |
 | **`src/KSArmory/Sim/`** | **no KSA types, linked into the tests wholesale** |
-| `Sim/Arsenal.cs` | **the built-ins — add a weapon system here** |
-| `Sim/Catalogue.cs` | **what the mod reads** — the built-ins plus anything else registered; a lookup taken against `Arsenal` sees only what shipped |
-| `Sim/Armoury.cs` | **the code surface a weapon pack may bind to**, for the pack that ships an assembly — three members, taking text rather than profiles so a pack needs no game assemblies. A pack with no code never calls it: `InstalledPacks` reads its folder and registers through the same `Register` |
+| `Sim/Catalogue.cs` | **what the mod reads** — the built-ins from `KSArmory/*.xml` plus anything else registered; the only registry |
+| `Sim/Armoury.cs` | **the code surface a weapon pack may bind to**, for the pack that ships an assembly — four members, taking text rather than profiles so a pack needs no game assemblies. A pack with no code never calls it: `InstalledPacks` reads its folder and registers through the same `Register` |
 | `Sim/PackReader.cs` | somebody else's weapon definitions, read into profiles — **text in, no file access**, so every refusal is testable headlessly |
 | `Sim/PackScan.cs` | where KSArmory looks for somebody else's weapons — **a convention, not a list** |
 | `Sim/PackAudit.cs` | whether what registered can actually be found — the half of validation that has to wait until the world has loaded |
 | `Sim/IPartCatalogue.cs` | **the seam the audit asks what parts exist through** |
 | `Sim/PackResult.cs` | what one pack got out of registering: how much stuck, and everything that did not |
+| `Sim/CoreDefinitions.cs` | this mod's own definition files, registered **as one unit and before anyone else's** — from its own `[StarMapBeforeMain]`, which StarMap runs ahead of every pack that ships code, and its files read as one unit through `PackFiles` |
+| `Sim/PackFiles.cs` | one mod's definition files read **as one unit** -- every name each declares known to the others, so a launcher may name a round in another file whatever order they sort in; the built-ins and every pack go through it |
+| `Sim/BuiltInSwitches.cs` | which of KSArmory's own weapon families the player switched off, as the file it is kept in -- **anything unreadable switches nothing off** |
 | `Sim/PackContents.cs` | what reading one pack produced: what may register, and what may not |
 | `Sim/PackFault.cs` | one definition that was refused, and the reason an author can act on |
 | `Sim/WeaponSurvey.cs` | reads a weapons system off a craft the mod did not design |
@@ -415,6 +418,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/Magazine.cs` | which tubes hold a round, which fires next, what each body does |
 | `Sim/RoundLabel.cs` | what to call a round in a line somebody reads — **the one place the tube field's sentinel is decoded**, because a shell has no tube |
 | `Sim/TubeGeometry.cs` | tube positions and directions, pod and radar pose, body placement |
+| `Sim/TurretMode.cs` | which rung the ring was laid on this frame, and **the claims each rung makes on it** — decided from this frame's rung alone, because the fire ladder holds the missiles on them |
 | `Sim/Turret.cs` | rate-limited traverse and elevation drives — **a limited traverse turns the long way round**, never through the host behind it |
 | `Sim/TravelMap.cs` | where a gun can point without its barrels or its line of fire meeting its own craft — **a traverse arc and a band of elevation per bearing**, which replace the profile's fixed limit once swept |
 | `Sim/TravelSweep.cs` | which poses of that map to test — **coarse first, then only where the answer changes**, so an obstacle smaller than 10 deg both ways can be missed |
@@ -544,6 +548,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/CursorAim.cs` | cursor to viewport coordinates, and the bearing from a mount to what it points at |
 | `Sim/WeaponFit.cs` | **what a weapons system is fitted with** — the panel asks this rather than testing profile fields |
 | `Sim/WeaponSelection.cs` | stepping round a craft's weapons, wrapping — the half of the selector a test can reach |
+| `Sim/SettingsOrdinal.cs` | the number a weapon's settings are filed under -- **moved past a switched-off family's launchers**, so the weapons after one keep their own |
 | `Sim/StepGate.cs` | hands a simulation step out once and only once |
 | `Sim/FrameLatch.cs` | hands a **frame's** work out once, to whichever hook reaches it first — **the UI pass is skipped while the UI is hidden and the frame postfix is not** |
 | `Sim/SmoothedStep.cs` | the step evened out, for the one consumer that wants a smooth clock |
@@ -562,10 +567,22 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/TracerLook.cs` | how a tracer is drawn — **the streak is exposure, not the round**: speed over 40 ms of the player's time, so it shortens in slow motion and is the burning base alone when paused; lit out of the muzzle, burnt out on `MunitionProfile.TracerBurnSeconds`, and thinned and dimmed rather than widened with distance. Only one round in `TracerEvery` glows, as a belt is loaded; **the rest a faint grey streak of their own calibre**, a pixel wide at the least and as bright as `Config.BallRoundBrightness` **in daylight, fading with the sun to nothing at night** — sunlight off the round, never light of its own — so the stream reads and the tracers stay the only bright thing |
 | `Sim/Distance.cs` | a distance in the unit that shows it — **a fixed unit goes blind as the shot improves**, and `bias 0.0 km` was the whole of a ten-metre miss printed as nothing |
 | `Sim/Charge.cs` | an explosive charge in the unit that shows it — kg, t, kt or Mt — since the charge slider runs from a shell to 50 Mt |
+| `Sim/GoldenSection.cs`, `Sim/Ramp.cs` | the minimum of a cost over an interval, and the clamped smoothstep — one copy each, where several files carried their own |
 | `Sim/Vec.cs`, `Sim/DrawAnchor.cs` | vector helpers, the two-instant draw anchor |
 | **`src/KSArmory/Ksa/`** | **everything that binds to the game** |
 | `Ksa/KSArmoryMod.cs` | StarMap entry point and frame hooks |
-| `Ksa/KsaWorld.cs` | most KSA contact is funnelled here — keep it that way |
+| `Ksa/KsaWorld.cs` | most KSA contact is funnelled through this class — keep it that way. **One class in partial files by concern**, so every call site reads `KsaWorld.X` whichever file holds it; this one is the scene, the clock, warp and the save |
+| `Ksa/KsaWorld.Vehicles.cs` | a craft's state, the physics bubble as diagnostics, the census every scan shares, and whether a craft is a platform |
+| `Ksa/KsaWorld.Bodies.cs` | gravity, the air and the ocean, the ground's own motion, sea level, the sun, and what a burst went off in |
+| `Ksa/KsaWorld.Terrain.cs` | occlusion and the skyline, anchoring a point to the ground, rays onto it, and snapping to it |
+| `Ksa/KsaWorld.Parts.cs` | parts: boxes, matrices, tanks, the hull ray cast, blast faces and dents, and the part-failure queue |
+| `Ksa/KsaWorld.Controls.cs` | engines, jets and the flight computer's frame — the throttle and jets put back past the keyboard clear, and KSA's popups |
+| `Ksa/KsaWorld.Draw.cs` | the draw anchor and gizmos — **`TryAnchoredEgo` answers only after `BeginDraw` this frame** |
+| `Ksa/KsaWorld.Projection.cs` | a point onto the screen, or clamped to its edge |
+| `Ksa/KsaWorld.Cursor.cs` | the cursor's ray, what it meets, and the aim solved once a frame from it |
+| `Ksa/KsaWorld.Viewports.cs` | camera windows and the ground-track window — leased, posed, pictured and handed back |
+| `Ksa/KsaWorld.MainView.cs` | the player's own view — its pose, field and follow, the level-horizon controller, and handing it back |
+| `Ksa/KsaWorld.Renderer.cs` | the renderer's internals reached by reflection — screenshots, weather clouds and their shadow buffers |
 | `Ksa/WeaponSystems.cs` | one system per weapon fitted, crewed with the craft and followed across a split |
 | `Ksa/WeaponSystem.cs` | fire control, salvo logic, warhead effects, drives |
 | `Ksa/WeaponSystemRoles.cs` | **the slices consumers take** — effects, sights and cameras get a role, not the whole system |
@@ -581,7 +598,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/TravelSweeps.cs` | sweeps each gun's travel against its own craft with the engine's part ray casts — **50 rays and 1 ms a frame across every mount**, the craft on the panel first, and only once a craft has kept its shape for 60 frames, so a break-up is swept once. Other mounts are left out, since their barrels move |
 | `Ksa/StoreMass.cs` | a launcher or dispenser part made lighter by what it has fired, through KSA's own per-part mass slot and in `AttitudeHook`'s window — **scaled where the part declares it, never moved to the tube**, because the bus's mass sits on its thruster ring on purpose. Not saved, which matches a magazine |
 | `Ksa/Countermeasures.cs` | every dispenser fitted and every decoy in the air — **stepped after the airborne sample and before any round**, so a seeker reads a decoy as it reads a craft, at the end of the step it integrates |
-| `Ksa/InstalledPacks.cs` | reads those folders and registers what is in them — **what lets a pack be assets only** |
+| `Ksa/InstalledPacks.cs` | reads those folders and registers what is in them — **what lets a pack be assets only**; this mod's own folder it reads earlier, through `CoreDefinitions` |
+| `Ksa/BuiltInFamilies.cs` | the player's switch for each built-in family, in `builtins.json` beside the loose settings, **read before any save is open**, so a change waits for a restart; and a switched-off family's parts hidden from the editor |
 | `Ksa/DeclaredParts.cs` | the part library as that seam — off `PartTemplate`, because the question is what was *declared*, not what is on a craft |
 | `Ksa/HullTest.cs` | whether a round's step meets a craft's actual geometry, per triangle |
 | `Ksa/GroundTest.cs` | the surface under a round, off the engine's own height field |
@@ -660,7 +678,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/CloudWatch.cs` | a camera pinned on a standing cloud — **the measurement needed it**, because what the pass costs is set by how much of the screen it marches and a camera the operator can move makes every number one about where somebody stood. The pose is also the one worth watching from, which is not a coincidence: a mushroom is a side-on silhouette |
 | `Ksa/CoreShaderInclude.cs` | the one line that lets this mod's shader reach KSA's own shader library — **an absolute include resolves where no relative one can**, since Core's shader tree and a mod's do not meet; written at load against the player's install, never committed |
 | `Ksa/MotorSound.cs` | the rocket motor you can hear, one spatialised channel per burning round |
-| `Ksa/EmitterPool.cs` | taking an endless emitter set from the engine's pool, pointing it and **giving it back, `Kill` first** — the one step whose omission leaves nothing in the world able to spawn particles; leaf functions shared by the plume, the muzzle flash and the flares |
+| `Ksa/EmitterPool.cs` | taking an endless emitter set from the engine's pool, pointing it and **giving it back, `Kill` first** — the one step whose omission leaves nothing in the world able to spawn particles; leaf functions shared by the plume, the muzzle flash and the flares — and **firing a one-shot set**, pointed and tuned before it is registered as KSA's own `FireStage` does, for the dust, the ejecta, the flak and the chaff |
+| `Ksa/ScreenOverlay.cs` | the transparent full-screen window every world mark is drawn in — **NoInputs**, or it swallows every click in the game |
 | `Ksa/MotorPlume.cs` | the flame at the nozzle, one pooled emitter per burning round |
 | `Ksa/SpinPlume.cs` | a released RV's spin-motor jets, one pooled emitter per nozzle while they burn, placed through the body's drawn attitude |
 | `Ksa/DecoyEffects.cs` | a flare's white-hot core and smoke trail, and chaff's faint grey puff — **at most twelve flare cores lit at once**, because each holds a pooled emitter |
@@ -708,7 +727,14 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Log.cs` | the mod's own log file, which is the only debugging channel it has |
 | `src/KSArmory/KSArmory*.xml` | the parts, the warhead effects and the sounds — at the mod root, mirroring Core. **No character**: a mod's character ends up on kittens in nearly every save, which then cannot load without it — `tools/repair-saves.py` re-dresses them |
 | `src/KSArmory/KSArmory/Bodies.xml` | **what KSA's current bodies are, as data** -- fields, airglow, condensation, thin cloud -- so a custom solar system gains them by adding lines, not code |
-| `src/KSArmory/KSArmory/Weapons.xml` | **this mod's own weapons, as data** — read by `PackScan`'s convention like any pack's, not by KSA |
+| `src/KSArmory/KSArmory/Pantsir.xml` | **this mod's own weapons, as data** — the Pantsir and its roof director; read by the pack reader through `CoreDefinitions`, not by KSA |
+| `src/KSArmory/KSArmory/Weapons.xml` | **empty on purpose** — where the Pantsir used to be, so an install unzipped over an older one does not keep the old file and register it twice |
+| `src/KSArmory/KSArmory/Rails.xml` | the LAU-7, LAU-128 and LAU-118 rails, their rounds and their seekers, the same way |
+| `src/KSArmory/KSArmory/Guns.xml` | the Phalanx, the 5"/54 Mk 42 and the M197, their two rounds and their three sets |
+| `src/KSArmory/KSArmory/Sensors.xml` | the EO director, the LITENING pod and the IRST, with their three sensors |
+| `src/KSArmory/KSArmory/Countermeasures.xml` | the two AN/ALE-47 dispensers and the flares and chaff they throw |
+| `src/KSArmory/KSArmory/DirectedEnergy.xml` | the YAL-1 beam director, its laser and its sensor |
+| `src/KSArmory/KSArmory/Strategic.xml` | the B61 rack and the Heavy MIRV Bus, their B61 and Mk 21, the bombsight and the bus's designation set |
 | `src/KSArmory/Meshes/`, `Textures/` | art. `KSArmory_MeshAtlas.glb` is generated — rebuild with `tools/model/build.sh`; every other atlas is **authored**, and its `.blend` is not in this repository |
 | `src/KSArmory/Sounds/` | the cannon, cut from a recording by `tools/cut-cannon.py`; the Mk 42's gunshot, cut from its recording by `tools/mk42-sounds.py`; the M197's loop and tail, by `tools/m197-sounds.py`. A warhead's burst is KSA's own explosion, sound and all |
 | `src/KSArmory/mod.toml` | serves as both the content-mod and StarMap manifest |
@@ -723,12 +749,13 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 886 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 892 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
 | `docs/BLOCKED-ON-KSA.md` | **what the mod cannot build**, with the engine reason and what would unblock it |
 | `docs/IRST-PLAN.md` | **a plan, not a record** — an infrared search part that finds targets for the directors, which find nothing by themselves, and one picture per craft that hands them on; the detection law, its calibration targets and the order of work |
+| `docs/BUILTINS-AS-DATA.md` | **a plan, not a record** — every built-in weapon moved into one XML file per family, a startup switch to disable built-in families, and a generated reference copy for the example mod; the mechanism, the hazards the reviews found, and the order of work |
 | `docs/SHARED-PICTURE.md` | **a plan, not a record** — a team's scopes showing what another installation's set holds: the display-only step first, and why firing on somebody else's track is a much bigger one |
 | `docs/MULTIPLAYER.md` | **a plan, not a record** — what KSA's networking skeleton does, why this mod's rounds have nothing to sync against until KSA replicates vehicles and time, and the two pieces worth doing first |
 | `docs/CIWS-REALISM.md` | **a plan, not a record** — what the real Phalanx does that the mod does not: detection only as the search beam passes, and closed-loop spotting of its own rounds, with why each waits and **what would make spotting worth building** |
@@ -770,6 +797,13 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/validate-parts.py` | checks asset Ids, texture paths, and launch geometry vs the mesh |
 | `tools/listing.py` | `listing/` as Borea's TOML and SpaceDock's markdown — printed to paste; it publishes nothing |
 | `tools/spacedock-changelog.py` | a release's notes cut to what SpaceDock accepts — **10,000 characters**, which one after a long run on `dev` overruns six times over |
+| `tools/export-example-copy.py` | **a working copy of every weapon as a pack**, written into the example mod: the definitions, the parts and the art, every Id renamed `KSArmory_` to `ExampleCopy_` -- inside the meshes too, since KSA matches a mesh by name -- so it loads beside KSArmory, with an index of what each family uses. **Read from HEAD** so each header names its commit; run by hand, `--check` to compare |
+| `tools/copy-save.py` | a save copied with its craft carrying the example copy's parts instead of KSArmory's -- so with every family switched off, a scenario flown on it flies the pack |
+| `tools/wiki/build.py` | **ksarmory.com, assembled from what the repository already maintains** -- the weapon pages from the family files and README's "What ships with it", the pack pages from `docs/`, the player pages from README's own sections, every outside link pointed at GitHub; `--pages-only` is the check-all step, `--serve` the local preview |
+| `tools/wiki/models.py` | one viewable `.glb` per part for the wiki, **assembled as KSA assembles it** -- mesh by name with the first atlas winning, the XML's transforms through `checkmesh.euler_quaternion`, the `PbrMaterial` as a glTF material, stood on its mounting face; standard library only, `--check` in check-all |
+| `tools/wiki/compress.mjs` | those models to WebP textures at 1024 and meshopt geometry, normal maps lossless: 27 MB to 4.5 MB; its npm packages are pinned in `tools/wiki/package-lock.json` |
+| `tools/wiki/stills.mjs` | a still of every model, drawn by the same viewer at the same camera in headless Chromium -- the gallery's pictures and each viewer's poster, so a still and its model cannot disagree |
+| `wiki/` | the site's MkDocs config, the home page and the brand's stylesheet (`pages/assets/ksarmory.css`: `branding/`'s palette in both schemes, its fonts served from the site); everything else is generated into `wiki/build/` |
 | `tools/pack-api.py` | records the API a weapon pack binds to, and fails when it moves — **the mirror of `api-surface.sh`**, because a pack lives in somebody else's repository and never builds here |
 | `tools/check-studies.py` | which tests are tagged out of the push loop, as a committed record — **it cannot tell a mis-tag from a real one**, and does not try: it puts the change in the author's own diff, where a human can still ask |
 | `tools/repair-saves.py` | realigns saves written before a part lost a subpart |
@@ -803,8 +837,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/mk42-sounds.py` | cuts the Mk 42's recording into its mono gunshot |
 | `tools/m197-sounds.py` | cuts the M197's recordings into a seamless mono loop and its tail |
 | `tools/audio/` | the recordings the shipped gun sounds are cut from — the CC0 Phalanx and the Mk 42's — and the provenance of each |
-| `tools/logo.py` | the Kessler Systems wordmark and icon, into `branding/` |
-| `branding/` | the generated logo the README and SpaceDock point at |
+| `branding/` | **the brand's sources**: the mark, its small and favicon forms, the light mark and the patch, as SVG; and the PNGs rendered from them -- the README's lockup for each of GitHub's themes, the mod icon and the patch |
+| `tools/wiki/branding.mjs` | those PNGs, rendered from `branding/`'s SVGs in the brand fonts by headless Chromium, and refusing to write one set in a fallback font |
 | `listing/` | **the store page**, Borea's and SpaceDock's, apart from the developers' `README.md` — abstract, description, icon and screenshots, rendered for each site by `tools/listing.py`. Every image URL is pinned to a commit and Borea's record pins its hash, so replacing one means sending new records |
 
 ## 3D model pipeline
@@ -900,13 +934,13 @@ head looks where the rail points, and `TurretAxis`, which follows the traverse.
 
 ## Adding a weapon system
 
-The mod is built around three profile types and a registry, so a new launcher, round or sensor
-is **data plus art**, not new logic. No fire-control, guidance or drive code names the Pantsir —
-it is defined in `KSArmory/Weapons.xml`, read like any pack's, with its director in `Sim/Arsenal.cs`,
-which is the registry and is meant to. Anything else naming it is
-a doc comment citing what it was modelled on. **`tools/model/sidewinder.py` plus the
-`SidewinderRail` entry in `Sim/Arsenal.cs` is the worked example** — a whole second system, and
-neither of them is longer than a page.
+The mod is built around profile types and a registry, so a new launcher, round or sensor is
+**data plus art**, not new logic. Every built-in is defined in a file in `src/KSArmory/KSArmory/`,
+one per family, read by the same reader a third-party pack goes through (`docs/WEAPON-PACKS.md` has
+every element and attribute). No fire-control, guidance or drive code names any of them; anything
+else naming one is a doc comment citing what it was modelled on. **`tools/model/sidewinder.py` plus the LAU-7's
+entries in `KSArmory/Rails.xml` is the worked example** — a whole second system, and neither of
+them is longer than a page.
 
 1. **Model it** — authored in Blender over MCP, per `.claude/skills/ksa-blender/SKILL.md` and
    [3D model pipeline](#3d-model-pipeline); the headless generator is not extended. Run
@@ -937,22 +971,21 @@ neither of them is longer than a page.
    node just inside each end, and KSA mates a part there whenever the part's own node is no larger
    than it. An unsized node is size one, so a 3 m part sinks onto it — 8 cm into a 2 m tank, 24.5 cm
    into a 3 m one — and nothing reports it. `validate-parts.py` fails an unsized one.
-3. **Register it — in `Sim/Arsenal.cs`, and in *both* registries.** One `LauncherProfile`, naming
-   the munition and sensor it uses, with the geometry `build.sh` prints; add a `MunitionProfile`
-   and a `SensorProfile` too if the round or the set differ. Then teach `validate-parts.py` to
-   compare that geometry against `muzzles.json` — the generator emitting it and the profile
-   holding it are the same numbers in two files, which is the shape that drifts.
+3. **Define it** in a file in `src/KSArmory/KSArmory/`: a `<Launcher>` on the part Id, naming the
+   `<Munition>` and `<Sensor>` it uses, with the geometry `build.sh` prints; an `<Optic>`,
+   `<SearchSet>` or `<Dispenser>` for a part that looks or throws decoys. Then teach
+   `validate-parts.py` to compare that geometry against `muzzles.json` — the generator emitting it and
+   the definition holding it are the same numbers in two files, which is the shape that drifts.
 
-   **And a `ComponentProfile` in `Arsenal.Components`.** The two registries are keyed on the same
-   part Id and do different jobs: `Launchers` says how the thing shoots, `Components` is what
-   `WeaponSurvey` reads to decide a craft is a weapons system *at all*. A launcher missing from
-   `Components` loads, resolves its tubes, matches `LauncherForPart` and is then completely
-   invisible — the panel says "no weapons systems" about a craft carrying it, and nothing appears
-   in any log. `ArsenalTests.EveryRegisteredLauncherIsAlsoARecognisedComponent` fails against
-   that state.
+   **The definition also gives the part its panel row.** Launchers and components are two registries
+   keyed on the same part Id: `Launchers` says how the thing shoots, `Components` is what
+   `WeaponSurvey` reads to decide a craft is a weapons system *at all*. The reader mints the
+   component row for every launcher, standalone optic, search set and dispenser, so a definition
+   cannot leave its part invisible. `ArsenalTests.EveryRegisteredLauncherIsAlsoARecognisedComponent`
+   holds that.
 4. **Then nothing else.** `LauncherPart.Find` matches against every registered part Id, and the
-   system selects whichever profile it finds. `ArsenalTests` checks the two registries agree and
-   that each hangs together; `validate-parts.py` checks the geometry still matches the mesh, and
+   system selects whichever profile it finds. `ArsenalTests` checks the registries agree and that
+   each built-in hangs together; `validate-parts.py` checks the geometry still matches the mesh, and
    that every registered `PartId` is declared in the XML — a profile naming a part that exists
    nowhere otherwise passes every gate and finds no launcher in game.
 
@@ -1210,10 +1243,10 @@ dies. Each carries its own `SystemConfig`, so arming one site, sending it a targ
 on a team says nothing about any other.
 
 **A weapon system belongs to the installation running it, not to the session.** `WeaponSystem`
-carries its own `Profile`, `Munition` and `Sensor`, paired by `Arsenal.LoadoutFor` when it
+carries its own `Profile`, `Munition` and `Sensor`, paired by `Catalogue.LoadoutFor` when it
 recognises the part; `Config` deliberately holds none of the three. A session-wide selection is
 what makes two different systems in one world impossible — every reader outside a system's own
-update gets whichever system resolved last, silently. The profiles are the shared `Arsenal`
+update gets whichever system resolved last, silently. The profiles are the shared `Catalogue`
 instances, so panel tuning still reaches every system running that loadout, which is the intent.
 
 **The unit that over-commits is the craft, not the weapon.** Each system counts only the rounds it
@@ -1337,7 +1370,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from 684,000 lines to the files
-defining the 332 types this mod actually uses.
+defining the 336 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 45 in total, 14 MB —
@@ -2289,7 +2322,7 @@ reachable without patching.
 
 **Launch and slew geometry live in the Blender script, not in the C#.**
 `tools/model/pantsir.py` places the containers and writes `muzzles.json`;
-the Pantsir's definition in `KSArmory/Weapons.xml` (a launcher still in C#: its `LauncherProfile` in `Sim/Arsenal.cs`) is pasted from what it prints.
+the Pantsir's definition in `KSArmory/Pantsir.xml` is pasted from what it prints.
 `validate-parts.py` **fails if any of them disagree**, because geometry duplicated across a
 boundary drifts. Change the pods, rerun `tools/model/build.sh`, paste the block. The tube count
 is `LauncherProfile.Tubes.Length`, so it follows the block you paste.
@@ -2352,9 +2385,8 @@ a shell flew 65 km; a shape's coefficient sits near 0.3, so a wrong one shows. T
 range table's 23.69 km at 47°, and one constant cannot also give the ceiling — 16.1 km straight up against
 14.8 — because real drag peaks near Mach 1. `DragK` stays for what no constant coefficient describes: a
 bomb's drag rises through the speed of sound, and a missile's changes as it burns and drops its
-booster. The Mk 21 is registered with a hand-typed `DragK` that is known unphysical, and the computer
-flies its real drag instead (`docs/ICBM-GUIDANCE.md`, *The prediction flies the warhead*).
-`ArsenalTests.EveryRoundsDragComesFromWhatItIsUnlessNamedHere` names the six whose drag is still typed by hand, so a
+booster. The Mk 21's drag is its shape's: 270 kg on a 55 cm base at a Cd of 0.1.
+`ArsenalTests.EveryRoundsDragComesFromWhatItIsUnlessNamedHere` names the five whose drag is still typed by hand, so a
 new round cannot join them by accident.
 
 **And the air is the air that is there.** A density ratio is a multiple of `Medium.ReferenceDensityKgPerM3`,
@@ -2971,14 +3003,17 @@ not. `docs/BATTERY-SPLIT.md` has the argument, and the word for a launcher that 
 if a craft ever carries two.
 
 **Consumers take a role, not the system.** `Ksa/WeaponSystemRoles.cs` names what each one actually
-needs: rounds in flight, an effect source, an optical head, a manual trigger, a read-only view.
-Twelve of the twenty consumers take one and nothing else, and `Visuals` is one method short of a
-thirteenth — `DrawShellStream` takes the class for three members `IRoundsInFlight` already carries.
+needs: rounds in flight, an effect source, an optical head, manual fire, a read-only view. Every
+effect — plume, smoke, spin jets, muzzle flash, motor and gun sound — the chase camera, the sight
+and the ballistic computer take one and nothing else.
 
-Of the seven that take the class, five have to: the frame hook, the panel, the two scenario runners
-and `TargetLock` command it rather than read it, and designating is a command, which is why
-`IOpticalHead.Designation` is read-only. The other two only read — `BombSightOverlay` stays within
-`IWeaponSystemView`, and `LockCueOverlay` reaches one member past it for `Hold`.
+What takes the class either commands it — the frame hook, the roster, the panel, the bridge and the
+scenario runners — or reads a member no role carries yet: `Visuals` and `ShellTracers` for
+`ShellDrawnAsBody`, `LockCueOverlay` for `Hold`, `StoreReach` for `Steerable`, `TargetLock` for the
+designation and the gun lay's reach, and `TravelSweeps`, which writes the turret's travel map.
+`BombSightOverlay` stays within `IWeaponSystemView` and could take it. Designating is a command,
+which is why `IOpticalHead.Designation` is read-only and `TargetLock` designates through a delegate
+it is handed rather than through the system.
 
 ## Testing
 

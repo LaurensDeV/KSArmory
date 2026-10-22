@@ -256,6 +256,16 @@ public class FireLadderTests
         Assert.Equal("the cursor has the bearing", Hold(Ready() with { RingIsOnCursor = true }));
     }
 
+    // The lead solved on the frame before the operator took the ring by hand: the claim the ladder
+    // reads is this frame's rung's, not the one the tracking rung made.
+    [Fact]
+    public void AManualRingAfterTheCannonHadTheLeadDoesNotHoldTheMissiles()
+    {
+        (bool lead, bool cursor) = TurretMode.Claims(TurretRung.Manual, leadSolved: true);
+
+        Assert.Null(Hold(Ready() with { RingIsOnGunLead = lead, RingIsOnCursor = cursor }));
+    }
+
     /// <summary>
     /// And neither holds a launcher whose rounds do not leave along the tube: where the ring points
     /// says nothing about where a round off that rail will go.

@@ -25,7 +25,7 @@ public readonly record struct Tube(double3 Position, double3 Direction)
 /// <summary>
 /// One launch platform: which part it is, where its tubes are, what moves, and what it fires.
 ///
-/// <para>A new weapon system is one of these, registered in <see cref="Arsenal"/>. Nothing in the
+/// <para>A new weapon system is one of these, declared as a <c>&lt;Launcher&gt;</c> in a definition file. Nothing in the
 /// simulation or the KSA binding knows about the Pantsir specifically — they ask a profile. A fixed
 /// launcher with no turret is the same type with <see cref="TurretMarker"/> left null.</para>
 ///
@@ -391,6 +391,9 @@ public sealed class LauncherProfile
     /// with a gunshot and no <see cref="GunSoundId"/> has no loop at all, rather than the shared one.</para>
     /// </summary>
     public string? GunshotSoundId { get; init; }
+
+    /// <summary>The particle emitter at the muzzles while the guns fire, by <c>ModLibrary</c> Id. Null is KSArmory's.</summary>
+    public string? MuzzleFlashEffect { get; init; }
 
     /// <summary>Seconds between rounds, derived from the cyclic rate.</summary>
     public double GunRoundInterval => GunRoundsPerMinute > 0f ? 60.0 / GunRoundsPerMinute : 0.0;

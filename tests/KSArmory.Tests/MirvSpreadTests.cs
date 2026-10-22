@@ -45,7 +45,7 @@ public class MirvSpreadTests(ITestOutputHelper Out)
     private static double SpreadMetres(double3 fromCci, double3 velocityCci, doubleQuat busAttitude,
                                        bool repoint, ITestOutputHelper? log = null)
     {
-        MunitionProfile warhead = Arsenal.ReentryVehicleMk21;
+        MunitionProfile warhead = BuiltIns.ReentryVehicleMk21;
         Tube[] tubes = CantedRing.Tubes;
 
         double3[] axes = new double3[tubes.Length];

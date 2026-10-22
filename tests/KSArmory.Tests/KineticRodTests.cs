@@ -41,7 +41,7 @@ public class KineticRodTests(ITestOutputHelper Out)
         Out.WriteLine($"  DragK                {KineticRod.DragK:E3}  (sea level, a = -k|v|v)");
         Out.WriteLine($"  ballistic coefficient {KineticRod.BallisticCoefficient:F0} kg/m^2");
 
-        MunitionProfile mk21 = Arsenal.ReentryVehicleMk21;
+        MunitionProfile mk21 = BuiltIns.ReentryVehicleMk21;
         Out.WriteLine($"  Mk 21 for comparison  DragK {mk21.DragK:E3}"
                       + $" — the rod is {mk21.DragK / KineticRod.DragK:F0}x cleaner");
 

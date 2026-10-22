@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The AN/ALE-47 dispensers and what they throw: MJU-7 flares against heat-seeking missiles, RR-170
+  chaff against radar-guided ones. A dispenser shoots nothing; its decoys take a missile's seeker away
+  from the craft carrying it. Part definitions are in ../KSArmory*.xml, which KSA reads and this does
+  not.
+-->
+<WeaponPack Schema="1" Family="Countermeasures">
+
+  <!--
+    The MJU-7: a 1 x 2 x 8 inch magnesium-Teflon-Viton flare, burning white-hot for about four seconds
+    at several times a fighter's tail in a heat seeker's band. RiseSeconds="0": it is at full heat the
+    moment it leaves. DragPerMetre="0.004": dense but blunt and tumbling, so it loses half an aircraft's
+    airspeed in about a second.
+  -->
+  <Decoy Name="MJU7" DisplayName="MJU-7 flare" Kind="Flare"
+         MassKg="0.37" PeakSignature="25" RiseSeconds="0" LifeSeconds="4.5" DragPerMetre="0.004" />
+
+  <!--
+    The RR-170: a 1 x 1 x 8 inch cartridge of about three million aluminised glass-fibre dipoles,
+    blooming into a cloud tens of metres across in under a second (RiseSeconds="0.5").
+    PeakSignature="400" is on the radar-signature scale, which reads a craft of 11 m mean radius as
+    400 m^2. DragPerMetre="10": it stops dead in the airflow and settles at about a metre a second.
+  -->
+  <Decoy Name="RR170" DisplayName="RR-170 chaff" Kind="Chaff"
+         MassKg="0.095" PeakSignature="400" RiseSeconds="0.5" LifeSeconds="5" DragPerMetre="10" />
+
+  <!--
+    An AN/ALE-47 module loaded with flares: fifteen 1 x 2 inch MJU-7s, each filling two of the module's
+    thirty 1 inch cells. Its Kind is the decoy's.
+  -->
+  <Dispenser PartId="KSArmory_Prefab_Ale47Flare" DisplayName="AN/ALE-47 Flare Dispenser"
+             Decoy="MJU7" Count="15" SalvoSize="2" SalvoIntervalSeconds="0.25" EjectSpeed="30" />
+
+  <!-- The same module loaded with chaff: thirty 1 x 1 inch RR-170s. -->
+  <Dispenser PartId="KSArmory_Prefab_Ale47Chaff" DisplayName="AN/ALE-47 Chaff Dispenser"
+             Decoy="RR170" Count="30" SalvoSize="2" SalvoIntervalSeconds="0.25" EjectSpeed="30" />
+
+</WeaponPack>

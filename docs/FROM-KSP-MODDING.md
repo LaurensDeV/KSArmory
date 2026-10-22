@@ -16,7 +16,7 @@ KSP's own API that every part author has used.
 | `.cfg` in `ConfigNode` format | XML — `KSArmoryAssets.xml`, `KSArmoryGameData.xml` |
 | `PART { }` | `<Part>` and `<SubPart>` |
 | `MODULE { name = X }` binding a `PartModule` | **nothing. See below.** |
-| module fields tuned per part | `LauncherProfile` / `MunitionProfile` / `SensorProfile`, written in `Sim/Arsenal.cs` or declared in a `Weapons.xml` |
+| module fields tuned per part | `LauncherProfile` / `MunitionProfile` / `SensorProfile`, declared in a file in a mod's `KSArmory/` folder |
 | ModuleManager patching (`@`, `%`, `:NEEDS`) | nothing; there is no patch layer |
 | `model.mu` | `.glb`, in a shared mesh atlas |
 | `PartResource` / resource flow | nothing; ammunition is counted by the mod |
@@ -78,8 +78,8 @@ four failure shapes apart.
 - **Art is separate from behaviour.** `tools/model/` generates the vehicle from a Blender script;
   nothing in the simulation names it.
 - **A weapon system is data plus art.** No fire-control, guidance or drive code names the Pantsir.
-  It is named in `src/KSArmory/KSArmory/Weapons.xml`, which is the mod's own definitions file and
-  is meant to; the weapons still written in C# are in `Sim/Arsenal.cs`, which is the registry.
+  It is named in `src/KSArmory/KSArmory/Pantsir.xml`, one of the mod's own definitions files, which
+  is meant to.
 
 ## Adding a weapon
 
@@ -91,10 +91,9 @@ only one that can still want a rebuild:
    visible in game.
 2. **Declare the part.** A `<SubPart>` per moving assembly plus a `<Part>` in
    `KSArmoryAssets.xml`, and a `<PartGameData>` with colliders and mass.
-3. **Register it.** One `LauncherProfile` in `Sim/Arsenal.cs`, naming the munition and sensor it
-   uses, with the geometry `tools/model/build.sh` prints — or a `<Launcher>` in
-   `src/KSArmory/KSArmory/Weapons.xml`, which is the same profile as data and goes through the
-   reader a third-party pack uses. Add a `MunitionProfile` if the round differs.
+3. **Define it.** A `<Launcher>` in a file in `src/KSArmory/KSArmory/`, naming the `<Munition>` and
+   `<Sensor>` it uses, with the geometry `tools/model/build.sh` prints. It goes through the reader a
+   third-party pack uses.
 4. **Teach the validator.** `tools/validate-parts.py` compares the profile's geometry against
    `muzzles.json`, and it is scoped per launcher — a new one gets no check until you add it. The
    generator emitting those numbers and the profile holding them are the same numbers in two

@@ -10,6 +10,7 @@ namespace KSArmory.Tests;
 /// typo in a name or a mismatched count, and neither shows up until something silently picks
 /// the wrong profile in game.
 /// </summary>
+[Collection("catalogue")]
 public class ArsenalTests
 {
     [Fact]
@@ -90,9 +91,17 @@ public class ArsenalTests
     public void UnknownNamesFallBackRatherThanThrow()
     {
         // A launcher naming a round that does not exist is a typo in Arsenal, not a reason for
-        // the game to fall over mid-flight.
-        Assert.NotNull(Catalogue.MunitionNamed("no such round"));
-        Assert.NotNull(Catalogue.SensorNamed("no such sensor"));
+        // the game to fall over mid-flight. The suite runs strict, so this asks as the game does.
+        Catalogue.MissingNameThrows = false;
+        try
+        {
+            Assert.NotNull(Catalogue.MunitionNamed("no such round"));
+            Assert.NotNull(Catalogue.SensorNamed("no such sensor"));
+        }
+        finally
+        {
+            Catalogue.MissingNameThrows = true;
+        }
     }
 
     [Fact]
@@ -178,12 +187,12 @@ public class ArsenalTests
         Assert.True(Catalogue.Launchers.Count >= 2);
 
         (MunitionProfile pantsirRound, SensorProfile pantsirSet) = Catalogue.LoadoutFor(BuiltIns.PantsirS1);
-        (MunitionProfile railRound, SensorProfile railSet) = Catalogue.LoadoutFor(Arsenal.SidewinderRail);
+        (MunitionProfile railRound, SensorProfile railSet) = Catalogue.LoadoutFor(BuiltIns.SidewinderRail);
 
         Assert.NotSame(pantsirRound, railRound);
         Assert.NotSame(pantsirSet, railSet);
 
-        Assert.Same(Arsenal.SidewinderRail, Catalogue.LauncherForPart(Arsenal.SidewinderRail.PartId));
+        Assert.Same(BuiltIns.SidewinderRail, Catalogue.LauncherForPart(BuiltIns.SidewinderRail.PartId));
         Assert.Same(BuiltIns.PantsirS1, Catalogue.LauncherForPart(BuiltIns.PantsirS1.PartId));
     }
 
@@ -199,7 +208,7 @@ public class ArsenalTests
     [Fact]
     public void TheSidewinderBoostsBrieflyAndThenCoasts()
     {
-        MunitionProfile round = Arsenal.Missile9J;
+        MunitionProfile round = BuiltIns.Missile9J;
 
         // A booster, not a sustainer. Anything approaching the flight time is the wrong shape.
         Assert.InRange(round.BoostSeconds, 1.5f, 3.0f);
@@ -222,9 +231,10 @@ public class ArsenalTests
     [Fact]
     public void EveryRoundsDragComesFromWhatItIsUnlessNamedHere()
     {
-        string[] byHand = ["AIM9J", "AIM120C", "AGM88", "57E6", "B61", "MK21"];
+        string[] byHand = ["AIM9J", "AIM120C", "AGM88", "57E6", "B61"];
 
-        foreach (MunitionProfile round in Catalogue.Munitions)
+        // The shipped rounds only: a pack's name is qualified, and a pack may type its drag by hand.
+        foreach (MunitionProfile round in Catalogue.Munitions.Where(m => !m.Name.Contains(':')))
         {
             Assert.True(round.DragFromShape != byHand.Contains(round.Name),
                         $"{round.Name}: drag {(round.DragFromShape ? "from its shape" : "by hand")}");
@@ -232,7 +242,10 @@ public class ArsenalTests
 
         foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
-            if (launcher.GunMunition is { } gun) Assert.True(Catalogue.MunitionNamed(gun).DragFromShape, gun);
+            if (launcher.GunMunition is { } gun && !gun.Contains(':'))
+            {
+                Assert.True(Catalogue.MunitionNamed(gun).DragFromShape, gun);
+            }
         }
     }
 
@@ -244,7 +257,7 @@ public class ArsenalTests
     [Fact]
     public void TheSidewinderRailIsAFixedLauncherAndSaysSo()
     {
-        LauncherProfile rail = Arsenal.SidewinderRail;
+        LauncherProfile rail = BuiltIns.SidewinderRail;
 
         Assert.Null(rail.TurretMarker);
         Assert.Null(rail.PodsMarker);
@@ -338,7 +351,7 @@ public class ArsenalTests
         foreach (ComponentProfile component in Catalogue.Components)
         {
             List<SurveyedPart> parts = [new SurveyedPart(component.PartId, default, doubleQuat.Identity)];
-            bool isBus = component.PartId == Arsenal.MirvBus.PartId;
+            bool isBus = component.PartId == BuiltIns.MirvBus.PartId;
 
             Assert.True(isBus == WeaponSurvey.Survey(parts, Catalogue.Components).HasGuidance,
                         $"{component.DisplayName} gets a ballistic computer only if it is a bus");
@@ -356,7 +369,8 @@ public class ArsenalTests
     [Fact]
     public void EverySearchSetIsASensorComponentSearchingWithARegisteredSet()
     {
-        foreach (SearchSetProfile set in Arsenal.SearchSets)
+        // The shipped sets: a test pack's may search with anything.
+        foreach (SearchSetProfile set in Catalogue.SearchSets.Where(s => s.PartId.StartsWith("KSArmory_")))
         {
             Assert.Contains(Catalogue.Components, c => c.PartId == set.PartId && c.Role == WeaponRole.Sensor);
 
@@ -496,7 +510,7 @@ public class ArsenalTests
         Assert.False(fit.Describes(ArmamentKind.Belt, belt.Label));
 
         // A launcher with no belt recognises nothing, rather than matching on a null.
-        WeaponFit rail = WeaponFit.Of(Arsenal.SidewinderRail, Arsenal.SeekerHeadAim9);
+        WeaponFit rail = WeaponFit.Of(BuiltIns.SidewinderRail, BuiltIns.SeekerHeadAim9);
         Assert.False(rail.Describes(ArmamentKind.Belt, BuiltIns.Cannon30Mm.DisplayName));
     }
 
@@ -586,7 +600,7 @@ public class ArsenalTests
     [Fact]
     public void TheReentryVehicleCanBeReleasedAtIntercontinentalRange()
     {
-        MunitionProfile rv = Catalogue.MunitionNamed(Arsenal.MirvBus.Munition);
+        MunitionProfile rv = Catalogue.MunitionNamed(BuiltIns.MirvBus.Munition);
 
         Assert.Equal(GuidanceMode.None, rv.Guidance);
 
@@ -615,7 +629,7 @@ public class ArsenalTests
     [Fact]
     public void TheReentryVehicleAsksForAFinerStepAndNothingElseDoes()
     {
-        MunitionProfile rv = Arsenal.ReentryVehicleMk21;
+        MunitionProfile rv = BuiltIns.ReentryVehicleMk21;
 
         Assert.True(rv.SubStep < Interceptor.SubStep,
                     $"the Mk 21 integrates at {rv.SubStep * 1000.0:F2} ms, the shared default");
@@ -645,31 +659,14 @@ public class ArsenalTests
         }
     }
 
-    /// <summary>
-    /// The Mk 21 with its drag from what it is differs from the Mk 21 in its drag and nothing else: a paired night
-    /// compares the two, so anything else that differed would be measured with it.
-    /// </summary>
+    // 270 kg on a 55 cm base at a Cd of 0.1, in 1.225 kg/m3: the drag the warheads were flown with.
     [Fact]
-    public void TheMk21WithDragFromItsShapeDiffersOnlyInItsDrag()
+    public void TheMk21sDragIsItsShapes()
     {
-        MunitionProfile rv = Arsenal.ReentryVehicleMk21;
-        MunitionProfile shape = Arsenal.Mk21WithDragFromShape(rv);
+        MunitionProfile rv = BuiltIns.ReentryVehicleMk21;
 
-        Assert.False(rv.DragFromShape);
-        Assert.True(shape.DragFromShape);
-        Assert.Equal(0.5 * 1.225 * 0.1 * Math.PI * 0.275 * 0.275 / 270.0, shape.AppliedDragK, 9);
-        Assert.InRange(shape.AppliedDragK / rv.AppliedDragK, 3.5, 3.7);
-
-        Assert.Equal(rv.Name, shape.Name);
-        Assert.Equal(rv.LaunchSpeed, shape.LaunchSpeed);
-        Assert.Equal(rv.SubStepSeconds, shape.SubStepSeconds);
-        Assert.Equal(rv.MaxFlightSeconds, shape.MaxFlightSeconds);
-        Assert.Equal(rv.ChargeKg, shape.ChargeKg);
-        Assert.Equal(rv.FuseArmSeconds, shape.FuseArmSeconds);
-        Assert.Equal(rv.HitsTerrain, shape.HitsTerrain);
-        Assert.Equal(rv.Guidance, shape.Guidance);
-        Assert.Equal(rv.BodyLength, shape.BodyLength);
-        Assert.False(rv.DragFromShape, "making the copy changed the registered round");
+        Assert.True(rv.DragFromShape);
+        Assert.Equal(0.5 * 1.225 * 0.1 * Math.PI * 0.275 * 0.275 / 270.0, rv.AppliedDragK, 9);
     }
 
     /// <summary>
@@ -679,12 +676,12 @@ public class ArsenalTests
     [Fact]
     public void FlyingARoundAtAnotherSubStepLeavesTheRegisteredProfileAlone()
     {
-        double was = Arsenal.ReentryVehicleMk21.SubStep;
+        double was = BuiltIns.ReentryVehicleMk21.SubStep;
 
-        MunitionProfile fine = Arsenal.RoundAtSubStep(Arsenal.ReentryVehicleMk21, 0.000125);
+        MunitionProfile fine = (BuiltIns.ReentryVehicleMk21).AtSubStep(0.000125);
 
         Assert.Equal(0.000125, fine.SubStep, 9);
-        Assert.Equal(was, Arsenal.ReentryVehicleMk21.SubStep, 9);
+        Assert.Equal(was, BuiltIns.ReentryVehicleMk21.SubStep, 9);
     }
 
     /// <summary>
@@ -696,8 +693,8 @@ public class ArsenalTests
     [Fact]
     public void AFinerSubStepDoesNotMoveTheFaithfulStep()
     {
-        MunitionProfile shipped = Arsenal.ReentryVehicleMk21;
-        MunitionProfile fine = Arsenal.RoundAtSubStep(shipped, shipped.SubStep / 8.0);
+        MunitionProfile shipped = BuiltIns.ReentryVehicleMk21;
+        MunitionProfile fine = (shipped).AtSubStep(shipped.SubStep / 8.0);
 
         Assert.True(fine.SubStep * fine.MaxSubSteps >= shipped.MaxFaithfulStepSeconds,
                     $"a {fine.SubStep * 1000.0:F3} ms warhead spans only "

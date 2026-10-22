@@ -3,31 +3,29 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// What the catalogue adds over the built-in registry it is seeded from.
-///
-/// <see cref="ArsenalTests"/> holds the built-ins themselves. These hold the two things that
-/// change once the registry is something other code contributes to: that a name which resolves
+/// The registry the mod reads. <see cref="ArsenalTests"/> holds the built-ins themselves; these hold the
+/// two things that matter once other code contributes to it: that a name which resolves
 /// can be told apart from one that does not, and that a weapons system with no launcher yet says
 /// so rather than impersonating whichever launcher happens to be registered first.
 /// </summary>
+[Collection("catalogue")]
 public class CatalogueTests
 {
+    // Same instances, not copies: the panel tunes a profile by reference and every system running that
+    // loadout is meant to feel it.
     [Fact]
-    public void TheCatalogueReportsEveryBuiltIn()
+    public void ALookupHandsOutTheOneInstanceEverySystemShares()
     {
-        // A superset, not a match: weapons that have moved into the shipped definitions file are
-        // in the catalogue and not in Arsenal, which is the whole direction of travel. What must
-        // never happen is one of Arsenal's going missing.
-        foreach (LauncherProfile l in Arsenal.Launchers) Assert.Contains(l, Catalogue.Launchers);
-        foreach (MunitionProfile m in Arsenal.Munitions) Assert.Contains(m, Catalogue.Munitions);
-        foreach (SensorProfile s in Arsenal.Sensors) Assert.Contains(s, Catalogue.Sensors);
-        foreach (OpticProfile o in Arsenal.Optics) Assert.Contains(o, Catalogue.Optics);
-        foreach (ComponentProfile c in Arsenal.Components) Assert.Contains(c, Catalogue.Components);
-
-        // Same instances, not copies: the panel tunes a profile by reference and every system
-        // running that loadout is meant to feel it.
         Assert.Same(BuiltIns.PantsirS1, Catalogue.LauncherForPart(BuiltIns.PantsirS1.PartId));
-        Assert.Same(Arsenal.EoDirector, Catalogue.OpticForPart(Arsenal.EoDirector.PartId));
+        Assert.Same(BuiltIns.EoDirector, Catalogue.OpticForPart(BuiltIns.EoDirector.PartId));
+    }
+
+    // The suite runs strict, so a weapon renamed in a move fails here rather than flying as another.
+    [Fact]
+    public void ANameMatchingNothingThrowsUnderTest()
+    {
+        Assert.Throws<KeyNotFoundException>(() => Catalogue.MunitionNamed("no such round"));
+        Assert.Throws<KeyNotFoundException>(() => Catalogue.SensorNamed("no such sensor"));
     }
 
     /// <summary>
@@ -40,11 +38,20 @@ public class CatalogueTests
     {
         const string missing = "no such round";
 
-        Assert.NotNull(Catalogue.MunitionNamed(missing));
-        Assert.NotEqual(missing, Catalogue.MunitionNamed(missing).Name);
-        Assert.Null(Catalogue.TryMunitionNamed(missing));
+        // The suite runs strict; the fallback being described is the game's.
+        Catalogue.MissingNameThrows = false;
+        try
+        {
+            Assert.NotNull(Catalogue.MunitionNamed(missing));
+            Assert.NotEqual(missing, Catalogue.MunitionNamed(missing).Name);
+            Assert.NotNull(Catalogue.SensorNamed(missing));
+        }
+        finally
+        {
+            Catalogue.MissingNameThrows = true;
+        }
 
-        Assert.NotNull(Catalogue.SensorNamed(missing));
+        Assert.Null(Catalogue.TryMunitionNamed(missing));
         Assert.Null(Catalogue.TrySensorNamed(missing));
 
         // And it still finds what is there, so the null above means "absent" and not "broken".
@@ -88,11 +95,11 @@ public class CatalogueTests
     {
         // The ballistic computer releases through the launcher that answers yes, so a second
         // launcher on the same craft answering yes would hand the warheads' release to a rail.
-        Assert.True(Catalogue.ProvidesGuidance(Arsenal.MirvBus.PartId));
+        Assert.True(Catalogue.ProvidesGuidance(BuiltIns.MirvBus.PartId));
 
         foreach (LauncherProfile launcher in Catalogue.Launchers)
         {
-            if (ReferenceEquals(launcher, Arsenal.MirvBus)) continue;
+            if (ReferenceEquals(launcher, BuiltIns.MirvBus)) continue;
             Assert.False(Catalogue.ProvidesGuidance(launcher.PartId), launcher.DisplayName);
         }
 

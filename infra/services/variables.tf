@@ -34,18 +34,6 @@ variable "api_domain" {
   default     = "api.ksarmory.com"
 }
 
-variable "root_domain" {
-  description = "Apex. Redirected to the project page: there is no site to serve yet."
-  type        = string
-  default     = "ksarmory.com"
-}
-
-variable "project_url" {
-  description = "Where the apex and www redirect to."
-  type        = string
-  default     = "https://github.com/LaurensDeV/KSArmory"
-}
-
 variable "acme_email" {
   description = "Contact address for Let's Encrypt expiry notices."
   type        = string
