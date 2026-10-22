@@ -146,6 +146,8 @@ body { font-family: "IBM Plex Sans", system-ui, sans-serif; }
 .ks-patch svg { width: 15rem; height: 15rem; display: block; }
 .ks-hero p.ks-intro { grid-column: 1 / -1; font-size: .95rem; color: var(--ks-muted); max-width: 42rem; margin: 0; }
 .ks-actions { grid-column: 1 / -1; display: flex; gap: .8rem; flex-wrap: wrap; }
+/* Zensical underlines links; a button and a card are not read as running text. */
+.md-typeset a.ks-button, .md-typeset a.ks-card { text-decoration: none; }
 .md-typeset .ks-button {
   border: 1px solid var(--ks-accent);
   color: var(--ks-accent-text);
@@ -223,3 +225,6 @@ model-viewer.part-preview img[slot="poster"] { width: 100%; height: 100%; object
 /* A section's link, shown on hover and on arrival from the gallery: the theme's pilcrow read as a stray mark. */
 .md-typeset .headerlink { color: var(--ks-muted); font-family: "IBM Plex Mono", monospace; font-weight: 400; }
 .md-typeset .headerlink:hover, .md-typeset [id]:target .headerlink { color: var(--ks-accent-text); }
+
+/* Zensical's footer takes its own background rather than the theme's footer colour. */
+.md-footer, .md-footer-meta { background-color: var(--ks-deep); }

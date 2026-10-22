@@ -40,7 +40,7 @@ jobs:
           cache: npm
           cache-dependency-path: tools/wiki/package-lock.json
 
-      - name: Install MkDocs and the model tools
+      - name: Install Zensical and the model tools
         run: |
           pip install -r wiki/requirements.txt
           npm ci --prefix tools/wiki

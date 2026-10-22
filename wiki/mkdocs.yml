@@ -1,5 +1,5 @@
 # ksarmory.com. tools/wiki/build.py assembles the pages into build/docs and writes this file to
-# build/mkdocs.yml with the weapon pages filled in where the marker is; run that, not mkdocs directly.
+# build/mkdocs.yml with the weapon pages filled in where the marker is; run that, not zensical directly.
 site_name: KSArmory
 site_url: https://ksarmory.com/
 site_description: Weapon systems for Kitten Space Agency, and how to make your own.

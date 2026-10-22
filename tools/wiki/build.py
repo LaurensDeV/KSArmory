@@ -164,10 +164,19 @@ def blurb_for(names: list[str], blurbs: list[tuple[str, str]]) -> str | None:
 
 
 
-def relink(text: str, source: Path, pages: dict[str, str]) -> str:
-    """Point every link that leaves the site at GitHub; one to a page the site carries stays on the site."""
+def relink(text: str, source: Path, page: str) -> str:
+    """Point every link that leaves the site at GitHub; one to a page or a README section the site carries
+    stays on the site."""
+    pages = site_links(page)
+
     def fix(m: re.Match) -> str:
         label, target = m.group(1), m.group(2)
+        if target.startswith("#") and source == ROOT / "README.md":
+            # A README heading is on whichever guide page took its section, or only on GitHub.
+            home = readme_anchors().get(target[1:])
+            if home is None:
+                return f"[{label}]({REPO}/blob/{BRANCH}/README.md{target})"
+            return f"[{label}]({'' if home == page else os.path.relpath(home, Path(page).parent)}{target})"
         if re.match(r"^(https?:|mailto:|#)", target):
             return m.group(0)
         path, _, anchor = target.partition("#")
@@ -178,6 +187,15 @@ def relink(text: str, source: Path, pages: dict[str, str]) -> str:
         return f"[{label}]({urljoin(f'{REPO}/blob/{BRANCH}/{source.relative_to(ROOT).as_posix()}', target)})"
 
     return re.sub(r"(?<!!)\[([^\]]+)\]\(([^)\s]+)\)", fix, text)
+
+
+def readme_anchors() -> dict[str, str]:
+    """Each heading inside a README section the guide carries, to the guide page it is on."""
+    found = {}
+    for heading, page, _ in README_PAGES:
+        for title in re.findall(r"^#{2,4} (.+)$", readme_section(heading), re.M):
+            found.setdefault(anchor(title), page)
+    return found
 
 
 def readme_section(heading: str) -> str:
@@ -272,7 +290,7 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
                                  f"models/{slug(part_id)}-card.png"),
                    *VIEWER_SCRIPTS, "", f"# {name}", ""]
             if blurb:
-                out += [relink(blurb, ROOT / "README.md", site_links(page)), ""]
+                out += [relink(blurb, ROOT / "README.md", page), ""]
             out += [viewer(part_id, name), "",
                     f"Part Id `{part_id}`, in [{FAMILIES[family]}](index.md).", ""]
 
@@ -479,9 +497,9 @@ def assemble(with_models: bool) -> None:
     home.write_text(home.read_text().replace(GALLERY_MARKER, gallery(weapons)).replace(PATCH_MARKER, patch))
 
     for src, page, _ in DOC_PAGES:
-        write(page, relink((ROOT / src).read_text(), ROOT / src, site_links(page)))
+        write(page, relink((ROOT / src).read_text(), ROOT / src, page))
     for heading, page, title in README_PAGES:
-        write(page, f"# {title}\n\n" + relink(readme_section(heading), ROOT / "README.md", site_links(page)))
+        write(page, f"# {title}\n\n" + relink(readme_section(heading), ROOT / "README.md", page))
 
     if with_models:
         models()
@@ -522,15 +540,17 @@ def main() -> int:
         assemble(with_models=False)
         return 0
     assemble(with_models=True)
-    mkdocs = shutil.which("mkdocs")
-    if mkdocs is None:
-        print("wiki: mkdocs is not installed; pip install -r wiki/requirements.txt", file=sys.stderr)
+    zensical = shutil.which("zensical")
+    if zensical is None:
+        print("wiki: zensical is not installed; pip install -r wiki/requirements.txt", file=sys.stderr)
         return 2
-    command = [mkdocs, "serve" if args.serve else "build", "-f", str(BUILD / "mkdocs.yml")]
+    command = [zensical, "serve" if args.serve else "build", "-f", str(BUILD / "mkdocs.yml")]
     if args.serve:
         return subprocess.run(command).returncode
 
     command.append("--strict")
+    # Zensical writes into the site folder without emptying it, so a page that was renamed would linger.
+    shutil.rmtree(BUILD / "site", ignore_errors=True)
     if (code := subprocess.run(command).returncode) != 0:
         return code
     for page in (BUILD / "site").rglob("*.html"):
