@@ -1,6 +1,9 @@
 # KSArmory
 
-<img src="branding/logo.png" alt="KSArmory — Kessler Systems Armory" width="620">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="branding/logo.png">
+  <img src="branding/logo-light.png" alt="KSArmory: weapon systems for Kitten Space Agency" width="620">
+</picture>
 
 Weapon systems for **[Kitten Space Agency](https://ahwoo.com/app/100000/kitten-space-agency)**
 — sensors, fire control, guided and unguided rounds, and the parts to mount them on.
@@ -92,6 +95,12 @@ hangs from stays at the top of it.
 **YAL-1 nose turret** — the Airborne Laser's beam director: the LITENING's mechanism scaled to a
 1.5 m telescope behind a 1.8 m window, stacking on a 3 m node. It tracks, and fires a megawatt beam
 that burns through whatever part it is held on: a few seconds at 100 km, with about twenty shots a load.
+
+**Infrared Search and Track Sensor** — what finds targets for the sights, which find nothing by
+themselves. A passive heat sensor, so it never gives itself away, whose head turns behind a faceted
+window; it sees a contact by the heat it makes, a booster at about 250 km in thin air and less against
+the ground, across a 120° cone. Several on one hull, turned different ways, give all-round cover, and
+every set aboard feeds one picture of the craft's contacts that its directors can track.
 
 And one piece of kit that shoots nothing:
 
@@ -230,31 +239,79 @@ in one go — including the `manifest.toml` entry.
 
 ## Use
 
-1. In the editor, attach the **Pantsir-S1 Point Defence System** to your craft. It is under
-   *Weapons* and stacks on a 3 m node. It is also its own command source, so a craft consisting of
-   nothing but the Pantsir builds and launches.
-2. In flight, press **FIRE** to shoot at the current lock. There is nothing to arm first.
-3. Tick **Auto engage** to let it pick targets and fire on its own. It starts off, so a site never
-   opens fire by itself until you say so.
-4. A system stays on the craft carrying its launcher whatever you take control of, so you can
-   switch away and watch it defend itself.
+### Fitting a weapon
 
-The launcher **traverses and elevates onto the target**, and will not fire until it has settled
-on the aim point. The radar's own boresight stays local "up" — a hemisphere is what you want for
-a defence site. Green dots mark loaded tubes, grey ones spent.
+Every part is under **Weapons** in the editor, but for the EO director, the LITENING pod and the IRST, which are under **Sensors**. The big
+mounts stack on a 3 m node: the Pantsir, the Phalanx, the 5"/54, the YAL-1 turret and the MIRV bus.
+Everything else attaches to a surface: the missile rails, the B61 rack, the M197 under a nose, the EO
+director, the LITENING pod, the IRST and the dispensers. The Pantsir is its own command source, so a
+craft that is nothing but a Pantsir builds and launches.
 
-**Missiles** and **Cannon** can be switched on and off independently. The cannon engage inside 4 km, overlapping
-the missiles' 1.2 km minimum so nothing can sit in a gap between them, and the mount solves a
-ballistic lead for them rather than pointing straight at the contact. Set **Director view** to
-*main view* to look through the tracker, which borrows the player's own camera and hands it back.
-A second camera window is offered too and renders without KSA's atmosphere pass, so that one has
-no sky. See [`docs/BLOCKED-ON-KSA.md`](docs/BLOCKED-ON-KSA.md).
+### The panel
 
-A contact becomes a *threat* when its closest point of approach falls inside **Threat radius**
-within **Threat horizon** seconds. It becomes shootable once held for **Lock time**. The
-launcher commits **Rounds per target** rounds before re-evaluating.
+Open it from the **KSArmory** menu → **Panel**. The switcher lists every craft carrying something of
+this mod's, grouped by team, with a row per weapon; the picker beside **FIRE** chooses which weapon the
+trigger and the panel are pointed at. A weapon fitted twice, such as two rails, is one weapon with two
+stations, and the trigger steps between them.
 
-### Tuning that actually matters
+A weapon belongs to the craft carrying it, not to the one you are flying, so you can take control of
+something else and watch a site defend itself.
+
+### Firing
+
+- **FIRE** shoots the selected weapon. There is nothing to arm first. A missile needs something locked;
+  a gun fires where it is laid; a bomb rack lets its store go.
+- **Auto engage** lets a weapon pick its own targets and fire. It starts off, so nothing opens fire on
+  its own until you say so. The shield in the switcher is auto engage for every weapon on a craft.
+- The line beside the trigger says why a weapon is not firing: no lock, out of reach, still slewing, out
+  of rounds.
+
+A contact becomes a *threat* when its closest point of approach falls inside **Threat radius** within
+**Threat horizon** seconds, and shootable once held for **Lock time**. A launcher commits **Rounds per
+target** before it looks again. A turret traverses and elevates onto its target and will not fire until
+it has settled.
+
+### Aiming
+
+- **Shift-click** anything, a craft or a place on the ground, to designate it. The turret follows it, the
+  trigger shoots at it, and a falling guided store is steered onto it.
+- **Fire at the mouse** turns an ordinary click into a shot at what is under the cursor; its own tick
+  box arms it.
+- **Aim with the mouse** points the turret at the cursor without firing; auto engage still decides
+  when to shoot.
+
+A gun over the ground is laid to land where you point, not along the line to it, and the line beside
+the trigger says when a place is beyond its reach.
+
+### Sights
+
+The EO director, the LITENING pod, the YAL-1 turret and the Pantsir's roof director are sights. Each
+has its own row: **Main view** looks through it with the view you fly from, **Camera** opens it in a
+window of its own, which can be dragged onto another monitor, and **Zoom** magnifies. **Track** slews
+it onto what the craft's sensors hold, **Mouse** points it at the cursor, **Hand** with sliders, and
+**Spot** finds a laser spot on its code. A sight finds nothing by itself: an IRST on the same craft is
+what hands it contacts.
+
+### Bombs and the ballistic bus
+
+The B61 rack draws a ring where the bomb will land if released now, flown rather than solved, and a
+blue ring of where its fins can still move it once it falls. The MIRV bus is flown by its ballistic
+computer, on the **Ballistic** tab: designate the targets, by clicking the world or KSA's ground-track
+map, arm it and launch. [`docs/ICBM-GUIDANCE.md`](docs/ICBM-GUIDANCE.md) has how it flies.
+
+### Teams
+
+A craft with no team is fair game. The flag in the switcher puts a craft on a team, and the **Teams**
+window sets who each team is allied with, neutral to, and fires on. Every weapon on a team follows its
+team's rules.
+
+### KSArmory's own weapons
+
+Every weapon family can be switched off under **KSArmory** → **Built-in weapons**, at the next start.
+Its parts still load on a saved craft, as plain structure, and a weapon pack may then define a weapon of
+its own on them.
+
+### Tuning a guided round
 
 | Setting | Effect |
 | --- | --- |
