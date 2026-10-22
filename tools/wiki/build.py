@@ -14,6 +14,7 @@ the site describes.
 
 import argparse
 import html
+import json
 import math
 import os
 import re
@@ -216,18 +217,37 @@ def sensor_row(s: ET.Element) -> str:
             f"{value(s, 'ConeDeg', SENSOR)}° |")
 
 
+def front_matter(title: str, description: str, image: str) -> list[str]:
+    """What a link preview reads: the title, a sentence or two, and the picture (wiki/overrides/main.html)."""
+    return ["---", f"title: {json.dumps(title)}", f"description: {json.dumps(description)}",
+            f"image: {json.dumps(image)}", "---", ""]
+
+
+def plain(markdown: str, limit: int = 220) -> str:
+    """Markdown as one line of plain text, cut at a sentence where it can be."""
+    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", markdown)
+    text = re.sub(r"[*_`]", "", text)
+    if len(text) <= limit:
+        return text
+    cut = text.rfind(". ", 0, limit)
+    return text[:cut + 1] if cut > 60 else text[:limit].rsplit(" ", 1)[0] + "..."
+
+
+VIEWER_SCRIPTS = ['<script src="/assets/3d/config.js"></script>',
+                  '<script type="module" src="/assets/3d/model-viewer.min.js"></script>']
+
+
 def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], list[str]]:
-    """The family pages, one entry per part for the gallery and the table, and every part no README
-    paragraph describes."""
+    """A page per weapon and an overview per family, one entry per part for the gallery and the table, and
+    every part no README paragraph describes."""
     blurbs = readme_blurbs()
     pages, weapons, undescribed = {}, [], []
     for family, root, file_name in family_files():
         munitions = {m.get("Name"): m for m in root.iter("Munition")}
         sensors = {s.get("Name"): s for s in root.iter("Sensor")}
         decoys = {d.get("Name"): d for d in root.iter("Decoy")}
-        out = [f"# {FAMILIES[family]}", "",
-               f"Generated from [`{file_name}`]({REPO}/blob/{BRANCH}/src/KSArmory/KSArmory/{file_name}), the "
-               f"family KSArmory files these under (*KSArmory → Built-in weapons → {family}*).", ""]
+        folder = f"weapons/{family.lower()}"
+        family_weapons = []
 
         parts: dict[str, list[ET.Element]] = {}
         for element in root:
@@ -236,15 +256,19 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
 
         for part_id, elements in parts.items():
             name = names.get(part_id, part_id)
+            page = f"{folder}/{anchor(name)}.md"
             own_names = [name] + [e.get("DisplayName", "") for e in elements]
             blurb = blurb_for(own_names, blurbs)
             if blurb is None:
                 undescribed.append(name)
-            out += [f"## {name}", ""]
+            blurb = blurb[0].upper() + blurb[1:] if blurb else ""
+            out = [*front_matter(name, plain(blurb) or f"{name}, part of KSArmory's {FAMILIES[family].lower()}.",
+                                 f"models/{slug(part_id)}-card.png"),
+                   *VIEWER_SCRIPTS, "", f"# {name}", ""]
             if blurb:
-                blurb = blurb[0].upper() + blurb[1:]
-                out += [relink(blurb, ROOT / "README.md", site_links(f"weapons/{family.lower()}.md")), ""]
-            out += [viewer(part_id, name), "", f"Part `{part_id}`.", ""]
+                out += [relink(blurb, ROOT / "README.md", site_links(page)), ""]
+            out += [viewer(part_id, name), "",
+                    f"Part `{part_id}`, in the [{FAMILIES[family].lower()}](index.md) family.", ""]
 
             fires, sees, kinds, shells = [], [], [], set()
             for e in elements:
@@ -292,19 +316,24 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
             if sees:
                 out += ["| Sensor | Kind | Range | Cone |", "| --- | --- | --- | --- |", *[sensor_row(s) for s in sees], ""]
 
+            pages[page] = "\n".join(out)
             first = fires[0] if fires else None
-            weapons.append({
-                "name": name, "part": part_id, "family": FAMILIES[family],
-                "href": f"/weapons/{family.lower()}/#{anchor(name)}",
+            family_weapons.append({
+                "name": name, "part": part_id, "family": FAMILIES[family], "page": page, "id": anchor(name),
+                "href": f"/{folder}/{anchor(name)}/",
                 "kinds": ", ".join(dict.fromkeys(kinds)),
                 "reach": distance(number(value(first, "MaxRange", MUNITION))) if first is not None else None,
                 "warhead": charge(number(value(first, "ChargeKg", MUNITION))) if first is not None else None,
             })
 
-        # The viewer is a megabyte, so it is loaded only by a page that shows a model.
-        out[1:1] = ["", '<script src="/assets/3d/config.js"></script>',
-                    '<script type="module" src="/assets/3d/model-viewer.min.js"></script>']
-        pages[f"weapons/{family.lower()}.md"] = "\n".join(out)
+        weapons += family_weapons
+        pages[f"{folder}/index.md"] = "\n".join([
+            *front_matter(FAMILIES[family], ", ".join(w["name"] for w in family_weapons) + ".",
+                          f"models/{slug(family_weapons[0]['part'])}-card.png"),
+            f"# {FAMILIES[family]}", "",
+            f"Defined in [`{file_name}`]({REPO}/blob/{BRANCH}/src/KSArmory/KSArmory/{file_name}). The whole family "
+            f"can be switched off in game under *KSArmory → Built-in weapons → {family}*.", "",
+            gallery(family_weapons), ""])
     return pages, weapons, undescribed
 
 
@@ -327,7 +356,7 @@ def gallery(weapons: list[dict]) -> str:
     cards = []
     for w in weapons:
         stats = " · ".join(x for x in (w["reach"], w["warhead"]) if x and x != "none") or w["kinds"]
-        cards.append(f'<a class="ks-card" href="{w["href"]}">'
+        cards.append(f'<a class="ks-card" id="{w["id"]}" href="{w["href"]}">'
                      f'<img src="/models/{slug(w["part"])}.webp" alt="{html.escape(w["name"], quote=True)}" loading="lazy">'
                      f'<span class="ks-card__body"><span class="ks-card__family">{html.escape(w["family"])}</span>'
                      f'<span class="ks-card__name">{html.escape(w["name"])}</span>'
@@ -409,13 +438,19 @@ def assemble(with_models: bool) -> None:
     marker = "      # generated: one entry per family\n"
     if marker not in config:
         sys.exit("wiki: wiki/mkdocs.yml has lost the marker the family pages are written at")
-    entries = "".join(f"      - {title}: weapons/{family.lower()}.md\n"
-                      for family, title in FAMILIES.items()
-                      if any(f == family for f, _, _ in family_files()))
-    (BUILD / "mkdocs.yml").write_text(config.replace(marker, entries))
-
     names = part_names()
     pages, weapons, undescribed = weapon_pages(names)
+    entries = ""
+    for family, title in FAMILIES.items():
+        members = [w for w in weapons if w["page"].startswith(f"weapons/{family.lower()}/")]
+        if members:
+            entries += f"      - {title}:\n          - weapons/{family.lower()}/index.md\n"
+            entries += "".join(f"          - {json.dumps(w['name'])}: {w['page']}\n" for w in members)
+    (BUILD / "mkdocs.yml").write_text(config.replace(marker, entries))
+    # A link preview's picture for each weapon, drawn by stills.mjs beside its still.
+    (DOCS / "models").mkdir(exist_ok=True)
+    (DOCS / "models/cards.json").write_text(json.dumps(
+        {slug(w["part"]): {"name": w["name"], "family": w["family"]} for w in weapons}, indent=1))
     for page, text in pages.items():
         write(page, text)
     write("weapons/index.md", "\n".join([
@@ -438,7 +473,7 @@ def assemble(with_models: bool) -> None:
     if with_models:
         models()
         # Strict mode does not follow a URL in raw HTML, so a page naming a model nobody built would pass it.
-        for page in (DOCS / "weapons").glob("*.md"):
+        for page in (DOCS / "weapons").rglob("*.md"):
             for model in re.findall(r'src="/models/([^"]+)"', page.read_text()):
                 if not (DOCS / "models" / model).is_file():
                     sys.exit(f"wiki: {page.name} shows models/{model}, which was not built")
