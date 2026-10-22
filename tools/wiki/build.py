@@ -7,7 +7,7 @@
 
 Nothing on the site is written for the site except wiki/pages/. The weapon pages are generated from
 the family files and the part XML, with each weapon's description taken from README.md's "What ships
-with it"; the pack-author pages are docs/WEAPON-PACKS.md and docs/PACK-API-SURFACE.md; the player
+with it"; the pack-author pages are docs/WEAPON-PACKS.md and docs/FROM-KSP-MODDING.md; the guide
 pages are README.md's own sections. A link into the repository is pointed at GitHub, at the branch
 the site describes.
 """
@@ -55,14 +55,13 @@ FAMILIES = {
 # Pages lifted whole from the repository: (source, page, title).
 DOC_PAGES = [
     ("docs/WEAPON-PACKS.md", "modding/weapon-packs.md", "Weapon pack reference"),
-    ("docs/PACK-API-SURFACE.md", "modding/pack-api.md", "Pack API surface"),
     ("docs/FROM-KSP-MODDING.md", "modding/from-ksp.md", "Coming from KSP modding"),
 ]
 
 # README.md sections that are the player's own pages: (heading, page, title).
 README_PAGES = [
-    ("Install", "players/install.md", "Installing"),
-    ("Use", "players/using.md", "Using it"),
+    ("Install", "guide/install.md", "Installing"),
+    ("Use", "guide/using.md", "Using it"),
 ]
 
 
@@ -85,6 +84,8 @@ def csharp_defaults(*files: str) -> dict[str, str]:
 MUNITION = csharp_defaults("MunitionProfile.cs")
 SENSOR = csharp_defaults("SensorProfile.cs")
 OPTIC = csharp_defaults("OpticProfile.cs")
+LAUNCHER = csharp_defaults("LauncherProfile.cs")
+DISPENSER = csharp_defaults("Dispenser.cs")
 
 
 def value(element: ET.Element, name: str, defaults: dict[str, str]) -> str | None:
@@ -117,7 +118,7 @@ def charge(kg: float | None) -> str:
     for scale, unit in ((1e9, "Mt"), (1e6, "kt"), (1e3, "t")):
         if kg >= scale:
             return f"{kg / scale:.3g} {unit}"
-    return f"{kg:.3g} kg"
+    return f"{kg:.3g} kg" if kg >= 1 else f"{kg * 1000:.3g} g"
 
 
 
@@ -204,17 +205,22 @@ def family_files() -> list[tuple[str, ET.Element, str]]:
 def round_row(m: ET.Element, shell: bool) -> str:
     # A gun's round is flown as a shell whatever its profile's guidance says, which is only the default.
     guidance = "shell" if shell else GUIDANCE.get(value(m, "Guidance", MUNITION) or "", value(m, "Guidance", MUNITION))
-    reach = f"{distance(number(value(m, 'MinRange', MUNITION)))} – {distance(number(value(m, 'MaxRange', MUNITION)))}"
+    low, high = number(value(m, "MinRange", MUNITION)), distance(number(value(m, "MaxRange", MUNITION)))
+    reach = f"{distance(low)} to {high}" if low else f"up to {high}"
     fuse = number(value(m, "FuseRadius", MUNITION))
     return (f"| {m.get('DisplayName')} | {guidance} | {reach} | {charge(number(value(m, 'ChargeKg', MUNITION)))} | "
-            f"{'contact' if not fuse else distance(fuse)} |")
+            f"{'contact' if not fuse else 'proximity, ' + distance(fuse)} |")
 
 
 def sensor_row(s: ET.Element) -> str:
-    kind = "cued only" if s.get("CuedOnly") == "true" else ("infrared" if s.get("Infrared") == "true" else
-                                                             ("radar" if s.get("Emits") == "true" else "passive"))
-    return (f"| {s.get('DisplayName')} | {kind} | {distance(number(value(s, 'Range', SENSOR)))} | "
-            f"{value(s, 'ConeDeg', SENSOR)}° |")
+    kind = ("tracks what it is given" if s.get("CuedOnly") == "true" else
+            "infrared" if s.get("Infrared") == "true" else "radar" if s.get("Emits") == "true" else "passive")
+    reach = distance(number(value(s, "Range", SENSOR)))
+    # An infrared set's range is a ceiling; what it sees depends on how hot the contact is.
+    if s.get("Infrared") == "true":
+        reach = f"up to {reach}"
+    # ConeDeg is a half-angle; the field of view is twice it.
+    return f"| {s.get('DisplayName')} | {kind} | {reach} | {2 * float(value(s, 'ConeDeg', SENSOR)):g}° |"
 
 
 def front_matter(title: str, description: str, image: str) -> list[str]:
@@ -268,15 +274,15 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
             if blurb:
                 out += [relink(blurb, ROOT / "README.md", site_links(page)), ""]
             out += [viewer(part_id, name), "",
-                    f"Part `{part_id}`, in the [{FAMILIES[family].lower()}](index.md) family.", ""]
+                    f"Part Id `{part_id}`, in [{FAMILIES[family]}](index.md).", ""]
 
             fires, sees, kinds, shells = [], [], [], set()
             for e in elements:
                 if e.tag == "Launcher":
                     if e.get("FiresBeam") == "true":
-                        kinds.append("beam")
+                        kinds.append("laser")
                     if e.findall("Tube"):
-                        kinds.append("launcher")
+                        kinds.append(value(e, "TubeArmamentLabel", LAUNCHER).strip('"').lower())
                     if e.get("GunMunition"):
                         kinds.append("gun")
                         shells.add((e.get("GunMunition") or "").split(":")[-1])
@@ -286,35 +292,38 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
                     if (s := sensors.get((e.get("Sensor") or "").split(":")[-1])) is not None:
                         sees.append(s)
                     tubes = len(e.findall("Tube"))
-                    ammo = e.get("GunAmmo")
-                    rate = e.get("GunRoundsPerMinute")
-                    facts = [f"{tubes} tube{'s' if tubes != 1 else ''}" if tubes else None,
-                             f"{ammo} rounds" if ammo else None, f"{rate} a minute" if rate else None,
-                             f"traverses at {e.get('SlewRateDeg')}°/s" if e.get("TurretMarker") and e.get("SlewRateDeg") else None]
+                    gun = e.get("GunMunition")
+                    ammo = int(value(e, "GunAmmo", LAUNCHER)) if gun else 0
+                    rate = int(float(value(e, "GunRoundsPerMinute", LAUNCHER))) if gun else 0
+                    label = value(e, "TubeArmamentLabel", LAUNCHER).strip('"').lower()
+                    facts = [f"{tubes} {label}" if tubes > 1 else f"1 {label.rstrip('s')}" if tubes else None,
+                             f"{ammo:,} rounds of ammunition" if ammo else None,
+                             f"fires {rate:,} rounds a minute" if rate else None,
+                             f"turns at {value(e, 'SlewRateDeg', LAUNCHER)}°/s" if e.get("TurretMarker") else None]
                     if facts := [f for f in facts if f]:
                         out += [f"**{e.get('DisplayName')}**: {', '.join(facts)}.", ""]
                 elif e.tag in ("Optic", "SearchSet"):
-                    kinds.append("sight" if e.tag == "Optic" else "search set")
+                    kinds.append("sight" if e.tag == "Optic" else "sensor")
                     if (s := sensors.get((e.get("Sensor") or "").split(":")[-1])) is not None and s not in sees:
                         sees.append(s)
                     if e.tag == "Optic":
                         zoom = value(e, "MaxMagnification", OPTIC)
                         gimbal = value(e, "Gimbal", OPTIC)
-                        out += [f"**{e.get('DisplayName')}**: up to ×{zoom} magnification, "
-                                f"{'roll-nod' if gimbal == 'RollNod' else 'mast'} head"
-                                f"{', with a laser' if e.get('HasLaser') == 'true' else ''}.", ""]
+                        out += [f"**{e.get('DisplayName')}**: zooms to ×{zoom}, "
+                                f"{'rolling pod head' if gimbal == 'RollNod' else 'ball head on a mast'}"
+                                f"{', laser rangefinder and designator' if e.get('HasLaser') == 'true' else ''}.", ""]
                 elif e.tag == "Dispenser":
-                    kinds.append("dispenser")
+                    kinds.append("decoys")
                     d = decoys.get(e.get("Decoy", ""))
-                    out += [f"**{e.get('DisplayName')}**: {e.get('Count')} × "
+                    out += [f"**{e.get('DisplayName')}**: {value(e, 'Count', DISPENSER)} × "
                             f"{d.get('DisplayName') if d is not None else e.get('Decoy')}, "
-                            f"{e.get('SalvoSize')} a salvo.", ""]
+                            f"{value(e, 'SalvoSize', DISPENSER)} thrown per press.", ""]
 
             if fires:
-                out += ["| Round | Guidance | Reach | Warhead | Fuse |", "| --- | --- | --- | --- | --- |",
+                out += ["| Round | Guidance | Range | Warhead | Fuse |", "| --- | --- | --- | --- | --- |",
                         *[round_row(m, m.get("Name") in shells) for m in fires], ""]
             if sees:
-                out += ["| Sensor | Kind | Range | Cone |", "| --- | --- | --- | --- |", *[sensor_row(s) for s in sees], ""]
+                out += ["| Sensor | Type | Range | Field of view |", "| --- | --- | --- | --- |", *[sensor_row(s) for s in sees], ""]
 
             pages[page] = "\n".join(out)
             first = fires[0] if fires else None
@@ -347,7 +356,7 @@ def viewer(part_id: str, name: str) -> str:
             f'  loading="lazy" reveal="auto" touch-action="pan-y">\n'
             f'  <img slot="poster" src="/models/{slug(part_id)}.webp" alt="{label}">\n'
             f'</model-viewer>\n'
-            f'<figcaption>Drag to turn, scroll to zoom.</figcaption>\n'
+            f'<figcaption>Drag to rotate. Scroll or pinch to zoom.</figcaption>\n'
             f'</figure>')
 
 
@@ -365,7 +374,7 @@ def gallery(weapons: list[dict]) -> str:
 
 
 def weapon_table(weapons: list[dict]) -> list[str]:
-    return ["| Part | Family | Kind | Reach | Warhead |", "| --- | --- | --- | --- | --- |",
+    return ["| Weapon | Family | Type | Range | Warhead |", "| --- | --- | --- | --- | --- |",
             *[f"| [{w['name']}]({w['href']}) | {w['family']} | {w['kinds']} | {w['reach'] or '-'} | "
               f"{w['warhead'] or '-'} |" for w in weapons]]
 
@@ -386,6 +395,9 @@ GALLERY_MARKER = "<!-- every weapon -->"
 PATCH_MARKER = "<!-- patch -->"
 
 # Models change only with a release and the viewer only with its pinned version.
+# The guide was at /players/ before it was renamed; links to it are already out there.
+REDIRECTS = "/players/* /guide/:splat 301\n"
+
 HEADERS = """/models/*
   Cache-Control: public, max-age=86400
 /assets/3d/*
@@ -433,6 +445,7 @@ def assemble(with_models: bool) -> None:
     shutil.copy(ROOT / "branding/favicon.svg", DOCS / "assets/favicon.svg")
     (DOCS / "assets/3d/config.js").write_text(VIEWER_CONFIG)
     (DOCS / "_headers").write_text(HEADERS)
+    (DOCS / "_redirects").write_text(REDIRECTS)
 
     config = (WIKI / "mkdocs.yml").read_text()
     marker = "      # generated: one entry per family\n"
@@ -455,8 +468,8 @@ def assemble(with_models: bool) -> None:
         write(page, text)
     write("weapons/index.md", "\n".join([
         "# Weapons", "",
-        "Every weapon KSArmory ships, generated from its definition files at the release this site "
-        "describes. A family can be switched off in game under *KSArmory → Built-in weapons*.", "",
+        "Every weapon that comes with KSArmory. The numbers come from the same files as the current release. "
+        "You can switch off any family of weapons in game under *KSArmory → Built-in weapons*.",
         gallery(weapons), "", *weapon_table(weapons), ""]))
     home = DOCS / "index.md"
     if GALLERY_MARKER not in home.read_text():

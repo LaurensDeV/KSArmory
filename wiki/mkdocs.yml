@@ -55,13 +55,12 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Players:
-      - Installing: players/install.md
-      - Using it: players/using.md
+  - Guide:
+      - Installing: guide/install.md
+      - Using it: guide/using.md
   - Weapons:
       - Every weapon: weapons/index.md
       # generated: one entry per family
   - Making weapon packs:
       - Weapon pack reference: modding/weapon-packs.md
       - Coming from KSP modding: modding/from-ksp.md
-      - Pack API surface: modding/pack-api.md
