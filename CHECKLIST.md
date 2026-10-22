@@ -1474,21 +1474,23 @@ three muzzles, `ActuatorLinkageTests` and the traverse-limit tests.
 - [ ] The loop plays while firing with no click at its seam, and the tail plays when it stops.
 - [x] The sight sees targets under and ahead of the host, and the gun hits a drone. **Seen in game on 2026.9.22.5482**: `gunnery:2,passing,15,150,300` on `M197 TEST`, 2 of 2 drones and 5 bursts at 0.0 m, once the scenario brought them in where the sight looks -- on the fixed bearing it saw nothing. Targets under the host not tried.
 
-### 7.1d5 The Zuni pods — nothing flown yet
+### 7.1d5 The Zuni pods
 
 Unguided rockets: a `Slug` with a motor, released like a bomb. The flight is tested headlessly
 (`UnguidedRocketTests`: 716 m/s at burnout through sea-level air, pushed along its tube off a craft
-sliding sideways); nothing below has been seen in game.
+sliding sideways). Flown 2026-10-22 in the `ZUNI TEST` save: both pods under a weapons pylon on a
+rocket standing on the pad, firing level; the owner confirmed what is ticked below.
 
-- [ ] Both pods appear under Weapons, attach to a surface, and render painted with the rockets seated —
-  four noses standing out of the LAU-10's muzzle, six inside the larger pod's.
-- [ ] The fins are folded while seated and open about a quarter of a second after a rocket leaves.
-- [ ] FIRE releases one rocket a press with nothing locked, from each tube in turn, and the plume, smoke
-  and motor sound run for the 1.1 s burn.
-- [ ] The sight draws its ring where a rocket fired now lands, and a rocket lands in it — level, in a dive,
-  and off a craft moving across the pod's axis.
-- [ ] A rocket bursts on the ground and on a craft it strikes.
-- [ ] The pod gets lighter by 48.5 kg per rocket fired.
+- [x] Both pods appear under Weapons, click into the weapons pylon, and render painted with the rockets
+  seated.
+- [x] The fins are folded while seated and open after a rocket leaves.
+- [x] FIRE releases one rocket a press with nothing locked, from each tube in turn, and the plume, smoke
+  and motor sound run for the burn.
+- [ ] The sight draws its ring where a rocket fired now lands, and a rocket lands in it — level (owner:
+  yes), in a dive, and off a craft moving across the pod's axis (not flown).
+- [ ] A rocket bursts on the ground (yes: all ten, about 300 m out a second after release, on the
+  ground round the pad) and on a craft it strikes (not flown).
+- [x] The pod gets lighter by 48.5 kg per rocket fired.
 
 ### 7.1f Releasing a bomb
 
