@@ -2745,9 +2745,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return false;
         }
 
-        // Motorless rounds are slugs: no seeker, lock, boost or command link, so an Interceptor
-        // with its steering switched off would be that whole flight model behind guards. Which
-        // implementation a munition gets is decided here and only here.
+        // Unguided rounds are slugs, a rocket's motor included: no seeker, lock or command link, so an
+        // Interceptor with its steering switched off would be that whole flight model behind guards.
+        // Which implementation a munition gets is decided here and only here.
         //
         // Inertial is on this side of the split rather than the missile side: a guided tail kit
         // steers a fall, it does not fly one. It is the same ballistics, the same drag and the
@@ -2763,6 +2763,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 ReleaseHeadingEcl = launch.Heading,
                 LaunchAttitude = Platform?.Asmb2Ego ?? doubleQuat.Identity,
                 SpinVelocityEcl = launch.Spin,
+                LaunchFrameVelocityLocal = launch.PlatformVelocity - launch.FrameVelocity,
                 Aimpoint = aim,
             }
             : new Interceptor(launch.Position, launch.Velocity, aim.Handle, tube + 1, PlatformEcl,

@@ -156,6 +156,10 @@ def readable(kind, default, required):
     if default.startswith("(float"):
         return "*the flight model's own*"
 
+    if default.startswith("released ? "):
+        released, guided = default.removeprefix("released ? ").split(" : ")
+        return f"`{guided.rstrip('f')}`, or `{released.rstrip('f')}` for `None` and `Inertial`"
+
     return f"`{default.rstrip('f')}`"
 
 

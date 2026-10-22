@@ -195,6 +195,11 @@ public static class PackReader
         string name = r.Required("Name");
         r.Describe(name);
 
+        // A released round carries a motor only when it says so: a shell or a bomb that never mentions
+        // one must not be handed the 57E6's.
+        GuidanceMode guidance = r.Choice("Guidance", GuidanceMode.CommandLink);
+        bool released = guidance is GuidanceMode.None or GuidanceMode.Inertial;
+
         MunitionProfile round = new()
         {
             Name = Qualify(source, name),
@@ -215,8 +220,8 @@ public static class PackReader
             FinStowedScale = r.Number("FinStowedScale", 0.06f),
 
             LaunchSpeed = r.Number("LaunchSpeed", 45f),
-            BoostSeconds = r.Number("BoostSeconds", 2.4f),
-            BoostAccel = r.Number("BoostAccel", 520f),
+            BoostSeconds = r.Number("BoostSeconds", released ? 0f : 2.4f),
+            BoostAccel = r.Number("BoostAccel", released ? 0f : 520f),
             MaxFlightSeconds = r.Number("MaxFlightSeconds", 30f),
             MaxFaithfulStepSeconds = r.Number("MaxFaithfulStepSeconds", (float)Interceptor.MaxFaithfulStep),
             PreferredStepSeconds = r.Number("PreferredStepSeconds", 0f),
@@ -226,7 +231,7 @@ public static class PackReader
 
             NavConstant = r.Number("NavConstant", 4f),
             MaxLateralG = r.Number("MaxLateralG", 35f),
-            Guidance = r.Choice("Guidance", GuidanceMode.CommandLink),
+            Guidance = guidance,
             SeekerFovDeg = r.Number("SeekerFovDeg", 55f),
             Band = r.Choice("SeekerBand", SeekerBand.Radar),
             CountermeasureResistance = r.Number("CountermeasureResistance", 0f),

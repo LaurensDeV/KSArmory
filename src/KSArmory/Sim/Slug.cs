@@ -3,10 +3,11 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
-/// An unguided kinetic round — a gun slug. Ballistics and a contact fuse, nothing else.
+/// An unguided round — a shell, a bomb, or a rocket. Ballistics, a contact fuse, and a motor if the
+/// munition declares a boost.
 ///
-/// <para>Not an <see cref="Interceptor"/> with its nav constant zeroed: it has no seeker, lock,
-/// boost, fins or command link, so most of that flight model would be dead code behind guards.</para>
+/// <para>Not an <see cref="Interceptor"/> with its nav constant zeroed: it has no seeker, lock or
+/// command link, so most of that flight model would be dead code behind guards.</para>
 ///
 /// <para>It obeys the same frame and epoch rules regardless — those belong to the engine, not to
 /// the weapon. See docs/FRAMES-AND-EPOCHS.md.</para>
@@ -216,6 +217,13 @@ internal sealed class Slug : IProjectile
 
     /// <inheritdoc />
     public doubleQuat LaunchAttitude { get; set; }
+
+    /// <summary>
+    /// The launching craft's velocity in the round's own frame at release, so a motor pushes along
+    /// the velocity the round has gained rather than everything it inherited. Zero for a launcher
+    /// standing still.
+    /// </summary>
+    public double3 LaunchFrameVelocityLocal { get; set; }
 
     /// <inheritdoc cref="IProjectile.Munition"/>
     public required MunitionProfile Munition { get; init; }
@@ -455,8 +463,23 @@ internal sealed class Slug : IProjectile
     public double ClosestApproach { get; private set; } = double.MaxValue;
     public double DetonationElapsedInFrame { get; private set; }
 
-    /// <summary>No fins to deploy. Full span from the moment it exists.</summary>
-    public double FinDeployment(MunitionProfile munition) => 1.0;
+    /// <summary>How far a fin set has opened, 0 folded to 1 at full span. Drawn only.</summary>
+    public double FinDeployment(MunitionProfile munition)
+    {
+        if (munition.FinDeploySeconds <= 0f) return 1.0;
+        return Math.Clamp(Age / munition.FinDeploySeconds, 0.0, 1.0);
+    }
+
+    // Along the velocity gained since release, as Interceptor's motor pushes: the total carries the craft's
+    // own velocity, and a rocket fired off a craft moving any other way would be driven along its track.
+    private double3 Thrust(double3 localVelocity, MunitionProfile munition)
+    {
+        if (Age > munition.TotalBoostSeconds) return Vec.Zero;
+
+        double3 axis = Vec.Unit(localVelocity - LaunchFrameVelocityLocal);
+        if (axis.Equals(Vec.Zero)) axis = Vec.Unit(ReleaseHeadingEcl);
+        return axis * munition.BoostAccelAt(Age);
+    }
 
     /// <inheritdoc cref="IProjectile.SteeringCommandEcl"/>
     public double3 SteeringCommandEcl { get; private set; }
@@ -571,8 +594,7 @@ internal sealed class Slug : IProjectile
 
         double3 localVelocity = VelocityEcl - _frameVelocityEcl;
 
-        // No thrust term between them: a slug coasts from the muzzle.
-        double3 accel = Medium.Buoyancy(gravity, munition, mediumDensityRatio);
+        double3 accel = Medium.Buoyancy(gravity, munition, mediumDensityRatio) + Thrust(localVelocity, munition);
 
         // The air and the pull are read half a sub-step on, and so, with this, is the SPEED the drag
         // is taken at. Drag goes as the square of it, and a re-entering round is shedding ~450 m/s2,

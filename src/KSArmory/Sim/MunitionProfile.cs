@@ -561,9 +561,9 @@ public sealed class MunitionProfile
     public double MaxLateralAccel => MaxLateralG * 9.80665;
 
     /// <summary>
-    /// Whether the round leaves under its own power. False for a store that is released and then
-    /// falls — a dumb bomb, or one with a guided tail kit, which steers a ballistic path rather
-    /// than flying one.
+    /// Whether the round is a missile, launched at a target. False for one that is released and left
+    /// to its ballistics — a dumb bomb, one with a guided tail kit, which steers a ballistic path
+    /// rather than flying one, and an unguided rocket, whose motor <see cref="Slug"/> burns.
     ///
     /// <para>It picks <see cref="Slug"/> over <see cref="Interceptor"/>, and separately it is why
     /// a rack's sight looks where its store lands instead of down its own tubes. Both ask this

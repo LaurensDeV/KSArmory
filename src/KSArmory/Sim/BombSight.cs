@@ -51,6 +51,10 @@ internal static class BombSight
     /// <param name="ground">Where the surface is. Without one there is nothing to arrive at.</param>
     /// <param name="pathEcl">Filled with the trajectory in the carried frame, release first, impact last.</param>
     /// <param name="impactEcl">The ground it lands on, where that ground is at release.</param>
+    /// <param name="inheritedOverGround">
+    /// The launching craft's velocity over that ground, which a motor does not push along. Zero for a
+    /// store with no motor, which never reads it.
+    /// </param>
     /// <param name="steerAtEcl">
     /// A place to steer at, for a store whose kit steers its fall. Null flies the ballistic drop,
     /// which is what a pipper wants. Given one, the flight is the round under its own guidance law
@@ -67,7 +71,8 @@ internal static class BombSight
                                   IGroundTest? ground,
                                   double stepSeconds,
                                   List<double3> pathEcl, out double3 impactEcl,
-                                  double3? steerAtEcl = null, double startAge = 0.0)
+                                  double3? steerAtEcl = null, double startAge = 0.0,
+                                  double3 inheritedOverGround = default)
     {
         pathEcl.Clear();
         impactEcl = default;
@@ -93,6 +98,7 @@ internal static class BombSight
         {
             Age = Math.Max(startAge, 0.0),
             Munition = munition,
+            LaunchFrameVelocityLocal = inheritedOverGround,
             Ground = carried,
             GravityAt = (p, intoStep) => gravityAt(p + frame.Drift(carried.Seconds + intoStep)) - groundAccelerationEcl,
             AirDensityAt = (p, intoStep) => densityAt(p + frame.Drift(carried.Seconds + intoStep)),

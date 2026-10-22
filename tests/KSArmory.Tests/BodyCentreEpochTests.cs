@@ -57,6 +57,7 @@ public class BodyCentreEpochTests(ITestOutputHelper Out)
     {
         Name = "TEST",
         DisplayName = "a round that only falls",
+        BoostSeconds = 0f,
         HitsTerrain = true,
         MaxFlightSeconds = 10_000f,
         SubStepSeconds = 0.005f,

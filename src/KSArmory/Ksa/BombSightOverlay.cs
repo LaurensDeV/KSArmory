@@ -212,7 +212,9 @@ internal sealed class BombSightOverlay
                                 at => KsaWorld.GravityAt(platform, at),
                                 at => KsaWorld.MediumDensityRatioAt(platform, at),
                                 Ground(), BombSight.StepFor(system.Munition, IntegrationStep), path,
-                                out impactEcl);
+                                out impactEcl,
+                                inheritedOverGround: KsaWorld.VelocityEcl(platform)
+                                                     - KsaWorld.GroundVelocityAt(platform, system.PlatformEcl));
 
     // The arc as an anti-aliased line two pixels wide with a dark edge, to match the rings painted
     // under it: the same points the gizmo line takes, through the anchor BeginDraw set, projected

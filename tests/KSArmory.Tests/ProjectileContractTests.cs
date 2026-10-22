@@ -392,7 +392,6 @@ public class ProjectileContractTests
 
         Assert.False(slug.HasLock);
         Assert.True(slug.SeekerInView);
-        Assert.Equal(1.0, slug.FinDeployment(Vacuum()));
     }
 
     /// <summary>

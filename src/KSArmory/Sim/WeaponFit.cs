@@ -57,8 +57,8 @@ public readonly record struct Armament
                           && Catalogue.TryMunitionNamed(Munition) is { Guidance: not GuidanceMode.None };
 
     /// <summary>
-    /// Whether this armament's round leaves under its own power, which is what makes the seeker
-    /// and boost numbers mean anything.
+    /// Whether this armament's round is a missile, which is what makes the seeker numbers mean
+    /// anything.
     ///
     /// <para>Narrower than <see cref="Steers"/> on purpose. A guided tail kit steers a fall: it
     /// uses the navigation numbers and none of the others, so gating the whole guidance section on

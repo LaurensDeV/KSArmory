@@ -30,8 +30,8 @@
   <!--
     The 2A38M's 30 mm shell: the Pantsir's inner layer, for what the missiles cannot reach.
 
-    Guidance="None" makes it a Slug rather than an Interceptor - no seeker, no boost, no command
-    link. It leaves at muzzle velocity and is then only ballistics and drag, which is why the
+    Guidance="None" makes it a Slug rather than an Interceptor - no seeker and no command link, and
+    BoostSeconds="0" gives it no motor. It leaves at muzzle velocity and is then only ballistics and drag, which is why the
     numbers that matter here are speed and reach rather than guidance.
 
     Muzzle velocity (~960 m/s) and the 4 km effective range are the real weapon's. The fuse radius

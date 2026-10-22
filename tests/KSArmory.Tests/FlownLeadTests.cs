@@ -125,6 +125,7 @@ public class FlownLeadTests(ITestOutputHelper output)
     private static MunitionProfile Shell(float dragK = -1f) => new()
     {
         Name = "FlownLeadShell",
+        BoostSeconds = 0f,
         DisplayName = "flown lead shell",
         LaunchSpeed = BuiltIns.Shell5In54.LaunchSpeed,
         DragK = dragK >= 0f ? dragK : BuiltIns.Shell5In54.DragK,

@@ -41,6 +41,7 @@ to build; widening it to take a profile type would put that back.
 | Attribute | Reads | Default |
 | --- | --- | --- |
 | `Name` | text, required | **required** |
+| `Guidance` | one of `Seeker`, `AntiRadiation`, `CommandLink`, `Inertial`, `None` | `CommandLink` |
 | `DisplayName` | text, required | **required** |
 | `BodyMarker` | text | *none* |
 | `BodyModel` | text | *none* |
@@ -56,8 +57,8 @@ to build; widening it to take a profile type would put that back.
 | `FinsPerRound` | whole number | `0` |
 | `FinStowedScale` | number | `0.06` |
 | `LaunchSpeed` | number | `45` |
-| `BoostSeconds` | number | `2.4` |
-| `BoostAccel` | number | `520` |
+| `BoostSeconds` | number | `2.4`, or `0` for `None` and `Inertial` |
+| `BoostAccel` | number | `520`, or `0` for `None` and `Inertial` |
 | `MaxFlightSeconds` | number | `30` |
 | `MaxFaithfulStepSeconds` | number | *the flight model's own* |
 | `PreferredStepSeconds` | number | `0` |
@@ -66,7 +67,6 @@ to build; widening it to take a profile type would put that back.
 | `MaxRange` | number | `20000` |
 | `NavConstant` | number | `4` |
 | `MaxLateralG` | number | `35` |
-| `Guidance` | one of `Seeker`, `AntiRadiation`, `CommandLink`, `Inertial`, `None` | `CommandLink` |
 | `SeekerFovDeg` | number | `55` |
 | `SeekerBand` | one of `Radar`, `Infrared`, `None` | `Radar` |
 | `CountermeasureResistance` | number | `0` |

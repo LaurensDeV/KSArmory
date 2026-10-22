@@ -48,6 +48,26 @@ public class PackReaderTests
         Assert.Equal(2.5f, round.TracerBurnSeconds);
     }
 
+    // An unguided round flies whatever motor it declares, so one that declares none must not get a missile's.
+    [Theory]
+    [InlineData("None")]
+    [InlineData("Inertial")]
+    public void AReleasedRoundThatNamesNoMotorHasNone(string guidance)
+    {
+        MunitionProfile round = Assert.Single(Read(Wrap(
+            $"""<Munition Name="Shell" DisplayName="Shell" Guidance="{guidance}" />""")).Munitions);
+
+        Assert.Equal((0f, 0f), (round.BoostSeconds, round.BoostAccel));
+    }
+
+    [Fact]
+    public void AMissileThatNamesNoMotorHasTheDefaultOne()
+    {
+        MunitionProfile round = Assert.Single(Read(Wrap(ARound)).Munitions);
+
+        Assert.Equal((2.4f, 520f), (round.BoostSeconds, round.BoostAccel));
+    }
+
     [Fact]
     public void ARoundAndALauncherNameTheirOwnEffectsAndNamingNoneLeavesKSArmorys()
     {

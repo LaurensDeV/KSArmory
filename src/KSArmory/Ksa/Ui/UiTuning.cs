@@ -282,13 +282,11 @@ internal sealed partial class Ui
                 ImGui.SliderFloat("Fin deflection (deg)", ref _munition.FinDeflectionDeg, 0f, 30f);
                 Tip("Drawn only; it steers nothing. It is set larger than life, or the blades do not read.");
 
-                // A seeker to point and a motor to burn: neither exists on a store that is
-                // released and then falls, so a bomb rack is not offered them.
+                // A seeker to point: none exists on a store that is released and then falls, so a
+                // bomb rack is not offered one.
                 if (_fit.Powered)
                 {
                     ImGui.SliderFloat("Seeker FOV (deg)", ref _munition.SeekerFovDeg, 10f, 90f);
-                    ImGui.SliderFloat("Boost accel (m/s2)", ref _munition.BoostAccel, 0f, 800f);
-                    ImGui.SliderFloat("Boost time (s)", ref _munition.BoostSeconds, 0f, 10f);
                     ImGui.SliderFloat("Coast before steering (s)", ref _munition.SeparationSeconds, 0f, 3f);
                     Tip("A round leaves along the tube and is clear before it turns.");
 
@@ -296,6 +294,13 @@ internal sealed partial class Ui
                     // anti-radiation head see nothing a flare or chaff makes.
                     if (_munition.Guidance == GuidanceMode.Seeker) DrawSeekerBand();
                 }
+            }
+
+            // A missile's motor, or an unguided rocket's; a shell or a bomb has neither.
+            if (_fit.Powered || _munition.BoostSeconds > 0f)
+            {
+                ImGui.SliderFloat("Boost accel (m/s2)", ref _munition.BoostAccel, 0f, 800f);
+                ImGui.SliderFloat("Boost time (s)", ref _munition.BoostSeconds, 0f, 10f);
             }
 
             ImGui.SliderFloat("Launch speed (m/s)", ref _munition.LaunchSpeed, 5f, 300f);
