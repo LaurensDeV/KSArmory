@@ -146,7 +146,7 @@ def readme_blurbs() -> list[tuple[str, str]]:
     section = text.split("## What ships with it", 1)[1].split("\n## ", 1)[0]
     blurbs = []
     for paragraph in section.split("\n\n"):
-        if m := re.match(r"\*\*(.+?)\*\*\s*[—-]+\s*(.*)", paragraph.strip(), re.S):
+        if m := re.match(r"\*\*([^*]+?)\.\*\*\s+(.*)", paragraph.strip(), re.S):
             blurbs.append((m.group(1), " ".join(m.group(2).split())))
     return blurbs
 
