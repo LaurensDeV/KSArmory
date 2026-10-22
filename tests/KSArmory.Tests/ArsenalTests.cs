@@ -273,12 +273,8 @@ public class ArsenalTests
         // Never refilled: the round count in the panel is the number of rails fitted.
         Assert.Equal(0f, rail.ReloadSeconds);
 
-        // Leaves along the rail and pushed clear of the mount, rather than pivoting onto the
-        // target at the muzzle. A rail has no walls to hold the round in, so separation is
-        // outward as well as forward -- without it the round departs along the skin of whatever
-        // carries it.
+        // Slides forward off the rail rather than pivoting onto the target at the muzzle.
         Assert.True(rail.LaunchAlongTube);
-        Assert.True(rail.EjectAwayFromMount > 0f);
         Assert.Equal(0f, rail.LaunchLoft);
 
         // And coasts before it steers, so the turn onto the target happens clear of the craft.

@@ -305,7 +305,7 @@ A launcher must be able to fire something: at least one `<Tube>`, a `GunMunition
 | `ReloadSeconds` | `0` | Seconds after the last round before the launcher refills itself. `0` means never; only the panel's Reload button refills it. |
 | `LaunchAlongTube` | `true` | `false` throws the round off-axis toward a target well off the boresight. |
 | `LaunchLoft` | `0.35` | Bias toward the launcher's boresight. Only used when `LaunchAlongTube` is `false`. |
-| `EjectAwayFromMount` | `0` | Speed pushing the round clear of the part, m/s. Rails and racks use this. |
+| `EjectAwayFromMount` | `0` | Tilts the launch direction toward the launcher's boresight: a fraction of the tube axis, not a speed. Only applies with `LaunchAlongTube`, and does nothing where the boresight is the tube axis, as on a rail whose sensor uses `PartForward`. The bomb rack uses it. |
 | `MuzzleOffset` | `8` | Distance ahead of the tube where the round appears, m. |
 | `MuzzleForwardOffset` | `0` | Distance from the part origin to the muzzles along the boresight, m. |
 | `TubeRingRadius` | `0` | Radius of the ring launch positions fall back to if the subpart carrying the tubes cannot be found, m. |

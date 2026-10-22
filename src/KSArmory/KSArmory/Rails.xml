@@ -105,8 +105,8 @@
     a second weapon. The Tube gives the nose of the seated missile and the direction it leaves in, since
     a launcher that does not move has no other way to say which way it fires.
 
-    LaunchAlongTube and EjectAwayFromMount: the missile leaves along the rail, pushed clear of the
-    craft, flies straight for its SeparationSeconds, and only then turns toward the target. A rail on
+    LaunchAlongTube: the missile slides forward off the rail, flies straight for its
+    SeparationSeconds, and only then turns toward the target. A rail on
     a rocket cannot be aimed by turning the craft, so a ground target can sit 92-116 degrees off it;
     the missile is still steered onto a designated place even though its seeker cannot see it
     (Interceptor's SeekerInView, FireGate.CanGuideOntoAimpoint).
@@ -119,7 +119,7 @@
             FireControlLabel="LAU-7 fire control"
             Munition="AIM9J" Sensor="AIM9SEEK" StoreMassKg="78"
             MuzzleForwardOffset="0.408"
-            LaunchAlongTube="true" EjectAwayFromMount="0.55" LaunchLoft="0" MuzzleOffset="2"
+            LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
             ReloadSeconds="0" SettleSeconds="0">
     <Tube Position="0.40850, 1.52500, 0.00000" Direction="0, 1, 0" />
   </Launcher>
@@ -128,7 +128,7 @@
             FireControlLabel="LAU-128 fire control"
             Munition="AIM120C" Sensor="AIM120SEEK" StoreMassKg="161.5"
             MuzzleForwardOffset="0.424"
-            LaunchAlongTube="true" EjectAwayFromMount="0.55" LaunchLoft="0" MuzzleOffset="2"
+            LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
             ReloadSeconds="0" SettleSeconds="0">
     <Tube Position="0.42400, 1.82250, 0.00000" Direction="0, 1, 0" />
   </Launcher>
@@ -137,7 +137,7 @@
             FireControlLabel="LAU-118 fire control"
             Munition="AGM88" Sensor="AGM88SEEK" StoreMassKg="360"
             MuzzleForwardOffset="0.540"
-            LaunchAlongTube="true" EjectAwayFromMount="0.55" LaunchLoft="0" MuzzleOffset="2"
+            LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
             ReloadSeconds="0" SettleSeconds="0">
     <Tube Position="0.54000, 2.08500, 0.00000" Direction="0, 1, 0" />
   </Launcher>
