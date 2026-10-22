@@ -88,7 +88,8 @@
     the pods.
 
     GunMunition is the inner layer: what the missiles cannot reach, because they need 1.2 km to
-    arm and steer.
+    arm and steer. Two 2A38M, each twin-barrelled and up to 2,500 rounds a minute, with 700 rounds
+    each aboard: the real Pantsir-S1's 1,400 rounds and 5,000 a minute between them.
   -->
   <Launcher PartId="KSArmory_Prefab_Launcher6" DisplayName="Pantsir-S1"
             Munition="57E6" Sensor="1RS1"
@@ -107,7 +108,7 @@
             GunReferenceElevationDeg="22" PodReferenceElevationDeg="55"
             MuzzleForwardOffset="5.446" TubeRingRadius="1.231"
 
-            GunMunition="30MM">
+            GunMunition="30MM" GunAmmo="1400" GunRoundsPerMinute="5000">
 
     <Tube Position=" 2.95513,  1.79453,  1.33250" />
     <Tube Position=" 2.95513,  1.79453, -1.33250" />
