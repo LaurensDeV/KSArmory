@@ -228,6 +228,12 @@ internal sealed class Slug : IProjectile
     /// <inheritdoc />
     public double MotorDelaySeconds { get; init; }
 
+    /// <inheritdoc />
+    public double3 EjectAccelerationEcl { get; init; }
+
+    /// <inheritdoc />
+    public double EjectSeconds { get; init; }
+
     // Where "gained" is measured from once a delayed motor lights: the velocity at ignition. Measured from
     // release instead, it holds the fall and the ejector's push, and the motor would drive the round down.
     private double3? _gainedFromAtIgnition;
@@ -605,7 +611,8 @@ internal sealed class Slug : IProjectile
 
         double3 localVelocity = VelocityEcl - _frameVelocityEcl;
 
-        double3 accel = Medium.Buoyancy(gravity, munition, mediumDensityRatio) + Thrust(localVelocity, munition);
+        double3 accel = Medium.Buoyancy(gravity, munition, mediumDensityRatio) + Thrust(localVelocity, munition)
+                        + (EjectAccelerationEcl * Ejector.ShareOfStep(Age - h, h, EjectSeconds));
 
         // The air and the pull are read half a sub-step on, and so, with this, is the SPEED the drag
         // is taken at. Drag goes as the square of it, and a re-entering round is shedding ~450 m/s2,

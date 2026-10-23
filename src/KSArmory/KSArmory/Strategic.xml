@@ -155,7 +155,7 @@
             Munition="B61" Sensor="BOMBSIGHT" StoreMassKg="374" TubeArmamentLabel="Bombs"
             MuzzleForwardOffset="0.393" LaunchAlongTube="true" LaunchLoft="0"
             EjectSpeed="6" CarriageMarker="Carriage"
-            EjectorArmMarker="CarriageArm" EjectorStrokeMetres="0.10" EjectorStrokeSeconds="0.06"
+            EjectorArmMarker="CarriageArm" EjectorStrokeMetres="0.10"
             MuzzleOffset="2" ReloadSeconds="0" SettleSeconds="0">
     <Tube Position="0.39300, 1.77800, 0.00000" Direction="0, 1, 0" />
   </Launcher>

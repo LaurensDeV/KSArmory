@@ -1457,7 +1457,8 @@
   <!--
     The stores as players pick them: each hangs from the ejector launcher, its carriage, which
     Ksa/StoreCarriage.cs shows only while the part is attached to something, so the part list shows the
-    store alone. Hooks at the store's lug spacing, arms at 0.28 m either side. A round's centreline is
+    store alone. Hooks at the store's lug spacing, arms at 0.28 m either side with their feet on the store's skin
+    (0.207 for a missile, 0.228 for the B61), or it moves before they reach it. A round's centreline is
     the lug crown's 0.180 below the mounting face plus its lug height and radius: for a missile its skin
     sits 17 mm under the floor (0.207), for the B61 its lugs stand 0.213 above its centreline. Carriage
     subparts are named so no body or fin marker selects them: "Aim9" and "B61" are both markers.
@@ -1483,13 +1484,13 @@
     </SubPart>
     <SubPart Id="KSArmory_Sidewinder_CarriageArmFwd" InstanceOf="KSArmory_EjectorArm_SubPart">
       <Transform>
-        <Position X="0.17600" Y="0.28000" Z="0.00000" />
+        <Position X="0.19100" Y="0.28000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
     <SubPart Id="KSArmory_Sidewinder_CarriageArmAft" InstanceOf="KSArmory_EjectorArm_SubPart">
       <Transform>
-        <Position X="0.17600" Y="-0.28000" Z="0.00000" />
+        <Position X="0.19100" Y="-0.28000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
@@ -1541,13 +1542,13 @@
     </SubPart>
     <SubPart Id="KSArmory_Amraam_CarriageArmFwd" InstanceOf="KSArmory_EjectorArm_SubPart">
       <Transform>
-        <Position X="0.17600" Y="0.28000" Z="0.00000" />
+        <Position X="0.19100" Y="0.28000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
     <SubPart Id="KSArmory_Amraam_CarriageArmAft" InstanceOf="KSArmory_EjectorArm_SubPart">
       <Transform>
-        <Position X="0.17600" Y="-0.28000" Z="0.00000" />
+        <Position X="0.19100" Y="-0.28000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
@@ -1599,13 +1600,13 @@
     </SubPart>
     <SubPart Id="KSArmory_Harm_CarriageArmFwd" InstanceOf="KSArmory_EjectorArm_SubPart">
       <Transform>
-        <Position X="0.17600" Y="0.28000" Z="0.00000" />
+        <Position X="0.19100" Y="0.28000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
     <SubPart Id="KSArmory_Harm_CarriageArmAft" InstanceOf="KSArmory_EjectorArm_SubPart">
       <Transform>
-        <Position X="0.17600" Y="-0.28000" Z="0.00000" />
+        <Position X="0.19100" Y="-0.28000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
@@ -1657,13 +1658,13 @@
     </SubPart>
     <SubPart Id="KSArmory_Bomb_CarriageArmFwd" InstanceOf="KSArmory_EjectorArm_SubPart">
       <Transform>
-        <Position X="0.17600" Y="0.28000" Z="0.00000" />
+        <Position X="0.21200" Y="0.28000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
     <SubPart Id="KSArmory_Bomb_CarriageArmAft" InstanceOf="KSArmory_EjectorArm_SubPart">
       <Transform>
-        <Position X="0.17600" Y="-0.28000" Z="0.00000" />
+        <Position X="0.21200" Y="-0.28000" Z="0.00000" />
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>

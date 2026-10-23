@@ -242,6 +242,12 @@ internal sealed class Interceptor : IProjectile
     /// <inheritdoc />
     public double MotorDelaySeconds { get; init; }
 
+    /// <inheritdoc />
+    public double3 EjectAccelerationEcl { get; init; }
+
+    /// <inheritdoc />
+    public double EjectSeconds { get; init; }
+
     // Where "gained" is measured from once a delayed motor lights: the velocity at ignition. Measured from
     // release instead, it holds the fall and the ejector's push, and the motor would drive the round down.
     private double3? _gainedFromAtIgnition;
@@ -438,7 +444,8 @@ internal sealed class Interceptor : IProjectile
 
         _lastDensity = mediumDensityRatio;
 
-        double3 accel = Medium.Buoyancy(gravity, munition, mediumDensityRatio);
+        double3 accel = Medium.Buoyancy(gravity, munition, mediumDensityRatio)
+                        + (EjectAccelerationEcl * Ejector.ShareOfStep(Age - h, h, EjectSeconds));
 
         // Boost motor: axial thrust along the round, which is the velocity it has gained since
         // release and not the velocity it has. Between the two medium terms because it is the one

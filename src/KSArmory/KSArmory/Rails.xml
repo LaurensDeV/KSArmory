@@ -148,8 +148,8 @@
   <!--
     The missiles as players fit them, each on the ejector launcher it brings (KSArmoryAssets.xml): thrown
     6 m/s out of the mounting face, the motor lit half a second later once it has fallen clear, and only
-    then the 0.4 s straight before it steers. Both numbers are estimates. The arms run 0.10 m out in
-    0.06 s, as modelled. The Tube is the seat in KSArmoryAssets.xml plus half the round's length.
+    then the 0.4 s straight before it steers. Both numbers are estimates. The push lasts the arms' 0.10 m
+    stroke, as modelled. The Tube is the seat in KSArmoryAssets.xml plus half the round's length.
   -->
   <Launcher PartId="KSArmory_Prefab_Aim9J" DisplayName="AIM-9J Sidewinder"
             FireControlLabel="AIM-9J fire control"
@@ -157,7 +157,7 @@
             MuzzleForwardOffset="0.2705"
             LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
             EjectSpeed="6" MotorDelaySeconds="0.5" CarriageMarker="Carriage"
-            EjectorArmMarker="CarriageArm" EjectorStrokeMetres="0.10" EjectorStrokeSeconds="0.06"
+            EjectorArmMarker="CarriageArm" EjectorStrokeMetres="0.10"
             ReloadSeconds="0" SettleSeconds="0">
     <Tube Position="0.27050, 1.52500, 0.00000" Direction="0, 1, 0" />
   </Launcher>
@@ -168,7 +168,7 @@
             MuzzleForwardOffset="0.2959"
             LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
             EjectSpeed="6" MotorDelaySeconds="0.5" CarriageMarker="Carriage"
-            EjectorArmMarker="CarriageArm" EjectorStrokeMetres="0.10" EjectorStrokeSeconds="0.06"
+            EjectorArmMarker="CarriageArm" EjectorStrokeMetres="0.10"
             ReloadSeconds="0" SettleSeconds="0">
     <Tube Position="0.29590, 1.82250, 0.00000" Direction="0, 1, 0" />
   </Launcher>
@@ -179,7 +179,7 @@
             MuzzleForwardOffset="0.334"
             LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
             EjectSpeed="6" MotorDelaySeconds="0.5" CarriageMarker="Carriage"
-            EjectorArmMarker="CarriageArm" EjectorStrokeMetres="0.10" EjectorStrokeSeconds="0.06"
+            EjectorArmMarker="CarriageArm" EjectorStrokeMetres="0.10"
             ReloadSeconds="0" SettleSeconds="0">
     <Tube Position="0.33400, 2.08500, 0.00000" Direction="0, 1, 0" />
   </Launcher>

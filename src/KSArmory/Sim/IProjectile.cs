@@ -94,6 +94,13 @@ internal interface IProjectile
     /// </summary>
     double MotorDelaySeconds { get; init; }
 
+    /// <summary>
+    /// An ejector's push, as the acceleration its arms give the round over their stroke and how long that
+    /// lasts. Zero for a round that leaves with all its speed at once.
+    /// </summary>
+    double3 EjectAccelerationEcl { get; init; }
+    double EjectSeconds { get; init; }
+
     /// <summary>Whether the motor is burning now: what pushes it, lights its plume and makes it hot.</summary>
     bool MotorBurning => Age >= MotorDelaySeconds && Age - MotorDelaySeconds <= Munition.TotalBoostSeconds;
 

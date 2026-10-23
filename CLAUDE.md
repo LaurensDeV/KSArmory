@@ -426,6 +426,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/ActuatorLinkage.cs` | a cylinder on the traverse and a rod on the cannon, posed from the elevation — drawn only |
 | `Sim/GunRotor.cs` | a rotary cannon's barrel cluster, spun up to a barrel per round while it fires and run down after — drawn only |
 | `Sim/PointingDrive.cs` | a head that points rather than trains — two degrees of freedom, no axes of its own |
+| `Sim/Ejector.cs` | an ejector's push as a stroke — **the store accelerated evenly over the arms' travel**, leaving at the ejection speed as they reach the end, and the arms drawn on the same motion, so they stay on it the whole way |
 | `Sim/FireGeometry.cs` | launch direction and round-body orientation |
 | `Sim/BodyAttitude.cs` | which way a round points, and how a released store noses over |
 | `Sim/RoundSpin.cs` | the roll a round's own spin motors give it as it leaves -- **drawn only**, a closed form of its age, on the launcher that seats the body carrying the motors |

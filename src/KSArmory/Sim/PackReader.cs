@@ -541,7 +541,6 @@ public static class PackReader
             EjectSpeed = r.Number("EjectSpeed", 0f),
             MotorDelaySeconds = r.Number("MotorDelaySeconds", 0f),
             EjectorStrokeMetres = r.Number("EjectorStrokeMetres", 0f),
-            EjectorStrokeSeconds = r.Number("EjectorStrokeSeconds", 0.06f),
             EjectorReturnSeconds = r.Number("EjectorReturnSeconds", 0.8f),
             MuzzleOffset = r.Number("MuzzleOffset", 8f),
 

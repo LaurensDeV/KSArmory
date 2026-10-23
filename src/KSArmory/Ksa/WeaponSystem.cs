@@ -1995,8 +1995,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // Drawn only: EjectSpeed has already thrown the round, and the arms show it.
         if (_ejectorArms.Count > 0 && _drives.Works(DriveChannel.Ejector))
         {
-            double reach = GunRecoil.Offset(_clock - _lastReleaseClock, Profile.EjectorStrokeMetres,
-                                            Profile.EjectorStrokeSeconds, Profile.EjectorReturnSeconds);
+            double reach = Ejector.ArmOffset(_clock - _lastReleaseClock, Profile.EjectSpeed,
+                                             Profile.EjectorStrokeMetres, Profile.EjectorReturnSeconds);
             foreach (Part arm in _ejectorArms)
             {
                 DrivePose rest = _ejectorArmRest[arm];
@@ -2787,8 +2787,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         //
         // platformVel is the frame the round launches into. Passing it here is what makes the body
         // orientable on its very first drawn frame - see the Interceptor constructor.
+        // An ejector's push is laid along its arms' stroke rather than given at once. A sight predicting the
+        // release reads the whole push at once instead, which lands a store 0.1 m further from its rack.
+        double strokeSeconds = Ejector.StrokeSeconds(Profile.EjectSpeed, Profile.EjectorStrokeMetres);
+        bool stroked = strokeSeconds > 0.0 && !launch.Eject.Equals(Vec.Zero);
+        double3 leaving = stroked ? launch.Velocity - launch.Eject : launch.Velocity;
+        double3 ejectAccel = stroked
+            ? Vec.Unit(launch.Eject) * Ejector.Acceleration(Profile.EjectSpeed, Profile.EjectorStrokeMetres)
+            : Vec.Zero;
+
         AddRound(!Munition.Powered
-            ? new Slug(launch.Position, launch.Velocity, aim.Handle, tube + 1, PlatformEcl, launch.FrameVelocity)
+            ? new Slug(launch.Position, leaving, aim.Handle, tube + 1, PlatformEcl, launch.FrameVelocity)
             {
                 Munition = Munition,
                 LaunchAnchorPartFrame = launch.AnchorPartFrame,
@@ -2797,9 +2806,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 SpinVelocityEcl = launch.Spin,
                 LaunchFrameVelocityLocal = launch.PlatformVelocity + launch.Eject - launch.FrameVelocity,
                 MotorDelaySeconds = Profile.MotorDelaySeconds,
+                EjectAccelerationEcl = ejectAccel,
+                EjectSeconds = stroked ? strokeSeconds : 0.0,
                 Aimpoint = aim,
             }
-            : new Interceptor(launch.Position, launch.Velocity, aim.Handle, tube + 1, PlatformEcl,
+            : new Interceptor(launch.Position, leaving, aim.Handle, tube + 1, PlatformEcl,
                               launch.FrameVelocity)
             {
                 Munition = Munition,
@@ -2813,6 +2824,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 // the ecliptic's ~29.8 km/s cancels in the subtraction.
                 LaunchFrameVelocityLocal = launch.PlatformVelocity + launch.Eject - launch.FrameVelocity,
                 MotorDelaySeconds = Profile.MotorDelaySeconds,
+                EjectAccelerationEcl = ejectAccel,
+                EjectSeconds = stroked ? strokeSeconds : 0.0,
                 Aimpoint = aim,
             });
         _salvoTimer = Profile.SalvoSpacing;
