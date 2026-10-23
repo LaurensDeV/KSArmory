@@ -44,14 +44,21 @@ BRANCH = "main"
 # The order families appear in, and what each is called on the site.
 FAMILIES = {
     "Pantsir": "Air defence",
-    "Rails": "Missile rails",
+    "Rails": "Missiles",
     "Rockets": "Rocket pods",
     "Guns": "Guns",
     "Sensors": "Sights and sensors",
     "Countermeasures": "Countermeasures",
     "DirectedEnergy": "Directed energy",
-    "Strategic": "Bombs and ballistic missiles",
+    "Strategic": "Nuclear weapons",
 }
+
+# A family's folder, where its file's name no longer says what it holds.
+FOLDERS = {"Rails": "missiles", "Strategic": "nuclear"}
+
+
+def folder_of(family: str) -> str:
+    return f"weapons/{FOLDERS.get(family, family.lower())}"
 
 # Pages lifted whole from the repository: (source, page, title).
 DOC_PAGES = [
@@ -277,7 +284,7 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
         munitions = {m.get("Name"): m for m in root.iter("Munition")}
         sensors = {s.get("Name"): s for s in root.iter("Sensor")}
         decoys = {d.get("Name"): d for d in root.iter("Decoy")}
-        folder = f"weapons/{family.lower()}"
+        folder = folder_of(family)
         family_weapons = []
 
         parts: dict[str, list[ET.Element]] = {}
@@ -482,9 +489,9 @@ def assemble(with_models: bool) -> None:
     pages, weapons, undescribed = weapon_pages(names)
     entries = ""
     for family, title in FAMILIES.items():
-        members = [w for w in weapons if w["page"].startswith(f"weapons/{family.lower()}/")]
+        members = [w for w in weapons if w["page"].startswith(f"{folder_of(family)}/")]
         if members:
-            entries += f"      - {title}:\n          - weapons/{family.lower()}/index.md\n"
+            entries += f"      - {title}:\n          - {folder_of(family)}/index.md\n"
             entries += "".join(f"          - {json.dumps(w['name'])}: {w['page']}\n" for w in members)
     (BUILD / "mkdocs.yml").write_text(config.replace(marker, entries))
     # A link preview's picture for each weapon, drawn by stills.mjs beside its still.
