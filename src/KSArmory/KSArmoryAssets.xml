@@ -1654,6 +1654,41 @@
   </Part>
 
   <!--
+    The empty missile rail. A missile part clicks onto its station at this part's own origin, so the rail
+    the missile brings lands where this one is, and Ksa/EmptyRails.cs hides this one while it is there.
+    The LAU-128's rail as tools/model/bare-rails.py cuts it, until a rail of its own is modelled.
+  -->
+  <Part Id="KSArmory_Prefab_MissileRail">
+
+    <SubPart Id="KSArmory_MissileRail_Beam" InstanceOf="KSArmory_Lau128_SubPart" />
+
+    <Connector Id="_mrConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+
+    <!-- Mates with the weapons pylon's station node. -->
+    <Connector Id="_mrConnectorPylon">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+        <Scale X="0.55000" Y="0.55000" Z="0.55000" />
+      </Transform>
+    </Connector>
+
+    <!-- The station: facing out of the mounting face, where a missile part's own pylon node meets it. -->
+    <Connector Id="_mrConnectorStore">
+      <Transform>
+        <Position X="0.00000" />
+        <Scale X="0.55000" Y="0.55000" Z="0.55000" />
+      </Transform>
+    </Connector>
+
+  </Part>
+
+  <!--
     Electro-optical director, radially mounted like the rail.
 
     The sight, as its own part. It finds its own targets, drives the player's view and needs no

@@ -466,6 +466,38 @@
     </Collider>
   </PartGameData>
 
+  <PartGameData Id="KSArmory_Prefab_MissileRail" DisplayName="Missile Rail">
+    <EditorTag Value="Weapons" />
+    <!-- Radial: a missile goes on by the station alone, never free-hand onto the rail's face. -->
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.55" />
+
+    <!-- Sticks onto any surface or clicks into the weapons pylon's station. -->
+    <Connector Id="_mrConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+    <Connector Id="_mrConnectorPylon" />
+    <Connector Id="_mrConnectorStore" />
+
+    <!-- An estimate, not a sourced figure. -->
+    <SolidSphereMass>
+      <Mass Kg="25" />
+      <Radius M="0.8" />
+    </SolidSphereMass>
+
+    <Collider Id="KSArmory_MissileRailCollider">
+      <!-- Bounds off the cut LAU-128 mesh. -->
+      <Box Id="KSArmory_MissileRailBeamCollider">
+        <LocationAsmb X="0.082" Y="0.145" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.164" />
+        <LengthY M="2.690" />
+        <LengthZ M="0.112" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
   <PartGameData Id="KSArmory_Prefab_Optic" DisplayName="EO Director">
     <EditorTag Value="Sensors" />
     <EditorTag Value="Radial" />

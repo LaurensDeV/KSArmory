@@ -34,7 +34,9 @@ KSArmory adds eleven weapons, three sights, an infrared search sensor and two de
 
 **Pantsir-S1 Point Defence System.** A Russian short-range air-defence vehicle on an 8×8 truck chassis. It carries twelve 57E6 missiles in two pods of six, two twin-barrel 2A38M 30 mm cannon, a spinning 1RS1 search radar and a 1TPP1 electro-optical director on the turret roof that you can look through. The missiles reach from 1.2 km to 20 km. They are command-guided: the vehicle tracks the target and steers each missile, so a missile is lost if the vehicle loses the track. The cannon cover 200 m to 4 km. The pods refill 12 seconds after the last missile leaves, and the cannon 20 seconds after they run dry. The Pantsir stacks on a 3 m node and has its own command module, so a craft made of nothing but the Pantsir can be built and launched.
 
-**Weapons pylon.** A 14-inch suspension rail that attaches to any surface. Every missile and rocket pod below clicks into it; the missiles can also go straight onto a wing or hull. It fires nothing itself.
+**Weapons pylon.** A 14-inch suspension rail that attaches to any surface. The Missile Rail, every missile and both rocket pods click into it; the rail and the missiles can also go straight onto a wing or hull. It fires nothing itself.
+
+**Missile Rail.** An empty launch rail that attaches to any surface or clicks into the weapons pylon. Click any missile below onto it and the rail becomes the right one for that missile. Take the missile off and the empty rail is back. It fires nothing itself.
 
 **AIM-9J Sidewinder on LAU-7 rail.** One AIM-9J Sidewinder, an infrared-guided air-to-air missile, on its launch rail. It attaches to any surface or clicks into the weapons pylon. Nothing on it moves, so you aim it by pointing the craft. The missile has its own heat-seeking head and keeps guiding after launch even if your craft loses the target. Range 400 m to 14 km. Once fired, the empty rail stays on; it does not reload on its own.
 

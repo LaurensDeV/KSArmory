@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-336 types and 892 members across 12 assemblies.
+337 types and 898 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -1380,6 +1380,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Part get_FullPart()`
 - `KSA.PartTemplate Template`
 - `KSA.PartTree Tree`
+- `System.Collections.Generic.List`1<Connector> Connectors`
 - `System.ReadOnlySpan`1<KSA.Part> get_SubParts()`
 - `System.ValueTuple`2<Brutal.Numerics.double3, Brutal.Numerics.double3> get_BoundingBoxPartAsmb()`
 - `System.ValueTuple`2<Brutal.Numerics.double3, Brutal.Numerics.double3> get_BoundingBoxVehicleAsmb()`
@@ -1391,6 +1392,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `uint InstanceId`
 - `void ResetCachedPosMatrixValues()`
 - `void SetInertMassPropertiesAsmb(ref KSA.OffsetMassProperties)`
+- `void UpdateBounds()`
 - `void set_Asmb2ParentAsmb(Brutal.Numerics.doubleQuat)`
 - `void set_Asmb2ParentAsmbSafe(Brutal.Numerics.doubleQuat)`
 - `void set_PositionParentAsmb(Brutal.Numerics.double3)`
@@ -1405,6 +1407,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Connection Connection`
 - `KSA.Part get_ConnectionPart()`
+- `string Id`
 
 ### KSA.Part+Connector+Flag
 
@@ -1948,9 +1951,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float PeakGLoad`
 - `void .ctor()`
 
+### KSA.VehicleEditingSpace
+
+- `System.ReadOnlySpan`1<KSA.Part> get_AllParts()`
+
 ### KSA.VehicleEditor
 
-*referenced as a type only*
+- `KSA.VehicleEditingSpace EditingSpace`
+- `System.Collections.Generic.List`1<KSA.PartTree> UnattachedPartTrees`
 
 ### KSA.VehicleProperties
 
