@@ -497,6 +497,7 @@ public static class PackReader
             GunFeedMarker = r.Text("GunFeedMarker"),
             GunRotorMarker = r.Text("GunRotorMarker"),
             EjectorArmMarker = r.Text("EjectorArmMarker"),
+            CarriageMarker = r.Text("CarriageMarker"),
 
             Tubes = r.Tubes(),
             TurretPivot = r.Vector("TurretPivot", default),

@@ -280,7 +280,7 @@
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_Lau7" DisplayName="AIM-9J Sidewinder on LAU-7 rail">
+  <PartGameData Id="KSArmory_Prefab_Lau7" DisplayName="AIM-9J Sidewinder">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
@@ -310,7 +310,7 @@
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_Lau128" DisplayName="AIM-120C AMRAAM on LAU-128 rail">
+  <PartGameData Id="KSArmory_Prefab_Lau128" DisplayName="AIM-120C AMRAAM">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
@@ -340,7 +340,7 @@
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_Lau118" DisplayName="AGM-88 HARM on LAU-118 rail">
+  <PartGameData Id="KSArmory_Prefab_Lau118" DisplayName="AGM-88 HARM">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
@@ -436,7 +436,7 @@
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_Lau142" DisplayName="AIM-120C AMRAAM on LAU-142 ejector">
+  <PartGameData Id="KSArmory_Prefab_Lau142" DisplayName="AIM-120C AMRAAM (bay ejector)">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />

@@ -410,7 +410,7 @@ public sealed class KSArmoryMod
         using (_budget.Measure("cameras")) DriveCameras(dtPlayer);
 
         // Outside the flight gate: a rail is built in the editor, where nothing else here runs.
-        using (_budget.Measure("empty rails")) EmptyRails.Update();
+        using (_budget.Measure("store carriage")) StoreCarriage.Update();
 
         // The UI pass reads clicks when it runs; with the UI hidden it does not run at all.
         if (!KsaWorld.UiDrawn && KsaWorld.InFlight) UpdateWorldClicks();

@@ -1499,7 +1499,12 @@
   -->
   <Part Id="KSArmory_Prefab_Lau7">
 
-    <SubPart Id="KSArmory_Lau7_Beam" InstanceOf="KSArmory_Lau7_SubPart" />
+    <!-- Hidden until the missile is attached to something: Ksa/StoreCarriage.cs shows it. -->
+    <SubPart Id="KSArmory_Lau7_Beam" InstanceOf="KSArmory_Lau7_SubPart">
+      <Transform>
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
 
     <!-- Attaches by the rail's upper face, which the cut puts on the mesh origin. -->
     <Connector Id="_l7ConnectorBase">
@@ -1533,7 +1538,12 @@
   -->
   <Part Id="KSArmory_Prefab_Lau128">
 
-    <SubPart Id="KSArmory_Lau128_Beam" InstanceOf="KSArmory_Lau128_SubPart" />
+    <!-- Hidden until the missile is attached to something: Ksa/StoreCarriage.cs shows it. -->
+    <SubPart Id="KSArmory_Lau128_Beam" InstanceOf="KSArmory_Lau128_SubPart">
+      <Transform>
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
 
     <!-- Attaches by the rail's upper face, which the cut puts on the mesh origin. -->
     <Connector Id="_l128ConnectorBase">
@@ -1567,7 +1577,12 @@
   -->
   <Part Id="KSArmory_Prefab_Lau118">
 
-    <SubPart Id="KSArmory_Lau118_Beam" InstanceOf="KSArmory_Lau118_SubPart" />
+    <!-- Hidden until the missile is attached to something: Ksa/StoreCarriage.cs shows it. -->
+    <SubPart Id="KSArmory_Lau118_Beam" InstanceOf="KSArmory_Lau118_SubPart">
+      <Transform>
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
 
     <!-- Attaches by the rail's upper face, which the cut puts on the mesh origin. -->
     <Connector Id="_l118ConnectorBase">
@@ -1603,27 +1618,36 @@
   -->
   <Part Id="KSArmory_Prefab_Lau142">
 
-    <SubPart Id="KSArmory_Lau142_Body" InstanceOf="KSArmory_EjectorBody_SubPart" />
+    <!-- The carriage, hidden until the missile is attached to something: Ksa/StoreCarriage.cs shows it. -->
+    <SubPart Id="KSArmory_Lau142_CarriageBody" InstanceOf="KSArmory_EjectorBody_SubPart">
+      <Transform>
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
 
-    <SubPart Id="KSArmory_Lau142_HookFwd" InstanceOf="KSArmory_EjectorHook_SubPart">
+    <SubPart Id="KSArmory_Lau142_CarriageHookFwd" InstanceOf="KSArmory_EjectorHook_SubPart">
       <Transform>
         <Position X="0.19000" Y="0.17780" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Lau142_HookAft" InstanceOf="KSArmory_EjectorHook_SubPart">
+    <SubPart Id="KSArmory_Lau142_CarriageHookAft" InstanceOf="KSArmory_EjectorHook_SubPart">
       <Transform>
         <Position X="0.19000" Y="-0.17780" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
 
-    <SubPart Id="KSArmory_Lau142_ArmFwd" InstanceOf="KSArmory_EjectorArm_SubPart">
+    <SubPart Id="KSArmory_Lau142_CarriageArmFwd" InstanceOf="KSArmory_EjectorArm_SubPart">
       <Transform>
         <Position X="0.17600" Y="0.28000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-    <SubPart Id="KSArmory_Lau142_ArmAft" InstanceOf="KSArmory_EjectorArm_SubPart">
+    <SubPart Id="KSArmory_Lau142_CarriageArmAft" InstanceOf="KSArmory_EjectorArm_SubPart">
       <Transform>
         <Position X="0.17600" Y="-0.28000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
 
@@ -1655,7 +1679,7 @@
 
   <!--
     The empty missile rail. A missile part clicks onto its station at this part's own origin, so the rail
-    the missile brings lands where this one is, and Ksa/EmptyRails.cs hides this one while it is there.
+    the missile brings lands where this one is, and Ksa/StoreCarriage.cs hides this one while it is there.
     The LAU-128's rail as tools/model/bare-rails.py cuts it, until a rail of its own is modelled.
   -->
   <Part Id="KSArmory_Prefab_MissileRail">

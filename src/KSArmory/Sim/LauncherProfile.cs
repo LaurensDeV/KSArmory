@@ -296,6 +296,12 @@ public sealed class LauncherProfile
     /// </summary>
     public float MotorDelaySeconds;
 
+    /// <summary>
+    /// A store's own carriage -- its rail or ejector -- every subpart whose Id holds this. Shown only while
+    /// the part is attached to something, so the part list and a part being dragged show the store alone.
+    /// </summary>
+    public string? CarriageMarker { get; init; }
+
     /// <summary>The arms an ejector pushes its round off with, every subpart whose Id holds this. Drawn only.</summary>
     public string? EjectorArmMarker { get; init; }
 

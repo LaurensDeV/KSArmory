@@ -152,7 +152,8 @@
             Munition="AIM9J" Sensor="AIM9SEEK" StoreMassKg="78"
             MuzzleForwardOffset="0.237"
             LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
-            ReloadSeconds="0" SettleSeconds="0">
+            ReloadSeconds="0" SettleSeconds="0"
+            CarriageMarker="Lau7_Beam">
     <Tube Position="0.23696, 1.52500, 0.00000" Direction="0, 1, 0" />
   </Launcher>
 
@@ -161,7 +162,8 @@
             Munition="AIM120C" Sensor="AIM120SEEK" StoreMassKg="161.5"
             MuzzleForwardOffset="0.236"
             LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
-            ReloadSeconds="0" SettleSeconds="0">
+            ReloadSeconds="0" SettleSeconds="0"
+            CarriageMarker="Lau128_Beam">
     <Tube Position="0.23600, 1.82250, 0.00000" Direction="0, 1, 0" />
   </Launcher>
 
@@ -170,7 +172,8 @@
             Munition="AGM88" Sensor="AGM88SEEK" StoreMassKg="360"
             MuzzleForwardOffset="0.340"
             LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
-            ReloadSeconds="0" SettleSeconds="0">
+            ReloadSeconds="0" SettleSeconds="0"
+            CarriageMarker="Lau118_Beam">
     <Tube Position="0.34000, 2.08500, 0.00000" Direction="0, 1, 0" />
   </Launcher>
 
@@ -186,7 +189,7 @@
             MuzzleForwardOffset="0.296"
             LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
             EjectSpeed="6" MotorDelaySeconds="0.5"
-            EjectorArmMarker="Lau142_Arm" EjectorStrokeMetres="0.10" EjectorStrokeSeconds="0.06"
+            EjectorArmMarker="Lau142_CarriageArm" CarriageMarker="Lau142_Carriage" EjectorStrokeMetres="0.10" EjectorStrokeSeconds="0.06"
             ReloadSeconds="0" SettleSeconds="0">
     <Tube Position="0.29590, 1.82250, 0.00000" Direction="0, 1, 0" />
   </Launcher>

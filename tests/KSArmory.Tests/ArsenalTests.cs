@@ -268,6 +268,16 @@ public class ArsenalTests
         Assert.InRange(whole.Tubes[0].Position.X - cut.Tubes[0].Position.X, 0.15, 0.25);
     }
 
+    [Theory]
+    [InlineData("KSArmory_Prefab_Lau7")]
+    [InlineData("KSArmory_Prefab_Lau128")]
+    [InlineData("KSArmory_Prefab_Lau118")]
+    [InlineData("KSArmory_Prefab_Lau142")]
+    public void AMissilePartNamesTheCarriageItBringsWithIt(string part)
+    {
+        Assert.False(string.IsNullOrEmpty(Catalogue.LauncherForPart(part)!.CarriageMarker));
+    }
+
     [Fact]
     public void TheEjectorThrowsItsAmraamOutAndLightsItLateWhileTheRailsSlideTheirsOff()
     {

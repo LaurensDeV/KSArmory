@@ -592,7 +592,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Armaments.cs` | one coordinator per craft — **derived every frame, never pinned**, because it carries nothing a split could lose |
 | `Ksa/Radar.cs` | cone search, CPA threat model, lock |
 | `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |
-| `Ksa/EmptyRails.cs` | the empty missile rail hiding its own rail while a missile part sits on its station, **the mod's one pass in the vehicle editor** as well as in flight; the missile brings the rail it belongs on |
+| `Ksa/StoreCarriage.cs` | the hardware a store hangs by, shown when it means something: a missile's own rail or ejector (`LauncherProfile.CarriageMarker`) only while it is attached, so the part list shows the missile alone, and the empty Missile Rail only while nothing is on its station -- **the mod's one pass in the vehicle editor** as well as in flight |
 | `Ksa/LauncherSeparation.cs` | the decoupler on the joint holding a launcher on — **a property of the part, not the craft** |
 | `Ksa/OpticParts.cs` | finds a director on a craft, and turns its head |
 | `Ksa/OpticalHead.cs` | **one director** — its own sensor, its own aim, no weapon involved |
