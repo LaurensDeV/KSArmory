@@ -122,6 +122,12 @@ def charge(kg: float | None) -> str:
     return f"{kg:.3g} kg" if kg >= 1 else f"{kg * 1000:.3g} g"
 
 
+def hidden_parts() -> set[str]:
+    """Parts the editor does not offer, which a player cannot build with and so gets no page."""
+    root = ET.parse(MOD / "KSArmoryGameData.xml").getroot()
+    return {p.get("Id") for p in root.iter("PartGameData")
+            if any(t.get("Value") == "Hidden" for t in p.iter("EditorTag"))}
+
 
 def part_names() -> dict[str, str]:
     root = ET.parse(MOD / "KSArmoryGameData.xml").getroot()
@@ -280,6 +286,8 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
                 parts.setdefault(element.get("PartId"), []).append(element)
 
         for part_id, elements in parts.items():
+            if part_id in hidden_parts():
+                continue
             name = names.get(part_id, part_id)
             page = f"{folder}/{anchor(name)}.md"
             own_names = [name] + [e.get("DisplayName", "") for e in elements]

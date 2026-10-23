@@ -159,6 +159,8 @@
   </PartGameData>
 
   <PartGameData Id="KSArmory_Prefab_SidewinderRail" DisplayName="AIM-9J Sidewinder">
+    <!-- Hidden: its rail without the pylon hangs from the weapons pylon instead. Kept so a craft carrying one loads. -->
+    <EditorTag Value="Hidden" />
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
@@ -201,6 +203,8 @@
   </PartGameData>
 
   <PartGameData Id="KSArmory_Prefab_AmraamRail" DisplayName="AIM-120C AMRAAM">
+    <!-- Hidden: its rail without the pylon hangs from the weapons pylon instead. Kept so a craft carrying one loads. -->
+    <EditorTag Value="Hidden" />
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
@@ -238,6 +242,8 @@
   </PartGameData>
 
   <PartGameData Id="KSArmory_Prefab_HarmRail" DisplayName="AGM-88 HARM">
+    <!-- Hidden: its rail without the pylon hangs from the weapons pylon instead. Kept so a craft carrying one loads. -->
+    <EditorTag Value="Hidden" />
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
@@ -274,13 +280,13 @@
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_Lau7" DisplayName="AIM-9J Sidewinder, LAU-7 rail">
+  <PartGameData Id="KSArmory_Prefab_Lau7" DisplayName="AIM-9J Sidewinder on LAU-7 rail">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.5" />
 
-    <!-- Clicks into the weapons pylon's station, or sticks free-hand onto any surface. -->
+    <!-- Sticks onto any surface, as a wingtip rail does, or clicks into the weapons pylon's station. -->
     <Connector Id="_l7ConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
@@ -293,7 +299,7 @@
     </SolidSphereMass>
 
     <Collider Id="KSArmory_Lau7Collider">
-      <!-- Bounds off the cut mesh. -->
+      <!-- The rail alone, off the cut mesh: fired, nothing of the round is left to collide with. -->
       <Box Id="KSArmory_Lau7BeamCollider">
         <LocationAsmb X="0.094" Y="0.030" Z="0" />
         <Collider2Asmb X="0" Y="0" Z="0" />
@@ -301,23 +307,16 @@
         <LengthY M="2.558" />
         <LengthZ M="0.206" />
       </Box>
-      <Box Id="KSArmory_Lau7RoundCollider">
-        <LocationAsmb X="0.238" Y="0" Z="0" />
-        <Collider2Asmb X="0" Y="0" Z="0" />
-        <LengthX M="0.34" />
-        <LengthY M="3.09" />
-        <LengthZ M="0.34" />
-      </Box>
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_Lau128" DisplayName="AIM-120C AMRAAM, LAU-128 rail">
+  <PartGameData Id="KSArmory_Prefab_Lau128" DisplayName="AIM-120C AMRAAM on LAU-128 rail">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.55" />
 
-    <!-- Clicks into the weapons pylon's station, or sticks free-hand onto any surface. -->
+    <!-- Sticks onto any surface, as a wingtip rail does, or clicks into the weapons pylon's station. -->
     <Connector Id="_l128ConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
@@ -330,7 +329,7 @@
     </SolidSphereMass>
 
     <Collider Id="KSArmory_Lau128Collider">
-      <!-- Bounds off the cut mesh. -->
+      <!-- The rail alone, off the cut mesh: fired, nothing of the round is left to collide with. -->
       <Box Id="KSArmory_Lau128BeamCollider">
         <LocationAsmb X="0.082" Y="0.145" Z="0" />
         <Collider2Asmb X="0" Y="0" Z="0" />
@@ -338,23 +337,16 @@
         <LengthY M="2.690" />
         <LengthZ M="0.112" />
       </Box>
-      <Box Id="KSArmory_Lau128RoundCollider">
-        <LocationAsmb X="0.236" Y="0.002" Z="0" />
-        <Collider2Asmb X="0" Y="0" Z="0" />
-        <LengthX M="0.350" />
-        <LengthY M="3.645" />
-        <LengthZ M="0.350" />
-      </Box>
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_Lau118" DisplayName="AGM-88 HARM, LAU-118 rail">
+  <PartGameData Id="KSArmory_Prefab_Lau118" DisplayName="AGM-88 HARM on LAU-118 rail">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.85" />
 
-    <!-- Clicks into the weapons pylon's station, or sticks free-hand onto any surface. -->
+    <!-- Sticks onto any surface, as a wingtip rail does, or clicks into the weapons pylon's station. -->
     <Connector Id="_l118ConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
@@ -367,20 +359,13 @@
     </SolidSphereMass>
 
     <Collider Id="KSArmory_Lau118Collider">
-      <!-- Bounds off the cut mesh. -->
+      <!-- The rail alone, off the cut mesh: fired, nothing of the round is left to collide with. -->
       <Box Id="KSArmory_Lau118BeamCollider">
         <LocationAsmb X="0.123" Y="0.175" Z="0" />
         <Collider2Asmb X="0" Y="0" Z="0" />
         <LengthX M="0.246" />
         <LengthY M="2.850" />
         <LengthZ M="0.144" />
-      </Box>
-      <Box Id="KSArmory_Lau118RoundCollider">
-        <LocationAsmb X="0.340" Y="0" Z="0" />
-        <Collider2Asmb X="0" Y="0" Z="0" />
-        <LengthX M="0.802" />
-        <LengthY M="4.170" />
-        <LengthZ M="0.802" />
       </Box>
     </Collider>
   </PartGameData>
@@ -391,11 +376,14 @@
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.4" />
 
-    <!-- Clicks into the weapons pylon's station, or sticks free-hand onto any surface. -->
-    <Connector Id="_lau10ConnectorBase">
-      <Flags>ToSurface</Flags>
+    <!--
+      Hangs from the weapons pylon and nothing else. FromSurface is what makes the editor refuse it as
+      a craft's first part and the mod read it as a store, as a ToSurface connector would; it mates by
+      node, which neither flag touches.
+    -->
+    <Connector Id="_lau10ConnectorPylon">
+      <Flags>FromSurface</Flags>
     </Connector>
-    <Connector Id="_lau10ConnectorPylon" />
 
     <!-- Four Zunis at 48.5 kg each in a LAU-10 at 59 kg. -->
     <SolidSphereMass>
@@ -421,11 +409,14 @@
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.45" />
 
-    <!-- Clicks into the weapons pylon's station, or sticks free-hand onto any surface. -->
-    <Connector Id="_zuni6ConnectorBase">
-      <Flags>ToSurface</Flags>
+    <!--
+      Hangs from the weapons pylon and nothing else. FromSurface is what makes the editor refuse it as
+      a craft's first part and the mod read it as a store, as a ToSurface connector would; it mates by
+      node, which neither flag touches.
+    -->
+    <Connector Id="_zuni6ConnectorPylon">
+      <Flags>FromSurface</Flags>
     </Connector>
-    <Connector Id="_zuni6ConnectorPylon" />
 
     <!-- Six Zunis at 48.5 kg each in a pod at 80 kg. -->
     <SolidSphereMass>
