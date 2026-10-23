@@ -225,6 +225,20 @@ internal sealed class Slug : IProjectile
     /// </summary>
     public double3 LaunchFrameVelocityLocal { get; set; }
 
+    /// <inheritdoc />
+    public double MotorDelaySeconds { get; init; }
+
+    // Where "gained" is measured from once a delayed motor lights: the velocity at ignition. Measured from
+    // release instead, it holds the fall and the ejector's push, and the motor would drive the round down.
+    private double3? _gainedFromAtIgnition;
+
+    private double3 ThrustAxis(double3 localVelocity)
+    {
+        if (MotorDelaySeconds > 0.0) _gainedFromAtIgnition ??= localVelocity;
+        double3 axis = Vec.Unit(localVelocity - (_gainedFromAtIgnition ?? LaunchFrameVelocityLocal));
+        return axis.Equals(Vec.Zero) ? Vec.Unit(ReleaseHeadingEcl) : axis;
+    }
+
     /// <inheritdoc cref="IProjectile.Munition"/>
     public required MunitionProfile Munition { get; init; }
 
@@ -474,11 +488,8 @@ internal sealed class Slug : IProjectile
     // own velocity, and a rocket fired off a craft moving any other way would be driven along its track.
     private double3 Thrust(double3 localVelocity, MunitionProfile munition)
     {
-        if (Age > munition.TotalBoostSeconds) return Vec.Zero;
-
-        double3 axis = Vec.Unit(localVelocity - LaunchFrameVelocityLocal);
-        if (axis.Equals(Vec.Zero)) axis = Vec.Unit(ReleaseHeadingEcl);
-        return axis * munition.BoostAccelAt(Age);
+        if (!((IProjectile)this).MotorBurning) return Vec.Zero;
+        return ThrustAxis(localVelocity) * munition.BoostAccelAt(Age - MotorDelaySeconds);
     }
 
     /// <inheritdoc cref="IProjectile.SteeringCommandEcl"/>

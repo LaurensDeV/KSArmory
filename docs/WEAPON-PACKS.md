@@ -200,7 +200,7 @@ How a round flies and what it does when it arrives. **Required:** `Name`, `Displ
 | Attribute | Default | Meaning |
 | --- | --- | --- |
 | `LaunchSpeed` | `45` | Speed added at release, m/s. A rail adds very little. |
-| `SeparationSeconds` | `0` | Coast time before the motor lights. |
+| `SeparationSeconds` | `0` | Time the round flies straight before it starts steering, counted from when its motor lights. It does not delay the motor; a launcher's `MotorDelaySeconds` does that. |
 | `BoostSeconds` | `2.4`, or `0` for `Guidance="None"` and `"Inertial"` | Motor burn time (first stage). On an unguided round it makes a rocket: fired without a lock and pushed along its tube, and the launcher's sight flies the burn. The Zuni in `Rockets.xml` is one. |
 | `BoostAccel` | `520`, or `0` for `Guidance="None"` and `"Inertial"` | Acceleration while the motor burns, m/s². |
 | `MaxFlightSeconds` | `30` | The round self-destructs after this. For a round with `HitsTerrain`, only time on a path that might not land is counted, so a long fall is never cut short. |
@@ -305,6 +305,8 @@ A launcher must be able to fire something: at least one `<Tube>`, a `GunMunition
 | `ReloadSeconds` | `0` | Seconds after the last round before the launcher refills itself. `0` means never; only the panel's Reload button refills it. |
 | `LaunchAlongTube` | `true` | `false` throws the round off-axis toward a target well off the boresight. |
 | `LaunchLoft` | `0.35` | Bias toward the launcher's boresight. Only used when `LaunchAlongTube` is `false`. |
+| `EjectSpeed` | `0` | An ejector: m/s the round is pushed out of the mounting face (+X), in place of the munition's `LaunchSpeed` along the tube. `0` slides it off the tube as a rail does. |
+| `MotorDelaySeconds` | `0` | Seconds from release until the motor lights, so an ejected round falls clear first. On the launcher, so one munition can be carried on a rail that lights at once and an ejector that waits. |
 | `EjectAwayFromMount` | `0` | Tilts the launch direction toward the launcher's boresight: a fraction of the tube axis, not a speed. Only applies with `LaunchAlongTube`, and does nothing where the boresight is the tube axis, as on a rail whose sensor uses `PartForward`. The bomb rack uses it. |
 | `MuzzleOffset` | `8` | Distance ahead of the tube where the round appears, m. |
 | `MuzzleForwardOffset` | `0` | Distance from the part origin to the muzzles along the boresight, m. |

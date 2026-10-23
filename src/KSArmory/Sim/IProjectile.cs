@@ -89,6 +89,15 @@ internal interface IProjectile
     double3 ReleaseHeadingEcl { get; set; }
 
     /// <summary>
+    /// Seconds from release to the motor lighting, which an ejector sets so its round falls clear first.
+    /// Set at launch from the launcher, because a munition is shared with launchers that light at once.
+    /// </summary>
+    double MotorDelaySeconds { get; init; }
+
+    /// <summary>Whether the motor is burning now: what pushes it, lights its plume and makes it hot.</summary>
+    bool MotorBurning => Age >= MotorDelaySeconds && Age - MotorDelaySeconds <= Munition.TotalBoostSeconds;
+
+    /// <summary>
     /// The platform's attitude when this round left, as Asmb2Ecl. Set at launch, never updated.
     ///
     /// <para>The launch anchor is a point in the world written down in the launcher's frame, so it

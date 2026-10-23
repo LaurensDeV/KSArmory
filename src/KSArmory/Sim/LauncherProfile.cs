@@ -279,15 +279,22 @@ public sealed class LauncherProfile
     public float LaunchLoft = 0.35f;
 
     /// <summary>
-    /// How hard a round is pushed off its rail as it leaves, as a fraction of the tube axis,
-    /// along the launcher's boresight.
-    ///
-    /// <para>Only applies when rounds leave along the tube. A rail has no tube walls to hold the
-    /// round, so it separates outward as well as forward — without which it departs along the
-    /// skin of whatever it is bolted to. Zero for a launcher whose rounds are ejected from a
-    /// container, which is why it does not change the Pantsir.</para>
+    /// A tilt of the launch direction toward the launcher's boresight, as a fraction of the tube axis.
+    /// Only along the tube, and only where the boresight is not the tube itself, which is the bomb rack.
     /// </summary>
     public float EjectAwayFromMount;
+
+    /// <summary>
+    /// m/s an ejector pushes the round out of the mounting face (+X), in place of the munition's
+    /// LaunchSpeed along the tube. Zero is a round that slides off its rail as before.
+    /// </summary>
+    public float EjectSpeed;
+
+    /// <summary>
+    /// Seconds from release to the motor lighting, so an ejected round falls clear of its carrier first.
+    /// On the launcher rather than the munition, which is shared with rails that light at once.
+    /// </summary>
+    public float MotorDelaySeconds;
 
     /// <summary>Standoff used when no launcher part is fitted at all (m).</summary>
     public float MuzzleOffset = 8f;

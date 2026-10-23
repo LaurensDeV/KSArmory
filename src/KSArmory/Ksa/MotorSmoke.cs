@@ -95,7 +95,7 @@ internal sealed class MotorSmoke
     private static bool Burning(IProjectile round)
         => round.State == RoundState.Flying
            && round.Munition.TotalBoostSeconds > 0f
-           && round.Age <= round.Munition.TotalBoostSeconds;
+           && round.MotorBurning;
 
     private void Lay(IProjectile round, IEffectSource system, Celestial body, double3 centre)
     {

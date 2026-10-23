@@ -239,6 +239,20 @@ internal sealed class Interceptor : IProjectile
     /// </summary>
     public double3 LaunchFrameVelocityLocal { get; set; }
 
+    /// <inheritdoc />
+    public double MotorDelaySeconds { get; init; }
+
+    // Where "gained" is measured from once a delayed motor lights: the velocity at ignition. Measured from
+    // release instead, it holds the fall and the ejector's push, and the motor would drive the round down.
+    private double3? _gainedFromAtIgnition;
+
+    private double3 ThrustAxis(double3 localVelocity)
+    {
+        if (MotorDelaySeconds > 0.0) _gainedFromAtIgnition ??= localVelocity;
+        double3 axis = Vec.Unit(localVelocity - (_gainedFromAtIgnition ?? LaunchFrameVelocityLocal));
+        return axis.Equals(Vec.Zero) ? Vec.Unit(ReleaseHeadingEcl) : axis;
+    }
+
     /// <inheritdoc cref="IProjectile.Munition"/>
     public required MunitionProfile Munition { get; init; }
 
@@ -440,15 +454,12 @@ internal sealed class Interceptor : IProjectile
         // and proportional navigation's lateral term lands in it too -- so the round still curves
         // onto its target rather than flying the rail's bearing for ever. For a launcher standing
         // still the gain *is* the velocity, so nothing about a ground system's flight changes.
-        if (Age <= munition.TotalBoostSeconds)
+        if (((IProjectile)this).MotorBurning)
         {
-            double3 axis = Vec.Unit(localVelocity - LaunchFrameVelocityLocal);
-
-            // Nothing gained yet, which is a round its rail imparts no speed to at all. The
-            // heading it left along is the only thing that says which way it is pointing.
-            if (axis.Equals(Vec.Zero)) axis = Vec.Unit(ReleaseHeadingEcl);
-
-            if (!axis.Equals(Vec.Zero)) accel += axis * munition.BoostAccelAt(Age);
+            // Nothing gained yet, which is a round its rail imparts no speed to at all: the heading it
+            // left along is the only thing that says which way it is pointing.
+            double3 axis = ThrustAxis(localVelocity);
+            if (!axis.Equals(Vec.Zero)) accel += axis * munition.BoostAccelAt(Age - MotorDelaySeconds);
         }
 
         accel -= Medium.Drag(localVelocity, munition, mediumDensityRatio);
@@ -533,7 +544,7 @@ internal sealed class Interceptor : IProjectile
             // along its rail and turns after separation; guiding from the first sub-step turns it
             // into the craft carrying it.
             SteeringCommandEcl = Vec.Zero;
-            if (SeekerInView && Age >= munition.SeparationSeconds)
+            if (SeekerInView && Age >= MotorDelaySeconds + munition.SeparationSeconds)
             {
                 SteeringCommandEcl = GuidanceAccel(r, v, localVelocity, gravity, munition);
                 accel += SteeringCommandEcl;

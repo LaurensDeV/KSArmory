@@ -1828,6 +1828,10 @@ direction of travel** over a five-second boost — away from the target for a la
 round, and into the ground for one that was descending. What it has gained starts as the ejection up
 the tube and accumulates along the thrust, and proportional navigation's lateral term lands in it
 too, so the round still curves onto its target rather than flying the rail's bearing for ever.
+An ejector's push (`LauncherProfile.EjectSpeed`) is inherited along with the craft's velocity, and a
+motor that lights late (`MotorDelaySeconds`) measures what it has gained from ignition, not release:
+measured from release it holds the fall and the push, and the motor lights 100° off the tube
+(`EjectedMotorTests`).
 
 **Every launcher this mod had when that was written stood still**, and for a stationary launcher the
 gain *is* the velocity — so "along the flight path" and "along the tube" were the same expression and

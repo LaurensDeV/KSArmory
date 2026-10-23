@@ -498,6 +498,39 @@ public class PackReaderTests
     }
 
     [Fact]
+    public void AnEjectorsPushAndMotorDelayAreRead()
+    {
+        LauncherProfile ejector = Assert.Single(Read(Wrap(ARound + ASet + """
+            <Launcher PartId="TestPack_Prefab_Ejector" DisplayName="Test ejector"
+                      Munition="Dart" Sensor="Eye" EjectSpeed="6" MotorDelaySeconds="0.5">
+              <Tube Position="0.3, 1, 0" Direction="0, 1, 0" />
+            </Launcher>
+            """)).Launchers);
+        LauncherProfile rail = Assert.Single(Read(Wrap(ARound + ASet + ARail)).Launchers);
+
+        Assert.Equal(6f, ejector.EjectSpeed);
+        Assert.Equal(0.5f, ejector.MotorDelaySeconds);
+        Assert.Equal(0f, rail.EjectSpeed);
+        Assert.Equal(0f, rail.MotorDelaySeconds);
+    }
+
+    [Theory]
+    [InlineData("EjectSpeed")]
+    [InlineData("MotorDelaySeconds")]
+    public void ANegativeEjectionIsRefused(string attribute)
+    {
+        PackContents pack = Read(Wrap(ARound + ASet + $"""
+            <Launcher PartId="TestPack_Prefab_Ejector" DisplayName="Test ejector"
+                      Munition="Dart" Sensor="Eye" {attribute}="-1">
+              <Tube Position="0.3, 1, 0" Direction="0, 1, 0" />
+            </Launcher>
+            """));
+
+        Assert.Empty(pack.Launchers);
+        Assert.Contains(pack.Faults, f => f.Reason.Contains(attribute));
+    }
+
+    [Fact]
     public void ANameNothingCarriesIsRefusedAtReadRatherThanFlownAsElementZero()
     {
         PackContents pack = Read(Wrap(

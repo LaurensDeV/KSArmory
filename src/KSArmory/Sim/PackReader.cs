@@ -536,6 +536,8 @@ public static class PackReader
             LaunchAlongTube = r.Flag("LaunchAlongTube", true),
             LaunchLoft = r.Number("LaunchLoft", 0.35f),
             EjectAwayFromMount = r.Number("EjectAwayFromMount", 0f),
+            EjectSpeed = r.Number("EjectSpeed", 0f),
+            MotorDelaySeconds = r.Number("MotorDelaySeconds", 0f),
             MuzzleOffset = r.Number("MuzzleOffset", 8f),
 
             GunAmmo = r.Count("GunAmmo", 480),
@@ -572,6 +574,9 @@ public static class PackReader
         {
             r.Fault("declares no Tube, no GunMunition and no FiresBeam, so it cannot shoot with anything");
         }
+
+        if (launcher.EjectSpeed < 0f) r.Fault("EjectSpeed is a speed out of the mounting face; it cannot be negative");
+        if (launcher.MotorDelaySeconds < 0f) r.Fault("MotorDelaySeconds cannot be negative");
 
         // Elevation gear with no trunnion offset swings the assembly about the turret's own
         // centre, which reads as a pod orbiting the vehicle.

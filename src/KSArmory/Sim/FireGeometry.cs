@@ -18,6 +18,10 @@ public static class FireGeometry
     /// <summary>The model's nose axis. The round mesh is built pointing this way.</summary>
     public static readonly double3 NoseAxis = new(1, 0, 0);
 
+    /// <summary>What an ejector adds to a round's velocity: its speed out of the mounting face.</summary>
+    public static double3 Ejection(double3 mountNormal, double ejectSpeed)
+        => ejectSpeed > 0.0 ? Vec.Unit(mountNormal) * ejectSpeed : Vec.Zero;
+
     /// <summary>
     /// Which way a round leaves.
     ///

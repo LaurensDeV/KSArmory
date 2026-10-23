@@ -11,7 +11,7 @@ ignored.
 
 `docs/WEAPON-PACKS.md` is the same surface written for the author, with the reasons attached.
 
-**Definition schema 1.** 8 elements, 171 attributes, 15 entry-point lines.
+**Definition schema 1.** 8 elements, 173 attributes, 15 entry-point lines.
 
 ## Entry point
 
@@ -174,6 +174,8 @@ to build; widening it to take a profile type would put that back.
 | `LaunchAlongTube` | true or false | `true` |
 | `LaunchLoft` | number | `0.35` |
 | `EjectAwayFromMount` | number | `0` |
+| `EjectSpeed` | number | `0` |
+| `MotorDelaySeconds` | number | `0` |
 | `MuzzleOffset` | number | `8` |
 | `GunAmmo` | whole number | `480` |
 | `StoreMassKg` | number | `0` |

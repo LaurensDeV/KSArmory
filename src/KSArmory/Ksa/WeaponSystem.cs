@@ -2763,7 +2763,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 ReleaseHeadingEcl = launch.Heading,
                 LaunchAttitude = Platform?.Asmb2Ego ?? doubleQuat.Identity,
                 SpinVelocityEcl = launch.Spin,
-                LaunchFrameVelocityLocal = launch.PlatformVelocity - launch.FrameVelocity,
+                LaunchFrameVelocityLocal = launch.PlatformVelocity + launch.Eject - launch.FrameVelocity,
+                MotorDelaySeconds = Profile.MotorDelaySeconds,
                 Aimpoint = aim,
             }
             : new Interceptor(launch.Position, launch.Velocity, aim.Handle, tube + 1, PlatformEcl,
@@ -2775,10 +2776,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 LaunchAttitude = Platform?.Asmb2Ego ?? doubleQuat.Identity,
 
                 // What the round inherited rather than earned, so the motor can push along the
-                // round instead of along the craft's track. Differenced here from the two terms
-                // rather than passed as one: both are this frame's samples and the ecliptic's
-                // ~29.8 km/s cancels in the subtraction. Zero for a launcher standing still.
-                LaunchFrameVelocityLocal = launch.PlatformVelocity - launch.FrameVelocity,
+                // round instead of along the craft's track -- an ejector's push included. Differenced
+                // here from the terms rather than passed as one: both are this frame's samples and
+                // the ecliptic's ~29.8 km/s cancels in the subtraction.
+                LaunchFrameVelocityLocal = launch.PlatformVelocity + launch.Eject - launch.FrameVelocity,
+                MotorDelaySeconds = Profile.MotorDelaySeconds,
                 Aimpoint = aim,
             });
         _salvoTimer = Profile.SalvoSpacing;
@@ -2786,7 +2788,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         Announce(aim.Kind == AimpointKind.None
                      ? $"round {tube + 1} released - {what}"
                      : $"round {tube + 1} away at {what}"
-                       + Ejection(launch.Direction, launch.PlatformVelocity, launch.Position, launch.Spin));
+                       + Ejection(launch.Direction, launch.PlatformVelocity, launch.Position, launch.Spin,
+                                  launch.Eject));
         return true;
     }
 
@@ -2819,7 +2822,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private readonly record struct Launch(bool FromTube, double3 Position, double3 AnchorPartFrame,
                                           double3 Direction, double3 Heading, double3 Spin,
                                           double3 Velocity, double3 PlatformVelocity,
-                                          double3 FrameVelocity);
+                                          double3 FrameVelocity, double3 Eject);
 
     private Launch LaunchFrom(int tube, Aimpoint aim)
     {
@@ -2882,8 +2885,18 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         double3 spinVel = FireGeometry.SpinVelocity(KsaWorld.AngularVelocityEcl(platform), launchPos,
                                                     KsaWorld.CentreOfMassEcl(platform));
 
+        // An ejector throws the round out of its mounting face instead of sliding it along the tube.
+        // The direction stays the tube's: the seeker's gimbal and the log are measured off it.
+        double3 eject = Vec.Zero;
+        if (Profile.EjectSpeed > 0f && Launcher is { } launcher
+            && LauncherPart.TryLauncherDirectionEcl(platform, launcher, TubeGeometry.TraverseAxis, out double3 mountNormal))
+        {
+            eject = FireGeometry.Ejection(mountNormal, Profile.EjectSpeed);
+        }
+        double slide = eject.Equals(Vec.Zero) ? Munition.LaunchSpeed : 0.0;
+
         return new Launch(fromTube, launchPos, launchAnchorPartFrame, launchDir, releaseHeading, spinVel,
-                          platformVel + spinVel + (launchDir * Munition.LaunchSpeed), platformVel, frameVel);
+                          platformVel + spinVel + eject + (launchDir * slide), platformVel, frameVel, eject);
     }
 
     /// <summary>
@@ -3527,9 +3540,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // prediction lands and where the round does, and on a deorbit a metre a second is kilometres -
     // so it is worth stating rather than inferring.
     private string Ejection(double3 launchDirEcl, double3 platformVelEcl, double3 launchPosEcl,
-                           double3 spinVelEcl)
+                           double3 spinVelEcl, double3 ejectEcl)
     {
-        if (Munition.LaunchSpeed <= 0f) return "";
+        bool ejected = !ejectEcl.Equals(Vec.Zero);
+        if (Munition.LaunchSpeed <= 0f && !ejected) return "";
 
         double3 heading = Vec.Unit(platformVelEcl);
         double3 thrown = Vec.Unit(launchDirEcl);
@@ -3551,7 +3565,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // tube is metres from the centre of mass, so a bus holding attitude on its thrusters throws
         // the round with however fast that lever arm is sweeping. A third of a metre a second of it
         // is a kilometre of miss on this arc, and it is invisible from the orbit state.
-        return $" ({Munition.LaunchSpeed:F1} m/s off the tube, {degrees:F0} deg from the platform's"
+        string push = ejected
+            ? $"ejected {Vec.Len(ejectEcl):F1} m/s off the mount, motor at {Profile.MotorDelaySeconds:F2} s"
+            : $"{Munition.LaunchSpeed:F1} m/s off the tube";
+        return $" ({push}, {degrees:F0} deg from the platform's"
                + $" track, launched {radial:+0.0;-0.0;0.0} m radially off the orbit position,"
                + $" {Vec.Len(spinVelEcl):F3} m/s of spin at the tube)";
     }
@@ -4039,7 +4056,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         SeekerBand.Infrared => target.Handle switch
         {
             Vehicle v => KsaWorld.HeatOf(v),
-            IProjectile p => Signature.HeatOfRound(p.Age <= p.Munition.TotalBoostSeconds),
+            IProjectile p => Signature.HeatOfRound(p.MotorBurning),
             _ => Signature.AirframeKwPerSr,
         },
         _ => RadarSignature.CrossSectionFor(target.Radius),

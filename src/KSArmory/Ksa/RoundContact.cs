@@ -69,7 +69,7 @@ internal sealed class RoundContact(IProjectile round, string? firedBy, string? d
     /// </summary>
     public double MeanRadius => 1.5;
 
-    public double HeatKwPerSr => Signature.HeatOfRound(Round.Age <= Round.Munition.TotalBoostSeconds);
+    public double HeatKwPerSr => Signature.HeatOfRound(Round.MotorBurning);
 
     /// <summary>Gone the moment it stops flying, whether it hit, burst or timed out.</summary>
     public bool IsAlive => Round.State == RoundState.Flying;

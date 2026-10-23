@@ -111,7 +111,7 @@ internal sealed class MotorSound(Config config)
     private static bool Burning(IProjectile round)
         => round.State == RoundState.Flying
            && round.Munition.TotalBoostSeconds > 0f
-           && round.Age <= round.Munition.TotalBoostSeconds;
+           && round.MotorBurning;
 
     private void Follow(IProjectile round, IRoundsInFlight system,
                         double3 platformEgo, double3 platformVelEgo, double pressure)
