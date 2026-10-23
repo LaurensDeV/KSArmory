@@ -910,10 +910,10 @@ LAUNCHER_GEOMETRY = {
     "Mk42": (None, "Mk 42 mount"),            # authored gun -- AUTHORED_GUNS below
     "M197": (None, "M197 chin turret"),       # authored gun -- AUTHORED_GUNS below
     "Yal1Beam": (None, "YAL-1 laser"),        # fires the director on its part; nothing of its own
-    "Lau7": (None, "LAU-7 rail"),             # cut off its pylon -- BARE_RAILS below
-    "Lau128": (None, "LAU-128 rail"),
-    "Lau118": (None, "LAU-118 rail"),
-    "Lau142": (None, "LAU-142 ejector"),       # authored -- AUTHORED_LAUNCHERS
+    "Aim9J": (None, "AIM-9J on the ejector"),   # authored carriage -- AUTHORED_LAUNCHERS
+    "Aim120C": (None, "AIM-120C on the ejector"),
+    "Agm88": (None, "AGM-88 on the ejector"),
+    "B61": (None, "B61 on the ejector"),
 }
 
 # Launchers whose art was authored AND whose weapon is a gun, so there is no tube and no seat to
@@ -953,8 +953,12 @@ AUTHORED_LAUNCHERS = {
                    "KSArmory_Subpart_Amraam", "Missile120C", "AMRAAM rail"),
     "HarmRail": ("KSArmory_Prefab_HarmRail", "KSArmory_Harm_Round00",
                  "KSArmory_Subpart_Harm", "MissileAgm88", "HARM rail"),
-    "Lau142": ("KSArmory_Prefab_Lau142", "KSArmory_Lau142_Amraam_Round00",
-               "KSArmory_Subpart_Amraam", "Missile120C", "LAU-142 ejector"),
+    "Aim120C": ("KSArmory_Prefab_Aim120C", "KSArmory_Amraam_Amraam_Round00",
+                "KSArmory_Subpart_Amraam", "Missile120C", "AIM-120C on the ejector"),
+    "Agm88": ("KSArmory_Prefab_Agm88", "KSArmory_Harm_Harm_Round00",
+              "KSArmory_Subpart_Harm", "MissileAgm88", "AGM-88 on the ejector"),
+    "B61": ("KSArmory_Prefab_B61", "KSArmory_Bomb_B6100",
+            "KSArmory_Subpart_B61", "NukeB61", "B61 on the ejector"),
     # Its beam is generated and its round is not, so only the round is checked here. The beam
     # carries no geometry its definition names -- the seat and the tube both come off the round.
     "NukeRack": ("KSArmory_Prefab_NukeRack", "KSArmory_NukeRack_B6100",
@@ -1173,83 +1177,48 @@ def check_authored_launcher_geometry(profile, part_id, seat_id, mesh_id, munitio
 
     return problems, checked
 
-# Rails cut off their pylons by tools/model/bare-rails.py. Each is its pylon-carrying twin moved up
-# by the depth the cut removed, so the twin's own check covers the mesh and this covers the move.
+# Launchers whose round's mesh is generated and not centred on its origin, so the tube is the seat plus
+# half the munition's BodyLength -- what tools/model/sidewinder.py prints -- rather than half the mesh.
 #
-#   profile -> (part Id, seated round's SubPart Id, cut mesh Id, twin profile, twin part Id,
-#               twin's seated round SubPart Id, label)
-BARE_RAILS = {
-    "Lau7": ("KSArmory_Prefab_Lau7", "KSArmory_Lau7_Aim900", "KSArmory_Subpart_Lau7",
-             "SidewinderRail", "KSArmory_Prefab_SidewinderRail", "KSArmory_Rail_Aim900", "LAU-7 rail"),
-    "Lau128": ("KSArmory_Prefab_Lau128", "KSArmory_Lau128_Amraam_Round00", "KSArmory_Subpart_Lau128",
-               "AmraamRail", "KSArmory_Prefab_AmraamRail", "KSArmory_Amraam_Round00", "LAU-128 rail"),
-    "Lau118": ("KSArmory_Prefab_Lau118", "KSArmory_Lau118_Harm_Round00", "KSArmory_Subpart_Lau118",
-               "HarmRail", "KSArmory_Prefab_HarmRail", "KSArmory_Harm_Round00", "LAU-118 rail"),
+#   profile -> (part Id, seated round's SubPart Id, munition profile, label)
+SEATED_GENERATED_ROUNDS = {
+    "Aim9J": ("KSArmory_Prefab_Aim9J", "KSArmory_Sidewinder_Aim900", "Missile9J", "AIM-9J on the ejector"),
 }
 
 
-def check_bare_rail_geometry(profile, part_id, seat_id, mesh_id, twin, twin_part, twin_seat, label):
-    """Checks a cut rail against its twin, moved by the depth the cut took off.
-
-    The seat, the tube and the muzzle offset are each the twin's less that depth. Any one left at
-    the twin's value draws the round a pylon's depth below the rail, or fires it from there.
-    """
+def check_seated_generated_round(profile, part_id, seat_id, munition, label):
+    """The tube mouth is the seated round's nose: its seat plus half its declared length."""
     text = arsenal_text()
-    built = import_module("bare-rails").build()
-    problems = checked = 0
-
-    checked += 1
-    committed = MOD / "Meshes" / "KSArmory_BareRails.glb"
-    if not committed.is_file() or committed.read_bytes() != built[0]:
-        print(f"  STALE {committed.name} -- run tools/model/bare-rails.py", file=sys.stderr)
-        return 1, 1
-    shift = built[1].get(mesh_id)
-    if shift is None:
-        print(f"  MISSING {mesh_id} in tools/model/bare-rails.py", file=sys.stderr)
-        return 1, 1
-
-    seats = {}
+    block = profile_block(text, profile)
+    seat = None
     for path in sorted(MOD.glob("KSArmory*.xml")):
         for part in ET.parse(path).getroot().findall("Part"):
             for sub in part.findall("SubPart"):
                 position = sub.find("Transform/Position")
-                if (part.get("Id"), sub.get("Id")) in ((part_id, seat_id), (twin_part, twin_seat)) \
-                        and position is not None:
-                    seats[part.get("Id")] = [float(position.get(axis, "0")) for axis in "XYZ"]
-    if part_id not in seats or twin_part not in seats:
-        print(f"  MISSING seat {seat_id} or {twin_seat} in the part XML", file=sys.stderr)
+                if part.get("Id") == part_id and sub.get("Id") == seat_id and position is not None:
+                    seat = [float(position.get(axis, "0")) for axis in "XYZ"]
+    body = re.search(rf"{munition}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
+    length = re.search(r"BodyLength\s*=\s*([\d.]+)f\s*,", body.group(1)) if body else None
+    tube = re.search(r"Tubes\s*=\s*\[\s*new\(new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\),", block or "")
+    offset = re.search(r"MuzzleForwardOffset\s*=\s*([\d.]+)\s*,", block or "")
+    if None in (seat, length, tube, offset):
+        print(f"  MISSING the seat, BodyLength, Tubes or MuzzleForwardOffset of {profile}", file=sys.stderr)
         return 1, 1
 
-    def fields(name):
-        block = profile_block(text, name)
-        if block is None:
-            return None, None
-        tube = re.search(r"Tubes\s*=\s*\[\s*new\(new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\),"
-                         r"\s*new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\)", block)
-        offset = re.search(r"MuzzleForwardOffset\s*=\s*([\d.]+)\s*,", block)
-        return (None if tube is None else [float(v) for v in tube.groups()],
-                None if offset is None else float(offset.group(1)))
-
-    tube, offset = fields(profile)
-    twin_tube, twin_offset = fields(twin)
-    if None in (tube, offset, twin_tube, twin_offset):
-        print(f"  MISSING Tubes or MuzzleForwardOffset on {profile} or {twin}", file=sys.stderr)
-        return 1, 1
-
-    moved = [-shift, 0.0, 0.0]
-    for what, got, want, tolerance in (
-            ("seat", seats[part_id], [seats[twin_part][i] + moved[i] for i in range(3)], 5e-4),
-            ("Tubes", tube, [twin_tube[i] + moved[i] for i in range(3)] + twin_tube[3:], 5e-4),
-            ("MuzzleForwardOffset", [offset], [twin_offset - shift], 1e-3)):
-        checked += 1
-        if any(abs(a - b) > tolerance for a, b in zip(got, want)):
-            print(f"  STALE {profile} {what} = {tuple(got)}, {twin} moved up {shift:.5f} m "
-                  f"says {tuple(round(v, 5) for v in want)}", file=sys.stderr)
-            problems += 1
-
+    want = [seat[0], seat[1] + float(length.group(1)) / 2, seat[2]]
+    got = [float(v) for v in tube.groups()]
+    problems = 0
+    if any(abs(a - b) > 5e-4 for a, b in zip(got, want)):
+        print(f"  STALE {profile}.Tubes = {tuple(got)}, the seat and BodyLength say {tuple(round(v, 5) for v in want)}",
+              file=sys.stderr)
+        problems += 1
+    if abs(float(offset.group(1)) - seat[0]) > 5e-4:
+        print(f"  STALE {profile}.MuzzleForwardOffset = {offset.group(1)}, the XML seats the round at {seat[0]}",
+              file=sys.stderr)
+        problems += 1
     if problems == 0:
-        print(f"  {label} geometry: its {twin} twin, moved up {shift:.3f} m to the cut")
-    return problems, checked
+        print(f"  {label} geometry: 1 tube at its round's seat and declared length")
+    return problems, 2
 
 
 # Authored launchers carrying a *cluster* of seated rounds rather than one. The single-tube check
@@ -1522,10 +1491,10 @@ _CSHARP_NAME = {
     ("Launcher", "KSArmory_Prefab_SidewinderRail"): "SidewinderRail",
     ("Launcher", "KSArmory_Prefab_AmraamRail"): "AmraamRail",
     ("Launcher", "KSArmory_Prefab_HarmRail"): "HarmRail",
-    ("Launcher", "KSArmory_Prefab_Lau7"): "Lau7",
-    ("Launcher", "KSArmory_Prefab_Lau128"): "Lau128",
-    ("Launcher", "KSArmory_Prefab_Lau118"): "Lau118",
-    ("Launcher", "KSArmory_Prefab_Lau142"): "Lau142",
+    ("Launcher", "KSArmory_Prefab_Aim9J"): "Aim9J",
+    ("Launcher", "KSArmory_Prefab_Aim120C"): "Aim120C",
+    ("Launcher", "KSArmory_Prefab_Agm88"): "Agm88",
+    ("Launcher", "KSArmory_Prefab_B61"): "B61",
     ("Launcher", "KSArmory_Prefab_NukeRack"): "NukeRack",
     ("Launcher", "KSArmory_Prefab_Lau10"): "Lau10",
     ("Launcher", "KSArmory_Prefab_ZuniPod6"): "ZuniPod6",
@@ -1670,8 +1639,8 @@ def check_launcher_geometry():
             p, c = check_cluster_launcher_geometry(profile, *CLUSTER_LAUNCHERS[profile])
             problems += p; checked += c
             continue
-        if profile in BARE_RAILS:
-            p, c = check_bare_rail_geometry(profile, *BARE_RAILS[profile])
+        if profile in SEATED_GENERATED_ROUNDS:
+            p, c = check_seated_generated_round(profile, *SEATED_GENERATED_ROUNDS[profile])
         elif profile in AUTHORED_GUNS:
             p, c = check_authored_gun_geometry(profile, *AUTHORED_GUNS[profile])
         elif profile in AUTHORED_LAUNCHERS:

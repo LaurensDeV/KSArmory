@@ -3599,7 +3599,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         // the round with however fast that lever arm is sweeping. A third of a metre a second of it
         // is a kilometre of miss on this arc, and it is invisible from the orbit state.
         string push = ejected
-            ? $"ejected {Vec.Len(ejectEcl):F1} m/s off the mount, motor at {Profile.MotorDelaySeconds:F2} s"
+            ? $"ejected {Vec.Len(ejectEcl):F1} m/s off the mount"
+              + (Munition.TotalBoostSeconds > 0f ? $", motor at {Profile.MotorDelaySeconds:F2} s" : "")
             : $"{Munition.LaunchSpeed:F1} m/s off the tube";
         return $" ({push}, {degrees:F0} deg from the platform's"
                + $" track, launched {radial:+0.0;-0.0;0.0} m radially off the orbit position,"

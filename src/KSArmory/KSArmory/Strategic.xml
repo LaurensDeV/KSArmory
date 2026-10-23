@@ -145,4 +145,19 @@
     <Tube Position="0.43510, 1.77800, 0.00000" Direction="0, 1, 0" />
   </Launcher>
 
+  <!--
+    The B61 as players fit it, on the ejector launcher it brings, its hooks at the 30-inch stations: thrown
+    6 m/s out of the mounting face as an ejector rack throws a bomb, the push an estimate. The rack above
+    is hidden from the editor and kept for saves.
+  -->
+  <Launcher PartId="KSArmory_Prefab_B61" DisplayName="B61 bomb"
+            FireControlLabel="B61 release"
+            Munition="B61" Sensor="BOMBSIGHT" StoreMassKg="374" TubeArmamentLabel="Bombs"
+            MuzzleForwardOffset="0.393" LaunchAlongTube="true" LaunchLoft="0"
+            EjectSpeed="6" CarriageMarker="Carriage"
+            EjectorArmMarker="CarriageArm" EjectorStrokeMetres="0.10" EjectorStrokeSeconds="0.06"
+            MuzzleOffset="2" ReloadSeconds="0" SettleSeconds="0">
+    <Tube Position="0.39300, 1.77800, 0.00000" Direction="0, 1, 0" />
+  </Launcher>
+
 </WeaponPack>

@@ -5,8 +5,8 @@ namespace KSArmory;
 
 /// <summary>
 /// The hardware a store hangs by, shown when it means something: a missile's own rail or ejector only
-/// while the missile is attached to something, and the empty Missile Rail only while nothing is on its
-/// station -- the missile brings the rail it belongs on, and mates at the same origin.
+/// while the missile is attached to something, and the empty Weapons Rail only while nothing is on its
+/// station -- the store brings the same carriage, and mates at the same origin.
 ///
 /// <para>The mod's one pass in the vehicle editor as well as in flight. A subpart's scale is honoured by
 /// the editor's drawing, picking and snapping, and is not saved, so a load shows each part as its XML
@@ -14,9 +14,9 @@ namespace KSArmory;
 /// </summary>
 internal static class StoreCarriage
 {
-    public const string MissileRailId = "KSArmory_Prefab_MissileRail";
-    private const string StationConnector = "_mrConnectorStore";
-    private const string RailBeamMarker = "MissileRail_Beam";
+    public const string WeaponsRailId = "KSArmory_Prefab_WeaponsRail";
+    private const string StationConnector = "_wrConnectorStore";
+    private const string RailCarriageMarker = "WeaponsRail_Carriage";
 
     private static readonly double3 Shown = new(1.0, 1.0, 1.0);
     private static readonly double3 Hidden = new(1e-3, 1e-3, 1e-3);
@@ -55,7 +55,7 @@ internal static class StoreCarriage
             Part part = parts[i];
             if (part?.Template?.Id is not { } id) continue;
 
-            if (id == MissileRailId)
+            if (id == WeaponsRailId)
             {
                 bool carrying = false;
                 foreach (Part.Connector connector in part.Connectors)
@@ -63,9 +63,9 @@ internal static class StoreCarriage
                     if (connector.Id == StationConnector && connector.Connection is not null) carrying = true;
                 }
 
-                if (Show(part, RailBeamMarker, !carrying, inEditor))
+                if (Show(part, RailCarriageMarker, !carrying, inEditor))
                 {
-                    Log.Info($"missile rail {(carrying ? "hidden under the missile on it" : "shown, empty")}"
+                    Log.Info($"weapons rail {(carrying ? "hidden under the store on it" : "shown, empty")}"
                              + (inEditor ? " (editor)" : ""));
                 }
             }

@@ -250,51 +250,47 @@ public class ArsenalTests
     }
 
     [Theory]
-    [InlineData("KSArmory_Prefab_Lau7", "KSArmory_Prefab_SidewinderRail")]
-    [InlineData("KSArmory_Prefab_Lau128", "KSArmory_Prefab_AmraamRail")]
-    [InlineData("KSArmory_Prefab_Lau118", "KSArmory_Prefab_HarmRail")]
-    public void APylonlessRailFiresWhatItsTwinFiresFromNearerItsMount(string bare, string twin)
+    [InlineData("KSArmory_Prefab_Aim9J", "KSArmory_Prefab_SidewinderRail")]
+    [InlineData("KSArmory_Prefab_Aim120C", "KSArmory_Prefab_AmraamRail")]
+    [InlineData("KSArmory_Prefab_Agm88", "KSArmory_Prefab_HarmRail")]
+    [InlineData("KSArmory_Prefab_B61", "KSArmory_Prefab_NukeRack")]
+    public void AStoreOnTheEjectorIsTheRoundItsOldPartCarried(string store, string old)
     {
-        LauncherProfile cut = Catalogue.LauncherForPart(bare)!;
-        LauncherProfile whole = Catalogue.LauncherForPart(twin)!;
+        LauncherProfile fitted = Catalogue.LauncherForPart(store)!;
+        LauncherProfile shipped = Catalogue.LauncherForPart(old)!;
 
-        Assert.Equal(whole.Munition, cut.Munition);
-        Assert.Equal(whole.Sensor, cut.Sensor);
-        Assert.Equal(whole.StoreMassKg, cut.StoreMassKg);
-        Assert.Equal(whole.LaunchAlongTube, cut.LaunchAlongTube);
-        Assert.Equal(1, cut.TubeCount);
-        Assert.Equal(whole.Tubes[0].Direction, cut.Tubes[0].Direction);
-        Assert.Equal(whole.Tubes[0].Position.Y, cut.Tubes[0].Position.Y);
-        Assert.InRange(whole.Tubes[0].Position.X - cut.Tubes[0].Position.X, 0.15, 0.25);
+        Assert.Equal(shipped.Munition, fitted.Munition);
+        Assert.Equal(shipped.Sensor, fitted.Sensor);
+        Assert.Equal(shipped.StoreMassKg, fitted.StoreMassKg);
+        Assert.Equal(1, fitted.TubeCount);
+        Assert.Equal(shipped.Tubes[0].Direction, fitted.Tubes[0].Direction);
+        Assert.Equal(shipped.Tubes[0].Position.Y, fitted.Tubes[0].Position.Y);
     }
 
     [Theory]
-    [InlineData("KSArmory_Prefab_Lau7")]
-    [InlineData("KSArmory_Prefab_Lau128")]
-    [InlineData("KSArmory_Prefab_Lau118")]
-    [InlineData("KSArmory_Prefab_Lau142")]
-    public void AMissilePartNamesTheCarriageItBringsWithIt(string part)
+    [InlineData("KSArmory_Prefab_Aim9J")]
+    [InlineData("KSArmory_Prefab_Aim120C")]
+    [InlineData("KSArmory_Prefab_Agm88")]
+    [InlineData("KSArmory_Prefab_B61")]
+    public void EveryStoreHangsFromTheEjectorAndIsThrownOffIt(string part)
     {
-        Assert.False(string.IsNullOrEmpty(Catalogue.LauncherForPart(part)!.CarriageMarker));
+        LauncherProfile store = Catalogue.LauncherForPart(part)!;
+
+        Assert.False(string.IsNullOrEmpty(store.CarriageMarker));
+        Assert.False(string.IsNullOrEmpty(store.EjectorArmMarker));
+        Assert.True(store.EjectSpeed > 0f);
+        Assert.True(store.EjectorStrokeMetres > 0f);
     }
 
-    [Fact]
-    public void TheEjectorThrowsItsAmraamOutAndLightsItLateWhileTheRailsSlideTheirsOff()
+    /// <summary>A motor lights once its round has fallen clear; a bomb has none to light.</summary>
+    [Theory]
+    [InlineData("KSArmory_Prefab_Aim9J", true)]
+    [InlineData("KSArmory_Prefab_Aim120C", true)]
+    [InlineData("KSArmory_Prefab_Agm88", true)]
+    [InlineData("KSArmory_Prefab_B61", false)]
+    public void AMissileLightsLateAndABombHasNothingToLight(string part, bool delayed)
     {
-        LauncherProfile ejector = Catalogue.LauncherForPart("KSArmory_Prefab_Lau142")!;
-
-        Assert.Equal("AIM120C", ejector.Munition);
-        Assert.True(ejector.EjectSpeed > 0f);
-        Assert.True(ejector.MotorDelaySeconds > 0f);
-        Assert.True(ejector.EjectorStrokeMetres > 0f);
-        Assert.False(string.IsNullOrEmpty(ejector.EjectorArmMarker));
-
-        foreach (string rail in new[] { "KSArmory_Prefab_AmraamRail", "KSArmory_Prefab_Lau128" })
-        {
-            LauncherProfile slides = Catalogue.LauncherForPart(rail)!;
-            Assert.Equal(0f, slides.EjectSpeed);
-            Assert.Equal(0f, slides.MotorDelaySeconds);
-        }
+        Assert.Equal(delayed, Catalogue.LauncherForPart(part)!.MotorDelaySeconds > 0f);
     }
 
     /// <summary>

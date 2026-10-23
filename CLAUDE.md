@@ -2,16 +2,16 @@
 
 A point-defence mod for **Kitten Space Agency** (KSA, RocketWerkz). A **Pantsir-S1** — search
 radar, proportional-navigation interceptors, a proximity-fused warhead, twelve rounds in two pods
-of six on an 8×8 chassis — and a **LAU-7 rail** carrying one AIM-9J, which goes on a wing
-or a **weapons pylon** and is the shipped example of a launcher with nothing that moves, a **LAU-128 rail**
-carrying one AIM-120C, which is that same launcher with ten times the reach and the first *round*
-whose art was authored rather than generated, a **LAU-118 rail** carrying one AGM-88 HARM, which
+of six on an 8×8 chassis — and an **AIM-9J**, which hangs from an ejector launcher on a wing
+or a **weapons pylon** and is the shipped example of a launcher with nothing that moves, an **AIM-120C**
+on the same launcher, with ten times the reach and the first *round*
+whose art was authored rather than generated, an **AGM-88 HARM** on it too, which
 is the one that cannot engage an aircraft at all and whose target has a say in whether it is one, a
 **Mk 15 Phalanx CIWS** that stacks on a 3 m node and is the one with no missiles at all, a
 **5"/54 Mk 42 mount**, which is the other one with none and the opposite weapon — forty rounds a
 minute to the Phalanx's four and a half thousand, and shells that burst on a time fuze rather than
 having to hit — an **M197 chin turret**, a three-barrel 20 mm cannon that hangs under a nose and
-traverses ±110° — and a **B61 rack**, which is the one that neither aims nor fires: it lets a bomb go
+traverses ±110° — and a **B61** on that launcher, which is the one that neither aims nor fires: it lets a bomb go
 and the ground does the rest — and two **Zuni pods**, a LAU-10 of four and a pod of six, which are that rack's
 release with a motor behind it: unguided rockets, fired without a lock and flown on their own burn. The **ALE-47 dispensers**, one of flares and one of chaff, shoot nothing:
 they throw decoys that take a missile's seeker away from the craft carrying them. The **IRST** finds what the sights look at: a
@@ -592,7 +592,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Armaments.cs` | one coordinator per craft — **derived every frame, never pinned**, because it carries nothing a split could lose |
 | `Ksa/Radar.cs` | cone search, CPA threat model, lock |
 | `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |
-| `Ksa/StoreCarriage.cs` | the hardware a store hangs by, shown when it means something: a missile's own rail or ejector (`LauncherProfile.CarriageMarker`) only while it is attached, so the part list shows the missile alone, and the empty Missile Rail only while nothing is on its station -- **the mod's one pass in the vehicle editor** as well as in flight |
+| `Ksa/StoreCarriage.cs` | the ejector launcher a store hangs by, shown when it means something: a store's own (`LauncherProfile.CarriageMarker`) only while it is attached, so the part list shows the store alone, and the empty Weapons Rail only while nothing is on its station -- **the mod's one pass in the vehicle editor** as well as in flight |
 | `Ksa/LauncherSeparation.cs` | the decoupler on the joint holding a launcher on — **a property of the part, not the craft** |
 | `Ksa/OpticParts.cs` | finds a director on a craft, and turns its head |
 | `Ksa/OpticalHead.cs` | **one director** — its own sensor, its own aim, no weapon involved |
@@ -731,13 +731,13 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `src/KSArmory/KSArmory/Bodies.xml` | **what KSA's current bodies are, as data** -- fields, airglow, condensation, thin cloud -- so a custom solar system gains them by adding lines, not code |
 | `src/KSArmory/KSArmory/Pantsir.xml` | **this mod's own weapons, as data** — the Pantsir and its roof director; read by the pack reader through `CoreDefinitions`, not by KSA |
 | `src/KSArmory/KSArmory/Weapons.xml` | **empty on purpose** — where the Pantsir used to be, so an install unzipped over an older one does not keep the old file and register it twice |
-| `src/KSArmory/KSArmory/Rails.xml` | the LAU-7, LAU-128 and LAU-118 rails, each with its missile: the shipped parts with a pylon built in (hidden from the editor, kept for saves) and the same rails cut off it, which go on a wing or hang from the weapons pylon; and the AIM-120C on a LAU-142 ejector, which throws it out of the mounting face and lights it late; their rounds and their seekers, the same way |
+| `src/KSArmory/KSArmory/Rails.xml` | the AIM-9J, AIM-120C and AGM-88 as players fit them, each on the ejector launcher it brings, and the shipped LAU-7, LAU-128 and LAU-118 rails with their pylons built in (hidden, kept for saves); their rounds and their seekers, the same way |
 | `src/KSArmory/KSArmory/Rockets.xml` | the LAU-10 and the six-round pod, their Zuni and their sight |
 | `src/KSArmory/KSArmory/Guns.xml` | the Phalanx, the 5"/54 Mk 42 and the M197, their two rounds and their three sets |
 | `src/KSArmory/KSArmory/Sensors.xml` | the EO director, the LITENING pod and the IRST, with their three sensors |
 | `src/KSArmory/KSArmory/Countermeasures.xml` | the two AN/ALE-47 dispensers and the flares and chaff they throw |
 | `src/KSArmory/KSArmory/DirectedEnergy.xml` | the YAL-1 beam director, its laser and its sensor |
-| `src/KSArmory/KSArmory/Strategic.xml` | the B61 rack and the Heavy MIRV Bus, their B61 and Mk 21, the bombsight and the bus's designation set |
+| `src/KSArmory/KSArmory/Strategic.xml` | the B61 on the ejector launcher, the shipped B61 rack (hidden, kept for saves), the Heavy MIRV Bus, their B61 and Mk 21, the bombsight and the bus's designation set |
 | `src/KSArmory/Meshes/`, `Textures/` | art. `KSArmory_MeshAtlas.glb` is generated — rebuild with `tools/model/build.sh`; every other atlas is **authored**, and its `.blend` is not in this repository |
 | `src/KSArmory/Sounds/` | the cannon, cut from a recording by `tools/cut-cannon.py`; the Mk 42's gunshot, cut from its recording by `tools/mk42-sounds.py`; the M197's loop and tail, by `tools/m197-sounds.py`. A warhead's burst is KSA's own explosion, sound and all |
 | `src/KSArmory/mod.toml` | serves as both the content-mod and StarMap manifest |
@@ -817,7 +817,6 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/sidewinder.py` | the LAU-7 rail and its AIM-9J, into that same atlas |
 | `tools/model/optic.py` | the EO director: the sight, as a part anything can carry |
 | `tools/model/import-litening.py` | reframes the hand-modelled pod into what KSA reads |
-| `tools/model/bare-rails.py` | the three rails cut off their pylons, out of the meshes that carry them — **derived, never edited**: rerun after either source changes, and `validate-parts.py` fails until it is |
 | `tools/model/mk42-textures.py` | composes the Mk 42's KSA maps, mount and shell, from the set its author paints — **rerun it on every version he sends**, because the unwraps are his and nothing else has to move |
 | `tools/model/m197-textures.py` | the same for the M197, from his `M197_*` set |
 | `tools/model/zuni-textures.py` | the same for the Zuni and both pods, one set on one unwrap, from his `5InchRocketCamo_*` |

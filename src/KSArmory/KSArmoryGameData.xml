@@ -123,6 +123,8 @@
   </PartGameData>
 
   <PartGameData Id="KSArmory_Prefab_NukeRack" DisplayName="B61 Nuclear Bomb">
+    <!-- Hidden: the B61 on the ejector replaces it. Kept so a craft carrying one loads. -->
+    <EditorTag Value="Hidden" />
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
@@ -280,96 +282,6 @@
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_Lau7" DisplayName="AIM-9J Sidewinder">
-    <EditorTag Value="Weapons" />
-    <EditorTag Value="Radial" />
-    <EditorTag Value="NoFaceSnapping" />
-    <Diameter M="0.5" />
-
-    <!-- Sticks onto any surface, as a wingtip rail does, or clicks into the weapons pylon's station. -->
-    <Connector Id="_l7ConnectorBase">
-      <Flags>ToSurface</Flags>
-    </Connector>
-    <Connector Id="_l7ConnectorPylon" />
-
-    <!-- AIM-9J at 78 kg and the rail; the rail's 25 kg is an estimate, not a sourced figure. -->
-    <SolidSphereMass>
-      <Mass Kg="103" />
-      <Radius M="0.8" />
-    </SolidSphereMass>
-
-    <Collider Id="KSArmory_Lau7Collider">
-      <!-- The rail alone, off the cut mesh: fired, nothing of the round is left to collide with. -->
-      <Box Id="KSArmory_Lau7BeamCollider">
-        <LocationAsmb X="0.094" Y="0.030" Z="0" />
-        <Collider2Asmb X="0" Y="0" Z="0" />
-        <LengthX M="0.187" />
-        <LengthY M="2.558" />
-        <LengthZ M="0.206" />
-      </Box>
-    </Collider>
-  </PartGameData>
-
-  <PartGameData Id="KSArmory_Prefab_Lau128" DisplayName="AIM-120C AMRAAM">
-    <EditorTag Value="Weapons" />
-    <EditorTag Value="Radial" />
-    <EditorTag Value="NoFaceSnapping" />
-    <Diameter M="0.55" />
-
-    <!-- Sticks onto any surface, as a wingtip rail does, or clicks into the weapons pylon's station. -->
-    <Connector Id="_l128ConnectorBase">
-      <Flags>ToSurface</Flags>
-    </Connector>
-    <Connector Id="_l128ConnectorPylon" />
-
-    <!-- AIM-120C-7 at 161.5 kg and the rail; the rail's 25 kg is an estimate, not a sourced figure. -->
-    <SolidSphereMass>
-      <Mass Kg="186.5" />
-      <Radius M="0.95" />
-    </SolidSphereMass>
-
-    <Collider Id="KSArmory_Lau128Collider">
-      <!-- The rail alone, off the cut mesh: fired, nothing of the round is left to collide with. -->
-      <Box Id="KSArmory_Lau128BeamCollider">
-        <LocationAsmb X="0.082" Y="0.145" Z="0" />
-        <Collider2Asmb X="0" Y="0" Z="0" />
-        <LengthX M="0.164" />
-        <LengthY M="2.690" />
-        <LengthZ M="0.112" />
-      </Box>
-    </Collider>
-  </PartGameData>
-
-  <PartGameData Id="KSArmory_Prefab_Lau118" DisplayName="AGM-88 HARM">
-    <EditorTag Value="Weapons" />
-    <EditorTag Value="Radial" />
-    <EditorTag Value="NoFaceSnapping" />
-    <Diameter M="0.85" />
-
-    <!-- Sticks onto any surface, as a wingtip rail does, or clicks into the weapons pylon's station. -->
-    <Connector Id="_l118ConnectorBase">
-      <Flags>ToSurface</Flags>
-    </Connector>
-    <Connector Id="_l118ConnectorPylon" />
-
-    <!-- AGM-88 at 360 kg and the rail; the rail's 25 kg is an estimate, not a sourced figure. -->
-    <SolidSphereMass>
-      <Mass Kg="385" />
-      <Radius M="1.1" />
-    </SolidSphereMass>
-
-    <Collider Id="KSArmory_Lau118Collider">
-      <!-- The rail alone, off the cut mesh: fired, nothing of the round is left to collide with. -->
-      <Box Id="KSArmory_Lau118BeamCollider">
-        <LocationAsmb X="0.123" Y="0.175" Z="0" />
-        <Collider2Asmb X="0" Y="0" Z="0" />
-        <LengthX M="0.246" />
-        <LengthY M="2.850" />
-        <LengthZ M="0.144" />
-      </Box>
-    </Collider>
-  </PartGameData>
-
   <PartGameData Id="KSArmory_Prefab_Lau10" DisplayName="LAU-10 Zuni pod">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
@@ -436,27 +348,27 @@
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_Lau142" DisplayName="AIM-120C AMRAAM (bay ejector)">
+  <PartGameData Id="KSArmory_Prefab_Aim9J" DisplayName="AIM-9J Sidewinder">
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.4" />
 
-    <!-- Sticks onto any surface or clicks into the weapons pylon's station. -->
-    <Connector Id="_l142ConnectorBase">
+    <!-- Sticks onto any surface, or clicks into the weapons pylon's or the Weapons Rail's station. -->
+    <Connector Id="_a9ConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
-    <Connector Id="_l142ConnectorPylon" />
+    <Connector Id="_a9ConnectorPylon" />
 
-    <!-- AIM-120C-7 at 161.5 kg and the launcher; its 45 kg is an estimate, not a sourced figure. -->
+    <!-- AIM-9J at 78 kg on the ejector, whose 45 kg is an estimate, not a sourced figure. -->
     <SolidSphereMass>
-      <Mass Kg="206.5" />
-      <Radius M="0.95" />
+      <Mass Kg="123" />
+      <Radius M="1.0" />
     </SolidSphereMass>
 
-    <!-- The housing alone, off _ColPrim_KSArmory_Ejector_Body: fired, nothing of the round is left. -->
-    <Collider Id="KSArmory_Lau142Collider">
-      <Box Id="KSArmory_Lau142BodyCollider">
+    <!-- The ejector's housing alone: fired, nothing of the store is left to collide with. -->
+    <Collider Id="KSArmory_Aim9JCollider">
+      <Box Id="KSArmory_Aim9JCarriageCollider">
         <LocationAsmb X="0.095" Y="0" Z="0" />
         <Collider2Asmb X="0" Y="0" Z="0" />
         <LengthX M="0.19" />
@@ -466,34 +378,123 @@
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_MissileRail" DisplayName="Missile Rail">
+  <PartGameData Id="KSArmory_Prefab_Aim120C" DisplayName="AIM-120C AMRAAM">
     <EditorTag Value="Weapons" />
-    <!-- Radial: a missile goes on by the station alone, never free-hand onto the rail's face. -->
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
-    <Diameter M="0.55" />
+    <Diameter M="0.4" />
 
-    <!-- Sticks onto any surface or clicks into the weapons pylon's station. -->
-    <Connector Id="_mrConnectorBase">
+    <!-- Sticks onto any surface, or clicks into the weapons pylon's or the Weapons Rail's station. -->
+    <Connector Id="_a120ConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
-    <Connector Id="_mrConnectorPylon" />
-    <Connector Id="_mrConnectorStore" />
+    <Connector Id="_a120ConnectorPylon" />
+
+    <!-- AIM-120C-7 at 161.5 kg on the ejector, whose 45 kg is an estimate, not a sourced figure. -->
+    <SolidSphereMass>
+      <Mass Kg="206.5" />
+      <Radius M="1.0" />
+    </SolidSphereMass>
+
+    <!-- The ejector's housing alone: fired, nothing of the store is left to collide with. -->
+    <Collider Id="KSArmory_Aim120CCollider">
+      <Box Id="KSArmory_Aim120CCarriageCollider">
+        <LocationAsmb X="0.095" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.19" />
+        <LengthY M="2.25" />
+        <LengthZ M="0.17" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
+  <PartGameData Id="KSArmory_Prefab_Agm88" DisplayName="AGM-88 HARM">
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.4" />
+
+    <!-- Sticks onto any surface, or clicks into the weapons pylon's or the Weapons Rail's station. -->
+    <Connector Id="_a88ConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+    <Connector Id="_a88ConnectorPylon" />
+
+    <!-- AGM-88 at 360 kg on the ejector, whose 45 kg is an estimate, not a sourced figure. -->
+    <SolidSphereMass>
+      <Mass Kg="405" />
+      <Radius M="1.0" />
+    </SolidSphereMass>
+
+    <!-- The ejector's housing alone: fired, nothing of the store is left to collide with. -->
+    <Collider Id="KSArmory_Agm88Collider">
+      <Box Id="KSArmory_Agm88CarriageCollider">
+        <LocationAsmb X="0.095" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.19" />
+        <LengthY M="2.25" />
+        <LengthZ M="0.17" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
+  <PartGameData Id="KSArmory_Prefab_B61" DisplayName="B61 Nuclear Bomb">
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.4" />
+
+    <!-- Sticks onto any surface, or clicks into the weapons pylon's or the Weapons Rail's station. -->
+    <Connector Id="_b61ConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+    <Connector Id="_b61ConnectorPylon" />
+
+    <!-- B61-12 at 374 kg on the ejector, whose 45 kg is an estimate, not a sourced figure. -->
+    <SolidSphereMass>
+      <Mass Kg="419" />
+      <Radius M="1.0" />
+    </SolidSphereMass>
+
+    <!-- The ejector's housing alone: fired, nothing of the store is left to collide with. -->
+    <Collider Id="KSArmory_B61Collider">
+      <Box Id="KSArmory_B61CarriageCollider">
+        <LocationAsmb X="0.095" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.19" />
+        <LengthY M="2.25" />
+        <LengthZ M="0.17" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
+  <PartGameData Id="KSArmory_Prefab_WeaponsRail" DisplayName="Weapons Rail">
+    <EditorTag Value="Weapons" />
+    <!-- Radial: a store goes on by the station alone, never free-hand onto the rail's face. -->
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.4" />
+
+    <!-- Sticks onto any surface or clicks into the weapons pylon's station. -->
+    <Connector Id="_wrConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+    <Connector Id="_wrConnectorPylon" />
+    <Connector Id="_wrConnectorStore" />
 
     <!-- An estimate, not a sourced figure. -->
     <SolidSphereMass>
-      <Mass Kg="25" />
+      <Mass Kg="45" />
       <Radius M="0.8" />
     </SolidSphereMass>
 
-    <Collider Id="KSArmory_MissileRailCollider">
-      <!-- Bounds off the cut LAU-128 mesh. -->
-      <Box Id="KSArmory_MissileRailBeamCollider">
-        <LocationAsmb X="0.082" Y="0.145" Z="0" />
+    <Collider Id="KSArmory_WeaponsRailCollider">
+      <Box Id="KSArmory_WeaponsRailBodyCollider">
+        <LocationAsmb X="0.095" Y="0" Z="0" />
         <Collider2Asmb X="0" Y="0" Z="0" />
-        <LengthX M="0.164" />
-        <LengthY M="2.690" />
-        <LengthZ M="0.112" />
+        <LengthX M="0.19" />
+        <LengthY M="2.25" />
+        <LengthZ M="0.17" />
       </Box>
     </Collider>
   </PartGameData>

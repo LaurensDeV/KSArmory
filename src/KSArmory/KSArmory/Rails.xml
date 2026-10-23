@@ -115,10 +115,8 @@
     so their Tube is the seat position in KSArmoryAssets.xml plus half the missile's length. Their .blend
     files are not in this repository, so tools/validate-parts.py is the only check that these agree.
 
-    The LAU-7, LAU-128 and LAU-118 parts are the same rails cut off their pylons by
-    tools/model/bare-rails.py, to hang under the weapons pylon. Each is its pylon-carrying twin with
-    the Tube and MuzzleForwardOffset moved up by the depth that cut off; tools/validate-parts.py holds
-    the two together.
+    These three rails carry their pylon built in, and are hidden from the editor and kept for saves.
+    What a player fits is below them.
   -->
   <Launcher PartId="KSArmory_Prefab_SidewinderRail" DisplayName="LAU-7 Sidewinder rail"
             FireControlLabel="LAU-7 fire control"
@@ -147,51 +145,43 @@
     <Tube Position="0.54000, 2.08500, 0.00000" Direction="0, 1, 0" />
   </Launcher>
 
-  <Launcher PartId="KSArmory_Prefab_Lau7" DisplayName="LAU-7 Sidewinder rail"
-            FireControlLabel="LAU-7 fire control"
-            Munition="AIM9J" Sensor="AIM9SEEK" StoreMassKg="78"
-            MuzzleForwardOffset="0.237"
-            LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
-            ReloadSeconds="0" SettleSeconds="0"
-            CarriageMarker="Lau7_Beam">
-    <Tube Position="0.23696, 1.52500, 0.00000" Direction="0, 1, 0" />
-  </Launcher>
-
-  <Launcher PartId="KSArmory_Prefab_Lau128" DisplayName="LAU-128 AMRAAM rail"
-            FireControlLabel="LAU-128 fire control"
-            Munition="AIM120C" Sensor="AIM120SEEK" StoreMassKg="161.5"
-            MuzzleForwardOffset="0.236"
-            LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
-            ReloadSeconds="0" SettleSeconds="0"
-            CarriageMarker="Lau128_Beam">
-    <Tube Position="0.23600, 1.82250, 0.00000" Direction="0, 1, 0" />
-  </Launcher>
-
-  <Launcher PartId="KSArmory_Prefab_Lau118" DisplayName="LAU-118 HARM rail"
-            FireControlLabel="LAU-118 fire control"
-            Munition="AGM88" Sensor="AGM88SEEK" StoreMassKg="360"
-            MuzzleForwardOffset="0.340"
-            LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
-            ReloadSeconds="0" SettleSeconds="0"
-            CarriageMarker="Lau118_Beam">
-    <Tube Position="0.34000, 2.08500, 0.00000" Direction="0, 1, 0" />
-  </Launcher>
-
-
   <!--
-    The AIM-120C on an ejector launcher of the LAU-142 kind: thrown 6 m/s out of the mounting face, its
-    motor lit half a second later once it has fallen clear, and only then the rail's 0.4 s straight
-    before it steers. Both numbers are estimates. The arms run 0.10 m out in 0.06 s, as modelled.
+    The missiles as players fit them, each on the ejector launcher it brings (KSArmoryAssets.xml): thrown
+    6 m/s out of the mounting face, the motor lit half a second later once it has fallen clear, and only
+    then the 0.4 s straight before it steers. Both numbers are estimates. The arms run 0.10 m out in
+    0.06 s, as modelled. The Tube is the seat in KSArmoryAssets.xml plus half the round's length.
   -->
-  <Launcher PartId="KSArmory_Prefab_Lau142" DisplayName="LAU-142 AMRAAM ejector"
-            FireControlLabel="LAU-142 fire control"
-            Munition="AIM120C" Sensor="AIM120SEEK" StoreMassKg="161.5"
-            MuzzleForwardOffset="0.296"
+  <Launcher PartId="KSArmory_Prefab_Aim9J" DisplayName="AIM-9J Sidewinder"
+            FireControlLabel="AIM-9J fire control"
+            Munition="AIM9J" Sensor="AIM9SEEK" StoreMassKg="78"
+            MuzzleForwardOffset="0.2705"
             LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
-            EjectSpeed="6" MotorDelaySeconds="0.5"
-            EjectorArmMarker="Lau142_CarriageArm" CarriageMarker="Lau142_Carriage" EjectorStrokeMetres="0.10" EjectorStrokeSeconds="0.06"
+            EjectSpeed="6" MotorDelaySeconds="0.5" CarriageMarker="Carriage"
+            EjectorArmMarker="CarriageArm" EjectorStrokeMetres="0.10" EjectorStrokeSeconds="0.06"
+            ReloadSeconds="0" SettleSeconds="0">
+    <Tube Position="0.27050, 1.52500, 0.00000" Direction="0, 1, 0" />
+  </Launcher>
+
+  <Launcher PartId="KSArmory_Prefab_Aim120C" DisplayName="AIM-120C AMRAAM"
+            FireControlLabel="AIM-120C fire control"
+            Munition="AIM120C" Sensor="AIM120SEEK" StoreMassKg="161.5"
+            MuzzleForwardOffset="0.2959"
+            LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
+            EjectSpeed="6" MotorDelaySeconds="0.5" CarriageMarker="Carriage"
+            EjectorArmMarker="CarriageArm" EjectorStrokeMetres="0.10" EjectorStrokeSeconds="0.06"
             ReloadSeconds="0" SettleSeconds="0">
     <Tube Position="0.29590, 1.82250, 0.00000" Direction="0, 1, 0" />
+  </Launcher>
+
+  <Launcher PartId="KSArmory_Prefab_Agm88" DisplayName="AGM-88 HARM"
+            FireControlLabel="AGM-88 fire control"
+            Munition="AGM88" Sensor="AGM88SEEK" StoreMassKg="360"
+            MuzzleForwardOffset="0.334"
+            LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
+            EjectSpeed="6" MotorDelaySeconds="0.5" CarriageMarker="Carriage"
+            EjectorArmMarker="CarriageArm" EjectorStrokeMetres="0.10" EjectorStrokeSeconds="0.06"
+            ReloadSeconds="0" SettleSeconds="0">
+    <Tube Position="0.33400, 2.08500, 0.00000" Direction="0, 1, 0" />
   </Launcher>
 
 </WeaponPack>
