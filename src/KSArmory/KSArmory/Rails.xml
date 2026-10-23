@@ -174,4 +174,21 @@
     <Tube Position="0.34000, 2.08500, 0.00000" Direction="0, 1, 0" />
   </Launcher>
 
+
+  <!--
+    The AIM-120C on an ejector launcher of the LAU-142 kind: thrown 6 m/s out of the mounting face, its
+    motor lit half a second later once it has fallen clear, and only then the rail's 0.4 s straight
+    before it steers. Both numbers are estimates. The arms run 0.10 m out in 0.06 s, as modelled.
+  -->
+  <Launcher PartId="KSArmory_Prefab_Lau142" DisplayName="LAU-142 AMRAAM ejector"
+            FireControlLabel="LAU-142 fire control"
+            Munition="AIM120C" Sensor="AIM120SEEK" StoreMassKg="161.5"
+            MuzzleForwardOffset="0.296"
+            LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
+            EjectSpeed="6" MotorDelaySeconds="0.5"
+            EjectorArmMarker="Lau142_Arm" EjectorStrokeMetres="0.10" EjectorStrokeSeconds="0.06"
+            ReloadSeconds="0" SettleSeconds="0">
+    <Tube Position="0.29590, 1.82250, 0.00000" Direction="0, 1, 0" />
+  </Launcher>
+
 </WeaponPack>

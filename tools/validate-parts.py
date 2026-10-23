@@ -913,6 +913,7 @@ LAUNCHER_GEOMETRY = {
     "Lau7": (None, "LAU-7 rail"),             # cut off its pylon -- BARE_RAILS below
     "Lau128": (None, "LAU-128 rail"),
     "Lau118": (None, "LAU-118 rail"),
+    "Lau142": (None, "LAU-142 ejector"),       # authored -- AUTHORED_LAUNCHERS
 }
 
 # Launchers whose art was authored AND whose weapon is a gun, so there is no tube and no seat to
@@ -952,6 +953,8 @@ AUTHORED_LAUNCHERS = {
                    "KSArmory_Subpart_Amraam", "Missile120C", "AMRAAM rail"),
     "HarmRail": ("KSArmory_Prefab_HarmRail", "KSArmory_Harm_Round00",
                  "KSArmory_Subpart_Harm", "MissileAgm88", "HARM rail"),
+    "Lau142": ("KSArmory_Prefab_Lau142", "KSArmory_Lau142_Amraam_Round00",
+               "KSArmory_Subpart_Amraam", "Missile120C", "LAU-142 ejector"),
     # Its beam is generated and its round is not, so only the round is checked here. The beam
     # carries no geometry its definition names -- the seat and the tube both come off the round.
     "NukeRack": ("KSArmory_Prefab_NukeRack", "KSArmory_NukeRack_B6100",
@@ -1522,6 +1525,7 @@ _CSHARP_NAME = {
     ("Launcher", "KSArmory_Prefab_Lau7"): "Lau7",
     ("Launcher", "KSArmory_Prefab_Lau128"): "Lau128",
     ("Launcher", "KSArmory_Prefab_Lau118"): "Lau118",
+    ("Launcher", "KSArmory_Prefab_Lau142"): "Lau142",
     ("Launcher", "KSArmory_Prefab_NukeRack"): "NukeRack",
     ("Launcher", "KSArmory_Prefab_Lau10"): "Lau10",
     ("Launcher", "KSArmory_Prefab_ZuniPod6"): "ZuniPod6",

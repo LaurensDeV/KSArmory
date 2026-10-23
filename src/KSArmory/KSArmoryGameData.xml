@@ -436,6 +436,36 @@
     </Collider>
   </PartGameData>
 
+  <PartGameData Id="KSArmory_Prefab_Lau142" DisplayName="AIM-120C AMRAAM on LAU-142 ejector">
+    <EditorTag Value="Weapons" />
+    <EditorTag Value="Radial" />
+    <EditorTag Value="NoFaceSnapping" />
+    <Diameter M="0.4" />
+
+    <!-- Sticks onto any surface or clicks into the weapons pylon's station. -->
+    <Connector Id="_l142ConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+    <Connector Id="_l142ConnectorPylon" />
+
+    <!-- AIM-120C-7 at 161.5 kg and the launcher; its 45 kg is an estimate, not a sourced figure. -->
+    <SolidSphereMass>
+      <Mass Kg="206.5" />
+      <Radius M="0.95" />
+    </SolidSphereMass>
+
+    <!-- The housing alone, off _ColPrim_KSArmory_Ejector_Body: fired, nothing of the round is left. -->
+    <Collider Id="KSArmory_Lau142Collider">
+      <Box Id="KSArmory_Lau142BodyCollider">
+        <LocationAsmb X="0.095" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.19" />
+        <LengthY M="2.25" />
+        <LengthZ M="0.17" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
   <PartGameData Id="KSArmory_Prefab_Optic" DisplayName="EO Director">
     <EditorTag Value="Sensors" />
     <EditorTag Value="Radial" />

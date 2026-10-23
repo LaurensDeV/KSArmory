@@ -496,6 +496,7 @@ public static class PackReader
             GunRodMarker = r.Text("GunRodMarker"),
             GunFeedMarker = r.Text("GunFeedMarker"),
             GunRotorMarker = r.Text("GunRotorMarker"),
+            EjectorArmMarker = r.Text("EjectorArmMarker"),
 
             Tubes = r.Tubes(),
             TurretPivot = r.Vector("TurretPivot", default),
@@ -538,6 +539,9 @@ public static class PackReader
             EjectAwayFromMount = r.Number("EjectAwayFromMount", 0f),
             EjectSpeed = r.Number("EjectSpeed", 0f),
             MotorDelaySeconds = r.Number("MotorDelaySeconds", 0f),
+            EjectorStrokeMetres = r.Number("EjectorStrokeMetres", 0f),
+            EjectorStrokeSeconds = r.Number("EjectorStrokeSeconds", 0.06f),
+            EjectorReturnSeconds = r.Number("EjectorReturnSeconds", 0.8f),
             MuzzleOffset = r.Number("MuzzleOffset", 8f),
 
             GunAmmo = r.Count("GunAmmo", 480),

@@ -296,6 +296,16 @@ public sealed class LauncherProfile
     /// </summary>
     public float MotorDelaySeconds;
 
+    /// <summary>The arms an ejector pushes its round off with, every subpart whose Id holds this. Drawn only.</summary>
+    public string? EjectorArmMarker { get; init; }
+
+    /// <summary>How far each arm runs out of the mounting face (+X) on release, m; zero moves nothing.</summary>
+    public float EjectorStrokeMetres;
+
+    /// <summary>Seconds for the arms to run out, and to come back after.</summary>
+    public float EjectorStrokeSeconds = 0.06f;
+    public float EjectorReturnSeconds = 0.8f;
+
     /// <summary>Standoff used when no launcher part is fitted at all (m).</summary>
     public float MuzzleOffset = 8f;
 

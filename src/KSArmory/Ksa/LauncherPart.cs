@@ -732,6 +732,30 @@ internal static class LauncherPart
         return null;
     }
 
+    /// <summary>An ejector's arms, every subpart its marker matches. Empty for a launcher with none.</summary>
+    public static void FindEjectorArms(Part launcher, LauncherProfile profile, List<Part> into)
+    {
+        into.Clear();
+        if (string.IsNullOrEmpty(profile.EjectorArmMarker)) return;
+
+        try
+        {
+            ReadOnlySpan<Part> subParts = launcher.SubParts;
+            for (int i = 0; i < subParts.Length; i++)
+            {
+                if (subParts[i] is { } sub && sub.Id is { } id
+                    && id.Contains(profile.EjectorArmMarker, StringComparison.OrdinalIgnoreCase))
+                {
+                    into.Add(sub);
+                }
+            }
+        }
+        catch
+        {
+            into.Clear();
+        }
+    }
+
     /// <summary>Lists a launcher's subpart Ids, so a failed match can be diagnosed from the log.</summary>
     public static string DescribeSubParts(Part launcher)
     {

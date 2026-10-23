@@ -179,6 +179,18 @@
   <MeshAtlas Path="Meshes/KSArmory_BareRails.glb" />
 
   <!--
+    The ejector launcher's atlas: its body, one hook and one arm, each placed twice by the part, on one
+    unwrap. Authored in Blender to the export contract, so it is copied in as exported.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_Ejector.glb" />
+
+  <PbrMaterial Id="KSArmory_Ejector_Material">
+    <Diffuse Path="Textures/KSArmory_Ejector_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_Ejector_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_Ejector_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <!--
     The Heavy MIRV Bus atlas and its one material: the bus, its main engine, its RCS nozzle and its
     RV, an Mk 21 in outline with two spin nozzles cut into its base.
   -->
@@ -592,6 +604,39 @@
     </PartModel>
     <MeshView>
       <Mesh Id="KSArmory_Subpart_ZuniFins_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- The ejector's housing. Fixed. -->
+  <SubPart Id="KSArmory_EjectorBody_SubPart">
+    <PartModel Id="KSArmory_Subpart_EjectorBody_Model">
+      <Mesh Id="KSArmory_Ejector_Body" />
+      <Material Id="KSArmory_Ejector_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Ejector_Body_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- One suspension hook, about its throat, where a lug's top bar bears. -->
+  <SubPart Id="KSArmory_EjectorHook_SubPart">
+    <PartModel Id="KSArmory_Subpart_EjectorHook_Model">
+      <Mesh Id="KSArmory_Ejector_Hook" />
+      <Material Id="KSArmory_Ejector_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Ejector_Hook_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- One ejector arm, about its top end. Run out of the mounting face on release. -->
+  <SubPart Id="KSArmory_EjectorArm_SubPart">
+    <PartModel Id="KSArmory_Subpart_EjectorArm_Model">
+      <Mesh Id="KSArmory_Ejector_Arm" />
+      <Material Id="KSArmory_Ejector_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_Ejector_Arm_VM" />
     </MeshView>
   </SubPart>
 
@@ -1544,6 +1589,64 @@
     <SubPart Id="KSArmory_Lau118_Harm_Round00" InstanceOf="KSArmory_Harm_SubPart">
       <Transform>
         <Position X="0.34000" Y="0.00000" Z="0.00000" />
+        <Rotation Z="1.57080" />
+      </Transform>
+    </SubPart>
+
+  </Part>
+
+  <!--
+    An AIM-120C-7 on an ejector launcher of the LAU-142 kind, which throws it out of the mounting face
+    and lights it once it is clear. The hooks stand at the 14-inch lug stations and the arms at 0.28 m
+    either side, as the art places them. The round's skin is 17 mm under the floor, so its centreline is
+    the hook throat's 0.190 plus that and its 0.0889 radius.
+  -->
+  <Part Id="KSArmory_Prefab_Lau142">
+
+    <SubPart Id="KSArmory_Lau142_Body" InstanceOf="KSArmory_EjectorBody_SubPart" />
+
+    <SubPart Id="KSArmory_Lau142_HookFwd" InstanceOf="KSArmory_EjectorHook_SubPart">
+      <Transform>
+        <Position X="0.19000" Y="0.17780" Z="0.00000" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Lau142_HookAft" InstanceOf="KSArmory_EjectorHook_SubPart">
+      <Transform>
+        <Position X="0.19000" Y="-0.17780" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <SubPart Id="KSArmory_Lau142_ArmFwd" InstanceOf="KSArmory_EjectorArm_SubPart">
+      <Transform>
+        <Position X="0.17600" Y="0.28000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Lau142_ArmAft" InstanceOf="KSArmory_EjectorArm_SubPart">
+      <Transform>
+        <Position X="0.17600" Y="-0.28000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <!-- Attaches by the housing's upper face, the mesh origin. -->
+    <Connector Id="_l142ConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+
+    <!-- Mates with the pylon's station node, which lines the launcher up along the pylon. -->
+    <Connector Id="_l142ConnectorPylon">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+        <Scale X="0.40000" Y="0.40000" Z="0.40000" />
+      </Transform>
+    </Connector>
+
+    <SubPart Id="KSArmory_Lau142_Amraam_Round00" InstanceOf="KSArmory_Amraam_SubPart">
+      <Transform>
+        <Position X="0.29590" Y="0.00000" Z="0.00000" />
         <Rotation Z="1.57080" />
       </Transform>
     </SubPart>

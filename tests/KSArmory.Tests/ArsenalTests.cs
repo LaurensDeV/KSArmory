@@ -268,6 +268,25 @@ public class ArsenalTests
         Assert.InRange(whole.Tubes[0].Position.X - cut.Tubes[0].Position.X, 0.15, 0.25);
     }
 
+    [Fact]
+    public void TheEjectorThrowsItsAmraamOutAndLightsItLateWhileTheRailsSlideTheirsOff()
+    {
+        LauncherProfile ejector = Catalogue.LauncherForPart("KSArmory_Prefab_Lau142")!;
+
+        Assert.Equal("AIM120C", ejector.Munition);
+        Assert.True(ejector.EjectSpeed > 0f);
+        Assert.True(ejector.MotorDelaySeconds > 0f);
+        Assert.True(ejector.EjectorStrokeMetres > 0f);
+        Assert.False(string.IsNullOrEmpty(ejector.EjectorArmMarker));
+
+        foreach (string rail in new[] { "KSArmory_Prefab_AmraamRail", "KSArmory_Prefab_Lau128" })
+        {
+            LauncherProfile slides = Catalogue.LauncherForPart(rail)!;
+            Assert.Equal(0f, slides.EjectSpeed);
+            Assert.Equal(0f, slides.MotorDelaySeconds);
+        }
+    }
+
     /// <summary>
     /// The rail is the shipped example of a launcher with nothing that moves, so the shape
     /// <see cref="AFixedLauncherIsJustAProfileWithNothingThatMoves"/> describes has to hold for a

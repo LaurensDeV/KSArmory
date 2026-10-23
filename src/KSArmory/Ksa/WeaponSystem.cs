@@ -444,6 +444,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private PartModel? _shellModel;
     private int _gunShotsFired;
     private double _lastGunShotClock = double.NegativeInfinity;
+    private double _lastReleaseClock = double.NegativeInfinity;
+
+    // Each arm's pose as declared, taken the first time the part is seen and before anything moves it,
+    // because the pose the arm is written with each frame is what a later read would see.
+    private readonly List<Part> _ejectorArms = [];
+    private readonly Dictionary<Part, DrivePose> _ejectorArmRest = new(ReferenceEqualityComparer.Instance);
     private readonly List<Part> _finBodies = [];
 
     // Which tubes still hold a round, and which fires next. See Magazine — the bookkeeping is pure
@@ -756,6 +762,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         GunRodPart = Launcher is null ? null : LauncherPart.FindGunRod(Launcher, Profile);
         GunFeedPart = Launcher is null ? null : LauncherPart.FindGunFeed(Launcher, Profile);
         GunRotorPart = Launcher is null ? null : LauncherPart.FindGunRotor(Launcher, Profile);
+        if (Launcher is null) _ejectorArms.Clear();
+        else LauncherPart.FindEjectorArms(Launcher, Profile, _ejectorArms);
+        foreach (Part arm in _ejectorArms)
+        {
+            if (!_ejectorArmRest.ContainsKey(arm))
+            {
+                _ejectorArmRest[arm] = new DrivePose(arm.PositionParentAsmb, arm.Asmb2ParentAsmb);
+            }
+        }
         OpticBasePart = Launcher is null ? null : LauncherPart.FindOpticBase(Launcher, Profile);
         MountEcl = LauncherPart.ResolveOriginEcl(Platform, Launcher);
 
@@ -1977,6 +1992,23 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             Refuse(DriveChannel.Recoil, "barrel recoil");
         }
 
+        // Drawn only: EjectSpeed has already thrown the round, and the arms show it.
+        if (_ejectorArms.Count > 0 && _drives.Works(DriveChannel.Ejector))
+        {
+            double reach = GunRecoil.Offset(_clock - _lastReleaseClock, Profile.EjectorStrokeMetres,
+                                            Profile.EjectorStrokeSeconds, Profile.EjectorReturnSeconds);
+            foreach (Part arm in _ejectorArms)
+            {
+                DrivePose rest = _ejectorArmRest[arm];
+                if (!LauncherPart.TryApplyPose(arm, rest with { Position = rest.Position + new double3(reach, 0.0, 0.0) },
+                                               "ejector arm"))
+                {
+                    Refuse(DriveChannel.Ejector, "ejector arm");
+                    break;
+                }
+            }
+        }
+
         if ((GunCylinderPart ?? GunRodPart ?? GunFeedPart) is not null
             && _drives.Works(DriveChannel.Linkage) && _drives.Works(DriveChannel.Guns))
         {
@@ -2784,6 +2816,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 Aimpoint = aim,
             });
         _salvoTimer = Profile.SalvoSpacing;
+        _lastReleaseClock = _clock;
 
         Announce(aim.Kind == AimpointKind.None
                      ? $"round {tube + 1} released - {what}"

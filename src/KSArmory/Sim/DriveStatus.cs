@@ -10,6 +10,7 @@ public enum DriveChannel
     Optic,
     Recoil,
     Linkage,
+    Ejector,
 }
 
 /// <summary>

@@ -307,6 +307,9 @@ A launcher must be able to fire something: at least one `<Tube>`, a `GunMunition
 | `LaunchLoft` | `0.35` | Bias toward the launcher's boresight. Only used when `LaunchAlongTube` is `false`. |
 | `EjectSpeed` | `0` | An ejector: m/s the round is pushed out of the mounting face (+X), in place of the munition's `LaunchSpeed` along the tube. `0` slides it off the tube as a rail does. |
 | `MotorDelaySeconds` | `0` | Seconds from release until the motor lights, so an ejected round falls clear first. On the launcher, so one munition can be carried on a rail that lights at once and an ejector that waits. |
+| `EjectorArmMarker` | none | Subparts an ejector pushes its round off with: every one whose Id contains this. They run out of the mounting face on release and come back. Drawn only; `EjectSpeed` is what throws the round. |
+| `EjectorStrokeMetres` | `0` | How far each arm runs out, m. `0` moves nothing. |
+| `EjectorStrokeSeconds`, `EjectorReturnSeconds` | `0.06`, `0.8` | Seconds for the arms to run out, and to come back. |
 | `EjectAwayFromMount` | `0` | Tilts the launch direction toward the launcher's boresight: a fraction of the tube axis, not a speed. Only applies with `LaunchAlongTube`, and does nothing where the boresight is the tube axis, as on a rail whose sensor uses `PartForward`. The bomb rack uses it. |
 | `MuzzleOffset` | `8` | Distance ahead of the tube where the round appears, m. |
 | `MuzzleForwardOffset` | `0` | Distance from the part origin to the muzzles along the boresight, m. |
