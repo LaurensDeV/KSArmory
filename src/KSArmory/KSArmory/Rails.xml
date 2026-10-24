@@ -151,8 +151,9 @@
     "LaunchRail" for the rail. Both seat the missile in the same place.
 
     All three ride the rail: each slides off forward at its LaunchSpeed, motor lit at once. To move one
-    onto the ejector, give it CarriageMarker="Carriage" and the four ejector attributes the B61 has in
-    Strategic.xml, plus MotorDelaySeconds="0.5" so the motor lights once it has fallen clear.
+    onto the ejector, give it CarriageMarker="Carriage" and the B61's EjectSpeed, EjectorArmMarker and
+    EjectorStrokeMetres from Strategic.xml, plus MotorDelaySeconds="0.5" so the motor lights once it has
+    fallen clear.
     The Tube is the seat in KSArmoryAssets.xml plus half the round's length.
   -->
   <Launcher PartId="KSArmory_Prefab_Aim9J" DisplayName="AIM-9J Sidewinder"

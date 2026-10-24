@@ -10,9 +10,7 @@
     The M61A2's 20 mm round, fired by both the Phalanx and the M197. LaunchSpeed, MaxRange and the
     102 g mass are the real round's.
 
-    FuseRadius="2.5" is ours, not the real round's: a real 20 mm round has to hit. The mod checks for
-    contact in small time steps, and at 1100 m/s a radius smaller than 2.5 m can fall between two of
-    them and be missed.
+    FuseRadius="2.5" is ours, not the real round's: a real 20 mm round has to hit.
 
     MaxFlightSeconds="2.5": a shell takes 2.1 s to reach the gun's 1486 m range, so it is removed just
     after. Longer costs frame time: the gun fires 75 rounds a second, so every extra second of life is
@@ -97,7 +95,6 @@
 
     SearchRadarRpm="90" only drives the radar scope's sweep; nothing on the model spins (NavWeaps).
     GunRoundMassKg="0.26": one 20 x 102 mm cartridge; the part's 6,200 kg includes a full magazine.
-    ReloadSeconds="0": it has no missile tubes, so a reload timer would never stop.
   -->
   <Launcher PartId="KSArmory_Prefab_Ciws" DisplayName="Mk 15 Phalanx"
             FireControlLabel="Mk 15 fire control"

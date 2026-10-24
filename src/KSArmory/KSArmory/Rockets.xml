@@ -14,8 +14,7 @@
     its motor gives it, and the pod draws a sight where it will land. The motor pushes for 1.1 s at
     about 66 g, which reaches roughly 700 m/s through sea-level air.
 
-    A contact fuse, as the real rocket's: FuseRadius is the smallest a round this fast is tested at,
-    and HitsTerrain stops it on the ground it meets. ChargeKg is a fragmentation warhead's explosive.
+    The real rocket has a contact fuse; FuseRadius is ours. HitsTerrain stops it on the ground it meets. ChargeKg is a fragmentation warhead's explosive.
     The fins are folded in the tube and open as it leaves (FinMarker, FinDeploySeconds).
   -->
   <Munition Name="ZUNI" DisplayName="Zuni 5-inch rocket"

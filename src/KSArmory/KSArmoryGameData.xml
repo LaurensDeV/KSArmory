@@ -1,45 +1,38 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!--
-  Simulation definition of the Pantsir-S1 point-defence launcher.
+  Simulation definitions of the mod's parts.
 
-  Deliberately inert as far as KSA is concerned: mass, colliders and an attach node, nothing
-  more. All the behaviour lives in the C# mod, which looks for a part with this Id on the
-  vehicle and mounts the battery there. That split avoids having to register a custom module
-  type into the engine's internal update lists, which is not reachable without patching.
+  Deliberately inert as far as KSA is concerned: mass, colliders and connectors, plus the bus's
+  engine, nozzles and tank. All the weapon behaviour lives in the C# mod, which looks for a part with
+  a registered Id on the vehicle and mounts a weapons system there. That split avoids having to
+  register a custom module type into the engine's internal update lists, which is not reachable
+  without patching.
 
-  Collider boxes are axis-aligned in part space: X up, Y along the vehicle, Z across it. The
-  hull box starts at X = 0 so the vehicle rests on its wheels rather than sinking to its
-  chassis rails.
+  Collider boxes are axis-aligned in part space: X up out of the mounting face, Y along the part, Z
+  across it. The Pantsir's hull box starts at X = 0 so the vehicle rests on its wheels rather than
+  sinking to its chassis rails.
 -->
 <Assets>
 
   <!--
-    Its own category in the part picker, rather than filed under Structural where a Phalanx mount
-    sits next to girders. EditorTag is a string rather than an enum and the picker draws a row per
-    registered tag, so this is a supported extension: Core's own CoreEditorTagsGameData.xml says
-    so in a comment addressed to modders.
+    Its own category in the part picker, rather than Structural. A mod may declare tags; Core's
+    CoreEditorTagsGameData.xml says so.
 
-    The three flags are copied from Structural and are not decoration. Structural carries
-    RootPartWhitelist, FaceSnapTargetWhitelist and DiameterFilterlist, and moving a part off it
-    without them silently drops the launcher's ability to be a craft's root part, stops anything
-    face-snapping to it, and removes it from diameter filtering. None of that fails loudly.
+    The three flags are Structural's, and a part off Structural without them silently cannot be a
+    craft's root, cannot be face-snapped to, and is left out of diameter filtering.
 
-    Named for the job rather than for this mod on purpose. The lookup is keyed on the string, so a
-    second weapons mod declaring "Weapons" shares this tab instead of adding a near-duplicate.
-    There is no way to filter within a tab by mod or manufacturer; docs/BLOCKED-ON-KSA.md has why.
+    Named for the job rather than for this mod: the lookup is keyed on the string, so a second weapons
+    mod declaring "Weapons" shares this tab. docs/BLOCKED-ON-KSA.md has why a tab cannot be filtered
+    by mod.
   -->
   <EditorTagDef Id="Weapons" RootPartWhitelist="true" FaceSnapTargetWhitelist="true"
                 DiameterFilterlist="true" />
 
   <!--
-    Beside it rather than inside it, because a camera is not a weapon. It shoots at nothing, it is
-    useful on a craft that carries no armament at all, and filing it under Weapons would say the
-    opposite of what it is.
+    Beside Weapons rather than inside it, because a sensor is useful on a craft with no armament.
 
-    Same three flags, but RootPartWhitelist does nothing for the director as it stands: the
-    editor rejects any part carrying a ToSurface connector whatever its tags say, and a head that
-    bolts to anything needs one. It is here for a sensor that stacks instead. An observation post
-    is a hull with a director on it, so the hull is the root and this is the passenger.
+    Same three flags. RootPartWhitelist does nothing for a part with a ToSurface connector, which the
+    editor never lets start a craft whatever its tags say; it is here for a sensor that stacks.
   -->
   <EditorTagDef Id="Sensors" RootPartWhitelist="true" FaceSnapTargetWhitelist="true"
                 DiameterFilterlist="true" />
@@ -49,9 +42,8 @@
 
     <!--
       Not Radial, unlike the stores below. That tag is on the editor's face-snap target
-      *blacklist*, and the blacklist beats the Weapons whitelist, so while it was here nothing
-      could be mounted on the launcher, an EO director included. A vehicle is something you bolt
-      things to.
+      *blacklist*, and the blacklist beats the Weapons whitelist, so with it nothing could be
+      mounted on the launcher, an EO director included.
     -->
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="3" />
@@ -708,8 +700,8 @@
   <SubPartGameData Id="KSArmory_PostBoostRcs_SubPart">
     <!--
       Declared once for all twenty instances: KSA keys SubPartGameData on the template, not the instance.
-      Exit 0.13 m is an attitude thruster's, about 394 N; flown at 0.4 m the old bus landed 1.31-1.91 km
-      off against 0.05-0.43 at 0.13 (docs/MIRV-NEXT.md).
+      Exit 0.13 m is an attitude thruster's, about 394 N. Flown on the earlier bus, five shots at 0.4 m
+      landed 1.31-1.91 km off and four at 0.13 m 0.05-0.43 km.
     -->
     <RocketThrusterController Id="MirvACS">
       <RocketReference Id="Thruster" />
@@ -812,7 +804,7 @@
     </SolidSphereMass>
 
     <Collider Id="KSArmory_PostBoostCollider">
-      <!-- Body, mounting face to deck; the RCS clusters stand outside it, as on the old bus. -->
+      <!-- Body, mounting face to deck; the RCS clusters stand outside it. -->
       <Box Id="KSArmory_PostBoostBusCollider">
         <LocationAsmb X="0.650" Y="0" Z="0" />
         <Collider2Asmb X="0" Y="0" Z="0" />

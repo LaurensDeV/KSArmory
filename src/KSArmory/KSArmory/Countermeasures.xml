@@ -19,7 +19,7 @@
   <!--
     The RR-170: a 1 x 1 x 8 inch cartridge of about three million aluminised glass-fibre dipoles,
     blooming into a cloud tens of metres across in under a second (RiseSeconds="0.5").
-    PeakSignature="400" is on the radar-signature scale, which reads a craft of 11 m mean radius as
+    PeakSignature="400" is on the radar-signature scale, which reads a craft of 11.3 m mean radius as
     400 m^2. DragPerMetre="10": it stops dead in the airflow and settles at about a metre a second.
   -->
   <Decoy Name="RR170" DisplayName="RR-170 chaff" Kind="Chaff"
