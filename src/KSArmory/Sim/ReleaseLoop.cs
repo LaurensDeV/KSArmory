@@ -17,22 +17,17 @@ internal enum ReleaseWalkHold
     /// <summary>
     /// The first stop is not the place the bus is flying to.
     ///
-    /// <para><b>Unreachable from a click, and kept as a guard.</b> <see cref="ReleaseItinerary"/>
-    /// orders farthest-reach-first and takes the first stop to be the one "the bus already arrives
-    /// on", which <see cref="TargetSet.ElectFarthestLead"/> makes true by aiming the booster at the
-    /// farthest target. Flown as ordered from anywhere else the bus walks out to the far end and
-    /// back — twice the ground the itinerary charges — so the walk is refused rather than
-    /// over-promised. <c>docs/MIRV-TARGETS.md</c>.</para>
+    /// <para><b>Unreachable from a click, and kept as a guard.</b> <see cref="TargetSet.ElectFarthestLead"/>
+    /// aims the booster at the itinerary's first stop; from anywhere else the walk would cost about
+    /// twice what it is priced at. <c>docs/MIRV-TARGETS.md</c>.</para>
     /// </summary>
     NotWhereTheBusIsAimed,
 
     /// <summary>
     /// Some hop costs more than one trim pass will fly.
     ///
-    /// <para><b>Unreachable from a click, and kept as a guard.</b> <see cref="ReachDisplay"/> draws
-    /// its ring around the stop the next hop leaves from, which is what the itinerary charges. A ring
-    /// around the landing instead accepts two targets on opposite edges of it, twice its radius
-    /// apart — 20 m/s for a 10 m/s ring.</para>
+    /// <para><b>Unreachable from a click, and kept as a guard</b>: <see cref="ReachDisplay"/> draws its
+    /// ring around the stop the next hop leaves from, which is what the itinerary charges.</para>
     /// </summary>
     HopBeyondOnePass,
 }
@@ -65,11 +60,9 @@ internal enum HopHold
 internal readonly record struct ReleaseWalk(ReleaseItinerary Itinerary, ReleaseWalkHold Hold,
                                             int Dropped, double HopMetresPerSecond)
 {
-    /// <summary>Whether the flight does anything it has not always done.</summary>
     /// <remarks>
-    /// The stop count is part of the test because <see cref="ReleaseWalkHold.Walking"/> is the
-    /// enum's zero, so a <c>default</c> walk — what a caller holds before anything has been planned
-    /// — would otherwise claim to be one, with no stops to fly.
+    /// The stop count is tested because <see cref="ReleaseWalkHold.Walking"/> is the enum's zero, so a
+    /// <c>default</c> walk would otherwise claim to be one.
     /// </remarks>
     public bool Walks => Hold == ReleaseWalkHold.Walking && Stops > 1;
 
@@ -159,29 +152,19 @@ internal readonly record struct ReleaseStep(int Target, int Warheads, int Away, 
 /// Walking a bus between the places its warheads are going: which stop it is on, how many leave
 /// there, and when it moves to the next.
 ///
-/// <para><b>The decision half only.</b> Nothing here aims a vehicle, solves an arc or fires a
-/// thruster — the pieces that do all exist (<see cref="IcbmProgram.CorrectCoastArc"/> re-solves the
-/// arc to wherever the aim now is, <see cref="BusTrim"/> nulls onto it, <see cref="PostBoostAim"/>
-/// corrects it and <see cref="ReleaseSequence"/> lets the magazine go). This is the cursor round
-/// them.</para>
+/// <para><b>The decision half only</b>: <see cref="IcbmProgram.CorrectCoastArc"/>, <see cref="BusTrim"/>,
+/// <see cref="PostBoostAim"/> and <see cref="ReleaseSequence"/> act on it.</para>
 ///
-/// <para><b>A set of one never produces a walk.</b> <see cref="Plan"/> answers
-/// <see cref="ReleaseWalkHold.OneStop"/> for it, which is the whole of what makes a single-target
-/// flight unchanged: the caller holds no walk, so no statement of the loop's runs. Every accuracy
-/// measurement this mod has is taken against that shot, so it is pinned by test rather than left to
-/// inspection — <c>ReleaseLoopTests.NoSetOfOneEverProducesAWalk</c>.</para>
+/// <para><b>A set of one never produces a walk</b> (<see cref="ReleaseWalkHold.OneStop"/>), so a
+/// single-target flight runs none of this; <c>ReleaseLoopTests.NoSetOfOneEverProducesAWalk</c>.</para>
 ///
-/// <para><b>The arrival stays where the burn committed it.</b> A hop is solved pinned, because
-/// <see cref="IcbmProgram.ResolveCoastArc"/> solves to <see cref="IcbmProgram.CommittedArrivalFromNow"/>
-/// and the coast never reaches the latch — which is also the clock
-/// <see cref="DivertFootprint.ArrivalClock.Pinned"/> draws the reach on, so the ground the player is
-/// shown and the ground the bus can get to are the same ground.</para>
+/// <para>A hop is solved to <see cref="IcbmProgram.CommittedArrivalFromNow"/>, the clock
+/// <see cref="DivertFootprint.ArrivalClock.Pinned"/> draws the reach on, so the drawn reach and the
+/// flown one agree.</para>
 ///
-/// <para><b>A hop's first pass is bounded by <see cref="BusTrim.MaxMetresPerSecond"/></b>, because it is
-/// flown as a fresh null with the correction's pass count back at zero — the same 10 m/s
-/// <see cref="ReachDisplay"/> draws the ring at. The walk is checked against it and refused when a hop
-/// is over, rather than the trim discovering it with the warheads aboard. Under
-/// <see cref="IcbmConfig.HopsFlyTheirOwnCeiling"/> the pass gets <see cref="HopCeilingFor"/> instead.</para>
+/// <para>A hop's first pass is flown as a fresh null, so it is bounded by
+/// <see cref="BusTrim.MaxMetresPerSecond"/>, or <see cref="HopCeilingFor"/> under
+/// <see cref="IcbmConfig.HopsFlyTheirOwnCeiling"/>; the walk is refused up front when a hop is over.</para>
 /// </summary>
 internal static class ReleaseLoop
 {
@@ -279,9 +262,6 @@ internal static class ReleaseLoop
                ? hopMetresPerSecond / accelerationMetresPerSecond2
                : 0.0;
 
-    /// <summary>
-    /// Plan a walk, or say why there is not one.
-    /// </summary>
     /// <param name="targets">
     /// The places, in the caller's own order — <see cref="ReleaseItinerary.Stop.Target"/> indexes
     /// back into this list, so it must be the list <paramref name="lead"/> indexes too. A caller
@@ -289,9 +269,7 @@ internal static class ReleaseLoop
     /// wrong entry.
     /// </param>
     /// <param name="lead">
-    /// Which of them the booster flew to — <see cref="TargetSet.LeadIndex"/>. The walk has to start
-    /// there, because that is the trajectory the bus arrives on and the only stop that costs
-    /// nothing.
+    /// Which of them the booster flew to, <see cref="TargetSet.LeadIndex"/>: the only stop that costs nothing.
     /// </param>
     public static ReleaseWalk Plan(IReadOnlyList<ReleaseItinerary.Target>? targets,
                                    in ReleaseItinerary.Bus bus,
@@ -324,11 +302,8 @@ internal static class ReleaseLoop
     /// to become for a walk to have room for all of it.
     /// </summary>
     /// <remarks>
-    /// <b>A walk of one is exactly <paramref name="gateSeconds"/>.</b>
-    /// <see cref="ReleaseItinerary.BeforeArrivalSeconds"/> counts back from the gate, so the last
-    /// release lands on it whatever the set's size and a single stop is both the first and the last.
-    /// That is what lets the flight read this number unconditionally without moving the shot every
-    /// measurement on this mod was taken against.
+    /// A walk of one is exactly <paramref name="gateSeconds"/>: the schedule counts back from the gate,
+    /// so the flight can read this unconditionally without moving the single-target shot.
     /// </remarks>
     public static double FirstBeforeArrivalSeconds(in ReleaseWalk walk, double gateSeconds)
         => walk.Stops > 0 && double.IsFinite(walk.Itinerary.FirstBeforeArrivalSeconds)
@@ -338,9 +313,7 @@ internal static class ReleaseLoop
     /// <summary>One frame of the walk, from the cursor the caller keeps.</summary>
     /// <param name="stop">Which stop the bus is on, counted from zero.</param>
     /// <param name="awayThisStop">
-    /// How many warheads have left at this stop. Counted per stop rather than over the flight,
-    /// because a stop's quota is what ends it and the magazine's own count cannot say which stop
-    /// spent it.
+    /// How many warheads have left at this stop; the magazine's own count cannot say which stop spent it.
     /// </param>
     public static ReleaseStep Step(in ReleaseWalk walk, int stop, int awayThisStop)
     {
@@ -368,18 +341,9 @@ internal static class ReleaseLoop
     /// owes the solution it is on.
     /// </summary>
     /// <remarks>
-    /// <para><b>The planner and the trim judge different quantities, and the difference is a
-    /// kilometres-scale miss that reads as an arrival.</b> A hop is priced as the velocity change
-    /// between two solutions; <see cref="BusTrim"/> is handed the whole difference between the
-    /// vehicle's velocity and the new solution's, so a residual left on the bus by the release it
-    /// has just made is added to it. Flown: a 9.73 m/s hop against a 10 m/s ceiling reached the trim
-    /// as 10.29, which refuses the <em>whole</em> pass — the bus never moved, and three warheads
-    /// already assigned to the next target left on the old solution, 4.00 km away.</para>
-    ///
-    /// <para>A bound rather than the demand itself, by the triangle inequality: it cannot exceed the
-    /// two added, and may be as little as their difference. So it refuses some hops the trim would
-    /// have flown, which is the direction to be wrong in — over-promising is what puts warheads
-    /// somewhere nobody aimed them.</para>
+    /// The trim is handed the hop plus the residual already on the bus, and refuses a whole pass over
+    /// its ceiling (docs/ICBM-GUIDANCE.md, "Several targets"). The sum is an upper bound by the triangle
+    /// inequality, so it errs toward refusing.
     /// </remarks>
     public static double PassMustFly(double hopMetresPerSecond, double owedMetresPerSecond)
         => Math.Max(0.0, Finite(hopMetresPerSecond)) + Math.Max(0.0, Finite(owedMetresPerSecond));
@@ -424,21 +388,10 @@ internal static class ReleaseLoop
         => PassMustFly(hopMetresPerSecond, owedMetresPerSecond)
            <= BusTrim.CeilingFor(ceilingMetresPerSecond);
 
-    /// <summary>
-    /// Whether the bus can fly the next hop at all, and which limit says no.
-    /// </summary>
     /// <remarks>
-    /// <para><b>Two limits, and the second is the one that empties a tank.</b>
-    /// <see cref="BusTrim.MaxMetresPerSecond"/> bounds a single pass;
-    /// <see cref="PostBoostAim.MaxTrimMetresPerSecond"/> bounds the flight. A stop past the budget
-    /// is not refused by <see cref="BusTrim"/> — <see cref="BusTrim.WithinBudget"/> simply ends the
-    /// trim, <see cref="PostBoostAim"/> finishes on the same reading, and the release goes ahead
-    /// <em>undiverted</em>. Flown at four stops: diverts of 11.21, 17.08 and 31.72 m/s reached 60.01
-    /// of a 60 m/s budget, and the fourth stop released at <c>divert 0.00</c>, a kilometre from
-    /// where its warhead was sent.</para>
-    ///
-    /// <para>The whole pass has to be payable, not merely its first metre: a budget that runs out
-    /// part way leaves the warhead between two targets, which is worse than either.</para>
+    /// Two limits: a pass's ceiling, and the flight's budget, which nothing downstream refuses -- past
+    /// it the trim just ends and the release goes undiverted (docs/ICBM-GUIDANCE.md, "Several targets").
+    /// The whole pass has to be payable, or the warhead lands between two targets.
     /// </remarks>
     /// <param name="passMetresPerSecond">
     /// What the pass flies for the hop where that is less than its price — <see cref="ReleaseStep.NextPassMetresPerSecond"/>.
@@ -481,11 +434,8 @@ internal static class ReleaseLoop
     public static int TubesLeftForStop(in ReleaseStep step, int loaded)
         => Math.Max(0, Math.Min(Math.Max(0, loaded), step.Warheads - step.Away));
 
-    // The set cut down to what the budget and the coast actually reach. A re-plan rather than a
-    // prefix: dropping a stop moves every release later -- the schedule is counted back from the
-    // gate over however many stops there are -- so the shorter set has more coast to fit in and may
-    // fit a stop the longer one did not. Iterated to a fixed point, bounded by the set's own size
-    // because each pass drops at least one.
+    // A re-plan rather than a prefix: dropping a stop moves every release later, so the shorter set
+    // may fit a stop the longer one did not. Each pass drops at least one, which bounds the loop.
     private static ReleaseItinerary TrimToWhatFits(IReadOnlyList<ReleaseItinerary.Target>? targets,
                                                    in ReleaseItinerary.Bus bus,
                                                    IReadOnlyList<double>? reach, out int dropped)

@@ -17,8 +17,7 @@ public enum SeekerPick
 ///
 /// <para>Each decoy is judged <b>once</b>, on the first frame it outshines the target: a chance
 /// rolled every frame would make a flare's success a function of the frame rate. What takes the
-/// seeker is then held until it is spent, which is how a real seeker's track gate behaves — it
-/// follows the brightest return it has, and does not keep second-guessing it.</para>
+/// seeker is held until it is spent.</para>
 ///
 /// <para>A radar seeker holds its target in a range gate, so only chaff inside the target's resolution
 /// cell can take it; a heat seeker has no range to gate on and sees every flare in its field.</para>
@@ -41,11 +40,8 @@ internal sealed class SeekerLock
     public Decoy? OnDecoy { get; private set; }
 
     /// <summary>
-    /// Chooses what to steer on this frame.
-    ///
-    /// <para>The target and the decoys are end-of-step samples and the seeker is at the step's start,
-    /// so both are put back by <paramref name="frameSeconds"/> of their own velocity before any line of
-    /// sight is drawn — the same back-dating the round applies to whatever it is handed.</para>
+    /// The target and the decoys are end-of-step samples and the seeker is at the step's start, so
+    /// both are put back by <paramref name="frameSeconds"/> of their own velocity, as the round does.
     /// </summary>
     public SeekerPick Choose(MunitionProfile munition, double3 seekerPosEcl, double3 seekerVelEcl,
                              double3 seekerLocalVel, TargetState target, double targetSignature,

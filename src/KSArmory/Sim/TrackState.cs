@@ -5,16 +5,12 @@ namespace KSArmory;
 /// <summary>
 /// Everything about a radar contact except <em>what</em> it is.
 ///
-/// <para>Split out of <c>Track</c> so that ranking and salvo allocation can be tested without
-/// the game. The identity of a contact is a <c>KSA.Vehicle</c> and cannot cross into
-/// <c>Sim/</c>; its kinematics are ordinary arithmetic and belong here. <c>Ksa/Track.cs</c>
-/// derives from this and adds the vehicle.</para>
+/// <para><c>Ksa/Track.cs</c> derives from this and adds the contact, which cannot cross into <c>Sim/</c>.</para>
 /// </summary>
 internal class TrackState
 {
-    // Auto-properties rather than fields on purpose. The test project links Sim/** and nothing
-    // else, so the Ksa/ code that populates these is not in that compilation; as fields they
-    // each raise CS0649 "never assigned" there, which is six warnings of pure noise.
+    // Auto-properties, not fields: the test build has none of the Ksa/ code that assigns them, and as
+    // fields each would raise CS0649 there.
 
     /// <summary>Target position in the ecliptic frame (m).</summary>
     public double3 PositionEcl { get; set; }
@@ -48,10 +44,9 @@ internal class TrackState
     /// <summary>Continuous seconds this contact has been held.</summary>
     public double HeldSeconds { get; set; }
 
-    /// <summary>True once the contact satisfies the threat criteria and may be fired on.</summary>
+    /// <summary>True once the contact satisfies the threat criteria; whether it may be fired on is IFF's.</summary>
     public bool IsThreat { get; set; }
 
-    /// <summary>Team name this contact was assigned, if any.</summary>
     public string? Team { get; set; }
 
     /// <summary>Where this contact stands relative to the system. See <see cref="IffPolicy"/>.</summary>
@@ -61,9 +56,8 @@ internal class TrackState
     public int RoundsAssigned { get; set; }
 
     /// <summary>
-    /// Lower sorts first. Ranks by how soon the target reaches its closest approach, so the most
-    /// immediate threat is serviced first. Non-threats sort to the end rather than being
-    /// removed, because the panel still lists them.
+    /// Lower sorts first: time to closest approach. Non-threats sort last rather than being removed,
+    /// because the panel still lists them.
     /// </summary>
     public double Priority => IsThreat ? TimeToClosestApproach : double.MaxValue;
 }

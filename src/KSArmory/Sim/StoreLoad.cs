@@ -1,10 +1,8 @@
 namespace KSArmory;
 
 /// <summary>
-/// How much of a launcher part's mass has left with its rounds. Worked out from what is still
-/// aboard every time, never subtracted at each release: a reload, a refused shot handing its round
-/// back and a save reload (which refills the magazine and resets the engine's mass) are then all
-/// right with nothing to undo.
+/// How much of a launcher part's mass has left with its rounds, worked out from what is still aboard
+/// rather than subtracted per release, so a reload, a refused shot and a save reload need no undo.
 /// </summary>
 public static class StoreLoad
 {

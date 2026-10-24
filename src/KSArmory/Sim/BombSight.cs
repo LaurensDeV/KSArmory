@@ -5,23 +5,15 @@ namespace KSArmory;
 /// <summary>
 /// Where a store released right now would land, and the path it would take getting there.
 ///
-/// <para>Flown rather than solved. A closed form for a ballistic fall exists only without drag,
-/// and this round has drag that grows as it falls into thicker air — so the sight steps the
-/// <em>same</em> <see cref="Slug"/> the bomb will actually be, through the same gravity, the same
-/// density and the same ground. Whatever the flight model does, the pipper does too, including
-/// anything about it that is wrong. A sight derived from a tidier model than the round flies is a
-/// sight that lies.</para>
+/// <para>Flown rather than solved: the sight steps the <em>same</em> <see cref="Slug"/> the bomb will be,
+/// through the same gravity, air and ground, so the pipper goes wherever the round will.</para>
 ///
-/// <para><b>And against a planet that turns.</b> The fall is flown in a frame carried with the ground
-/// under the release, against a planet sampled once — so gravity and air are read where the round is
-/// against where that ground has carried the frame round the centre, the ground's height where the round
-/// is in the frame, which turns with it, the frame's own acceleration is taken off the pull, and the
-/// landing is carried back onto the ground that will be under it. Held still, the sight puts the ring
-/// tens of metres from where a five-kilometre drop strikes.</para>
+/// <para><b>And against a planet that turns</b>, in a frame carried with the ground under the release:
+/// gravity and air are read against the drifted centre, the frame's acceleration is taken off the pull,
+/// and the landing is carried onto the ground that will be under it. CLAUDE.md, "The bomb sight is
+/// flown, not solved", has the flown numbers.</para>
 ///
-/// <para>The step is coarser than the round's own and the prediction is rate-limited by its caller: it
-/// is MaxSteps integrations, each sub-stepped by the round, and nothing about a bomb's fall changes fast enough to notice.
-/// The caller decides how often.</para>
+/// <para>The caller decides how often it runs.</para>
 /// </summary>
 internal static class BombSight
 {
@@ -89,11 +81,8 @@ internal static class BombSight
         var frame = new CarriedFrame(groundVelocityEcl - bodyVelocityEcl, groundAccelerationEcl);
         var carried = new CarriedGround(ground, frame);
 
-        // A throwaway round, flown exactly as the real one will be. The tube number is arbitrary:
-        // nothing here reaches a magazine. Its own lookups are back-dated into the step, so they are
-        // carried to the instant they belong to rather than to the step's end.
-        // At the age of the store it stands in for: a canopy already open and a fuse already armed
-        // stay so, where a probe starting at zero would fly the first seconds of a fresh release.
+        // Its own lookups are back-dated into the step, so they are carried to their own instant. At the
+        // store's age, so a canopy already open and a fuse already armed stay so.
         Slug shot = new(releaseEcl, velocityOverGround, null, 0, releaseEcl, Vec.Zero)
         {
             Age = Math.Max(startAge, 0.0),
@@ -106,8 +95,7 @@ internal static class BombSight
 
         pathEcl.Add(releaseEcl);
 
-        // Fixed for the whole flight: a place on the ground does not move in a frame carried with
-        // the ground.
+        // Fixed: a place on the ground does not move in a frame carried with the ground.
         TargetState? aim = steerAtEcl is { } steer ? new TargetState(steer, Vec.Zero, 0.0) : null;
 
         for (int i = 0; i < MaxSteps && shot.State == RoundState.Flying; i++)
@@ -121,12 +109,8 @@ internal static class BombSight
             pathEcl.Add(shot.PositionEcl);
         }
 
-        // Only a round the ground stopped has an impact point. One that ran out of life was still
-        // falling, and drawing a pipper where it happened to be would be an answer to a question
-        // nobody asked.
-        //
-        // One that burst at its fuse height counts, and marks the ground under the burst: that is
-        // where it is aimed, and what the ring has to sit on.
+        // One that ran out of life was still falling and has no impact point. One that burst at its fuse
+        // height marks the ground under the burst.
         if (!shot.HitGround && !shot.BurstAtHeight) return false;
 
         double3 arrived = shot.PositionEcl;
@@ -136,9 +120,8 @@ internal static class BombSight
             arrived = centre + (Vec.Unit(arrived - centre) * radius);
         }
 
-        // Where it lands is a place in the carried frame at the moment it lands. The ground there moves
-        // against the release's ground by the spin across the distance between them, and a ring drawn now
-        // marks that ground where it is now.
+        // The ground at the landing moves against the release's ground by the spin across the distance
+        // between them; the ring marks that ground where it is now.
         double seconds = carried.Seconds + shot.DetonationElapsedInFrame;
         impactEcl = arrived - ((groundVelocityAt(arrived) - groundVelocityEcl) * seconds);
         return Vec.IsFinite(impactEcl);
@@ -150,10 +133,8 @@ internal static class BombSight
         public double3 Drift(double t) => (Spin * t) + (Acceleration * (0.5 * t * t));
     }
 
-    // The ground, answered in the carried frame. The terrain is asked where the round is in that frame rather than
-    // against the body as sampled: the frame turns with the ground, so the ground under a point in it is the ground
-    // that was there at release, and only the centre has moved against it. Asked at the carried point instead, the
-    // height is read kilometres upwind -- 15 km over a half-minute fall at the equator.
+    // The terrain is asked where the round is in the carried frame, which turns with the ground; only the
+    // centre moves. Asked at the drifted point, the height is read 15 km upwind over a half-minute fall.
     private sealed class CarriedGround(IGroundTest inner, CarriedFrame frame) : IGroundTest
     {
         public double Seconds;

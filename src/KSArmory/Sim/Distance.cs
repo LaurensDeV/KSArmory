@@ -31,10 +31,8 @@ internal static class Distance
     /// One distance for a line a script reads: metres to a tenth of a millimetre below a kilometre,
     /// and <see cref="Say"/>'s form above it, so a parser taking either unit reads both.
     ///
-    /// <para>An endpoint resolves nothing finer than the line it is parsed from, so the harness's own
-    /// lines carry more than a person's readout. A tenth of a millimetre, because at a millimetre a
-    /// worst warhead of 5 mm is five print steps and a 2–3 mm dispersion is two, which puts the quantum
-    /// at a few per cent of the variance a night is trying to resolve.</para>
+    /// <para>A tenth of a millimetre because at a millimetre a 5 mm worst warhead is five print steps and
+    /// a 2–3 mm dispersion two: a quantum at a few per cent of the variance a night resolves.</para>
     /// </summary>
     public static string Measure(double metres)
         => double.IsFinite(metres) && Math.Abs(metres) < KilometreFrom ? $"{metres:F4} m" : Say(metres);

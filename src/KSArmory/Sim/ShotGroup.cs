@@ -1,31 +1,16 @@
 namespace KSArmory;
 
-/// <summary>What a salvo came to, and whether that is a pass.</summary>
-/// <param name="Said">
-/// The verdict in words, with the bar in it. A pass or fail with no number beside it cannot be
-/// argued with, and arguing with it is the only useful thing to do with a scripted shot's verdict.
-/// </param>
+/// <param name="Said">The verdict in words, with the bar in it.</param>
 internal readonly record struct ShotVerdict(bool Pass, string Said);
 
 /// <summary>
-/// Where a salvo landed, as the numbers a verdict is read off.
-///
-/// <para><b>Scored on the worst warhead, not the mean.</b> Every fault this exists to catch puts a
-/// common offset on the whole group — an untrimmed separation, a late release, a prediction flown
-/// through the wrong air — so for those a mean says what a worst says. What a mean cannot see is
-/// the one case it does not cover: a group that scattered either side of the target averages to a
-/// shot nobody fired.</para>
-///
-/// <para><b>A warhead that never arrived counts against the shot.</b> One still in the air when the
-/// clock ran out, and one that expired short, are both rounds that were paid for and delivered
-/// nothing — scoring only what landed turns a bus that threw five warheads away into a perfect shot
-/// with one hit.</para>
+/// Where a salvo landed. Scored on the worst warhead, since a group scattered either side of the
+/// target has a good mean; and a warhead that never arrived fails the shot.
 /// </summary>
 internal sealed class ShotGroup
 {
     private readonly List<double> _misses = [];
 
-    /// <summary>How many warheads left the tubes.</summary>
     public int Released { get; private set; }
 
     /// <summary>How many arrived somewhere that could be measured.</summary>
@@ -43,12 +28,8 @@ internal sealed class ShotGroup
     public void Release() => Released++;
 
     /// <summary>
-    /// One warhead's impact, as its distance from the aim point.
-    ///
-    /// <para>A miss that cannot be measured is not recorded rather than being recorded as zero: an
-    /// unreadable impact and a direct hit are the two things that must never be confused, and one
-    /// of them is what a missing number looks like. It then counts as one that never arrived, which
-    /// is the honest reading of an outcome nobody can see.</para>
+    /// One warhead's distance from the aim point. One that cannot be measured is not recorded, never
+    /// recorded as a direct hit, so it counts as one that never arrived.
     /// </summary>
     public void Arrive(double missMetres)
     {
@@ -70,35 +51,19 @@ internal sealed class ShotGroup
 
         return new ShotVerdict(
             Worst <= barMetres,
-            // Three places, not two. F2 in km is a 10 m quantum, which is a fifth of the group
-            // docs/METRE-LEVEL.md rung C is gated on and larger than the whole spread term, so it
-            // reads good groups as 0.00 or 0.01 km and scores arms on the rounding. Metres would read
-            // better and would change what the unit means in every log already written; the parser
-            // takes [\d.]+ either way.
+            // F3: in km, F2 is a 10 m quantum, coarser than the groups it scores. Still km, because
+            // every log already written is in km.
             $"{flown}; worst {Worst / 1000.0:F3} km, best {Best / 1000.0:F3} km, "
             + $"mean {Mean / 1000.0:F3} km, spread {Spread / 1000.0:F3} km ({bar})");
     }
 }
 
 /// <summary>
-/// Where a salvo that went to several places landed — one <see cref="ShotGroup"/> per target,
-/// judged on its own and reported together.
+/// One <see cref="ShotGroup"/> per target asked for, not per target reached, so a stop the walk could
+/// not pay for fails by name. No spread is reported across targets: that would measure the plan.
 ///
-/// <para><b>A split group has no spread.</b> <see cref="ShotGroup.Spread"/> is the part of a miss
-/// no single aim can remove, which is a statement about warheads that share an aim. Warheads
-/// deliberately sent twenty kilometres apart have a spread of twenty kilometres, and that measures
-/// the plan rather than the shot — so nothing here reports one across targets. Each target keeps
-/// its own, and the flight's verdict carries none.</para>
-///
-/// <para><b>A set of one is the group's own verdict, by the group's own call.</b> Every accuracy
-/// number this project owns is measured on the single-target shot, so that path is not written a
-/// second time here: <see cref="Judge"/> returns <c>_groups[0].Judge(bar)</c> and
-/// <see cref="ShotGroup"/> is untouched.
-/// <c>ShotBoardTests.OneTargetIsWordForWordTheGroupsOwnVerdict</c> pins it.</para>
-///
-/// <para><b>The targets are the ones that were asked for, not the ones that were reached.</b> A
-/// stop the walk could not pay for releases nothing, and seeding from the request is what turns
-/// that into a failure naming the target rather than a target nobody notices is missing.</para>
+/// <para>A set of one is the group's own verdict, word for word
+/// (<c>ShotBoardTests.OneTargetIsWordForWordTheGroupsOwnVerdict</c>).</para>
 /// </summary>
 internal sealed class ShotBoard
 {
@@ -110,23 +75,16 @@ internal sealed class ShotBoard
         for (int i = 0; i < _groups.Length; i++) _groups[i] = new ShotGroup();
     }
 
-    /// <summary>How many places this salvo was sent to.</summary>
     public int Targets => _groups.Length;
 
-    /// <summary>Whether the salvo was split at all — what decides whether anything reports per target.</summary>
     public bool Split => _groups.Length > 1;
 
     /// <summary>
-    /// The group for one target.
-    ///
-    /// <para>An index outside the set is clamped rather than refused: a round nobody could
-    /// attribute still has to be scored somewhere, and dropping it would turn an attribution fault
-    /// into a shot that reads better than it was. A single-target flight has one index, so the
-    /// clamp is the only thing that can ever happen there.</para>
+    /// The group for one target. An index outside the set is clamped rather than refused, so a round
+    /// nobody could attribute is still scored.
     /// </summary>
     public ShotGroup For(int target) => _groups[Math.Clamp(target, 0, _groups.Length - 1)];
 
-    /// <summary>How many warheads left the tubes, over every target.</summary>
     public int Released
     {
         get
@@ -137,7 +95,6 @@ internal sealed class ShotBoard
         }
     }
 
-    /// <summary>How many arrived somewhere that could be measured, over every target.</summary>
     public int Arrived
     {
         get
@@ -148,16 +105,11 @@ internal sealed class ShotBoard
         }
     }
 
-    /// <summary>One target's own verdict, which is what the line reporting it is written from.</summary>
     public ShotVerdict JudgeTarget(int target, double barMetres) => For(target).Judge(barMetres);
 
     /// <summary>
-    /// The flight's verdict: a pass only when every target's group is one.
-    ///
-    /// <para>No mean, no best and no spread across targets. Those three describe a group that
-    /// shares an aim, and printing them for a split salvo would put a number in the very shape
-    /// <c>tools/shot-report.py</c> reads a single-target group off — which is how a walk would come
-    /// to be scored as a twenty-kilometre miss.</para>
+    /// A pass only when every target's group is one. No mean, best or spread across targets: in the
+    /// shape <c>tools/shot-report.py</c> reads, a walk would score as a twenty-kilometre miss.
     /// </summary>
     public ShotVerdict Judge(double barMetres)
     {
@@ -178,8 +130,7 @@ internal sealed class ShotBoard
 
             double reached = _groups[i].Worst;
 
-            // Not `reached > worst`: the first finite reading has to beat a NaN, and every
-            // comparison against NaN is false.
+            // Not `reached > worst`: the first finite reading has to beat the NaN.
             if (double.IsFinite(reached) && !(worst >= reached))
             {
                 worst = reached;

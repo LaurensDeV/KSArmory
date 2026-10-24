@@ -52,10 +52,8 @@ internal static class XRayGlow
 
     /// <summary>
     /// The glow's radiance straight under the burst, looking through the whole layer, at a megatonne
-    /// 100 km over it. Vivid against a night sky and a faint pink on the horizon by day, where the
-    /// line of sight runs furthest through the layer: an aurora of any strength is thousands of times
-    /// fainter than the day sky, which is why Starfish's was a night's. Ten times this turns the whole
-    /// day sky over the burst pink.
+    /// 100 km over it: vivid at night, a faint pink on the horizon by day, since an aurora is thousands
+    /// of times fainter than the day sky. Ten times this turns the whole day sky over the burst pink.
     /// </summary>
     public const double PeakNits = 0.3;
 

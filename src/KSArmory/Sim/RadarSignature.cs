@@ -3,10 +3,8 @@ namespace KSArmory;
 /// <summary>
 /// How large a contact looks to a radar, and how far that lets the set see it.
 ///
-/// <para>The first thing in this mod that makes detection depend on what a target <em>is</em>
-/// rather than only on where it is going. It is also the substrate chaff needs: a cloud that
-/// returns more than the aircraft is only meaningful once there is something to return more
-/// <em>than</em>.</para>
+/// <para>What chaff is weighed against: a cloud that returns more than the aircraft needs the
+/// aircraft to return something.</para>
 /// </summary>
 public static class RadarSignature
 {
@@ -33,8 +31,7 @@ public static class RadarSignature
     /// effectively invisible and is the mistake this exists to prevent.</para>
     ///
     /// <para>Returns <paramref name="referenceRange"/> unchanged whenever either cross-section is
-    /// unusable, so a set that has not been given a reference behaves exactly as it did before
-    /// there was one.</para>
+    /// unusable, so a set given no reference keeps its range.</para>
     /// </summary>
     public static double DetectionRange(double referenceRange, double crossSection,
                                         double referenceCrossSection)

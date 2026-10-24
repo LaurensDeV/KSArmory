@@ -22,58 +22,29 @@ public enum ViewAction
     Yield,
 
     /// <summary>
-    /// Holding it on paper, but the player has taken it back by hand. Forget the recording without
-    /// putting the mode back — they chose that.
-    ///
-    /// <para>The caller must also stop <em>asking</em> for the view. Standing down alone leaves
-    /// the setting requesting it, and the next frame is a plain <see cref="Take"/>: the view
-    /// blinks back to the borrower and reads as the mod refusing to let go.</para>
+    /// The player has taken it back by hand: give back only the half they did not take. The caller
+    /// must also stop asking for the view, or the next frame is a plain <see cref="Take"/>.
     /// </summary>
     StandDown,
 }
 
 /// <summary>
-/// Who may hold the main view, and what that means for the thing asking.
-///
-/// <para>The main view is the player's, and the mod borrows it. Two things here want to:
-/// <c>Ksa/ChaseCamera.cs</c> rides a round, and <c>Ksa/SightCamera.cs</c> looks through the
-/// optical head. Only one can, and getting the hand-back wrong strands the player wherever the
-/// last good frame put them — which is why the ladder is here, where a test can reach it, and
-/// only the camera writes are in <c>Ksa/</c>.</para>
+/// Who may hold the player's main view — <c>Ksa/ChaseCamera.cs</c> or <c>Ksa/SightCamera.cs</c> — as a
+/// ladder a test can reach; only the camera writes are in <c>Ksa/</c>.
 /// </summary>
 public static class ViewClaim
 {
     /// <summary>
-    /// What the optical head's camera should do this frame.
-    ///
-    /// <para><b>The order of the rungs is the whole content</b>, and two of them are load-bearing
-    /// for reasons that are not visible from the rung itself.</para>
-    ///
-    /// <para><see cref="ViewAction.StandDown"/> answers first, because restoring over a view the
-    /// player has already reclaimed drags them off whatever they turned to look at — a hand-back
-    /// fired against somebody else's camera is worse than never having held it.</para>
-    ///
-    /// <para><see cref="ViewAction.Yield"/> answers before every reason to stop, so a borrower
-    /// that is no longer wanted still waits for the stronger claim to finish. Both keep their own
-    /// recording of what the view was doing, and they were made in order: restoring the older one
-    /// while the newer claim is driving undoes a takeover that happened this frame, and leaves the
-    /// stronger claim holding a recording of the weaker one to hand back at the end. The player is
-    /// then returned to a borrowed pose that nothing is driving.</para>
+    /// What the optical head's camera should do this frame. The order of the rungs is the content:
+    /// <see cref="ViewAction.StandDown"/> first, so nothing is restored over a view the player took back;
+    /// <see cref="ViewAction.Yield"/> before every reason to stop, because the two recordings were made in
+    /// order and restoring the older one under the chase leaves it handing back a borrowed pose.
     /// </summary>
     /// <param name="wanted">The player has put the optic on this view and the system is theirs.</param>
     /// <param name="resolved">The platform and the optical head were both found this frame.</param>
     /// <param name="outranked">Something with a stronger claim holds it — today, the chase.</param>
     /// <param name="holding">This borrower believes it holds the view.</param>
-    /// <param name="stillOurs">
-    /// Nobody outside the mod has moved the view: it is in the mode it was left in <em>and</em> on
-    /// the thing it was pointed at.
-    ///
-    /// <para><b>Both halves, because either can be taken without the other.</b> The camera-mode
-    /// menu changes the mode and leaves the follow; switching vessels changes the follow and leaves
-    /// the mode. A test that watches one of them calls the other a view still under the mod's
-    /// control, and it goes on writing an offset measured from one craft onto another's
-    /// position.</para>
-    /// </param>
+    /// <param name="stillOurs"><see cref="StillOurs"/>.</param>
     public static ViewAction ForOptic(bool wanted, bool resolved, bool outranked,
                                       bool holding, bool stillOurs)
     {
@@ -81,53 +52,29 @@ public static class ViewClaim
         if (holding && outranked) return ViewAction.Yield;
         if (holding) return wanted && resolved ? ViewAction.Hold : ViewAction.GiveBack;
 
-        // Never take it out from under a stronger claim. Waiting rather than queueing: the chase
-        // gives the view back on its own, and the next frame's Take picks it up.
+        // Waiting rather than queueing: the chase gives the view back, and the next frame's Take picks it up.
         return wanted && resolved && !outranked ? ViewAction.Take : ViewAction.Idle;
     }
 
     /// <summary>
-    /// Whether the view a borrower believes it holds is still the one it took.
-    ///
-    /// <para><b>Two halves, and watching one of them is how a borrower keeps driving a view that
-    /// has been moved out from under it.</b> The camera-mode menu changes the mode and leaves the
-    /// follow. Switching vessels does the opposite — KSA's own vessel-next runs a follow change and
-    /// never touches the mode — and so does any "go to this craft" button. Whichever half is left
-    /// alone reads as consent, and the borrower goes on writing an offset measured from one craft
-    /// onto another craft's position, which places the camera wherever the two happen to be
-    /// apart.</para>
+    /// Whether the view a borrower believes it holds is still the one it took. Both halves: the
+    /// camera-mode menu changes only the mode, and switching vessels only the follow.
     /// </summary>
-    /// <param name="inTakenMode">The view is in the camera mode the borrower put it in.</param>
     /// <param name="followsWhatWePointedAt">
-    /// The view is following the object this borrower pointed it at — not merely something, and not
-    /// what it happens to want now. Identity, so that a borrower re-pointing itself is not mistaken
-    /// for the player moving it.
+    /// By identity with what this borrower pointed it at, so a borrower re-pointing itself is not
+    /// mistaken for the player moving it.
     /// </param>
     /// <param name="outranked">
-    /// A stronger claim inside the mod is driving. Then <em>neither</em> half is evidence: the
-    /// stronger claim sets its own mode and follows its own object, so both read as taken while the
-    /// borrower that took them is the mod itself. Standing down on that clears a recording the
-    /// stronger claim is holding on this borrower's behalf, and hands the player back a pose with
-    /// nothing driving it.
+    /// A stronger claim inside the mod is driving, so the follow is not evidence: it is the mod's.
     /// </param>
     public static bool StillOurs(bool inTakenMode, bool followsWhatWePointedAt, bool outranked)
         => inTakenMode && (outranked || followsWhatWePointedAt);
 
     /// <summary>
-    /// Whether the sight's overlay belongs on screen this frame.
-    ///
-    /// <para><b>Driving a picture and annotating it are the same permission</b>, and separating
-    /// them is what puts two reticles on one screen: a sight that yields the main view and keeps
-    /// painting sits over a picture showing something else entirely, stacked under the bracket
-    /// the stronger claim is drawing.</para>
-    ///
-    /// <para>A secondary window is never contested — the chase only ever takes the main view — so
-    /// there the overlay follows the optic being switched on and nothing else.</para>
+    /// Whether the sight's overlay belongs on screen this frame. Driving the main view and painting on
+    /// it are one permission; a secondary window is never contested, since the chase takes only the main view.
     /// </summary>
     /// <param name="opticSelected">The optic is on some window at all.</param>
-    /// <param name="onMainView">That window is the one the player flies from.</param>
-    /// <param name="holding">The sight believes it holds the main view.</param>
-    /// <param name="outranked">Something with a stronger claim is driving it.</param>
     public static bool SightPaints(bool opticSelected, bool onMainView, bool holding, bool outranked)
     {
         if (!opticSelected) return false;

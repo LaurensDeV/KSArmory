@@ -26,7 +26,6 @@ public static class Signature
     /// <summary>A round whose motor is burning, in kW/sr.</summary>
     public const double BurningRoundKwPerSr = 5.0;
 
-    /// <summary>A craft's heat, from the thrust its engines are making.</summary>
     public static double HeatOfCraft(double thrustNewtons, double throttle)
     {
         double making = double.IsFinite(thrustNewtons) && double.IsFinite(throttle)
@@ -36,17 +35,11 @@ public static class Signature
         return AirframeKwPerSr + (making / 1000.0 * PlumeKwPerSrPerKilonewton);
     }
 
-    /// <summary>A round's heat, which is whether its motor is burning.</summary>
     public static double HeatOfRound(bool burning) => burning ? BurningRoundKwPerSr : CoastingRoundKwPerSr;
 
     /// <summary>
-    /// How strongly a seeker would lock onto something of this signature at this range and this far off
-    /// its boresight. Zero outside the field of view.
-    ///
-    /// <para>Only a ratio is ever taken of it, so the units are the signature's over range normalised to
-    /// a kilometre: heat falls as the square of range, a radar return as the fourth power, because the
-    /// radar's own pulse has to get there as well. The boresight term favours what is centred in the
-    /// field, which is what a seeker's tracking loop does with two sources in it.</para>
+    /// How strongly a seeker would lock onto this signature; zero outside the field of view. Only a
+    /// ratio is ever taken: range in km, squared for heat and to the fourth for radar.
     /// </summary>
     public static double LockStrength(SeekerBand band, double signature, double rangeMetres,
                                       double offBoresightRad, double fieldRad)

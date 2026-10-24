@@ -58,25 +58,16 @@ public static class ChaseView
         double3 axis = along;
         double lookRange = ahead;
 
-        // The rig stands behind the round on the line to what it is flying at, not on the round's
-        // own flight path. For anything steering onto a target the two are a lead angle apart and
-        // this barely moves; a bomb's target sits tens of degrees below the path it is falling
-        // along, and a camera looking along that path never has it in frame at all.
+        // On the line to what it is flying at, not the flight path: a bomb's target sits tens of degrees
+        // below the path it falls along.
         if (aimEcl is { } aim && Vec.IsFinite(aim))
         {
             double3 toAim = aim - roundEcl;
             double range = Vec.Len(toAim);
 
-            // Held to the target all the way in. A round arriving is only pointing at what it
-            // arrives at when the target is not moving: proportional navigation flies a collision
-            // course, which holds a lead angle to impact by design, so handing back to the flight
-            // path over the last stretch would swing the view off the target by that whole angle at
-            // the one moment anybody is watching. The line reversing as the round goes past is
-            // HeldNearFlightPath's job, and it bounds the swing to 80° whether the round is
-            // arriving or long past.
-            //
-            // The look-at stays at least a look-ahead out so the framing does not pitch up as the
-            // range collapses, and MinAimRange is a divide-by-zero guard rather than a distance.
+            // Held to the target all the way in: proportional navigation holds a lead angle to impact,
+            // so handing back to the flight path would swing the view off the target at the end.
+            // The look-at stays at least a look-ahead out; MinAimRange is a divide-by-zero guard.
             if (range > MinAimRange)
             {
                 axis = HeldNearFlightPath(Vec.Unit(toAim), along);
@@ -84,12 +75,8 @@ public static class ChaseView
             }
         }
 
-        // Carried when there is one to carry. Derived from the hint, the lift is whatever part of
-        // the hint lies across the axis, which near the vertical is a sliver pointing the way the
-        // axis leans -- and past a threshold a fixed perpendicular instead. Either reverses the
-        // lift as the axis passes the vertical, so the eye swaps sides and the round appears to turn
-        // half a round: a bomb falling onto a point below it. The caller pulls the carried lift back
-        // towards the hint once a frame, which is what keeps it from drifting.
+        // Carried: derived from the hint, the lift reverses as the axis passes the vertical and the
+        // round appears to turn half a round. The caller pulls it back toward the hint each frame.
         double3 carried = liftReference - axis * Vec.Dot(liftReference, axis);
         double3 lift;
 
@@ -99,23 +86,17 @@ public static class ChaseView
         }
         else
         {
-            // A round straight up the hint leaves no sideways reference, so the lift has nowhere
-            // to go. Falling back to any perpendicular keeps the view usable instead of degenerate.
             double3 up = Vec.Unit(upHint);
             if (Vec.Len2(up) < 0.5 || Math.Abs(Vec.Dot(up, axis)) > 0.999) up = AnyPerpendicular(axis);
 
-            // Lift perpendicular to the axis the eye stands off along, not along the hint: at a
-            // steep climb angle the two are nearly the same direction and the camera would sit in
-            // front of the round.
+            // Square to the axis, not along the hint, or a steep climb puts the camera in front.
             lift = Vec.Unit(up - axis * Vec.Dot(up, axis));
             if (Vec.Len2(lift) < 0.5) lift = AnyPerpendicular(axis);
         }
 
         eyeEcl = roundEcl - axis * Math.Max(0.0, distanceBehind) + lift * heightAbove;
 
-        // Along the axis rather than at the aim itself, so a target held out at the cone edge
-        // leaves the round centred: the ride is of the round, and what it is flying at is what
-        // stands behind it.
+        // Along the axis rather than at the aim, so the round stays centred.
         double3 lookAt = roundEcl + axis * lookRange;
         forwardEcl = lookAt - eyeEcl;
 
@@ -214,16 +195,11 @@ public static class ChaseView
     /// <summary>
     /// Tilts a view direction away from the axis the engine's camera cannot cross.
     ///
-    /// <para>KSA's fixed camera builds its basis by crossing the view with that axis and
-    /// normalising, so a parallel pair divides by zero — and a vertically launched round points
-    /// very near it. Every direction handed to the engine goes through here.</para>
+    /// <para>KSA's fixed camera crosses the view with that axis and normalises, so a parallel pair
+    /// divides by zero. Every direction handed to the engine goes through here.</para>
     ///
-    /// <para><b>The axis is ecliptic +Z, not the local vertical.</b> The controller crosses against
-    /// the camera reference frame's +Z, and a followable that is not a vehicle or a celestial gets
-    /// the Identity frame with its declared reference frame ignored entirely. Leaning off local up
-    /// instead guards a singularity that is not there and leaves the real one open, and
-    /// <c>KsaWorld.TryLookFromMainViewport</c> then refuses the write and the chase drops the view
-    /// in mid-flight. See <c>docs/KSA-CAMERAS.md</c>.</para>
+    /// <para><b>The axis is ecliptic +Z, not the local vertical</b>: a followable that is not a vehicle or
+    /// a celestial gets the Identity frame. <c>docs/KSA-CAMERAS.md</c>.</para>
     /// </summary>
     public static double3 LeanOffAxis(double3 forward, double3 axisHint)
     {
@@ -244,11 +220,8 @@ public static class ChaseView
     // About 2.6 degrees off the axis: enough for the cross product to have a length to normalise.
     private const double MaxAlongAxis = 0.999;
 
-    // Holds a direction within MaxOffFlightPathDeg of the flight path, keeping the plane the two
-    // lie in. What it bounds is a round that has gone past what it was aimed at: the line to the
-    // target then swings through abeam and reverses, and a rig built on it whips round to face
-    // backwards over a frame or two. Clamping is continuous where refusing is not -- at the bound
-    // the held direction is the wanted one -- so a shot that misses slides to the edge and stays.
+    // Within MaxOffFlightPathDeg of the flight path, in their plane: past its target the line reverses,
+    // and clamping is continuous where refusing is not.
     private static double3 HeldNearFlightPath(double3 direction, double3 along)
     {
         double off = Math.Acos(Math.Clamp(Vec.Dot(direction, along), -1.0, 1.0));
@@ -271,9 +244,8 @@ public static class ChaseView
     /// <summary>
     /// How far back the camera sits, closing in as the round converges.
     ///
-    /// <para>A fixed stand-off makes a missile appear to hang still, because everything in frame
-    /// scales together. The easing accelerates into the impact: a symmetric one is flat at both
-    /// ends, so it is slowest exactly where the arrival happens.</para>
+    /// <para>A fixed stand-off makes a missile appear to hang still. The easing accelerates into the
+    /// impact, where a symmetric one would be slowest.</para>
     /// </summary>
     /// <param name="range">Distance from the round to what it is aimed at.</param>
     /// <param name="far">At or beyond this range, the full stand-off.</param>
@@ -285,7 +257,6 @@ public static class ChaseView
 
         double t = Math.Clamp((range - near) / (far - near), 0.0, 1.0);
 
-        // A root curve: the slope grows as the range runs out, so it holds station then rushes in.
         t = Math.Pow(t, Sharpness);
 
         return nearDistance + ((farDistance - nearDistance) * t);
@@ -302,11 +273,7 @@ public static class ChaseView
     {
         double shortOf = Math.Max(MinStopShortMetres, StopShortFireballs * Warhead.FireballRadius(chargeKg));
 
-        // A charge that grows a cloud is watched from far enough to SEE the cloud, which is a
-        // different and much larger number than clearing its fireball. Six fireball radii is 328 m
-        // at 0.3 kt, and what stands there is 2.0 km tall -- so the camera ends up under it looking
-        // up, and inside the 497 m this same charge is lethal to. Standing off the cloud's own
-        // height puts it across the frame and outside what made it.
+        // A cloud is watched from far enough to frame its whole column, not just clear of its fireball.
         return chargeKg >= MushroomCloud.ThresholdKg
                    ? Math.Max(shortOf, CloudsInFrame * MushroomCloud.DrawnCloudTop(MushroomCloud.KilotonsFor(chargeKg)))
                    : shortOf;
@@ -316,26 +283,9 @@ public static class ChaseView
     /// How long the view is held on a burst afterwards: as long as there is something still
     /// happening, which for everything but a nuclear charge is no time at all.
     ///
-    /// <para><b>Sized by the burst rather than picked, the same way
-    /// <see cref="StopShortMetres"/> is.</b> A conventional round is over when the flash is: three
-    /// seconds is already generous. A nuclear one is not — <see cref="MushroomCloud"/> rises for
-    /// <see cref="MushroomCloud.RiseSeconds"/> and stands for as long again, so a flat three
-    /// seconds would show about a twenty-fifth of the thing the mod goes to the trouble of drawing,
-    /// and take the camera away mid-event.</para>
-    ///
-    /// <para>The rise rather than the whole life. At the ceiling the cloud stops changing shape and
-    /// the rest is it standing there — and it stands in the world, so a player who wants more can
-    /// fly their own camera back to it. What cannot be recovered is the part they were taken away
-    /// from.</para>
-    ///
-    /// <para><b>It is not always a cloud, so the body is asked as well as the charge.</b>
-    /// <see cref="AirlessBurst.WatchSeconds"/> decides which of the three is happening and carries
-    /// the charge threshold with it, so whether this burst made anything at all stays one question
-    /// with one answer. Holding for the rise regardless would leave the camera on an empty sky for
-    /// most of a minute over a body that grows no cloud.</para>
-    ///
-    /// <para>The world terms are required rather than defaulted: a default would let a caller that
-    /// passes the charge alone compile and quietly hold the view for a cloud that is not there.</para>
+    /// <para>Sized by the burst: a cloud's rise (not its whole life, since it stands in the world to fly
+    /// back to), or what <see cref="AirlessBurst.WatchSeconds"/> says happens without air. The world terms
+    /// are required, so a caller cannot hold the view for a cloud that is not there.</para>
     /// </summary>
     public static double LingerSeconds(double chargeKg, bool hasAir,
                                        double gravityMetresPerSecond2, double burstAltitudeMetres)
@@ -354,10 +304,8 @@ public static class ChaseView
     /// <see cref="StopShortMetres"/> of where it arrives, and within <see cref="WatchSeconds"/> of
     /// getting there. With the time unknown the chase never stops.
     ///
-    /// <para>The distance left is the straight line to where the fall ends, gravity included —
-    /// never the time to go times the speed now, which a store thrown upwards reads as nothing at the
-    /// top of its climb. And a round whose whole flight is inside the distance is ridden until its
-    /// last few seconds rather than let go at release.</para>
+    /// <para>The distance left is the straight line to where the fall ends, gravity included; time to go
+    /// times the speed reads as nothing at the top of a store's climb.</para>
     /// </summary>
     public static bool StopsShort(double timeToGo, double3 velocity, double3 gravity, double chargeKg)
         => double.IsFinite(timeToGo) && timeToGo >= 0.0 && timeToGo <= WatchSeconds(chargeKg)
@@ -545,45 +493,29 @@ public static class ChaseView
     /// <summary>
     /// How far above the burst to look while a cloud stands, in metres.
     ///
-    /// <para>The burst point is the bottom of what there is to see. Held on it, a cloud that grows
-    /// a kilometre upward leaves the frame through the top — photographed at 0.60 of the rise, the
-    /// cap was cut off and only the stem and skirt were in shot. Aiming at the middle of the column
-    /// instead puts the whole of it across the frame.</para>
-    ///
-    /// <para>Below the middle rather than at it, because the cap is the wide part and wants the
-    /// room: the eye is looking down the axis of something whose top half is nearly all of its
-    /// volume. Zero for a charge that grows nothing, which is every conventional round.</para>
+    /// <para>Held on the burst point, the cap leaves the frame through the top; below the column's middle,
+    /// since the cap is the wide part. Zero for a charge that grows nothing.</para>
     /// </summary>
     public static double CloudAimHeightMetres(double chargeKg)
         => chargeKg < MushroomCloud.ThresholdKg
                ? 0.0
                : 0.45 * MushroomCloud.DrawnCloudTop(MushroomCloud.KilotonsFor(chargeKg));
 
-    // How much room to leave around a cloud, in cloud heights. Standing off by exactly the height
-    // puts the eye level with the crown and, flown, inside the smoke: the capture at 0.30 of the
-    // rise came back a flat wall of brown. A cloud that height fills a 50 degree frame at about
-    // 1.07 of it, so this is that with margin.
+    // In cloud heights: at exactly one the eye is inside the crown's smoke, and a cloud fills a 50 degree
+    // frame at about 1.07, so this is that with margin.
     private const double CloudsInFrame = 1.6;
 
     /// <summary>
     /// Eases a camera from where the player had it onto the chase pose, turning the look from the
     /// round onto what it is flying at.
     ///
-    /// <para>The look starts on the round and is fully on <paramref name="toLookAtEcl"/> when the
-    /// transition ends, on the same ease the eye travels by. In between it is a lerp of the two
-    /// <b>as seen from wherever the eye has got to</b>, so the round slides from the middle of the
-    /// frame towards where the settled pose puts it while the target comes in behind.</para>
+    /// <para>The look is a lerp of the round and <paramref name="toLookAtEcl"/> as seen from wherever the eye
+    /// has got to, on the eye's ease. <b>Both ends are taken at one depth</b>, or a near round lerped
+    /// against a far target turns seven-eighths of the way in the first fifth; an exactly opposed pair is
+    /// refused rather than normalised into NaN.</para>
     ///
-    /// <para><b>Both ends of the turn are taken at one depth</b>: the round's direction is carried
-    /// out to the range of the far end before the two are lerped. A round a hundred metres off
-    /// lerped against a target five kilometres away is taken over by the far point almost at once —
-    /// seven-eighths of a 60° turn in the first fifth of the transition. Two points at one depth
-    /// lerp as their directions do, so the turn is spread over the ease; an exactly opposed pair
-    /// lerps to nothing halfway, and is refused rather than normalised into NaN.</para>
-    ///
-    /// <para><b>Every point must be a position sampled this frame</b>, not a stored one. They are
-    /// anchored to different moving things, and the ecliptic is inertial — a point captured at the
-    /// start and held still falls half a kilometre behind per frame.</para>
+    /// <para><b>Every point must be sampled this frame</b>: a stored ecliptic point falls half a kilometre
+    /// behind per frame.</para>
     /// </summary>
     /// <param name="roundEcl">The round being chased, where the turn starts.</param>
     /// <param name="toLookAtEcl">
@@ -622,8 +554,7 @@ public static class ChaseView
 
         if (Vec.Len2(forward) < 1e-6) return false;
 
-        // The same tilt the settled pose gets, for the same reason: a view along the axis KSA's
-        // fixed camera crosses against divides by zero, and a transition can sweep through it.
+        // A transition can sweep through the axis the engine's camera divides by.
         forwardEcl = LeanOffAxis(Vec.Unit(forward), engineAxisEcl);
 
         return Vec.IsFinite(eyeEcl) && Vec.Len2(forwardEcl) > 0.5;

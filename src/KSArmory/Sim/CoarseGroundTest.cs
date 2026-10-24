@@ -5,18 +5,12 @@ namespace KSArmory;
 /// <summary>
 /// A ground test that reuses its last answer while the round is nowhere near the ground.
 ///
-/// <para>For the sight rather than for a round in flight. A round samples the surface once per
-/// frame, which costs nothing; <see cref="BombSight"/> flies a whole trajectory inside one frame
-/// and so pays a terrain lookup per integration step — up to <see cref="BombSight.MaxSteps"/> of
-/// them for one pipper, several times a second.</para>
+/// <para>For the sight: <see cref="BombSight"/> flies a whole trajectory inside one frame, a terrain
+/// lookup per step, up to <see cref="BombSight.MaxSteps"/> of them several times a second.</para>
 ///
-/// <para>Almost all of that is spent kilometres above the ground, where the answer cannot change
-/// the outcome: the surface is not reachable this step whatever it says. So the sample is reused
-/// until either the round comes within <see cref="NearMetres"/> of the cached surface or it has
-/// travelled <see cref="ResampleMetres"/> since the sample was taken. The first keeps the terminal
-/// phase — the part that decides where the bomb lands — sampled exactly as densely as before. The
-/// second is what stops a stale sample from the release point being trusted after the ground has
-/// risen underneath it.</para>
+/// <para>Within <see cref="NearMetres"/> of the surface every step samples, so the terminal phase is
+/// exact; <see cref="ResampleMetres"/> stops a sample from the release point being trusted after the
+/// ground has risen under it.</para>
 /// </summary>
 internal sealed class CoarseGroundTest(IGroundTest inner) : IGroundTest
 {
@@ -31,7 +25,7 @@ internal sealed class CoarseGroundTest(IGroundTest inner) : IGroundTest
     private double3 _centre;
     private double _radius;
 
-    /// <summary>Samples taken, and samples avoided. Diagnostic only.</summary>
+    /// <summary>Samples taken since the last <see cref="Reset"/>. Diagnostic only.</summary>
     public int Sampled { get; private set; }
 
     /// <inheritdoc />
@@ -60,7 +54,6 @@ internal sealed class CoarseGroundTest(IGroundTest inner) : IGroundTest
         Sampled = 0;
     }
 
-    // Near the surface, or far from where the surface was last looked at.
     private bool MustResample(double3 positionEcl)
         => Vec.Len(positionEcl - _centre) - _radius <= NearMetres
            || Vec.Len(positionEcl - _sampledAt) >= ResampleMetres;

@@ -5,44 +5,25 @@ namespace KSArmory;
 /// <summary>
 /// <em>When</em> to start burning, which is a separate question from how to fly the burn.
 ///
-/// <para><see cref="BallisticArc"/> answers "what would it cost to leave from here, now". That is
-/// the whole question on a launch pad, where waiting achieves nothing. It is not the question in
-/// orbit, where the vehicle is being carried round and the cost of a shot swings by orders of
-/// magnitude across a single revolution — the cheapest moment to leave may be forty minutes
-/// away.</para>
-///
-/// <para><b>Ignoring that does not produce a worse shot; it produces a wild one.</b> A target the
-/// vehicle has just passed over has no affordable arc to it at all: forward the short way means
-/// reversing the entire orbital velocity, and the long way round passes through the planet. A
-/// search that can only leave now returns the first of those, at eleven kilometres a second, and a
-/// computer that believes it burns the tank dry and lands on the wrong continent. Searching over
-/// departure time finds the same target for two hundred metres a second, most of a revolution
-/// later.</para>
+/// <para><see cref="BallisticArc"/> answers "what would leaving now cost", which is the whole question on a
+/// pad. In orbit the cost swings by orders of magnitude across a revolution: a target just passed over
+/// costs eleven km/s now and two hundred m/s most of a revolution later.</para>
 /// </summary>
 internal static class BurnWindow
 {
     /// <summary>
     /// How many revolutions the search looks across.
     ///
-    /// <para>One is not enough, and the reason is the planet rather than the orbit. A revolution
-    /// takes about ninety minutes, in which the ground turns some twenty-two degrees underneath —
-    /// so a target off the track stays off it, and a search bounded by one revolution reports the
-    /// only thing it can see: that reaching it costs a plane change of kilometres a second. Wait
-    /// sixteen revolutions and the planet has turned right round, bringing the target under the
-    /// track, and the same shot costs a deorbit.</para>
-    ///
-    /// <para>What this still cannot do is reach a latitude the orbit never gets to. No amount of
-    /// waiting fixes an inclination.</para>
+    /// <para>Sixteen low orbits are a day, in which the planet turns a target off the track back under
+    /// it. No amount of waiting fixes an inclination.</para>
     /// </summary>
     public const int Revolutions = 16;
 
     /// <summary>
     /// Cheap geometric samples across the whole horizon, before anything is solved properly.
     ///
-    /// <para>A trajectory solve at each of these would be thousands of them. What decides the cost
-    /// is overwhelmingly how far the target sits off the plane, and that is a dot product — so the
-    /// scan is done on the geometry and only the handful of moments it likes are solved for
-    /// real.</para>
+    /// <para>The cost is dominated by how far the target sits off the plane, a dot product, so only the
+    /// moments it likes are solved.</para>
     /// </summary>
     public const int CoarseSamples = 256;
 
@@ -52,23 +33,20 @@ internal static class BurnWindow
     /// <summary>
     /// True-cost samples across the first revolution, on top of the geometric scan.
     ///
-    /// <para>The geometry only sees the plane, and the plane is not the only thing that makes a
-    /// departure expensive. A target the vehicle has just passed over is dead in the plane and
-    /// still unreachable, because the arc to it would have to go backwards — so the first
-    /// revolution is sampled properly rather than being filtered.</para>
+    /// <para>The geometry cannot see phasing: a target just passed over is dead in the plane and still
+    /// unreachable.</para>
     /// </summary>
     public const int NearSamples = 32;
 
     /// <summary>
     /// How much worse an earlier window may be and still be taken.
     ///
-    /// <para>The cheapest departure in a day is not the one to want. Waiting twenty hours to save
-    /// the last few per cent is not a trade a weapon should make on its own, so the earliest
-    /// window within this of the best wins.</para>
+    /// <para>The earliest window within this of the day's best wins, rather than waiting hours for a few
+    /// per cent.</para>
     /// </summary>
     public const double GoodEnoughFraction = 0.15;
 
-    /// <summary>For a trajectory that never comes round, there is no repeat to wait for.</summary>
+    /// <summary>The horizon searched for a trajectory that never comes round (s).</summary>
     public const double UnboundHorizonSeconds = 3600.0;
 
     /// <summary>What leaving at some future moment would cost, and what leaving now would.</summary>
@@ -83,23 +61,16 @@ internal static class BurnWindow
         /// The closest the target ever comes to the plane being flown in, across the whole horizon,
         /// in radians.
         ///
-        /// <para>The number that separates "wait" from "you cannot get there". The instantaneous
-        /// angle says the target is off the plane; this says whether it is ever going to stop
-        /// being, and a floor well above zero is an inclination the orbit does not have.</para>
+        /// <para>Separates "wait" from "you cannot get there": well above zero is an inclination the orbit
+        /// does not have.</para>
         /// </summary>
         double ClosestOffPlaneRadians,
 
         /// <summary>
         /// The steepest arrival among the windows this search actually costed, in degrees.
         ///
-        /// <para>The same job as <see cref="ClosestOffPlaneRadians"/> one field up, for the other
-        /// constraint: something to say to an operator whose floor found nothing, rather than the
-        /// silence of a failed solve. <b>Not the steepest arc that exists</b> — every departure is
-        /// costed by its own cheapest arc, so this is the steepest the search <em>chose</em>, and
-        /// a steeper one is nearly always available for more propellant.</para>
-        ///
-        /// <para>Only meaningful from a search that was not itself constrained: a constrained one
-        /// costs nothing that fails the floor, so every arrival it sees already satisfies it.</para>
+        /// <para>What to tell an operator whose floor found nothing. <b>Not the steepest arc that exists</b>,
+        /// the steepest the search chose; meaningful only from an unconstrained search.</para>
         /// </summary>
         double SteepestArrivalDeg)
     {
@@ -114,11 +85,8 @@ internal static class BurnWindow
     /// <param name="minArrivalDeg">
     /// The shallowest arrival any window may have. Zero is off.
     ///
-    /// <para>Threaded into the cost, so a departure with no arc steep enough costs infinity and is
-    /// not a window at all. That is what makes the earliest affordable <em>satisfying</em>
-    /// departure fall out of the same search that already takes the earliest affordable one — and
-    /// it is the only thing that stops waiting from producing a shallower arrival than leaving now
-    /// would have.</para>
+    /// <para>Threaded into the cost, so a departure with no arc steep enough is not a window, and waiting
+    /// cannot produce a shallower arrival than leaving now.</para>
     /// </param>
     public static bool TryFind(BallisticBody body, double3 positionCci, double3 velocityCci,
                                double3 aimNowCci, out Window window, double loft = 1.0,
@@ -150,8 +118,7 @@ internal static class BurnWindow
         Span<double> howBad = stackalloc double[Candidates];
         for (int i = 0; i < Candidates; i++) { whenCci[i] = double.NaN; howBad[i] = double.PositiveInfinity; }
 
-        // Stage one: geometry only. What a shot costs is dominated by how far the target sits off
-        // the plane being flown in, and that is a dot product rather than a trajectory solve.
+        // Stage one: geometry only.
         for (int i = 1; i <= CoarseSamples; i++)
         {
             double wait = horizon * i / CoarseSamples;
@@ -171,9 +138,7 @@ internal static class BurnWindow
             Consider(whenCci, howBad, wait, OrbitPlane.PlaneChangeCost(Vec.Len(moving), offPlane));
         }
 
-        // Stage two: the first revolution costed properly at every step, because phasing is not
-        // visible to the geometry — a target just passed over is dead in the plane and still
-        // unreachable, since the arc to it would have to go backwards.
+        // Stage two: the first revolution costed properly, for phasing.
         double near = bound ? period : horizon;
 
         for (int i = 1; i <= NearSamples; i++)
@@ -194,8 +159,7 @@ internal static class BurnWindow
 
         if (!double.IsFinite(best)) return false;
 
-        // The cheapest departure in a day is not the one to want. Take the earliest that is nearly
-        // as good, because the other half of what waiting costs is not measured in metres a second.
+        // The earliest that is nearly as good: the rest of what waiting costs is not in m/s.
         double allowed = best * (1.0 + GoodEnoughFraction);
 
         if (bestWait > 0.0)
@@ -231,9 +195,7 @@ internal static class BurnWindow
                                         out BallisticArc.Solution refinedArc,
                                         out double3 refinedDirection, out _);
 
-            // The refinement is an improvement or it is nothing. Golden section over a function
-            // with unreachable regions in it can walk into one, and the sampled answer is already
-            // a real departure time with a real arc behind it.
+            // Kept only if it improves: golden section can walk into an unreachable region.
             if (double.IsFinite(refinedCost) && refinedCost <= best)
             {
                 best = refinedCost;
@@ -256,10 +218,8 @@ internal static class BurnWindow
     /// <summary>
     /// The window a hold has already chosen, refined where it is rather than searched for afresh.
     ///
-    /// <para>A fresh search takes the earliest window within <see cref="GoodEnoughFraction"/> of the best in a day, and a
-    /// near window whose cost drifts across that line as it approaches is swapped for another at the last minute -- flown,
-    /// onto ones 32 and 56 deg off the plane. False when the kept window can no longer be solved, which is the one reason
-    /// to search again.</para>
+    /// <para>A fresh search can swap a near window whose cost drifts across <see cref="GoodEnoughFraction"/>
+    /// for another at the last minute. False when the kept window can no longer be solved.</para>
     /// </summary>
     public static bool TryKeep(BallisticBody body, double3 positionCci, double3 velocityCci, double3 aimNowCci,
                                double keptWaitSeconds, out Window window, double loft = 1.0, double minArrivalDeg = 0.0)
@@ -331,9 +291,8 @@ internal static class BurnWindow
         when[worst] = wait;
     }
 
-    // The vehicle's own state repeats every revolution, so a coast of many hours is asked for as a
-    // coast of less than one. That is exact for a two-body orbit and it keeps the solver away from
-    // the many-revolution case, where its iteration is at its least well behaved.
+    // The state repeats every revolution, so a long coast is asked for modulo the period: exact for two
+    // bodies, and it keeps the solver out of the many-revolution case.
     private static bool StateAt(BallisticBody body, double3 positionCci, double3 velocityCci,
                                 double wait, double period, bool bound,
                                 out double3 from, out double3 moving)
@@ -366,8 +325,7 @@ internal static class BurnWindow
             return double.PositiveInfinity;
         }
 
-        // The aim point has moved too, by the whole wait. Carrying it here rather than inside the
-        // arc solver is the same rule as everywhere else: whoever knows the interval applies it.
+        // Carried by the wait here; the arc solver carries it over the flight.
         double3 aimThen = body.CarryCci(aimNowCci, wait);
 
         if (!BallisticArc.TryCheapest(body, from, moving, aimThen, out arc, loft, false, seed,

@@ -6,9 +6,8 @@ namespace KSArmory;
 /// Where a ray first meets the ground: the first place it goes from above the height field to below
 /// it, walked out from the eye.
 ///
-/// <para>Not the mean sphere's hit refined by the height under that answer. From a low eye looking
-/// along a slope the sphere is hit behind the hill, every refinement samples the ground back there,
-/// and a pick lands on the terrain beyond what the pointer is on.</para>
+/// <para>Not the mean sphere's hit refined by the height there: from a low eye along a slope the sphere
+/// is hit behind the hill, and the pick lands beyond what the pointer is on.</para>
 ///
 /// <para>Each step is as long as the ray stands above the ground where it is, so it strides over open
 /// country and shortens as it closes on a slope — terrain rising no faster than <see cref="MaxSlope"/>
@@ -92,8 +91,6 @@ public static class TerrainRay
         return false;
     }
 
-    // Halves the step that went from above the ground to below it until the crossing is known to
-    // within the tolerance.
     private static double Refine(double3 origin, double3 dir, double above, double below, double3 centre,
                                  double meanRadius, ITerrainHeights heights)
     {
@@ -114,7 +111,6 @@ public static class TerrainRay
         return 0.5 * (above + below);
     }
 
-    // How far the point this far along the ray stands above the ground under it.
     private static bool TryClearance(double3 origin, double3 dir, double t, double3 centre, double meanRadius,
                                      ITerrainHeights heights, out double clearance)
     {

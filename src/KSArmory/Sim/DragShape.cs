@@ -5,16 +5,11 @@ namespace KSArmory;
 /// <summary>
 /// The drag a craft feels from air arriving from a given direction, as the engine computes it.
 ///
-/// <para>KSA's drag is not a coefficient on airspeed squared. It is a drag area fixed to the craft's
-/// body, times dynamic pressure, over the mass: the bounding box's faces weighted by how squarely the
-/// air meets each — 0.3 on the nose, 1.0 on the tail, 1.2 on the sides — plus a skin term of a tenth
-/// of its surface area (<c>BoundingBoxCdA.ComputeCdA</c>, <c>PhysicsStates.ComputeDrag</c>). So a craft
-/// holding its attitude while its path bends presents a different area, and its apparent coefficient
-/// drifts: flown, 65.8 m² falling to 52.9 while its slowing over that area held at ½ρ to four places.
-/// A lead holding the coefficient put every first shell 25 m behind and above the drone.</para>
-///
-/// <para>Computed rather than read off the slowing, because a craft under power is not slowing and
-/// still has all of its drag.</para>
+/// <para>KSA's drag is a drag area fixed to the body, times dynamic pressure, over the mass: the bounding
+/// box's faces weighted 0.3 nose, 1.0 tail, 1.2 sides, plus a tenth of the surface area as skin
+/// (<c>BoundingBoxCdA.ComputeCdA</c>, <c>PhysicsStates.ComputeDrag</c>). A lead holding the coefficient
+/// put every first shell 25 m behind and above the drone. Computed rather than read off the slowing,
+/// because a craft under power is not slowing and still has all of its drag.</para>
 ///
 /// <para>A copy of the engine's model as of 2026.9.7.5402, which RocketWerkz are reworking:
 /// <c>docs/BLOCKED-ON-KSA.md</c> has the check that confirms it still matches.</para>

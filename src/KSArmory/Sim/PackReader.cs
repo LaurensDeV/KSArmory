@@ -27,8 +27,7 @@ public static class PackReader
 
     /// <summary>
     /// The qualifier a pack uses to name one of the built-ins — <c>KSArmory:30MM</c>. Built-ins
-    /// carry bare keys because they predate qualification, so this is the one prefix that is
-    /// stripped rather than kept.
+    /// carry bare keys, so this is the one prefix that is stripped rather than kept.
     /// </summary>
     public const string BuiltInSource = "KSArmory";
 
@@ -185,8 +184,6 @@ public static class PackReader
         faults.Add(new PackFault(source, "WeaponPack", "", reason));
         return new PackContents { Source = source, Faults = faults };
     }
-
-    // ---- Definitions ----------------------------------------------------
 
     private static void ReadMunition(XElement el, string source, List<PackFault> faults,
                                      List<MunitionProfile> into)
@@ -663,15 +660,11 @@ public static class PackReader
         };
     }
 
-    // ---- Names ----------------------------------------------------------
-
     // A pack's own key, carrying the pack. Two packs shipping an "AIM-9X" are then two rounds
     // rather than a silent capture of whichever registered first.
     //
-    // The built-ins are the exception and keep bare keys, because they are the namespace every
-    // qualified reference is resolved against -- KeyFor already strips "KSArmory:" for the same
-    // reason. It is also what lets this mod's own weapons move into a definitions file without
-    // renaming every key a saved setting or a pack reference already holds.
+    // The built-ins keep bare keys, because they are the namespace every qualified reference is
+    // resolved against, and a saved setting or a pack reference already holds those keys.
     private static string Qualify(string source, string name)
         => source == BuiltInSource ? name : $"{source}:{name}";
 
@@ -703,8 +696,6 @@ public static class PackReader
 
         return false;
     }
-
-    // ---- Reading one element --------------------------------------------
 
     // One element being read, and every way it can be wrong.
     //

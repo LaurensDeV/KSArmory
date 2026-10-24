@@ -116,15 +116,9 @@ internal sealed class PostBoostAim
     /// <summary>
     /// How many measure-and-retrim cycles are worth running at most.
     ///
-    /// <para><b>The payback and improvement rules are meant to be what stop it, not this.</b> At
-    /// five the flown salvo ran out of passes with its predicted miss still falling — 2.9, 2.9,
-    /// 2.1, 1.2 km — and the aim it released on was the one it happened to hold when the count ran
-    /// out. Headless, the residue that leaves is the largest single term in the whole shot: 760 m
-    /// of group offset against 18 m for a correction allowed to finish.</para>
-    ///
-    /// <para>Raising it costs nothing when the shot is already close, because the payback test
-    /// stops those on the first pass. It only spends passes on shots with kilometres on the
-    /// table.</para>
+    /// <para><b>The payback and improvement rules are meant to be what stop it, not this.</b> Cut
+    /// off at five with the miss still falling, the residue was 760 m of group offset against 18 m
+    /// for a correction allowed to finish (headless); a close shot stops on its first pass anyway.</para>
     /// </summary>
     public const int MaxCycles = 20;
 
@@ -221,31 +215,13 @@ internal sealed class PostBoostAim
     /// <summary>
     /// The most thruster velocity the correction's passes may spend, in metres per second.
     ///
-    /// <para>Every pass re-arms the trim onto a moved arc and the trim thrusts until it is back on
-    /// it, so passes are what the correction costs in propellant. Measured in flight: 1,943 frames
-    /// with thrusters firing against 24 settled, about 36 m/s, on a bus carrying 70–90.</para>
+    /// <para>Passes are what the correction costs in propellant: flown, about 36 m/s on a bus carrying
+    /// 70–90. The reserve protects the separation null: sixty leaves 10 m/s on the smallest bus, one
+    /// null at <see cref="BusTrim.MaxMetresPerSecond"/>
+    /// (<c>PostBoostAimTests.TheBudgetLeavesEnoughToNullASeparation</c>), so it cannot go higher.</para>
     ///
-    /// <para><b>What the reserve protects is the separation null</b>, which is the one piece of
-    /// trimming that cannot be skipped: a 1.1 m/s decoupler shove takes the predicted impact from
-    /// 0.7 km to 4.5 km on this arc, and a bus that arrives at the release dry cannot take it back
-    /// out. Sixty leaves 10 m/s on the smallest bus in that range — one null at the largest trim
-    /// <see cref="BusTrim.MaxMetresPerSecond"/> will accept, which is the floor
-    /// <c>PostBoostAimTests.TheBudgetLeavesEnoughToNullASeparation</c> holds and the reason this
-    /// cannot go higher.</para>
-    ///
-    /// <para><b>Forty was below what a converged correction spends, not above it</b>, and it was the
-    /// whole of the kilometre-scale miss at a floor. Flown twenty-five a side against 40: the loop
-    /// converged on <b>24 of 25</b> shots against 13, and <b>1 of 25</b> missed by more than 500 m
-    /// against 12. The miss is a step function of that and not a distribution — a converged shot
-    /// lands at 0.01–0.14 km and a cut-off one at 0.83–3.92, with nothing in between across fifty
-    /// shots.</para>
-    ///
-    /// <para><b>The guard was never stopping a runaway.</b> The twelve it stopped were owed
-    /// 1.01–9.36 m/s when it fired, mid-run, and eleven of them landed inside 140 m once it did
-    /// not — so it was cutting off the correction that arrives, and hardest on the shots that
-    /// opened widest, because the spend scales with the correction and a constant does not.
-    /// <see cref="MaxSeconds"/> is the backstop against a loop that genuinely will not stop, and
-    /// no shot on either arm reached it.</para>
+    /// <para>Not lower either: at forty the loop converged on 13 of 25 shots against 24 of 25 at sixty,
+    /// and a cut-off shot lands 0.83–3.92 km out against 0.01–0.14 converged.</para>
     /// </summary>
     public const double MaxTrimMetresPerSecond = 60.0;
 
@@ -289,9 +265,6 @@ internal sealed class PostBoostAim
     private int _noImprovement;
     private string _said = "";
 
-    /// <summary>
-    /// Step the sequencer.
-    /// </summary>
     /// <param name="stepSeconds">Simulated seconds since the last call.</param>
     /// <param name="now">What the bus is doing — see <see cref="PostBoostSituation"/>.</param>
     public Decision Update(double stepSeconds, in PostBoostSituation now)
@@ -334,19 +307,10 @@ internal sealed class PostBoostAim
                        : new Decision(false, false, _said);
         }
 
-        // And not twice off one flight. The trim is what carries a correction to the impact: after
-        // cutoff the prediction departs from the vehicle's own state and never reads the aim, so a
-        // reading taken before the last correction has been flown re-reads the number that produced
-        // it. The loop deadbeats on the same error twice and the bias ends at about double it —
-        // measured across 94 corrections as a second reading 2.0 s after the first at 0.90x of the
-        // best, then a third 41 s later at 2.24x, off which the plant secant reads 3.13 and divides
-        // the next two steps by three.
-        //
-        // The first reading is exempt: it is what the guidance's own cutoff solution earned, and
-        // there is nothing before it to have flown.
-        // The actuator quitting is not a reading and must not wait for one. Waiting would hold the
-        // correction open for FlownWithinSeconds after the only thing that can carry it has stopped,
-        // and the refusal is what tells a reader which half of the loop failed.
+        // And not twice off one flight: a reading taken before the last correction has been flown
+        // re-reads the number that produced it, and the loop deadbeats on the same error twice
+        // (measured over 94 corrections, the bias ending at about double). The first reading is
+        // exempt, having nothing before it to fly; a trim that gave up is not waited for.
         if (Cycles > 0 && !_flownSinceMeasured && !now.TrimGaveUp)
         {
             _waitingToFly += step;
@@ -460,16 +424,9 @@ internal sealed class PostBoostAim
         return new Decision(true, false, _said);
     }
 
-    // How still the line the warheads leave along is holding. Differenced here rather than handed
-    // in as an angle: the subtraction is the measurement, and one done at the call site is one no
-    // test reaches.
-    //
-    // Against the direction the current stretch started at, never against the previous frame. A
-    // per-frame turn is an angle between two samples a frame apart, and the frame pacing beats it
-    // - so a rate test rejects a bus that is holding perfectly still and accepts one drifting
-    // slowly enough to stay under it for ever. Measured from an anchor, the band is what it says:
-    // while it reads steady, the kick has been inside SteadyWithinDegrees of one fixed direction
-    // for the whole window.
+    // How still the line the warheads leave along is holding, against the direction the current
+    // stretch started at, never the previous frame: the frame pacing beats a per-frame turn, so a
+    // rate test rejects a bus holding still and accepts one drifting slowly for ever.
     //
     // A direction that will not resolve counts as steady. Nothing turns on a bus with no modelled
     // kick, so there is no moving instrument to wait for - and blocking on it would hold the

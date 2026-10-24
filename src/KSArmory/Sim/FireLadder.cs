@@ -18,9 +18,7 @@ internal readonly record struct FireConditions
     /// <summary>
     /// It has tubes, and therefore takes the missile rungs rather than the belt's.
     ///
-    /// <para>The two are alternatives, not a filter: a gun-only launcher's magazine is empty by
-    /// construction, so running it down the missile rungs reports "out of rounds" forever while
-    /// its cannon are audibly firing.</para>
+    /// <para>Alternatives, not a filter: a gun-only launcher's magazine is empty by construction.</para>
     /// </summary>
     public required bool HasTubes { get; init; }
 
@@ -102,37 +100,26 @@ internal readonly record struct BeamConditions
 /// <summary>
 /// A reason a system is not shooting, and whether it stops the operator as well as fire control.
 ///
-/// <para><b>Not every gate binds the trigger.</b> Some are about whether the round can leave the
-/// rail at all — no lock, empty, still slewing — and the manual path refuses those too. Others are
-/// automatic fire's <em>economy</em>: don't spend a round on something out of reach, don't put a
-/// third on a target already committed to. An operator asking for a close shot has decided to take
-/// it, and the trigger has always let them. Reporting that as <c>Holding fire</c> beside a button
-/// that then works is the panel describing a refusal that never happens.</para>
+/// <para><b>Not every gate binds the trigger.</b> Some stop the round leaving the rail at all, and the
+/// manual path refuses those too; others are automatic fire's economy (reach, salvo count), which the
+/// trigger does not consult.</para>
 /// </summary>
 internal readonly record struct FireHold(string Reason, bool BindsTrigger);
 
 /// <summary>
 /// Why a system is not shooting, as the first gate that says no.
 ///
-/// <para>Every gate in fire control returns quietly, so an empty launcher, one with no lock, one
-/// still settling and one whose drives the engine refused all look identical from outside. Naming
-/// the first rung that answers is the difference between reading the panel and reading the
-/// source.</para>
-///
-/// <para><em>Auto-engage is deliberately not a rung.</em> It decides whether fire control shoots on
-/// its own, not whether a round can leave the rail, and no manual fire path consults it. Reporting
-/// it here stops the ladder at the one switch that blocks nothing the operator asked for, hiding
-/// every gate below it from the panel beside the trigger.</para>
+/// <para>Every gate in fire control returns quietly, so this names the first that answers.
+/// <em>Auto-engage is not a rung</em>: no manual path consults it, and as a rung it would hide every
+/// gate below it.</para>
 /// </summary>
 internal static class FireLadder
 {
     /// <summary>
     /// The first reason this system is holding fire, or null if it is not.
     ///
-    /// <para>In order, and the order is the fire sequence's — a rung may only be asked once
-    /// everything above it has been satisfied, because several are meaningless otherwise. The
-    /// settling rungs are the clearest case: a launcher with nothing locked has nothing to be
-    /// settled <em>onto</em>.</para>
+    /// <para>In the fire sequence's order: a rung is asked only once everything above it is satisfied,
+    /// since a launcher with nothing locked has nothing to be settled onto.</para>
     /// </summary>
     public static FireHold? Holding(in FireConditions now, SystemConfig policy, MunitionProfile munition)
     {
@@ -157,9 +144,8 @@ internal static class FireLadder
             if (now.Ammo <= 0) return Binding("out of rounds");
             if (now.SalvoSeconds > 0.0) return Binding("between salvos");
 
-            // A store is released onto a designation or onto nothing, so no rung below -- a lock, a
-            // settled drive -- applies to it, and a loaded one is clear. Automatic fire never
-            // drops one: UpdateFireControl refuses it on its own.
+            // A store is released onto a designation or onto nothing, so no rung below applies.
+            // Automatic fire never drops one: UpdateFireControl refuses it on its own.
             if (!munition.Powered) return null;
         }
         else
@@ -194,9 +180,7 @@ internal static class FireLadder
                 return Binding("the cannon has the bearing");
             }
 
-            // The operator owns the ring, so an automatic launch would leave along the cursor and
-            // turn onto whatever the radar locked. Held rather than re-aimed: the cursor is a
-            // deliberate command, and taking the ring back to shoot would fight the player.
+            // The operator owns the ring; held rather than taking it back, which would fight the player.
             if (!FireGate.MissilesMayFire(now.RingIsOnCursor, now.LaunchAlongTube))
             {
                 return Binding("the cursor has the bearing");
@@ -205,11 +189,8 @@ internal static class FireLadder
 
         if (now.Locked is not { } locked) return Targeting(tubes, "no lock");
 
-        // An anti-radiation round has to be pointed at something radiating, and that is a gate on
-        // *launching* rather than only on homing. Emission is read in flight and nowhere before it,
-        // so a shell closing at 956 m/s -- which takes the top of a list ranked by time to closest
-        // approach, ahead of the site that fired it -- can be locked and shot at by a weapon with
-        // no way to see it. The round then flies straight past everything.
+        // A gate on launching, not only on homing: otherwise a shell heading the threat list is locked
+        // and shot at by a weapon with no way to see it.
         if (munition.Guidance == GuidanceMode.AntiRadiation && !now.LockedIsEmitting)
         {
             return Targeting(tubes, $"{now.LockedName} is not radiating");
@@ -238,13 +219,8 @@ internal static class FireLadder
 
         if (!ThreatModel.InEngagementEnvelope(locked, munition))
         {
-            // With the numbers: "out of reach" reads as too far, and the usual cause is a target
-            // that came inside the minimum instead.
-            //
-            // Auto-engage's own, for the same reason as the salvo count above. The floor is about a
-            // round still boosting and the ceiling about one expiring short, and neither stops the
-            // shot happening -- so the trigger fires and the round flies, which is what made this
-            // line read as a fault.
+            // With the numbers, since the usual cause is a target inside the minimum. Auto-engage's
+            // own: neither bound stops the trigger's shot.
             return AutoOnly($"target out of reach ({locked.Range / 1000.0:F1} km, envelope "
                             + $"{munition.MinRange / 1000f:F1}-"
                             + $"{munition.MaxRange / 1000f:F1} km)");

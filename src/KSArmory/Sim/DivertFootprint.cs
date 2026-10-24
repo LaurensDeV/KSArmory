@@ -5,41 +5,29 @@ namespace KSArmory;
 /// <summary>
 /// How far one bus can move its own landing, as an ellipse on the ground.
 ///
-/// <para>Every later target is a place the bus can divert to with the propellant it has left, and
-/// <see cref="ReleaseFocus.FlownSensitivity"/> already flies the columns that say how far a metre a
-/// second of release velocity moves the landing — once per salvo, for the separation kicks. This is
-/// those same columns read as a region rather than as a correction, so the display costs no flying.</para>
+/// <para>The columns <see cref="ReleaseFocus.FlownSensitivity"/> already flies for the separation kicks,
+/// read as a region, so the display costs no flying.</para>
 ///
 /// <para><b>Which clock the arrival is on decides the shape, and there is no default.</b>
-/// <see cref="ArrivalClock.Pinned"/> is what the flight does and is nearly a circle;
-/// <see cref="ArrivalClock.Free"/> is a long ellipse along the track and is only honest if a release loop
-/// re-commits the arrival per destination. Drawing the free one where the flight pins the clock shows a
-/// reach 2–12x too long, so <see cref="TryFrom"/> takes the choice rather than offering one.
-/// <c>docs/ICBM-GUIDANCE.md</c>, "Several targets".</para>
-///
-/// <para><b>Free-clock, the long axis belongs to the arrival angle, not to the range.</b> It runs about
-/// <c>450 · cot γ</c> metres per m/s at the release epoch, so it is 25:1 at 9°, 3:1 at 20° and 2:1 at
-/// 33°. Pinned, both axes collapse onto the cross-track reach, about <c>0.96 · t_go</c>. A typed shape
-/// would be wrong at every geometry under either clock.</para>
+/// <see cref="ArrivalClock.Pinned"/> is what the flight does, nearly a circle of about
+/// <c>0.96 · t_go</c>; <see cref="ArrivalClock.Free"/> is a long ellipse, about <c>450 · cot γ</c> along
+/// the track, 2–12x too long where the flight pins the clock. <c>docs/ICBM-GUIDANCE.md</c>, "Several
+/// targets".</para>
 /// </summary>
 /// <param name="OrientationRad">
-/// Which way the long axis points, from the frame's downrange. Free-clock it is nearly always zero — the
-/// major axis sits within a tenth of a degree of the ground track at every geometry measured — and
-/// computed anyway, because "nearly always" is how an assumption gets shipped. <b>Pinned it means
-/// nothing</b>, the two axes agreeing to within 3%, and only <see cref="CostMetresPerSecond"/> should read
-/// it there.
+/// Which way the long axis points, from the frame's downrange: within a tenth of a degree of the track
+/// free-clock, computed anyway. <b>Pinned it means nothing</b> and only <see cref="CostMetresPerSecond"/>
+/// reads it.
 /// </param>
 /// <param name="Axes">
-/// What a metre of landing costs on each of the bus's own control axes, which is what <see cref="BusTrim"/>
-/// pays: it fires one axis at a time, so a divert costs the sum of its parts on them rather than its length.
-/// Unset where the columns or the axes were not to hand.
+/// What a metre of landing costs on each of the bus's own control axes: <see cref="BusTrim"/> fires one
+/// axis at a time, so a divert costs the sum of its parts. Unset where not to hand.
 /// </param>
 /// <param name="FromTheRealState">
-/// Whether the columns came from the bus's own state, or the reach is the release epoch's alone. A
-/// footprint drawn from the pad is an estimate whose long axis was out by 1.04x, 0.51x and 0.59x at three
-/// flown geometries, because <c>cot γ</c> belongs to the arc actually flown and the pad does not know it
-/// yet. The short axis is exact from anywhere, being <c>0.96 · t_go</c> on a time the player already set —
-/// <b>and pinned that is the whole footprint</b>, which is what <see cref="TryAtTheEpoch"/> is.
+/// Whether the columns came from the bus's own state, or the reach is the release epoch's alone. From the
+/// pad the long axis is an estimate, since <c>cot γ</c> belongs to the arc flown; the short axis,
+/// <c>0.96 · t_go</c>, is exact anywhere, <b>and pinned it is the whole footprint</b>
+/// (<see cref="TryAtTheEpoch"/>).
 /// </param>
 internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePerSecond,
                                                 double SemiMinorMetresPerMetrePerSecond,
@@ -78,22 +66,15 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
     internal enum ArrivalClock
     {
         /// <summary>
-        /// Held where the flight holds it. <c>IcbmProgram</c> latches the arrival at closed-loop handover and
-        /// <c>ResolveCoastArc</c> solves every later arc to that same instant, so a divert is an
-        /// exactly-determined 3x3 rather than a minimum-norm 2x3: three unknowns, two ground conditions and the
-        /// clock. <b>This is the reach a player actually has today.</b>
-        ///
-        /// <para>The extra condition costs along the track and nothing across it — 1.94x at the 6,179 km release
-        /// gate, 2.56x there at cutoff and 11.94x at 12,902 km, against 1.00x across at every geometry, because
-        /// moving a target across the track does not change when it is reached.</para>
+        /// Held where the flight holds it (latched at closed-loop handover, every later arc solved to it), so
+        /// a divert is an exactly-determined 3x3: two ground conditions and the clock. <b>The reach a player
+        /// has today.</b> The clock costs along the track and nothing across it.
         /// </summary>
         Pinned,
 
         /// <summary>
-        /// Left wherever it falls, which is the minimum-norm solve <see cref="ReleaseFocus"/> does for a
-        /// separation kick. <b>Only a reach a release loop that re-commits the arrival per destination could
-        /// offer</b>, and nothing does that today — the latch lives inside <c>Resolve</c>, which the coast
-        /// never reaches.
+        /// Left wherever it falls, the minimum-norm solve <see cref="ReleaseFocus"/> does for a kick. <b>Only
+        /// a release loop that re-commits the arrival per destination could offer it</b>, and none does.
         /// </summary>
         Free,
     }
@@ -101,16 +82,9 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
     /// <summary>
     /// How far a metre a second of divert moves the landing, per second still to go at the release.
     ///
-    /// <para><b>The floor of the measured band, not its middle.</b> Swept over 2,002–12,787 km of range,
-    /// 13.3°–52.2° of arrival and loft 1.0 and 1.35, the pinned reach at a 420 s release runs
-    /// <b>0.936 to 0.967 · t_go</b> while the <em>free</em> long axis over the same matrix swings 497 to
-    /// 1,816 m per m/s — so the pinned reach is the epoch and nothing else. Over 60 to 760 s the floor is
-    /// 0.889, at 745 s, which is what this is rounded down from. The Moon reads 0.977–0.980 at the same
-    /// epoch, so Earth is the binding body: the ratio is <c>sinc(sqrt(mu/R³) · t_go)</c> and Earth has about
-    /// the shortest surface-grazing period in the system.</para>
-    ///
-    /// <para>A floor rather than a fit because it is drawn before the flight can check it: promising ground
-    /// the bus cannot reach is the one failure a region display makes silently.</para>
+    /// <para><b>The floor of the measured band, not its middle</b>, because it is drawn before the flight
+    /// can check it: 0.889 at 745 s over 60–760 s, rounded down. <c>docs/ICBM-GUIDANCE.md</c>, "The pad can
+    /// draw the pinned reach".</para>
     /// </summary>
     public const double PinnedMetresPerSecondToGo = 0.88;
 
@@ -118,10 +92,8 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
     /// The release epochs <see cref="PinnedMetresPerSecondToGo"/> is a floor over, in seconds before
     /// arrival.
     ///
-    /// <para>It decays with the epoch — 0.96 at 420 s, 0.90 at 745, <b>0.76 at 1,200</b> — because the
-    /// out-of-plane response is harmonic about the body and saturates over a quarter period. So a release
-    /// gate outside this is refused rather than estimated: the constant stops being a floor and the disc
-    /// stops being a disc, the two axes parting 16% at 1,200 s.</para>
+    /// <para>The ratio decays with the epoch (0.76 at 1,200 s), so a release gate outside this is refused
+    /// rather than estimated.</para>
     /// </summary>
     public const double EpochLeastSeconds = 60.0;
 
@@ -132,11 +104,9 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
     /// The reach a release epoch alone gives, for a flight that has not flown yet.
     /// </summary>
     /// <remarks>
-    /// <b>Nothing here reads a state, and that is what makes it honest.</b> The tempting version flies the
-    /// columns from the guidance's projected cutoff — but before the vehicle has flown that projection is
-    /// the pad, so the arc ploughs through the whole atmosphere; the aim loop read <b>1,522 km</b> of
-    /// phantom miss off exactly that and <see cref="AimCorrection.DepartureIsWorthObserving"/> is the guard
-    /// it needed. Pinned, there is nothing in the footprint the arc could tell us: both axes are the epoch.
+    /// <b>Nothing here reads a state</b>: before the flight the projected cutoff is the pad, whose arc
+    /// ploughs through the atmosphere (<see cref="AimCorrection.DepartureIsWorthObserving"/>). Pinned, both
+    /// axes are the epoch's anyway.
     /// </remarks>
     /// <param name="frame">
     /// The axes the reach is measured in, at the landing <em>as it will be at arrival</em> — the same epoch
@@ -144,9 +114,8 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
     /// under both. Pinned the orientation means nothing and only the plane is read.
     /// </param>
     /// <param name="secondsToGo">
-    /// How long after the release the warheads arrive, which under <see cref="ReleaseItinerary"/> is
-    /// <see cref="IcbmConfig.ReleaseBeforeArrivalSeconds"/> exactly: every further target is released
-    /// <em>earlier</em> and the last one lands on the gate, so a new target's hop is always bought there.
+    /// How long after the release the warheads arrive: <see cref="IcbmConfig.ReleaseBeforeArrivalSeconds"/>
+    /// under <see cref="ReleaseItinerary"/>, whose last release lands on the gate.
     /// </param>
     public static bool TryAtTheEpoch(ArrivalFrame frame, double secondsToGo, out DivertFootprint footprint)
     {
@@ -185,10 +154,8 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
 
         if (clock == ArrivalClock.Pinned)
         {
-            // Holding the arrival leaves only the release velocities square to the clock row, so the reach is
-            // the same map with that one direction taken out of each row — a projection, not a second solve.
-            // A row that cannot move the clock at all constrains nothing, and the free answer is then the
-            // pinned one rather than a refusal.
+            // Holding the arrival projects the clock row's direction out of each row. A row that cannot
+            // move the clock constrains nothing, and the pinned answer is the free one.
             double3 slower = flown.ArrivalSecondsPerMetrePerSecond;
             double authority = Vec.Len2(slower);
 

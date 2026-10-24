@@ -13,21 +13,17 @@ internal readonly record struct ReleaseProbe(double3 PositionCci, double3 Veloci
 /// The release probe a warhead's separation is solved against: its own, or — when its own finds no
 /// impact — the last one of its salvo that did.
 ///
-/// <para>Unkicked, a warhead lands where its tube's ring and the spin it was thrown with put it: 1.73 m
-/// and 2.03 m from the aim, flown, beside siblings kicked to millimetres. A sibling's probe a frame
-/// earlier is the same arc a frame further back, and every quantity in it is from that one instant, so
-/// the spin and the travel cancel and the kick it solves lands 0.09 mm from where the warhead's own
-/// would (<c>SalvoProbeTests</c>). What it cannot know is anything that moved the bus since.</para>
+/// <para>Unkicked, a warhead lands 1.7–2.0 m from the aim, flown. A sibling's probe a frame earlier is
+/// one arc at one instant, so its kick lands 0.09 mm from the warhead's own (<c>SalvoProbeTests</c>);
+/// it cannot know anything that moved the bus since.</para>
 /// </summary>
 internal sealed class SalvoProbe
 {
     /// <summary>
     /// How old a borrowed probe may be, in simulated seconds.
     ///
-    /// <para>Across a flown salvo the release probe's miss moved at most 3 mm a frame, so a probe this
-    /// old is under 7 cm stale, and its shorter lever arm costs 1.8 mm more, against the 1.7–2.0 m an
-    /// unkicked warhead lands. Past it the release has stalled on something, and whatever stalled it may
-    /// have moved the bus.</para>
+    /// <para>The probe's miss moved at most 3 mm a frame across a flown salvo, so this is under 7 cm
+    /// stale and 1.8 mm of lever arm. Past it the release has stalled, and that may have moved the bus.</para>
     /// </summary>
     public const double MaxAgeSeconds = 0.5;
 

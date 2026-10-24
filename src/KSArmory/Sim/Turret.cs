@@ -6,10 +6,6 @@ namespace KSArmory;
 /// The turret's traverse and elevation drives: where it is pointing, where it has been told to point, and how
 /// fast it is allowed to get there.
 ///
-/// <para>Deliberately free of KSA types, like <see cref="Interceptor"/> and <see cref="Vec"/> —
-/// the test project links this file directly so the slewing can be exercised without the game.
-/// Adding a <c>using KSA;</c> here breaks the tests.</para>
-///
 /// <para>Angles are radians about the part's X axis, which is the vehicle's up. Zero points
 /// along +Y, the direction the vehicle drives and the way the tracking array faces at rest.</para>
 /// </summary>
@@ -45,25 +41,15 @@ public sealed class Turret
     public double MaxElevationRad { get; set; } = double.DegreesToRadians(82);
 
     /// <summary>
-    /// Depression limit over the vehicle's own bodywork, and how wide that arc is.
-    ///
-    /// <para>Pointing forward, the pods would swing down through the auxiliary power unit
-    /// behind the cab. A real launcher has a mechanical cutout stopping exactly that; without
-    /// one the tubes just pass through the hull, which looks like the bug it is.</para>
-    ///
-    /// <para>A flat depression limit everywhere would be simpler and worse: the pods can
-    /// legitimately come right down to level once traversed off the beam, and that is the shot
-    /// against something skimming the horizon.</para>
+    /// Depression limit over the vehicle's own bodywork, and how wide that arc is. Not a flat limit:
+    /// off the beam the pods may come down to level, the shot against a horizon skimmer.
     /// </summary>
     public double ForwardMinElevationRad { get; set; } = double.DegreesToRadians(15);
     public double ForwardArcRad { get; set; } = double.DegreesToRadians(80);
 
     /// <summary>
-    /// How far off the bow the floor stays at its full height before easing away.
-    ///
-    /// <para>The bodywork the floor protects does not taper, so the floor must not either: a
-    /// curve that starts falling at the bow has given away most of its height by the time the
-    /// tubes are abeam the obstruction. The ease belongs outside the conflict, not across it.</para>
+    /// How far off the bow the floor stays at full height before easing away. The bodywork does
+    /// not taper, so the ease belongs outside it, not across it.
     /// </summary>
     public double ForwardPlateauRad { get; set; } = double.DegreesToRadians(62);
 
@@ -103,12 +89,8 @@ public sealed class Turret
         if (offAxis >= ForwardArcRad || ForwardArcRad <= 0.0) return MinElevationRad;
         if (offAxis <= ForwardPlateauRad) return Math.Max(MinElevationRad, ForwardMinElevationRad);
 
-        // Eases between this launcher's two floors, not between the forward one and level. A mount
-        // that may depress below level has no cutout to ease out of, and easing toward zero gives
-        // it one anyway: the floor rises across the band and then steps back down at the arc edge,
-        // 25 degrees in a single frame on the CIWS, applied as a clamp so it is not even rate
-        // limited. Where MinElevationRad is zero - every launcher that only elevates - this is the
-        // same curve as easing toward level.
+        // Between this launcher's two floors, not toward level: for a mount that depresses below
+        // level, easing toward zero steps the floor back down at the arc edge, unrate-limited.
         double t = (offAxis - ForwardPlateauRad) / (ForwardArcRad - ForwardPlateauRad);
         double eased = MinElevationRad + (ForwardMinElevationRad - MinElevationRad) * (1.0 - t * t);
 
@@ -170,7 +152,7 @@ public sealed class Turret
         CommandElevationRad = ClampElevation(ElevationTo(directionPartFrame), CommandRad.Value);
     }
 
-    /// <summary>Orders both axes directly, bypassing the radar. Used by the manual override.</summary>
+    /// <summary>Orders both axes directly, bypassing the radar: the manual and spin modes.</summary>
     public void Point(double bearingRad, double? elevationRad = null)
     {
         if (double.IsFinite(bearingRad)) CommandRad = ClampBearing(WrapPi(bearingRad));
@@ -236,9 +218,8 @@ public sealed class Turret
     }
 
     /// <summary>
-    /// Advances the drive. Turns the short way round and never faster than
-    /// <paramref name="slewRateRadPerSec"/>, so the turret sweeps rather than snapping — which
-    /// is both what the real thing does and the only way the motion reads as motion on screen.
+    /// Advances the drive, the short way round unless the arc forbids it, and never faster than
+    /// <paramref name="slewRateRadPerSec"/>.
     /// </summary>
     public void Update(double dt, double slewRateRadPerSec, double elevationRateRadPerSec)
     {
@@ -256,17 +237,14 @@ public sealed class Turret
 
         if (CommandElevationRad is { } elevation && elevationRateRadPerSec > 0.0)
         {
-            // No wrapping here: elevation is a limited arc, not a circle, so stepping is a
-            // plain clamped move. Wrapping it would let the pods take the "short way" through
-            // the deck to reach a high angle.
+            // Not wrapped: elevation is an arc, and wrapping takes the "short way" through the deck.
             double step = elevationRateRadPerSec * dt;
             double error = elevation - ElevationRad;
             ElevationRad += Math.Abs(error) <= step ? error : Math.Sign(error) * step;
         }
 
-        // The interlock, enforced against where the turret *is* rather than where it was told
-        // to go. Traversing into the forward arc with the pods low has to lift them out of the
-        // bodywork on the way round, not once it arrives.
+        // Against where the turret is, not where it was told to go, so traversing into the forward
+        // arc lifts the pods on the way round rather than on arrival.
         (double floorNow, double ceilingNow) = ElevationBandAt(BearingRad);
         ElevationRad = Math.Clamp(ElevationRad, floorNow, ceilingNow);
 
@@ -304,7 +282,7 @@ public sealed class Turret
         return angle;
     }
 
-    /// <summary>Forgets everything. Used when the system changes platform.</summary>
+    /// <summary>Forgets everything.</summary>
     public void Reset()
     {
         BearingRad = 0.0;

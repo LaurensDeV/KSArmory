@@ -3,14 +3,10 @@ namespace KSArmory;
 /// <summary>
 /// The look of the nuclear cloud, as numbers that can be changed while the game runs.
 ///
-/// <para>Each is a GLSL specialization constant: declared with a <c>constant_id</c> and a default in
-/// the shader, and overridden when the pipeline is built. So a change is a pipeline rebuild — a few
-/// milliseconds, no recompile — which is what lets <c>Ksa/Bridge.cs</c>'s <c>tune</c> try a value,
-/// photograph it and try another, and the chosen one is then written back into the source.
-/// <c>ShaderTunablesTests</c> holds this list and the shader's declarations to one another.</para>
+/// <para>Each is a GLSL specialization constant, so a change is a pipeline rebuild rather than a
+/// recompile. <c>ShaderTunablesTests</c> holds this list and the shader's declarations together.</para>
 ///
-/// <para>A session's overrides only; nothing here is saved, because a tuned value that is worth
-/// keeping belongs in the shader where everybody gets it.</para>
+/// <para>A session's overrides only and never saved: a value worth keeping goes into the shader.</para>
 /// </summary>
 public static class ShaderTunables
 {
@@ -20,7 +16,8 @@ public static class ShaderTunables
     /// <summary>
     /// What the pass writes instead of the picture, for looking at one of its terms on its own:
     /// 0 the picture, 1 how much cloud covers each pixel, 2 how deep in it the cloud is, 3 the
-    /// weather mask, 4 how much sunlight reaches the cloud, 5 the fireball's share of its light.
+    /// weather mask, 4 how much sunlight reaches the cloud, 5 the fireball's share of its light,
+    /// 6 the sky's ambient, 7 the air's own light in front, 8 light per unit of cover at a quarter.
     /// </summary>
     public const string DebugView = "DebugView";
 

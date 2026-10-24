@@ -6,17 +6,11 @@ namespace KSArmory;
 /// How a tracer round is drawn: how long its streak is, how brightly it burns, and where it lies
 /// on the screen.
 ///
-/// <para><b>The streak is exposure, not the round.</b> A burning tracer is a point, and what the
-/// eye sees is that point smeared over the time it integrates light for, so the length follows the
-/// round's speed across the screen in the player's own time. At 1x that is 44 m at 1100 m/s; in slow
-/// motion it shortens with the world, and paused it is the burning base alone, where a streak of
-/// fixed length reads as a rod hanging in the air.</para>
+/// <para>The streak is exposure, not the round: speed over <see cref="PersistenceSeconds"/> of the
+/// player's time, 44 m at 1100 m/s at 1x, shorter in slow motion and the burning base alone paused.</para>
 ///
-/// <para>A round with no tracer is drawn as the same streak, the round's own width, as a faint grey
-/// light with no halo — a small fraction of a tracer — so the stream reads against the ground and the
-/// sky alike while the tracers stay the only bright thing in it. A darkening was tried first and was
-/// invisible past a hundred metres against grass. It is sunlight off the round, not light of its own,
-/// so it fades with the sun (<see cref="Daylight"/>): at night only the tracers are seen.</para>
+/// <para>A round with no tracer is a faint grey streak of its own width, lit by the sun (<see cref="Daylight"/>);
+/// a darkening instead was invisible past a hundred metres against grass.</para>
 /// </summary>
 public static class TracerLook
 {
@@ -42,9 +36,8 @@ public static class TracerLook
     public const double MinCorePixels = 1.5;
 
     /// <summary>
-    /// The least of its brightness a distant round with no tracer keeps. Its true share is its width
-    /// in pixels, which a 20 mm round loses past a hundred metres; this keeps the stream visible to
-    /// the end of its flight.
+    /// The least of its brightness a distant round with no tracer keeps. Its true share is its width in
+    /// pixels, which a 20 mm round loses past a hundred metres.
     /// </summary>
     public const double BallFloorShare = 0.5;
 
@@ -59,10 +52,8 @@ public static class TracerLook
 
     /// <summary>
     /// How much of its daytime brightness a round with no tracer keeps: all of it with the sun
-    /// <see cref="FullDaylightDeg"/> up, none once it is <see cref="DarkDeg"/> down, eased between.
-    /// A round with no light of its own is seen by the sunlight off it, and a fixed brightness is
-    /// what the exposure raises at night until the rounds read as faint tracers. An unreadable sun
-    /// is daylight, so a round is never hidden for want of an answer.
+    /// <see cref="FullDaylightDeg"/> up, none once it is <see cref="DarkDeg"/> down. A fixed brightness is raised
+    /// by the night exposure into faint tracers. An unreadable sun is daylight.
     /// </summary>
     public static double Daylight(double sunElevationDeg)
     {
@@ -76,9 +67,8 @@ public static class TracerLook
     /// Whether the <paramref name="fedThrough"/>th round through <paramref name="barrel"/> is a
     /// tracer, one in <paramref name="every"/>.
     ///
-    /// <para>Counted per barrel, because each barrel has its own belt: counted over the gun, a mount
-    /// whose barrels divide by the ratio puts every tracer down the same barrel. Staggered by the
-    /// barrel's number, so the barrels' tracers take turns rather than leaving together.</para>
+    /// <para>Per barrel, since each has its own belt: counted over the gun, barrels that divide the ratio put
+    /// every tracer down one barrel. Staggered by barrel number so they take turns.</para>
     /// </summary>
     public static bool IsTracer(long fedThrough, int barrel, int every)
         => every > 0 && (fedThrough + barrel) % every == 0;

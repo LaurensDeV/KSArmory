@@ -1,20 +1,15 @@
 namespace KSArmory;
 
 /// <summary>
-/// Which of a system's magazines and switches an armament draws on.
-///
-/// <para>Carried by the description rather than asked about by whoever reads it: the panel
-/// enumerates armaments and never tests one. It exists because the count a system keeps and the
-/// switch that lets an armament engage are separately named members rather than a lookup, so
-/// something has to pair them up.</para>
+/// Which of a system's magazines and switches an armament draws on — the pairing of a count and an
+/// enable switch that are separately named members rather than a lookup.
 /// </summary>
 public enum ArmamentKind
 {
     /// <summary>Rounds that leave a tube one at a time, each flown by the guidance model.</summary>
     Tubes,
 
-    /// <summary>Rounds fed from a belt through barrels that cycle rather than empty, flown
-    /// ballistically.</summary>
+    /// <summary>Rounds fed from a belt, flown ballistically.</summary>
     Belt,
 
     /// <summary>A high-energy beam held on what its director looks at; what it carries is seconds
@@ -22,10 +17,6 @@ public enum ArmamentKind
     Beam,
 }
 
-/// <summary>
-/// One armament a weapons system is fitted with, as an operator needs it described: what to call
-/// it, what it throws, how much of it there is and whether it comes back.
-/// </summary>
 public readonly record struct Armament
 {
     public required ArmamentKind Kind { get; init; }
@@ -43,46 +34,29 @@ public readonly record struct Armament
     public required float ReloadSeconds { get; init; }
 
     /// <summary>
-    /// Whether the guidance numbers reach this armament's rounds.
-    ///
-    /// <para>Both terms, because the two magazines reach the flight model by different routes. A
-    /// belt is built as a <c>Slug</c> outright and never consults
-    /// <see cref="MunitionProfile.Guidance"/> at all — which is why gun munitions leave it at its
-    /// default and why reading the round alone reports a shell as guided. Only a tube reaches the
-    /// branch, and there the round decides: a tube-launched store declaring no guidance is flown
-    /// ballistically, so the slot alone offers a bomb rack a whole guidance section it never
-    /// reads.</para>
+    /// Whether the guidance numbers reach this armament's rounds. Both terms: a belt is built as a
+    /// <c>Slug</c> and never reads <see cref="MunitionProfile.Guidance"/>, whose default is not None.
     /// </summary>
     public bool Steers => Kind == ArmamentKind.Tubes
                           && Catalogue.TryMunitionNamed(Munition) is { Guidance: not GuidanceMode.None };
 
     /// <summary>
-    /// Whether this armament's round is a missile, which is what makes the seeker numbers mean
-    /// anything.
-    ///
-    /// <para>Narrower than <see cref="Steers"/> on purpose. A guided tail kit steers a fall: it
-    /// uses the navigation numbers and none of the others, so gating the whole guidance section on
-    /// "steers" hands a bomb rack a seeker field of view and a burn time it never reads.</para>
+    /// Whether this armament's round is a missile, which is what the seeker and boost numbers describe.
+    /// Narrower than <see cref="Steers"/>: a tail kit steers a fall on the navigation numbers alone.
     /// </summary>
     public bool Powered => Kind == ArmamentKind.Tubes && Catalogue.TryMunitionNamed(Munition) is { Powered: true };
 
     public bool Reloads => ReloadSeconds > 0f;
 
-    /// <summary>How much is left against a full load.</summary>
     public string Tally(int remaining)
         => Kind == ArmamentKind.Beam ? $"{remaining} s/{Capacity} s" : $"{remaining}/{Capacity}";
 
-    /// <summary>One armament's line of a status readout.</summary>
     public string Describe(int remaining, bool firing)
         => firing ? $"{Label}: {Tally(remaining)} FIRING" : $"{Label}: {Tally(remaining)}";
 
     /// <summary>
-    /// The system switch that lets an armament of this kind engage, by reference so a tick box
-    /// can drive it.
-    ///
-    /// <para>Static, and keyed on the kind rather than on an instance, because a caller reading
-    /// armaments out of a list holds copies and a reference into one of those would be a
-    /// reference to a temporary.</para>
+    /// The switch that lets an armament of this kind engage, by reference for a tick box. Keyed on the
+    /// kind, because an armament read out of a list is a copy and a reference into it a temporary.
     /// </summary>
     public static ref bool EnabledIn(SystemConfig policy, ArmamentKind kind)
     {
@@ -93,41 +67,25 @@ public readonly record struct Armament
 }
 
 /// <summary>
-/// What one weapons system is fitted with, and what it can be told to do.
-///
-/// <para><b>This is what the panel reads instead of testing profile fields.</b> It enumerates
-/// <see cref="Armaments"/> and asks the rest as questions, so a launcher with no tubes, nothing
-/// that trains, or no sensor at all describes itself without anything upstream knowing which of
-/// the three it is.</para>
-///
-/// <para>Built on demand rather than cached: the profiles are tuned live by reference, so a fit
-/// kept from one frame answers for the load the system started with.</para>
+/// What one weapons system is fitted with: what the panel reads instead of testing profile fields.
+/// Built on demand, not cached, because the profiles are tuned live.
 /// </summary>
 public sealed class WeaponFit
 {
-    /// <summary>Everything this system shoots, in the order it is presented.</summary>
     public required IReadOnlyList<Armament> Armaments { get; init; }
 
     /// <summary>Something has to be laid before it may fire.</summary>
     public required bool Aims { get; init; }
 
-    /// <summary>It has a traverse to report a bearing from.</summary>
     public required bool Traverses { get; init; }
 
-    /// <summary>It has an assembly that elevates.</summary>
     public required bool Elevates { get; init; }
 
-    /// <summary>It carries a search array that turns.</summary>
     public required bool SweepsASearchArray { get; init; }
 
-    /// <summary>
-    /// It finds its own targets. False for a launcher that is aimed and fired by hand, which has
-    /// no scope, no track list and nothing to tune on a sensor.
-    /// </summary>
+    /// <summary>False for a launcher aimed and fired by hand: no scope, no track list, no sensor to tune.</summary>
     public required bool Searches { get; init; }
 
-    /// <summary>Whether any armament leaves under its own power, so the seeker and boost numbers
-    /// describe something. A rack of guided stores steers without any of them applying.</summary>
     public bool Powered
     {
         get
@@ -140,7 +98,6 @@ public sealed class WeaponFit
         }
     }
 
-    /// <summary>Whether any armament is flown by the guidance model.</summary>
     public bool Steers
     {
         get
@@ -154,12 +111,8 @@ public sealed class WeaponFit
     }
 
     /// <summary>
-    /// Whether fire control can pick a target and shoot at it without being told to.
-    ///
-    /// <para>The same split <see cref="FireLadder"/> makes: a belt engages on its own, and tubes
-    /// do only if their round leaves under its own power. A rack of stores is only ever released
-    /// with the trigger, so everything auto-engagement implies — a salvo size, what it may not
-    /// shoot at, sending the drives after the cursor — describes nothing it does.</para>
+    /// Whether fire control can pick a target and shoot without being told to — the split
+    /// <see cref="FireLadder"/> makes: a belt or beam does, tubes only with a powered round.
     /// </summary>
     public bool AutoEngages
     {
@@ -174,22 +127,13 @@ public sealed class WeaponFit
         }
     }
 
-    /// <summary>
-    /// Most rounds one target can be given at once. A salvo comes out of the tubes, so a system
-    /// with none has no salvo to size.
-    /// </summary>
+    /// <summary>Most rounds one target can be given at once; zero without tubes.</summary>
     public int SalvoCapacity => FirstOf(ArmamentKind.Tubes)?.Capacity ?? 0;
 
     /// <summary>
-    /// Whether a row named <paramref name="displayName"/> describes this fit's armament of that
-    /// kind — which is how a panel tells a crewed part's row from a second part's.
-    ///
-    /// <para>Here rather than in the panel because it is the only part of that question that can be
-    /// tested: a provided row is declared as a <em>munition's</em> DisplayName, so it has to be
-    /// matched against the munition, resolved from the registry. Matching
-    /// <see cref="Armament.Label"/> instead compares it to the belt's heading —
-    /// "Cannon" against "2A38M 30 mm cannon" — which never agrees, and reports a working gun as
-    /// not run.</para>
+    /// Whether a row named <paramref name="displayName"/> describes this fit's armament of that kind.
+    /// Matched on the munition's DisplayName, which is how a row is declared, never on
+    /// <see cref="Armament.Label"/>: "Cannon" against "2A38M 30 mm cannon" never agrees.
     /// </summary>
     public bool Describes(ArmamentKind kind, string displayName)
         => kind != ArmamentKind.Beam
@@ -197,7 +141,6 @@ public sealed class WeaponFit
            && string.Equals(Catalogue.TryMunitionNamed(arm.Munition)?.DisplayName, displayName,
                             StringComparison.Ordinal);
 
-    /// <summary>The first armament of a kind, or null when none of that kind is fitted.</summary>
     public Armament? FirstOf(ArmamentKind kind)
     {
         for (int i = 0; i < Armaments.Count; i++)
@@ -208,15 +151,11 @@ public sealed class WeaponFit
     }
 
     /// <summary>
-    /// Whether anything this system releases falls to the ground on its own.
-    ///
-    /// <para>Not "has no missiles". A gun has none either, and a ballistic pipper over a cannon is
-    /// a ring in the wrong place with nothing to say so. What the sight needs is a store that the
-    /// terrain stops, which is exactly <see cref="MunitionProfile.HitsTerrain"/>.</para>
+    /// Whether anything this system releases is stopped by the terrain
+    /// (<see cref="MunitionProfile.HitsTerrain"/>), which is what the bomb sight needs — not "has no missiles".
     /// </summary>
     public required bool Drops { get; init; }
 
-    /// <summary>Reads a launcher and the set feeding it as the description above.</summary>
     public static WeaponFit Of(LauncherProfile launcher, SensorProfile sensor)
     {
         List<Armament> armaments = new(2);
@@ -265,16 +204,13 @@ public sealed class WeaponFit
             Elevates = launcher.PodsMarker is not null || launcher.GunsMarker is not null,
             SweepsASearchArray = launcher.RadarMarker is not null,
 
-            // A set with no range detects nothing, which is the only way to declare "no sensor"
-            // while every launcher still names one.
+            // Every launcher names a set, so a range of zero is how "no sensor" is declared.
             Searches = sensor.Range > 0f,
 
             Drops = Drop(armaments),
         };
     }
 
-    // Whether any armament throws something the ground stops. Resolved here rather than in the
-    // panel, so a profile field is never the thing a control is gated on.
     private static bool Drop(List<Armament> armaments)
     {
         for (int i = 0; i < armaments.Count; i++)
@@ -302,9 +238,8 @@ public sealed class WeaponFit
     }
 
     /// <summary>
-    /// Rounds a full launcher holds: a deep magazine's depth, otherwise one per tube. The same
-    /// two numbers <c>Magazine.Resize</c> reads, so the panel counts down from what the magazine
-    /// was actually filled with.
+    /// Rounds a full launcher holds, from the same two numbers <c>Magazine.Resize</c> reads, so the panel
+    /// counts down from what the magazine was filled with.
     /// </summary>
     public static int MagazineCapacity(LauncherProfile launcher)
         => launcher.MagazineDepth > launcher.TubeCount ? launcher.MagazineDepth : launcher.TubeCount;

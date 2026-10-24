@@ -5,11 +5,8 @@ namespace KSArmory;
 /// <summary>
 /// Whether a chased round is still going anywhere, and so whether it is still worth watching.
 ///
-/// <para>A round with nothing to arrive at can only run out of flight. A missile whose target a
-/// sibling has just killed flies on until <c>MaxFlightSeconds</c> reaps it, and a camera riding it
-/// all that way is watching a despawn. So the chase gives up on a round once it has been going
-/// nowhere for <see cref="GraceSeconds"/> — long enough to keep the moment it lost the target, which
-/// is usually a burst ahead of it in frame.</para>
+/// <para>A round with nothing to arrive at can only run out of flight, so the chase lets go after
+/// <see cref="GraceSeconds"/> of it, long enough to keep the moment it lost the target.</para>
 /// </summary>
 internal sealed class ChaseInterest
 {
@@ -50,10 +47,8 @@ internal sealed class ChaseInterest
     /// Seconds until a falling store comes down to the height of what it is aimed at, from how far
     /// above it the store is and how fast it is descending — or NaN with no gravity to fall in.
     ///
-    /// <para>A store's countdown rather than <see cref="TimeToGo"/>, which is badly posed for a fall.
-    /// Released with its carrier's motion a store is barely closing on a point below it, which the
-    /// line of sight reads as minutes; passing beside that point it stops closing again, which
-    /// reads as the fall getting longer. Height does neither: it runs down on every frame.</para>
+    /// <para>Not <see cref="TimeToGo"/>: a store barely closes on a point below it along the line of
+    /// sight, which reads as minutes; height runs down on every frame.</para>
     /// </summary>
     public static double TimeToFall(double3 roundEcl, double3 roundVelocityEcl,
                                     double3 targetEcl, double3 targetVelocityEcl, double3 gravity)

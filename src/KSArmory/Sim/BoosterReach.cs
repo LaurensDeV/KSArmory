@@ -6,14 +6,9 @@ namespace KSArmory;
 /// <summary>
 /// How far this stack could still throw a warhead — the ring a map draws round the rocket.
 ///
-/// <para><b>A ceiling, not a promise.</b> It prices a shot the way the flight does, as the
-/// velocity still to be gained against the propellant left, and that term knows nothing about
-/// what the climb costs: a real ascent spends a kilometre a second and more on gravity and drag
-/// before any of it becomes range. So the true reach is inside this ring by an amount nothing
-/// here can state, and the ring is drawn as a bound rather than as a line a shot will make.</para>
-///
-/// <para>The alternative — subtracting a loss allowance — would be a constant nobody measured,
-/// and a floor built on a guess is worse than a ceiling that says what it is.</para>
+/// <para><b>A ceiling, not a promise.</b> It prices the velocity still to be gained against the
+/// propellant left and knows nothing of gravity and drag losses on the climb. A loss allowance would be
+/// an unmeasured constant, and a floor built on a guess is worse than a ceiling that says what it is.</para>
 ///
 /// <para>Priced with <see cref="BallisticArc.TryCheapest"/>, the same solver the computer flies,
 /// so a target inside this ring is one the computer will at least attempt rather than refuse on

@@ -4,62 +4,29 @@ namespace KSArmory;
 /// When a bus lets each of its targets' warheads go, in what order, and whether it can pay for the
 /// hops between them.
 ///
-/// <para><b>Today's release gate is a single-target optimisation.</b>
-/// <see cref="IcbmConfig.ReleaseBeforeArrivalSeconds"/> holds the warheads until 420 s before
-/// arrival, which shrinks what the ejection kick has left to grow into and is why a group lands
-/// millimetres from its aim. For several targets it costs reach, and steeply: over a six-stop
-/// schedule at 6,179 km the pinned footprint runs <b>1,076 down to 886 m</b> of ground per m/s
-/// started at cutoff and <b>688 down to 410</b> ending on the gate, so the same chain costs about
-/// twice as much.</para>
+/// <para>The schedule <em>ends</em> on <see cref="IcbmConfig.ReleaseBeforeArrivalSeconds"/>: the first
+/// release is <c>gate + (N-1) x hop</c> seconds before arrival, so a set of one is exactly the
+/// single-target shot every accuracy measurement is taken against.</para>
 ///
-/// <para><b>So the itinerary is started early and <em>ends</em> at the gate</b> rather than
-/// beginning there: the first release is <c>gate + (N-1) x hop</c> seconds before arrival and each
-/// one after it is a hop later. <b>A set of one is then exactly today's answer</b>, which is the
-/// property worth the most here — every accuracy measurement this mod has is taken against the
-/// single-target shot, so a schedule that moved it would move all of them.</para>
-///
-/// <para><b>A hop costs what the landing has to move, not what one trim pass may spend.</b>
-/// <see cref="BusTrim.MaxMetresPerSecond"/> is a ceiling on a single solve; the price of a hop is
-/// its ground distance over the reach at the slot it is bought in. Six targets 4 km apart at
-/// 6,179 km cost <b>36.9 m/s</b> from cutoff and 55.1 ending on the gate, where charging the ceiling
-/// per hop reads 66.1 and refuses the set. Charging it is the worst case and not the case —
-/// <see cref="AtTheTrimCeiling"/> says so in its name, and <see cref="Chain"/> is the one to
-/// ask.</para>
-///
-/// <para><b>What bounds a set is its spacing, not its count</b>, and the spacing the budget affords
-/// runs into the warhead from about five targets on: <see cref="Warhead.BlastRadius"/> is 6.0 km for
-/// the Mk 21, and ending on the gate the widest affordable neighbour spacing is 5.4 km at five and
-/// 4.5 at six (6,179 km), so the set stops being targets and becomes one pattern.</para>
-///
-/// <para><b>The dearest reach goes in the earliest slot.</b> Nothing accrues against waiting — the
-/// holding cost itself <em>falls</em>, 1.14 to 1.00 to 0.92 m/s over the 6,179 km coast — so what a
-/// late target loses is reach and only reach. Farthest first, and since the first stop is the one
-/// the bus already arrives on, <b>the booster's aim is the farthest target</b>.</para>
-///
-/// <para><b>It reports rather than truncates.</b> Dropping a target moves every release later, so a
-/// trimmed set is a different schedule and not a prefix of this one: <see cref="Fits"/> says how
-/// many the budget and the coast reach, and the caller re-plans. <c>docs/ICBM-GUIDANCE.md</c>, "Several
-/// targets", is the whole account.</para>
+/// <para>The dearest reach goes in the earliest slot: the holding cost falls over the coast (1.14 to
+/// 1.00 to 0.92 m/s at 6,179 km), so a late target loses only reach, and the booster's aim is the
+/// farthest target. It reports rather than truncates, because dropping a target moves every release:
+/// <see cref="Fits"/> says how many fit and the caller re-plans. <c>docs/ICBM-GUIDANCE.md</c>, "Several
+/// targets".</para>
 /// </summary>
 internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.Stop> Stops,
                                                  ReleaseItinerary.Bus Means,
                                                  int WithoutWarheads)
 {
     /// <summary>
-    /// How long a re-aim between two targets takes, in seconds.
-    ///
-    /// <para>A median 65.1 s over 96 flown buses (p10 58.6, p90 73.2, worst 80.3): 4 s of
-    /// clearance, ~16 s of separation null and a median four correction passes at ~11 s each. A
-    /// divert burn adds its own on top, at the 0.56 m/s² the thrusters are measured at.</para>
+    /// A re-aim between two targets, in seconds: the median over 96 flown buses (p90 73.2, worst 80.3),
+    /// before any divert burn.
     /// </summary>
     public const double MedianHopSeconds = 65.1;
 
     /// <summary>
-    /// What one target already costs, in metres a second of trim.
-    ///
-    /// <para>The flown median of a single-target shot over 96 buses (p90 17.9, worst 21.8) — the
-    /// separation null and the aim correction, neither of which a second target makes cheaper. It is
-    /// the floor every itinerary starts from rather than a hop.</para>
+    /// The trim a single-target shot spends, in m/s: the flown median over 96 buses (p90 17.9, worst
+    /// 21.8). The floor every itinerary starts from, since a second target makes none of it cheaper.
     /// </summary>
     public const double SingleTargetMetresPerSecond = 16.1;
 
@@ -87,17 +54,13 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     // where the reach is greater and the hop cheaper.
     private const int SlotPasses = 4;
 
-    /// <summary>One place the bus is sent, and all the schedule needs to know about it.</summary>
     /// <param name="Warheads">
     /// How many of the bus's warheads leave here. <b>A target with none is not a stop</b>: a divert
     /// to a place nothing is released at spends the hop and lands nothing.
     /// </param>
     /// <param name="ReachMetres">
-    /// How far its landing sits from the trajectory the booster flew. This <em>orders</em> the set
-    /// and does nothing else, which is why it can be read at any one epoch: the decay scales every
-    /// target's cost together. It is a proxy rather than an optimum, because the two axes of the
-    /// reach ellipse decay at different rates free-clock — pinned they agree to within 3%, which is
-    /// the clock the flight is on.
+    /// How far its landing sits from the trajectory the booster flew. It only <em>orders</em> the set,
+    /// so any one epoch will do: pinned, the reach ellipse's two axes decay together to within 3%.
     /// </param>
     /// <param name="HopMetres">
     /// How far the landing moves to get here from the stop before, which with the reach at that slot
@@ -200,10 +163,8 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// </param>
     /// <param name="SpentMetresPerSecond">What a single-target flight costs before any hop.</param>
     /// <param name="HopMetresPerSecond">
-    /// What a hop costs when neither the target nor a reach says — <b>the worst case</b>, being
-    /// <see cref="BusTrim.MaxMetresPerSecond"/>, the most one trim pass will fly. A real hop of a few
-    /// kilometres costs hundredths of that; this is what an unpriced itinerary is bounded by, not
-    /// what one is expected to spend.
+    /// What a hop costs when neither the target nor a reach says: the worst case,
+    /// <see cref="BusTrim.MaxMetresPerSecond"/>, the most one trim pass will fly.
     /// </param>
     /// <param name="FromCutoff">
     /// <see cref="IcbmConfig.WalkStartsAtCutoff"/>: a walk's first release is due as soon as the
@@ -368,10 +329,9 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
         /// <summary>
         /// The gate a walk of <paramref name="stops"/> counts its releases back from.
         ///
-        /// <para>Started at cutoff, it is the gate that puts the first release at the start of the
-        /// coast — every hop is then bought where a metre a second moves the landing furthest, and
-        /// one trim pass reaches furthest. Never earlier than the setting, and the setting itself
-        /// for a set of one or a coast not yet known, so a single-target flight is untouched.</para>
+        /// <para>Started at cutoff, the first release is at the start of the coast, where a metre a second
+        /// moves the landing furthest. Never earlier than the setting, and the setting itself for a set of
+        /// one or a coast not yet known.</para>
         /// </summary>
         public double GateFor(int stops)
         {
@@ -583,10 +543,8 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// A set of <paramref name="targets"/> with nothing said about where they are, every hop charged
     /// <see cref="Bus.HopMetresPerSecond"/>.
     ///
-    /// <para><b>The worst case, not the case.</b> It is what the budget bounds an itinerary by when
-    /// nothing has priced one — six targets then read 66.1 m/s against a 60 m/s cap, where six spaced
-    /// 4 km apart at 6,179 km cost 36.9 from cutoff. Ask <see cref="Chain"/> for anything a player
-    /// would recognise.</para>
+    /// <para>The worst case, not the case: six targets read 66.1 m/s against a 60 m/s cap, where six
+    /// spaced 4 km apart at 6,179 km cost 36.9 from cutoff (<see cref="Chain"/>).</para>
     /// </summary>
     public static ReleaseItinerary AtTheTrimCeiling(int targets, in Bus bus)
     {
@@ -675,13 +633,9 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// <summary>
     /// How many stops the coast is long enough for.
     ///
-    /// <para>At least one whatever the coast says: the gate is a ceiling on the wait rather than a
-    /// precondition, so a shot whose whole coast is shorter than it releases as soon as the altitude
-    /// allows — which is what a single-target flight already does.</para>
-    ///
-    /// <para><b>Which is also why a short shot fits one and only one.</b> At 2,000 km the usable
-    /// coast is 351 s against a 420 s gate, so ending on the gate leaves nothing to start early in.
-    /// Several targets there are a reason to move the gate, not a schedule this can produce.</para>
+    /// <para>At least one whatever the coast says: the gate is a ceiling on the wait, so a coast shorter
+    /// than it releases as soon as the altitude allows. Ending on the gate, a 2,000 km shot (351 s of
+    /// coast against 420) fits only one.</para>
     /// </summary>
     public int CoastFits
     {

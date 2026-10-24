@@ -16,7 +16,7 @@ namespace KSArmory;
 public static class PackAudit
 {
     /// <summary>
-    /// Every registered launcher and head, against the parts that actually loaded.
+    /// Every registered launcher, head, search set and dispenser, against the parts that actually loaded.
     /// </summary>
     /// <param name="sourceOf">Which pack registered a part Id, for attributing the fault.</param>
     public static IReadOnlyList<PackFault> Run(

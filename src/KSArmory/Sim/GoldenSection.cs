@@ -1,6 +1,5 @@
 namespace KSArmory;
 
-/// <summary>The minimum of a cost over an interval, by golden section.</summary>
 public static class GoldenSection
 {
     private const double Ratio = 0.6180339887498949;

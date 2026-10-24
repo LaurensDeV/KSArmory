@@ -4,19 +4,12 @@ namespace KSArmory;
 /// The craft this mod's warheads have broken, and the pieces that came off them — which are
 /// wreckage, not targets.
 ///
-/// <para>A burst that breaks parts off a craft leaves every piece as a vehicle of its own, flying
-/// on at the target's speed and inside the threat radius, so a set that takes them for new threats
-/// spends its belt on falling debris: flown, a CIWS fired about 480 shells at the pieces of one
-/// drone.</para>
+/// <para>Each piece flies on inside the threat radius, and taken for a threat it draws the belt: a
+/// CIWS fired about 480 shells at the pieces of one drone.</para>
 ///
-/// <para><b>Lineage is read off the engine's naming</b>, because the engine records none.
-/// <c>Vehicle.GenerateSplitId</c> names a piece <c>{parent}_{n}</c> — unless the piece carries a
-/// named control part, when it takes that name instead and is not wreckage by this rule, which is
-/// right: somebody can fly it. If the engine stops naming pieces this way, nothing is recognised
-/// and wreckage is engaged like any other contact.</para>
-///
-/// <para>The broken craft keeps its own name and stays a target, because losing parts is not
-/// being destroyed.</para>
+/// <para>Lineage is read off the engine's naming, because it records none: <c>Vehicle.GenerateSplitId</c>
+/// names a piece <c>{parent}_{n}</c>, unless it carries a named control part and takes that name. If the
+/// naming changes, wreckage is engaged like any other contact. The broken craft itself stays a target.</para>
 /// </summary>
 public sealed class Wreckage
 {
@@ -25,7 +18,6 @@ public sealed class Wreckage
 
     public Wreckage() => _lookup = _broken.GetAlternateLookup<ReadOnlySpan<char>>();
 
-    /// <summary>This mod broke parts off the craft called <paramref name="id"/>.</summary>
     public void Broke(string? id)
     {
         if (!string.IsNullOrEmpty(id)) _broken.Add(id);

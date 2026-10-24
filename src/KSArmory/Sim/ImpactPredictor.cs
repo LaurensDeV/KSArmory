@@ -76,7 +76,7 @@ internal static class ImpactPredictor
     /// the round itself makes, deliberately: a prediction that models drag its own way is a second
     /// flight model to keep in step with the first.</para>
     /// </summary>
-    /// <param name="DensityRatioAt">Air density at a point on the arc, relative to sea level.</param>
+    /// <param name="DensityRatioAt">Air density at a point on the arc, over <see cref="Medium.ReferenceDensityKgPerM3"/>.</param>
     /// <param name="Munition">The round whose drag applies — the warhead, not the bus.</param>
     internal readonly record struct Drag(Func<double3, double> DensityRatioAt, MunitionProfile Munition);
 
@@ -205,10 +205,8 @@ internal static class ImpactPredictor
             return false;
         }
 
-        // A closed orbit whose lowest point clears the ground never arrives, and asking the conic
-        // costs nothing. Flying it instead means integrating the whole horizon — ten thousand steps,
-        // several times a second — to reach the same conclusion about a vehicle in a stable orbit,
-        // which is exactly what a computer holding for a burn window is sitting in.
+        // A closed orbit clearing the ground never arrives; asking the conic spares a hold for a burn
+        // window ten thousand steps, several times a second.
         periapsis = Kepler.PeriapsisRadius(body.Mu, positionCci, velocityCci);
         if (double.IsFinite(periapsis) && periapsis > body.SurfaceRadius + NeverComesDownMargin)
         {
@@ -250,11 +248,8 @@ internal static class ImpactPredictor
 
             if (below && everAboveGround)
             {
-                // Walk the step down rather than interpolating across it: near the ground the arc
-                // is steep and fast, and a linear crossing on a 10 s step is kilometres out. Each
-                // halving retries from the same state, so this is a bisection on the arrival time
-                // and it stops on how deep the answer is rather than on how small the step got —
-                // which is the thing that actually matters and is scale-free across bodies.
+                // A bisection on the arrival time, stopped on depth rather than step size, which is
+                // scale-free across bodies: a linear crossing on a 10 s step is kilometres out.
                 double depth = surfaceNext - rNext.Length();
 
                 if (depth > CrossingToleranceMetres && h > MinRefineSeconds)
@@ -270,12 +265,6 @@ internal static class ImpactPredictor
                     double clearance = r.Length() - surfaceHere;
                     double f = Math.Clamp(clearance / (clearance + depth), 0.0, 1.0);
 
-                    // The chord is drawn between the ground under the two ENDS of the bracket, and
-                    // the ground under the crossing is neither. On a slope that is up to half a
-                    // riser of the engine's own tread, and the miss kick hands it to the round as
-                    // cot(gamma) times as much ground -- the whole of one seat's tail. So ask once
-                    // where the chord says it landed and take a secant step onto the answer, which
-                    // is what Slug.StopOnTheTerrain already does for the round.
                     if (stopOnTheTerrain)
                     {
                         // Secant from the bracket's own top, re-aimed at what the last guess actually
@@ -309,11 +298,8 @@ internal static class ImpactPredictor
 
             if (below)
             {
-                // Under the ground and not climbing out of it: there is no arc here to find, and
-                // saying so now matters. Waiting for one costs the full horizon of integration —
-                // ten thousand steps, several times a second, to answer a question about a vehicle
-                // that is sitting on its pad. A launch site below the mean sphere is the ordinary
-                // way into this, not an edge case.
+                // Under the ground and not climbing out: say so now rather than fly the whole horizon. A
+                // launch site below the mean sphere is the ordinary way into this.
                 if (!everAboveGround && Vec.Dot(rNext, vNext) <= 0.0)
                 {
                     exit = Exit.Underground;
@@ -349,10 +335,8 @@ internal static class ImpactPredictor
     {
         if (terrainRadiusAt is null) return body.SurfaceRadius;
 
-        // No terrain reaches up here, so the answer cannot change the only question asked of it -
-        // whether the point is underground. The lookup is the expensive part of a prediction and
-        // most of an arc is nowhere near the ground, so skipping it is what lets the remaining
-        // samples be the accurate ones.
+        // No terrain reaches up here, so the lookup, the expensive part, cannot change whether the
+        // point is underground.
         if (pointCci.Length() > body.SurfaceRadius + NeverComesDownMargin) return body.SurfaceRadius;
 
         double radius = terrainRadiusAt(body.UncarryCci(pointCci, seconds));

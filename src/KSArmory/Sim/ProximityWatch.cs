@@ -54,12 +54,8 @@ internal readonly record struct ClosestApproach(double MetresApart, double AtSec
 /// parted</em>, which no sample taken at the end can recover and no gate consulted at the start
 /// ever sees.</para>
 ///
-/// <para><b>It arms on the gap first opening past the keep-out, and that is the whole of it being
-/// an instrument.</b> Taking the minimum from the first frame measures the split — the two halves
-/// are adjacent by construction — so it would read the same few metres at +0.0 s on every flight
-/// and could not say anything else. The collision it is
-/// built to catch is a <em>re</em>-approach, and there is nothing to re-approach from until the
-/// pair have got apart.</para>
+/// <para>It arms on the gap first opening past the keep-out (<see cref="ClosestApproach.Opened"/>):
+/// the collision it is built to catch is a <em>re</em>-approach.</para>
 /// </summary>
 internal sealed class ProximityWatch
 {

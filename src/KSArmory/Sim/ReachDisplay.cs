@@ -10,16 +10,13 @@ internal enum ReachHold
 
     /// <summary>
     /// The booster has no trajectory to the place it is aimed at, so there is no landing for a
-    /// divert reach to be measured around. The bus's reach is the wrong question here: the
-    /// booster's is.
+    /// divert reach to be measured around.
     /// </summary>
     NoShot,
 
     /// <summary>
-    /// Before the burn is over the reach is the release epoch's and nothing else
-    /// (<see cref="DivertFootprint.TryAtTheEpoch"/>), and this gate is outside the band that was
-    /// measured — <see cref="DivertFootprint.EpochLeastSeconds"/> to
-    /// <see cref="DivertFootprint.EpochMostSeconds"/>. Outside it the estimate stops being a floor.
+    /// Before the burn the reach is <see cref="DivertFootprint.TryAtTheEpoch"/>'s, and this gate is outside
+    /// the band it was measured over, where the estimate stops being a floor.
     /// </summary>
     EpochUnmeasured,
 
@@ -36,10 +33,8 @@ internal enum ReachHold
     Full,
 
     /// <summary>
-    /// Nothing is editing the list, so nothing is flown. Seven flights of the predictor every few
-    /// seconds is not a thing to spend on a rocket nobody is clicking at, so the reach is priced
-    /// while a coast has designate mode on or a second target already placed — and this is the only
-    /// hold with a way out the player can take.
+    /// Nothing is editing the list, so the seven predictor flights are not spent: the reach is priced
+    /// only while a coast has designate mode on or a second target placed.
     /// </summary>
     NotAsked,
 }
@@ -47,10 +42,7 @@ internal enum ReachHold
 /// <summary>What a click where the cursor is would do, as far as the reach is concerned.</summary>
 internal enum ReachVerdict
 {
-    /// <summary>
-    /// The click starts the shot over rather than adding to it, so the reach bounds nothing. The
-    /// booster's own reach is a different and far dearer question and is not asked here.
-    /// </summary>
+    /// <summary>The click starts the shot over rather than adding to it, so the bus's reach bounds nothing.</summary>
     Designates,
 
     /// <summary>Inside the region: the click adds a target.</summary>
@@ -70,35 +62,17 @@ internal enum ReachVerdict
 }
 
 /// <summary>
-/// The bus's reach as something to draw, to refuse a click against and to read off the panel.
+/// The bus's reach as something to draw, to refuse a click against and to read off the panel — one
+/// answer for all three, so a click refused inside the ring cannot happen.
 ///
-/// <para>One place decides all three, because they are one question asked by three surfaces and
-/// they must not disagree: a cursor refused where the ring says there is room reads as the tool
-/// being broken. <see cref="DivertFootprint"/> is the ellipse per metre a second and
-/// <see cref="ReleaseItinerary"/> is what is left to spend; this is the two multiplied together
-/// and everything that follows from the product.</para>
+/// <para>Pinned, because the flight latches the arrival at closed-loop handover; before the burn it is
+/// <see cref="DivertFootprint.TryAtTheEpoch"/>, after it the flown columns
+/// (<see cref="DivertFootprint.FromTheRealState"/>). It bounds an add, never a designation, which is the
+/// booster's reach and is not built. <c>docs/ICBM-GUIDANCE.md</c>, "Several targets".</para>
 ///
-/// <para><b>Pinned, and there is no choice about it.</b> The flight latches the arrival at
-/// closed-loop handover, so <see cref="DivertFootprint.ArrivalClock.Free"/> would draw a region 2
-/// to 12 times too long along the track. <c>docs/ICBM-GUIDANCE.md</c>, "Several targets".</para>
-///
-/// <para><b>And pinned, it can be drawn before the burn as well as after it.</b> Free-clock the long
-/// axis is <c>450 · cot γ</c> and belongs to the arc actually flown; pinned both axes collapse onto
-/// the cross-track reach, which is the release epoch alone. So a flight that has not flown gets
-/// <see cref="DivertFootprint.TryAtTheEpoch"/> and a coasting bus gets the columns it has actually
-/// flown — one region, two ways of knowing it, and <see cref="DivertFootprint.FromTheRealState"/>
-/// says which.</para>
-///
-/// <para><b>The reach bounds an <em>add</em>, never a designation.</b> Target 1 is the missile's
-/// reach — a trajectory search per candidate point, which is <c>IcbmReach</c> asked along bearings
-/// and is not built — so a click that starts the shot over is let through and only a click that
-/// adds to the set is tested.</para>
-///
-/// <para><b>The ring is around the stop the next hop leaves from, not around the landing.</b> The
-/// itinerary charges a hop between <em>consecutive</em> stops, so a ring around the landing accepts
-/// two targets on opposite edges of it — twice its radius apart, 20 m/s against a 10 m/s ring — and
-/// the release loop then refuses the pair it was told it could have. <see cref="NextHopAlongMetres"/>
-/// is the centre, and it is the landing only while the lead is the last stop.</para>
+/// <para>The ring is centred on the stop the next hop leaves from (<see cref="NextHopAlongMetres"/>), not
+/// the landing: the itinerary charges consecutive stops, so a ring round the landing accepts two targets
+/// on opposite edges, 20 m/s apart against a 10 m/s ring.</para>
 /// </summary>
 /// <param name="Footprint">
 /// The ellipse per metre a second. Meaningless unless <see cref="Hold"/> is
@@ -108,34 +82,28 @@ internal enum ReachVerdict
 /// What the trim budget still has after the set already chosen is paid for.
 /// </param>
 /// <param name="HopMetresPerSecond">
-/// What <em>one</em> hop may spend, which is what sizes the ring and bounds the refusal — the lower
-/// of what is left and <see cref="BusTrim.MaxMetresPerSecond"/>, the most one trim solve will fly.
-/// <b>Drawing the budget's whole reach and shrinking it when phase 3 raises that ceiling is the
-/// wrong order</b>: it would promise ground the release loop cannot get to.
+/// What <em>one</em> hop may spend, which sizes the ring and bounds the refusal — the lower of what is
+/// left and <see cref="ReleaseItinerary.Bus.PassCeilingMetresPerSecond"/>. Sized on the whole budget, the
+/// ring would promise ground the release loop cannot get to.
 /// </param>
 /// <param name="BuysMetres">
-/// What the whole budget buys on the ground, read off <see cref="ReleaseItinerary.LeftBuysMetres"/>
-/// at the last stop's reach. Zero where no warhead is assigned anywhere, because then there are no
-/// stops. Larger than the ring, and the two answer different questions: the ring is one hop, this is
-/// every hop that is left.
+/// What the whole budget buys on the ground (<see cref="ReleaseItinerary.LeftBuysMetres"/>): every hop
+/// left, where the ring is one. Zero where no warhead is assigned anywhere.
 /// </param>
 /// <param name="RoomForMore">
 /// How many further targets the budget reaches at <paramref name="SpacingMetres"/>, never negative.
 /// </param>
 /// <param name="SpacingMetres">
-/// The closest two targets are allowed to be, which is the warhead's lethal radius — overlapping
-/// blast is the player's business and overlapping kill is not. <c>docs/ICBM-GUIDANCE.md</c>, "Several targets".
+/// The closest two targets are allowed to be. <c>docs/ICBM-GUIDANCE.md</c>, "How close two targets may be".
 /// </param>
 /// <param name="NextHopAlongMetres">
-/// Downrange from the landing to the stop the next hop leaves from, which is where the ring is
-/// centred and what a click is measured against. Zero while the lead is the last stop, which is
-/// every set of one.
+/// Downrange from the landing to the stop the next hop leaves from, where the ring is centred. Zero
+/// while the lead is the last stop, which is every set of one.
 /// </param>
 /// <param name="NextHopCrossMetres"><inheritdoc cref="NextHopAlongMetres"/></param>
 /// <param name="NextHopFromTarget">
-/// Which of the placed targets that stop is, counted as the player sees them, or <c>0</c> for the
-/// landing itself — so the panel can name it rather than saying "from where the warheads land"
-/// about a point several kilometres from there.
+/// Which of the placed targets that stop is, counted from one as the player sees them, or <c>0</c> for
+/// the landing itself.
 /// </param>
 internal readonly record struct ReachDisplay(ReachHold Hold,
                                              DivertFootprint Footprint,
@@ -149,34 +117,22 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
                                              double NextHopCrossMetres = 0.0,
                                              int NextHopFromTarget = 0)
 {
-    /// <summary>One target as the ground sees it: where it sits, and how many warheads it takes.</summary>
     /// <param name="AlongMetres">Downrange from where the bus's warheads would land now.</param>
     /// <param name="CrossMetres">Across the track from the same place.</param>
     internal readonly record struct Placed(double AlongMetres, double CrossMetres, int Warheads);
 
-    /// <summary>Nothing to draw, and the reason.</summary>
     public static ReachDisplay None(ReachHold hold, int targets)
         => new(hold, default, 0.0, 0.0, 0.0, targets, 0, 0.0);
 
-    /// <summary>
-    /// What the ground, the cursor and the panel are all reading.
-    /// </summary>
     /// <param name="footprint">
     /// The pinned ellipse flown from the bus's own state, or null where no set of columns came down.
     /// </param>
     /// <param name="placed">The targets already chosen, in the order the player chose them.</param>
-    /// <param name="spacingMetres">
-    /// The floor on how close two targets may be, which prices <see cref="RoomForMore"/>.
-    /// </param>
     /// <param name="lead">
-    /// Which of <paramref name="placed"/> the booster is flying to. It is the stop the walk starts
-    /// from and the only one that costs no hop, so the itinerary is ordered around it rather than
-    /// around the landing — <c>ReleaseLoop</c> refuses a plan whose first stop is not the lead.
+    /// Which of <paramref name="placed"/> the booster is flying to: the stop the walk starts from, since
+    /// <c>ReleaseLoop</c> refuses a plan whose first stop is not the lead.
     /// </param>
-    /// <param name="unpriced">
-    /// What to say when no footprint came in. The caller knows which of the two ways of knowing one
-    /// it was asking for, and they fail for different reasons.
-    /// </param>
+    /// <param name="unpriced">The hold when no footprint came in; only the caller knows which way it asked.</param>
     /// <param name="pricePerSlot">
     /// <see cref="IcbmConfig.PriceEachHopAtItsSlot"/>: each hop, and the ring, at the reach of the slot
     /// it is flown in rather than at the reach the footprint was measured with.
@@ -238,8 +194,8 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
             ? (f, along, cross) => f.LengthCostMetresPerSecond(along, cross)
             : (f, along, cross) => f.TrimCostMetresPerSecond(along, cross);
 
-        // In metres the straight-line reach would charge the same as the trim pays, so the itinerary's own
-        // division by the reach, and its per-slot scaling, carry over unchanged.
+        // Expressed in straight-line metres, so the itinerary's division by the reach and its per-slot
+        // scaling carry over unchanged.
         Func<double, double, double>? hopMetres = priceAtTheTrim
             ? (along, cross) => pays(reach, along, cross) * perMetrePerSecond
             : null;
@@ -293,12 +249,9 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     }
 
     /// <summary>
-    /// The walk this set amounts to — what the flight actually flies, planned off the same ordered
-    /// set the ring is drawn from.
-    ///
-    /// <para>Holds no stops where nothing was priced, which is every <see cref="None"/>. A caller
-    /// that is flying one has to latch it rather than re-reading it: once the first warhead is away
-    /// the display stops being drawn, and the plan behind the bus must not change anyway.</para>
+    /// The walk the flight flies, planned off the same ordered set the ring is drawn from. Empty for
+    /// every <see cref="None"/>, so a caller flying one latches it: once the first warhead is away the
+    /// display is no longer priced.
     /// </summary>
     public ReleaseWalk Flown { get; init; }
 
@@ -318,39 +271,26 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
 
     private double RingScale => SlotReachScale is > 0.0 and <= 1.0 ? SlotReachScale : 1.0;
 
-    /// <summary>Whether there is a region on the ground at all.</summary>
     public bool HasRegion => Hold == ReachHold.Drawn;
 
     /// <summary>
-    /// Whether the reach was flown, so a place on the ground can be measured against it — which a
-    /// full set and a spent budget still are. The walk is planned off those offsets, so a set that
-    /// fills the bus has to be measurable even though no ring is drawn for it, or none of it is a stop.
+    /// Whether the reach was flown, which a full set and a spent budget still are: the walk is planned
+    /// off those offsets, so a set that fills the bus must be measurable though no ring is drawn.
     /// </summary>
     public bool HasFootprint => Hold is ReachHold.Drawn or ReachHold.Full or ReachHold.Spent;
 
-    /// <summary>
-    /// Whether the ring sits on the landing, which it does while the lead is the only stop the bus
-    /// makes — every set of one, whichever entry the lead is.
-    /// </summary>
     public bool CentredOnTheLanding => NextHopAlongMetres == 0.0 && NextHopCrossMetres == 0.0;
 
-    /// <summary>How far the ring reaches along its long axis, in metres.</summary>
     public double SemiMajorMetres
         => HasRegion ? Footprint.SemiMajorMetresPerMetrePerSecond * HopMetresPerSecond * RingScale : 0.0;
 
-    /// <summary>The same across it.</summary>
     public double SemiMinorMetres
         => HasRegion ? Footprint.SemiMinorMetresPerMetrePerSecond * HopMetresPerSecond * RingScale : 0.0;
 
-    /// <summary>
-    /// What a click at a ground offset from the landing would do.
-    /// </summary>
     /// <param name="click">
-    /// What the list and the phase already say the click is. A designation is let through whatever
-    /// the reach says, because the reach being drawn is about the bus and a designation is about the
-    /// booster.
+    /// What the list and the phase already say the click is; a designation is let through whatever the
+    /// bus's reach says.
     /// </param>
-    /// <param name="onTheBody">Whether the point is on the world the arc is flown around.</param>
     public ReachVerdict Verdict(TargetClick click, bool onTheBody, double alongMetres,
                                 double crossMetres)
     {
@@ -363,12 +303,7 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
         // centre of it, so a caller that could not answer must say so rather than pass one.
         if (!double.IsFinite(alongMetres) || !double.IsFinite(crossMetres)) return ReachVerdict.Unknown;
 
-        // Measured from the stop the hop LEAVES FROM, which is the whole of what the itinerary
-        // charges. Measured from the landing instead, two targets on opposite edges of the ring are
-        // each accepted and the pair then costs twice the ring -- 20 m/s against a 10 m/s ring.
-        //
-        // Against one hop's ceiling, which is what the ring is drawn at: a refusal measured on the
-        // whole budget would refuse ground inside the outline and take clicks outside it.
+        // From the stop the hop leaves from, against one hop's ceiling: what the ring is drawn at.
         return Footprint.Reaches(alongMetres - NextHopAlongMetres, crossMetres - NextHopCrossMetres,
                                  HopMetresPerSecond * RingScale)
                    ? ReachVerdict.Adds
@@ -376,14 +311,9 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     }
 
     /// <summary>
-    /// The ring's two semi-axes, as displacements in the body-fixed frame the landing is read in.
+    /// The ring's two semi-axes in the frame the landing is read in now. The columns' frame stands where
+    /// the ground will be at arrival, so they are carried back a flight: half an hour of Earth's spin is 830 km.
     /// </summary>
-    /// <remarks>
-    /// The columns are carried to the arrival, so the frame they are resolved in stands where the
-    /// ground will be a whole flight from now. Drawn at the landing as it is <em>now</em> they have
-    /// to come back: half an hour of a planet's spin is 830 km, which would lay the ring on
-    /// somebody else's continent.
-    /// </remarks>
     public bool TryAxes(BallisticBody body, out double3 majorCci, out double3 minorCci)
     {
         majorCci = Vec.Zero;
@@ -418,9 +348,6 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
         return Vec.IsFinite(offsetCci);
     }
 
-    /// <summary>
-    /// A ground offset from the landing, as the along and across the ellipse is measured in.
-    /// </summary>
     /// <param name="offsetCci">
     /// The separation between two ground-fixed points, both read in the frame of the instant the
     /// columns were flown from — never two inertial positions, which differ by the planet's travel.
@@ -440,7 +367,6 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
         return double.IsFinite(alongMetres) && double.IsFinite(crossMetres);
     }
 
-    /// <summary>What the panel says about the reach, in one line.</summary>
     public string Say()
     {
         if (!HasRegion)
@@ -467,16 +393,12 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
                           ? $"no room for another {Distance.Say(SpacingMetres)} away"
                           : $"room for {RoomForMore} more at {Distance.Say(SpacingMetres)} apart";
 
-        // Named, because the ring is around the last stop rather than around the landing as soon as
-        // there is more than one: "from where the warheads land" about a ring several kilometres
-        // from there is the readout and the picture disagreeing.
         string from = CentredOnTheLanding ? "from where the warheads land"
                                           : $"from target {NextHopFromTarget}";
 
         return $"Divert reach: {Distance.Say(SemiMinorMetres)} {from} -- {more}";
     }
 
-    /// <summary>What it is spending, on the line under <see cref="Say"/>.</summary>
     public string SayBudget()
     {
         if (!HasRegion) return "";
@@ -485,8 +407,6 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
                           ? $", which moves a landing {Distance.Say(BuysMetres)} in all"
                           : ", and no warhead is assigned anywhere yet";
 
-        // An estimate says so. Before the burn the reach is the release epoch's alone and the coast
-        // is not known at all, so how many of the set actually fit is settled at cutoff and not here.
         string how = Footprint.FromTheRealState
                          ? ""
                          : " -- estimated from the release epoch until the burn is over, and how many "
@@ -496,7 +416,6 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
                + $"{HopMetresPerSecond:F1}{how}";
     }
 
-    /// <summary>What to print beside the cursor, or empty where the click needs no explaining.</summary>
     public static string CursorSays(ReachVerdict verdict, int targets = 0)
         => verdict switch
         {
@@ -505,29 +424,24 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
             ReachVerdict.Full => "six targets already",
             ReachVerdict.Unknown => "reach not known",
 
-            // Designating starts the shot over, so with a set already placed this click destroys
-            // it. Said because the condition is not the operator's doing and not visible: a click
-            // adds only while the reach is known, and a reach that comes and goes turns the same
-            // gesture into a different one without anything on screen changing.
+            // A click adds only while the reach is known, so the same gesture can silently replace the set.
             ReachVerdict.Designates when targets > 0 =>
                 $"replaces {targets} target{(targets == 1 ? "" : "s")}",
 
             _ => "",
         };
 
-    /// <summary>Whether a click here would be taken.</summary>
     public static bool Takes(ReachVerdict verdict)
         => verdict is ReachVerdict.Designates or ReachVerdict.Adds;
 
-    /// <summary>The walk a set amounts to, and where its last stop leaves the bus.</summary>
     /// <param name="Set">
     /// One entry per place given, <b>in the caller's own order</b> — so
     /// <see cref="ReleaseItinerary.Stop.Target"/> indexes back into the same list the lead does,
     /// which is what <c>ReleaseLoop</c> requires of a plan it is asked to fly.
     /// </param>
-    /// <param name="AlongMetres">Where the walk leaves the bus, as a ground offset from the landing.</param>
+    /// <param name="AlongMetres">Where the last stop leaves the bus, as a ground offset from the landing.</param>
     /// <param name="CrossMetres"><inheritdoc cref="AlongMetres"/></param>
-    /// <param name="FromTarget">Which place that is, counted as the player sees them.</param>
+    /// <param name="FromTarget">Which place that is, counted from one.</param>
     internal readonly record struct Walk(ReleaseItinerary.Target[] Set, double AlongMetres,
                                          double CrossMetres, int FromTarget);
 
@@ -536,21 +450,9 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
     /// stop before it, each hop the ground between the two.
     /// </summary>
     /// <remarks>
-    /// <para><b>The lead first, not the farthest from the landing.</b> The bus arrives on the lead's
-    /// trajectory, so that stop costs nothing and every other hop is measured from it — and
-    /// <c>ReleaseLoop</c> refuses outright a plan whose first stop is not the lead, because flown as
-    /// ordered from anywhere else the bus walks out to the far end and back, twice the ground the
-    /// itinerary charges. Farthest first is still the rule the <em>set</em> obeys:
-    /// <see cref="TargetSet.ElectFarthestLead"/> puts the lead at an end of it, so walking nearest-first
-    /// from there walks inward.</para>
-    ///
-    /// <para><b>The order the panel, the cursor and the flight all read.</b> Phase 3 plans its walk
-    /// from this rather than from a second construction, or the ring drawn and the walk flown
-    /// disagree about which hops are being bought.</para>
-    ///
-    /// <para>A target holding no warheads is not a stop — <see cref="ReleaseItinerary.Plan"/> drops
-    /// it — but the <em>lead's</em> position is still where the walk starts even when it takes none,
-    /// because the bus arrives there whatever it drops.</para>
+    /// <para>The lead first: the bus arrives on its trajectory, so that stop costs nothing, and
+    /// <see cref="TargetSet.ElectFarthestLead"/> puts it at an end of the set, so nearest-first walks inward.
+    /// A target with no warheads is not a stop, but the lead's place is still where the walk starts.</para>
     ///
     /// <para><c>Plan</c> re-sorts on <see cref="ReleaseItinerary.Target.ReachMetres"/>, so the rank
     /// is emitted descending to reproduce exactly this order.</para>
@@ -578,14 +480,8 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
             if (i != first && placed[i].Warheads > 0) rest.Add(i);
         }
 
-        // Nearest first from wherever the walk has got to, never the order the player clicked in.
-        // Four collinear targets clicked near-to-far and led from the far end walk 3 -> 0 -> 1 -> 2
-        // under the chosen order: out to the near end and back, 5 km of travel for a 3 km chain,
-        // which inflates every hop after the first and is what the ordering exists to prevent.
-        //
-        // Greedy rather than the cheapest of the 720 orders, because this is re-derived every frame
-        // for every rocket: it is exact for a chain walked from an end, which is what the lead being
-        // the farthest makes every set. Ties keep the caller's order, which is the only one stated.
+        // Greedy nearest-first rather than the cheapest of 720 orders, since this runs every frame for
+        // every rocket; exact for a chain walked from an end. Ties keep the caller's order.
         double walkAlong = Finite(placed[first].AlongMetres);
         double walkCross = Finite(placed[first].CrossMetres);
 
@@ -611,14 +507,11 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
             walkCross = Finite(placed[pick].CrossMetres);
         }
 
-        // Where the bus is before any hop is bought. The lead's place even when nothing leaves
-        // there, because that is the trajectory the booster flew.
         double atAlong = Finite(placed[first].AlongMetres);
         double atCross = Finite(placed[first].CrossMetres);
         int atTarget = first + 1;
 
-        // One entry per place, so a stop names the caller's own index. A place the bus never stops
-        // at keeps rank zero and whatever hop, both of which Plan drops before reading either.
+        // A place the bus never stops at keeps rank zero, which Plan drops before reading its hop.
         ReleaseItinerary.Target[] set = new ReleaseItinerary.Target[placed.Count];
         for (int i = 0; i < set.Length; i++) set[i] = new ReleaseItinerary.Target(0, 0.0, 0.0);
 
@@ -645,13 +538,9 @@ internal readonly record struct ReachDisplay(ReachHold Hold,
         return new Walk(set, atAlong, atCross, atTarget);
     }
 
-    // A place the world could not resolve is taken as the landing rather than carried as NaN: NaN
-    // compares equal to nothing, which makes a hop's price meaningless and an ordering inconsistent
-    // -- and Array.Sort is entitled to throw on that, inside the frame hook where an exception is
-    // the game.
+    // NaN would make the ordering inconsistent, and Array.Sort may throw on that inside the frame hook.
     private static double Finite(double metres) => double.IsFinite(metres) ? metres : 0.0;
 
-    // How far a stop is from where the bus has got to, on the ground.
     private static double Gap(in Placed to, double fromAlong, double fromCross)
     {
         double along = Finite(to.AlongMetres) - fromAlong;

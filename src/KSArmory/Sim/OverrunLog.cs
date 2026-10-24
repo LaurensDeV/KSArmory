@@ -10,10 +10,8 @@ namespace KSArmory;
 /// reports a step tens of seconds long into exactly that state, every time. A warning that cries
 /// wolf on every load is one nobody reads on the flight where it is real.</para>
 ///
-/// <para>Which is why the two are rate-limited apart rather than sharing a budget. They share one
-/// counter and the load frame spends the report the first real overrun needs, leaving the next
-/// hundred-odd silent — losing the one line that says when the lag started, which is the whole
-/// reason there is a limit rather than a line per frame.</para>
+/// <para>So the two are rate-limited apart: on one counter the load frame would spend the report the
+/// first real overrun needs, losing the one line that says when the lag started.</para>
 /// </summary>
 internal sealed class OverrunLog
 {

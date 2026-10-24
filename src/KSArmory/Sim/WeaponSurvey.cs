@@ -5,7 +5,7 @@ namespace KSArmory;
 /// <summary>What a part is, to a weapons system.</summary>
 public enum WeaponRole
 {
-    /// <summary>Decides what the craft shoots at. One per craft.</summary>
+    /// <summary>Decides what the craft shoots at. Every launcher provides one as a built-in.</summary>
     FireControl,
 
     /// <summary>Throws rounds. Every registered launcher part carries it, tubes or not.</summary>
@@ -15,16 +15,8 @@ public enum WeaponRole
     Sensor,
 
     /// <summary>
-    /// Looks at one thing and shows it to the operator.
-    ///
-    /// <para>Separate from <see cref="Sensor"/> because it does a different job: a sensor
-    /// *detects*, producing tracks the threat model ranks, while a camera *observes* something
-    /// already known and drives one of the game's viewports. A craft can carry either without the
-    /// other — a site with no camera still shoots, and a camera without a radar has nothing to
-    /// look at but is still worth pointing by hand.</para>
-    ///
-    /// <para>They also differ in what they cost: a sensor is a per-frame scan over every loaded
-    /// vehicle, a camera is a transform write and a borrowed viewport.</para>
+    /// Looks at one thing already known and shows it to the operator, where a <see cref="Sensor"/>
+    /// detects and produces tracks. A craft can carry either without the other.
     /// </summary>
     Camera,
 
@@ -34,9 +26,8 @@ public enum WeaponRole
     /// <summary>
     /// Flies the airframe it is on: what earns a craft a ballistic computer.
     ///
-    /// <para>Not <see cref="FireControl"/>, which decides what a craft shoots at and which every
-    /// launcher carries. A Pantsir has fire control and nothing to fly; a booster with a guidance
-    /// section and no weapon would have the reverse. docs/GUIDANCE-SECTION.md.</para>
+    /// <para>Not <see cref="FireControl"/>: a Pantsir has fire control and nothing to fly.
+    /// docs/GUIDANCE-SECTION.md.</para>
     /// </summary>
     Guidance,
 
@@ -50,10 +41,8 @@ public enum WeaponRole
 /// <summary>
 /// One part this mod recognises, and what it contributes to a craft.
 ///
-/// <para>Matched by part Id, because that is the only lever available: KSA cannot register a
-/// custom module without patching the engine, so a part cannot *say* what it is — see
-/// docs/BLOCKED-ON-KSA.md. A registry keyed on Id is the same mechanism
-/// <see cref="LauncherProfile"/> already uses, one level finer.</para>
+/// <para>Matched by part Id: KSA cannot register a custom module without patching the engine, so
+/// a part cannot say what it is (docs/BLOCKED-ON-KSA.md).</para>
 /// </summary>
 public sealed class ComponentProfile
 {
@@ -64,10 +53,8 @@ public sealed class ComponentProfile
     /// <summary>
     /// Roles this one part carries as subparts rather than as parts of their own.
     ///
-    /// <para>A prefab like the Pantsir is a single <c>Part</c> whose radar, optical head and
-    /// cannon are <c>SubPart</c>s of it. The survey walks parts, so without this it reports a
-    /// launcher and nothing else — which reads as a system that has no camera rather than one
-    /// whose camera is built in.</para>
+    /// <para>The survey walks parts, so a Pantsir's radar, director and cannon, which are
+    /// <c>SubPart</c>s, are found only through this.</para>
     /// </summary>
     public IReadOnlyList<BuiltInComponent> Provides { get; init; } = [];
 }
@@ -78,18 +65,11 @@ public readonly record struct BuiltInComponent(WeaponRole Role, string DisplayNa
 /// <summary>
 /// One part found on a craft, with where it sits.
 ///
-/// <para>The position and rotation come from the craft itself rather than from a table. That is
-/// the whole point of surveying: a prefab launcher has to have its tube geometry generated into
-/// its definition file and cross-checked by <c>validate-parts.py</c>, because nothing at run time
-/// connects the model to the code. A part the player placed knows where it is.</para>
+/// <para>The position and rotation come from the craft itself rather than from a table.</para>
 /// </summary>
 /// <param name="Rides">
-/// The part attaches to the side of something rather than stacking on it, so it cannot be a craft
-/// on its own. The game says so: its connectors carry <c>ToSurface</c> or <c>FromSurface</c>, which
-/// is exactly what the editor's own root test rejects. <b>A vehicle roots; a store rides.</b>
-///
-/// <para>Defaults to false, so a part nobody asked about is a platform. A hull, a tank and a
-/// booster are all things a store can ride on, and none of them is this mod's to recognise.</para>
+/// The part's connectors carry <c>ToSurface</c> or <c>FromSurface</c>, which the editor's own root
+/// test rejects, so it cannot be a craft on its own. False by default: an unasked part is a platform.
 /// </param>
 public readonly record struct SurveyedPart(
     string PartId,
@@ -108,10 +88,8 @@ public readonly record struct FoundComponent(
 /// <summary>
 /// Everything this mod recognises on one craft.
 ///
-/// <para>Ordering is the part tree's, which is the order the craft was assembled in. That is
-/// stable for a given craft and is what makes "launcher 2" mean the same thing between frames —
-/// the same reason the system keys on a part ordinal rather than a <c>Part</c> reference, which
-/// KSA rebuilds during staging and docking.</para>
+/// <para>Ordering is the part tree's, so "launcher 2" means the same part between frames until a
+/// split renumbers it; a crewed system then follows its part by reference (<c>WeaponSystem.HeldPart</c>).</para>
 /// </summary>
 public sealed class WeaponInventory
 {
@@ -120,15 +98,8 @@ public sealed class WeaponInventory
     /// <summary>
     /// Whether there is anything on this craft for a store to ride on.
     ///
-    /// <para><b>A breakup can make a craft the editor would never have let anyone build.</b>
-    /// Isolating a failed part splits the vehicle at every severable connection, so a targeting pod
-    /// or a missile rail ends up as a vehicle in its own right, lying on the ground, rooted on a
-    /// part whose connectors say it can only ride. The editor rejects exactly that craft, and this
-    /// is the mod agreeing with it.</para>
-    ///
-    /// <para>False only when <em>every</em> part rides. A hull with one director on it is an
-    /// observation post and keeps working, because the hull is not a store — that case is the
-    /// reason this is not simply a part count.</para>
+    /// <para>False only when <em>every</em> part rides: a pod or rail a breakup left as a craft of its
+    /// own, which the editor would refuse to root. A hull with one director on it still counts.</para>
     /// </summary>
     public bool HasPlatform { get; init; }
 
@@ -142,12 +113,6 @@ public sealed class WeaponInventory
         return n;
     }
 
-    /// <summary>Whether this craft is a weapons system at all.</summary>
-    /// <remarks>
-    /// Anything recognised counts. The intended gate is an explicit fire-control part: it gives a
-    /// craft's settings an owner, and it stops a piece of debris that happens to carry a launcher
-    /// from becoming a system of its own. No such part exists, so gating on it would find nothing.
-    /// </remarks>
     public bool IsWeaponSystem => HasPlatform
                                   && (CountOf(WeaponRole.Launcher) > 0
                                       || CountOf(WeaponRole.Gun) > 0
@@ -155,19 +120,14 @@ public sealed class WeaponInventory
 
     /// <summary>
     /// Whether something aboard flies the craft, which is what crews a ballistic computer on it.
-    ///
-    /// <para>Its own question rather than <see cref="IsWeaponSystem"/>: every launcher is a weapons
-    /// system, and almost none of them has any business flying the rocket under it.</para>
     /// </summary>
     public bool HasGuidance => HasPlatform && CountOf(WeaponRole.Guidance) > 0;
 
     /// <summary>
     /// Whether this mod recognises anything on the craft at all, weapon or not.
     ///
-    /// <para>What the panel lists, as opposed to what it crews. A craft carrying only an optical
-    /// director has something of this mod's on it and something worth showing, and is emphatically
-    /// not a weapons system: crewing one gives it a system with no launcher, which then reports a
-    /// head it cannot find and reloads a magazine it does not have.</para>
+    /// <para>What the panel lists, as opposed to what it crews: a craft with only a director is one,
+    /// and crewing it as a weapons system would give it a system with no launcher.</para>
     /// </summary>
     public bool IsInstallation => Components.Count > 0 && HasPlatform;
 
@@ -177,17 +137,11 @@ public sealed class WeaponInventory
 /// <summary>
 /// Walks a craft's parts and reports which of them this mod recognises.
 ///
-/// <para>No KSA types: the caller flattens the part tree into <see cref="SurveyedPart"/> and
-/// applies the answer. That is what makes the matching and grouping testable, and the alternative
-/// is discovering a mis-assembled craft in flight.</para>
+/// <para>No KSA types: the caller flattens the part tree into <see cref="SurveyedPart"/>.</para>
 /// </summary>
 public static class WeaponSurvey
 {
-    /// <summary>
-    /// Groups the recognised parts of one craft.
-    /// </summary>
     /// <param name="parts">Every part on the craft, in tree order.</param>
-    /// <param name="registry">The components this mod knows about.</param>
     public static WeaponInventory Survey(IReadOnlyList<SurveyedPart> parts,
                                          IReadOnlyList<ComponentProfile> registry)
     {
@@ -202,8 +156,7 @@ public static class WeaponSurvey
             found.Add(new FoundComponent(profile, profile.Role, profile.DisplayName,
                                          part.PositionVehicleAsmb, part.Asmb2VehicleAsmb));
 
-            // Built-ins sit at the part's own position: they are subparts of it, and where each
-            // one is within the assembly is the model's business rather than the survey's.
+            // Built-ins are subparts, placed at the part's own position.
             for (int b = 0; b < profile.Provides.Count; b++)
             {
                 BuiltInComponent built = profile.Provides[b];
@@ -227,10 +180,8 @@ public static class WeaponSurvey
     /// <summary>
     /// The component a part Id names, or null.
     ///
-    /// <para>Exact match, not a substring. <c>LauncherPart.FindSubPart</c> matches on *containing*
-    /// a marker and takes the first hit, which is right for a marker naming one subpart inside one
-    /// part and wrong here: across a whole craft, "Launcher" would match anything a player's part
-    /// happened to be called.</para>
+    /// <para>Exact match, unlike <c>LauncherPart.FindSubPart</c>'s substring: across a whole craft a
+    /// substring would match whatever a player's part happened to be called.</para>
     /// </summary>
     public static ComponentProfile? Match(string partId, IReadOnlyList<ComponentProfile> registry)
     {

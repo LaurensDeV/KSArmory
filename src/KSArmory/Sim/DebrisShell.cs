@@ -11,10 +11,9 @@ namespace KSArmory;
 /// within a few minutes. Teak's, 3.8 Mt at 77 km, was a red shell seen from Hawaii for half an hour;
 /// most of that was the air it lit, which is <see cref="XRayGlow"/>, not the debris.</para>
 ///
-/// <para>Where the air is thin enough, the magnetic field holds the debris: it cannot cross the field
-/// lines, so the shell stretches along them. The field is <see cref="Aurora"/>'s dipole on the spin
-/// axis. What runs out along the line is drawn as the aurora where it comes down, not as a jet: drawn
-/// straight and even, a jet read as a beam.</para>
+/// <para>Where the air is thin enough, the field holds the debris and the shell stretches along the field
+/// lines (<see cref="MagneticDipole"/>, as <c>KsaWorld.DipoleOf</c> reads it). What runs out along the
+/// line is drawn as the aurora where it comes down, not as a jet, which read as a beam.</para>
 /// </summary>
 internal static class DebrisShell
 {

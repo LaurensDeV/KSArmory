@@ -29,15 +29,11 @@ internal readonly record struct TargetState(double3 PositionEcl, double3 Velocit
                                             object? Handle = null, bool Emitting = true);
 
 /// <summary>
-/// A single anti-air round.
+/// A guided round: proportional navigation, boost, proximity fuse, and the ground it stops on.
 ///
-/// The round is integrated by this mod rather than handed to KSA's vehicle physics: it exists
-/// for a few seconds, needs sub-frame accuracy at closing speeds where one frame is hundreds
-/// of metres, and must not perturb the save. Its state lives entirely in the ecliptic frame.
-///
-/// Deliberately free of KSA types so the guidance and fuse can be exercised headlessly -
-/// see tests/KSArmory.Tests. The caller samples the target once per frame and passes it in;
-/// the round extrapolates that state across its own sub-steps.
+/// <para>Integrated by this mod rather than by KSA's vehicle physics, because its fuse needs
+/// sub-frame accuracy: one frame at its closing speed steps clean over the fuse radius. The caller samples the
+/// target once per frame; the round extrapolates it across its own sub-steps.</para>
 /// </summary>
 internal sealed class Interceptor : IProjectile
 {
@@ -174,31 +170,17 @@ internal sealed class Interceptor : IProjectile
     /// </summary>
     public double DistanceFlown { get; private set; }
 
-    // Frame velocity from the last update, so telemetry can be reported locally.
     private double3 _frameVelocityEcl;
 
-    /// <summary>Tube number, for display.</summary>
+    /// <inheritdoc cref="IProjectile.Tube"/>
     public int Tube { get; init; }
 
-    /// <summary>
-    /// Position relative to the launch platform, at the end of the last update.
-    ///
-    /// Absolute <see cref="PositionEcl"/> is useless for drawing: the round is integrated to the
-    /// end of the frame while everything it is drawn against was sampled at the start, and in
-    /// the ecliptic frame that gap is ~500 m at 60 fps. Expressing the round against the
-    /// platform — advanced to the same instant — cancels the frame's motion and leaves only
-    /// real, local displacement.
-    /// </summary>
+    /// <inheritdoc cref="IProjectile.OffsetFromPlatform"/>
     public double3 OffsetFromPlatform { get; private set; }
 
     /// <summary>
-    /// <see cref="OffsetFromPlatform"/> at the moment of launch, so displacement *since* launch
-    /// can be taken as a difference.
-    ///
-    /// That difference is a pure delta between two Ecl positions, which makes it the only safe
-    /// thing to hand to anything anchored to the vehicle's physics origin: the platform position
-    /// these offsets are measured from is the analytic orbit position, and the two disagree by
-    /// enough to matter. See DrawAnchor.
+    /// <see cref="OffsetFromPlatform"/> at the moment of launch, so <see cref="TravelSinceLaunch"/> is
+    /// a difference and carries none of the gap between the platform's orbit and physics positions.
     /// </summary>
     public double3 LaunchOffset { get; private set; }
 
@@ -393,21 +375,8 @@ internal sealed class Interceptor : IProjectile
             elapsed += h;
         }
 
-        // Measured AFTER the step, against the platform sampled this same frame, with no
-        // extrapolation whatsoever.
-        //
-        // Write the update index as k: the platform sample is Q(k), and the round integrates from
-        // P(k-1) to P(k). The two advance in lockstep, to within 5 m on all but two frames in
-        // thousands:
-        //
-        //     ( P(k) - P(k-1) ) - ( Q(k) - Q(k-1) )  =  localVelocity * dt
-        //
-        // so P(k) - Q(k) changes by exactly the round's own flight each frame. That is the whole
-        // requirement, and it is the reason this form cannot jitter.
-        //
-        // Any other pairing of instants - P(k-1) against Q(k), or P(k) against an extrapolated
-        // Q(k) + v*dt - leaks `local*dt - v*dstep`. At ~29.8 km/s a 1 ms wobble in the step is
-        // 30 m, and a simulation-speed change swinging it by 17 ms is 500 m in a single frame.
+        // After the step, against the platform sampled this same frame, with no extrapolation: any
+        // other pairing leaks v*dstep, 30 m per ms of step wobble. docs/FRAMES-AND-EPOCHS.md, "Rules that follow".
         OffsetFromPlatform = PositionEcl - platformEcl;
 
         _trailTimer += dt;
@@ -447,20 +416,8 @@ internal sealed class Interceptor : IProjectile
         double3 accel = Medium.Buoyancy(gravity, munition, mediumDensityRatio)
                         + (EjectAccelerationEcl * Ejector.ShareOfStep(Age - h, h, EjectSeconds));
 
-        // Boost motor: axial thrust along the round, which is the velocity it has gained since
-        // release and not the velocity it has. Between the two medium terms because it is the one
-        // force this round has and a shell does not.
-        //
-        // A rail-launched round inherits the whole of its craft's velocity and adds LaunchSpeed of
-        // its own -- 25 m/s against several hundred -- so its *total* velocity points wherever the
-        // craft was going, whatever the rail was pointing at. Thrusting along that drives an AGM-88
-        // 1,050 m/s in the craft's direction of travel over a five-second boost, which for a
-        // launcher that has turned round is away from everything it was aimed at.
-        //
-        // What it has gained starts as the ejection up the tube and accumulates along the thrust,
-        // and proportional navigation's lateral term lands in it too -- so the round still curves
-        // onto its target rather than flying the rail's bearing for ever. For a launcher standing
-        // still the gain *is* the velocity, so nothing about a ground system's flight changes.
+        // Thrust along the velocity gained since release, never the velocity it has: a rail round
+        // inherits its craft's velocity, and thrusting along that drove an AGM-88 1,050 m/s the craft's way.
         if (((IProjectile)this).MotorBurning)
         {
             // Nothing gained yet, which is a round its rail imparts no speed to at all: the heading it
@@ -473,39 +430,14 @@ internal sealed class Interceptor : IProjectile
 
         if (target is { } t)
         {
-            // Back-date the target sample to the round's own epoch, then extrapolate to this
-            // sub-step.
-            //
-            // KSA writes every vehicle's Ecl state once per frame, at the top of OnFrame, to the
-            // state at GetLastSimStep().NextTime - the END of the step this update is about to
-            // integrate the round across. Differenced against the round's PRE-step position, that
-            // leaves every line of sight carrying a constant
-            //
-            //     r = r_true + targetVelocityEcl * frameSeconds
-            //
-            // and proportional navigation, doing its job perfectly, flies a clean intercept on a
-            // ghost displaced by one frame of the planet's ~29.8 km/s of ecliptic motion: 450-680 m,
-            // against the 10-15 m MissDistance reports.
-            //
-            // MissDistance cannot show that. It is a threshold crossing with a one-sub-step
-            // horizon, so it is bounded by the fuse radius whatever the round actually does. Nor
-            // can a finer sub-step: a whole-frame bias only makes the round converge harder on the
-            // same wrong point.
-            //
-            // Subtracting frameSeconds puts the target back at the instant the round is actually
-            // at, which is what makes the common ecliptic motion cancel.
+            // The sample is end-of-step and the round starts the step at its beginning: back-dated, the
+            // ecliptic motion cancels; not, PN flies onto a ghost 450-680 m away, which MissDistance,
+            // bounded by the fuse radius, cannot show. docs/FRAMES-AND-EPOCHS.md, "Rules that follow".
             double3 targetPos = InFrame.AtBurst(t.PositionEcl, t.VelocityEcl, elapsedInFrame - frameSeconds);
             double3 targetVel = t.VelocityEcl;
 
-            // An anti-radiation round is homing on the emission, so a set that stops transmitting
-            // simply stops being a target. What it does not do is forget: it carries on to where
-            // the emission last came from, which is what makes shutting down a defence only for a
-            // set that also moves.
-            //
-            // The memory is a position AND the velocity it was seen with, replayed forward on the
-            // round's own clock -- never a bare ecliptic coordinate. That velocity carries the
-            // planet's ~29.8 km/s, so replaying it keeps the remembered spot on the ground it
-            // belongs to; storing the point alone leaves it behind at half a kilometre per frame.
+            // A silent set is remembered as a position and the velocity it was seen with, replayed on
+            // the round's own clock: the velocity carries the planet's ~29.8 km/s, which a bare point loses.
             bool homingOnMemory = false;
             if (munition.Guidance == GuidanceMode.AntiRadiation && !OperatorHeld)
             {
@@ -570,12 +502,8 @@ internal sealed class Interceptor : IProjectile
                         // Detonate where the round actually is at closest approach.
                         PositionEcl += VelocityEcl * tCa;
                         MissDistance = miss;
-                        // Reported on the same epoch as the geometry that produced it. Whatever
-                        // applies the warhead advances the world forward by this much to place
-                        // the burst and to sweep it, so it has to be measured from the target's
-                        // back-dated instant too. Measured from the sampled instant instead, the
-                        // blast lands V*frameSeconds out in the opposite direction: the
-                        // back-dating above and this are one rule, not two.
+                        // On the back-dated target's epoch, the same rule as the back-dating above:
+                        // measured from the sampled instant the blast lands V*frameSeconds the other way.
                         DetonationElapsedInFrame = elapsedInFrame + tCa - frameSeconds;
                         State = RoundState.Detonated;
                         return;

@@ -85,11 +85,8 @@ internal static class PostCutoffSequence
                              ? hopCeilingMetresPerSecond
                              : CeilingFor(postBoostCycles, budgetMetresPerSecond, spentMetresPerSecond);
 
-        // Abandoning is what the timeout does when nothing else can answer "is it safe to fire".
-        // The interlock can: it is computed in the same pass, it already knows which way the stack
-        // lies, and it withholds the directions that point at it while spending the frame on the
-        // ones that do not. With every direction withheld the trim waits, which is the outcome the
-        // timeout wanted, and MaxSeconds and the budget bound that wait.
+        // The keep-out interlock can answer "is it safe to fire" a direction at a time, withholding
+        // those that point at the stack; with all withheld the trim waits, bounded by MaxSeconds and the budget.
         //
         // The cost of not having it is the whole correction: an abandoned trim returns before any
         // aim correction is applied, and the shot lands where the raw burn put it. Flown, that is

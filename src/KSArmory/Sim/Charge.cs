@@ -2,8 +2,7 @@ namespace KSArmory;
 
 /// <summary>
 /// An explosive charge as a reader wants it: kilograms for a shell, tonnes for a bomb, and kilotons
-/// and megatons of TNT for a warhead, since a charge spans thirteen orders of magnitude here and one
-/// unit prints nine digits at the top of it.
+/// and megatons of TNT for a warhead: the charge slider spans thirteen orders of magnitude.
 /// </summary>
 public static class Charge
 {

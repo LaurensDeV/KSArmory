@@ -3,16 +3,9 @@ namespace KSArmory;
 /// <summary>
 /// One system's settings, flattened so they can be written down and read back.
 ///
-/// <para>A separate type from <see cref="SystemConfig"/> rather than serialising that directly.
-/// <c>SystemConfig</c> is what the panel edits and the fire control reads; it gains fields freely
-/// and holds an <see cref="IffPolicy"/> with collections behind properties. Persisting it as-is
-/// would make every field a file-format decision, and a rename would silently drop a setting
-/// someone had chosen.</para>
-///
-/// <para>Everything here is a plain field with a default that matches <c>SystemConfig</c>'s, so a
-/// file written by an older version loads with the new settings at their defaults rather than at
-/// zero — which for <c>MissilesEnabled</c> or <c>TurretTracking</c> would silently disarm half a
-/// system.</para>
+/// <para>Not <see cref="SystemConfig"/> serialised directly, so a field added or renamed there is not
+/// a file-format change. Defaults match <c>SystemConfig</c>'s, so an older file loads a new setting at
+/// its default rather than at zero, which for <c>MissilesEnabled</c> would disarm the system.</para>
 /// </summary>
 public sealed class SystemSettings
 {
@@ -43,7 +36,6 @@ public sealed class SystemSettings
     public List<string> AlliedTeams { get; set; } = [];
     public List<string> NeutralTeams { get; set; } = [];
 
-    /// <summary>Reads a system's current settings.</summary>
     public static SystemSettings From(SystemConfig config)
     {
         ArgumentNullException.ThrowIfNull(config);
@@ -81,11 +73,8 @@ public sealed class SystemSettings
     /// <summary>
     /// Puts every team this system names back on the session's roster of team names.
     ///
-    /// <para>The names are session-wide and the memberships are per system, so only half of a
-    /// two-sided world survives a reload on its own: each system remembers it is on "Red" and the
-    /// world has forgotten that "Red" is a team. Every contact then classifies Unknown, and
-    /// engaging the unknown is permissive by default, so a carefully divided world comes back as
-    /// a free-for-all with the panel still showing the old allegiances.</para>
+    /// <para>The names are session-wide and memberships per system, so without this a reload classifies
+    /// every contact Unknown, which is engaged by default.</para>
     /// </summary>
     public void DeclareTeams(List<string> teamNames)
     {
@@ -103,11 +92,8 @@ public sealed class SystemSettings
     }
 
     /// <summary>
-    /// Puts these settings onto a system.
-    ///
-    /// <para>Nothing about an optical head is here. A director keeps its own
-    /// <see cref="OpticConfig"/> and is crewed per part rather than per weapons system, so its
-    /// settings are not a system's to carry.</para>
+    /// Puts these settings onto a system. A director's are not here: it keeps its own
+    /// <see cref="OpticConfig"/>, crewed per part.
     /// </summary>
     public void ApplyTo(SystemConfig config)
     {
@@ -144,9 +130,7 @@ public sealed class SystemSettings
         foreach (string t in NeutralTeams ?? []) config.Iff.NeutralTeams.Add(t);
     }
 
-    /// <summary>
-    /// Whether two settings differ, so nothing is written when nothing has changed.
-    /// </summary>
+    /// <summary>Whether two settings differ, so nothing is written when nothing has changed.</summary>
     public bool Differs(SystemSettings other)
     {
         if (other is null) return true;

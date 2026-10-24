@@ -5,24 +5,12 @@ namespace KSArmory;
 /// <summary>
 /// Where each warhead of one salvo is aimed, as a pattern on the ground around the designation.
 ///
-/// <para>Unless this is set, every warhead is aimed at the <em>same</em> point:
-/// <see cref="ReleaseFocus"/> exists to land each round where the tubes' mean would land, so a
-/// group converges rather than spreading. Flown, six 1.80 m reentry vehicles arrive a median
-/// <b>8.7 mm</b> apart — they interpenetrate, and rounds do not collide with one another, so they
-/// pass through each other and burst as one.</para>
+/// <para>Unset, every warhead is aimed at the same point. A known pattern is for measurement: it
+/// gives the kick a delivered-against-asked residual, and the kick is 44.5% of the within-rocket
+/// landing variance (<c>docs/ACCURACY-PLAN.md</c> 3ef).</para>
 ///
-/// <para><b>What this is for is measurement before it is realism.</b> A kick commanded to move
-/// every warhead to one place can never be checked: each is asked for the same thing, and any error
-/// appears as dispersion mixed with every other term. Commanded to a <em>known</em> pattern, the
-/// kick becomes an actuator with a delivered-against-asked residual — and it is the largest single
-/// term in the within-rocket miss, 44.5% of its variance (<c>docs/ACCURACY-PLAN.md</c> 3ef).</para>
-///
-/// <para><b>It is not a MIRV footprint and cannot become one.</b>
-/// <see cref="ReleaseFocus.MaxMissKickMetresPerSecond"/> caps the separation kick at 10 mm/s, which
-/// over a 345 s flight is about <b>3.5 m</b> of ground — two body lengths, against a 706 m fireball
-/// and a 2 km lethal radius on the charge this vehicle carries. Real per-target spread needs the
-/// bus to manoeuvre between releases, and that cap exists precisely so a separation cannot become a
-/// burn.</para>
+/// <para><b>Not a MIRV footprint</b>: <see cref="ReleaseFocus.MaxMissKickMetresPerSecond"/> caps the
+/// kick at 10 mm/s, about 3.5 m of ground over a 345 s flight.</para>
 /// </summary>
 public static class WarheadFootprint
 {
@@ -31,9 +19,7 @@ public static class WarheadFootprint
     /// itself when <paramref name="metres"/> is zero, which is what ships.
     /// </summary>
     /// <remarks>
-    /// A ring rather than a grid, because the tubes are already a ring and the kick that moves a
-    /// warhead off its mouth is the same solve either way — and a ring has no warhead at the centre
-    /// to be indistinguishable from a group that is not spread at all.
+    /// A ring rather than a grid: a ring has no warhead at the centre to be mistaken for an unspread group.
     /// </remarks>
     public static double3 AimFor(double3 aimCci, double3 axisCci, double metres, int index, int count)
     {
@@ -56,10 +42,8 @@ public static class WarheadFootprint
     /// The separation kick a footprint of this radius asks for, against what the cap allows.
     /// </summary>
     /// <remarks>
-    /// A position offset at release lands where a velocity of about <c>offset / T</c> does, so the
-    /// ask grows as the radius and shrinks as the flight lengthens. Worth reporting rather than
-    /// discovering: over the cap the kick is refused and the warhead flies the group's aim, which
-    /// looks from the outside exactly like the setting doing nothing.
+    /// The ask is about <c>offset / T</c>. Over the cap the kick is refused and the warhead flies the
+    /// group's aim, which looks exactly like the setting doing nothing.
     /// </remarks>
     public static bool WithinTheCap(double metres, double flightSeconds)
         => !(metres > 0.0)

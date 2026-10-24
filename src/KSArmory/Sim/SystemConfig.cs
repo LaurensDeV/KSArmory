@@ -5,8 +5,7 @@ namespace KSArmory;
 /// being flown is off limits.
 ///
 /// <para>An interface because a <c>Radar</c> is driven by a weapons system and by an optical
-/// director, and neither should inherit the other's settings to get one. It is also the whole of
-/// what a sensor asks about policy — everything else it reads is on its own profile.</para>
+/// director, and neither should inherit the other's settings to get one.</para>
 /// </summary>
 public interface ISensorPolicy
 {
@@ -15,9 +14,7 @@ public interface ISensorPolicy
     bool ProtectControlledVehicle { get; }
 
     /// <summary>
-    /// The set has been told to stop transmitting, so it sees nothing. A passive sensor — an
-    /// infrared seeker, an optical head — is unaffected and answers false, because it was never
-    /// transmitting to stop.
+    /// The set has been told to stop transmitting, so it sees nothing. A passive sensor answers false.
     /// </summary>
     bool RadarSilent => false;
 }
@@ -25,50 +22,30 @@ public interface ISensorPolicy
 /// <summary>
 /// One system's own settings — what <em>this</em> installation is allowed to do.
 ///
-/// <para>Split from <see cref="Config"/> because these are the only settings that stop making
-/// sense when there is more than one system in the world. Arming a site, telling it to engage
-/// on its own, which side it is on, or driving its turret by hand are decisions about that site;
-/// the roster of team names and what gets drawn are decisions about the session, and stay
-/// shared.</para>
-///
-/// <para>Nothing here says how a weapon *performs*. Range, guidance, fuse and launcher geometry
-/// belong to <see cref="SensorProfile"/>, <see cref="MunitionProfile"/> and
-/// <see cref="LauncherProfile"/>, which vary per weapon system rather than per installation —
-/// two Pantsirs on opposite sides of the map share a flight model and disagree about whether
-/// they engage on their own.</para>
+/// <para>Split from <see cref="Config"/> because two sites in one world can sensibly disagree about
+/// these. How a weapon performs is on its profiles, not here.</para>
 /// </summary>
 public sealed class SystemConfig : ISensorPolicy
 {
-    // ---- Engagement policy ----------------------------------------------
-
     /// <summary>
-    /// Who this system will shoot at. Defaults to engaging anything unrecognised, so a world with
-    /// no teams assigned engages everything.
-    ///
-    /// <para>Per system, because two sites in one world are exactly what taking opposite sides
-    /// means. The team <em>names</em> stay on <see cref="Config.TeamNames"/>.</para>
+    /// Defaults to engaging anything unrecognised, so a world with no teams assigned engages
+    /// everything. The team names stay on <see cref="Config.TeamNames"/>.
     /// </summary>
     public IffPolicy Iff { get; } = new();
 
     /// <summary>
-    /// Never fire on the vehicle the player is flying.
-    ///
-    /// <para>Per system: two sites can sensibly disagree about it, which is the test. Flying into
-    /// one range as a target while another site guards you is the case, and a single switch makes
-    /// that impossible.</para>
+    /// Never fire on the vehicle the player is flying. Per system, so one site can guard the player
+    /// while another treats them as a target.
     /// </summary>
     public bool ProtectControlledVehicle = true;
 
-    // Explicit, so the field above can keep the name. A tick box binds to it by reference, which
-    // a property cannot offer.
+    // A field because a tick box binds to it by reference, which a property cannot offer.
     bool ISensorPolicy.ProtectControlledVehicle => ProtectControlledVehicle;
 
     /// <summary>
     /// Draw the bomb sight: where a store released now would land, and the arc it would take.
     ///
-    /// <para>Per system rather than session-wide, because two aircraft in one world can sensibly
-    /// disagree about wanting one — and it costs BombSight.MaxSteps integration steps, each
-    /// sub-stepped by the round to solve.</para>
+    /// <para>Costs up to <see cref="BombSight.MaxSteps"/> integration steps a solve.</para>
     /// </summary>
     public bool DrawBombSight = true;
 
@@ -76,19 +53,16 @@ public sealed class SystemConfig : ISensorPolicy
     /// Engage on its own: pick what its sensors and IFF allow and fire at it. Off, the weapon fires
     /// only when told.
     ///
-    /// <para>The only switch between a weapon and the world, and off by default. There is no master
-    /// arm in front of the trigger: FIRE is a button pressed on purpose, so a safety there prevents no
-    /// accident and only stops a new player's first shot.</para>
+    /// <para>Off by default, and there is no master arm: FIRE is pressed on purpose, so a safety in
+    /// front of it would prevent no accident.</para>
     /// </summary>
     public bool AutoEngage;
 
     /// <summary>
     /// Ride the main view behind this system's rounds.
     ///
-    /// <para>Per system rather than per session: with several sites alive, whose missiles are
-    /// worth watching is exactly the sort of thing two of them disagree about. There is one main
-    /// view, and the frame hook offers it only to the system the panel is showing, so setting this
-    /// on any other does nothing until that system is focused.</para>
+    /// <para>The frame hook offers the one main view only to the system the panel is showing, so on
+    /// any other this does nothing until it is focused.</para>
     /// </summary>
     public bool ChaseRounds;
 
@@ -112,27 +86,17 @@ public sealed class SystemConfig : ISensorPolicy
     /// <summary>
     /// Point the launcher wherever the mouse is, instead of at what the radar is holding.
     ///
-    /// <para>The drives are rate-limited either way, so this aims *towards* the cursor rather
-    /// than snapping to it. Auto-engage still decides when to shoot; this only decides where the
-    /// launcher looks.</para>
+    /// <para>Auto-engage still decides when to shoot.</para>
     /// </summary>
     public bool MouseAim;
 
     /// <summary>
     /// Click the world to shoot at that spot, with no craft and no track involved.
     ///
-    /// <para>The operator naming a place rather than the radar naming a target. It is the only way
-    /// to engage what the sensor will not hand you — terrain, or anything the threat model rejects
-    /// for being too slow to count. The tick box is the permission: until it is on, a click in the
-    /// world is an ordinary click.</para>
-    ///
-    /// <para>Deliberately not persisted, unlike <see cref="MouseAim"/>. Restoring a tool that only
-    /// <em>points</em> costs nothing; restoring one that fires means the first click after loading
-    /// a save launches a round at whatever the player happened to be looking at.</para>
+    /// <para>Not persisted, unlike <see cref="MouseAim"/>: restored, the first click after loading a
+    /// save would fire at whatever the player was looking at.</para>
     /// </summary>
     public bool MouseFire;
-
-    // ---- Turret ---------------------------------------------------------
 
     /// <summary>
     /// Slew the launcher onto the tracked target. Turning this off parks it facing forward,
@@ -140,7 +104,6 @@ public sealed class SystemConfig : ISensorPolicy
     /// </summary>
     public bool TurretTracking = true;
 
-    /// <summary>Drive the launcher by hand instead of from the radar.</summary>
     public bool TurretManual;
     public float TurretManualBearingDeg;
     public float TurretManualElevationDeg = 55f;
@@ -152,25 +115,13 @@ public sealed class SystemConfig : ISensorPolicy
     public bool SearchRadarStopped;
 
     /// <summary>
-    /// Stop transmitting. A set that is silent cannot be homed on by an anti-radiation round — and
-    /// cannot see anything either, which is the whole of the trade.
-    ///
-    /// <para>It only helps a site that then <em>moves</em>: a round already in the air carries on
-    /// to where the emission last came from. Going quiet buys the time to leave, not immunity.</para>
-    ///
-    /// <para>Per installation rather than session-wide, because two sites on opposite sides of a
-    /// map disagreeing about this is exactly the case — one shuts down while the other keeps
-    /// painting.</para>
+    /// Stop transmitting: not homed on, and blind. A round already in the air carries on to where the
+    /// emission last came from, so it only helps a site that then moves.
     /// </summary>
     public bool RadarSilent;
 
     /// <summary>
-    /// Whether this installation's scope is also open in a window of its own.
-    ///
-    /// <para>The Radar tab always draws it; this is the pop-out, for watching the picture while the
-    /// panel is showing something else. Per installation for the reason the director's map is per
-    /// head — two sites watching different sectors want two scopes, not one that changes under
-    /// them.</para>
+    /// Whether this installation's scope is also open in a window of its own, beside the Radar tab.
     /// </summary>
     public bool ScopeOpen;
 
@@ -179,11 +130,4 @@ public sealed class SystemConfig : ISensorPolicy
     /// reach, and zero for the whole of it. A value off the steps is read as the nearest.
     /// </summary>
     public float ScopeRangeMetres;
-
-    // ---- Optical head ---------------------------------------------------
-    //
-    // Nothing. A head is a part in its own right, with its own OpticConfig: it is crewed per
-    // director rather than per weapons system, it finds its own targets, and a craft can carry one
-    // with no armament at all. A launcher's copy of these would be a second place to set the same
-    // thing, and the one that would do nothing.
 }

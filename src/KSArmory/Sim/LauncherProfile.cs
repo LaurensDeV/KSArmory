@@ -80,8 +80,6 @@ public sealed class LauncherProfile
     /// </summary>
     public bool FiresBeam { get; init; }
 
-    // ---- Subparts the mod animates. Null means this system has no such piece. ----
-
     /// <summary>Traverses in azimuth. Null for a launcher that cannot train.</summary>
     public string? TurretMarker { get; init; }
 
@@ -131,8 +129,6 @@ public sealed class LauncherProfile
     /// for why that direction of dependency is the one that generalises.</para>
     /// </summary>
     public string? OpticBaseMarker { get; init; }
-
-    // ---- Geometry, generated. See the class summary. ----
 
     /// <summary>The length of <see cref="Tubes"/>, and the rounds carried unless <see cref="MagazineDepth"/> says more.</summary>
     public int TubeCount => Tubes.Length;
@@ -203,8 +199,6 @@ public sealed class LauncherProfile
     /// </summary>
     public double TubeRingRadius { get; init; }
 
-    // ---- Drives ---------------------------------------------------------
-
     public float SlewRateDeg = 70f;
     public float ElevationRateDeg = 45f;
     public float SettleSeconds = 0.35f;
@@ -250,8 +244,6 @@ public sealed class LauncherProfile
     /// <summary>True when something has to be aimed before this launcher can shoot.</summary>
     public bool Trains => TurretMarker is not null || PodsMarker is not null;
 
-    // ---- Firing ---------------------------------------------------------
-
     /// <summary>
     /// Rounds carried in total. Zero means one per tube, which is what a missile launcher wants.
     ///
@@ -286,7 +278,7 @@ public sealed class LauncherProfile
 
     /// <summary>
     /// m/s an ejector pushes the round out of the mounting face (+X), in place of the munition's
-    /// LaunchSpeed along the tube. Zero is a round that slides off its rail as before.
+    /// LaunchSpeed along the tube. Zero leaves the round to slide off its rail.
     /// </summary>
     public float EjectSpeed;
 
@@ -316,8 +308,6 @@ public sealed class LauncherProfile
 
     /// <summary>Standoff used when no launcher part is fitted at all (m).</summary>
     public float MuzzleOffset = 8f;
-
-    // ---- Cannon ---------------------------------------------------------
 
     /// <summary>
     /// Registry key of the round the cannon fire, or null for a launcher with none.
@@ -420,17 +410,13 @@ public sealed class LauncherProfile
     /// <summary>The particle emitter at the muzzles while the guns fire, by <c>ModLibrary</c> Id. Null is KSArmory's.</summary>
     public string? MuzzleFlashEffect { get; init; }
 
-    /// <summary>Seconds between rounds, derived from the cyclic rate.</summary>
     public double GunRoundInterval => GunRoundsPerMinute > 0f ? 60.0 / GunRoundsPerMinute : 0.0;
 
-    /// <summary>True when this launcher carries cannon that can actually shoot.</summary>
     public bool HasCannon => GunMunition is not null && GunMuzzles.Length > 0;
 
-    /// <summary>Turret drive rates in the units the drive wants.</summary>
     public double SlewRateRad => float.DegreesToRadians(SlewRateDeg);
     public double ElevationRateRad => float.DegreesToRadians(ElevationRateDeg);
 
-    /// <summary>Applies this profile's travel limits to a drive.</summary>
     public void ConfigureTurret(Turret turret)
     {
         turret.MinElevationRad = float.DegreesToRadians(MinElevationDeg);

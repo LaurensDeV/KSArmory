@@ -12,7 +12,6 @@ namespace KSArmory;
 /// </summary>
 internal static class BodyReader
 {
-    /// <summary>The root element of a bodies file.</summary>
     public const string Root = "Bodies";
 
     /// <summary>Whether a definitions file is a bodies file rather than a weapon pack.</summary>

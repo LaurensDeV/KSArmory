@@ -15,10 +15,8 @@ internal static class ContactSweep
     /// Whether the round comes within <paramref name="trigger"/> of the body during the step, and
     /// when.
     ///
-    /// <para>Analytic closest approach rather than a distance sampled at the ends, so a fast round
-    /// cannot step clean over a small target. That is what lets a fuse radius go to nearly zero
-    /// and still mean contact: at 1100 m/s a shell crosses 18 m of a frame that is otherwise only
-    /// measured at both ends.</para>
+    /// <para>Analytic closest approach, not the ends of the step: at 1100 m/s a shell crosses 18 m a
+    /// frame, so an endpoint test steps over a small target.</para>
     /// </summary>
     /// <param name="separation">
     /// Body minus round at the start of the step, both at the <em>round's</em> epoch. A world
@@ -41,11 +39,8 @@ internal static class ContactSweep
     /// The same question for a round that has to <em>touch</em> what it hits: the sphere rejects,
     /// and then the hull decides.
     ///
-    /// <para>The two phases are not alternatives. A sphere containing the mesh cannot produce a
-    /// false negative, so running it first costs nothing and rejects almost everything — which
-    /// matters, because the narrow phase walks triangles. It is also what stops a round at 1100
-    /// m/s tunnelling, and the hull test inherits that: it is only ever asked about a step the
-    /// round could plausibly have met something on.</para>
+    /// <para>A sphere containing the mesh cannot produce a false negative, so it rejects first and the
+    /// triangle walk is only asked about a step that could have met something.</para>
     /// </summary>
     /// <param name="hull">Null when nothing can answer, which leaves the sphere's verdict standing.</param>
     /// <param name="body">Opaque handle passed through to the hull test.</param>

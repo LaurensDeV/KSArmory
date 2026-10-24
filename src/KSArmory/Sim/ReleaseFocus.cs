@@ -6,24 +6,15 @@ namespace KSArmory;
 /// The separation velocity that lands a round thrown from one tube where the tubes' mean would land,
 /// and the mean where it was aimed.
 ///
-/// <para>A bus's tubes sit on a ring square to the release line and every round leaves its own
-/// mouth with the same velocity, while every release prediction is of the <em>mean</em> mouth. So
-/// the aim loop lands the mean on the target and the rounds on the ground image of the ring around
-/// it — and the bus's roll is not held, so no fixed per-tube aim can remove that. A velocity at
-/// separation can: a position offset at release lands where a velocity of about
-/// <c>offset / T</c> does, so the opposite kick lands the round on the mean's impact whatever the
-/// roll. Over a whole ring the kicks sum to zero, so the group's centre does not move.
-/// <c>docs/ACCURACY-PLAN.md</c> item 41.</para>
+/// <para>Predictions are of the <em>mean</em> mouth and the bus's roll is not held, so each tube lands
+/// on the ground image of the ring; a kick of about <c>-offset / T</c> cancels it whatever the roll,
+/// and over a ring the kicks sum to zero. <c>docs/ACCURACY-PLAN.md</c> item 41, 3db.</para>
 ///
-/// <para><b>Solved from the conic rather than taken as <c>-offset / T</c></b>, because gravity's
-/// gradient bends both sensitivities by about <c>(nT)²</c>: a few per cent at 340 s and most of the
-/// answer at 1,500. <b>Or flown through the air</b>, <see cref="FlownSensitivity"/>, because the conic
-/// flown for a drag arc's time ends under the ground.</para>
+/// <para>Solved from the conic, or flown through the air, rather than taken as <c>-offset / T</c>:
+/// gravity's gradient bends the answer by about <c>(nT)²</c>, a few per cent at 340 s.</para>
 ///
-/// <para><b>The mean's own miss is what the aim loop leaves</b>, because it stops on its payback rule
-/// while the predicted impact drifts at the holding cost. The same solve cancels it once per round,
-/// after the aim has committed and with nothing reading it back — the hold fed into the loop instead
-/// is chased by it, <c>docs/ACCURACY-PLAN.md</c> 3co.</para>
+/// <para>The mean's own miss is cancelled once per round after the aim commits, with nothing reading it
+/// back; fed into the aim loop instead it is chased (<c>docs/ACCURACY-PLAN.md</c> 3co).</para>
 /// </summary>
 internal static class ReleaseFocus
 {
@@ -36,13 +27,9 @@ internal static class ReleaseFocus
     private const double LeastAuthority = 1e-9;
 
     /// <summary>
-    /// The most the release probe's miss may be given back as a separation velocity, in metres a second.
-    ///
-    /// <para>A separation that could correct metres a second would be a guidance burn nobody pays for.
-    /// A 2 m miss, where the payback rule usually releases, costs 3.2 mm/s downrange and 6.0 across at
-    /// 340 s; this clears both and stays under twice the 6 mm/s of spin a separation already gives back.
-    /// A long correction cycle raises that threshold — one of 23.4 s released 6 m out and would have
-    /// asked about 12.6 mm/s — so the cap refuses that tail, 1 flight in 80 on the shipped arm.</para>
+    /// The most the release probe's miss may be given back as a separation velocity, in m/s, so a separation
+    /// cannot become a burn. A 2 m miss costs 3.2 mm/s downrange and 6.0 across at 340 s; the cap refuses
+    /// about 1 flight in 80 on the shipped arm (<c>docs/ACCURACY-PLAN.md</c> 3dh).
     /// </summary>
     public const double MaxMissKickMetresPerSecond = 0.010;
 
@@ -50,19 +37,15 @@ internal static class ReleaseFocus
     /// The minimum-norm velocity that cancels where <paramref name="offsetCci"/> would put the round
     /// on the ground.
     ///
-    /// <para>"On the ground" is square to the arrival <em>as the ground sees it</em>: a displacement
-    /// along that line is only an earlier or later arrival at the same place, so cancelling the
-    /// other two components cancels the landing to first order — including the spin the planet
-    /// turns through across that difference in time, which an inertial arrival velocity would
-    /// leave in.</para>
+    /// <para>Square to the arrival <em>as the ground sees it</em>: along that line a displacement is only an
+    /// earlier or later arrival, and an inertial arrival velocity would leave the planet's turn in.</para>
     /// </summary>
     /// <param name="positionCci">The state the prediction is flown from — the tubes' mean mouth.</param>
     /// <param name="velocityCci">What every round leaves with before the kick.</param>
     /// <param name="flightSeconds">That state's own flight time, from the prediction that flew it.</param>
     /// <param name="offsetCci">
-    /// Where this tube's mouth sits from the mean. A length in a direction, taken off the part frame
-    /// and turned: a difference of two positions carries 30 m per millisecond of mismatch at the
-    /// ecliptic's speed, and the kick would fire that faithfully into the ground.
+    /// Where this tube's mouth sits from the mean, taken off the part frame and turned, never a difference of
+    /// two positions: that carries 30 m per millisecond of mismatch at the ecliptic's speed.
     /// </param>
     public static bool TryKick(BallisticBody body, double3 positionCci, double3 velocityCci,
                                double flightSeconds, double3 offsetCci, out double3 kickCci)
@@ -81,8 +64,7 @@ internal static class ReleaseFocus
             return false;
         }
 
-        // The offset's own displacement, flown at its own size: one coast, and exact rather than a
-        // column of a matrix it would then be multiplied back through.
+        // Flown at its own size: one coast, exact, rather than a matrix column multiplied back through.
         if (!Kepler.TryCoast(mu, positionCci + offsetCci, velocityCci, flightSeconds,
                              out double3 offsetArrived, out _))
         {
@@ -112,11 +94,8 @@ internal static class ReleaseFocus
     /// <summary>
     /// The minimum-norm velocity that moves a prediction's impact onto its target along the ground.
     ///
-    /// <para><b>Along the ground, and only along it.</b> The miss is taken square to local up at the
-    /// impact, so the height the crossing was found at is kept: a prediction stopping under the
-    /// surface keeps what <see cref="IcbmConfig.PredictionStopsOnTheSurface"/> removes, and the two
-    /// stay separate corrections. A displacement along the ground slides back onto itself along the
-    /// arrival, so cancelling it square to that arrival cancels it on the ground.</para>
+    /// <para>Along the ground only, so the crossing's height stays the separate correction
+    /// <see cref="IcbmConfig.PredictionStopsOnTheSurface"/> makes.</para>
     /// </summary>
     /// <param name="impactCci">
     /// Where the prediction flown from this state comes down, fixed to the ground at this state's
@@ -176,14 +155,11 @@ internal static class ReleaseFocus
     /// The miss from a target to an impact along the ground as it lies: both lifted onto the ground at their
     /// own directions, so the chord between them rises with whatever slope is under it.
     ///
-    /// <para><b>What the kick has to cancel on ground that is not level.</b> The arc is moved square to its
-    /// arrival by the miss's component there, and a crossing slides back along the arrival onto whatever
-    /// surface the miss was measured on. Measured square to local up, a miss over ground falling away
-    /// downrange at <c>g</c> is cancelled wrong by <c>1 − tan γ / (tan γ − g)</c> of itself — a fifth of it at
-    /// 0.1 on a 32° arrival. Measured along the chord, it is cancelled on the ground the round meets.</para>
+    /// <para>Measured square to local up, a miss over ground falling away at gradient <c>g</c> is cancelled wrong
+    /// by <c>1 − tan γ / (tan γ − g)</c> of itself: a fifth at 0.1 on a 32° arrival.</para>
     ///
-    /// <para>False where either lookup gives no ground or the chord rises further than it runs: a lookup that
-    /// fails reads as the mean sphere, which under high ground is kilometres from the other end's answer.</para>
+    /// <para>False where a lookup gives no ground or the chord rises further than it runs: a failed lookup
+    /// reads as the mean sphere, kilometres off under high ground.</para>
     /// </summary>
     /// <param name="groundRadiusAt">The ground's radius under a point fixed to it, as a prediction reads it.</param>
     public static bool TryMissOnTheGround(double3 impactCci, double3 targetCci, Func<double3, double> groundRadiusAt,
@@ -250,10 +226,8 @@ internal static class ReleaseFocus
     /// drag and step, down to a sphere through the ground under the probe's impact.
     /// </summary>
     /// <param name="GroundRadiusMetres">
-    /// A sphere rather than the height field, because every column is two landings a few metres apart and the
-    /// ground's texture across them is not the arc's sensitivity. Cancelled square to the arrival, a landing
-    /// moved on the sphere is cancelled on any ground through the same point; the slope between the probe's
-    /// impact and the target is <see cref="TryMissOnTheGround"/>'s.
+    /// A sphere rather than the height field: each column is two landings metres apart, and the ground's texture
+    /// across them is not the arc's sensitivity. The slope to the target is <see cref="TryMissOnTheGround"/>'s.
     /// </param>
     internal readonly record struct Air(ImpactPredictor.Drag Drag, double StepSeconds, double GroundRadiusMetres,
                                         bool StopOnTheSurface,
@@ -264,26 +238,17 @@ internal static class ReleaseFocus
     /// and how, and one column per axis of release position and of release velocity, each the landing's
     /// displacement per unit, carried to the arrival.
     ///
-    /// <para><b>What a vacuum coast leaves.</b> Coasted for the drag flight's time, the vacuum arc is kilometres
-    /// under the ground, and the coasted solve cancels the ring's image there; what it leaves on the ground goes
-    /// with that depth. Headless at 340 s and 32°: 1.9 km and 0.19% of the image on the Mk 21's constant, 7.8 km
-    /// and 0.80% on its drag from its shape — 2.1 and 8.8 mm of the group's spread, against 3.1 and 8.5 flown.
-    /// Flown through the air, 0.001 mm on both. <c>docs/ACCURACY-PLAN.md</c> 3eq.</para>
+    /// <para>Coasted in vacuum for the drag flight's time the arc ends kilometres under the ground, which left
+    /// 8.8 mm of the Mk 21's spread headless at 340 s; flown, 0.001 mm. <c>docs/ACCURACY-PLAN.md</c> 3eq.</para>
     ///
-    /// <para><b>Seven flights of the predictor, so it is flown once a salvo</b> and carried along the coast to
-    /// each release after it: <see cref="For"/>. Every warhead of a salvo leaves the same arc within a fraction of
-    /// a second, and the same columns taken as they were cost 2.9 mm of the spread per second between the flight
-    /// and the release.</para>
+    /// <para>Seven predictor flights, so flown once a salvo and carried to each release by <see cref="For"/>.</para>
     /// </summary>
     /// <param name="ArrivalSecondsPerMetre">
     /// How much later the round arrives per metre of release position, one component per axis.
     /// </param>
     /// <param name="ArrivalSecondsPerMetrePerSecond">
-    /// The same per metre a second of release velocity. <b>Not recoverable from the landing columns</b>: those
-    /// are two landings on one sphere, so the radial part that decides <em>when</em> the crossing happens is
-    /// projected out of them. The seven flights carry it for nothing —
-    /// <see cref="ImpactPredictor.Impact.Seconds"/> is already in hand — and it is the third row
-    /// <see cref="DivertFootprint.ArrivalClock.Pinned"/> needs.
+    /// The same per m/s of release velocity. Not recoverable from the landing columns, which are landings on one
+    /// sphere; it is the third row <see cref="DivertFootprint.ArrivalClock.Pinned"/> needs.
     /// </param>
     internal sealed record FlownSensitivity(double3 ArrivedCci, double3 ArrivalVelocityCci, double FlightSeconds,
                                             double3 PositionX, double3 PositionY, double3 PositionZ,
@@ -296,13 +261,9 @@ internal static class ReleaseFocus
         private const double PositionStepMetres = 1.0;
 
         /// <summary>
-        /// How far along the coast these columns may be carried to a release, in seconds of its flight time.
+        /// How far along the coast these columns may be carried to a release, in seconds of its flight time:
+        /// 0.004 mm of the spread at 2 s, headless at 340 s. Assumes one coast between the two flight times.
         /// </summary>
-        /// <remarks>
-        /// Carried, they leave 0.004 mm of the spread at 2 s and 0.03 mm at 5, headless at 340 s; a salvo lets
-        /// its six go inside 0.15 s. The carry reads the interval off the two flight times, so it assumes one
-        /// coast between them.
-        /// </remarks>
         public const double ReusableWithinSeconds = 2.0;
 
         /// <summary>
@@ -325,11 +286,8 @@ internal static class ReleaseFocus
         /// <paramref name="flightSeconds"/>: the same arrival, reached from a state <c>τ</c> later.
         /// </summary>
         /// <remarks>
-        /// A change at the later state is the change <c>τ</c> earlier that coasts into it: <c>δr − τ·δv</c> and
-        /// <c>δv − τ·G·δr</c>, with <c>G</c> the gravity gradient, so the position columns lose <c>τ·V·G</c> and
-        /// the velocity columns <c>τ·P</c>. Left out, the second costs 2.9 mm of the spread a second and the first
-        /// 0.33 mm at half a second. The two arrival-clock rows are an output of the same state and carry the same
-        /// way.
+        /// A change <c>τ</c> later is <c>δr − τ·δv</c>, <c>δv − τ·G·δr</c> earlier, so the position columns lose
+        /// <c>τ·V·G</c> and the velocity columns <c>τ·P</c>; uncarried, 2.9 mm of spread per second.
         /// </remarks>
         /// <param name="positionCci">The later release's position, where the gradient is taken.</param>
         public FlownSensitivity For(double mu, double3 positionCci, double flightSeconds)
@@ -442,12 +400,8 @@ internal static class ReleaseFocus
     /// The whole velocity a round is given as it separates: its ring focused on the mean's impact, the
     /// spin it was thrown with given back, the release probe's miss cancelled, any of them, or none.
     ///
-    /// <para>The spin comes back exactly rather than as the least velocity cancelling where it lands,
-    /// so the round leaves on the very state the release prediction flew, whatever the arc, the air or
-    /// the arm the spin was measured on. <c>docs/ACCURACY-PLAN.md</c> items 41 and 42.</para>
-    ///
-    /// <para>The three are summed rather than solved together: each is a first-order displacement of
-    /// the same prediction, so each cancels its own and none moves another's.</para>
+    /// <para>The spin is given back exactly, so the round leaves on the state the prediction flew. The three are
+    /// summed: each is a first-order displacement of the same prediction. <c>docs/ACCURACY-PLAN.md</c> 41, 42.</para>
     /// </summary>
     /// <param name="spinCci">What the round was thrown with at its mouth: <see cref="Slug.SpinVelocityEcl"/>, turned.</param>
     /// <param name="cancelMiss">
@@ -456,8 +410,8 @@ internal static class ReleaseFocus
     /// <paramref name="missStopsAtTheCap"/>.
     /// </param>
     /// <param name="missStopsAtTheCap">
-    /// <see cref="IcbmConfig.MissKickStopsAtTheCap"/>: a miss kick over the cap is given at the cap along the line
-    /// that cancels it, which takes the same share of the miss to first order, rather than refused whole.
+    /// <see cref="IcbmConfig.MissKickStopsAtTheCap"/>: a miss kick over the cap is given at the cap along its own
+    /// line rather than refused whole.
     /// </param>
     /// <param name="throughTheAir">
     /// The ring's image and both solves flown through the air, or null to coast them in vacuum.
@@ -524,13 +478,9 @@ internal static class ReleaseFocus
     /// Where a round lands from where the release prediction lands, for what its own release state adds
     /// to the one predicted: its mouth's offset, and a velocity of its own.
     ///
-    /// <para>The same sensitivities <see cref="TryKick"/> cancels, read forwards, so a flight that
-    /// kicks nothing can still be checked against them: the ring's image is item 41, the spin's
-    /// item 42. <c>docs/ACCURACY-PLAN.md</c> 3db.</para>
-    ///
-    /// <para>The displacement is slid along the arrival <em>as the ground sees it</em> back onto the
-    /// height it arrived at, since a displacement along that line is only an earlier or later arrival
-    /// at the same place. What is left lies in the ground's plane at the arrival.</para>
+    /// <para>The sensitivities <see cref="TryKick"/> cancels, read forwards, so a flight that kicks nothing can
+    /// be checked against them (<c>docs/ACCURACY-PLAN.md</c> 3db). Slid along the arrival as the ground sees it
+    /// back onto the arrival height.</para>
     /// </summary>
     /// <param name="offsetCci">Where the round's mouth sits from the predicted one, as a length in a direction.</param>
     /// <param name="velocityOffsetCci">What the round leaves with beyond the predicted velocity.</param>
@@ -587,9 +537,8 @@ internal static class ReleaseFocus
         return Vec.IsFinite(shiftCci);
     }
 
-    // How far the arrival moves per metre a second of release velocity along each axis, one coast per
-    // axis. Linear on purpose: a solve against millimetres a second wants the slope, not a difference
-    // of two coasts that far apart.
+    // Per m/s of release velocity along each axis. A small step on purpose: a solve against millimetres a
+    // second wants the slope, not a difference of two coasts far apart.
     private static bool TryVelocityColumns(double mu, double3 positionCci, double3 velocityCci,
                                            double flightSeconds, double3 arrived,
                                            out double3 alongX, out double3 alongY, out double3 alongZ)

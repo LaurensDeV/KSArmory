@@ -1,30 +1,21 @@
 namespace KSArmory;
 
 /// <summary>
-/// The optical head's magnification, expressed as the field of view it asks a camera for.
+/// The optical head's magnification, expressed as the field of view it asks a camera for. A factor
+/// on the player's own field, so two players with different fields get the same instrument.
 ///
-/// <para>Magnification rather than a field of view, because a field of view is only meaningful
-/// against whatever the player had set: someone playing at 90° and someone at 50° asking for "20°"
-/// get two different instruments. A factor is the same instrument on both, which is what a
-/// magnification means on a real sight.</para>
-///
-/// <para>The relation is the optical one, not a ratio of angles. Halving an angle does not double
-/// what it magnifies — a 25° field is 2.06× a 50° one, and the error grows without bound as the
-/// field narrows: at what a linear rule would call 16× the true factor is 20.7×.</para>
+/// <para>The relation is optical, <c>tan(fov/2) = tan(base/2) / m</c>, not a ratio of angles: a 25°
+/// field is 2.10× a 50° one, and what a linear rule would call 16× from 50° is 17.1×.</para>
 /// </summary>
 public static class SightZoom
 {
     /// <summary>
-    /// Narrowest field the camera may be asked for (deg).
-    ///
-    /// <para>The engine throws rather than clamping — <c>CreatePerspectiveFieldOfViewReverseZ</c>
-    /// rejects a field of zero or more than half a turn, out of a mod's frame hook — so this is a
-    /// hard limit and not a preference. Just under the YAL-1's 1 mrad (0.057°), the narrowest
-    /// optic fitted, and well clear of the throw.</para>
+    /// Narrowest field (deg). A crash guard: <c>CreatePerspectiveFieldOfViewReverseZ</c> throws for a
+    /// field of zero. Just under the YAL-1's 1 mrad (0.057°), the narrowest optic fitted.
     /// </summary>
     public const double MinFovDeg = 0.05;
 
-    /// <summary>Widest field the camera may be asked for (deg), which is the engine's own ceiling.</summary>
+    /// <summary>Widest field (deg), the ceiling of the engine's own zoom keys.</summary>
     public const double MaxFovDeg = 120.0;
 
     /// <summary>What the camera is assumed to be showing when its own field cannot be read.</summary>
@@ -34,12 +25,7 @@ public static class SightZoom
     /// <summary>The most any optic may be fitted with; each has its own, <c>OpticProfile.MaxMagnification</c>.</summary>
     public const float MaxMagnification = 1024f;
 
-    /// <summary>
-    /// The magnifications the panel and the wheel step through.
-    ///
-    /// <para>Detents rather than a continuous slider: a gunner's sight has fixed optical stops, and
-    /// a factor arrived at by dragging is a number nobody can return to.</para>
-    /// </summary>
+    /// <summary>The magnifications the panel and the wheel step through.</summary>
     public static ReadOnlySpan<float> Detents => [1f, 2f, 4f, 8f, 16f, 32f, 64f, 128f, 256f, 512f, 1024f];
 
     /// <summary>
@@ -60,10 +46,7 @@ public static class SightZoom
         return n;
     }
 
-    /// <summary>
-    /// The field of view (deg) that magnifies <paramref name="baseFovDeg"/> by
-    /// <paramref name="magnification"/>, clamped to what the camera will accept.
-    /// </summary>
+    /// <summary>Clamped to <see cref="MinFovDeg"/>..<see cref="MaxFovDeg"/>.</summary>
     public static double FovDegreesFor(double baseFovDeg, double magnification)
     {
         double half = double.DegreesToRadians(Sane(baseFovDeg)) * 0.5;
@@ -75,9 +58,8 @@ public static class SightZoom
     }
 
     /// <summary>
-    /// What magnification a field of view amounts to against the unzoomed one. The inverse of
-    /// <see cref="FovDegreesFor"/>, for reporting what the camera is actually showing rather than
-    /// what it was asked for — the two differ wherever the clamp bit.
+    /// The inverse of <see cref="FovDegreesFor"/>, for reporting what the camera actually shows, which
+    /// differs from what was asked wherever the clamp bit.
     /// </summary>
     public static double MagnificationFor(double baseFovDeg, double fovDeg)
     {
@@ -89,22 +71,14 @@ public static class SightZoom
         return double.IsFinite(mag) && mag > 0.0 ? mag : 1.0;
     }
 
-    /// <summary>
-    /// The next detent up or down from where the sight currently is.
-    ///
-    /// <para>Answers from the nearest detent rather than from the exact value, so a magnification
-    /// restored from a save or left over from an older detent table still steps sensibly instead of
-    /// sticking at one end.</para>
-    /// </summary>
     public static float Stepped(float magnification, int steps, float max = 16f)
     {
         Span<float> stops = stackalloc float[Detents.Length + 1];
         ReadOnlySpan<float> detents = stops[..StopsFor(max, stops)];
         const float slack = 1e-3f;
 
-        // Counted from the detent the value has already reached in the direction of travel, so a
-        // magnification landing between two — restored from a save, or left over from an older
-        // table — steps to the neighbour ahead of it rather than jumping the one it is inside.
+        // Counted from the detent already reached in the direction of travel, so a value between two
+        // (restored from a save) steps to the neighbour ahead rather than jumping one.
         int from;
         if (steps > 0)
         {
@@ -137,7 +111,7 @@ public static class SightZoom
         return detents[Math.Clamp(from + steps, 0, detents.Length - 1)];
     }
 
-    /// <summary>How wide the field is at a range (m), which is what a scale bar measures.</summary>
+    /// <summary>How wide the field is at a range (m).</summary>
     public static double MetresAcrossAt(double fovDeg, double rangeMetres)
     {
         if (!double.IsFinite(rangeMetres) || rangeMetres <= 0.0) return 0.0;
@@ -145,13 +119,7 @@ public static class SightZoom
         return 2.0 * rangeMetres * Math.Tan(double.DegreesToRadians(Sane(fovDeg)) * 0.5);
     }
 
-    /// <summary>
-    /// How large something of a given size looks, in pixels down the viewport.
-    ///
-    /// <para>Used to size the pipper to what the round actually covers, so the ring encloses what
-    /// the shell reaches rather than being an icon of fixed size. Zero when it cannot be sized —
-    /// the caller then draws its floor.</para>
-    /// </summary>
+    /// <summary>How large something of a given size looks, in pixels down the viewport; zero when it cannot be sized.</summary>
     public static float ApparentPixels(double metres, double rangeMetres, double fovDeg,
                                        float viewportHeightPx)
     {
@@ -172,9 +140,7 @@ public static class SightZoom
             ? MinMagnification
             : (float)Math.Clamp(magnification, MinMagnification, MaxMagnification);
 
-    // A field the camera could not have been showing is replaced rather than propagated: every
-    // number here is a ratio against it, so one bad read would otherwise put the sight at a
-    // magnification nothing on screen agrees with.
+    // Every number here is a ratio against the field, so one bad read is replaced rather than propagated.
     private static double Sane(double fovDeg)
         => double.IsFinite(fovDeg) && fovDeg > 0.0 && fovDeg < 180.0 ? fovDeg : DefaultFovDeg;
 }

@@ -3,11 +3,9 @@ namespace KSArmory;
 /// <summary>
 /// Which of KSA's own explosions a warhead goes off as, and with how much energy.
 ///
-/// <para><b>The size is the preset, not the energy.</b> KSA sizes an explosion by the cube root of
-/// its energy over <see cref="KsaReferenceJoules"/>, floored at <see cref="KsaFloorIntensity"/>, and
-/// every conventional warhead this mod carries sits under that floor — so handed its energy alone,
-/// a 20 mm shell and an anti-radiation missile would go off the same size. The energy still matters
-/// above the floor, which is where a nuclear charge grows the conflagration.</para>
+/// <para>The preset carries the size: KSA sizes by the cube root of energy over
+/// <see cref="KsaReferenceJoules"/>, floored at <see cref="KsaFloorIntensity"/>, and every
+/// conventional warhead here sits under that floor. Only a nuclear charge grows past it.</para>
 /// </summary>
 public static class WarheadExplosion
 {
@@ -28,8 +26,7 @@ public static class WarheadExplosion
 
     /// <summary>
     /// This mod's own, for a charge that grows a mushroom cloud: Core's conflagration without its
-    /// smoke volume, because <see cref="MushroomCloud"/> is already drawing that air at a thousand
-    /// times the size and Core's is a pale blue lump under it.
+    /// smoke volume, which would sit as a pale blue lump under the mod's cloud.
     /// </summary>
     public const string NuclearBurst = "KSArmoryNuclearBurst";
 
@@ -61,8 +58,7 @@ public static class WarheadExplosion
         if (fireball < smallFire * 0.5) return Pop;
         if (fireball < Math.Sqrt(smallFire * conflagration)) return SmallFire;
 
-        // Above the threshold this mod draws the smoke itself, so the preset that carries Core's is
-        // the wrong one however well it fits the fireball.
+        // Above the threshold this mod draws the smoke itself.
         return chargeKg >= MushroomCloud.ThresholdKg ? NuclearBurst : Conflagration;
     }
 

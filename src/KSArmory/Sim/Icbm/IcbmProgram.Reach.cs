@@ -4,10 +4,8 @@ namespace KSArmory;
 
 internal sealed partial class IcbmProgram
 {
-    // What the operator may ask for, refreshed rarely. The stack's whole delta-v where the engine
-    // reports it, because that is the figure that accounts for throwing dry mass away -- the running
-    // stage's alone understates a staged rocket badly enough to cap the control at a few degrees on
-    // a vehicle that could fly thirty.
+    // What the operator may ask for, refreshed rarely, on the whole stack's delta-v where the engine reports it
+    // (IcbmState.StackDeltaV): the running stage's alone caps the control at a few degrees on a stack that could fly thirty.
     private void RefreshArrivalBudget(in IcbmState state)
     {
         if (_sinceArrivalBudget < ArrivalBudgetIntervalSeconds) return;
@@ -28,11 +26,8 @@ internal sealed partial class IcbmProgram
     // own number alone, which is what ships; above zero the floor is that fraction of what the tanks
     // can pay for, and never below what was asked for outright.
     //
-    // A budget of zero is not an angle. It is ArrivalBudget saying no arc at all is affordable from
-    // here, which is the ordinary state of a vehicle on the pad with the whole burn still to fly --
-    // so latching a fraction of it pins the floor at zero for the flight and the preference never
-    // applies. Flown: three of four rockets latched 0.0 off the pad and arrived wherever the
-    // unfloored arc took them.
+    // A budget of zero is not an angle: it is no arc affordable from here, the ordinary state on the
+    // pad, and latching a fraction of it would pin the floor at zero for the flight.
     private void LatchArrivalFloor()
     {
         if (double.IsFinite(ArrivalFloorDeg)) return;
@@ -57,13 +52,8 @@ internal sealed partial class IcbmProgram
                                    ? ArrivalFloorDeg
                                    : Config.MinArrivalAngleDeg;
 
-    // Whether the tanks can pay for the shot the solver found.
-    //
-    // Prefers the engine's own per-stage total, which is the only figure that accounts for staging
-    // throwing dry mass away. Falling back to the running stage's exhaust velocity over the whole
-    // vehicle's propellant understates a staged rocket badly -- enough to call an ordinary ICBM
-    // unreachable while it sits on the pad with the range to spare. Understating is at least the
-    // right way round to be wrong, which is why it remains the fallback.
+    // Whether the tanks can pay for the shot the solver found, on IcbmState.StackDeltaV where there is one.
+    // The fallback understates a staged rocket, which is the right way round to be wrong.
     private void AssessReach(in IcbmState state, double required)
     {
         bool wholeStack = state.StackDeltaV > 0.0 && double.IsFinite(state.StackDeltaV);

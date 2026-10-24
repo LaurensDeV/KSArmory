@@ -154,11 +154,8 @@ internal sealed partial class IcbmProgram
         }
         else
         {
-            // Steering is frozen, so thrust is no longer parallel to what is left to gain, and the
-            // solver's countdown - the time to gain the whole *length* of it - overshoots. Only the
-            // component along the line actually being thrust can still be removed; burning past it
-            // grows the residual again, which is what the backstop was catching a whole metre a
-            // second late.
+            // Steering is frozen, so only the component along the line being thrust can still be
+            // removed; counting down the whole length overshoots and grows the residual again.
             double along = Vec.Dot(command.ToGainVectorCci, _thrustDirCci);
             double seconds = state.Booster.SecondsToGain(Math.Max(along, 0.0));
             _countdown = double.IsFinite(seconds) ? seconds : 0.0;
@@ -171,28 +168,11 @@ internal sealed partial class IcbmProgram
                                                    state.Body.GroundVelocityCci(state.PositionCci));
         }
 
-        // Once closed-loop guidance has the vehicle, the arrival is nailed down: when the aim has
-        // stopped moving, or once the window runs out. Before that the cheapest shot is the right
-        // thing to follow, because the state is changing far too much for any arrival time chosen
-        // on the pad to still be the cheapest one.
-        //
-        // Both loops are solving the same shot. Latching the arrival first makes the aim correction
-        // solve against a pinned parameter: moving the aim then forces a different trajectory to
-        // arrive at the same *instant*, which on a shallow arrival moves the impact several times
-        // further than the aim moved and puts the correction above its stability limit. Left free,
-        // the arc simply follows the aim and the same loop converges in a handful of cycles.
-        //
-        // Bounded, because the reason for latching at all is real: the cheapest arc from the
-        // vehicle's current state converges on the arc it is already flying, so a loft above one
-        // walks the answer outward every cycle and the shot chases a trajectory running away from
-        // it — 162 km, measured. The window is what stops that being unbounded.
-        // A short shot pins it the moment the loop has it. Left free, the cheapest arc from a point on
-        // a lofted one is a lower one, so the velocity to gain swings round to point backwards and down
-        // -- flown at 200 km, through a pause that coasted out of the air, into a relight a hundred
-        // degrees off that burned the core dry turning.
-        // Re-pinned every solve while the solids are matched, so the stage after them finishes the arc they
-        // were steered onto: left free at burnout, the cheapest arc from a lofted one swung what was left
-        // from 30 m/s along the nose to 6 m/s 75 deg off it.
+        // The closed loop latches the arrival (LatchMayCommit); docs/ICBM-GUIDANCE.md, "Flight time is the parameter".
+        // It waits for a steady aim because a pinned arrival on a shallow arc moves the impact several times further
+        // than the aim, which puts the aim correction past its stability limit; the window bounds the wait. A short
+        // shot pins at once: left free, the cheapest arc from a lofted one is lower and the velocity to gain swings
+        // backwards. Re-pinned every solve while the solids are matched, so the next stage finishes their arc.
         if (Config.SolidsLeaveMetresPerSecond > 0.0 && _absorbing && _unavoidable > 0.0
             && double.IsFinite(command.CarrySeconds))
         {
@@ -207,10 +187,8 @@ internal sealed partial class IcbmProgram
         }
         else if (double.IsFinite(_arrivalFromLaunch) && !command.HeldTheArrival)
         {
-            // The arrival that was latched turned out not to be solvable — a pinned transfer angle
-            // can walk onto the one geometry Lambert cannot answer. Give it up rather than asking
-            // for it again every cycle and taking the fallback every time; following the cheapest
-            // arc is what this did before commitment and it works.
+            // A pinned transfer angle can walk onto the one geometry Lambert cannot answer: give the
+            // arrival up and follow the cheapest arc, rather than taking the fallback every cycle.
             _arrivalFromLaunch = double.NaN;
         }
     }

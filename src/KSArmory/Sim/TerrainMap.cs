@@ -18,10 +18,7 @@ public readonly record struct MapFrame(double3 Centre, double3 Up, double3 East,
     /// where the rotation axis and local up are the same line and no bearing is defined.
     /// </summary>
     /// <remarks>
-    /// East is <c>axis × up</c> and north is <c>up × east</c>, which makes the triad right-handed
-    /// and puts north towards the axis. Both are only defined away from the poles, and a map that
-    /// silently picked an arbitrary perpendicular there would be a compass rose pointing at
-    /// nothing.
+    /// East is <c>axis × up</c> and north <c>up × east</c>: right-handed, north towards the axis.
     /// </remarks>
     public static MapFrame? TryAt(double3 centreEcl, double3 anchorEcl, double3 axisEcl)
     {
@@ -41,9 +38,8 @@ public readonly record struct MapFrame(double3 Centre, double3 Up, double3 East,
 
     /// <summary>Where a world point sits in this frame: metres east, north and up.</summary>
     /// <remarks>
-    /// A difference against the anchor rather than a coordinate, which is what keeps it usable:
-    /// both terms are sampled in the same frame this frame was built in, so the ecliptic motion
-    /// they share subtracts out. See <c>docs/FRAMES-AND-EPOCHS.md</c>.
+    /// A difference against the anchor, so the ecliptic motion both share subtracts out, provided
+    /// both are from one sample. <c>docs/FRAMES-AND-EPOCHS.md</c>.
     /// </remarks>
     public double3 ToLocal(double3 positionEcl)
     {
@@ -57,9 +53,7 @@ public readonly record struct MapFrame(double3 Centre, double3 Up, double3 East,
     /// subtracted.
     /// </summary>
     /// <remarks>
-    /// Separate from <see cref="ToLocal"/> and not a convenience. That one differences against the
-    /// anchor, which is right for a position and wrong for a velocity — a velocity displaced by
-    /// the anchor is not a velocity, it is a point some 6371 km away.
+    /// Not <see cref="ToLocal"/>, which subtracts the anchor: right for a position, wrong for a velocity.
     /// </remarks>
     public double3 ToLocalDirection(double3 directionEcl)
         => new(Vec.Dot(directionEcl, East), Vec.Dot(directionEcl, North), Vec.Dot(directionEcl, Up));
@@ -75,11 +69,8 @@ public readonly record struct MapFrame(double3 Centre, double3 Up, double3 East,
 /// <summary>
 /// A square of terrain around a point, as heights and as something to draw.
 ///
-/// <para>Geometry only: sampling costs a height-field lookup per cell and belongs to the caller,
-/// which is also what decides how often to pay it. A 2 km square at 64 cells is 4096 lookups, and
-/// <see cref="SensorProfile.TerrainSamples"/> defaults to zero precisely because that per-frame
-/// cost has never been measured — so a map caches its grid and re-samples on movement rather than
-/// every frame.</para>
+/// <para>Geometry only: sampling, a height-field lookup per cell, is the caller's, which caches the
+/// grid and re-samples on movement rather than every frame.</para>
 /// </summary>
 public static class TerrainMap
 {
@@ -97,9 +88,7 @@ public static class TerrainMap
     /// <paramref name="by"/> zooms <b>in</b>.
     /// </summary>
     /// <remarks>
-    /// Stated in zoom rather than in span because those run opposite ways — zooming in makes the
-    /// square <em>smaller</em> — and a caller wiring a "+" button to a step of the span gets a
-    /// control that works backwards. Putting the sign here keeps it in one tested place.
+    /// In zoom rather than span, which run opposite ways, so the sign lives in one tested place.
     /// </remarks>
     public static float Zoom(float span, int by)
     {
@@ -154,23 +143,19 @@ public static class TerrainMap
     /// Relief shading for one cell, from its neighbours' heights: 0 is fully shadowed and 1 fully
     /// lit.
     ///
-    /// <para>A grid of raw heights read as grey is nearly unreadable — a 40 m rise across two
-    /// kilometres is a couple of shades. Shading the <em>gradient</em> is what makes a valley look
-    /// like a valley, and it costs no extra samples because the neighbours are already there.</para>
+    /// <para>The gradient, not the height: a 40 m rise across two kilometres is a couple of grey shades.</para>
     /// </summary>
     public static double Relief(double west, double east, double south, double north, double metresPerCell)
     {
         if (!(metresPerCell > 0.0)) return 0.5;
 
-        // The surface normal in local terms, with the height differences over twice the spacing.
         double dzde = (east - west) / (2.0 * metresPerCell);
         double dzdn = (north - south) / (2.0 * metresPerCell);
 
         double3 up = Vec.Unit(new double3(-dzde, -dzdn, 1.0));
         if (Vec.Len2(up) < 0.5) return 0.5;
 
-        // Light from the north-west and well up, which is the convention every relief map uses:
-        // lit from below reads as terrain turned inside out.
+        // From the north-west, the relief-map convention: lit from below reads as inverted terrain.
         double3 light = Vec.Unit(new double3(-0.5, 0.5, 0.7));
 
         return Math.Clamp((Vec.Dot(up, light) + 0.15) / 1.15, 0.0, 1.0);
@@ -182,10 +167,8 @@ public static class TerrainMap
     /// report and the arrow would spin on the spot.
     /// </summary>
     /// <remarks>
-    /// Takes a velocity already in the map's frame — east, north, up — so what is fed in decides
-    /// what comes out. A craft's <em>ecliptic</em> velocity is 29.8 km/s of the planet's own
-    /// motion and points every craft in the system the same way; the useful one is its velocity
-    /// relative to the ground, which is the same distinction a round's airspeed obeys.
+    /// Feed it the velocity relative to the ground: an ecliptic one carries 29.8 km/s of the planet's
+    /// motion and points every craft the same way.
     /// </remarks>
     public static double? HeadingDeg(double3 localVelocity, double still = 0.5)
     {
@@ -204,10 +187,6 @@ public static class TerrainMap
     public static double GroundSpeed(double3 localVelocity)
         => Math.Sqrt(localVelocity.X * localVelocity.X + localVelocity.Y * localVelocity.Y);
 
-    /// <summary>
-    /// How far the anchor may drift before a cached grid is stale (m). A tenth of the span: the
-    /// map is a picture of the ground rather than of the aircraft, so it need not follow every
-    /// metre, and re-sampling on every frame is the cost this exists to avoid.
-    /// </summary>
+    /// <summary>How far the anchor may drift before a cached grid is stale (m): a tenth of the span.</summary>
     public static double RefreshDistance(double span) => Math.Max(10.0, span * 0.1);
 }

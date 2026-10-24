@@ -3,16 +3,10 @@ namespace KSArmory;
 /// <summary>
 /// Hands out a simulation step once and only once.
 ///
-/// <para>The engine reports "the last step applied", not "a step since you last asked", so asking
-/// twice without it having stepped returns the same step. Integrating one twice adds motion the
-/// world never made, and because it lands in an integrated quantity the error compounds rather
-/// than staying fixed.</para>
+/// <para>The engine reports the last step applied, so asking twice without a step between returns
+/// the same one. Deduplicated on the step's end time, so the value is still the engine's own step.</para>
 ///
-/// <para>Deduplicated on the step's own end time rather than by differencing a clock, so the value
-/// returned is still the step the engine applied and cannot be a phase out from the world.</para>
-///
-/// <para>Generic over the timestamp so it can be tested without KSA's <c>UniverseTime</c>. Equality
-/// is the only thing it needs from one.</para>
+/// <para>Generic over the timestamp so it can be tested without KSA's <c>UniverseTime</c>.</para>
 /// </summary>
 public sealed class StepGate<T> where T : struct, IEquatable<T>
 {
@@ -39,23 +33,14 @@ public sealed class StepGate<T> where T : struct, IEquatable<T>
     /// <summary>
     /// As <see cref="Consume(T, double)"/>, but closing any gap the caller was not running across.
     ///
-    /// <para><paramref name="spanSeconds"/> measures from the step last integrated through to
-    /// <paramref name="nextTime"/>. Normally that is the step itself and the answer is unchanged.
-    /// When the caller misses a frame entirely the engine reports only the <em>last</em> step, so
-    /// <paramref name="delta"/> alone leaves the skipped one unintegrated — and the world advanced
-    /// across it regardless. The whole deficit lands in the drawn offset, at 29.8 km/s of ecliptic
-    /// motion: one missed 22 ms frame is 656 m, measured in flight.</para>
+    /// <para><paramref name="spanSeconds"/> runs from the step last integrated through to
+    /// <paramref name="nextTime"/>. When the caller misses a frame the engine reports only the last
+    /// step, so <paramref name="delta"/> alone loses the skipped one: 656 m for a missed 22 ms frame
+    /// at 29.8 km/s, measured in flight.</para>
     ///
-    /// <para>Still the engine's own step boundaries rather than a clock measured around the
-    /// caller, so it cannot be a phase out from the world. A span too long to integrate is not
-    /// this type's problem — see <see cref="SimClock"/>.</para>
-    ///
-    /// <para><b>The span is also what the planets are placed on, so it wins within rounding.</b>
-    /// KSA advances its clock by the step rounded to whole nanoseconds and evaluates every celestial
-    /// there, while <paramref name="delta"/> is the step before rounding. Taking whichever is longer
-    /// runs a round 0.125 ns a frame ahead of the ground at any warp whose step is not a whole
-    /// nanosecond — 3.7 µm a frame at 29.8 km/s, and ~20 mm of miss over a warped coast
-    /// (<c>docs/ACCURACY-PLAN.md</c> 3el).</para>
+    /// <para><b>The span wins within rounding</b>, because KSA places the planets on its clock rounded
+    /// to whole nanoseconds while <paramref name="delta"/> is unrounded; taking the longer ran a round
+    /// 0.125 ns a frame ahead of the ground, ~20 mm over a warped coast (<c>docs/ACCURACY-PLAN.md</c> 3el).</para>
     /// </summary>
     public double Consume(T nextTime, double delta, Func<T, T, double>? spanSeconds)
     {
@@ -83,6 +68,5 @@ public sealed class StepGate<T> where T : struct, IEquatable<T>
     /// </summary>
     public void Reset() => _hasIntegrated = false;
 
-    /// <summary>True once a step has been consumed and not reset.</summary>
     public bool HasIntegrated => _hasIntegrated;
 }

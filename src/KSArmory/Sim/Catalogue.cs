@@ -187,11 +187,8 @@ public static class Catalogue
         return result;
     }
 
-    // The key this launcher names that somebody else got to first, or null when it is whole.
-    //
-    // Checking that the name *resolves* is not enough and is the dangerous version: a refused
-    // round leaves the name in the catalogue carrying somebody else's profile, so the launcher
-    // loads, flies, and throws a weapon its author never shipped.
+    // The key this launcher names that somebody else got to first, or null when it is whole. Not
+    // "does the name resolve": a refused round's name resolves to somebody else's profile.
     private static string? Taken(LauncherProfile launcher, HashSet<string> refused)
     {
         if (refused.Contains(launcher.Munition)) return launcher.Munition;
@@ -327,10 +324,8 @@ public static class Catalogue
     /// <summary>
     /// The named round, or null when nothing carries that name.
     ///
-    /// <para>What <see cref="MunitionNamed"/> cannot say. That one answers the first registered
-    /// round rather than nothing, which keeps a typo in a shipped profile playable and is
-    /// indistinguishable from a hit — so anything deciding whether a name is <em>good</em>, rather
-    /// than merely wanting a round to fly, has to ask this instead.</para>
+    /// <para><see cref="MunitionNamed"/> falls back to the first registered round, so anything judging
+    /// whether a name is good asks this instead.</para>
     /// </summary>
     public static MunitionProfile? TryMunitionNamed(string name) => Find(_munitions, name, m => m.Name);
 
@@ -358,9 +353,8 @@ public static class Catalogue
     /// <summary>
     /// The same lookup against an explicit registry.
     ///
-    /// <para>Exists so the selection logic can be tested against a registry of any size. With one
-    /// entry every registry assertion is trivially satisfied and cannot distinguish "picks the
-    /// right one" from "picks the only one".</para>
+    /// <para>So the selection can be tested against more than one entry, where "picks the right one" and
+    /// "picks the only one" differ.</para>
     /// </summary>
     internal static LauncherProfile? LauncherForPart(IReadOnlyList<LauncherProfile> from, string? partId)
     {
@@ -376,9 +370,8 @@ public static class Catalogue
     /// <summary>
     /// The round and sensor a launcher names, resolved together against explicit registries.
     ///
-    /// <para>Together because a launcher left holding another system's round is a wrong-weapon
-    /// bug with nothing on screen to show for it. Every caller that adopts a launcher takes all
-    /// three, and this is the one place that pairing is made.</para>
+    /// <para>The one place the pairing is made, since a launcher holding another system's round shows
+    /// nothing on screen.</para>
     /// </summary>
     internal static (MunitionProfile Munition, SensorProfile Sensor) LoadoutFor(
         LauncherProfile launcher,
@@ -388,13 +381,8 @@ public static class Catalogue
             Named(sensors, launcher.Sensor, s => s.Name));
 
     /// <summary>
-    /// First entry whose key matches, or the first entry as a fallback. Internal rather than
-    /// private so the fallback can be tested against a registry with more than one candidate,
-    /// where "matched" and "fell back to element zero" are actually distinguishable.
-    ///
-    /// <para>The fallback keeps a typo in a shipped profile playable and cannot report one.
-    /// <see cref="Catalogue.TryMunitionNamed"/> is the form that can, and is what anything
-    /// judging a name rather than flying a round asks.</para>
+    /// First entry whose key matches, or the first entry as a fallback, which keeps a typo in a shipped
+    /// profile playable and cannot report one; <see cref="Catalogue.TryMunitionNamed"/> can.
     /// </summary>
     internal static T Named<T>(IReadOnlyList<T> from, string name, Func<T, string> key)
     {

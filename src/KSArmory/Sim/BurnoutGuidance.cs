@@ -6,30 +6,18 @@ namespace KSArmory;
 /// Where to point and when to stop, so that what happens after the engines quit arrives on the
 /// target. The closed-loop half of the ICBM computer.
 ///
-/// <para>Velocity-to-be-gained guidance, which is what a ballistic missile has always used. The
-/// loop asks <see cref="BallisticArc"/> what velocity would put a free fall on the target from
-/// where the vehicle will be at cutoff, subtracts what it will have by then, and thrusts along the
-/// difference until there is none left.</para>
-///
-/// <para><b>The property that makes it robust is terminal, not gradual.</b> Because the required
-/// velocity is re-solved against the vehicle's <em>actual</em> state every cycle, the shot is
-/// exact at the instant the difference reaches zero, whatever happened on the way there — a
-/// staging transient, a wrong pitch program, an engine that underperforms, air drag nobody
-/// modelled. None of it accumulates, because none of it is remembered. What a bad path costs is
-/// propellant, not accuracy.</para>
-///
-/// <para>That is also why there is no separate launch solver and no stored trajectory: the same
-/// call answers on the pad and one second before cutoff, and the answer on the pad is only a plan
-/// in the sense that it is the first of several thousand.</para>
+/// <para>Velocity-to-be-gained: <see cref="BallisticArc"/> gives the velocity that puts a free fall on the
+/// target from the predicted cutoff, and the stack thrusts along what it still lacks. Re-solved against
+/// the actual state every cycle, so a bad path costs propellant, not accuracy, and there is no stored
+/// trajectory (<c>docs/ICBM-GUIDANCE.md</c>, "The algorithm").</para>
 /// </summary>
 internal static class BurnoutGuidance
 {
     /// <summary>
     /// How many times the cutoff state is re-predicted per cycle.
     ///
-    /// <para>The prediction needs the burn time, which needs the velocity to gain, which needs the
-    /// prediction. Three passes settle it to well under a metre per second from a standing start;
-    /// in flight the previous cycle's answer is the seed and one would do.</para>
+    /// <para>The prediction needs the burn time, which needs the prediction: three passes settle it from
+    /// a standing start, and in flight the previous cycle's answer seeds it.</para>
     /// </summary>
     public const int RefinementPasses = 3;
 
@@ -40,10 +28,8 @@ internal static class BurnoutGuidance
     /// <param name="ToGainVectorCci">
     /// Velocity still to gain, as a vector.
     ///
-    /// <para>Its <em>length</em> is what the burn is trying to zero, but its direction is what
-    /// decides what a residual costs: on a deorbit, a metre a second left along the track is 1.8 km
-    /// of miss and the same metre left radially is 3.4 km. A caller holding only the length cannot
-    /// tell those apart, and cannot tell whether burning on would still help.</para>
+    /// <para>The direction decides what a residual costs: on a deorbit a metre a second along the track
+    /// is 1.8 km of miss and radially 3.4 km.</para>
     /// </param>
     internal readonly record struct Command(
         double3 ThrustDirectionCci,
@@ -55,37 +41,27 @@ internal static class BurnoutGuidance
         bool HeldTheArrival,
         double CarrySeconds = double.NaN)
     {
-        /// <summary>The burn is done. Anything further is spending propellant on making it worse.</summary>
+        /// <summary>The burn is done; anything further makes it worse.</summary>
         public bool AtCutoff => VelocityToGain <= CutoffMetresPerSecond;
     }
 
     /// <param name="aimNowCci">Where the target is at this instant, before any carry.</param>
     /// <param name="cutoffSeed">
-    /// Last cycle's time to cutoff. Only a starting point for the refinement — a wrong one costs an
-    /// iteration, never an answer.
+    /// Last cycle's time to cutoff, a seed: a wrong one costs an iteration, never an answer.
     /// </param>
     /// <param name="flightSeed">Last cycle's flight time, which keeps the trajectory search local.</param>
     /// <param name="arrivalFromNowSeconds">
-    /// Hold the arrival to this many seconds from now, rather than re-choosing the cheapest one
-    /// every cycle. Once a shot is committed this is what stops it chasing its own trajectory: the
-    /// cheapest arc from the vehicle's <em>current</em> state converges on whatever the vehicle is
-    /// already doing, so multiplying that by a loft factor pushes the answer further out every
-    /// cycle and the shot runs away. Pass NaN before commitment, when following the cheapest is
-    /// exactly right.
+    /// Hold the arrival to this many seconds from now. Once committed, re-choosing the cheapest arc times a
+    /// loft every cycle pushes the answer out and the shot runs away. NaN before commitment.
     /// </param>
     /// <param name="minArrivalDeg">
     /// The shallowest arrival the shot may have. Zero is off, and then a committed arrival is held
     /// whatever it arrives at — which is the whole of the default path.
     ///
-    /// <para><b>Pinning the arrival instant does not pin the arrival angle.</b> The burn time and
-    /// the flight time trade against each other inside it, the cheaper split is the longer coast,
-    /// and a longer coast onto the same target is a shallower arrival — so a held arrival walks
-    /// straight out of the bound the search was constrained by. Measured at 3,459 km: a 10 degree
-    /// floor flown at 9.21, a 15 at 11.42, a 20 at 15.51.</para>
-    ///
-    /// <para>Refusing the held arc hands the cycle to the constrained search, which re-commits to an
-    /// arrival that satisfies the bound. Safe where re-checking a <em>loft</em> would not be: a
-    /// predicate is idempotent and a multiplier is not.</para>
+    /// <para><b>Pinning the arrival instant does not pin the arrival angle</b>: the cheaper split inside it
+    /// is the longer coast, a shallower arrival (a 20 degree floor flew at 15.51, at 3,459 km). So a held
+    /// arc under the floor is refused and the constrained search re-commits; a predicate is idempotent
+    /// where a loft multiplier is not.</para>
     /// </param>
     public static bool TrySteer(BallisticBody body, double3 positionCci, double3 velocityCci,
                                 double3 aimNowCci, BoosterPerformance booster,
@@ -115,10 +91,7 @@ internal static class BurnoutGuidance
 
         for (int pass = 0; pass < RefinementPasses; pass++)
         {
-            // Gravity is held at its value here rather than integrated. Over a burn of a couple of
-            // minutes on an arc that never doubles its radius that is a small error, and it is one
-            // the next cycle sees and removes; integrating it would be a second flight model to
-            // keep in step with the first.
+            // Gravity held constant over the burn: a small error the next cycle removes.
             double3 gravity = body.GravityCci(positionCci);
 
             cutoffPosition = positionCci
@@ -126,13 +99,9 @@ internal static class BurnoutGuidance
                            + gravity * (0.5 * timeToCutoff * timeToCutoff)
                            + thrustDir * booster.ThrustDisplacement(timeToCutoff);
 
-            // The first pass extrapolates from a standing start along whatever direction happened
-            // to be seeded, holding gravity constant over the whole burn — so for a shot whose
-            // required velocity is nearly horizontal it puts the predicted cutoff tens of
-            // kilometres underground. No arc departs from inside the planet, so the solve then
-            // fails and the shot is refused as unreachable when it is nothing of the kind. Lifting
-            // the prediction back to the surface costs the converged answer nothing, because by the
-            // last pass it is nowhere near the ground.
+            // A first pass along the seeded direction can predict a cutoff tens of kilometres
+            // underground, from which no arc departs; lifting it to the surface costs the converged
+            // answer nothing.
             double cutoffRadius = cutoffPosition.Length();
             if (cutoffRadius > 1.0 && cutoffRadius < body.SurfaceRadius)
             {
@@ -141,11 +110,8 @@ internal static class BurnoutGuidance
 
             double3 velocityAtCutoffUnpowered = velocityCci + gravity * timeToCutoff;
 
-            // The arc departs at cutoff, not now, so the target has to be carried to the cutoff
-            // instant before it is handed over. Without this the whole solve is out by the planet's
-            // turn during the remaining burn - forty-odd kilometres a hundred seconds before
-            // cutoff. The loop converges anyway, because the term goes to zero as the burn ends,
-            // which is exactly why it is easy to leave in and never see.
+            // The arc departs at cutoff, so the target is carried to that instant: forty-odd km a
+            // hundred seconds out, and invisible because it goes to zero as the burn ends.
             double3 aimAtCutoff = body.CarryCci(aimNowCci, timeToCutoff);
             carried = timeToCutoff;
 
@@ -163,12 +129,8 @@ internal static class BurnoutGuidance
                 heldTheArrival = solvedArc;
             }
 
-            // Falling back rather than failing, and this is the important half. A fixed arrival
-            // pins the transfer angle, and a pinned angle can land on the one geometry Lambert
-            // cannot answer: two points opposite each other about the centre, where no plane is
-            // determined. Returning false there leaves the caller holding the previous cycle's
-            // answer — which is to say flying the burn open loop, with the velocity still to gain
-            // frozen at whatever it was when the trouble started.
+            // Fall back rather than fail: a pinned arrival can land on the antipodal geometry Lambert
+            // cannot answer, and false would leave the burn flown open loop on a frozen answer.
             if (!solvedArc)
             {
                 solvedArc = BallisticArc.TryCheapest(body, cutoffPosition, velocityAtCutoffUnpowered,
@@ -187,19 +149,12 @@ internal static class BurnoutGuidance
             double3 next = Vec.Unit(toGainVector);
             if (!next.Equals(Vec.Zero)) thrustDir = next;
 
-            // Left infinite when the stack cannot thrust at all, and that matters: a caller that
-            // runs this down as a cutoff countdown reads a zero here as "the burn is finished" and
-            // ends a flight that has not started, or one whose engine has just failed, reporting it
-            // as a completed shot.
+            // Infinite when the stack cannot thrust: a zero would read as a finished burn.
             wanted = booster.SecondsToGain(toGain);
             if (double.IsNaN(wanted)) wanted = 0.0;
 
-            // The *prediction* is capped at the propellant this stage has, and the reported time is
-            // not. A cutoff state predicted from a burn the stack cannot perform is a point
-            // hundreds of kilometres from anywhere the vehicle will go, and the arc solved from it
-            // usually does not exist at all — but the uncapped number is the honest answer to how
-            // long the burn has left, and capping the one that ends the burn cuts the engines at
-            // every staging.
+            // The prediction is capped at this stage's propellant and the reported time is not:
+            // capping the reported one cuts the engines at every staging.
             double available = booster.BurnSecondsRemaining;
             timeToCutoff = available > 0.0 ? Math.Min(wanted, available) : wanted;
             if (!double.IsFinite(timeToCutoff)) timeToCutoff = 0.0;

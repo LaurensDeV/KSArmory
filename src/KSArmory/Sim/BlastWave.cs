@@ -4,17 +4,12 @@ namespace KSArmory;
 /// The blast wave as the air carries it, in pascals: how hard the front hits, how long it pushes,
 /// and the wind behind it.
 ///
-/// <para><b>Not the damage law.</b> <see cref="BlastDamage"/> is calibrated against KSA's part
-/// strengths, which are crash tolerances of megapascals, so its "overpressure" says whether a part
-/// breaks and nothing about what the air is doing. This is Kinney and Graham's fit for a TNT charge
-/// in free air, which is what a craft being pushed and a view being shaken are about.</para>
+/// <para><b>Not the damage law</b>, which is calibrated to KSA's part strengths. This is Kinney and
+/// Graham's fit for a TNT charge in free air, for pushing craft and shaking the view.</para>
 ///
-/// <para>The charge is doubled by default, for a burst at the ground, as
-/// <see cref="MushroomCloud.ShockRadius"/> doubles its energy: the ground reflects the half that went
-/// down. A caller that knows better passes <see cref="GroundReflection.GainAt"/> -- one in free air,
-/// more in an air burst's Mach stem. Everything scales with the
-/// ambient pressure, which is Sachs' scaling held at the same scaled distance, so a burst in thin
-/// air pushes less and one where there is none pushes nothing.</para>
+/// <para>The charge is doubled by default, for a burst on the ground; a caller that knows better passes
+/// <see cref="GroundReflection.GainAt"/>. Overpressure scales with the ambient pressure (Sachs), so a
+/// burst where there is no air pushes nothing.</para>
 /// </summary>
 internal static class BlastWave
 {

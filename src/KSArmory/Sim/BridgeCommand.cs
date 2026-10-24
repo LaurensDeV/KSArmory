@@ -71,7 +71,6 @@ public sealed class BridgeCommand
         }
     }
 
-    /// <summary>Whether an argument was given at all.</summary>
     public bool Has(string name) => _args.ContainsKey(name);
 
     /// <summary>A number argument, or <paramref name="fallback"/> when absent or not a number.</summary>

@@ -5,16 +5,11 @@ namespace KSArmory;
 /// <summary>
 /// The planet a ballistic arc is flown around, as the four numbers an arc actually needs.
 ///
-/// <para>Everything here is body-centred inertial — the frame KSA calls <c>Cci</c>, not the
-/// ecliptic. A trajectory that leaves the ground and comes back to it is a two-body problem about
-/// one planet, and flying it in <c>Ecl</c> would carry ~29.8 km/s of the planet's own motion
-/// through every term of a solve that lasts half an hour. The carrier is already subtracted in
-/// Cci, which is the whole reason to work there; <c>docs/FRAMES-AND-EPOCHS.md</c> has what
-/// happens when it is not.</para>
+/// <para>Everything here is body-centred inertial (<c>Cci</c>), so the planet's ~29.8 km/s of ecliptic
+/// motion is out of every term; <c>docs/FRAMES-AND-EPOCHS.md</c>.</para>
 ///
-/// <para><see cref="SurfaceRadius"/> is the mean sphere. Real ground stands above and below it by
-/// kilometres, so an arc solved against it is a first answer rather than the last one — the
-/// terminal correction is flown against the actual height field, not against this.</para>
+/// <para><see cref="SurfaceRadius"/> is the mean sphere, so an arc solved against it is a first answer;
+/// the terminal correction is flown against the real height field.</para>
 /// </summary>
 internal readonly record struct BallisticBody(
     double Mu,
@@ -31,11 +26,8 @@ internal readonly record struct BallisticBody(
     }
 
     /// <summary>
-    /// Where a point fixed to the ground has been carried to after <paramref name="seconds"/>.
-    ///
-    /// <para>This is what makes a target on a spinning planet a moving target. Over a half-hour
-    /// flight Earth turns 7.5 degrees, which at the equator is 830 km — so a solve that treats the
-    /// aim point as stationary misses by most of a continent.</para>
+    /// Where a point fixed to the ground has been carried to after <paramref name="seconds"/>: over a
+    /// half-hour flight Earth turns 7.5 degrees, 830 km at the equator.
     /// </summary>
     public double3 CarryCci(double3 positionCci, double seconds)
     {
@@ -49,11 +41,8 @@ internal readonly record struct BallisticBody(
         => Vec.Cross(Vec.Unit(SpinAxisCci) * SpinRateRadPerSec, positionCci);
 
     /// <summary>
-    /// The same point expressed as if the planet had not turned since the epoch.
-    ///
-    /// <para>The inverse of <see cref="CarryCci"/>, and the step that turns an impact point in
-    /// inertial space back into a place on the map. Skipping it reports every impact displaced
-    /// east by the whole flight time's worth of rotation.</para>
+    /// The same point as if the planet had not turned since the epoch: the inverse of
+    /// <see cref="CarryCci"/>, which turns an inertial impact point back into a place on the map.
     /// </summary>
     public double3 UncarryCci(double3 positionCci, double seconds) => CarryCci(positionCci, -seconds);
 
