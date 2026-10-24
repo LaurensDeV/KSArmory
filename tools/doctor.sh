@@ -5,12 +5,8 @@
 #
 #     ./tools/doctor.sh
 #
-# Written for someone who has just cloned the repository. Every check prints what it looked for
-# and, on failure, the one command that fixes it - the alternative is a newcomer bisecting
-# NETSDK1045 or a wall of "type or namespace not found" against a README.
-#
-# Exit code is the number of things that are actually broken. Optional pieces (a game install, a
-# Blender for the model pipeline) warn rather than fail: plenty of useful work needs neither.
+# Each check prints what it looked for and, on failure, the command that fixes it. The exit code is
+# the number of things broken; optional pieces (a game install, Blender) warn rather than fail.
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -19,7 +15,6 @@ cd "$REPO_ROOT" || exit 1
 FAIL=0
 WARN=0
 
-# Colour only when someone is watching, so piping to a file or CI stays readable.
 if [[ -t 1 ]]; then
     R=$'\033[31m'; G=$'\033[32m'; Y=$'\033[33m'; D=$'\033[2m'; Z=$'\033[0m'
 else
@@ -31,8 +26,6 @@ bad()  { printf '  %sFAIL%s  %s\n' "$R" "$Z" "$1"; FAIL=$((FAIL + 1)); }
 warn() { printf '  %swarn%s  %s\n' "$Y" "$Z" "$1"; WARN=$((WARN + 1)); }
 hint() { printf '        %s%s%s\n' "$D" "$1" "$Z"; }
 head_() { printf '\n%s\n' "$1"; }
-
-# --- platform ---------------------------------------------------------------
 
 head_ "Platform"
 
@@ -46,9 +39,7 @@ elif [[ "$UNAME" == MINGW* || "$UNAME" == MSYS* || "$UNAME" == CYGWIN* ]]; then
     hint "build, tests, packaging and deploy work; launch the game with StarMap.exe directly"
     hint "tools/run.sh and the model pipeline assume WSL paths - set KSA_DIR / STARMAP_DIR if you use them"
 
-    # The one that stops everything, checked before anything else can fail confusingly. CRLF in a
-    # shell script makes bash read the \r as part of the command: `$'\r': command not found`,
-    # which names neither the file nor the cause.
+    # CRLF makes bash fail with `$'\r': command not found`, which names neither the file nor the cause.
     if [[ -n "$(find tools -name '*.sh' -exec grep -lU $'\r' {} + 2>/dev/null | head -1)" ]]; then
         bad "shell scripts have CRLF line endings - bash cannot run them"
         hint "git config core.autocrlf input && git rm --cached -r . >/dev/null && git reset --hard"
@@ -69,12 +60,9 @@ else
     warn "unrecognised platform '$UNAME' - the build should still work"
 fi
 
-# --- the SDK ----------------------------------------------------------------
-
 head_ ".NET SDK"
 
-# env.sh returns non-zero and explains itself when there is no net10; swallow its output so this
-# script can print its own, then report.
+# Its own output swallowed so this script prints its own.
 if (source tools/env.sh) >/dev/null 2>&1; then
     # shellcheck disable=SC1091
     source tools/env.sh >/dev/null 2>&1
@@ -84,8 +72,6 @@ else
     bad "no .NET 10 SDK - the mod targets net10.0 and a distro dotnet 8 fails with NETSDK1045"
     hint "curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0 --install-dir \$HOME/.dotnet"
 fi
-
-# --- the game's assemblies --------------------------------------------------
 
 head_ "KSA assemblies (needed to compile against the game)"
 
@@ -117,8 +103,6 @@ else
     hint "they are RocketWerkz's copyrighted files: keep a copy, never commit or publish one"
 fi
 
-# --- the build and the tests ------------------------------------------------
-
 head_ "Build and tests"
 
 if [[ $FAIL -eq 0 ]]; then
@@ -138,12 +122,9 @@ else
     warn "skipped: fix the failures above first"
 fi
 
-# --- repository hygiene -----------------------------------------------------
-
 head_ "Repository setup"
 
-# core.hooksPath only. The file being present and executable proves nothing: it is tracked with
-# its exec bit, so `-x` is true in every clone including ones where git will never run it.
+# core.hooksPath only: the hook is tracked with its exec bit, so `-x` is true in every clone.
 if [[ "$(git config core.hooksPath 2>/dev/null)" == ".githooks" ]]; then
     ok "commit-msg hook installed"
 else
@@ -163,15 +144,11 @@ else
     bad "python3 missing - validate-parts.py and the model pipeline need it"
 fi
 
-# --- optional: running and modelling ---------------------------------------
-
 head_ "Optional (only needed for some work)"
 
 if [[ "$PLATFORM" == "wsl" ]]; then
-    # Only search roots that exist, and swallow find's exit code. find returns non-zero for any
-    # missing root, and under `pipefail` that fails the whole pipeline even when grep matched -
-    # so an absent /mnt/c/Games reports StarMap missing on a machine that has it. tools/run.sh
-    # carries the same trap.
+    # Only roots that exist: find returns non-zero for a missing root, and under `pipefail` that
+    # fails the pipeline even when it found StarMap.
     STARMAP_ROOTS=()
     for root in "${STARMAP_DIR:-}" /mnt/c/Users /mnt/c/Games /mnt/c/StarMap "/mnt/c/Program Files"; do
         [[ -n "$root" && -d "$root" ]] && STARMAP_ROOTS+=("$root")
@@ -216,8 +193,6 @@ elif [[ "$PLATFORM" == "gitbash" ]]; then
 else
     hint "running the game and rebuilding the model are WSL/Windows only; everything else works here"
 fi
-
-# --- verdict ----------------------------------------------------------------
 
 head_ "Summary"
 

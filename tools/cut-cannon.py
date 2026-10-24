@@ -6,27 +6,16 @@ Cuts a recording of cannon fire into the three parts KSA's <CompoundSound> wants
     ./tools/cut-cannon.py --source other.flac
     ./tools/cut-cannon.py --report                 # measure and print, write nothing
 
-A burst of gunfire is three sounds, not one, and the engine already knows that: <StartSound>,
-<Sound> and <StopSound>, which is exactly how Core drives an engine. Played as a single looping
-sample you get the spin-up on every pass and never get the tail.
+Core drives an engine with <StartSound>, <Sound> and <StopSound>; one looping sample would play the
+spin-up on every pass and never the tail.
 
-    spin      the barrels coming up to speed, roughly the first 150 ms
-    loop      steady fire, cut to loop against itself for as long as the trigger is held
+    spin      the barrels coming up to speed
+    loop      steady fire, looped for as long as the trigger is held
     tail      the reports arriving back off the terrain after firing stops
 
-## The cut points are measured, not typed
-
-An envelope at 5 ms resolution says where each part begins: the spin ends where the level stops
-climbing and plateaus, the fire ends where it leaves that plateau, the tail ends where it drops
-into the noise floor. Written-down timestamps would be wrong for any other recording and would
-silently drift if this one were ever re-exported.
-
-## The loop is crossfaded, and has to be
-
-A cut taken straight out of the middle clicks once a pass, because its last sample has no
-relationship to its first. The fix is to blend the material that *would have followed* the
-segment onto the segment's own head: then the end genuinely flows into the beginning. Anything
-shorter than about 50 ms of overlap is audible as a flutter at the seam.
+The cut points are measured off a 5 ms envelope rather than typed, so another recording or a
+re-export cuts correctly. The loop is crossfaded against what follows it, since a cut taken
+straight out clicks once a pass; under about 50 ms of overlap the seam flutters.
 """
 
 import argparse
@@ -38,8 +27,8 @@ import soundfile as sf
 
 RATE = 44100
 
-# Loop length. Long enough that the ear does not hear the repeat, short enough that letting go of
-# the trigger is answered promptly, and it must sit entirely inside the steady part.
+# Long enough that the repeat is not heard, short enough that letting go is answered promptly, and
+# inside the steady part.
 LOOP_SECONDS = 0.9
 CROSSFADE_SECONDS = 0.06
 
@@ -50,18 +39,16 @@ def envelope(x, step=0.005):
 
 
 def segments(x):
-    """(spin_end, fire_end, tail_end) in samples, from the envelope."""
+    """(spin_end, fire_end, tail_end) in samples."""
     env, h = envelope(x)
     peak = env.max()
 
-    # The plateau: everything within 25% of the loudest. Its first sample ends the spin-up and its
-    # last ends the firing.
+    # The plateau, within 25% of the loudest, runs from the end of the spin-up to the end of firing.
     plateau = np.where(env >= 0.75 * peak)[0]
     spin_end = int(plateau[0] * h)
     fire_end = int((plateau[-1] + 1) * h)
 
-    # The tail runs until the level falls into the noise floor. 3% of peak rather than zero: an
-    # encoded file never reaches silence, and chasing it to zero appends a second of nothing.
+    # 3% of peak rather than zero: an encoded file never reaches silence.
     above = np.where(env >= 0.03 * peak)[0]
     tail_end = int(min((above[-1] + 1) * h, len(x)))
 
@@ -69,7 +56,6 @@ def segments(x):
 
 
 def loop_from(x, start, end):
-    """A seamless loop out of [start, end), crossfaded against what follows it."""
     length = int(LOOP_SECONDS * RATE)
     xf = int(CROSSFADE_SECONDS * RATE)
 
@@ -100,7 +86,7 @@ def fade(x, seconds_in, seconds_out):
 def write(path, samples):
     pcm = np.clip(samples, -1.0, 1.0)
     with wave.open(str(path), "wb") as w:
-        w.setnchannels(1)          # mono: the engine spatialises it, and a stereo file cannot be
+        w.setnchannels(1)          # mono: the engine spatialises it
         w.setsampwidth(2)
         w.setframerate(RATE)
         w.writeframes((pcm * 32767.0).astype("<i2").tobytes())
@@ -118,13 +104,11 @@ def main():
 
     data, rate = sf.read(args.source, always_2d=True)
 
-    # Down to mono by averaging. The channels correlate at 0.82, so the two carry mostly the same
-    # event and the average keeps it; a hard pick of one channel throws away half the room.
+    # The channels correlate at 0.82, so averaging keeps the event where picking one loses half the room.
     x = data.mean(axis=1)
 
     if rate != RATE:
-        # Linear resample. Good enough for a sound effect, and it avoids a scipy dependency for a
-        # tool the rest of the pipeline does not need one for.
+        # Linear: good enough for a sound effect, and no scipy dependency.
         n = int(round(len(x) * RATE / rate))
         x = np.interp(np.linspace(0, len(x) - 1, n), np.arange(len(x)), x)
 
@@ -142,8 +126,7 @@ def main():
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
-    # No fade-in on the spin: its first sample is the first round, and easing into that is the one
-    # thing that would stop it sounding like a gun starting.
+    # No fade-in on the spin: its first sample is the first round.
     write(out / "KSArmory_Cannon_Spin.wav", fade(x[:spin_end], 0.0, 0.01))
     write(out / "KSArmory_Cannon_Loop.wav", loop_from(x, spin_end, fire_end))
     write(out / "KSArmory_Cannon_Tail.wav", fade(x[fire_end:tail_end], 0.01, 0.05))

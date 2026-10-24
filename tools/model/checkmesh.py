@@ -2,11 +2,8 @@
 """
 Hunts for the geometry that makes a mesh z-fight, without needing the game to see it.
 
-A model assembled out of interpenetrating primitives is fine right up until two faces land on
-the *same plane*. Then the depth buffer has no basis to choose between them and picks a winner
-per pixel, per frame — which in KSA reads as the whole vehicle crawling with speckle. Blender's
-own preview render does not reproduce it, so this is the only way to find it short of
-restarting the game.
+Two faces on the same plane leave the depth buffer to pick a winner per pixel, per frame, which in
+KSA reads as speckle crawling over the part. Blender's preview render does not reproduce it.
 
 Every triangle is reduced to its plane (unit normal, offset), sign-canonicalised so that two
 back-to-back faces hash together, and quantised. Any plane holding triangles from more than one
@@ -17,7 +14,7 @@ direction, with overlapping extents, is a candidate.
     ./tools/model/checkmesh.py <a.glb> --compare <b.glb>    # same model, or genuinely changed?
     ./tools/model/checkmesh.py <gun.glb> --units-per-metre 100   # a character attachment
 
-Exits non-zero if it finds conflicting coplanar area above the reporting threshold.
+Exits non-zero if it reports any problem.
 """
 
 import json
@@ -30,16 +27,11 @@ from collections import defaultdict
 # separated surfaces do not collide in the same bucket.
 PLANE_QUANT = 2.0e-4
 
-# Ignore conflicts smaller than this (m^2). A patch this size is about 5 cm across on an
-# eight-metre vehicle, and on this model everything below it is a graze between two pieces of one
-# triangulated disc rather than two surfaces in conflict. Lower it if something small but visible
-# slips through.
+# Conflicts under this (m^2, about 5 cm across) are grazes between pieces of one triangulated disc.
 MIN_AREA = 2.5e-3
 
-# Parallel faces separated by a gap inside this band are treated as fighting. The upper bound
-# sits under the 8 mm modelling skin, so deliberate interpenetration is not flagged; the lower
-# bound exists because two triangles of the *same* flat quad are coplanar to within float
-# noise, and without it every quad in the model reports itself.
+# Parallel faces with a gap inside this band are treated as fighting. The upper bound sits under
+# the 8 mm modelling skin; the lower keeps the two triangles of one quad from reporting themselves.
 NEAR_MIN = 3.0e-4
 NEAR_MAX = 4.0e-3
 
@@ -48,7 +40,7 @@ COUNT = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}
 
 
 def read_glb(path):
-    """Returns (gltf json, binary chunk)."""
+    """(gltf json, binary chunk)."""
     with open(path, "rb") as fh:
         magic, version, _ = struct.unpack("<III", fh.read(12))
         if magic != 0x46546C67:
@@ -73,7 +65,7 @@ def read_glb(path):
 
 
 def read_accessor(gltf, binary, index):
-    """Decodes one accessor into a list of tuples (or scalars)."""
+    """One accessor as a list of tuples, or of scalars."""
     acc = gltf["accessors"][index]
     view = gltf["bufferViews"][acc["bufferView"]]
     fmt = COMPONENT[acc["componentType"]]
@@ -111,12 +103,10 @@ def triangles(gltf, binary, mesh, with_uv=False):
 
 
 def degenerate_uvs(gltf, binary, mesh):
-    """Counts triangles whose UV area is zero, and the world area they cover.
+    """Triangles whose UV area is zero, and the world area they cover.
 
-    A zero-area UV triangle has no usable tangent frame. Renderers that build one from the UV
-    derivative get a zero-length tangent; normalizing it yields NaN, and NaN survives being
-    multiplied by zero, so even a flat normal map cannot save the shading. The symptom is
-    flickering white speckle in game, invisible in any DCC preview.
+    A zero-area UV triangle normalises a zero-length tangent into NaN, which survives a flat
+    normal map: flickering white speckle in game, invisible in any DCC preview.
     """
     bad = 0
     bad_area = 0.0
@@ -151,8 +141,7 @@ def plane_of(a, b, c):
     n = (n[0] / length, n[1] / length, n[2] / length)
     area = length / 2.0
 
-    # Flip so the first significant component is positive; a face and its back-to-back
-    # neighbour then land on the same key instead of two mirrored ones.
+    # First significant component positive, so back-to-back faces share a key.
     flip = 1.0
     for comp in n:
         if abs(comp) > 1e-9:
@@ -164,13 +153,10 @@ def plane_of(a, b, c):
 
 
 def near_coplanar(gltf, binary, mesh):
-    """Face pairs that are parallel and closer together than `tolerance`.
+    """Overlapping parallel face pairs with a gap inside NEAR_MIN..NEAR_MAX.
 
-    Exact coplanarity is not the only thing that z-fights. Two surfaces a millimetre apart are
-    indistinguishable to the depth buffer once the camera is far enough away, and a model
-    assembled from independently placed primitives grows those by accident. Bucketing by plane
-    (as analyse() does) misses them whenever the pair straddles a bucket boundary, so this
-    sorts by plane offset within each normal direction and walks neighbours.
+    Surfaces a millimetre apart z-fight at distance. Bucketing by plane misses a pair straddling a
+    bucket boundary, so this sorts by plane offset within each normal direction and walks neighbours.
     """
     by_normal = defaultdict(list)
 
@@ -208,8 +194,7 @@ def near_coplanar(gltf, binary, mesh):
 def overlap_area_2d(p, q):
     """Area shared by two triangles in a plane, by Sutherland-Hodgman clipping.
 
-    The real number matters. Reporting each triangle's own area instead turns a 16 mm seam
-    between two boxes into "5.7 m² of conflict", and a tool that cries wolf gets ignored.
+    Each triangle's own area would report a 16 mm seam between two boxes as 5.7 m² of conflict.
     """
     # Orient the clip triangle counter-clockwise so "inside" is a consistent sign.
     (ax, ay), (bx, by), (cx, cy) = q
@@ -257,33 +242,24 @@ def _line_cross(p0, p1, e0, e1):
 
 
 def coplanar_overlaps(gltf, binary, mesh):
-    """Coplanar triangles from different primitives that actually overlap on screen.
+    """Coplanar triangles that overlap, whichever way they face.
 
-    The obvious test — "does this plane hold faces pointing both ways" — misses the case that
-    matters most here. Two boxes whose outer faces land on the same plane point the *same* way,
-    and fight exactly as hard. So this projects each plane's triangles into 2D and looks for
-    real overlap, skipping pairs that share vertices (those are the two halves of one quad, or
-    a fan, not a conflict).
+    Two boxes whose outer faces land on one plane point the same way and fight as hard as opposed
+    faces, so each plane's triangles are projected into 2D and tested for real overlap.
     """
     return plane_conflicts([(a, b, c, None) for a, b, c in triangles(gltf, binary, mesh)])
 
 
 def plane_conflicts(tagged, cross_body=False):
-    """Shared core of the within-mesh and between-mesh coplanar checks.
-
-    Each triangle carries a tag naming the body it came from. With `cross_body`, only pairs whose
-    tags differ are conflicts — within-body pairs are the other check's business.
-    """
+    """Each triangle tagged with its body; with `cross_body`, only pairs whose tags differ count."""
     planes = defaultdict(list)
 
     for a, b, c, tag in tagged:
         n, d, area = plane_of(a, b, c)
         if n is None or area < 1e-7:
             continue
-        # Between bodies the pair that matters faces *inward* — a cap resting on a cap — so the
-        # plane is taken unoriented. Within one body the opposite holds: near_coplanar() already
-        # covers faces pointing at each other, and keeping the orientation here is what finds two
-        # outer faces landing on one plane, which fight just as hard and point the same way.
+        # Between bodies the pair that matters faces inward (a cap resting on a cap), so the plane
+        # is unoriented; within one body it keeps its orientation to find same-facing pairs.
         if cross_body:
             for component in n:
                 if abs(component) > 1e-9:
@@ -321,9 +297,7 @@ def plane_conflicts(tagged, cross_body=False):
                 if flat[i][1] & flat[j][1]:
                     continue          # shares a vertex: same surface, not a conflict
                 shared = overlap_area_2d(flat[i][0], flat[j][0])
-                # A real overlap, not a graze. Triangles that merely abut - the pieces of one
-                # triangulated disc, say - clip to a sliver whose area is numerical noise, and
-                # counting those reports every wheel as fighting itself.
+                # Triangles that merely abut clip to a sliver of numerical noise.
                 if shared > 0.05 * min(flat[i][2], flat[j][2]):
                     pair = tuple(sorted((flat[i][3], flat[j][3]))) if cross_body else key
                     hits.append((shared, pair))
@@ -335,7 +309,6 @@ def plane_conflicts(tagged, cross_body=False):
 
 
 def place(point, trs):
-    """Applies a glTF node's scale, rotation and translation to a point."""
     t, q, s = trs
     x, y, z = point[0] * s[0], point[1] * s[1], point[2] * s[2]
     qx, qy, qz, qw = q
@@ -346,24 +319,11 @@ def place(point, trs):
 
 
 def cross_body_overlaps(gltf, binary, placements):
-    """Coplanar overlapping faces between two *different* bodies, at the modelled rest pose.
+    """Coplanar overlapping faces between two different bodies, at the rest pose only.
 
-    coplanar_overlaps() sees one mesh at a time, so a face plane shared between two subparts —
-    a turntable resting exactly on the cap of its mast — is invisible to it and z-fights in game
-    exactly like a within-body pair. It is worse when the pair articulates about a common axis,
-    because the fight then rotates with the assembly.
-
-    Each mesh in the atlas sits in its own pivot-local frame with no node transform, so the
-    caller supplies `placements`: mesh name -> ((x, y, z), (rx, ry, rz)) in part space, the
-    position and XYZ Euler radians of the asset XML's <SubPart><Transform>. That is why this is
-    driven from validate-parts.py.
-
-    The rotation is not optional detail. A round seated on a rail is placed with a quarter turn
-    carrying its nose onto the tube axis, so ignoring it lays the body across the launcher instead
-    of along it — and then the pairs this exists to find are not even in contact.
-
-    Only the rest pose is checked — the pose the model is authored in, and the one the vehicle
-    sits at before the drives run.
+    Each mesh sits in its own pivot-local frame, so the caller (validate-parts.py) supplies
+    `placements`: mesh name -> ((x, y, z), (rx, ry, rz)), the asset XML's <SubPart><Transform>
+    in part space. The rotation matters: a round on a rail is turned a quarter onto the tube axis.
     """
     by_name = {m.get("name", "?"): m for m in gltf.get("meshes", [])}
 
@@ -382,11 +342,7 @@ def euler_quaternion(euler):
     """XYZ Euler radians -> (x, y, z, w), matching how KSA reads <Rotation>.
 
     Transcribed from KSA.QuaternionEx.CreateFromXyzRadians, which TransformReference.RotationValue
-    calls. The composition is **qz * qy * qx** despite the name: X is applied first and Z last, so
-    a <Rotation X=..> on a body whose axis of interest is already +X does nothing at all.
-
-    Getting this backwards is invisible until a part uses two axes whose angles do not commute.
-    Every rotation in this mod was single-axis, or X=pi Z=pi, until the MIRV bus.
+    calls. The composition is qz * qy * qx: X is applied first and Z last.
     """
     import math
 
@@ -439,13 +395,7 @@ def analyse(gltf, binary, mesh):
 
 
 def fingerprint(gltf, binary, mesh):
-    """A canonical, order-independent description of one mesh's surface.
-
-    Every triangle becomes ((position, normal, uv) x3), rotated so its lowest-sorting corner
-    comes first — which preserves winding while removing the arbitrary choice of starting
-    vertex — and the triangles are then sorted. Two fingerprints compare equal exactly when the
-    two meshes describe the same surface, whatever order the exporter happened to emit it in.
-    """
+    """One mesh's surface, independent of triangle order and starting vertex; winding is kept."""
     out = []
     for prim in mesh["primitives"]:
         if prim.get("mode", 4) != 4:
@@ -467,13 +417,10 @@ def fingerprint(gltf, binary, mesh):
 
 
 def compare(path_a, path_b):
-    """Reports whether two atlases describe the same geometry.
+    """Whether two atlases describe the same geometry.
 
-    Blender's glTF exporter does not emit triangles in a stable order, so rebuilding the model
-    from unchanged sources produces a *different file* — same positions, normals and UVs, only
-    the index buffer permuted. Byte comparison therefore says "changed" on every rebuild and is
-    useless for answering the question you actually have, which is whether an edit to
-    pantsir.py moved anything. This compares the surface instead.
+    Blender's glTF exporter does not emit triangles in a stable order, so an unchanged rebuild is a
+    different file; this compares the surface instead of the bytes.
     """
     ga, ba = read_glb(path_a)
     gb, bb = read_glb(path_b)
@@ -509,11 +456,9 @@ def compare(path_a, path_b):
 
 
 def node_transforms(ga, gb, path_a, path_b):
-    """Compares the node TRS of every mesh-bearing node, and reports how many differ.
+    """How many mesh-bearing nodes' TRS differ.
 
-    A pose applied by `build.sh --pose` lands entirely here and leaves every vertex buffer
-    untouched, so comparing meshes alone calls a posed atlas identical to a rest one and advises
-    reverting it. The transforms are what carry a body's rest pivot and orientation into the file.
+    A pose from `build.sh --pose` lands only here, leaving every vertex buffer untouched.
     """
     def by_mesh(gltf):
         names = [m.get("name", "?") for m in gltf.get("meshes", [])]
@@ -546,9 +491,7 @@ def node_transforms(ga, gb, path_a, path_b):
 def main():
     global PLANE_QUANT, MIN_AREA, NEAR_MIN, NEAR_MAX
 
-    # Options are stripped with their values by position. Matching the value by string instead
-    # leaves anything whose float() round-trips differently -- `--near-max 0` reaching str(0.0)
-    # -- sitting in the positional list, where it is then opened as a path.
+    # By position, not by matching the value: `--near-max 0` would otherwise leave "0" as a path.
     VALUED = ("--units-per-metre", "--near-max", "--mesh", "--compare")
     args, options, rest = [], {}, list(sys.argv[1:])
     while rest:
@@ -561,12 +504,8 @@ def main():
         elif not token.startswith("--"):
             args.append(token)
 
-    # Every threshold in this file is an absolute distance or area in metres, because a part mesh
-    # is authored in metres. A character attachment is authored in the rig's centimetre space, so
-    # the same geometry reads a hundred times larger and every threshold is wrong by that factor
-    # -- it reports separations that are fine as if they were microns, and areas in the tens of
-    # thousands of cm2. Scale the thresholds instead of the mesh, so the numbers printed stay in
-    # the file's own units.
+    # Every threshold is in metres. A character attachment is authored in centimetres, so the
+    # thresholds are scaled rather than the mesh, keeping printed numbers in the file's own units.
     if "--units-per-metre" in options:
         upm = float(options["--units-per-metre"])
         if upm <= 0.0:
@@ -576,14 +515,9 @@ def main():
         MIN_AREA *= upm * upm
         NEAR_MIN *= upm
         NEAR_MAX *= upm
-    # The proximity advisory, but not the two hard checks, turned down or off.
-    #
-    # NEAR_MAX's default sits under box()'s 8 mm modelling skin, so on a *generated* mesh anything
-    # inside the band is a primitive somebody forgot to separate. An **authored** mesh has no skin,
-    # so the same band reports every deliberate panel step, decal and shell wall -- hundreds of
-    # them, at every gap, none of them a mistake. `--near-max 0` says "this file was not built with
-    # a skin"; zero-UV-area triangles and exact coplanar overlaps are still checked in full,
-    # because neither of those is ever deliberate.
+    # NEAR_MAX is calibrated to box()'s 8 mm modelling skin. An authored mesh has none, so the band
+    # reports every deliberate panel step; `--near-max 0` turns that advisory off and leaves the
+    # zero-UV-area and exact coplanar checks on.
     if "--near-max" in options:
         NEAR_MAX = float(options["--near-max"]) / 1000.0
     only = options.get("--mesh")
@@ -610,10 +544,8 @@ def main():
 def unpaired_names(gltf):
     """Nodes whose mesh is not named after them, which KSA renders as nothing.
 
-    Blender will not say when it refuses a name: `ob.data.name = "X"` silently becomes "X.001" if
-    an orphaned mesh already holds "X", and deleting an object leaves exactly such an orphan. The
-    export then writes a node "X" drawing a mesh "X.001", the asset XML's <Mesh Id="X"> resolves
-    to nothing, and the part loads with that body missing and nothing in any log.
+    Blender silently renames a mesh "X.001" when an orphan already holds "X", and <Mesh Id="X">
+    then resolves to nothing with nothing in any log.
     """
     meshes = gltf.get("meshes", [])
     bad = []
@@ -629,12 +561,7 @@ def unpaired_names(gltf):
 
 
 def check_atlas(path, only, header=False):
-    """Reports one atlas and returns its problem count.
-
-    Taking several paths matters more than it sounds: check-all.sh hands this every authored
-    atlas at once, and a main() that read argv[0] alone would check the first and pass the rest
-    in silence -- which is worse than not checking them, because the run says "clean".
-    """
+    """Reports one atlas and returns its problem count."""
     gltf, binary = read_glb(path)
     total = 0
     if header:
@@ -650,9 +577,7 @@ def check_atlas(path, only, header=False):
         if name.endswith("_VM"):
             continue                        # same geometry as its parent; nothing new to say
         if name.startswith("_ColPrim"):
-            # A collider primitive, which Core ships 58 of: a box or cylinder carrying the part's
-            # collision volume as a node transform. It is never rendered, so it has no UVs and
-            # every check here would report it -- starting with "NO TEXCOORD_0".
+            # A collider primitive: never rendered, so it has no UVs and every check would fail it.
             continue
         if only and name != only:
             continue

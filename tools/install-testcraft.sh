@@ -17,8 +17,7 @@ if [[ -z "$KSA_USER_DIR" ]]; then
     exit 1
 fi
 
-# KSA looks for "Vehicles"; Windows is case-insensitive so an existing "vehicles" is the same
-# directory. Prefer whichever already exists to avoid creating a confusing duplicate.
+# KSA looks for "Vehicles"; Windows is case-insensitive, so an existing "vehicles" is the same folder.
 if [[ -d "$KSA_USER_DIR/vehicles" ]]; then
     VEHICLES="$KSA_USER_DIR/vehicles"
 else

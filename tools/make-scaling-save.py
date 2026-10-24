@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
 """Build a save carrying N copies of one rocket, for pricing how the vehicle solver scales.
 
-The engine fans per-bubble work across a worker pool, so N rockets far apart should be N bubbles
-stepped concurrently -- until the solver's tick passes the governor's deadline and the whole world
-starts running slow.  Nothing measures where that is.  See docs/METRE-LEVEL.md.
+The engine fans per-bubble work across a worker pool, so N rockets far apart are N bubbles stepped
+concurrently until the solver's tick passes the governor's deadline. See docs/METRE-LEVEL.md.
 
-Copies are rotated about the body's spin axis (+Z in Cci) rather than displaced in a straight line:
-that keeps every copy on the surface at its original latitude, and carries the surface velocity
-round with it, so each one is standing on the pad exactly as the original was.
+Copies are rotated about the body's spin axis (+Z in Cci) rather than displaced in a straight line,
+which keeps each on the surface at its latitude with the surface velocity turned with it.
 """
 import argparse, math, re, shutil, sys
 from pathlib import Path
 
-# Far enough apart that two of them are never a contact-imminence candidate, so they stay in their
-# own bubbles and take the single-vehicle path.  The Mk 21's blast radius is 6 km and its lethal
-# radius 2, so this is also clear of one salvo shooting another down.
+# Far enough apart that two are never a contact-imminence candidate, so each keeps its own bubble;
+# and past the Mk 21's 6 km blast radius, so one salvo cannot shoot another down.
 DEFAULT_SPACING_M = 20_000.0
 
 
@@ -39,8 +36,7 @@ def respace(text, theta, new_id, old_id):
         nx, ny = rotate_z(x, y, theta)
         return f'<{tag} X="{nx:.4f}" Y="{ny:.4f}"'
 
-    # Position and velocity only. Attitude and rates are left alone: the copies stand on their own
-    # pads pointing the way the original did, which is up.
+    # Position and velocity only: attitude is left, so each copy points the way the original did.
     return re.sub(r'<(PositionCci|VelocityCci) X="([-\d.]+)" Y="([-\d.]+)"', turn, text)
 
 
@@ -76,8 +72,7 @@ def main():
     s, e = block(lines, a.rocket)
     original = "".join(lines[s:e])
 
-    # The radius of the circle of latitude the pad sits on -- what an arc length has to be divided
-    # by to become an angle. Not the body's radius, which would space polar pads far too widely.
+    # The radius of the pad's circle of latitude, not the body's, which would space polar pads too widely.
     m = re.search(r'<PositionCci X="([-\d.]+)" Y="([-\d.]+)"', original)
     if not m:
         sys.exit(f"{a.rocket} carries no PositionCci")

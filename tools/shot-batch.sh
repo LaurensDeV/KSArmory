@@ -79,11 +79,8 @@ done
 mkdir -p "$OUT"
 OUT="$(cd "$OUT" && pwd)"
 
-# --- one batch at a time ----------------------------------------------------
-#
-# Not advisory. Three of this project's batches were contaminated by a second one starting while
-# the first ran, and the shots are indistinguishable afterwards: both write the same log, both
-# deploy into the same mods folder, and both kill each other's game on the way past.
+# Two batches write the same log, deploy into the same mods folder and kill each other's game,
+# and their shots are indistinguishable afterwards.
 
 LOCKFILE="$HOME/.ksarmory-shot-batch.lock"
 exec 9>"$LOCKFILE"
@@ -94,8 +91,6 @@ if ! flock -n 9; then
 fi
 echo "$$ $(date -Is) $OUT" >&9
 
-# --- the plan ---------------------------------------------------------------
-
 PLAN="$OUT/plan.tsv"
 ARMS_TSV="$OUT/arms.tsv"
 SHOTS_TSV="$OUT/shots.tsv"
@@ -105,12 +100,8 @@ if (( RESUME )); then
     [[ -f "$PLAN" && -f "$ARMS_TSV" ]] || { echo "error: $OUT holds no plan to resume" >&2; exit 1; }
     [[ -f "$OUT/batch.tsv" ]] || { echo "error: $OUT holds no batch.tsv to resume from" >&2; exit 1; }
 
-    # Restored from the record, never re-defaulted. --resume takes no --aim, so AIM kept its
-    # default here and the resumed night flew a DIFFERENT SHOT from the one it was planning:
-    # naming any point sets AimWasGiven and the scenario MOVES the defended site to it. Measured
-    # as 6,379 km downrange against the 12,902 km the same plan flew unresumed, every arm 301 km
-    # out, four shots deep before anything looked wrong. Nothing in the output said so, because
-    # both halves are behaving exactly as documented.
+    # Restored from the record, never re-defaulted: --resume takes no --aim, and naming any point
+    # sets AimWasGiven, which moves the defended site to it -- a defaulted AIM flies a different shot.
     AIM="$(awk -F'\t' '$1 == "aim"  { print $2 }' "$OUT/batch.tsv")"
     BAR="$(awk -F'\t' '$1 == "bar"  { print $2 }' "$OUT/batch.tsv")"
     PAIRED="$(awk -F'\t' '$1 == "paired" { print $2 }' "$OUT/batch.tsv")"
@@ -134,9 +125,7 @@ if (( RESUME )); then
     done
 
     # The same rule for the two on/off flags, compared as on/off rather than by value: what
-    # scenario.sh reads is whether they are set at all, so "1" and "yes" are one setting. A night
-    # whose second half lost KSARMORY_SCENARIO_TRACE is scored on half a roster and says so only
-    # in the morning, which is the same failure the save guard above exists to prevent.
+    # scenario.sh reads is whether they are set at all, so "1" and "yes" are one setting.
     for var in TRACE KEEPSTAGES; do
         eval "got=\"\${KSARMORY_SCENARIO_$var:+on}\""
         want="$(awk -F'\t' -v k="$(echo "$var" | tr 'A-Z' 'a-z')" '$1 == k { print $2 }' "$OUT/batch.tsv")"
@@ -164,10 +153,8 @@ else
     [[ -n "$ARMS_SPEC" ]] || { echo "error: --arms or --paired is required" >&2; usage 2; }
 
     # A paired night varies the setting BETWEEN rockets in one world, so with no save there are no
-    # rockets and there is nothing to pair. It does not fail: the scenario starts, finds an empty
-    # world, and sits at the menu with a live game and a log that stops after `ready`, which reads
-    # exactly like a slow flight until somebody looks. The variable is the whole configuration and
-    # is easily lost -- it is environment rather than a flag, so any fresh shell drops it.
+    # rockets and there is nothing to pair. The scenario does not fail then: it sits at the menu with
+    # a log that stops after `ready`, which reads like a slow flight.
     if [[ -n "$PAIRED" && -z "${KSARMORY_SCENARIO_SAVE:-}" ]]; then
         echo "error: --paired needs KSARMORY_SCENARIO_SAVE naming a save with several rockets." >&2
         echo "       Without one the world is empty and the run hangs rather than failing:" >&2
@@ -199,9 +186,7 @@ else
     # Every ref pinned to a sha BEFORE the first checkout. The loop below detaches HEAD to build
     # each arm, so a relative ref -- HEAD most of all, but @, HEAD~1 and a branch name being moved
     # underneath all do it -- resolves against whichever arm was built last rather than against the
-    # tree the operator typed it in. `--arms base=<sha>,fixes=HEAD` silently made both arms the
-    # first sha; only the identical-source check downstream caught it, and it caught it by refusing
-    # the night rather than by explaining it.
+    # tree the operator typed it in.
     declare -a ARM_NAME_LIST=() ARM_REF_LIST=() ARM_PIN_LIST=()
     for spec in "${SPECS[@]}"; do
         name="${spec%%=*}"
@@ -248,14 +233,9 @@ else
 
     restore_tree
 
-    # Two arms with one behaviour is not a comparison. It happens: a constant edited in a file the
-    # build does not reach, a revert that reverted more than it meant to, an arm ref that resolved
-    # to the same commit as the baseline. The night would run to completion and report a dead heat.
-    #
-    # Compared on the source, because the DLLs cannot answer it: SourceLink stamps the commit into
-    # AssemblyInformationalVersion, so two arms always differ by that one string whatever their
-    # code says. That stamp is what makes the DLL hash an exact arm identity below, and it is
-    # exactly why the hash cannot also be the sameness test.
+    # Two arms with one behaviour would run the night and report a dead heat. Compared on the
+    # source, because SourceLink stamps the commit into AssemblyInformationalVersion, so two DLLs
+    # always differ by that string -- which is what makes the hash an arm identity and not a sameness test.
     mapfile -t ARM_NAMES < <(tail -n +2 "$ARMS_TSV" | cut -f1)
     mapfile -t ARM_SHAS  < <(tail -n +2 "$ARMS_TSV" | cut -f3)
     for (( i = 0; i < ${#ARM_SHAS[@]}; i++ )); do
@@ -292,14 +272,9 @@ PY
     # ShotArms.For is `_arms[(rosterIndex + phase) % count]`, so with the shot number as the phase
     # and two arms the assignment is a deterministic alternation and
     #     arm == XOR(seat parity, shot parity)
-    # -- the three are mutually aliased, and no analysis of such a night can separate an arm effect
-    # from a seat-parity one. It is not hypothetical: the release-probe fault of 3cl sits on seats
-    # 3, 5 and 7 on every arm and on nights with no arms at all, yet reads Fisher p=0.0017 "for the
-    # steep arm" because those happen to be the odd seats. ACCURACY-PLAN.md 3cl.
-    #
-    # A permutation keeps what the alternation was for -- each seat flies each arm equally often --
-    # and breaks the alias, which is also what makes shot-report.py's shot-flip null the right test
-    # rather than merely a defensible one.
+    # -- the three are mutually aliased, and no analysis can separate an arm effect from a
+    # seat-parity one (docs/ACCURACY-PLAN.md 3cl). A permutation keeps each seat flying each arm
+    # equally often and breaks the alias, which is what shot-report.py's shot-flip null assumes.
     if [[ -n "$PAIRED" ]]; then
         arm_count="$(awk -F'|' '{print NF}' <<< "$PAIRED")"
         python3 - "$SEED" "$BLOCKS" "$arm_count" > "$OUT/phases.tsv" <<'PHASES'
@@ -327,16 +302,13 @@ PHASES
         printf 'craft\t%s\n'   "${KSARMORY_SCENARIO_CRAFT:-<settings.toml>}"
         printf 'save\t%s\n'    "${KSARMORY_SCENARIO_SAVE:-<none>}"
 
-        # Recorded because it is worth a factor in frame rate and was invisible: the 25-body Sol
-        # is every celestial's work per frame and per ground lookup, and a night flown on it is not
-        # comparable with one flown on SolLite. scenario.sh defaults mirv to SolLite.
+        # The 25-body Sol costs a factor in frame rate, so a night flown on it is not comparable with
+        # one flown on SolLite. scenario.sh defaults mirv to SolLite.
         printf 'system\t%s\n'  "${KSARMORY_SCENARIO_SYSTEM:-SolLite (scenario.sh default)}"
 
-        # The two scenario flags that change what a night MEANS rather than how it is run. The
-        # trace is the instrument a walk-scored night is read through, and a night flown without
-        # it is scored on nothing -- indistinguishable in this record from one flown with it until
-        # the report says "coverage 0%" hours later. Keeping stages changes the world the rockets
-        # coast in. Both are read from the environment, so both are recorded like the save.
+        # The two scenario flags that change what a night MEANS: the trace is what a walk-scored night
+        # is read through, and keeping stages changes the world the rockets coast in. Both come from
+        # the environment, so both are recorded like the save.
         printf 'trace\t%s\n'      "${KSARMORY_SCENARIO_TRACE:+on}"
         printf 'keepstages\t%s\n' "${KSARMORY_SCENARIO_KEEPSTAGES:+on}"
     } > "$OUT/batch.tsv"
@@ -348,8 +320,6 @@ echo
 echo "== plan: $(wc -l < "$PLAN") shots into $OUT"
 cat "$OUT/batch.tsv"
 (( PLAN_ONLY )) && { column -t "$PLAN"; exit 0; }
-
-# --- fly it -----------------------------------------------------------------
 
 USER_DIR="$("$REPO_ROOT/tools/ksa-user-dir.sh")"
 LOG="$USER_DIR/Logs/KSArmory.log"
@@ -366,8 +336,7 @@ cp -f "$USER_DIR/settings.toml" "$OUT/settings.toml.before" 2>/dev/null || true
 # a save whose target is where the operator put it, that is the one thing a batch must not do.
 if [[ "$AIM" == "none" || -z "$AIM" ]]; then
     SCENARIO_ARG="mirv"
-    # One field is the bar alone. "mirv::<km>" reads as a single empty-ish field and is refused,
-    # which is what a bar on an unaimed night used to do -- see ShotRequest.TryParse.
+    # One field is the bar alone; "mirv::<km>" is refused by ShotRequest.TryParse.
     [[ -n "$BAR" ]] && SCENARIO_ARG="mirv:$BAR"
 else
     SCENARIO_ARG="mirv:$AIM"
@@ -408,13 +377,12 @@ while (( at < ${#PLAN_ROWS[@]} )); do
     started="$(date -Is)"
     t0=$SECONDS
     set +e
-    # The phase is the shot's own number, so each variant draws each place in the roster across
-    # the night rather than one of them owning the odd positions -- which matters because a
-    # rocket's place in the roster is itself worth 175x in miss.
+    # The phase moves each variant round the roster across the night, so any gradient with a
+    # rocket's place in the roster is not handed to one arm (docs/SHOT-PROTOCOL.md).
     PAIRED_ARGS=()
     if [[ -n "$PAIRED" ]]; then
-        # From the permutation, falling back to the shot number for a night planned before there
-        # was one -- a resume must keep flying the assignment it started with.
+        # From the permutation; the shot number for a night planned without phases.tsv, so a resume
+        # keeps flying the assignment it started with.
         phase="$(awk -F'\t' -v n="$n" '$1 == n { print $2 }' "$OUT/phases.tsv" 2>/dev/null)"
         [[ -n "$phase" ]] || phase="$(( 10#$n ))"
         PAIRED_ARGS=(--arms "$PAIRED" --arm-phase "$phase")
@@ -431,9 +399,7 @@ while (( at < ${#PLAN_ROWS[@]} )); do
     cp -f "$LOG" "$OUT/shots/$n-$arm.log" 2>/dev/null || true
 
     # `|| true` because pipefail is on and a shot that printed nothing at all is exactly the case
-    # NOVERDICT is for. Without it grep's empty exit takes the whole night down on the first bad
-    # shot, with no row in shots.tsv and nothing on stdout saying which shot or why -- which is
-    # strictly worse than the failure it is reporting.
+    # NOVERDICT is for; grep's empty exit would otherwise end the night with no row in shots.tsv.
     verdict="$( { grep -oE '^scenario .*: (PASS|FAIL|TIMEOUT)' "$OUT/shots/$n-$arm.out" || true; } \
                | tail -1 | sed 's/.*: //')"
     [[ -n "$verdict" ]] || verdict="NOVERDICT"
@@ -447,9 +413,7 @@ while (( at < ${#PLAN_ROWS[@]} )); do
 
     # A shot whose coast left the inertial frame is not measuring the arm: the trim then owes a
     # debt it cannot pay and every warhead in the world leaves on a trajectory already tens of km
-    # wrong. It is re-flown rather than banked,
-    # because a shot that will be excluded has already cost the wall clock either way, and the plan
-    # is extended the same way the gate extends it for a dropped arm.
+    # wrong. It is re-flown rather than banked, by extending the plan as the gate does for a dropped arm.
     if ! "$REPO_ROOT/tools/shot-report.py" "$OUT" --frame-check "$n-$arm" > /dev/null 2>&1; then
         "$REPO_ROOT/tools/shot-report.py" "$OUT" --frame-check "$n-$arm" 2>&1 | sed 's/^/    /' || true
         printf '%s\t%s\n' "$n-$arm" "$(date -Is)" >> "$OUT/slow.tsv"
@@ -459,10 +423,8 @@ while (( at < ${#PLAN_ROWS[@]} )); do
         echo "    frame: re-flying block $block as shot $(printf '%03d' "$extra")"
     fi
 
-    # After the FIRST shot, not every fourth: an instrument that is not recording makes the whole
-    # night worthless, and every shot after this one is spent confirming that. The walk night of
-    # 2026-09-08 flew fourteen blocks over three and a half hours and its declared endpoint was
-    # empty in shot one. This is the check that was missing, and it is fatal rather than advisory.
+    # After the FIRST shot, and fatal: an instrument that is not recording makes the whole night
+    # worthless, and every shot after this one would be spent confirming that.
     if (( flown == 1 )); then
         if ! "$REPO_ROOT/tools/shot-report.py" "$OUT" --instrument; then
             echo "== stopping the night: the instrument is not recording what it was flown for" >&2
@@ -514,8 +476,7 @@ echo "== $flown shots flown into $OUT"
 "$REPO_ROOT/tools/shot-report.py" "$OUT"
 
 # A paired night builds ONE arm, so the between-arm tables above are empty by construction and the
-# comparison it was flown for lives behind --paired. Printing only the first reports nothing the
-# night was for.
+# comparison it was flown for lives behind --paired.
 if [[ -n "$PAIRED" ]]; then
     echo
     "$REPO_ROOT/tools/shot-report.py" "$OUT" --paired

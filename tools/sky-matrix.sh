@@ -7,7 +7,7 @@
 #
 # A CELL is KT@KM, e.g. 1400@400 (Starfish) or 50000@100. The craft is set down at night first -- the
 # longitude searched until the sun is 18 degrees down -- since everything high up is a night sight.
-# Every call runs under a timeout, because an MCP call has hung for the full half hour, and each capture
+# Every call runs under a timeout, because an MCP call can hang, and each capture
 # is copied out before the next call wipes the bridge's last/ folder.
 set -euo pipefail
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Reports how much of each source file is comment, and fails on the two things that are
+# Reports how much of each source file is comment, and fails on the three things that are
 # mechanically detectable.
 #
 #     ./tools/check-comments.sh            # report, and fail on a violation
@@ -24,8 +24,6 @@ REPORT_ONLY=0
 [[ "${1:-}" == "--report" ]] && REPORT_ONLY=1
 
 FAIL=0
-
-# --- history in comments ----------------------------------------------------
 
 HISTORY='(reported from play|regression, commit|commit [0-9a-f]{7}'
 HISTORY+='|used to (be|run|live|sit|fall|go|advance|assume|report|do)'
@@ -55,8 +53,6 @@ if [[ -n "$hits" ]]; then
 else
     echo "  none"
 fi
-
-# --- XML docs on private members --------------------------------------------
 
 echo
 echo "XML doc blocks on private members"
@@ -90,8 +86,6 @@ if [[ -n "$private_docs" ]]; then
 else
     echo "  none"
 fi
-
-# --- doc blocks left behind by a deleted member ------------------------------
 
 echo
 echo "Doc blocks documenting two members"
@@ -129,8 +123,6 @@ if [[ -n "$stray_docs" ]]; then
 else
     echo "  none"
 fi
-
-# --- ratio, reported only ---------------------------------------------------
 
 echo
 echo "Comment ratio by file"

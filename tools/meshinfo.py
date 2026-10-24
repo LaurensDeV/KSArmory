@@ -16,7 +16,6 @@ import sys
 
 
 def read_glb_json(path):
-    """Returns the JSON chunk of a .glb as a dict."""
     with open(path, "rb") as fh:
         magic, version, _total = struct.unpack("<III", fh.read(12))
         if magic != 0x46546C67:  # 'glTF'

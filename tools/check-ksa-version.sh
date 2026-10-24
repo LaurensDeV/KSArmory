@@ -6,12 +6,8 @@
 #   ./tools/check-ksa-version.sh          # report, exit 1 if a newer build is out
 #   ./tools/check-ksa-version.sh --quiet  # say nothing unless it has moved
 #
-# This is the only check that can notice an update *before* it is installed - everything else
-# compares assemblies, which requires having the new ones already. A scheduled CI job runs this
-# and opens an issue when the answer changes.
-#
-# Deliberately not wired into build.sh: a network call on every build is slow, breaks offline,
-# and would be the first thing anyone disabled.
+# The only check that notices an update before it is installed; ksa-version.yml runs it daily and
+# opens an issue. Not wired into build.sh: a network call on every build is slow and breaks offline.
 #
 set -euo pipefail
 
@@ -25,8 +21,7 @@ QUIET=0
 pinned="$(grep -oP '(?<=^build ).*' "$LOCK" 2>/dev/null || true)"
 [[ -n "$pinned" ]] || { echo "error: no 'build' line in $LOCK" >&2; exit 1; }
 
-# A master server that is down, moved, or slow is not a reason to fail a build or a scheduled
-# job. Report and succeed.
+# A master server that is down or slow is not a reason to fail a scheduled job.
 if ! response="$(curl -sS --max-time 20 "$ENDPOINT" 2>&1)"; then
     (( QUIET )) || echo "could not reach $ENDPOINT; skipping" >&2
     exit 0

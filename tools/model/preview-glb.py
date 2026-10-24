@@ -2,8 +2,7 @@
 Renders any .glb from a few angles, so an authored asset can be judged before it is declared.
 
 The generated parts get their previews from pantsir.py, which builds the scene it renders. An
-authored one arrives as a file, and until now the only way to see it was to ship it and start the
-game. This imports and lights it instead.
+authored one arrives as a file, so this imports and lights it.
 
 Run through tools/model/preview.sh rather than by hand -- Blender is a Windows binary and needs
 Windows paths for both the script and its output.

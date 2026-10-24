@@ -42,12 +42,8 @@ if (\$sm -and \$sm.MainWindowHandle -ne 0) {
 }
 " >/dev/null 2>&1 || true
 
-# Refuse unless the game is actually in front. This captures the whole screen, so a failed
-# AppActivate -- which happens, and silently -- means photographing whatever the machine's owner
-# had open and writing it into the repo. A missing screenshot is recoverable; a captured desktop
-# is not, and nothing downstream would notice either.
-#
-# Checked here rather than trusted above: AppActivate reports success it did not achieve.
+# Checked rather than trusted: AppActivate can fail silently and report success, and a captured
+# desktop written into the repo is not recoverable where a missing screenshot is.
 FOREGROUND="$(powershell.exe -NoProfile -Command "
 Add-Type -Namespace W -Name A -MemberDefinition '
   [DllImport(\"user32.dll\")] public static extern IntPtr GetForegroundWindow();

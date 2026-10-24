@@ -7,10 +7,7 @@
 #   ./tools/check-commit-msg.sh --text "feat: do a thing"
 #
 # semantic-release parses these to decide the next version, so a message that does not parse
-# produces no release and never reaches the changelog. That failure is silent, which is exactly
-# why it is worth catching here.
-#
-# One script for both the local hook and CI, so the two can never disagree about what is legal.
+# silently produces no release. One script for the local hook and CI, so the two cannot disagree.
 #
 set -euo pipefail
 
@@ -25,8 +22,8 @@ fail=0
 check() {
     local header="$1" origin="$2"
 
-    # Machine-generated and in-progress commits are out of scope: merges, reverts,
-    # semantic-release's own release commit, and the fixup/squash markers rebase consumes.
+    # Merges, reverts and the markers rebase consumes. semantic-release's `chore(release):` parses
+    # as it is.
     case "$header" in
         Merge\ *|Revert\ *|fixup!\ *|squash!\ *|amend!\ *) return 0 ;;
     esac
@@ -51,15 +48,8 @@ check() {
     echo "✓ $header"
 }
 
-# Warns when a commit will cut a release that changes nothing a player installs.
-#
-# `feat` means "feature" to semantic-release whatever the scope says, so `feat(tools)` on a
-# developer script cuts a release and publishes an archive identical to the last one but for the
-# version string. Anyone who upgrades to it gets nothing.
-#
-# A warning rather than a rule, and scope is deliberately not used to decide. A packaging fix in
-# tools/package.sh changes the artifact without touching src/ at all, so any mechanical rule
-# gets that backwards. The author knows which it is; this only asks the question.
+# Warns when a feat/fix/perf touches nothing under src/KSArmory/, whatever its scope. Only a
+# warning: a packaging fix in tools/package.sh changes the archive without touching src/.
 advise_release_impact() {
     local header="$1"
     local type="${header%%[(:!]*}"
@@ -84,9 +74,8 @@ mode="${1:-}"
 case "$mode" in
     --range)
         range="${2:?usage: --range <rev range>}"
-        # A range can legitimately not resolve: the first commit in a repository has no parent,
-        # and a freshly pushed branch has no "before". Checking the tip is the useful thing to
-        # do then, rather than failing on a git error nobody can act on.
+        # The first commit has no parent and a freshly pushed branch has no "before", so a range
+        # that does not resolve checks the tip.
         if ! git rev-list "$range" >/dev/null 2>&1; then
             echo "note: '$range' does not resolve; checking HEAD only" >&2
             while IFS=$'\t' read -r sha subject; do
@@ -94,7 +83,6 @@ case "$mode" in
                 check "$subject" "${sha:0:8}"
             done < <(git log --no-merges -1 --format='%H%x09%s')
         else
-            # Subjects only; %s is the first line.
             while IFS=$'\t' read -r sha subject; do
                 [[ -n "$sha" ]] || continue
                 check "$subject" "${sha:0:8}"
@@ -113,8 +101,7 @@ case "$mode" in
         # First line only, and ignore the comment block git appends to the template.
         subject="$(grep -v '^#' "$mode" | sed '/^$/d' | head -1)"
         check "$subject" "$(basename "$mode")"
-        # Only in hook mode: the staged set is this commit's contents, and the author is still
-        # here to act on it. In --range mode the commit already exists and the advice is noise.
+        # Hook mode only: the staged set is this commit's contents.
         (( fail )) || advise_release_impact "$subject"
         ;;
 esac

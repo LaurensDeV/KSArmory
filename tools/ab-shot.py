@@ -1,25 +1,15 @@
 #!/usr/bin/env python3
-"""Read one shot's log and score an A/B split flown *within* a single salvo.
+"""Score an A/B split flown within one salvo.
 
-    ./tools/ab-shot.py <log>            # a shot flown by a split arm
-    ./tools/ab-shot.py <log> --tubes    # ...and every warhead, not just the summary
+    ./tools/ab-shot.py <log>
 
-WHY THIS EXISTS. A night of sixteen shots measured a 336 m term at 27 sigma, which is twenty-five
-shots more than the question needed. The cost was in the wrong place: the group *miss* carries the
-aim correction's shot-to-shot variance, 11%, which has nothing to do with a term inside the round.
+Each tube's condition is read off the arm's own "screen: tube N flies ..." lines; an arm that prints
+none is read as odd tubes under test and even tubes shipped. Warheads from one bus share the cutoff,
+the trim and the frame pacing, so one flight is a paired comparison.
 
-Six warheads from one bus land within about 20 m of each other. So a split arm -- odd tubes flying
-the shipped code and even tubes the change -- turns one flight into a paired comparison with the
-cutoff, the trim, the frame pacing and the weather all held identical by construction. The same
-336 m separates at seventeen sigma from a single shot.
-
-WHAT IT CANNOT DO. Only a per-round term can be split this way. Anything upstream of the release --
-guidance, the bus, the arrival, the release timing -- is shared by all six warheads, and a split arm
-would read a dead heat however large the effect. If the change is not inside the round, fly a night.
-
-AND IT IS A SCREEN, NOT A VERDICT. It scores the walk and the per-warhead miss on one flight; what
-ships is decided on the group miss over a proper interleaved batch, because that is the number a
-player gets. Use this to choose what is worth a night.
+Only a per-round term can be split this way: anything upstream of the release is shared by every
+warhead and reads a dead heat however large it is. And it is a screen, not a verdict -- what ships is
+decided on the group miss over an interleaved batch. docs/SHOT-PROTOCOL.md, section 0.
 """
 
 import argparse
@@ -36,12 +26,11 @@ WALK = re.compile(
     r"round\s+(\d+)\s+landed at\s+[-\d.,]+\s*\|.*?walk from the release probe\s+[-\d.]+\s*m\s*"
     r"\(([-+\d.]+)\s*down,\s*([-+\d.]+)\s*cross\)")
 
-# "screen: tube 3 flies 1 ms sub-step" -- the arm says what it flew, so nothing here guesses the
-# tube numbering or the assignment.
+# "screen: tube 3 flies 1 ms sub-step"
 SCREEN = re.compile(r"screen: tube\s+(\d+)\s+flies\s+(.+?)\s*$")
 
 
-# The fallback for an arm that predates the screen line: odd tubes under test, even shipped.
+# For an arm that prints no screen line.
 def under_test(tube: int) -> bool:
     return tube % 2 == 1
 
@@ -76,10 +65,8 @@ def main() -> int:
         print("no warhead impacts in that log -- did the salvo arrive?", file=sys.stderr)
         return 1
 
-    # The arm's own account of what each tube flew. Keyed on the tube directly and never on an
-    # offset between the two lists: a warhead that fails to arrive shifts one list and not the
-    # other, and an offset computed from their minima then mislabels EVERY round silently. That
-    # happened, and the table it produced looked entirely reasonable.
+    # Keyed on the tube, never on an offset between the two lists: a warhead that fails to arrive
+    # shifts one list and not the other, and an offset then mislabels every round silently.
     if flew:
         label = {t: flew.get(t, "?") for t in impacts}
 
@@ -111,8 +98,7 @@ def main() -> int:
     control = "shipped" if "shipped" in groups else sorted(groups)[0]
     base = statistics.mean(groups[control])
 
-    # The scale to judge against: how much warheads on the SAME side disagree, which is everything
-    # the split holds constant.
+    # The scale: how much warheads on the same side disagree, everything shared held constant.
     within = max((statistics.pstdev(v) for v in groups.values() if len(v) > 1), default=0.0)
 
     print(f"\n   condition                mean       vs {control}")

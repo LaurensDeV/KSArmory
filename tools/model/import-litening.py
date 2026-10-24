@@ -109,10 +109,6 @@ MECHANICAL_STOP_DEG = 150.0
 KEYHOLE_DEG = 4.0
 
 
-# ---------------------------------------------------------------------------
-# Reading
-# ---------------------------------------------------------------------------
-
 def quat_matrix(q):
     x, y, z, w = q
     return ((1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)),
@@ -171,10 +167,6 @@ def load(path):
 
     return bodies, empties
 
-
-# ---------------------------------------------------------------------------
-# Reframing
-# ---------------------------------------------------------------------------
 
 def clock(v, degrees):
     """Turns a vector about the pod's own centreline, which is +X in the authored frame."""
@@ -244,10 +236,6 @@ def reframe(bodies, standoff, pivot_part):
     return out
 
 
-# ---------------------------------------------------------------------------
-# Measuring
-# ---------------------------------------------------------------------------
-
 def ray_hits(origin, direction, body, near=0.02):
     """Nearest hit distance along a ray, or None. Moller-Trumbore, no acceleration structure:
     a few thousand triangles against a few hundred rays is seconds, and this runs by hand."""
@@ -316,10 +304,6 @@ def aperture_deg(reframed, pivot_part, step=0.5):
 
     return reach
 
-
-# ---------------------------------------------------------------------------
-# Writing
-# ---------------------------------------------------------------------------
 
 def write_glb(path, reframed):
     """One mesh per body plus a `_VM` twin, no node transforms, node name == mesh name.
@@ -401,8 +385,6 @@ def write_glb(path, reframed):
 
     return len(blob) + len(payload)
 
-
-# ---------------------------------------------------------------------------
 
 def main():
     ap = argparse.ArgumentParser()

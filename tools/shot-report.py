@@ -92,11 +92,8 @@ MIN_TERRAIN_SPAN_M = 100.0
 BODY_RADIUS_M = 6371000.0
 
 
-# --- parsing ----------------------------------------------------------------
-
-# One line per rocket when several fly in one world. A run used to be one shot, so read_shot
-# took the FIRST verdict in the file -- which with eight flights scores one and silently discards
-# seven. Silent undercounting reads exactly like a smaller night.
+# One line per rocket when several fly in one world; taking the first verdict in the file would
+# score one of eight and read like a smaller night.
 PERFLIGHT = re.compile(r"FLIGHT (.+?) :: (PASS|FAIL) (.*)$", re.M)
 
 # "mirv: GeoSat FAT 2 flies arm sub (WarheadSubStepMs=2)". The craft is non-greedy and the
@@ -104,9 +101,7 @@ PERFLIGHT = re.compile(r"FLIGHT (.+?) :: (PASS|FAIL) (.*)$", re.M)
 FLIESARM = re.compile(r"^.*?: (.+?) flies arm (\S+)", re.M)
 
 # "GeoSat FAT 3_1" is the craft plus its launcher ordinal, and the FLIGHT line says "GeoSat FAT 3".
-# Matching one against the other without this fails silently and every per-craft reading falls back
-# to a whole-log one -- which reported 8 of 8 corrections ending on the clearance for a run whose
-# arm had 0 of 4.
+# Unmatched, every per-craft reading silently falls back to a whole-log one.
 ORDINAL = re.compile(r"_\d+$")
 
 
@@ -126,19 +121,15 @@ ARRIVED = re.compile(r"(\d+)\s+of\s+(\d+)\s+arrived")
 TARGET_METRES = re.compile(r"in metres: worst ([\d.]+), best ([\d.]+), mean ([\d.]+), spread ([\d.]+)")
 PICKUP = re.compile(r"already flying at\s+(\d+)\s*km doing\s+(\d+)\s*m/s")
 ONPAD = re.compile(r"on the ground at")
-# The craft is optional because logs written before the line carried a name still have to read.
-# Without it this took the FIRST cutoff in the file and handed it to every rocket in the world --
-# the same one-craft's-reading-worn-by-eight that why_it_ended exists to avoid, and the reason the
-# residual could not be attributed to an arm on a paired night (3bo).
+# The craft is optional because logs written before the line carried a name still have to read;
+# where it is named, each rocket gets its own cutoff rather than the first in the file (3bo).
 CUTOFF = re.compile(r"cutoff(?: on (?P<craft>.+?))?:\s*residual\s+(?P<residual>[-\d.]+)\s*m/s,"
                     r"\s*own prediction\s+(?P<own>[-\d.]+)\s*km off")
 TRIM = re.compile(r"owed\s+([-\d.]+)\s*m/s at the split,\s*([-\d.]+)\s*m/s on release")
 TRIM_GAVE_UP = re.compile(r"release summary on (?P<craft>.+?): .*?GAVE UP")
 OFFLINE = re.compile(r"warhead away from tube\s+(\d+),\s*([-\d.]+)\s*deg off the salvo's line")
 # The miss goes through `Distance.Say`, which drops to metres under a kilometre, and the seconds
-# are now behind the components it broke the miss into. A km-only pattern therefore matched 0 of 48
-# lines on 2026-09-12-pulse2 -- silently, because an unmatched column reads as an empty one rather
-# than as a broken pattern, and a night that shoots well is exactly the night it stops matching.
+# follow the components it broke the miss into. An unmatched column reads as an empty one.
 PROBE = re.compile(r"release probe:.*?([\d.]+)\s*(km|m) from the target.*?(\d+)\s*s of flight")
 THROWN = re.compile(r"thrown\s+([-\d.]+)\s*deg from the platform's track")
 TRACEPROBE = re.compile(
@@ -146,33 +137,26 @@ TRACEPROBE = re.compile(
     r"\s*arriving at\s+([-\d.]+)\s*m/s,\s*([-\d.]+)\s*deg below")
 WALK = re.compile(r"walk from the release probe\s+([-\d.]+)\s*m\s*\(([-+\d.]+)\s*down,\s*([-+\d.]+)\s*cross\)")
 
-# What the round's own clock made of the flight beside what its predictor expected. The two use the
-# same ground and the same air; a round that arrives early against its own probe is short by that
-# time times its ground speed, which at a 7 deg arrival is most of the walk.
-# The walk at the END of the flight, signed, off the landing line alone.
+# The walk at the END of the flight, signed, off the landing line alone. The trace prints a walk
+# line at every sample, so a median over them medians an accumulating quantity; and the leading
+# figure is a MAGNITUDE, so read the signed components.
 #
-# Two traps, both of which have misled a reading of this batch. The trace prints a walk line at
-# every sample, so a median over all of them medians an accumulating quantity rather than reporting
-# the final one. And the leading figure is a MAGNITUDE: a round 3 km short and one 700 m long read
-# 2958 and 679, whose difference is not the 3637 m of swing between them. Sign first.
-#
-# The craft is optional and is the whole of the attribution: the aim points cannot recover it,
-# because seats 5 and 6 land 100 m apart and nearest-point matching mislabels them (3ce). A log
-# written before the name was added keeps behaving as it did -- every flight gets the whole shot.
+# The craft is the whole of the attribution: seats 5 and 6 land 100 m apart and nearest-point
+# matching mislabels them (3ce). A log with no name gives every flight the whole shot.
 FINAL_WALK = re.compile(
     r"warhead trace(?: on (?P<craft>.+?))?: round \d+ "
     r"landed at\s+[-\d.,]+\s*\|\s*(?P<aim>[-\d.]+)\s*m from the aim\s*\|\s*"
     r"walk from the release probe\s+[-\d.]+\s*m\s*"
     r"\((?P<down>[-+\d.]+)\s*down,\s*(?P<cross>[-+\d.]+)\s*cross\)")
 
-# A warhead that DETONATED instead of landing. It still prints a walk, and the walk is measured
-# where it stopped -- which is not where it was going, so it is not an arrival and must not be
-# scored as one. What it must also not be is invisible: these matched nothing, were dropped from
-# the endpoint without a word, and on 2026-09-09-walk3 all four were the same arm. An exclusion
-# that lands on one side is the difference under test.
+# A warhead that DETONATED instead of landing. Its walk is measured where it stopped, so it is not
+# an arrival; it is counted rather than dropped, because an exclusion landing on one arm is the
+# difference under test.
 FINAL_BURST = re.compile(
     r"warhead trace(?: on (?P<craft>.+?))?: round \d+ burst at")
 
+# What the round's own clock made of the flight beside what its predictor expected. A round that
+# arrives early against its own probe is short by that time times its ground speed.
 FLIGHT = re.compile(
     r"flight\s+([-\d.]+)s by the world clock,\s+([-\d.]+)s by its own, "
     r"probe said\s+([-\d.]+)s")
@@ -217,12 +201,9 @@ IMPACT = re.compile(
     r"\((?P<down>[-+\d.]+)\s*down,\s*(?P<cross>[-+\d.]+)\s*cross\)")
 
 # The frame the round's last ground lookup was taken across. It names no craft, so it belongs to the
-# landing it follows -- on all seven nights of 2026-09-11/12 every one of 1,120 landings was followed
-# by its own before the next landing. Every form clears the landing, so a sample that could not be
-# read is never handed to the next warhead.
-# Both wordings: the line said "over a X ms frame" for a number that is the CROSSING phase
-# whenever ResampleGroundNearImpact is on, which is shipped. It now says which it is, and
-# this reads either -- old nights stay readable. ACCURACY-PLAN.md 3dr.
+# landing it follows (1,120 of 1,120 landings on 2026-09-11/12). Every form clears the landing, so a
+# sample that could not be read is never handed to the next warhead. Reads both the older
+# "over a X ms frame" wording and the crossing phase; ACCURACY-PLAN.md 3dr.
 GROUND_SAMPLE = re.compile(
     r"warhead trace: ground sample: (?:over a (?P<ms>[\d.]+) ms frame"
     r"|crossing (?P<cross>[\d.]+) ms back from the frame's end)?")
@@ -307,12 +288,10 @@ def why_it_ended(log, craft=None):
             end = m
             break
 
-    # No Finish() at all is not a gap in this parser -- it is the separation clearance releasing
-    # the warheads over the top of a loop that never got to decide. MIRV-NEXT item 8p, where it
-    # was 22 of 24 shots, and it reads as `clearance` rather than as a missing measurement.
+    # No Finish() at all is the separation clearance releasing the warheads over a loop that never
+    # got to decide (MIRV-NEXT 8p), and reads as `clearance`.
     if end is None:
-        # This craft's own giving-up, when it says which craft. Falling back to any of them is what
-        # made every unattributed flight read as abandoned.
+        # This craft's own giving-up, when it says which craft.
         cut = next((m for m in GAVEUP.finditer(log) if want is None or _craft(m.group(1)) == want),
                    None)
 
@@ -552,9 +531,7 @@ def split_flights(out_path, log_path):
     log = log_path.read_text(errors="replace") if log_path.exists() else ""
 
     # The scenario reports through Log.Info and scenario.sh copies those same lines to its
-    # stdout, so BOTH files carry every FLIGHT line. Scanning the pair counted each flight twice,
-    # which doubles n without adding an observation. Invisible with one rocket, because that path
-    # returns the whole run as a single shot below.
+    # stdout, so BOTH files carry every FLIGHT line; scanning the pair would count each flight twice.
     flights = PERFLIGHT.findall(text) or PERFLIGHT.findall(log)
 
     # Which variant each craft drew, when the run was flown paired. Read from the same pair of
@@ -573,10 +550,8 @@ def split_flights(out_path, log_path):
     for i, (craft, _passfail, said) in enumerate(flights):
         rec = read_shot(out_path, log_path, craft)
 
-        # The verdict and the terminator are this flight's own -- the terminator because the
-        # post-boost line now names its craft, which is what makes 8z's table a per-flight count
-        # rather than one shot's outcome worn by eight rockets. The remaining columns are still
-        # read over the whole log and describe the world.
+        # The verdict and the terminator are this flight's own, because the post-boost line names its
+        # craft. The remaining columns are read over the whole log and describe the world.
         m = VERDICT.search(said)
         if m:
             rec["worst"], rec["best"], rec["mean"], rec["spread"] = (float(g) for g in m.groups())
@@ -591,10 +566,8 @@ def split_flights(out_path, log_path):
         # match that cannot happen.
         _fold_targets(rec)
 
-        # Where this rocket sat in the roster. 8y measured a 175x gradient down it -- first rocket
-        # 0.09 km, eighth 15.81 km, monotone across every arm -- and every arm comparison since has
-        # had to be laid out so both variants sit on both ends of it. Kept so a run can say whether
-        # the gradient is still there rather than assuming the finding of one night.
+        # Where this rocket sat in the roster. 8y measured a 175x gradient down it, and 8ai measured it
+        # flat once the interlock shipped; kept so a run can say whether it is back.
         rec["seat"] = i
 
         out.append((rec, chr(ord("a") + i) if i < 26 else f".{i}", craft))
@@ -666,10 +639,9 @@ def read_shot(out_path, log_path, craft=None):
         shot["version"] = m.group(1)
     shot["why"], shot["passes"], shot["owed"], shot["why_named"] = why_it_ended(log, craft)
 
-    # The trim's own verdict, which is strictly more sensitive than the terminator. Over 2,662
-    # flights the two agree 99.51%, and where they disagree it is always this way round: 13 flights
-    # gave up and then hit an EARLIER terminator -- clock twelve times, budget once -- so `why`
-    # reads "clock" and the flight is scored as sound while it landed 0.86-70.3 km out.
+    # The trim's own verdict, strictly more sensitive than the terminator: over 2,662 flights the
+    # two disagreed on 13, each a trim that gave up and then hit an earlier terminator, so `why`
+    # read "clock" on a flight that landed 0.86-70.3 km out.
     gave, _ = _traces(TRIM_GAVE_UP, log, craft)
     shot["gave_up"] = bool(list(gave))
     shot.update(release_summary(log, craft))
@@ -699,8 +671,8 @@ def read_shot(out_path, log_path, craft=None):
         shot["walk_down"].append(down)
         shot["walk_cross"].append(cross)
 
-    # Counted so the coverage line can say so. A burst is a real outcome and a real cost, but it
-    # is not an arrival, and a silent drop is what let four of them leave one arm short.
+    # Counted so the coverage line can say so: a burst is not an arrival, and dropped silently it
+    # can leave one arm short.
     bursts, _ = _traces(FINAL_BURST, log, craft)
     shot["bursts"] = len(list(bursts))
 
@@ -785,10 +757,8 @@ def read_shot(out_path, log_path, craft=None):
         # taken while the trim is working -- those are exactly the parts of the coast the quiet
         # window is bounded away from, so excluding them would measure the window against itself.
         #
-        # THIS ONE CRAFT'S probes, unlike the columns below it. A paired night gives the two arms
-        # different rockets in one world, so a whole-log count is identical for both by
-        # construction -- which is what it read before this filter, 4% against 4%. Same trap
-        # why_it_ended documents, one craft's reading worn by eight.
+        # THIS ONE CRAFT'S probes, unlike the columns below it: a paired night gives the two arms
+        # different rockets in one world, so a whole-log count is identical for both by construction.
         if _craft(who) == _craft(craft or who):
             shot["rails_probes"] += 1
             if m.group("rails") == "off rails":
@@ -824,8 +794,6 @@ def read_shot(out_path, log_path, craft=None):
         shot["sim"].append(sim)
     return shot
 
-
-# --- statistics -------------------------------------------------------------
 
 
 def mannwhitney_null(m, n, _memo={}):
@@ -1006,11 +974,8 @@ def _say_regime(shots):
         said += f", {statistics.median(passes):.0f} correction pass(es) at the median shot"
     print(said)
 
-    # The frame time is a proxy; what it was ever a proxy FOR is whether the post-boost loop got to
-    # run. That is directly observable, so it is asked rather than inferred -- a session that ran the
-    # correction is a session an arm acting on the correction can be measured in, however slow the
-    # frames were. Before KeepOutCoversTheClearance shipped the two were the same question: a slow
-    # night ran 0.24 passes a flight against 1.4 in a fast one and landed 20.5 km against 9.3.
+    # The frame time is a proxy for whether the post-boost loop got to run, which is directly
+    # observable: a session that ran the correction can measure an arm acting on it, however slow.
     if dt >= SLOW_FRAME_MS:
         ran = statistics.median(passes) if passes else 0.0
 
@@ -1130,12 +1095,9 @@ def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False, targe
 
     order = [piece.split(":")[0].strip() for piece in spec.split("|") if piece.strip()]
 
-    # Dropped before anything is scored, and dropped on a property of the RUN rather than of the
-    # result: a shot whose burn phase ran slower than SLOW_BURN_MS is not measuring the arm at all
-    # -- the trim gives up at the split and every warhead in the world is lost. Both such shots on
-    # 2026-09-09-walk2 lost all eight, both arms equally, and between them they took the walk from
-    # 0.72x p=0.027 to 0.80x p=0.268. Knowable before the shot is scored, which is what makes it a
-    # rule rather than a choice. shot-batch.sh re-flies these, so a night flown since has none.
+    # Dropped before anything is scored, on a property of the RUN rather than of the result: a shot
+    # whose coast diverged (coast_divergence) loses every warhead in the world to the trim giving up
+    # at the split, and measures no arm. shot-batch.sh re-flies these.
     slow = set()
     for log_path in sorted(root.glob("shots/*.log")):
         if coast_divergence(log_path) > DIVERGED_COAST:
@@ -1181,10 +1143,8 @@ def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False, targe
         print("      it back. Read off the RUN rather than off the result -- ACCURACY-PLAN.md "
               "3ci, 3cn.")
 
-    # A flight with no score is not a tie and not a zero -- it is an observation the instrument
-    # did not take, and saying how many were missed is what 3cd needed and did not have: it named
-    # the walk its primary endpoint on a night whose trace covered half the roster, and could not
-    # read its own headline. Said before the comparison rather than after it.
+    # A flight with no score is not a tie and not a zero but an observation the instrument did not
+    # take, so how many were missed is said before the comparison (3cd).
     if endpoint != "miss":
         flown = [r for r in shots if r.get("within") and usable(r)]
         got = [r for r in flown if score(r) is not None]
@@ -1235,8 +1195,7 @@ def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False, targe
     # down the roster and swaps them each shot, so seat and arm decouple over a night and are
     # PERFECTLY confounded within a single one. The seat term is the larger of the two -- measured
     # 9 m to 92 m across the roster on 2026-09-07-1824 -- so the arm medians below are a statement
-    # about which seats a variant drew. Two such runs were read as an arm result before this said
-    # so: docs/ACCURACY-PLAN.md 3by.
+    # about which seats a variant drew. docs/ACCURACY-PLAN.md 3by.
     if len(groups) < 2:
         print()
         print("   !! ONE BLOCK: the arms did not flip, so each variant flew a FIXED set of seats.")
@@ -1369,14 +1328,10 @@ def paired(root, shots, endpoint="miss", levels_from=None, per_seat=False, targe
         # symmetric in its arguments, so the p it returns is the same number either way.
         pos = sum(1 for r in ratios if r > 0)
 
-        # The rank test is the one to read, so read it. The sign test is kept beside it because it
-        # assumes less and because every number in docs/MIRV-NEXT.md before 8af was scored on it --
-        # but taking min(p, w) was two chances at the same threshold, and against 0.05 where the
-        # interval beside it is built at ALPHA. An arm at sign 0.04 and rank 0.20 read as RESOLVED.
-        # The verdict is read off the RANDOMISATION, not off the signed rank. The rank test shares
-        # a nuisance parameter with its own null -- see _shot_flip_p -- and reads two to four times
-        # too small here. It is still printed, because a large gap between the two is the tell that
-        # the levelling is doing more work than the arm.
+        # The verdict is read off the RANDOMISATION alone: taking the smaller of several p-values is
+        # several chances at one threshold. The signed rank shares a nuisance parameter with its own
+        # null (see _shot_flip_p) and reads two to four times too small here; it is still printed,
+        # because a large gap between the two says the levelling is doing more work than the arm.
         best = flip if not math.isnan(flip) else w
 
         headline = (f"{point:+.3f} m   [{lo:+.3f}, {hi:+.3f}]" if signed
@@ -2056,11 +2011,9 @@ def _say_modes(shots, order):
 def _say_seats(shots):
     """What each seat in the roster was worth, and whether the gradient down it is still there.
 
-    8y found a 175x spread between the first rocket and the eighth, monotone, across every arm --
-    a term far larger than anything being tested, which is the whole reason arms alternate down the
-    roster rather than sitting in blocks. It is not a law: it was attributed to SeparationClearance
-    abandoning the trim, which KeepOutCoversTheClearance removes. So it is worth re-reading rather
-    than carrying forward, and it costs nothing to ask of a run already flown.
+    8y found a 175x spread between the first rocket and the eighth, which is why arms alternate down
+    the roster. It was attributed to SeparationClearance abandoning the trim, which
+    KeepOutCoversTheClearance removes, and 8ai measured it flat; so it is re-read, not carried forward.
 
     Reported as a rank correlation because the claim is monotone rather than linear, and the
     interesting answer is "no trend" as much as a number.
@@ -2209,9 +2162,7 @@ def _say_terminators(shots, order):
         return
 
     # A batch flown before the post-boost line named its craft has one ending read for the whole
-    # shot and handed to every rocket in it. Splitting that by arm produces a table that looks like
-    # evidence and is one flight's outcome wearing eight coats -- which is the mistake 8w's list
-    # exists to stop being made a fifth time.
+    # shot; split by arm it is one flight's outcome wearing eight coats (8w).
     if not any(s.get("why_named") for s in rows):
         print("   what ended each arm's corrections: NOT AVAILABLE for this batch -- its logs")
         print("   predate the post-boost line naming its craft, so one ending is read per shot and")
@@ -2309,9 +2260,6 @@ def summarise(values):
     return {"n": len(s), "median": statistics.median(s), "mean": statistics.fmean(s),
             "min": s[0], "max": s[-1],
             "q1": s[len(s) // 4], "q3": s[(3 * len(s)) // 4]}
-
-
-# --- the report -------------------------------------------------------------
 
 
 def load(root):
@@ -2743,14 +2691,9 @@ TRACE_COVERAGE_FLOOR = 0.75
 # rather than the regime the guidance actually ran in.
 FIRST_LANDING = re.compile(r"warhead trace on .+?: round \d+ (?:landed|burst)")
 
-# Reported, NOT used to exclude. It reads 28.0 and 29.7 ms on the two shots of 2026-09-09-walk2
-# that lost every warhead against 18.2-24.1 for the twelve that did not, which looks causal and is
-# not: WarheadTrace only starts sampling at the first RELEASE -- measured at 37 ms after the first
-# release summary -- so this window opens minutes AFTER the trim has already given up. The ascent
-# frame time, which could have been causal, does not separate the shots at all (21.6-21.7 ms on the
-# two failures against 19.5-22.9 healthy). What is slow is the descent, and it is slow BECAUSE the
-# coast diverged: the world is carrying shed debris and every vehicle is integrated rather than
-# propagated. Symptom, downstream of the cause below.
+# Reported, NOT used to exclude. WarheadTrace only starts sampling at the first RELEASE, so this
+# window opens after the trim has already given up: a slow one is a symptom of the coast diverging
+# (shed debris, every vehicle integrated), not its cause. The ascent frame time does not separate them.
 SLOW_BURN_MS = 26.0
 
 # One probe is enough. The quantity is a COUNT of rotating-frame probes on an unsplit bus that also
@@ -3032,10 +2975,9 @@ def main_effect(shots, factor):
 
 
 # "ground under the aim on <craft>: N samples over 5.0 km of the approach, swing X m, below a 1 km
-# wavelength Y m peak-to-peak and Z m rms" -- written once per flight, per craft, since the release
-# summary shipped. The terrain section below reads the SCENARIO aim point and nothing else, which is
-# seat 1 of eight; AimSpread puts the others 12 km apart on ground that is nothing like it. Seat 3
-# is seven times rougher and was never in the report -- docs/ACCURACY-PLAN.md 3cb.
+# wavelength Y m peak-to-peak and Z m rms" -- once per flight, per craft. The terrain section reads
+# the SCENARIO aim point alone, which is seat 1 of eight; AimSpread puts the others 12 km apart on
+# different ground. docs/ACCURACY-PLAN.md 3cb.
 GROUND = re.compile(r"ground under the aim on (?P<craft>.+?)(?:_\d+)?: .*?swing (?P<swing>[\d.]+) m, "
                     r"below a 1 km wavelength (?P<pp>[\d.]+) m peak-to-peak "
                     r"and (?P<rms>[\d.]+) m rms")
@@ -3078,9 +3020,6 @@ def say_ground_per_seat(root):
           f"and lands accordingly.")
 
 
-# --- terrain ----------------------------------------------------------------
-
-
 def _slope_fit(xs, ys):
     """Least-squares slope of ys on xs, with the standard error that says whether to believe it."""
     n = len(xs)
@@ -3103,11 +3042,8 @@ def terrain(shots):
     scatter cannot give -- a principal axis is a line -- so the walk's signed downrange component
     orients it.
     """
-    # The attributed landings where the night has them: pooling `impacts` gives every rocket in a
-    # world the whole world's landings, so a fit over eight flights counted each one eight times.
-    # The slope was unaffected -- a duplicated point does not move a least squares line -- but `n`
-    # and the standard error were, and a log written before the trace named its craft has only
-    # the pooled form.
+    # The attributed landings where the night has them: pooled `impacts` counts every landing once
+    # per rocket in the world, which leaves the slope and inflates `n`. Unnamed logs have only that.
     pts = [q for s in shots for q in s["own_impacts"]] or [q for s in shots for q in s["impacts"]]
     degs = [d for s in shots for d in s["arrival_deg"]]
     if len(pts) < 4 or not degs:

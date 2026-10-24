@@ -27,9 +27,7 @@ land in an X, straddling the rail; at 0 one points straight down through it.
 
 import math
 
-# ---------------------------------------------------------------------------
 # Dimensions. AIM-9J: 3.05 m long, 127 mm body, 630 mm across the tail wings, 78 kg.
-# ---------------------------------------------------------------------------
 
 BODY_LEN = 3.05
 BODY_R = 0.0635

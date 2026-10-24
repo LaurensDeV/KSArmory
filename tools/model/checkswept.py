@@ -44,22 +44,11 @@ MOD = REPO / "src" / "KSArmory"
 # by a skin plus jitter, and assemblies are deliberately seated into their mounts.
 SEATED = 0.06
 
-# Pairs that are structurally allowed to interpenetrate, and by how much. Each of these is a
-# joint rather than a defect: a trunnion inside its own bearing, or a ring seated on a deck.
+# Pairs that are structurally allowed to interpenetrate, and by how much: a trunnion inside its
+# own bearing, or a ring seated on a deck. Pods/Turret masks a real defect; docs/MODULARITY.md.
 #
-# Pods/Turret is the weakest of the three and the one to design out. The pods' inner tube column
-# occupies the same Z band as the turret cheeks, so it runs through them near the trunnion at
-# every elevation — a full tube diameter. It is hidden rather than visibly clipping, because the
-# column is narrower than the cheek it is inside, but the allowance is wide enough to mask a real
-# defect between those two bodies. See docs/MODULARITY.md.
-#
-# Nothing here is for the director, deliberately. Splitting a body out of an assembly is what makes
-# a clash visible at all -- a body cannot intersect itself, so the Pantsir's blanked-off optic stub
-# sat inside the tracking array's housing for as long as it was part of the turret's own mesh and
-# no check could see it. The moment it became a body in its own right the pair was measurable, at
-# 7.0 cm. That was fixed by moving the mount, not by granting it an allowance: an entry here says
-# "this is a joint", and two things that merely overlap are not a joint. Adding a body to an
-# existing assembly is the case to re-run this for.
+# Nothing here is for the director: an entry says "this is a joint", and two things that merely
+# overlap are not. A body cannot intersect itself, so re-run this after splitting one out.
 ALLOWED = {("KSArmory_Subpart_Guns", "KSArmory_Subpart_Turret"): 0.30,
            ("KSArmory_Subpart_Pods", "KSArmory_Subpart_Turret"): 0.22,
            ("KSArmory_Subpart_Chassis", "KSArmory_Subpart_Turret"): 0.10}
@@ -388,12 +377,8 @@ def check_every_articulated_launcher_is_swept(swept):
 def vehicles(muzzles):
     """Every articulated vehicle in the atlas, each with its own body set and its own travel.
 
-    One entry per launcher that moves. Sweeping only the first is how a whole vehicle goes
-    unchecked while the tool still reports clean: the CIWS had a traverse, an elevating head and
-    no coverage at all, because this read the Pantsir's body names and stopped.
-
-    Only generated vehicles are here. An authored one is not in this atlas, and its bodies are not
-    the convex primitives this sweep reasons about.
+    One entry per launcher that moves, generated ones only: an authored body is not the convex
+    primitives this sweep reasons about.
     """
     return [
         {
@@ -410,15 +395,9 @@ def vehicles(muzzles):
                 # The array's spin is about the traverse axis, so it cannot change any clearance
                 # the bearing does not already cover.
                 "KSArmory_Subpart_Radar": (muzzles["radar_pivot_from_turret"], 0.0),
-                # The director. Its base rides the traverse and nothing else, so it is swept
-                # exactly like the array's turntable.
-                #
-                # Its head is swept at REST only, and that understates it: the ball points freely
-                # rather than on a named axis, so its lens and hood sweep a shell this tool has no
-                # way to describe. The ball itself is the bulk of the volume and is very nearly
-                # spherical about the pivot, so what is checked here is the clearance that
-                # matters -- the pods and cannon coming past it. A lens fouling something at one
-                # aim would not be caught, which is what MIN_ELEVATION_DEG exists to bound.
+                # The director's base rides the traverse alone. Its head is swept at rest only:
+                # a lens fouling something at one aim is not caught, which optic.py's
+                # MIN_ELEVATION_DEG bounds.
                 "KSArmory_Subpart_OpticBase": (muzzles["optic_base_from_turret"], 0.0),
                 "KSArmory_Subpart_OpticHead": (
                     [a + b for a, b in zip(muzzles["optic_base_from_turret"],

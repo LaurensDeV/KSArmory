@@ -10,15 +10,12 @@
 #
 # Release because the suite is arithmetic: it flies whole trajectories and asserts on millimetres,
 # and the optimiser is worth 7x on the heaviest of them -- 344 s to 60 s over the whole suite. It
-# is also the configuration the shipped mod compiles Sim/ in, so Debug was testing codegen nobody
-# ships. Nothing under Sim/ is conditioned on DEBUG, so the two differ in speed and floating-point
-# contraction and in nothing else.
+# is also the configuration the shipped mod compiles Sim/ in. Nothing under Sim/ is conditioned on
+# DEBUG, so the two differ in speed and floating-point contraction and in nothing else.
 #
-# `kind=study` is the ten tests that measure a term of the flight model and write the finding out
-# for a reader rather than asserting a behaviour. They are 28 s of a 60 s suite and assert nothing
-# but that the flight completed, so they buy a local push almost nothing and cost it half the wait.
-# Same trade `check-all.sh` already makes for the drive sweep, and the same answer: out of the loop
-# you run on every push, and a CI step of its own so nothing goes unrun before a merge.
+# `kind=study` marks the tests in tests/KSArmory.Tests/STUDIES.md, which measure a term of the flight
+# model for a reader and assert nothing but that the flight completed. Out of the loop run on every
+# push, with a CI step of its own so nothing goes unrun before a merge.
 #
 set -euo pipefail
 

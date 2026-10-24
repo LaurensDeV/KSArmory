@@ -1,16 +1,13 @@
 #!/usr/bin/env bash
 #
-# Compiles the mod's compute shaders here, in a second, rather than in the game after a build, a
-# deploy and a launch. KSA compiles a mod's shader only at load, so a GLSL error -- a reserved word
-# used as a name, a missing semicolon -- otherwise costs a flight to find.
+# Compiles the mod's compute shaders here, since KSA compiles a mod's shader only at load.
 #
-#     ./tools/check-shaders.sh             # compile both, against the game's own shader library
+#     ./tools/check-shaders.sh             # compile them all, against the game's own shader library
 #     ./tools/check-shaders.sh --install   # fetch Khronos' glslangValidator into ~/.cache first
 #
-# The shader includes KSA's atmosphere library, which is the game's and is not in this repository,
-# so a machine with no install skips with a notice -- CI does. glslang takes the include as a search
-# path where KSA's shaderc takes Ksa/CoreShaderInclude.cs's absolute one; the header is written
-# here the same way, relative.
+# Two shaders include KSA's atmosphere library, which is not in this repository, so a machine with
+# no install skips -- CI does. glslang takes the library as a search path where KSA's shaderc takes
+# Ksa/CoreShaderInclude.cs's absolute include, so the header is written here with relative ones.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -59,7 +56,6 @@ for shader in "$REPO_ROOT"/src/KSArmory/Shaders/*.comp; do
         echo "  $name compiles"
     else
         failed=1
-        # The line numbers are the file's own plus the one inserted above.
         echo "$out" | grep -E "ERROR" | sed "s#$WORK/##" | sed 's/^/  /'
         echo "  (line numbers are one past the file's: the include directive is inserted)"
     fi

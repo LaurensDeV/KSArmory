@@ -4,10 +4,8 @@
 #
 #     ./tools/check-tracked.sh
 #
-# Two separate hazards. A committed .dll or .pdb would be republishing RocketWerkz's copyrighted
-# files, which is the one mistake here with consequences outside this project. And .gitignore does
-# not untrack what is already tracked, so a file committed ahead of its ignore rule stays in the
-# repository indefinitely and silently.
+# A committed .dll would republish RocketWerkz's copyrighted files. And .gitignore does not untrack
+# what is already tracked, so a file committed ahead of its ignore rule stays silently.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

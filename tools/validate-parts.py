@@ -16,6 +16,7 @@ else in the toolchain would notice a rename.
 
     ./tools/validate-parts.py
     KSA_DIR=/path/to/KSA ./tools/validate-parts.py
+    ./tools/validate-parts.py --offline       # without KSA's Core assets, as CI runs it
     ./tools/validate-parts.py --mod-root ../MyWeaponPack
 
 --mod-root checks a weapon pack instead: its mod.toml, the same four checks on its asset XML, and its
@@ -524,9 +525,6 @@ def check_subpart_positions():
             if here:
                 by_part[part.get("Id")] = here
 
-    # The profile this check is about. It reads one launcher's numbers, and with several
-    # registered it has to be told which -- otherwise it silently reads whichever appears first
-    # and compares one launcher's markers against another's geometry.
     problems = checked = 0
 
     for profile_name, body in profiles:
@@ -537,8 +535,7 @@ def check_subpart_positions():
         part_id = field("PartId")
         placed = by_part.get(part_id, {})
         if not placed:
-            # A launcher whose part places no subparts has nothing to check. The rail is one:
-            # its only moving thing is a round, which the mod positions rather than the XML.
+            # A launcher whose part places no subparts has nothing to check.
             continue
 
         problems_here, checked_here = _check_markers(profile_name, body, placed, assemblies)
@@ -1458,11 +1455,9 @@ def registered(text, registry):
     return names
 
 
-# --- the weapon definitions, read for the gates ---------------------------------------------
-#
-# Every gate below was written against C# object-initialiser blocks and pulls fields out of them by
-# regex. Every definition in the core's KSArmory/*.xml is rendered into that block shape, keyed on the C#
-# field name the gate tables use, so the gates read the XML without each learning a second syntax.
+# The gates below pull fields out of C# object-initialiser blocks by regex. Every definition in the
+# core's KSArmory/*.xml is rendered into that block shape, keyed on the C# field name the gate tables
+# use, so the gates read the XML without each learning a second syntax.
 
 DEFINITIONS = MOD / "KSArmory"
 
@@ -1471,8 +1466,8 @@ _XML_FIELD = {"GunReferenceElevationDeg": ("GunReferenceElevationRad", "rad"),
               "PodReferenceElevationDeg": ("PodReferenceElevationRad", "rad"),
               "SeekerBand": ("Band", None)}
 
-# The name the gate tables key each built-in on. A
-# definition missing here is rendered under its own key, and no gate names it.
+# The name the gate tables key each built-in on. A definition missing here is rendered under its
+# own key, and no gate names it.
 _CSHARP_NAME = {
     ("Munition", "AIM9J"): "Missile9J", ("Munition", "AIM120C"): "Missile120C",
     ("Munition", "AGM88"): "MissileAgm88", ("Munition", "20MM"): "Cannon20Mm",

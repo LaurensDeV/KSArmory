@@ -5,28 +5,14 @@
 #
 #   ./tools/decompile-assemblies.sh ../ksa-game-assemblies
 #
-# Run it alongside sync-assemblies.sh after a KSA update, then commit in that repository. The
-# diff between two of its commits is the upgrade report - see the upgrade-ksa skill.
+# Run it alongside sync-assemblies.sh after a KSA update, then commit in that repository; the diff
+# between two of its commits is the upgrade report (the upgrade-ksa skill). It catches what the
+# compiler cannot: a member that keeps its name and changes its meaning.
 #
-# Why bother when the compiler already tells you what broke: it doesn't, not all of it. A
-# renamed member is a build error and you find it in seconds. A member that kept its name and
-# changed its *meaning* - different units, a different frame of reference, an enum whose
-# members were reordered, a method that started returning normalised values - compiles clean and
-# is then wrong in flight. Those are only visible in the source.
-#
-# ILSpy's output is deterministic for a given assembly and ilspycmd version, verified by
-# decompiling twice and diffing, so a diff between two runs is real change and not churn.
-#
-# Two things make it churn anyway, and both produce a diff far too large to read:
-#
-#   - Upgrading ilspycmd. Pin one version across updates.
-#   - Changing which assemblies are in current/dll. The decompiler resolves cross-assembly
-#     types against its -r path, so widening the set turns unresolved references into real
-#     names: going from 8 assemblies to 44 takes KSA.dll from 250,187 lines to 224,074 with no
-#     change in the game at all.
-#
-# If you have to do either, do it in its own commit with nothing else in it, so the next real
-# update still diffs cleanly against something.
+# ILSpy's output is deterministic for a given assembly and ilspycmd version, so a diff between two
+# runs is real change. Two things churn it anyway: upgrading ilspycmd, and changing which assemblies
+# are in current/dll, since cross-assembly types resolve against that set (8 assemblies to 44 took
+# KSA.dll from 250,187 lines to 224,074 with no game change). Do either in a commit of its own.
 #
 # THE OUTPUT IS ROCKETWERKZ'S COPYRIGHTED CODE IN SOURCE FORM. It goes in the private repository
 # and nowhere else. This script refuses to write anywhere inside this public repository.
@@ -66,19 +52,10 @@ DLL_DIR="$TARGET/current/dll"
     exit 1
 }
 
-# Whatever the mirror holds, not whatever this mod references. The private repository is a
-# general KSA SDK mirror that other mods build against too, and a corpus covering only
-# KSArmory's eight assemblies would be useless to them - and would quietly stop covering this
-# mod the moment it referenced something new.
-# Except third-party libraries whose real source is public and versioned. The corpus exists
-# because KSA is undocumented and moves silently between builds; a decompilation of a library
-# that publishes its own source is strictly worse than that source, and nothing reads it -
-# tools/apisurface filters the tracked surface to KSA, Brutal, Bepu and StarMap, so these types
-# never reach docs/KSA-API-SURFACE.md and so ksa-api-diff.sh never consults them. 0Harmony alone
-# is 138k lines, which is what a KSA diff would have to be read past.
-#
-# The DLLs stay in current/dll: the mod compiles against 0Harmony.dll, and $DLL_DIR is still the
-# resolver directory below, so what is decompiled here is unaffected by what is skipped.
+# Whatever the mirror holds, not only this mod's references: it is a general KSA SDK other mods
+# build against. Less third-party libraries that publish their own source, which apisurface never
+# tracks and so ksa-api-diff.sh never reads; 0Harmony alone is 138k lines. Their DLLs stay in
+# current/dll, which is still the resolver directory below.
 SKIP_DECOMPILE=(0Harmony)
 
 mapfile -t NAMES < <(find "$DLL_DIR" -maxdepth 1 -name '*.dll' -printf '%f\n' | sed 's/\.dll$//' | sort)
@@ -108,20 +85,14 @@ for name in "${NAMES[@]}"; do
     [[ -f "$dll" ]] || { echo "  skip $name (not in current/dll)"; continue; }
 
     out="$SRC/$name"
-    # Wipe first: without it a type deleted by a KSA update lingers as a stale file and the diff
-    # shows the removal as nothing at all.
+    # Wipe first, or a type a KSA update deleted lingers and the diff shows no removal.
     rm -rf "$out"
     mkdir -p "$out"
 
-    # -r points the decompiler at the sibling assemblies so cross-assembly types resolve to real
-    # names instead of being emitted as unresolved references.
-    #
-    # StackAllocInitializers=false is not a preference. ILSpy 10.1 throws "given Block is
-    # invalid!" on KSA.PartModelRenderer.DepthData.CreateCsmPipeline, and in project mode one
-    # unhandled method aborts the entire assembly - silently taking KSA.dll, the only one that
-    # really matters, with it. Disabling the pattern emits that method as plain IL-faithful C#
-    # and the other 1321 files come out fine. Applied to every assembly rather than just KSA so
-    # the corpus stays consistent to diff.
+    # -r resolves cross-assembly types to real names. StackAllocInitializers=false: ILSpy 10.1
+    # throws "given Block is invalid!" on KSA.PartModelRenderer.DepthData.CreateCsmPipeline, and in
+    # project mode that aborts the whole of KSA.dll. Applied to every assembly so the corpus diffs
+    # consistently.
     if ! err="$(ilspycmd -p -o "$out" -r "$DLL_DIR" -ds StackAllocInitializers=false "$dll" 2>&1 >/dev/null)"; then
         echo "  FAILED $name" >&2
         printf '%s\n' "$err" | head -3 | sed 's/^/      /' >&2
@@ -133,7 +104,6 @@ for name in "${NAMES[@]}"; do
     printf '  %-28s %5s files  %8s lines\n' "$name" "$files" "$lines"
 done
 
-# The version these sources came from. sync-assemblies.sh writes the same file; keep them in step.
 build="$(cat "$TARGET/current/KSA_BUILD" 2>/dev/null || echo unknown)"
 
 if [[ ! -f "$TARGET/README.md" ]]; then
@@ -170,8 +140,7 @@ echo
 echo "decompiled from build $build into $SRC"
 echo "commit in $TARGET together with current/dll, so the pair stays consistent."
 
-# A partial corpus is worse than none: the missing assembly's changes are invisible in the next
-# diff, and nothing about the output says so.
+# A partial corpus hides the missing assembly's changes from the next diff.
 if (( failures )); then
     echo >&2
     echo "error: $failures assembl$( (( failures == 1 )) && echo y || echo ies) failed to decompile." >&2

@@ -25,8 +25,8 @@ is exact.
 
 A mask rasterised from the atlas's UVs instead is only an approximation, and the error is not
 harmless: it over-covers slightly, which leaves unbaked texels *inside* the mask, and the fill
-then propagates those outward as a spreading stain. That was a real failure here, caught only by
-counting key-coloured texels afterwards -- which is why this script verifies its own result.
+then propagates those outward as a spreading stain, which only counting key-coloured texels
+afterwards shows -- so this script counts them.
 
 Later textures are filled from the same mask, downsampled. They must share the first one's UVs
 and bake margin, which is true of a diffuse/normal/ORM set baked in one pass.
@@ -89,8 +89,7 @@ def main(argv):
         print(f"  {Path(path).name:34} {Image.open(path).size[0]:>5}px  "
               f"filled {filled} of {total} texels")
 
-    # Verify rather than assume: any key colour left means the fill propagated the key instead of
-    # replacing it, which is the failure this script exists to have caught once already.
+    # Any key colour left means the fill propagated the key instead of replacing it.
     after = np.asarray(Image.open(paths[0]).convert("RGB")).astype(np.int16)
     left = int((np.abs(after - key).max(axis=2) <= 8).sum())
     if left:

@@ -3,7 +3,7 @@
 // A still of every model in <docs-dir>/models, written beside it as <name>.webp: the gallery's pictures and
 // each viewer's poster. Rendered by the same viewer, at the same camera, that shows the model on its page,
 // so a still and the model it stands for cannot disagree. Headless Chromium has no GPU, so it draws WebGL on
-// SwiftShader, which it no longer falls back to unasked.
+// SwiftShader, which it does not fall back to unasked.
 
 import { createServer } from 'node:http';
 import { readFile, readdir, writeFile } from 'node:fs/promises';

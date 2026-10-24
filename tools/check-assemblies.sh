@@ -7,14 +7,9 @@
 #   ./tools/check-assemblies.sh <dir>           # check a specific folder
 #   ./tools/check-assemblies.sh <dir> --update  # record that folder as the new expectation
 #
-# The assemblies exist in two places that can drift apart: your local Import/ (or game install),
-# and the private ksa-game-assemblies repository CI compiles against. A KSA update refreshes the
-# first and not the second, and nothing about that is visible - CI keeps building against the
-# old game while you build against the new one, and the mismatch only surfaces as behaviour
-# nobody can reproduce.
-#
-# ksa-assemblies.lock records the expected digests. Only hashes and names, so it is safe in a
-# public repository - it says nothing about the contents.
+# Your Import/ (or game install) and the private ksa-game-assemblies repository CI compiles against
+# drift apart silently after a KSA update. ksa-assemblies.lock records the expected digests: hashes
+# and names only, so it is safe in a public repository.
 #
 set -euo pipefail
 
@@ -34,9 +29,8 @@ for arg in "$@"; do
 done
 [[ "$DIR" == --* ]] && DIR=""
 
-# --game deliberately skips Import/ and looks at the install. Checking the resolved folder
-# cannot detect a game update: Import/ is a copy, so it still matches the lock until it is
-# refreshed, and the update goes unnoticed until someone happens to run sync-import.sh.
+# --game skips Import/: it is a copy, so it still matches the lock after a game update until it is
+# refreshed.
 if (( GAME )); then
     for candidate in "${KSA_DIR:-}" "/mnt/c/Program Files/Kitten Space Agency" "C:/Program Files/Kitten Space Agency"; do
         [[ -n "$candidate" && -f "$candidate/KSA.dll" ]] && { DIR="$candidate"; break; }
@@ -132,8 +126,8 @@ if (( GAME )); then
 fi
 
 (( GAME )) || echo "assemblies in $DIR do not match $(basename "$LOCK"):" >&2
-# `|| true`: diff exits non-zero when it finds a difference, which is the whole point here, and
-# under `set -e` with `pipefail` that killed the script before the remediation below ever printed.
+# `|| true`: diff exits non-zero on a difference, and under `set -e` with `pipefail` that would end
+# the script before the remediation below prints.
 diff <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") \
     | grep -E '^[<>]' | sed 's/^</  expected/; s/^>/  found   /' >&2 || true
 cat >&2 <<EOF

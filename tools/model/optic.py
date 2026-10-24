@@ -7,9 +7,8 @@ and can push two faces in an unrelated assembly onto the same plane.
 
 ## What it is
 
-The sight, as its own part. The Pantsir carried one on its turret and nothing else could; this
-bolts to anything, finds its own targets and drives the player's view. A craft with no weapons at
-all can carry one and be an observation post.
+The sight, as its own part. It bolts to anything and drives the player's view, so a craft with no
+weapons at all can carry one and be an observation post.
 
 ## Coordinate system
 
@@ -34,16 +33,13 @@ wrecking ball.
 
 Every primitive is a cylinder, cone or sphere, none of which consumes box jitter. So this module
 can be reordered, or dropped entirely, without disturbing a single face anywhere else in the
-atlas -- which is the property the Pantsir's own optic head had, and the reason lifting it out of
-that model costs nothing.
+atlas.
 """
 
 import math
 
-# ---------------------------------------------------------------------------
 # Dimensions. Modelled on a naval EO director: a compact ball on a short mast, small enough to
 # bolt to anything and still read as an instrument rather than a lump.
-# ---------------------------------------------------------------------------
 
 FLANGE_R = 0.30
 FLANGE_TOP = 0.07
@@ -69,7 +65,7 @@ LENS_DEPTH = 0.05
 
 # How far in front of the pivot the eye sits. Along the aim, so it slides the camera up and down
 # the line of sight and contributes nothing to where the picture points -- see
-# WeaponSystem.OpticOriginEcl for why that distinction is load-bearing.
+# OpticGeometry.EyePartFrame for why that distinction is load-bearing.
 EYE_FORWARD = 0.30
 
 # How far down it can look. The lens and its hood stand about 0.29 m off the pivot, and the mast

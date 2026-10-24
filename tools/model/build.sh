@@ -7,16 +7,11 @@
 #   ./tools/model/build.sh --pose elev=0         # ...posed the way the drives would pose it
 #   ./tools/model/build.sh --previews --pose elev=0,bearing=90
 #
-# Without --pose the previews show the modelled rest pose, which is the one pose the game never
-# displays once the drives are running. A defect that only appears at another elevation - an
-# assembly sweeping through its own mount, say - is invisible without it. Angles are degrees.
+# Without --pose the previews show the modelled rest pose, which the drives leave at once. Angles
+# are degrees. --pose implies --previews: a posed scene would export a posed atlas.
 #
-# --pose implies --previews: a posed scene exports a posed atlas, and the runtime composes poses
-# itself from the rest library.
-#
-# Blender is a Windows binary, so the script path and every output path it is given have to be
-# Windows paths. It also cannot write into the WSL tree reliably, so it works in a temp folder
-# and the results are copied back here.
+# Blender is a Windows binary, so every path it is given is a Windows path, and it cannot write
+# into the WSL tree reliably, so it works in a temp folder and the results are copied back.
 #
 set -euo pipefail
 
@@ -38,8 +33,6 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-# Posing moves the assemblies in the scene, so the export would carry that pose in its node
-# transforms. It is a way of looking at the model, never a way of producing one.
 if [[ -n "$POSE" && $PREVIEWS_ONLY -eq 0 ]]; then
     echo "--pose renders only; the committed atlas is left alone"
     PREVIEWS_ONLY=1
@@ -79,8 +72,7 @@ if [[ $PREVIEWS_ONLY -eq 0 ]]; then
     echo "installed src/KSArmory/Meshes/KSArmory_MeshAtlas.glb"
     "$REPO_ROOT/tools/meshinfo.py" "$REPO_ROOT/src/KSArmory/Meshes/KSArmory_MeshAtlas.glb"
 
-    # Zero-UV-area triangles and coplanar faces both render as flickering speckle in game and
-    # are both invisible in the preview renders above. Fail the build rather than ship either.
+    # Zero-UV-area triangles and coplanar faces render as speckle in game and not in the previews.
     echo
     "$REPO_ROOT/tools/model/checkmesh.py" "$REPO_ROOT/src/KSArmory/Meshes/KSArmory_MeshAtlas.glb"
 fi

@@ -36,16 +36,12 @@ source "$REPO_ROOT/tools/ksa-user-dir.sh"
 USER_DIR="$(ksa_user_dir || true)"
 MOD_LOG="${USER_DIR:+$USER_DIR/Logs/KSArmory.log}"
 
-# --- attach to a running game ------------------------------------------------
-
 if (( ATTACH )); then
     [[ -n "$MOD_LOG" ]] || { echo "error: could not find the KSA user folder" >&2; exit 1; }
     echo "following $MOD_LOG   (Ctrl+C to stop)"
     # -F keeps up across the truncation the mod does at each launch.
     exec tail -n +1 -F "$MOD_LOG"
 fi
-
-# --- locate StarMap ----------------------------------------------------------
 
 if [[ -z "${STARMAP_DIR:-}" ]]; then
     SEARCH_ROOTS=()
@@ -68,14 +64,10 @@ if [[ ! -f "$STARMAP_DIR/StarMapConfig.json" ]]; then
     exit 1
 fi
 
-# --- build and deploy --------------------------------------------------------
-
 if (( DO_BUILD )); then
     "$REPO_ROOT/tools/deploy.sh" >/dev/null
     echo "deployed"
 fi
-
-# --- launch ------------------------------------------------------------------
 
 # StarMap reads "./StarMapConfig.json" relative to its working directory, so it has to be
 # launched from its own folder rather than from the repo.
