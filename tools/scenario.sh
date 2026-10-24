@@ -79,10 +79,9 @@
 #
 # mirv: what it needs of you, and what it does for you
 #
-# You have to supply the rocket. A mod cannot put one on the pad -- LoadVehicleFromLibrary
-# resolves under the game install, see CLAUDE.md -- so this needs a craft carrying a MIRV bus,
-# already loaded, on the ground, with a launch solution available. Point settings.toml's
-# startVehicle at it, or name it here:
+# You have to supply the rocket: a save holding a craft carrying a MIRV bus on the ground, with a
+# launch solution available, named by KSARMORY_SCENARIO_SAVE (tools/make-rocket.py builds one).
+# Point settings.toml's startVehicle at the craft, or name it here:
 #
 #   KSARMORY_SCENARIO_CRAFT="Peacekeeper" ./tools/scenario.sh mirv
 #   KSARMORY_SCENARIO_HOLDKEYS=1 ./tools/scenario.sh mirv   # ...with the UI holding the keyboard throughout,
