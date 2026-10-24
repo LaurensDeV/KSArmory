@@ -57,6 +57,18 @@ FAMILIES = {
 FOLDERS = {"Rails": "missiles", "Strategic": "nuclear"}
 
 
+# What the stores hang from, a section of their own: (model, name, the CarriageMarker of the stores that
+# bring one, the line such a store's page says it with). They fire nothing, so no family file defines them;
+# the Launch Rail is not even a part, and tools/wiki/models.py draws it from a missile.
+MOUNTS_TITLE = "Racks and rails"
+MOUNTS_FOLDER = "weapons/racks-and-rails"
+MOUNTS = [
+    ("KSArmory_Prefab_WeaponsRail", "Ejector Rack", "Carriage",
+     "Thrown off an ejector it brings, the same launcher as the [Ejector Rack]({link})."),
+    ("KSArmory_Prefab_LaunchRail", "Launch Rail", "LaunchRail", "Slides off the [Launch Rail]({link}) it brings."),
+]
+
+
 def folder_of(family: str) -> str:
     return f"weapons/{FOLDERS.get(family, family.lower())}"
 
@@ -280,6 +292,13 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
     every part no README paragraph describes."""
     blurbs = readme_blurbs()
     pages, weapons, undescribed = {}, [], []
+    carriage_page = {marker: (f"{MOUNTS_FOLDER}/{anchor(name)}.md", line)
+                     for _, name, marker, line in MOUNTS if marker}
+    carried_by: dict[str, list[str]] = {}
+    for _, root, _ in family_files():
+        for e in root.iter("Launcher"):
+            if (marker := e.get("CarriageMarker")) in carriage_page and e.get("PartId") not in hidden_parts():
+                carried_by.setdefault(marker, []).append(names.get(e.get("PartId"), e.get("PartId")))
     for family, root, file_name in family_files():
         munitions = {m.get("Name"): m for m in root.iter("Munition")}
         sensors = {s.get("Name"): s for s in root.iter("Sensor")}
@@ -309,6 +328,10 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
                 out += [relink(blurb, ROOT / "README.md", page), ""]
             out += [viewer(part_id, name), "",
                     f"Part Id `{part_id}`, in [{FAMILIES[family]}](index.md).", ""]
+            for e in elements:
+                if (hung := carriage_page.get(e.get("CarriageMarker", ""))) is not None:
+                    link = Path(os.path.relpath(hung[0], Path(page).parent)).as_posix()
+                    out += [hung[1].format(link=link), ""]
 
             fires, sees, kinds, shells = [], [], [], set()
             for e in elements:
@@ -377,6 +400,28 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
             f"Defined in [`{file_name}`]({REPO}/blob/{BRANCH}/src/KSArmory/KSArmory/{file_name}). The whole family "
             f"can be switched off in game under *KSArmory → Built-in weapons → {family}*.", "",
             gallery(family_weapons), ""])
+
+    mounts = []
+    for model, name, marker, _ in MOUNTS:
+        page = f"{MOUNTS_FOLDER}/{anchor(name)}.md"
+        blurb = blurb_for([name], blurbs)
+        if blurb is None:
+            undescribed.append(name)
+        stores = carried_by.get(marker, []) if marker else []
+        pages[page] = "\n".join([
+            *front_matter(name, plain(blurb or name), f"models/{slug(model)}-card.png"),
+            *VIEWER_SCRIPTS, "", f"# {name}", "", relink(blurb or "", ROOT / "README.md", page), "",
+            viewer(model, name), "",
+            *([f"The stores that bring one: {', '.join(stores)}.", ""] if stores else [])])
+        mounts.append({"name": name, "part": model, "family": MOUNTS_TITLE, "page": page, "id": anchor(name),
+                       "href": f"/{MOUNTS_FOLDER}/{anchor(name)}/", "kinds": "mount", "reach": None, "warhead": None})
+    weapons += mounts
+    pages[f"{MOUNTS_FOLDER}/index.md"] = "\n".join([
+        *front_matter(MOUNTS_TITLE, ", ".join(m["name"] for m in mounts) + ".",
+                      f"models/{slug(mounts[0]['part'])}-card.png"),
+        f"# {MOUNTS_TITLE}", "",
+        "What the missiles, the bomb and the rocket pods hang from. They fire nothing themselves.", "",
+        gallery(mounts), ""])
     return pages, weapons, undescribed
 
 
@@ -488,10 +533,10 @@ def assemble(with_models: bool) -> None:
     names = part_names()
     pages, weapons, undescribed = weapon_pages(names)
     entries = ""
-    for family, title in FAMILIES.items():
-        members = [w for w in weapons if w["page"].startswith(f"{folder_of(family)}/")]
+    for folder, title in [*((folder_of(f), t) for f, t in FAMILIES.items()), (MOUNTS_FOLDER, MOUNTS_TITLE)]:
+        members = [w for w in weapons if w["page"].startswith(f"{folder}/")]
         if members:
-            entries += f"      - {title}:\n          - {folder_of(family)}/index.md\n"
+            entries += f"      - {title}:\n          - {folder}/index.md\n"
             entries += "".join(f"          - {json.dumps(w['name'])}: {w['page']}\n" for w in members)
     (BUILD / "mkdocs.yml").write_text(config.replace(marker, entries))
     # A link preview's picture for each weapon, drawn by stills.mjs beside its still.
