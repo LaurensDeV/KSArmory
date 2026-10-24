@@ -184,6 +184,18 @@
   </PbrMaterial>
 
   <!--
+    The slide-off launch rail: the ejector's housing with no arms or hooks and a T-channel along its
+    floor, which is at the ejector's, so a missile seats the same on either. Authored, copied in as exported.
+  -->
+  <MeshAtlas Path="Meshes/KSArmory_LaunchRail.glb" />
+
+  <PbrMaterial Id="KSArmory_LaunchRail_Material">
+    <Diffuse Path="Textures/KSArmory_LaunchRail_Diffuse.png" Category="Vessel" />
+    <Normal Path="Textures/KSArmory_LaunchRail_Normal.png" Category="Vessel" />
+    <AoRoughMetal Path="Textures/KSArmory_LaunchRail_PBR.png" Category="Vessel" />
+  </PbrMaterial>
+
+  <!--
     The Heavy MIRV Bus atlas and its one material: the bus, its main engine, its RCS nozzle and its
     RV, an Mk 21 in outline with two spin nozzles cut into its base.
   -->
@@ -608,6 +620,17 @@
     </PartModel>
     <MeshView>
       <Mesh Id="KSArmory_Ejector_Body_VM" />
+    </MeshView>
+  </SubPart>
+
+  <!-- The launch rail's body. Fixed. -->
+  <SubPart Id="KSArmory_LaunchRailBody_SubPart">
+    <PartModel Id="KSArmory_Subpart_LaunchRailBody_Model">
+      <Mesh Id="KSArmory_LaunchRail_Body" />
+      <Material Id="KSArmory_LaunchRail_Material" />
+    </PartModel>
+    <MeshView>
+      <Mesh Id="KSArmory_LaunchRail_Body_VM" />
     </MeshView>
   </SubPart>
 
@@ -1282,8 +1305,8 @@
     <SubPart Id="KSArmory_Lau10_Body" InstanceOf="KSArmory_ZuniPod4_SubPart" />
 
     <!--
-      The pod's one connector: its lugs, which mate with the weapons pylon's station node and line it
-      up along the pylon. Nothing else carries it, so it cannot be stuck onto a bare hull.
+      The pod's one connector: its lugs, which mate with the Ejector Rack's pod station and line it up
+      along the rack. Nothing else carries it, so it cannot be stuck onto a bare hull.
     -->
     <Connector Id="_lau10ConnectorPylon">
       <Transform>
@@ -1361,8 +1384,8 @@
     <SubPart Id="KSArmory_ZuniPod6_Body" InstanceOf="KSArmory_ZuniPod6_SubPart" />
 
     <!--
-      The pod's one connector: its lugs, which mate with the weapons pylon's station node and line it
-      up along the pylon. Nothing else carries it, so it cannot be stuck onto a bare hull.
+      The pod's one connector: its lugs, which mate with the Ejector Rack's pod station and line it up
+      along the rack. Nothing else carries it, so it cannot be stuck onto a bare hull.
     -->
     <Connector Id="_zuni6ConnectorPylon">
       <Transform>
@@ -1457,7 +1480,8 @@
   <!--
     The stores as players pick them: each hangs from the ejector launcher, its carriage, which
     Ksa/StoreCarriage.cs shows only while the part is attached to something, so the part list shows the
-    store alone. Hooks at the store's lug spacing, arms at 0.28 m either side with their feet on the store's skin
+    store alone. A missile also carries the slide-off launch rail, last so saves keep their subparts in
+    order; its launcher's CarriageMarker says which of the two shows. Hooks at the store's lug spacing, arms at 0.28 m either side with their feet on the store's skin
     (0.207 for a missile, 0.228 for the B61), or it moves before they reach it. A round's centreline is
     the lug crown's 0.180 below the mounting face plus its lug height and radius: for a missile its skin
     sits 17 mm under the floor (0.207), for the B61 its lugs stand 0.213 above its centreline. Carriage
@@ -1503,7 +1527,7 @@
       </Transform>
     </Connector>
 
-    <!-- Mates with the weapons pylon's station node, or the Weapons Rail's. -->
+    <!-- Mates with the Ejector Rack's station node, or the hidden pylon's. -->
     <Connector Id="_a9ConnectorPylon">
       <Transform>
         <Position X="0.00000" />
@@ -1516,6 +1540,11 @@
       <Transform>
         <Position X="0.27050" Y="0.00000" Z="0.00000" />
         <Rotation Z="1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Sidewinder_LaunchRailBody" InstanceOf="KSArmory_LaunchRailBody_SubPart">
+      <Transform>
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
 
@@ -1561,7 +1590,7 @@
       </Transform>
     </Connector>
 
-    <!-- Mates with the weapons pylon's station node, or the Weapons Rail's. -->
+    <!-- Mates with the Ejector Rack's station node, or the hidden pylon's. -->
     <Connector Id="_a120ConnectorPylon">
       <Transform>
         <Position X="0.00000" />
@@ -1574,6 +1603,11 @@
       <Transform>
         <Position X="0.29590" Y="0.00000" Z="0.00000" />
         <Rotation Z="1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Amraam_LaunchRailBody" InstanceOf="KSArmory_LaunchRailBody_SubPart">
+      <Transform>
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
 
@@ -1619,7 +1653,7 @@
       </Transform>
     </Connector>
 
-    <!-- Mates with the weapons pylon's station node, or the Weapons Rail's. -->
+    <!-- Mates with the Ejector Rack's station node, or the hidden pylon's. -->
     <Connector Id="_a88ConnectorPylon">
       <Transform>
         <Position X="0.00000" />
@@ -1632,6 +1666,11 @@
       <Transform>
         <Position X="0.33400" Y="0.00000" Z="0.00000" />
         <Rotation Z="1.57080" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Harm_LaunchRailBody" InstanceOf="KSArmory_LaunchRailBody_SubPart">
+      <Transform>
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
 
@@ -1677,7 +1716,7 @@
       </Transform>
     </Connector>
 
-    <!-- Mates with the weapons pylon's station node, or the Weapons Rail's. -->
+    <!-- Mates with the Ejector Rack's station node, or the hidden pylon's. -->
     <Connector Id="_b61ConnectorPylon">
       <Transform>
         <Position X="0.00000" />
@@ -1720,9 +1759,11 @@
   </Part>
 
   <!--
-    The empty Weapons Rail: the ejector launcher with nothing on it. A store clicks onto its station at
+    The empty Ejector Rack: the ejector launcher with nothing on it. A store clicks onto its station at
     this part's own origin, so the carriage the store brings lands exactly here, and
-    Ksa/StoreCarriage.cs hides this one while the store is there.
+    Ksa/StoreCarriage.cs hides this one while the store is there. A rocket pod brings no carriage, so it
+    clicks onto a second station on the rack's floor instead, and hangs by its 30-inch lugs from the
+    pod hooks, which StoreCarriage shows in place of the 14-inch pair while a pod is there.
   -->
   <Part Id="KSArmory_Prefab_WeaponsRail">
 
@@ -1755,7 +1796,7 @@
       </Transform>
     </Connector>
 
-    <!-- Mates with the weapons pylon's station node. -->
+    <!-- Mates with the hidden weapons pylon's station node, for saves holding one. -->
     <Connector Id="_wrConnectorPylon">
       <Transform>
         <Position X="0.00000" />
@@ -1771,6 +1812,27 @@
         <Scale X="0.40000" Y="0.40000" Z="0.40000" />
       </Transform>
     </Connector>
+
+    <!-- The rocket pod's station, on the floor the hooks hang from, where a pod's lugs meet it. -->
+    <Connector Id="_wrConnectorPod">
+      <Transform>
+        <Position X="0.19000" />
+        <Scale X="0.40000" Y="0.40000" Z="0.40000" />
+      </Transform>
+    </Connector>
+
+    <SubPart Id="KSArmory_WeaponsRail_PodHookFwd" InstanceOf="KSArmory_EjectorHook_SubPart">
+      <Transform>
+        <Position X="0.19000" Y="0.38100" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_WeaponsRail_PodHookAft" InstanceOf="KSArmory_EjectorHook_SubPart">
+      <Transform>
+        <Position X="0.19000" Y="-0.38100" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
 
   </Part>
 
@@ -1809,7 +1871,7 @@
 
   <!--
     A 14-inch suspension rail: the beam a store hangs from, with a hook at each lug station. The
-    editor offers it as the weapons pylon the pylon-free rails and the Zuni pods click into.
+    weapons pylon, hidden from the editor and kept so a craft carrying one loads.
 
     Structure and nothing else: no definition names it, because it neither shoots nor sees.
   -->

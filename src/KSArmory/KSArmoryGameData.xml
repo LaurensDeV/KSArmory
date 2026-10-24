@@ -161,7 +161,7 @@
   </PartGameData>
 
   <PartGameData Id="KSArmory_Prefab_SidewinderRail" DisplayName="AIM-9J Sidewinder">
-    <!-- Hidden: its rail without the pylon hangs from the weapons pylon instead. Kept so a craft carrying one loads. -->
+    <!-- Hidden: the missile on its own launch rail replaces it. Kept so a craft carrying one loads. -->
     <EditorTag Value="Hidden" />
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
@@ -205,7 +205,7 @@
   </PartGameData>
 
   <PartGameData Id="KSArmory_Prefab_AmraamRail" DisplayName="AIM-120C AMRAAM">
-    <!-- Hidden: its rail without the pylon hangs from the weapons pylon instead. Kept so a craft carrying one loads. -->
+    <!-- Hidden: the missile on its own launch rail replaces it. Kept so a craft carrying one loads. -->
     <EditorTag Value="Hidden" />
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
@@ -244,7 +244,7 @@
   </PartGameData>
 
   <PartGameData Id="KSArmory_Prefab_HarmRail" DisplayName="AGM-88 HARM">
-    <!-- Hidden: its rail without the pylon hangs from the weapons pylon instead. Kept so a craft carrying one loads. -->
+    <!-- Hidden: the missile on its own launch rail replaces it. Kept so a craft carrying one loads. -->
     <EditorTag Value="Hidden" />
     <EditorTag Value="Weapons" />
     <EditorTag Value="Radial" />
@@ -289,7 +289,7 @@
     <Diameter M="0.4" />
 
     <!--
-      Hangs from the weapons pylon and nothing else. FromSurface is what makes the editor refuse it as
+      Hangs from the Ejector Rack and nothing else. FromSurface is what makes the editor refuse it as
       a craft's first part and the mod read it as a store, as a ToSurface connector would; it mates by
       node, which neither flag touches.
     -->
@@ -322,7 +322,7 @@
     <Diameter M="0.45" />
 
     <!--
-      Hangs from the weapons pylon and nothing else. FromSurface is what makes the editor refuse it as
+      Hangs from the Ejector Rack and nothing else. FromSurface is what makes the editor refuse it as
       a craft's first part and the mod read it as a store, as a ToSurface connector would; it mates by
       node, which neither flag touches.
     -->
@@ -354,7 +354,7 @@
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.4" />
 
-    <!-- Sticks onto any surface, or clicks into the weapons pylon's or the Weapons Rail's station. -->
+    <!-- Sticks onto any surface, or clicks into the Ejector Rack's station. -->
     <Connector Id="_a9ConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
@@ -384,7 +384,7 @@
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.4" />
 
-    <!-- Sticks onto any surface, or clicks into the weapons pylon's or the Weapons Rail's station. -->
+    <!-- Sticks onto any surface, or clicks into the Ejector Rack's station. -->
     <Connector Id="_a120ConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
@@ -414,7 +414,7 @@
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.4" />
 
-    <!-- Sticks onto any surface, or clicks into the weapons pylon's or the Weapons Rail's station. -->
+    <!-- Sticks onto any surface, or clicks into the Ejector Rack's station. -->
     <Connector Id="_a88ConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
@@ -444,7 +444,7 @@
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.4" />
 
-    <!-- Sticks onto any surface, or clicks into the weapons pylon's or the Weapons Rail's station. -->
+    <!-- Sticks onto any surface, or clicks into the Ejector Rack's station. -->
     <Connector Id="_b61ConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
@@ -468,19 +468,20 @@
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_WeaponsRail" DisplayName="Weapons Rail">
+  <PartGameData Id="KSArmory_Prefab_WeaponsRail" DisplayName="Ejector Rack">
     <EditorTag Value="Weapons" />
     <!-- Radial: a store goes on by the station alone, never free-hand onto the rail's face. -->
     <EditorTag Value="Radial" />
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.4" />
 
-    <!-- Sticks onto any surface or clicks into the weapons pylon's station. -->
+    <!-- Sticks onto any surface; the pylon node is kept for saves holding the hidden pylon. -->
     <Connector Id="_wrConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
     <Connector Id="_wrConnectorPylon" />
     <Connector Id="_wrConnectorStore" />
+    <Connector Id="_wrConnectorPod" />
 
     <!-- An estimate, not a sourced figure. -->
     <SolidSphereMass>
@@ -541,7 +542,9 @@
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_Rail" DisplayName="Weapons Pylon (14-inch rail)">
+  <PartGameData Id="KSArmory_Prefab_Rail" DisplayName="Weapons Pylon">
+    <!-- Hidden: the Ejector Rack carries the rocket pods. Kept so a craft carrying one loads. -->
+    <EditorTag Value="Hidden" />
     <!-- Weapons rather than Structural: it is carriage gear, and it belongs beside the stores it
          carries rather than next to girders. Both tags carry FaceSnapTargetWhitelist, which is
          what the comment below depends on. -->

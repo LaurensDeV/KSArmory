@@ -146,18 +146,21 @@
   </Launcher>
 
   <!--
-    The missiles as players fit them, each on the ejector launcher it brings (KSArmoryAssets.xml): thrown
-    6 m/s out of the mounting face, the motor lit half a second later once it has fallen clear, and only
-    then the 0.4 s straight before it steers. Both numbers are estimates. The push lasts the arms' 0.10 m
-    stroke, as modelled. The Tube is the seat in KSArmoryAssets.xml plus half the round's length.
+    The missiles as players fit them. Each part carries an ejector and a slide-off launch rail
+    (KSArmoryAssets.xml), and CarriageMarker picks which one shows: "Carriage" for the ejector,
+    "LaunchRail" for the rail. Both seat the missile in the same place.
+
+    All three ride the rail: each slides off forward at its LaunchSpeed, motor lit at once. To move one
+    onto the ejector, give it CarriageMarker="Carriage" and the four ejector attributes the B61 has in
+    Strategic.xml, plus MotorDelaySeconds="0.5" so the motor lights once it has fallen clear.
+    The Tube is the seat in KSArmoryAssets.xml plus half the round's length.
   -->
   <Launcher PartId="KSArmory_Prefab_Aim9J" DisplayName="AIM-9J Sidewinder"
             FireControlLabel="AIM-9J fire control"
             Munition="AIM9J" Sensor="AIM9SEEK" StoreMassKg="78"
             MuzzleForwardOffset="0.2705"
             LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
-            EjectSpeed="6" MotorDelaySeconds="0.5" CarriageMarker="Carriage"
-            EjectorArmMarker="CarriageArm" EjectorStrokeMetres="0.10"
+            CarriageMarker="LaunchRail"
             ReloadSeconds="0" SettleSeconds="0">
     <Tube Position="0.27050, 1.52500, 0.00000" Direction="0, 1, 0" />
   </Launcher>
@@ -167,8 +170,7 @@
             Munition="AIM120C" Sensor="AIM120SEEK" StoreMassKg="161.5"
             MuzzleForwardOffset="0.2959"
             LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
-            EjectSpeed="6" MotorDelaySeconds="0.5" CarriageMarker="Carriage"
-            EjectorArmMarker="CarriageArm" EjectorStrokeMetres="0.10"
+            CarriageMarker="LaunchRail"
             ReloadSeconds="0" SettleSeconds="0">
     <Tube Position="0.29590, 1.82250, 0.00000" Direction="0, 1, 0" />
   </Launcher>
@@ -178,8 +180,7 @@
             Munition="AGM88" Sensor="AGM88SEEK" StoreMassKg="360"
             MuzzleForwardOffset="0.334"
             LaunchAlongTube="true" LaunchLoft="0" MuzzleOffset="2"
-            EjectSpeed="6" MotorDelaySeconds="0.5" CarriageMarker="Carriage"
-            EjectorArmMarker="CarriageArm" EjectorStrokeMetres="0.10"
+            CarriageMarker="LaunchRail"
             ReloadSeconds="0" SettleSeconds="0">
     <Tube Position="0.33400, 2.08500, 0.00000" Direction="0, 1, 0" />
   </Launcher>

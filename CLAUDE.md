@@ -2,10 +2,10 @@
 
 A point-defence mod for **Kitten Space Agency** (KSA, RocketWerkz). A **Pantsir-S1** — search
 radar, proportional-navigation interceptors, a proximity-fused warhead, twelve rounds in two pods
-of six on an 8×8 chassis — and an **AIM-9J**, which hangs from an ejector launcher on a wing
-or a **weapons pylon** and is the shipped example of a launcher with nothing that moves, an **AIM-120C**
-on the same launcher, with ten times the reach and the first *round*
-whose art was authored rather than generated, an **AGM-88 HARM** on it too, which
+of six on an 8×8 chassis — and an **AIM-9J**, which slides off the launch rail it brings
+and is the shipped example of a launcher with nothing that moves, an **AIM-120C**
+on the same rail, with ten times the reach and the first *round*
+whose art was authored rather than generated, an **AGM-88 HARM** on the rail, which
 is the one that cannot engage an aircraft at all and whose target has a say in whether it is one, a
 **Mk 15 Phalanx CIWS** that stacks on a 3 m node and is the one with no missiles at all, a
 **5"/54 Mk 42 mount**, which is the other one with none and the opposite weapon — forty rounds a
@@ -593,7 +593,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Armaments.cs` | one coordinator per craft — **derived every frame, never pinned**, because it carries nothing a split could lose |
 | `Ksa/Radar.cs` | cone search, CPA threat model, lock |
 | `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |
-| `Ksa/StoreCarriage.cs` | the ejector launcher a store hangs by, shown when it means something: a store's own (`LauncherProfile.CarriageMarker`) only while it is attached, so the part list shows the store alone, and the empty Weapons Rail only while nothing is on its station -- **the mod's one pass in the vehicle editor** as well as in flight |
+| `Ksa/StoreCarriage.cs` | the ejector or launch rail a store hangs by, shown when it means something: a store's own (`LauncherProfile.CarriageMarker`, which also picks which of the two a missile brings) only while it is attached, so the part list shows the store alone, and the empty Ejector Rack only while nothing is on its station -- **the mod's one pass in the vehicle editor** as well as in flight |
 | `Ksa/LauncherSeparation.cs` | the decoupler on the joint holding a launcher on — **a property of the part, not the craft** |
 | `Ksa/OpticParts.cs` | finds a director on a craft, and turns its head |
 | `Ksa/OpticalHead.cs` | **one director** — its own sensor, its own aim, no weapon involved |
@@ -732,7 +732,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `src/KSArmory/KSArmory/Bodies.xml` | **what KSA's current bodies are, as data** -- fields, airglow, condensation, thin cloud -- so a custom solar system gains them by adding lines, not code |
 | `src/KSArmory/KSArmory/Pantsir.xml` | **this mod's own weapons, as data** — the Pantsir and its roof director; read by the pack reader through `CoreDefinitions`, not by KSA |
 | `src/KSArmory/KSArmory/Weapons.xml` | **empty on purpose** — where the Pantsir used to be, so an install unzipped over an older one does not keep the old file and register it twice |
-| `src/KSArmory/KSArmory/Rails.xml` | the AIM-9J, AIM-120C and AGM-88 as players fit them, each on the ejector launcher it brings, and the shipped LAU-7, LAU-128 and LAU-118 rails with their pylons built in (hidden, kept for saves); their rounds and their seekers, the same way |
+| `src/KSArmory/KSArmory/Rails.xml` | the AIM-9J, AIM-120C and AGM-88 as players fit them, each bringing an ejector and a slide-off launch rail and showing the one its `CarriageMarker` names, and the shipped LAU-7, LAU-128 and LAU-118 rails with their pylons built in (hidden, kept for saves); their rounds and their seekers, the same way |
 | `src/KSArmory/KSArmory/Rockets.xml` | the LAU-10 and the six-round pod, their Zuni and their sight |
 | `src/KSArmory/KSArmory/Guns.xml` | the Phalanx, the 5"/54 Mk 42 and the M197, their two rounds and their three sets |
 | `src/KSArmory/KSArmory/Sensors.xml` | the EO director, the LITENING pod and the IRST, with their three sensors |

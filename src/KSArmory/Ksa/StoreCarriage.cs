@@ -5,8 +5,9 @@ namespace KSArmory;
 
 /// <summary>
 /// The hardware a store hangs by, shown when it means something: a missile's own rail or ejector only
-/// while the missile is attached to something, and the empty Weapons Rail only while nothing is on its
-/// station -- the store brings the same carriage, and mates at the same origin.
+/// while the missile is attached to something, and the empty Ejector Rack only while nothing is on its
+/// station -- the store brings the same carriage, and mates at the same origin. A rocket pod on the rack's
+/// floor station brings none, so the rack stays and swaps its 14-inch hooks for the pod's 30-inch pair.
 ///
 /// <para>The mod's one pass in the vehicle editor as well as in flight. A subpart's scale is honoured by
 /// the editor's drawing, picking and snapping, and is not saved, so a load shows each part as its XML
@@ -16,7 +17,11 @@ internal static class StoreCarriage
 {
     public const string WeaponsRailId = "KSArmory_Prefab_WeaponsRail";
     private const string StationConnector = "_wrConnectorStore";
-    private const string RailCarriageMarker = "WeaponsRail_Carriage";
+    private const string PodConnector = "_wrConnectorPod";
+    private const string RackBody = "WeaponsRail_CarriageBody";
+    private const string RackArms = "WeaponsRail_CarriageArm";
+    private const string StoreHooks = "WeaponsRail_CarriageHook";
+    private const string PodHooks = "WeaponsRail_PodHook";
 
     private static readonly double3 Shown = new(1.0, 1.0, 1.0);
     private static readonly double3 Hidden = new(1e-3, 1e-3, 1e-3);
@@ -57,16 +62,22 @@ internal static class StoreCarriage
 
             if (id == WeaponsRailId)
             {
-                bool carrying = false;
+                bool carrying = false, podded = false;
                 foreach (Part.Connector connector in part.Connectors)
                 {
-                    if (connector.Id == StationConnector && connector.Connection is not null) carrying = true;
+                    if (connector.Connection is null) continue;
+                    if (connector.Id == StationConnector) carrying = true;
+                    else if (connector.Id == PodConnector) podded = true;
                 }
 
-                if (Show(part, RailCarriageMarker, !carrying, inEditor))
+                bool changed = Show(part, RackBody, !carrying, inEditor);
+                changed |= Show(part, RackArms, !carrying, inEditor);
+                changed |= Show(part, StoreHooks, !carrying && !podded, inEditor);
+                changed |= Show(part, PodHooks, !carrying && podded, inEditor);
+                if (changed)
                 {
-                    Log.Info($"weapons rail {(carrying ? "hidden under the store on it" : "shown, empty")}"
-                             + (inEditor ? " (editor)" : ""));
+                    string state = carrying ? "hidden under the store on it" : podded ? "carrying a pod" : "shown, empty";
+                    Log.Info($"ejector rack {state}" + (inEditor ? " (editor)" : ""));
                 }
             }
             else if (Catalogue.LauncherForPart(id)?.CarriageMarker is { Length: > 0 } carriage)

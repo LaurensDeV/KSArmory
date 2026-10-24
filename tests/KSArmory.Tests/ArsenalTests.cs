@@ -268,29 +268,42 @@ public class ArsenalTests
     }
 
     [Theory]
-    [InlineData("KSArmory_Prefab_Aim9J")]
-    [InlineData("KSArmory_Prefab_Aim120C")]
-    [InlineData("KSArmory_Prefab_Agm88")]
     [InlineData("KSArmory_Prefab_B61")]
-    public void EveryStoreHangsFromTheEjectorAndIsThrownOffIt(string part)
+    public void AnEjectedStoreHangsFromTheEjectorAndIsThrownOffIt(string part)
     {
         LauncherProfile store = Catalogue.LauncherForPart(part)!;
 
-        Assert.False(string.IsNullOrEmpty(store.CarriageMarker));
+        Assert.Equal("Carriage", store.CarriageMarker);
         Assert.False(string.IsNullOrEmpty(store.EjectorArmMarker));
         Assert.True(store.EjectSpeed > 0f);
         Assert.True(store.EjectorStrokeMetres > 0f);
     }
 
-    /// <summary>A motor lights once its round has fallen clear; a bomb has none to light.</summary>
     [Theory]
-    [InlineData("KSArmory_Prefab_Aim9J", true)]
-    [InlineData("KSArmory_Prefab_Aim120C", true)]
-    [InlineData("KSArmory_Prefab_Agm88", true)]
-    [InlineData("KSArmory_Prefab_B61", false)]
-    public void AMissileLightsLateAndABombHasNothingToLight(string part, bool delayed)
+    [InlineData("KSArmory_Prefab_Aim9J")]
+    [InlineData("KSArmory_Prefab_Aim120C")]
+    [InlineData("KSArmory_Prefab_Agm88")]
+    public void ARailedMissileSlidesOffItsLaunchRailUnderItsOwnMotor(string part)
     {
-        Assert.Equal(delayed, Catalogue.LauncherForPart(part)!.MotorDelaySeconds > 0f);
+        LauncherProfile store = Catalogue.LauncherForPart(part)!;
+
+        Assert.Equal("LaunchRail", store.CarriageMarker);
+        Assert.True(string.IsNullOrEmpty(store.EjectorArmMarker));
+        Assert.Equal(0f, store.EjectSpeed);
+        Assert.Equal(0f, store.MotorDelaySeconds);
+        Assert.True(store.LaunchAlongTube);
+        Assert.True(Catalogue.LoadoutFor(store).Munition.LaunchSpeed > 0f);
+    }
+
+    /// <summary>A motor on a rail lights at once; a bomb has none to light.</summary>
+    [Theory]
+    [InlineData("KSArmory_Prefab_Aim9J")]
+    [InlineData("KSArmory_Prefab_Aim120C")]
+    [InlineData("KSArmory_Prefab_Agm88")]
+    [InlineData("KSArmory_Prefab_B61")]
+    public void NoBuiltInStoreWaitsToLightAMotor(string part)
+    {
+        Assert.Equal(0f, Catalogue.LauncherForPart(part)!.MotorDelaySeconds);
     }
 
     /// <summary>
