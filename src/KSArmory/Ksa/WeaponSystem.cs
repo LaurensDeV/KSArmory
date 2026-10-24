@@ -3479,7 +3479,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             Log.Info($"{RoundLabel.For(round.Tube)} meets the air {round.Age:F0} s after release, nose {off:F1} deg off its airflow");
         }
 
-        doubleQuat turned = BodyAttitude.Turn(was.Ecl, round.VelocityLocal, density, round.Age - was.Age);
+        doubleQuat turned = BodyAttitude.StillBesideLauncher(round.TravelSinceLaunch, round.Munition.BodyLength)
+                                ? was.Ecl
+                                : BodyAttitude.Turn(was.Ecl, round.VelocityLocal, density, round.Age - was.Age);
         if (Profile.ReleaseSpin is { } spin)
         {
             turned = BodyAttitude.Roll(turned, spin.RollRadAt(round.Age) - spin.RollRadAt(was.Age));

@@ -89,6 +89,15 @@ internal static class BodyAttitude
         return Vec.IsFinite(turned * FireGeometry.NoseAxis) ? turned : attitudeEcl;
     }
 
+    /// <summary>
+    /// Whether a round is still beside its launcher, so the airflow may not turn it yet: until it has
+    /// travelled half its length from its seat. Slid off a rail that is about where its aft hanger leaves
+    /// the front; thrown off an ejector, turned about its middle any sooner, its tail swings into the hull.
+    /// </summary>
+    public static bool StillBesideLauncher(double3 travelSinceLaunch, double bodyLength)
+        => Vec.IsFinite(travelSinceLaunch) && bodyLength > 0.0
+           && Vec.Len(travelSinceLaunch) < 0.5 * bodyLength;
+
     /// <summary>A body's attitude rolled about its own nose by <paramref name="rollRad"/>; the nose stays where it was.</summary>
     public static doubleQuat Roll(doubleQuat attitudeEcl, double rollRad)
     {

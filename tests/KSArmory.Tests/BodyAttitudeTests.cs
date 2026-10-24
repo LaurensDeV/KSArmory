@@ -180,4 +180,13 @@ public class BodyAttitudeTests
     private static double3 Nose(doubleQuat q) => double3.Transform(FireGeometry.NoseAxis, q);
 
     private static string Fmt(double3 v) => $"({v.X:F3}, {v.Y:F3}, {v.Z:F3})";
+
+    [Theory]
+    [InlineData(0.0, true)]
+    [InlineData(1.8, true)]
+    [InlineData(1.9, false)]
+    public void ARoundIsHeldStraightUntilItHasTravelledHalfItsLengthFromItsSeat(double travelled, bool held)
+    {
+        Assert.Equal(held, BodyAttitude.StillBesideLauncher(new double3(travelled, 0, 0), 3.645));
+    }
 }
