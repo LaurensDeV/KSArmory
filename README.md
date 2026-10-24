@@ -34,11 +34,13 @@ KSArmory adds eleven weapons, three sights, an infrared search sensor and two de
 
 **Pantsir-S1 Point Defence System.** A Russian short-range air-defence vehicle on an 8×8 truck chassis. It carries twelve 57E6 missiles in two pods of six, two twin-barrel 2A38M 30 mm cannon, a spinning 1RS1 search radar and a 1TPP1 electro-optical director on the turret roof that you can look through. The missiles reach from 1.2 km to 20 km. They are command-guided: the vehicle tracks the target and steers each missile, so a missile is lost if the vehicle loses the track. The cannon cover 200 m to 4 km. The pods refill 12 seconds after the last missile leaves, and the cannon 20 seconds after they run dry. The Pantsir stacks on a 3 m node and has its own command module, so a craft made of nothing but the Pantsir can be built and launched.
 
-**Ejector Rack.** An empty ejector launcher that attaches to any surface. Click any missile or the B61 onto it, or hang a rocket pod underneath it. It fires nothing itself.
+**Weapon Mount.** An empty mount that attaches to any surface. Click any missile, the B61 or a rocket pod onto it, and it becomes the launcher that store brings: an ejector rack or a launch rail. It fires nothing itself.
 
-**Launch Rail.** Not a part of its own: the rail every missile brings with it. It is the Ejector Rack's housing with a channel along its underside in place of hooks and arms, and the missile slides forward along it under its own motor.
+**Ejector Rack.** Not a part of its own: the rack the B61 and the rocket pods bring with them, and what an empty Weapon Mount looks like. When it releases a store, two arms push it down out of the rack.
 
-Every missile and the B61 shows on its own in the part list. Once attached, to a wing, a hull or an Ejector Rack, it brings its own launcher. The missiles slide forward off a launch rail under their own motor. The B61 hangs from an ejector: when it is released, two arms push it down out of the rack. The empty launcher stays on.
+**Launch Rail.** Not a part of its own: the rail every missile brings with it. It is the ejector rack's housing with a channel along its underside in place of hooks and arms, and the missile slides forward along it under its own motor.
+
+Every missile and the B61 shows on its own in the part list. Once attached, to a wing, a hull or a Weapon Mount, it brings its own launcher. The missiles slide forward off a launch rail under their own motor. The B61 hangs from an ejector: when it is released, two arms push it down out of the rack. The empty launcher stays on.
 
 **AIM-9J Sidewinder.** One AIM-9J Sidewinder, an infrared-guided air-to-air missile. Nothing on its launcher moves, so you aim it by pointing the craft. The missile has its own heat-seeking head and keeps guiding after launch even if your craft loses the target. Range 400 m to 14 km. It does not reload on its own.
 
@@ -46,7 +48,7 @@ Every missile and the B61 shows on its own in the part list. Once attached, to a
 
 **AGM-88 HARM.** One AGM-88 HARM, an anti-radiation missile. It homes on radar transmissions, so it can only engage a target whose radar is switched on. It cannot be used against aircraft. If the target radar goes quiet before launch, there is nothing to lock. A missile already in the air flies on to where the signal was last heard. A boost motor and a sustainer keep it fast over its full range of 1.2 km to 148 km. It is aimed by pointing the craft.
 
-**LAU-10 Zuni pod.** A pod of four Zuni 5-inch unguided rockets. It hangs by its lugs from the underside of an Ejector Rack, and is aimed by pointing the craft. Each press of the trigger fires one rocket, with no lock needed. The motor burns for about a second and takes the rocket past Mach 2, and it bursts on whatever it hits. A sight draws where a rocket fired now would land. Effective out to about 8 km. The pod does not reload on its own. Pod, rocket and textures by **Mallikas**.
+**LAU-10 Zuni pod.** A pod of four Zuni 5-inch unguided rockets. Like the missiles it brings its own ejector rack once attached, to a wing, a hull or a Weapon Mount, and is aimed by pointing the craft. Each press of the trigger fires one rocket, with no lock needed. The motor burns for about a second and takes the rocket past Mach 2, and it bursts on whatever it hits. A sight draws where a rocket fired now would land. Effective out to about 8 km. The pod does not reload on its own. Pod, rocket and textures by **Mallikas**.
 
 **Zuni six-round pod.** The same rockets in a larger pod of six. It is not a real launcher. Model and textures by **Mallikas**.
 

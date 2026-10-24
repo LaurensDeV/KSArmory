@@ -46,7 +46,7 @@
             Munition="ZUNI" Sensor="ZUNISIGHT" StoreMassKg="48.5" TubeArmamentLabel="Rockets"
             MuzzleForwardOffset="0.23041"
             LaunchAlongTube="true" EjectAwayFromMount="0" LaunchLoft="0" MuzzleOffset="2"
-            ReloadSeconds="0" SettleSeconds="0">
+            CarriageMarker="Carriage" ReloadSeconds="0" SettleSeconds="0">
     <Tube Position="0.29882, 1.21535, 0.06841" Direction="0, 1, 0" />
     <Tube Position="0.16201, 1.21535, -0.06841" Direction="0, 1, 0" />
     <Tube Position="0.29882, 1.21535, -0.06840" Direction="0, 1, 0" />
@@ -58,7 +58,7 @@
             Munition="ZUNI" Sensor="ZUNISIGHT" StoreMassKg="48.5" TubeArmamentLabel="Rockets"
             MuzzleForwardOffset="0.26302"
             LaunchAlongTube="true" EjectAwayFromMount="0" LaunchLoft="0" MuzzleOffset="2"
-            ReloadSeconds="0" SettleSeconds="0">
+            CarriageMarker="Carriage" ReloadSeconds="0" SettleSeconds="0">
     <Tube Position="0.37281, 1.29037, 0.08002" Direction="0, 1, 0" />
     <Tube Position="0.22061, 1.29037, -0.12947" Direction="0, 1, 0" />
     <Tube Position="0.22061, 1.29037, 0.12947" Direction="0, 1, 0" />

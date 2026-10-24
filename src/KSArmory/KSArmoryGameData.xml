@@ -288,18 +288,15 @@
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.4" />
 
-    <!--
-      Hangs from the Ejector Rack and nothing else. FromSurface is what makes the editor refuse it as
-      a craft's first part and the mod read it as a store, as a ToSurface connector would; it mates by
-      node, which neither flag touches.
-    -->
-    <Connector Id="_lau10ConnectorPylon">
-      <Flags>FromSurface</Flags>
+    <!-- Sticks onto any surface by the rack it brings, or clicks into the Weapon Mount's station. -->
+    <Connector Id="_lau10ConnectorPylon" />
+    <Connector Id="_lau10ConnectorBase">
+      <Flags>ToSurface</Flags>
     </Connector>
 
-    <!-- Four Zunis at 48.5 kg each in a LAU-10 at 59 kg. -->
+    <!-- Four Zunis at 48.5 kg each in a LAU-10 at 59 kg, on an estimated 45 kg ejector rack. -->
     <SolidSphereMass>
-      <Mass Kg="253" />
+      <Mass Kg="298" />
       <Radius M="1.0" />
     </SolidSphereMass>
 
@@ -321,18 +318,15 @@
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.45" />
 
-    <!--
-      Hangs from the Ejector Rack and nothing else. FromSurface is what makes the editor refuse it as
-      a craft's first part and the mod read it as a store, as a ToSurface connector would; it mates by
-      node, which neither flag touches.
-    -->
-    <Connector Id="_zuni6ConnectorPylon">
-      <Flags>FromSurface</Flags>
+    <!-- Sticks onto any surface by the rack it brings, or clicks into the Weapon Mount's station. -->
+    <Connector Id="_zuni6ConnectorPylon" />
+    <Connector Id="_zuni6ConnectorBase">
+      <Flags>ToSurface</Flags>
     </Connector>
 
-    <!-- Six Zunis at 48.5 kg each in a pod at 80 kg. -->
+    <!-- Six Zunis at 48.5 kg each in a pod at 80 kg, on an estimated 45 kg ejector rack. -->
     <SolidSphereMass>
-      <Mass Kg="371" />
+      <Mass Kg="416" />
       <Radius M="1.2" />
     </SolidSphereMass>
 
@@ -354,7 +348,7 @@
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.4" />
 
-    <!-- Sticks onto any surface, or clicks into the Ejector Rack's station. -->
+    <!-- Sticks onto any surface, or clicks into the Weapon Mount's station. -->
     <Connector Id="_a9ConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
@@ -384,7 +378,7 @@
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.4" />
 
-    <!-- Sticks onto any surface, or clicks into the Ejector Rack's station. -->
+    <!-- Sticks onto any surface, or clicks into the Weapon Mount's station. -->
     <Connector Id="_a120ConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
@@ -414,7 +408,7 @@
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.4" />
 
-    <!-- Sticks onto any surface, or clicks into the Ejector Rack's station. -->
+    <!-- Sticks onto any surface, or clicks into the Weapon Mount's station. -->
     <Connector Id="_a88ConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
@@ -444,7 +438,7 @@
     <EditorTag Value="NoFaceSnapping" />
     <Diameter M="0.4" />
 
-    <!-- Sticks onto any surface, or clicks into the Ejector Rack's station. -->
+    <!-- Sticks onto any surface, or clicks into the Weapon Mount's station. -->
     <Connector Id="_b61ConnectorBase">
       <Flags>ToSurface</Flags>
     </Connector>
@@ -468,7 +462,7 @@
     </Collider>
   </PartGameData>
 
-  <PartGameData Id="KSArmory_Prefab_WeaponsRail" DisplayName="Ejector Rack">
+  <PartGameData Id="KSArmory_Prefab_WeaponsRail" DisplayName="Weapon Mount">
     <EditorTag Value="Weapons" />
     <!-- Radial: a store goes on by the station alone, never free-hand onto the rail's face. -->
     <EditorTag Value="Radial" />
@@ -481,7 +475,6 @@
     </Connector>
     <Connector Id="_wrConnectorPylon" />
     <Connector Id="_wrConnectorStore" />
-    <Connector Id="_wrConnectorPod" />
 
     <!-- An estimate, not a sourced figure. -->
     <SolidSphereMass>
@@ -543,7 +536,7 @@
   </PartGameData>
 
   <PartGameData Id="KSArmory_Prefab_Rail" DisplayName="Weapons Pylon">
-    <!-- Hidden: the Ejector Rack carries the rocket pods. Kept so a craft carrying one loads. -->
+    <!-- Hidden: the Weapon Mount carries the rocket pods. Kept so a craft carrying one loads. -->
     <EditorTag Value="Hidden" />
     <!-- Weapons rather than Structural: it is carriage gear, and it belongs beside the stores it
          carries rather than next to girders. Both tags carry FaceSnapTargetWhitelist, which is

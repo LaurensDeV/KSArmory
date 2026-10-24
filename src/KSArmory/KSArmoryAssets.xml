@@ -988,7 +988,6 @@
       </Transform>
     </SubPart>
 
-
     <!-- Underside attach node, at the ground plane and facing down. -->
     <Connector Id="_adConnectorAft">
       <Transform>
@@ -997,7 +996,6 @@
         <Scale X="3.00000" Y="3.00000" Z="3.00000" />
       </Transform>
     </Connector>
-
 
     <!-- Twelve rounds, parked below the vehicle and shrunk away until fired. -->
     <SubPart Id="KSArmory_Launcher_Missile00" InstanceOf="KSArmory_Missile_SubPart">
@@ -1072,7 +1070,6 @@
         <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
-
 
     <!-- Fin sets, one per round. Modelled about the same origin as the round body so they can
          share its transform, and scaled radially by the mod: flat against the casing while
@@ -1293,6 +1290,76 @@
   </Part>
 
   <!--
+    The Weapon Mount: the ejector launcher with nothing on it, standing in for whichever launcher a store brings. A store clicks onto its station at
+    this part's own origin, so the carriage the store brings lands exactly here, and
+    Ksa/StoreCarriage.cs hides this one while the store is there. A rocket pod brings its own too, with
+    its hooks at 30 inches.
+  -->
+  <Part Id="KSArmory_Prefab_WeaponsRail">
+
+    <SubPart Id="KSArmory_WeaponsRail_CarriageBody" InstanceOf="KSArmory_EjectorBody_SubPart" />
+    <SubPart Id="KSArmory_WeaponsRail_CarriageHookFwd" InstanceOf="KSArmory_EjectorHook_SubPart">
+      <Transform>
+        <Position X="0.19000" Y="0.17780" Z="0.00000" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_WeaponsRail_CarriageHookAft" InstanceOf="KSArmory_EjectorHook_SubPart">
+      <Transform>
+        <Position X="0.19000" Y="-0.17780" Z="0.00000" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_WeaponsRail_CarriageArmFwd" InstanceOf="KSArmory_EjectorArm_SubPart">
+      <Transform>
+        <Position X="0.17600" Y="0.28000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_WeaponsRail_CarriageArmAft" InstanceOf="KSArmory_EjectorArm_SubPart">
+      <Transform>
+        <Position X="0.17600" Y="-0.28000" Z="0.00000" />
+      </Transform>
+    </SubPart>
+
+    <Connector Id="_wrConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+
+    <!-- Mates with the hidden weapons pylon's station node, for saves holding one. -->
+    <Connector Id="_wrConnectorPylon">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+        <Scale X="0.40000" Y="0.40000" Z="0.40000" />
+      </Transform>
+    </Connector>
+
+    <!-- The station: facing out of the mounting face, where a store's own pylon node meets it. -->
+    <Connector Id="_wrConnectorStore">
+      <Transform>
+        <Position X="0.00000" />
+        <Scale X="0.40000" Y="0.40000" Z="0.40000" />
+      </Transform>
+    </Connector>
+
+    <!-- Never shown: stubs holding the subpart count for saves written while a pod hung from the rack. -->
+    <SubPart Id="KSArmory_WeaponsRail_PodHookFwd" InstanceOf="KSArmory_EjectorHook_SubPart">
+      <Transform>
+        <Position X="0.19000" Y="0.38100" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_WeaponsRail_PodHookAft" InstanceOf="KSArmory_EjectorHook_SubPart">
+      <Transform>
+        <Position X="0.19000" Y="-0.38100" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+
+  </Part>
+
+  <!--
     LAU-10 with four Zuni rockets: a pod hung under a wing or on the side of a stack, firing
     wherever that is pointed. The warheads stand out of the muzzle, as he modelled them.
 
@@ -1304,13 +1371,10 @@
 
     <SubPart Id="KSArmory_Lau10_Body" InstanceOf="KSArmory_ZuniPod4_SubPart" />
 
-    <!--
-      The pod's one connector: its lugs, which mate with the Ejector Rack's pod station and line it up
-      along the rack. Nothing else carries it, so it cannot be stuck onto a bare hull.
-    -->
+    <!-- Mates with the Weapon Mount's station node, a rack's depth above the lugs, as a missile's does. -->
     <Connector Id="_lau10ConnectorPylon">
       <Transform>
-        <Position X="0.00000" />
+        <Position X="-0.19000" />
         <Rotation Z="3.14159" />
         <Scale X="0.40000" Y="0.40000" Z="0.40000" />
       </Transform>
@@ -1370,6 +1434,46 @@
       </Transform>
     </SubPart>
 
+    <!-- The ejector rack the pod brings, its top a rack's depth above the lugs, the hooks at 30 inches. -->
+    <SubPart Id="KSArmory_Lau10_CarriageBody" InstanceOf="KSArmory_EjectorBody_SubPart">
+      <Transform>
+        <Position X="-0.19000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Lau10_CarriageHookFwd" InstanceOf="KSArmory_EjectorHook_SubPart">
+      <Transform>
+        <Position X="0.00000" Y="0.38100" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Lau10_CarriageHookAft" InstanceOf="KSArmory_EjectorHook_SubPart">
+      <Transform>
+        <Position X="0.00000" Y="-0.38100" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Lau10_CarriageArmFwd" InstanceOf="KSArmory_EjectorArm_SubPart">
+      <Transform>
+        <Position X="-0.01400" Y="0.28000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_Lau10_CarriageArmAft" InstanceOf="KSArmory_EjectorArm_SubPart">
+      <Transform>
+        <Position X="-0.01400" Y="-0.28000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+
+    <!-- Attaches by the rack's upper face, as a missile does. -->
+    <Connector Id="_lau10ConnectorBase">
+      <Transform>
+        <Position X="-0.19000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+
   </Part>
 
   <!--
@@ -1383,13 +1487,10 @@
 
     <SubPart Id="KSArmory_ZuniPod6_Body" InstanceOf="KSArmory_ZuniPod6_SubPart" />
 
-    <!--
-      The pod's one connector: its lugs, which mate with the Ejector Rack's pod station and line it up
-      along the rack. Nothing else carries it, so it cannot be stuck onto a bare hull.
-    -->
+    <!-- Mates with the Weapon Mount's station node, a rack's depth above the lugs, as a missile's does. -->
     <Connector Id="_zuni6ConnectorPylon">
       <Transform>
-        <Position X="0.00000" />
+        <Position X="-0.19000" />
         <Rotation Z="3.14159" />
         <Scale X="0.45000" Y="0.45000" Z="0.45000" />
       </Transform>
@@ -1475,6 +1576,46 @@
       </Transform>
     </SubPart>
 
+    <!-- The ejector rack the pod brings, its top a rack's depth above the lugs, the hooks at 30 inches. -->
+    <SubPart Id="KSArmory_ZuniPod6_CarriageBody" InstanceOf="KSArmory_EjectorBody_SubPart">
+      <Transform>
+        <Position X="-0.19000" Y="0.00000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_ZuniPod6_CarriageHookFwd" InstanceOf="KSArmory_EjectorHook_SubPart">
+      <Transform>
+        <Position X="0.00000" Y="0.38100" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_ZuniPod6_CarriageHookAft" InstanceOf="KSArmory_EjectorHook_SubPart">
+      <Transform>
+        <Position X="0.00000" Y="-0.38100" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_ZuniPod6_CarriageArmFwd" InstanceOf="KSArmory_EjectorArm_SubPart">
+      <Transform>
+        <Position X="-0.01400" Y="0.28000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+    <SubPart Id="KSArmory_ZuniPod6_CarriageArmAft" InstanceOf="KSArmory_EjectorArm_SubPart">
+      <Transform>
+        <Position X="-0.01400" Y="-0.28000" Z="0.00000" />
+        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+      </Transform>
+    </SubPart>
+
+    <!-- Attaches by the rack's upper face, as a missile does. -->
+    <Connector Id="_zuni6ConnectorBase">
+      <Transform>
+        <Position X="-0.19000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+
   </Part>
 
   <!--
@@ -1527,7 +1668,7 @@
       </Transform>
     </Connector>
 
-    <!-- Mates with the Ejector Rack's station node, or the hidden pylon's. -->
+    <!-- Mates with the Weapon Mount's station node, or the hidden pylon's. -->
     <Connector Id="_a9ConnectorPylon">
       <Transform>
         <Position X="0.00000" />
@@ -1590,7 +1731,7 @@
       </Transform>
     </Connector>
 
-    <!-- Mates with the Ejector Rack's station node, or the hidden pylon's. -->
+    <!-- Mates with the Weapon Mount's station node, or the hidden pylon's. -->
     <Connector Id="_a120ConnectorPylon">
       <Transform>
         <Position X="0.00000" />
@@ -1653,7 +1794,7 @@
       </Transform>
     </Connector>
 
-    <!-- Mates with the Ejector Rack's station node, or the hidden pylon's. -->
+    <!-- Mates with the Weapon Mount's station node, or the hidden pylon's. -->
     <Connector Id="_a88ConnectorPylon">
       <Transform>
         <Position X="0.00000" />
@@ -1716,7 +1857,7 @@
       </Transform>
     </Connector>
 
-    <!-- Mates with the Ejector Rack's station node, or the hidden pylon's. -->
+    <!-- Mates with the Weapon Mount's station node, or the hidden pylon's. -->
     <Connector Id="_b61ConnectorPylon">
       <Transform>
         <Position X="0.00000" />
@@ -1753,84 +1894,6 @@
       <Transform>
         <Position X="0.39300" Y="-1.52100" Z="0.00000" />
         <Rotation X="5.49779" Z="1.57080" />
-      </Transform>
-    </SubPart>
-
-  </Part>
-
-  <!--
-    The empty Ejector Rack: the ejector launcher with nothing on it. A store clicks onto its station at
-    this part's own origin, so the carriage the store brings lands exactly here, and
-    Ksa/StoreCarriage.cs hides this one while the store is there. A rocket pod brings no carriage, so it
-    clicks onto a second station on the rack's floor instead, and hangs by its 30-inch lugs from the
-    pod hooks, which StoreCarriage shows in place of the 14-inch pair while a pod is there.
-  -->
-  <Part Id="KSArmory_Prefab_WeaponsRail">
-
-    <SubPart Id="KSArmory_WeaponsRail_CarriageBody" InstanceOf="KSArmory_EjectorBody_SubPart" />
-    <SubPart Id="KSArmory_WeaponsRail_CarriageHookFwd" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.19000" Y="0.17780" Z="0.00000" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_WeaponsRail_CarriageHookAft" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.19000" Y="-0.17780" Z="0.00000" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_WeaponsRail_CarriageArmFwd" InstanceOf="KSArmory_EjectorArm_SubPart">
-      <Transform>
-        <Position X="0.17600" Y="0.28000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_WeaponsRail_CarriageArmAft" InstanceOf="KSArmory_EjectorArm_SubPart">
-      <Transform>
-        <Position X="0.17600" Y="-0.28000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <Connector Id="_wrConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
-
-    <!-- Mates with the hidden weapons pylon's station node, for saves holding one. -->
-    <Connector Id="_wrConnectorPylon">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-        <Scale X="0.40000" Y="0.40000" Z="0.40000" />
-      </Transform>
-    </Connector>
-
-    <!-- The station: facing out of the mounting face, where a store's own pylon node meets it. -->
-    <Connector Id="_wrConnectorStore">
-      <Transform>
-        <Position X="0.00000" />
-        <Scale X="0.40000" Y="0.40000" Z="0.40000" />
-      </Transform>
-    </Connector>
-
-    <!-- The rocket pod's station, on the floor the hooks hang from, where a pod's lugs meet it. -->
-    <Connector Id="_wrConnectorPod">
-      <Transform>
-        <Position X="0.19000" />
-        <Scale X="0.40000" Y="0.40000" Z="0.40000" />
-      </Transform>
-    </Connector>
-
-    <SubPart Id="KSArmory_WeaponsRail_PodHookFwd" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.19000" Y="0.38100" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_WeaponsRail_PodHookAft" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.19000" Y="-0.38100" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
       </Transform>
     </SubPart>
 
@@ -2323,7 +2386,6 @@
     </Connector>
   </Part>
 
-
   <!--
     5"/54 Mk 42 single enclosed mount, 2.83 m tall on a 3 m stack node.
 
@@ -2371,7 +2433,6 @@
         <Position X="1.55441" Y="0.48097" Z="0.00000" />
       </Transform>
     </SubPart>
-
 
     <!--
       Node attach at the mounting face. No ToSurface flag: this one stacks. Scale is the node's
