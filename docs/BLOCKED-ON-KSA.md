@@ -9,7 +9,8 @@ rather than taken on trust. **Recheck this file when the game moves** — the wh
 that some of these will quietly become possible.
 
 Findings are against KSA **2026.10.19.5638**. Paths are relative to
-`../ksa-game-assemblies/current/src`.
+`../ksa-game-assemblies/current/src`. A line number is where the member was on the build its entry was
+written against, and some have drifted since; search for the member it names.
 
 ## Recheck after a KSA update
 
@@ -374,7 +375,7 @@ any craft (`KSArmoryMod.DriveCameraWindows`). What follows is the account agains
 **What happens.** A secondary viewport shows a raw starfield above a hard horizon and a
 featureless grey ball, where the main view at the same position shows sky, clouds and terrain.
 
-**Why.** Secondary viewports go through `Program.RenderViewport` (`KSA/KSA/Program.cs:4417-4553`),
+**Why.** Secondary viewports go through `Program.RenderViewport` (`KSA/KSA/Program.cs:4633-4806`),
 a much shorter path than the main one. The loop that calls it ends at `Program.cs:4609`, and the
 next statement is `_renderedViewport = MainViewport` (`:4611`) — so every pass after it is pinned
 to the main view whatever else is open: the planet renderer, the light and shadow passes, the
@@ -611,7 +612,7 @@ rather than the mod's gizmo tracers.
 
 **The declarative route is closed.** The XML tag is real — `<PlumeTrail Id="DefaultPlumeTrail"/>`
 inside a `<ReactionPlume>` — but the emitter only produces anything when
-`current.State.DutyCycle > 0f && current.State.ExhaustVelocity > 0f` (`KSA/KSA/Vehicle.cs:5713`), where `DutyCycle` is
+`current.State.DutyCycle > 0f && current.State.ExhaustVelocity > 0f` (`KSA/KSA/Vehicle.cs:5691`), where `DutyCycle` is
 accumulated by a **burning rocket core**. The mod's rounds have no motor, no propellant and no
 staging, and a real motor would apply real thrust to the launcher, since the round bodies are its
 subparts.
@@ -625,7 +626,7 @@ reflected and everything after it is an ordinary call inside `docs/KSA-API-SURFA
 
 The emitter follows a moved subpart correctly either way: its position comes from
 `state.FxExhaustLocationVehicleAsmb = FxLocationAsmb.Transform(matrix)` where `matrix` is
-`Parent.MatrixAsmb2VehicleAsmb` (`KSA/KSA/RocketNozzle.cs:280`) — exactly the matrix this mod
+`Parent.MatrixAsmb2VehicleAsmb` (`KSA/KSA/RocketNozzle.cs:282`) — exactly the matrix this mod
 already writes each frame.
 
 **What would unblock it properly**, and let the reflection go. A public accessor for the trail
@@ -695,17 +696,19 @@ carries, how many, what the fuse does.
 
 - **The inspector has no extension point.** Its sections are written out longhand against concrete
   module types — `part.SubtreeModules.Get<Tank>()` then a Propellant block
-  (`KSA/KSA/VehicleEditor.cs:6455-6458`), the same shape for decouplers and the rest. There is no
+  (`KSA/KSA/VehicleEditor.cs:6572`), the same shape for decouplers and the rest. There is no
   registry, no per-module draw callback, nothing keyed on a mod.
 - **A mod cannot register a module type** to be drawn for in the first place. See *Custom part
   modules* above.
-- **A saved craft has nowhere to put it.** `PartTree` (`KSA/KSA/PartTree.cs:39-71`) is a fixed set
-  of typed `ModuleStateful<…>.StateList` fields, one per module type the engine knows. It is the
-  same closed shape as `UniverseData`, so per-part mod state cannot ride the vehicle file.
+- **A saved craft has nowhere to put it.** `PartTree` (`KSA/KSA/PartTree.cs`) keeps a typed
+  `ModuleStateful<…>.StateList` field per module type the engine knows. **On 5638 it also carries a
+  `ModuleList Modules` and a `ModuleStateList States` keyed on the module's `Type`** (`KSA/ModuleStateList.cs`),
+  which is the shape a mod's module would need; whether a mod type can reach it through the part XML
+  and the vehicle file is not yet read. Until it is, per-part mod state is taken not to ride the vehicle file.
 
 **What is not blocked, and why it is still not built.** The editor itself is readable:
-`Program.Editor` is a public static (`KSA/KSA/Program.cs:227`) and `VehicleEditor.Selected`,
-`Highlighted` and `EditingPart` are public `Part?` (`VehicleEditor.cs:549-555`). So the mod could
+`Program.Editor` is a public static (`KSA/KSA/Program.cs:228`) and `VehicleEditor.Selected`,
+`Highlighted` and `EditingPart` are public `Part?` (`VehicleEditor.cs:553-559`). So the mod could
 detect the editor, see the selected part and draw its own window beside KSA's.
 
 It would be a window whose settings cannot be saved with the craft, which is worse than no window:
@@ -738,7 +741,7 @@ registers **Weapons** and **Sensors**. It is the *filter within* a category that
 - **No manufacturer, vendor or author field** anywhere on `PartTemplate` or `PartGameData`
   (`KSA/KSA/PartTemplate.cs`). The only text a part carries is `DisplayName` and its `Id`.
 - **No search box.** The picker's only input is a *diameter* combo, keyed on the selected tag
-  (`KSA/KSA/VehicleEditor.cs:257`). The grid filter is the selected tag, whether the template is a
+  (`KSA/KSA/VehicleEditor.cs:272`). The grid filter is the selected tag, whether the template is a
   subpart, and whether it is hidden — nothing that a mod or a maker could key on (`:316`).
 - **The owning mod is known and never used.** `SerializedId.Mod` is set on every asset at load
   (`KSA/KSA/SerializedId.cs`), so the data exists — but `VehicleEditor` never reads it. The
@@ -781,7 +784,7 @@ through 168° between two adjacent pixels at the pad's edge.
 **What would unblock the rest.** A raycast against static geometry. The pieces exist —
 `StaticObject.CollisionShape` is a public `TypedIndex` and `ConstraintSim.UnlockShapes()` hands out
 the Bepu `Shapes` registry — but nothing here has tried it, and the engine's own per-triangle path
-is `Part.RayCastEgo` against `Ray.RaycastWatertight` (`KSA/KSA/Part.cs:2534`, `:2597`), which takes
+is `Part.RayCastEgo` against `Ray.RaycastWatertight` (`KSA/KSA/Part.cs:2625`, `:2692`), which takes
 a `Part` and not a landmark.
 
 ## A bright light far away, on craft and structures
@@ -789,7 +792,7 @@ a `Part` and not a landmark.
 **Wanted.** A fireball's point light on every surface it reaches, as the terrain has it.
 
 **What stops it.** Every light goes to two places (`ClusteredLightSystem.CreateLightInstance`,
-`KSA/KSA.Rendering.Lighting/ClusteredLightSystem.cs:899`). Terrain takes it through the forward
+`KSA/KSA.Rendering.Lighting/ClusteredLightSystem.cs:894`). Terrain takes it through the forward
 loop (`Lighting/PunctualLighting.glsl` `SampleForwardLights`), which has no cut. Craft parts, static
 objects such as the launch pad, and every other pre-pass mesh take it only through
 `Lighting/LightPrePass.comp`, whose first test is

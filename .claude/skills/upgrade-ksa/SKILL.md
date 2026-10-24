@@ -115,7 +115,6 @@ claim still holds.
 | Drag is `AerodynamicCdABody` against the body-frame airflow, plus `0.1 × TotalSurfaceArea`, times ½ρv² over the mass — no lift, no Mach, and only a rate-damping torque | `PhysicsStates.cs` (`ComputeDrag`), `BoundingBoxCdA.cs` | The gun leads every target on a copy of this. **RocketWerkz are working on aerodynamics**, so expect it to move; `docs/BLOCKED-ON-KSA.md` has the check to fly and what to change. |
 | A trail segment swells as an entraining jet, `r₀·∛(1 + t/T)` with `T = r₀ / (3·0.2·v)` on its release speed, laid at 1.65 nozzle radii, and at rest creeps linearly to its expanded radius over 120 s at full heat | `PlumeVertex.cs`, `PlumeTimingProfile.cs`, `PlumeTrailEmitterTracker.cs`, `PlumeTrailSettings.cs` | `PlumeSmoke` derives a release speed from these to swell in 5 s; move them and every motor and flare trail changes width or glows. |
 | A non-Auto throttle is capped at `0.9 × MaxGLoad × g` | `FlightComputer.cs` (`SolveGLoadThrottleCap`) | It coincides with `IcbmProgram.StructuralMarginFraction`; a different factor makes the engine and the ballistic computer's caps disagree. |
-
 | A part tree's derived data is rebuilt once a frame by `PartTree.FlushDirtyDerived`, before the vehicle solvers, or on `EnsureDerived`; `SequenceList.Sequences` does not ask for it | `PartTree.cs`, `Program.cs` (`PrepareFrame`) | `LauncherSeparation` reads a staging list from before a split. It calls `EnsureDerived(DerivedData.Sequences)` for this reason. |
 | `ResetCachedPosMatrixValues` also marks the tree's `PartTreeRenderData` dirty, and part matrices are packed to `float` per term and multiplied there | `Part.cs`, `PartTreeRenderData.cs` | A subpart write without the reset is never drawn, not just drawn stale; and a round far from its launcher shivers however close the camera is. |
 
@@ -224,7 +223,7 @@ Then regenerate the surface, because fixing breakages usually changes what the m
 ## 7. Verify the whole chain
 
 ```bash
-./tools/check-all.sh                 # all 21, and the pre-push hook runs it anyway
+./tools/check-all.sh                 # every check CI runs; the pre-push hook runs it anyway
 ./tools/validate-parts.py            # against the install, NOT --offline, so Core is readable
 ./tools/model/checkswept.py          # nothing adrift or passing through anything
 ```

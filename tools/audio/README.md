@@ -1,9 +1,7 @@
 # Source recordings
 
-Recordings the shipped cannon sound is cut from. **Unlike everything else under
-`src/KSArmory/Sounds/`, these are not synthesised**, which is why this folder exists rather than the
-cuts simply appearing in `Sounds/`: a recording has a provenance, and the provenance has to live
-where the next person will find it.
+The recordings every shipped gun sound in `src/KSArmory/Sounds/` is cut from, with the provenance
+of each, kept here so the cuts can be remade and their licences found.
 
 | File | Source | Licence |
 | --- | --- | --- |
@@ -11,8 +9,7 @@ where the next person will find it.
 
 CC0 places no condition on redistribution, so this ships inside the MIT archive with nothing to
 carry alongside it. **No credit is shipped to players, by choice** — the record above is kept for
-maintenance rather than obligation, so that a recording sitting among otherwise synthesised samples
-can be shown to be safe without anyone having to re-derive where it came from.
+maintenance rather than obligation.
 
 Keep the filename as freesound produced it. It encodes the id, which is the only thing that leads
 back to the source page and its licence.
@@ -22,10 +19,9 @@ back to the source page and its licence.
 A real Mk 15 Phalanx. Measured at **4700 rpm**, against the 4500 the profile declares, so
 `Config.CannonReferenceRpm` is 4500 and the CIWS plays it essentially untransposed.
 
-Prefer the FLAC to a lossy copy even though the cuts are re-encoded anyway. An earlier pass used a
-128 kbit ogg of the same recording and its cycle rate measured 6600 rpm — the codec had smeared the
-envelope enough to put the autocorrelation on a harmonic, which is a wrong number that looks
-perfectly plausible.
+Prefer the FLAC to a lossy copy even though the cuts are re-encoded anyway: a 128 kbit ogg of the
+same recording measured 6600 rpm, the codec smearing the envelope enough to put the autocorrelation
+on a harmonic.
 
 ## Regenerating the cuts
 

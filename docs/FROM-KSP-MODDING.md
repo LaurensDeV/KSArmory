@@ -42,7 +42,8 @@ accurate at high speed and keeps rounds out of save files.
 
 Consequences for a pack author:
 
-- A round's mesh is a `<SubPart>` on the launcher part, named by the round's `BodyMarker`.
+- A round's mesh is a `<SubPart>` on the launcher part, named by the round's `BodyMarker`. A gun
+  shell can instead name a `<SubPart>` template with `BodyModel`, so any number can be drawn.
 - A round has no collider. Hitting the ground is opt-in: missiles always stop on the ground, other
   rounds only with `HitsTerrain="true"`, which costs a terrain lookup per round per frame. The 20 mm
   and 30 mm cannon rounds leave it off and pass through hills.

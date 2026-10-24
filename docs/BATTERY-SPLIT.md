@@ -1,6 +1,7 @@
 # Splitting `DefenceBattery`, and what to call it instead
 
-> **Item 4 has landed.** `DefenceBattery` is now `WeaponSystem`, `BatteryRoster` is
+> **Items 1, 2, 3, 4, 6 and 8 of the ranked list have landed; 7 is half done; 5 and 9 are open.**
+> `DefenceBattery` is now `WeaponSystem`, `BatteryRoster` is
 > `WeaponSystems`, and `BatteryConfig` and `BatterySettings` are `SystemConfig` and
 > `SystemSettings`. Item 8 landed with it: the consumers take roles from
 > `Ksa/WeaponSystemRoles.cs` rather than the whole class. **The old names are kept below on
@@ -325,10 +326,8 @@ this list one at a time as they land.
    tubes without asking the ladder.
    The rung order stays in `Ksa/`, because two of its conditions are engine lookups taken lazily.
 8. ~~**Narrow the effects consumers to a rounds-in-flight interface.**~~ **Done**, and wider than
-   proposed: twelve consumers now take one of eight roles. See `Ksa/WeaponSystemRoles.cs`.
-   `MotorSound`, `MotorPlume`, `TracerTrail` and `ChaseCamera` need five members; give them five.
-   Tidiness, but it is the cheapest item here and it is what stops the next effect class taking a
-   dependency on everything.
+   proposed: the consumers now take one of eight roles. See `Ksa/WeaponSystemRoles.cs`, and
+   CLAUDE.md's "Consumers take a role" for which still take the class and why.
 9. **The body plan into `Sim/`.** Smallest gain, since `Magazine.Plan` already covers most of it.
 
 **Do nothing yet:** an `IWeapon` interface, a per-channel round list, splitting the file into

@@ -21,11 +21,9 @@ rocket that today has no way to get one.
 
 ## The role is `Guidance`, not `FireControl`
 
-`WeaponRole.FireControl` is taken, and it is taken by everything: the LAU-7, LAU-128, LAU-118,
-Mk 15, Mk 42, M197, B61 rack and MIRV bus all declare a built-in `FireControl`
-row. So tightening `IsWeaponSystem` to require one changes nothing, and the
-`IsWeaponSystem` remark asking for "an explicit fire-control part" is asking for something that
-already exists eight times over.
+`WeaponRole.FireControl` is taken, and it is taken by everything: the definition reader mints a
+`FireControl` row for every launcher (`Sim/PackReader.cs`), the MIRV bus included. So tightening
+`IsWeaponSystem` to require one changes nothing.
 
 The distinction that has teeth is a different axis:
 
@@ -59,7 +57,7 @@ The bus declares one connector (`_mirvConnectorBase`) and mounts on a 3 m node, 
 and the ring goes **above the decoupler**:
 
 ```
-[ MIRV bus         ]   6 x Mk 21, 20 nozzles, its own tank and battery
+[ MIRV bus         ]   7 x Mk 21, 20 nozzles and an engine, its own tank and battery
 [ guidance section ]   <- 3.00 m dia, 0.55 m tall, 450 kg
 [ decoupler        ]
 [ third stage      ]
@@ -218,11 +216,11 @@ a ring would give it an ordinal to key on — the same shape as two rails on one
   `docs/SHOT-PROTOCOL.md`, flown as its own arm against an unchanged baseline — not something to
   commit alongside the art.
 - **The ring shifts the assembly's centre of mass, and `checkring.py` cannot see it.** It reads one
-  part's own declared mass seating: `KSArmory_Prefab_MirvBus: mass seated at X=0.300`, chosen so the
-  thruster ring's axial lever arm is zero and only the axial pair pitches. 450 kg at X ≈ −0.275
-  below the bus's origin moves the combined centroid to roughly +0.212, giving all twelve non-axial
-  nozzles a lever arm — which enrols them in pitch and yaw and coarsens the attitude quantum that
-  aims the release. Same blind spot as `checkswept.py`'s per-vehicle one: **when a part stops being
+  part's own declared mass seating — on the Heavy MIRV Bus 3,450 kg at X 0.52, the thruster ring's
+  station, with the tank at X 0.72 (`KSArmoryGameData.xml`). 450 kg at X ≈ −0.275 below the bus's
+  origin moves the combined centroid down off the ring, giving the non-axial nozzles a lever arm —
+  which enrols them in pitch and yaw and coarsens the attitude quantum that aims the release. The
+  figures for this were worked on the six-RV bus and want re-deriving. Same blind spot as `checkswept.py`'s per-vehicle one: **when a part stops being
   the only thing in the stack, check what still assumes it is.** Either teach `checkring.py` a
   stack, or re-seat the bus's mass for the assembly it will actually fly in.
 - **Existing test craft need refitting.** Pre-1.0, so this is a cost rather than a blocker, but

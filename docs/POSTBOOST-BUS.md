@@ -60,6 +60,11 @@ Measured 2026-10-17 on the bus alone in a 300 km orbit, with the bridge's `burn`
 (~390 N a nozzle). Both match the ve KSA's own rocket model declares to the m/s, so the declared figure can be read
 for any later `ExitDiameter` without flying it.
 
+**The attitude nozzles are 0.13 m at the exit, about 390 N each.** On the earlier bus, five shots with 0.4 m
+nozzles landed 1.31-1.91 km off and four with 0.13 m landed 0.05-0.43 km; the two do not overlap. The pointing band
+was not the cause: it went from 0.37 deg to 2.6 deg without the small nozzles, both far inside the 9.63 deg it
+started at. The effect is measured and its mechanism is not, so the small nozzles stay until something explains it.
+
 The tank is one container on the axis, and the art draws none: KSA lists each `<Tank>` as its own propellant in the
 part popup, with a flow rule between them, and four could drain unevenly and move the centre of mass off the axis. It sits at X 0.72 rather than
 higher: the engine thrusts along the axis, so only the nozzles see the height, and the 3,450 kg seat is at the ring's
@@ -88,11 +93,16 @@ guidance allows itself: the current bus is already capped by the code, not the t
 
 A hop has to fit its slot on the coast (65 s today, `ReleaseItinerary`), and at 50 km spacing a hop is ~90 m/s with
 the margin. At ~3.8 t wet that is 3 m/s2 to burn it in 30 s, so **~10-15 kN**: 4-5 kg/s at 2,900 m/s, about two
-minutes of burning for the whole 500 kg. Today's twenty nozzles push ~0.56 m/s2, which is why a large hop runs into
+minutes of burning for the whole 500 kg. The old bus's twenty nozzles pushed ~0.56 m/s2 and this bus's four forward
+nozzles 0.40 (`TrimAccelerationMetresPerSecond2`), which is why a large hop runs into
 `BusTrim.MaxSeconds`' 120 s. The bell is modelled at a 0.44 m exit; its `ExitDiameter` sets the thrust and is chosen
 to match.
 
 ## What the guidance needs, in order
+
+Status: 3 and 4 are built, 3 behind `IcbmConfig.HopsBurnTheEngine` (off); 1 is partly built (the trim acceleration,
+the tank's exhaust velocity and the engine's numbers are `LauncherProfile` fields, the pass ceiling and the hop clock
+are still constants); 5 was flown as `WIDE-SPREAD.md` steps 5 and 6.
 
 1. **The bus's numbers on its profile** (refactor, headless). The divert budget, the per-pass ceiling
    (`BusTrim.MaxMetresPerSecond`, 10), the per-hop clock (`BusTrim.MaxSeconds`, 120) and the hop slot are constants
@@ -130,7 +140,7 @@ to match.
   nozzles stay fed. The deadband stayed 1 deg throughout; the rate bit rose from 0.041 to 0.068 deg/s across the burn
   and stayed, unexplained and harmless. The hand sighting went through the popup's Active boxes, which the bridge
   does not, so that is what is left to try; `attitude` reads the tracker back. Nothing in flight switches the engine
-  on today: `make-rocket.py` stages it with the release, but the computer lets the bus go by firing its joint, so that
+  on unless `IcbmConfig.HopsBurnTheEngine` is (`Ksa/Icbm/IcbmComputer.Hop.cs`): `make-rocket.py` stages it with the release, but the computer lets the bus go by firing its joint, so that
   stage is never reached.
   **A hop-length burn holds, 2026-10-19**, the same bus and orbit: 56 s on the engine loaded and again after one RV
   released, the prograde hold within ±0.50 and ±0.48 deg throughout (`WIDE-SPREAD.md` step 5, C).

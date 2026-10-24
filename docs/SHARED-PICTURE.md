@@ -6,7 +6,10 @@ show contacts that another installation's set holds, and the order to build it i
 ## What exists today
 
 Every weapons system scans with its own set and keeps its own track list (`Radar.Tracks`), rebuilt
-every frame from live state. The scope draws that list and nothing else. So a Phalanx beside a
+every frame from live state. The scope draws that list plus what the IRSTs on the same craft hold
+(`Ksa/SearchSets.cs`, matched by handle as below and marked `IR`), and `Ksa/CraftPicture.cs` merges
+every set aboard one craft into the picture its directors take. Nothing crosses from one craft to
+another. So a Phalanx beside a
 Pantsir sees 6 km while the Pantsir beside it sees 36, and an AMRAAM rail on an aircraft sees what
 its own seeker head can see, which on the rail is nothing much.
 

@@ -40,24 +40,24 @@ Part space, which is also glTF file space — the export runs with `export_yup=F
 Blender coordinates *are* what KSA reads out of the atlas and what `<Transform>` and
 `<LocationAsmb>` in the part XML mean.
 
-- **+X is up.** It is the part's forward axis in KSA's sense, and the battery's boresight.
+- **+X is up.** It is the part's forward axis in KSA's sense, and the launcher's boresight.
 - **+Y is the direction the vehicle drives.** The cab is at +Y.
 - **+Z is the vehicle's right.**
 
 The origin sits on the ground between the wheels, so every height in the script reads as a
 height and the part rests on its underside when mounted.
 
-Geometry is baked into the mesh at its final position: object transforms are applied and the
-XML places both subparts at identity. Core's subparts are centred at the origin because they
-are reusable pieces; ours are bespoke, so there is nothing to gain from an extra transform to
-get wrong.
+Object transforms are applied before export. A body that does not move sits in the mesh at its
+final position; one that turns — the turret, the pods — is exported recentred on its pivot, because
+a subpart rotates about its own mesh origin, and the part XML puts it back with `<Position>`.
 
 ## Texturing without unwrapping
 
 `palette.py` writes a 4×4 grid of flat swatches into a 512×512 atlas. Every primitive is
-created with a swatch name and gets **all** its UVs written to that swatch's centre. So the
-material is chosen per-primitive by name, there are no seams, no bakes, and no unwrap step.
-128 px cells mean mipmapping never bleeds one swatch into its neighbour.
+created with a swatch name and its UVs are projected into a small patch inside that swatch (see
+below for why not onto its centre). So the material is chosen per-primitive by name, there are no
+seams, no bakes, and no unwrap step. 128 px cells mean mipmapping never bleeds one swatch into its
+neighbour.
 
 `KSArmory_PBR.png` is **R = ambient occlusion, G = roughness, B = metalness**. That is not a
 guess: KSA's own `Content/Core/Textures/default_pbr.png` is `(255, 180, 0)` and
@@ -73,8 +73,8 @@ installed.
 The tube muzzle positions exist in two places: here, where the containers are placed, and in the
 launcher's definition in `KSArmory/` — which draws markers on them
 and spawns rounds from them. `build.sh` writes `muzzles.json` and
-**`tools/validate-parts.py` fails if the two disagree** — this repo has
-already been bitten twice by geometry duplicated across a boundary with nothing checking it.
+**`tools/validate-parts.py` fails if the two disagree**, because geometry duplicated across a
+boundary drifts.
 
 After changing anything about the pods, rerun `build.sh` and paste the block it prints. The tube
 count is `LauncherProfile.Tubes.Length`, so it follows the block and nothing else has to change.
@@ -148,12 +148,9 @@ which compares the surface itself — every triangle canonicalised and sorted �
 whether an edit to `pantsir.py` moved anything. If it reports *same geometry*, **revert the
 atlas** rather than committing several hundred bytes of noise into a binary file.
 
-This was diagnosed by rebuilding three times and getting three hashes; only the turret differed,
-and only in `INDICES`. Do not re-derive it.
-
 ## Three traps that only bite hand-built meshes
 
-Everything in `pantsir.py` used to come from `bpy.ops.mesh.primitive_*_add`. Those operators do
+Most of `pantsir.py` comes from `bpy.ops.mesh.primitive_*_add`. Those operators do
 three things for you that are invisible until you build a mesh yourself with
 `bpy.data.objects.new` and `from_pydata`, as `fin()` does:
 

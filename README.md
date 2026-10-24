@@ -58,7 +58,7 @@ Every missile and the B61 shows on its own in the part list. Once attached, to a
 
 **M197 chin turret.** A three-barrel 20 mm rotary cannon in a turret that hangs under an aircraft's nose. It attaches to a surface. It holds 750 rounds and fires 730 a minute, with an effective range of about 1.5 km. The turret traverses 110° either side of straight ahead and depresses to 50°. It is aimed through a telescopic sight. Model and textures by **Mallikas**.
 
-**B61 bomb.** One B61-12 nuclear bomb, on the same ejector launcher as the missiles, its hooks set for the bomb's 30-inch lugs. The bomb has a guided tail kit: designate a point on the ground and it steers onto it as it falls, anywhere inside the reach ring the sight draws. Without a designation it falls like an ordinary bomb. The bombsight draws a ring on the ground where the bomb will land if you release now. The yield is set at the lowest real setting, 0.3 kt, and can be raised to 340 kt.
+**B61 bomb.** One B61-12 nuclear bomb, on the ejector rack it brings, its hooks set for the bomb's 30-inch lugs. The bomb has a guided tail kit: designate a point on the ground and it steers onto it as it falls, anywhere inside the reach ring the sight draws. Without a designation it falls like an ordinary bomb. The bombsight draws a ring on the ground where the bomb will land if you release now. The yield is set at the lowest real setting, 0.3 kt, and can be raised to 340 kt.
 
 **Heavy MIRV Bus.** The top stage of an ICBM: a post-boost vehicle carrying seven Mk 21 reentry vehicles. It stacks on a 3 m node and adds a ballistic computer to the craft. You choose the targets. The computer flies the whole rocket, cuts the engines at the right moment, corrects the bus's path with its own thrusters, and releases the warheads one at a time. See [`docs/ICBM-GUIDANCE.md`](docs/ICBM-GUIDANCE.md).
 
@@ -76,7 +76,7 @@ Two parts protect a craft from missiles:
 
 **AN/ALE-47 flare and chaff dispensers.** Two dispenser parts on the same 30-cell body. The flare dispenser holds fifteen MJU-7 flares, and the chaff dispenser holds thirty RR-170 chaff cartridges. Each attaches to any surface and fires out of its face, so you choose the loadout by which dispensers you fit. Flares decoy heat-seeking missiles. Chaff decoys radar-guided missiles, but a Doppler-radar seeker such as the AMRAAM's is only fooled while the target flies across its line of sight. Fire them by hand from the craft's countermeasures row, or let them fire automatically when a missile comes for the craft. See [Countermeasures](#countermeasures).
 
-To add a weapon of your own, see [Adding a weapon system](#adding-a-weapon-system).
+To add a weapon of your own, see [Adding a weapon system](CONTRIBUTING.md#adding-a-weapon-system).
 
 You can also add weapons without changing this mod. A *weapon pack* is an ordinary KSA mod with a `KSArmory/` folder of definition files and no code. KSArmory reads that folder in every installed mod. `KSArmory-example-mod` (installed as `KSArmoryExamplePack`) is a complete example: it contains a Mk 82 bomb rack and a working copy of every weapon in KSArmory. `docs/WEAPON-PACKS.md` is the reference.
 
@@ -153,7 +153,7 @@ Windows and Linux use the same download.
 Weapons are on the **Weapons** tab in the editor. The EO director, the LITENING pod and the IRST are on the **Sensors** tab.
 
 - **Stack on a 3 m node:** the Pantsir, the Phalanx, the 5"/54, the YAL-1 turret and the MIRV bus.
-- **Attach to a surface:** the missile rails, the B61 rack, the M197 (under a nose), the EO director, the LITENING pod, the IRST and the flare and chaff dispensers.
+- **Attach to a surface:** the Weapon Mount, the missiles, the B61, the rocket pods, the M197 (under a nose), the EO director, the LITENING pod, the IRST and the flare and chaff dispensers.
 
 The Pantsir can control itself, so a craft made of nothing but a Pantsir can be launched on its own.
 
@@ -203,7 +203,7 @@ A sight's **Fire laser** button turns on its laser designator, which marks a spo
 
 ### Bombs and the MIRV bus
 
-With a B61 rack selected, an orange ring shows where the bomb will land if you drop it now. After you drop it, a blue ring shows how far its fins can still move it; shift-click inside that ring to steer it.
+With a B61 selected, an orange ring shows where the bomb will land if you drop it now. After you drop it, a blue ring shows how far its fins can still move it; shift-click inside that ring to steer it.
 
 The MIRV bus is flown by its own computer, on the **Ballistic** tab:
 
@@ -263,7 +263,7 @@ Missile seeker settings (seeker type, countermeasure resistance, Doppler gate) a
 ## Testing
 
 The system works end to end in game: the part loads and renders, the launcher tracks, missiles
-intercept at 16–20 m, and the cannon kill at 6–8 m. [`CHECKLIST.md`](CHECKLIST.md) walks through
+intercept at 15–20 m, and the cannon kill at 6–8 m. [`CHECKLIST.md`](CHECKLIST.md) walks through
 what is confirmed and what is still open, in risk order.
 
 `./tools/test.sh` runs the headless suite — whole engagements at ecliptic speeds, the drives,
@@ -314,7 +314,7 @@ Or build the archive alone:
 
 #### What bumps what
 
-`feat`, `fix` and `perf` all cut a **patch**. Minor versions are never automatic — tag one by hand
+`feat`, `fix`, `perf`, `build` and `revert` all cut a **patch**. Minor versions are never automatic — tag one by hand
 when something genuinely lands:
 
 ```bash
@@ -394,7 +394,7 @@ committed asset cannot be rebuilt from a clean checkout — which is why `checkm
 `validate-parts.py` matter more for those than for the generated three.
 
 The part itself is inert — KSA sees structure with mass and a collider. The C# mod finds it on
-the vehicle and mounts the battery there. That split avoids registering a custom module type
+the vehicle and mounts a weapon system there. That split avoids registering a custom module type
 into the engine's internal update lists, which is not reachable without patching.
 
 **Adding a weapon system is data, not code.** The files in `src/KSArmory/KSArmory/` define each
@@ -406,7 +406,7 @@ project links all of `Sim/` and references no game assembly, so the boundary enf
 reach for a KSA type in `Sim/` and the tests stop compiling.
 
 Rounds are simulated by the mod rather than being spawned as KSA vehicles. That gives
-sub-frame integration accuracy — at 2 km/s of closing speed a single frame covers ~67 m, far
+sub-frame integration accuracy — at 2 km/s of closing speed a 60 fps frame covers ~33 m, far
 more than any sensible fuse radius — and keeps the mod from touching your save. They are still
 *drawn* as real geometry: each round is a subpart of the launcher, hidden until fired and then
 flown by writing its transform every frame.
@@ -426,169 +426,39 @@ API this is built on.
 
 ## Limitations
 
-- The radar's search volume does not follow the turret. Where it points is a per-system setting —
-  local "up", the launcher's own facing, or the tubes — but never the current aim.
-- A *secondary* camera window driven by the optical head has no sky, clouds or terrain detail:
-  KSA renders secondary viewports without the atmosphere pass. That is why the head borrows the
-  player's own view instead. [`docs/BLOCKED-ON-KSA.md`](docs/BLOCKED-ON-KSA.md) has the mechanism
-  and what would change it.
+- The Pantsir's search volume does not follow its turret: its radar looks at local "up". A sensor
+  can be set to follow the tubes (`BoresightSource="TurretAxis"`), but no shipped sensor is.
+- A *secondary* camera window driven by a sight draws terrain and a sky but no clouds or ocean, so
+  a sight can drive the player's own view instead for the full picture.
+  [`docs/BLOCKED-ON-KSA.md`](docs/BLOCKED-ON-KSA.md) has the mechanism and what would change it.
 - The wheels are geometry. KSA has no wheel or suspension module, so the vehicle is placed rather
   than driven.
-- Rounds hit terrain only where their profile asks for it, because it costs a height sample per
-  round per frame and a CIWS burst is 150 shells: the bomb, the reentry vehicle and the 5"/54 shell
-  do, so a 20 mm shell still passes through a hill and a missile that misses carries on into space. Structures are not
-  collided with at all.
+- Every missile goes off on the ground it meets. Of the unguided rounds only the bomb, the reentry
+  vehicle, the Zuni and the 5"/54 shell are stopped by terrain, because it costs a height sample per
+  round per frame and a CIWS burst is 150 shells, so a 20 mm or 30 mm shell still passes through a
+  hill. Structures are not collided with at all.
 - The radar can mask against the real skyline and ships not doing it. `TerrainSamples` is the
   number of height lookups one contact may cost and defaults to zero, which is the body's mean
   sphere alone — so a craft behind a ridge is still seen until it is turned up.
-- Damage is binary. KSA exposes no partial-damage model, only outright destruction.
 
 ## Contributing
 
-Issues and pull requests welcome. **[`CONTRIBUTING.md`](CONTRIBUTING.md) is the short version** —
-what you need, what you don't, and the handful of rules that are not style preferences.
-
-The quickest start on any platform:
+Issues and pull requests welcome. **[`CONTRIBUTING.md`](CONTRIBUTING.md) has what you need** —
+setup, the checks, commit messages, adding a weapon system and the traps worth knowing about.
 
 ```bash
 ./tools/doctor.sh   # checks this machine and prints the fix for anything missing
 ```
 
 **Work goes on `dev`. `main` is the release branch.** A push to `main` cuts a release and
-publishes it to SpaceDock, so branch off `dev`, open pull requests against `dev`, and push there as
-often as you like — CI runs on every branch and every pull request, so the build, the tests and the
-other twenty checks gate each push either way. Releasing is then a deliberate act: `dev` is merged
-into `main` and semantic-release cuts one release covering everything that accumulated. It is a
-merge rather than a squash, because the changelog is built from the individual commit subjects.
+publishes it to SpaceDock, so branch off `dev` and open pull requests against `dev`. CI runs on
+every branch and every pull request. `dev` is merged into `main`, not squashed, because the
+changelog is built from the individual commit subjects.
 
-Worth knowing up front: **most of this repository is testable without launching the game.**
-Everything under `src/KSArmory/Sim/` is free of KSA types by construction, so guidance, threat
-classification, tube geometry and the fuse can all be worked on headlessly. Building it still
-needs KSA's assemblies — `double3` comes from `Brutal.Numerics.dll` — which is what
-`./tools/doctor.sh` checks for first.
-
-The rest of this section is the longer version.
-
-### Read `CLAUDE.md` first
-
-It is the working notes for this repo: the environment traps, the design decisions worth not
-re-litigating, and the failure modes that are invisible from the code alone.
-[`docs/KSA-MODDING-NOTES.md`](docs/KSA-MODDING-NOTES.md) is the reverse-engineered API
-reference — reference frames, the loader contract, part XML.
-
-### Setting up
-
-```bash
-./tools/install-hooks.sh   # commit-msg hook, so a bad message is caught before it exists
-./tools/sync-import.sh     # copy KSA's assemblies into Import/ (gitignored, not redistributable)
-                           # ...or skip it: the build also finds a local KSA install by itself
-./tools/build.sh           # needs .NET 10; a distro dotnet 8 fails with NETSDK1045
-./tools/test.sh            # the full suite, no game required
-```
-
-The wrapper scripts exist because bare `dotnet` picks up the system SDK and cannot target
-`net10.0`. `source tools/env.sh` once if you want `dotnet` to work directly in your shell.
-
-After a KSA update the assemblies CI builds against have to be refreshed too, or it silently
-compiles the mod against a different game from the one you are testing on. `ksa-assemblies.lock`
-records which build is expected and both CI and `sync-import.sh` check it — see the "After a KSA
-update" section of [`CLAUDE.md`](CLAUDE.md) for the four commands.
-
-### Commit messages
-
-Releases are automatic, so commit messages are the input to versioning. Use
-[Conventional Commits](https://www.conventionalcommits.org/):
-
-```
-feat(turret): elevate the pods on their trunnions
-fix(rounds): anchor bodies to the tube they left, not the orbit position
-docs: write an install guide
-```
-
-| Prefix | Effect on the version |
-| --- | --- |
-| `feat:`, `fix:`, `perf:`, `build:`, `revert:` | patch — `1.2.3` → `1.2.4` |
-| any type with `!` or a `BREAKING CHANGE:` footer | major — `1.2.3` → `2.0.0` |
-| `docs:`, `test:`, `chore:`, `ci:`, `style:`, `refactor:` | no release |
-| a minor — `1.2.3` → `1.3.0` | never automatic; tag it by hand |
-
-`feat` cutting a patch is deliberate. The type says what a change *is*, for the changelog; how big
-a bump it earns is a separate decision, and a mod's routine flow of features, enhancements and
-fixes together should not push the middle digit every time.
-
-`docs` and `refactor` still appear in the changelog; they just do not cut a release on their
-own. A commit that does not parse is treated as no release — so a stray `wip` will not publish
-anything, but it will also vanish from the changelog without saying so. That silence is why the
-format is enforced rather than merely suggested:
-
-- **Locally**, `./tools/install-hooks.sh` enables a `commit-msg` hook that rejects a bad message
-  before the commit exists. `git commit --no-verify` bypasses it for a one-off.
-- **In CI**, the same script checks every commit in a push or pull request.
-
-Both run `tools/check-commit-msg.sh`, so they cannot disagree about what is legal.
-
-### Before opening a PR
-
-```bash
-./tools/check-all.sh          # everything CI runs, about 45 seconds
-```
-
-One script, and CI calls the same one, so they cannot disagree about what "the checks" are.
-`--list` names them; `--with-sweep` adds the ~43 s drive sweep.
-
-Checks needing the game assemblies are skipped with a notice rather than failed, so this is
-worth running without a KSA install. On a fork the `tooling` job runs in full — it needs no
-secret — and only the `build` job is gated, skipping with a notice.
-
-`./tools/install-hooks.sh` also wires it to `pre-push`.
-
-### How the code is laid out
-
-`src/KSArmory/` splits by whether a file can see the game:
-
-- **`Sim/`** — pure simulation and data. Guidance, the turret drives, launch geometry, and the
-  weapon profiles. The test project links this folder wholesale and references no KSA assembly,
-  so **reaching for a KSA type here breaks the test build**. That is deliberate: it is the only
-  reason any of this is testable without the game running.
-- **`Ksa/`** — everything that binds to KSA. Keep new game contact funnelled through `KsaWorld`
-  where you can; the API moves between builds and one file is easier to fix than ten.
-
-If something in `Ksa/` turns out to have real maths inside it, move the maths into `Sim/` rather
-than leaving it unverifiable. `FireGeometry` is the worked example: launch angles are testable
-because they live there rather than inside `LauncherPart`.
-
-### Adding a weapon system
-
-It is data, not code. Nothing in `Sim/` or `Ksa/` names a built-in weapon.
-
-1. Model it — authored in Blender, following `.claude/skills/ksa-blender/SKILL.md`. The headless
-   generator builds the three parts that predate that and is not extended.
-2. Declare the part in `KSArmoryAssets.xml` and `KSArmoryGameData.xml`.
-3. Define a `<Launcher>` for it in a file in [`src/KSArmory/KSArmory/`](src/KSArmory/KSArmory/),
-   naming the `<Munition>` and `<Sensor>` it uses; [`docs/WEAPON-PACKS.md`](docs/WEAPON-PACKS.md) has
-   every attribute. The definition also gives the part its row in the panel.
-
-Discovery is by part Id, so the system picks up whatever is fitted. A launcher that cannot
-train is the same profile with `TurretMarker` left null.
-
-### Traps worth knowing about
-
-- **Ecl is absolute.** Positions near Earth are ~1.5×10¹¹ m and sweep past at ~29.8 km/s, so an
-  ecliptic value read as a local one is wrong by kilometres. Never orient or measure anything
-  with `VelocityEcl` — use the frame-relative velocity.
-- **Two instants, on purpose.** `DrawAnchor` samples the render position this frame and the
-  geometry's position one update earlier. Collapsing them looks like a tidy-up and puts the
-  whole overlay 500 m from the craft. `DrawAnchorTests` fails if they are collapsed.
-- **Model defects are invisible in Blender.** Coplanar faces and zero-area UVs both render fine
-  in a preview and make the vehicle crawl with flickering speckle in game. `checkmesh.py`
-  catches both — run it, do not trust your eyes.
-- **Bad asset Ids fail silently.** No log line, no error; the part just renders wrong.
-  `validate-parts.py` is the only thing that will tell you.
-
-### Style
-
-Match what is there. Comments explain *why*, especially where the obvious approach is wrong —
-several of the files carry a note saying "do not simplify this", and those notes are load-bearing.
+Most of this repository is testable without launching the game: everything under
+`src/KSArmory/Sim/` is free of KSA types by construction. [`CLAUDE.md`](CLAUDE.md) is the full map —
+layout, design decisions, the KSA-update procedure — and
+[`docs/KSA-MODDING-NOTES.md`](docs/KSA-MODDING-NOTES.md) the reverse-engineered API reference.
 
 ## Licence
 
@@ -596,8 +466,9 @@ several of the files carry a note saying "do not simplify this", and those notes
 
 That covers the C# mod, the tooling, and the art generated or authored here. Two things came from
 outside. The Phalanx's cannon recording under `tools/audio/` is CC0 and carries no condition on
-redistribution — see the README beside it. And the 5"/54 Mk 42's model, shell and textures, and the
-M197's model and textures, were made for this mod by Mallikas.
+redistribution — see the README beside it, which has every recording's provenance. And the 5"/54
+Mk 42's model, shell and textures, the M197's and both Zuni pods' models and textures were made for
+this mod by Mallikas.
 
 It does **not** cover Kitten Space Agency itself. The mod compiles against KSA's assemblies but
 never redistributes them: `Import/` is gitignored, the project references them with

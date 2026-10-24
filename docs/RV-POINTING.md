@@ -6,6 +6,15 @@ three read-only surveys of the code, then revised twice after adversarial review
 source, one against what has been flown) found the first draft's blocking faults, and a third found three more in the
 revision. Each is answered below where it applies.
 
+**From "What is wrong today" on, this is the plan as drawn up on 2026-10-17**, and the build differs from it:
+
+- **The computer holds the line, not a program input.** There is no `IcbmProgram.TurnToEntry()` or `HoldWhereItIs`:
+  `Ksa/Icbm/IcbmComputer.Turn.cs` drives `Sim/BusTurn.cs` and writes the line into `IcbmProgram.CoastLineCci`, which
+  `Coasting()` holds (the reached attitude at the cap). "What is wrong today" describes the code before the build.
+- **The flag ships on**, and `ShotArmsTests.TheBaselineArmIsTheShippedBehaviour` does not assert it.
+- **File:line pointers are of 2026-10-17**, and `Arsenal.cs` no longer exists: the rounds are defined in
+  `KSArmory/*.xml`.
+
 ## What was flown, 2026-10-17
 
 **Built, flown, paired, and off by default** (`IcbmConfig.PointRvsAtEntry`), because of one open item below.

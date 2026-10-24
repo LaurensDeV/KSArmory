@@ -1,7 +1,7 @@
 # Finding targets for the directors: an infrared search part
 
-**A plan, not a record.** Tick each step as it lands. Steps 0–5 and 4b are built and none is flown;
-the panel (step 6) is not built.
+**A plan, not a record.** Tick each step as it lands. Steps 0–6 and 4b are built. Step 5's part and
+step 7's 8 km engagement are flown (CHECKLIST 7.6c-3); steps 0 and 4b, and the rest of step 7, are not.
 
 ## Why
 
@@ -67,7 +67,7 @@ launcher on their own part) has been handed to them.
   part fitted, crewed with the craft and followed across a split, the way `Ksa/OpticalHeads.cs` is.
 - `ComponentProfile` with `Role = Sensor` for the part; a craft carrying only IRSTs is an observation
   post, not a weapons system.
-- [x] Built: `SearchSetProfile` and `Arsenal.SearchSets` (empty until step 5), `Ksa/SearchSets.cs`. Keyed
+- [x] Built: `SearchSetProfile`, registered from a `<SearchSet>` definition through `Catalogue`, and `Ksa/SearchSets.cs`. Keyed
   on the `Part` itself rather than crewed and handed over: a set carries no settings and no magazine.
   Its side is its craft's (`TeamRoster.For`), so a craft with only IRSTs has no flag to set.
 
@@ -134,8 +134,9 @@ locks on, without seeing the target itself.
 - Declared in `KSArmoryAssets.xml` / `KSArmoryGameData.xml`; registered as a `SensorProfile` with a
   forward cone of about 120° along the part's +Y (`BoresightMode.PartForward`) and a `ComponentProfile`; `validate-parts.py` and `checkmesh.py` clean.
 - [x] Built: `KSArmory_Prefab_Irst`, subparts body, head and glass in that order — append-only from
-  here — with `Arsenal.Irst` and a Sensor `ComponentProfile`. 40 kg, one 0.185 × 0.469 × 0.263 m
-  collider box above the mounting face. `validate-parts.py` holds `Arsenal.Irst.HeadPivot` to the
+  here — defined as the `<SearchSet>` and `Irst` `<Sensor>` in `KSArmory/Sensors.xml`, which mints its
+  component row. 40 kg, one 0.185 × 0.469 × 0.263 m
+  collider box above the mounting face. `validate-parts.py` holds that `<SearchSet>`'s `HeadPivot` to the
   head's `<Position>`. The art's sources — `IRST.blend`, `irst_v21.py` and the prep, unwrap, bake,
   compose and export scripts beside it — are in the art folder, outside this repository.
 - [x] Flown 2026-10-20 (CHECKLIST 7.6c-3): four on a craft crew, one sees a rocket under power at

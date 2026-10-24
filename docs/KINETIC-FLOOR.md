@@ -7,7 +7,8 @@ This file is that budget. It is **not** a plan, and it is not the same question 
 would still be there after every item on that list had landed.
 
 Every number is either measured by `tests/KSArmory.Tests/KineticFloorTests.cs` or cited into the
-decompiled corpus at `../ksa-game-assemblies/current/src` against build **2026.8.22.5348**. Where a
+decompiled corpus at `../ksa-game-assemblies/current/src` against build **2026.8.22.5348**; the
+`Celestial.cs` line numbers are the current corpus's. Where a
 term could not be measured it says so rather than being estimated.
 
 **The headline.** The single biggest lever is not a constant — it is the **arrival angle**. Five of
@@ -42,7 +43,7 @@ test's output, run 2026-10-12; slopes are the fixtures' own.
 | **the walk: landing against its own prediction over relief** | not priced | **sd 1.3 mm at slope 0.05, 5.8 mm at 0.15, 36 mm at 0.80**; bias −4.9, −6.6, +13.8 mm (`WalkFloorTests`, float-packed relief) | the chord crossing, the staircase and the integrator's bias together | partly — by arriving steeper (section 5) |
 | **the height field's own quantum** | 2.40 m | 0.48 m (0.2985 x 1.600), **only if** the aim and the round read different texels; no disagreement has been seen | `R16_UNORM` over 19,561 m = 0.2985 m | **no** — it is the shipped texture |
 | **the predictor's ground crossing** | 2.01 m | 0.40 m worst and 0.20 m mean with the flag off (0.25 x 1.600; flown 0.20 m long at 32°). **Shipped on: 0.3 mm** — the crossing's height 0.176 mm at slope 0.122 x 1.600 (`ProbeCrossingFloorTests`); flown, the landing's step fell from −0.212 m to −0.007 | `ImpactPredictor.CrossingToleranceMetres` = 0.25 m; `IcbmConfig.PredictionStopsOnTheSurface` | done |
-| **the float terrain staircase** | ≤ 0.9 m | **adds 0.9 mm at slope 0.05 and 3.9 mm at 0.15** in quadrature to the walk's sd — packed against exact, 1.27–1.48x (`WalkFloorTests`). A horizontal tread (~0.38 m) times the slope, not a vertical quantum | `Celestial.cs:833` packs the direction to `float3` | **no** — inside the engine |
+| **the float terrain staircase** | ≤ 0.9 m | **adds 0.9 mm at slope 0.05 and 3.9 mm at 0.15** in quadrature to the walk's sd — packed against exact, 1.27–1.48x (`WalkFloorTests`). A horizontal tread (~0.38 m) times the slope, not a vertical quantum | `Celestial.cs:824` packs the direction to `float3` | **no** — inside the engine |
 | **the ecliptic's own arithmetic** | 1.8 mm | **16.5 mm** — the rig's round at its 1 ms sub-step adds five times as often; re-run of `TheEclipticIsWhereAKineticRoundKeepsItsPosition` | `double3` at 1.5e11 m; ulp 30.5 um | no; deterministic, and how much of it the flight shares with its aim is not measured |
 | **the engine clock** | ≤ 104 mm | ≤ 69.5 mm if every frame rounds one way, **0.49 mm** as a random walk (19,861 frames of 25 ms) | `UniverseTime` is Int128 ns; `SimStep.DeltaTime` is the unrounded double | no |
 | **naming the target** | 0.2 m – 1.9 km | same | one pixel of the player's viewport, through `SiteDesignator` | yes — zoom, or the panel's coordinate entry |
@@ -82,8 +83,9 @@ reproduces it**: the Mk 21's own `SubStepSeconds` now caps the sub-step at 1 ms,
 fly a first-order 1 ms round — re-run, 22.8 m on the 3,459 km deorbit, 0.16 m at 88.2 degrees, 0.50 m
 at 36.9 and 0.09 m at 30.
 
-`Sim/Slug.cs` integrates with **symplectic Euler** at `Interceptor.SubStep` (5 ms), holding gravity
-and the air's motion across the sub-steps of one frame. `Sim/ImpactPredictor.cs` is **RK4** and
+That round was `Sim/Slug.cs`'s first-order step, **symplectic Euler**, at `Interceptor.SubStep` (5 ms),
+holding gravity and the air's motion across the sub-steps of one frame; the released warhead now
+re-reads both per sub-step (`RoundFields.GravityAt`, `IcbmConfig.WarheadAirVelocityPerSubStep`). `Sim/ImpactPredictor.cs` is **RK4** and
 re-evaluates gravity at each stage, so the two are different schemes rather than the same one at
 different steps — the gap between them does not close as the *predictor* gets finer, only as the
 round does.
@@ -234,9 +236,9 @@ bicubic in `double` — exactly, from 16-bit integer texel samples — and then,
 a normal cubemap and biome materials, packs the direction down:
 
 ```csharp
-float3 float6 = float3.Pack(in vector);        // Celestial.cs:833
+float3 float6 = float3.Pack(in vector);        // Celestial.cs:824
 ...
-float heightKm = (float)num2;                  // Celestial.cs:842
+float heightKm = (float)num2;                  // Celestial.cs:833
 modData = new ... { Position = float6, TextureNormal = float6, ... };
 ```
 
@@ -299,8 +301,8 @@ turns back into `s.d / tan(gamma)` of further miss. The loop's gain is `s / tan(
 
 At gain one or above **there is no fixed point at all** — where the round stops is decided by the
 terrain rather than by the shot, and re-aiming walks away from the answer instead of onto it. This is
-the same failure, with the same gain, as the cursor's ground-point iteration in
-`KsaWorld.TryCursorGroundPoint`, which guards against it by keeping the better sample and breaking.
+the same gain that would stall a fixed-point refinement of the cursor's ground point, which is why
+`KsaWorld.TryCursorGroundPoint` walks the ray out from the eye instead (`Sim/TerrainRay.cs`).
 
 ### It is that steep, measured — 2026-09-17
 
@@ -394,8 +396,8 @@ length across the line of sight, and the depression angle turns that into ground
 | 3 deg (20x) | 48.5 urad | 0.2 m | 2.8 m | 9.7 m | 97 m |
 
 **Designating an intercontinental target from orbit at the default field costs more than every other
-term in this file put together.** The sight's magnification is the lever, and `SightZoom` already
-reaches 20x.
+term in this file put together.** The sight's magnification is the lever: each optic declares its
+own `MaxMagnification` — 16x on the EO director, 53x on the LITENING, 932x on the YAL-1.
 
 Two things that are *not* floors, checked and cleared:
 
@@ -404,11 +406,9 @@ Two things that are *not* floors, checked and cleared:
 - The aim point is persisted as JSON doubles in `ballistic.json` (`Sim/BallisticSettings.cs`), so
   saving it does not quantise it either. The panel also takes a typed latitude and longitude, as doubles.
 
-The refinement loop in `TryCursorGroundPoint` has its own limit, and it is item 5's gain by another
-name: its fixed-point iteration converges only while `slope / tan(depression) < 1`, which from
-ground level is most of the screen. It keeps the better sample and stops, so it degrades rather than
-diverging — but a click at a shallow depression angle onto rough ground is not resolved to the
-pixel it was worth.
+`TryCursorGroundPoint` does not iterate onto the ground, so section 5's gain does not reach it:
+`Sim/TerrainRay.cs` walks the ray from the eye to the first place it goes under the height field,
+with steps bounded by a 1-in-1 slope and a 0.5 m tolerance.
 
 ---
 
@@ -567,11 +567,10 @@ millimetres at 32 degrees for no propellant at all.
 ### The honest caveats on both
 
 - **Neither is a CEP in the statistical sense.** Every term here is a deterministic bias of a
-  deterministic simulation: the same shot flown twice gives the same answer to the bit. What makes
-  a flown group scatter is the frozen gravity, whose error grows with the step — but the step's own
-  run-to-run variation is **not** pacing. It is a single latched `WarpPolicy` decision that either
-  happens or does not, worth 0.7-2.6 km; `docs/MIRV-NEXT.md` item 7e has the measurement and
-  conditioning on the coast step leaves 10-88 m.
+  deterministic simulation: the same shot flown twice gives the same answer to the bit. What made
+  a flown group scatter was the frozen gravity, whose error grew with the step, and the step's
+  run-to-run variation was a single latched `WarpPolicy` decision, worth 0.7-2.6 km
+  (`docs/MIRV-NEXT.md` item 7e). Gravity is now re-read per sub-step (`RoundFields.GravityAt`).
 - **Nothing here is flown but the sub-step**, below. It is headless, and the rig's planet is at the origin.
 - **The ruler.** Every budget in this repository scores a miss with `R * Vec.AngleBetween`. As an arc
   cosine that could not read under **13.4 cm**, and the 5 ms figures above were taken through it;
@@ -625,7 +624,7 @@ noise floor of the only instrument that can confirm it.
 
 **It is now enabled**, and the paragraphs below are the argument that was open at the time. The
 Mk 21 ships `SubStepSeconds` 0.001 (`KSArmory/Strategic.xml`, first in commit `065907a`), so **the largest single
-term in the budget above has been removed** and this file's headline number is stale by that much.
+term in the first-priced budget has been removed**; the headline is priced with it.
 It is affordable on this round and nowhere else: six warheads at a millisecond is ~300 sub-steps a
 frame, where a 150-shell CIWS burst at the same step would be 7,500.
 

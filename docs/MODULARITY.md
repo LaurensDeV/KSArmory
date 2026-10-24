@@ -42,8 +42,9 @@ hardwired integrate → guide → fuse loop, so a second class of weapon is a se
 `ProjectileContractTests` runs the frame and epoch rules against every one of them, so a new kind
 inherits the whole trap list.
 
-What still has no shape at all is a weapon with no discrete round: a hitscan, a beam, a
-flamethrower. See *What the architecture genuinely cannot express* below.
+A weapon with no discrete round has one shape, the laser beam (`LauncherProfile.FiresBeam`,
+`Sim/Beam.cs`); a hitscan or a flamethrower has none. See *What the architecture genuinely cannot
+express* below.
 
 ### Different launchers — modular in count, rigid in articulation
 
@@ -78,8 +79,8 @@ behaves is where its sensor looks, and one limit is still pinned:
 - **Where the search cone points is the sensor's choice**, not a constant. `SensorProfile.BoresightSource`
   offers `LocalUp`, `PartForward`, `TurretAxis` and `MountNormal`, resolved by
   `TubeGeometry.TryBoresightPartFrame`. The Pantsir keeps `LocalUp`, because its set sweeps a
-  hemisphere regardless of where the tubes are aimed; the LAU-7 rail uses `PartForward`, because
-  a seeker head looks where the rail points, and that is what makes a launcher on something that
+  hemisphere regardless of where the tubes are aimed; the rail missiles' seekers use `PartForward`,
+  because a seeker head looks where the rail points, and that is what makes a launcher on something that
   manoeuvres work.
 - **One weapon system per launcher part**, keyed on the craft and the launcher's ordinal. A craft
   carrying two rails is two weapons, each with its own `SystemConfig`, magazine, drives and rounds,
@@ -252,9 +253,9 @@ one at neutral density holds depth. A torpedo is now an ordinary `MunitionProfil
 
 Everything else it already has: `Slug` is unguided-kinetic, `Interceptor` is guided, both fuse on
 proximity or contact, and both obey the frame rules by contract. What is untried rather than
-missing is **surface crossing** — the medium ratio is sampled once per frame and passed as a
-constant to every sub-step, so a frame is integrated wholly in air or wholly in water and the cost
-of a crossing is metres of overshoot rather than divergence.
+missing is **surface crossing**. The medium is re-read at every sub-step (`RoundFields.AirDensityAt`,
+through `WeaponSystem.MediumAtRound`), so a round crosses the waterline inside a frame, but nothing
+has flown one across it.
 
 ### RPGs — expressible today
 
@@ -276,11 +277,13 @@ What remains is narrower and sits entirely in fire control: `Holding()` answers 
 or an MLRS wants to engage one unattended, and that is a change to the auto-engage ladder rather
 than a retype.
 
-**Continuous-effect weapons have no home.** `IProjectile` is a discrete object with a position, a
-flight and a fuse. A laser has no flight time, a flamethrower has no discrete round. Those need a
-sibling abstraction, not another `IProjectile`, and the cost is a parallel lifecycle in `Ksa/`
-across the reap switch, `Detonate`, round-body placement keyed on tube number, `Magazine.IsOccupied`,
-`Visuals.DrawRounds` and `Diagnostics`.
+**Continuous-effect weapons have one home, and it is not general.** `IProjectile` is a discrete
+object with a position, a flight and a fuse. The laser went beside it rather than through it: a
+`LauncherProfile` with `FiresBeam` cues the director on its own part, which burns the part it is
+held on (`Sim/Beam.cs`, `Sim/BeamTrigger.cs`). A flamethrower, or any other continuous weapon not
+fired down a director's line of sight, would need a sibling abstraction with a parallel lifecycle in
+`Ksa/` across the reap switch, `Detonate`, round-body placement keyed on tube number,
+`Magazine.IsOccupied`, `Visuals.DrawRounds` and `Diagnostics`.
 
 ### The two ceilings that are KSA's
 
@@ -322,7 +325,8 @@ launcher's ordinal, so a craft carrying two rails runs two weapons. That last st
 `Ksa/` rather than adding to `Sim/`, so it is the one with no test coverage to fall back on: only
 the stepping arithmetic is reachable, in `Sim/WeaponSelection.cs`.
 
-A continuous-effect abstraction (beams, flamethrowers) and AI pilots sit after all of that, and
+A general continuous-effect abstraction (flamethrowers; the beam is built on the director) and AI
+pilots sit after all of that, and
 neither should be attempted speculatively.
 
 ---

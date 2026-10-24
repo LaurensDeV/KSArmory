@@ -24,8 +24,8 @@ carrier speed is the diagnosis.
 as a contact, because it is about to be compared against vehicle positions the engine writes later
 in the frame. That is correct **for that consumer** and is not a general fact about rounds.
 
-`WeaponSystem.UpdateRounds` samples gravity, air density and the air's own velocity at the round's
-position **as it stands**, with no carry.
+`WeaponSystem.UpdateRounds` samples its once-a-frame gravity, air density and the air's own velocity
+at the round's position **as it stands**, with no carry by the round's own velocity.
 
 Applying `AddAirborne`'s carry here — on the reasoning that a round's position is a frame behind the
 celestials — puts them a step apart instead. **Flown: the rounds diverged from their own prediction
@@ -39,10 +39,12 @@ each is written. Two consumers of the same round can need opposite answers.
 samples belong to the end of the step the mod is about to integrate, so the pre-step round is one
 whole step behind them; `docs/KSA-FRAME-ORDER.md` §5 has the source. `AddAirborne`'s carry is by
 the round's own `VelocityEcl`, which is a different correction from putting the *body* back by
-`bodyVelocityEcl * dt` — the one `WeaponSystem.AirDensityIntoFrame` already applies to the density
-lookup. Gravity and air velocity do not have it, and giving it to them was flown and lost: three
-shots at 2.80-3.74 km against a six-flight baseline of 0.65-2.07 km. `docs/KSA-FRAME-ORDER.md` §5
-has why the phase analysis survives that result.
+`bodyVelocityEcl * dt` — the one `WeaponSystem.AirDensityIntoFrame` applies to the density lookup.
+Moving the *sample point* of gravity that way was flown and lost: three shots at 2.80-3.74 km against
+a six-flight baseline of 0.65-2.07 km. What ships moves the body instead: gravity aims at the body's
+position at the round's own instant (`KsaWorld.PullOnRound`, half a step back for the once-a-frame
+read), and the air's velocity is read with the body put back (`GroundVelocityIntoFrame`,
+`docs/ACCURACY-PLAN.md` 3el). `docs/KSA-FRAME-ORDER.md` §5 has the distinction.
 
 ## The epoch contract
 
@@ -51,15 +53,17 @@ This is what KSA does, read from the decompiled source rather than inferred.
 sample, and what a mod can read instead of assuming. The short version:
 
 - `Universe.ApplyVehicleSolvers` sets `_lastSimStep = _nextSimStep` and then calls
-  `CurrentSystem.UpdatePerFrameData()` back to back (`Universe.cs:1681-1683`), which walks the
-  whole system parent-first and is where every `Celestial._positionEcl` (`Celestial.cs:593-608`)
-  and `Vehicle._positionEcl` (`Vehicle.cs:2456-2490`) is written. **Celestials and vehicles share
+  `CurrentSystem.UpdatePerFrameData()` back to back (`Universe.cs:1946-1948`), which walks the
+  whole system parent-first and is where every `Celestial._positionEcl` (`Celestial.cs:592-607`)
+  and `Vehicle._positionEcl` (`Vehicle.cs:2714-2719`) is written. **Celestials and vehicles share
   one epoch because they are advanced in one call.**
-- That runs inside `PrepareFrame` (`Program.cs:2012`), 84 lines and six phases before
-  `OnDrawUiViewports` (`Program.cs:2096`), which is the mod's GUI hook.
+- That runs inside `PrepareFrame` (`Program.cs:2301`, called at `:2377`), several phases before
+  `OnDrawUiViewports` (`Program.cs:2402`), which is the mod's GUI hook.
 - The epoch is `Universe.GetElapsedTime()`, which *is* `_lastSimStep.NextTime`
-  (`Universe.cs:2060-2062`) — so the interval and the instant are two fields of one struct and
+  (`Universe.cs:2388-2391`) — so the interval and the instant are two fields of one struct and
   cannot drift apart.
+
+Line numbers are build 2026.10.19.5638's.
 
 Three consequences, all load-bearing:
 
@@ -67,8 +71,9 @@ Three consequences, all load-bearing:
    this will be at the end of this step", not "where it is now".
 2. **`GetLastSimStep().DeltaTime` is the interval that ended at that epoch** — the applied step,
    not a measurement of one. It cannot be a phase out from the world.
-3. **KSA's frame order is** reset gizmos → `OnDrawUiViewports` (mod GUI hook) → render → postfix
-   on `OnFrame` (mod frame hook). **The frame hook lands after the drawing it feeds.**
+3. **KSA's frame order is** reset gizmos → `OnDrawUiViewports` (mod GUI hook) →
+   `OnFrameCelestials` (`Ksa/PreRenderHook.cs`'s prefix) → render → postfix on `OnFrame` (mod
+   frame hook). **The frame hook lands after the drawing it feeds.**
 
 That third point is also a constraint on any *loader* this mod runs under, not just on where the
 simulation is called from — see "Porting to a different loader" in `docs/KSA-MODDING-NOTES.md`.
@@ -76,7 +81,8 @@ simulation is called from — see "Porting to a different loader" in `docs/KSA-M
 ## Rules that follow
 
 **Simulate in the same pass that draws.** The simulation runs in `OnAfterGui`, immediately before
-`Visuals.Draw`. Run from the frame hook instead, every draw uses an offset produced one frame
+`Visuals.Draw`, and from `PreRenderHook` only on a frame with the UI hidden (`docs/KSA-FRAME-ORDER.md`
+§7). Run from the frame hook instead, every draw uses an offset produced one frame
 earlier against an anchor sampled now: 0.999 steps of ecliptic motion along the direction of
 travel and 0.4 m across it, over 221 samples. Compensating at draw time cannot work — the drag is
 one step of platform motion, so any correction carries a `dt` that changes and comes back as
@@ -183,18 +189,22 @@ through `DrawAnchor` — and the trap above then arrives from a new direction.
 
 A warhead's burst is at `round.PositionEcl` — the analytic position the simulation integrates. The
 round and its target are *drawn* against the platform's **physics** origin, which is not the same
-place: `KsaWorld.TryVehicleEgo` says outright that deriving a draw position from `GetPositionEcl`
-"visibly misses the craft". Placing the burst at the analytic position therefore puts the
+place: `KsaWorld.TryVehicleEgo` says outright that lines drawn to a position derived from
+`GetPositionEcl` "visibly miss the craft". Placing the burst at the analytic position therefore puts the
 explosion somewhere the engagement did not visibly happen.
 
 Convert the *drawn* position back instead:
 
 ```csharp
 KsaWorld.TryVehicleEgo(platform, out double3 platformEgo);          // where it is drawn
-KsaWorld.TryEgoToEcl(platformEgo + round.OffsetFromPlatform, out double3 burst);
+double3 offset = DrawAnchor.OffsetAtBurst(round.OffsetFromPlatform, platformVelocityEcl,
+                                          round.DetonationElapsedInFrame);
+KsaWorld.TryEgoToEcl(platformEgo + offset, out double3 burst);
 ```
 
-`WeaponSystem.DrawnBurstEcl` does this and logs the correction when it exceeds a metre. The rule
+`OffsetAtBurst` is the round's offset from the platform at the instant inside the step it went off,
+where the raw offset pairs that mid-step position with the step-end platform: up to 500 m near Earth. `WeaponSystem.DrawnBurstEcl` does this and logs, under a
+verbose log, what is left over a metre once the analytic burst is carried the same way. The rule
 generalises: **anything handed to the engine to place must be derived from where things are drawn,
 not from where the simulation says they are** — the two frames agree on directions and differ on
 positions, which is the same asymmetry `TryCursorRayEcl` exists for.

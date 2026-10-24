@@ -145,8 +145,8 @@ Built-in names you can use:
 
 | | |
 | --- | --- |
-| Munitions | `57E6`, `30MM`, `AIM9J`, `AIM120C`, `AGM88`, `20MM`, `5IN54`, `B61`, `MK21` |
-| Sensors | `1RS1`, `AIM9SEEK`, `AIM120SEEK`, `AGM88SEEK`, `VPS2`, `MK68`, `TSU`, `EO`, `Litening`, `Irst`, `Yal1BeamDirector`, `BOMBSIGHT`, `MIRVBUS` |
+| Munitions | `57E6`, `30MM`, `AIM9J`, `AIM120C`, `AGM88`, `20MM`, `5IN54`, `B61`, `MK21`, `ZUNI` |
+| Sensors | `1RS1`, `AIM9SEEK`, `AIM120SEEK`, `AGM88SEEK`, `VPS2`, `MK68`, `TSU`, `EO`, `Litening`, `Irst`, `Yal1BeamDirector`, `BOMBSIGHT`, `MIRVBUS`, `ZUNISIGHT` |
 | Decoys | `MJU7` (flare), `RR170` (chaff) |
 
 References are checked when the file is read, not at the first shot. A name that matches nothing

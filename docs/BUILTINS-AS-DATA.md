@@ -7,7 +7,10 @@ file:line below was checked by at least one reviewer.*
 **Status, 2026-10-21: Phases 0-4 built.** Every built-in is in one of seven family files and
 `Sim/Arsenal.cs` is deleted; `validate-parts.py` reads the XML through its renderer. The disable switch is
 in the mod's menu under "Built-in weapons", and `tools/export-example-copy.py` writes the example mod's
-working copy of every weapon. Phase 5, the release pass, is next.
+working copy of every weapon. It shipped in v0.9.8 (2026-10-22); whether Phase 5's pre-merge pass
+was run is not recorded here. Since then an eighth family, `Rockets` (`Rockets.xml`: the LAU-10 and the
+six-round pod, `ZUNI`, `ZUNISIGHT`), has joined the seven below, and `Rails.xml` also defines the
+AIM-9J, AIM-120C and AGM-88 parts that bring their own rail, beside the LAU-7, LAU-128 and LAU-118.
 
 ## Decisions
 

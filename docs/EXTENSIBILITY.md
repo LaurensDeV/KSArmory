@@ -21,8 +21,8 @@ construction.
 
 **Cite symbols here, never file and line**, per `docs/MODULARITY.md`.
 
-**Changes 0, 1, 2 and 2b have landed and a pack has registered in game; 5 has landed for one
-weapon; 3, 4 and 6 are still a plan.** `docs/WEAPON-PACKS.md` is the author-facing contract; this
+**Changes 0, 1, 2, 2b and 5 have landed and a pack has registered in game; 3 has landed but for
+the tube seat; 4 and 6 are still a plan.** `docs/WEAPON-PACKS.md` is the author-facing contract; this
 file is why it looks the way it does.
 
 ---
@@ -323,8 +323,8 @@ Reading the XML directly is what retires the bridge.
 Move the definitions into data and the validator reads *the same file the game reads*. Give it
 `--mod-root <dir>` and it becomes a tool a pack author runs against their own folder, gating what is
 otherwise silent in game: a mesh Id absent from the atlas, a texture path whose case is wrong, a
-marker matching two subparts or none. All but the last of these runs today; a tube seat disagreeing
-with the mesh is still only checked for the built-ins.
+marker matching two subparts or none. All of these run today; a tube seat disagreeing with the mesh
+is still only checked for the built-ins.
 
 The generated half stays here. `muzzles.json` is an artefact of `tools/model/pantsir.py` and means
 nothing to a pack; the path that generalises is the **authored-launcher** one, which reads mesh
@@ -370,8 +370,9 @@ compile. `ArsenalTests.EveryGuidanceModeIsAccountedFor` asserts the count for ex
 
 **Still C#, and honestly so:**
 
-- a new **weapon kind** — a beam, a hitscan, anything with no discrete round. `IProjectile` is a
-  thing with a position, a flight and a fuse; `docs/MODULARITY.md` costs the sibling abstraction.
+- a new **weapon kind** — a hitscan, anything else with no discrete round. `IProjectile` is a
+  thing with a position, a flight and a fuse; the laser beam (`LauncherProfile.FiresBeam`) is the one
+  kind built outside it, and `docs/MODULARITY.md` costs the sibling abstraction.
 - a new **guidance law**, as opposed to a new set of numbers for an existing one.
 - a new **gimbal**, which is five branches in `OpticGeometry` plus the mesh axis and two panel
   labels.
@@ -417,11 +418,11 @@ wants it — the pattern `docs/AUDIT-2026-08.md` names, and why `docs/MODULARITY
   trap, and it is why the *part-level* registry uses exact equality. `PackAudit` at the freeze is
   the mitigation — exactly one subpart matches, or it is named in the log — and it runs over the
   built-ins too.
-- **A munition's markers are still silent.** `FinMarker` unresolved is invisible and `BodyMarker`
-  null falls back to the literal string `"Missile"`; the audit walks launchers and heads, which are
-  the profiles that name a part, and a round names none. Survivable in a repository with a
-  validator over every profile; not survivable in a pack. Fixing it is small and belongs with
-  change 3.
+- **A munition's markers are silent in game.** `FinMarker` unresolved is invisible and `BodyMarker`
+  null falls back to the literal string `"Missile"` (`LauncherPart`); `PackAudit` walks launchers and
+  heads, which are the profiles that name a part, and a round names none. `validate-parts.py`
+  (and `--mod-root`) checks both markers against every launcher carrying the round, so the gap is
+  only for an author who never runs it.
 - **`OpticalHead` ignores `SensorProfile.BoresightSource` and always uses the mount normal**, so
   that field is dead data on a director. A pack author will set it and it will do nothing. Either
   wire it or reject it at registration — either way, not silence.
@@ -461,10 +462,10 @@ larger scale, and the ways it is wrong are discovered by strangers.
 
 It also settles what the format cannot answer on paper — whether an entry loses anything in
 translation. `Arsenal.cs` carried a paragraph per number on which figures are the real weapon's and
-which are gameplay, and that is what the move was judged on: `KSArmory/Weapons.xml` carries the same
+which are gameplay, and that is what the move was judged on: `KSArmory/Pantsir.xml` carries the same
 paragraphs as XML comments, which is most of why the format is XML rather than something terser.
-The rest of the built-ins are now moving the same way, one family file at a time
-(`docs/BUILTINS-AS-DATA.md`), with the reader gaining each spelling a family needs as it moves.
+The rest of the built-ins have since moved the same way, one family file each
+(`docs/BUILTINS-AS-DATA.md`), with the reader gaining each spelling a family needed.
 
 ---
 

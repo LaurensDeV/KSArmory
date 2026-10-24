@@ -139,7 +139,7 @@ the bar, or leave them.
 **A night is for a change to the *shot*. A change inside the *round* can be flown against itself.**
 
 The bus drops six warheads on one trajectory, and on the flown shot they land within **6.2 m** of
-each other. So a split arm — odd tubes shipped, even tubes under test — makes a single flight a
+each other. So a split arm — odd tubes under test, even tubes shipped — makes a single flight a
 paired comparison with the cutoff, the trim, the frame pacing and the weather all held identical by
 construction. `tools/ab-shot.py` reads one log and scores it.
 
@@ -195,9 +195,12 @@ Three things make the paired version work, and the third is the one that is easy
   as one.
 * **The change must be a *setting*, not a branch.** One build flies the whole night; the arms differ
   by what `IcbmConfig` says. A branch cannot be two things in one world.
-* **The variants alternate down the roster, and the phase rotates between shots.** A rocket's place
-  in the roster was worth **175x** in miss, monotone (8y), until the interlock removed the gradient
-  (8ag; 8ai re-measured it flat over 96 flights); any such gradient handed to one arm is measured as the change. `Sim/ShotArms.cs` does both.
+* **The variants alternate down the roster, and the phase changes between shots.** A rocket's place
+  in the roster was worth **175x** in miss, monotone (8y at 12,902 km), until the interlock removed
+  the gradient (8ag; 8ai re-measured it flat over 96 flights at 2,000 km); any such gradient handed to
+  one arm is measured as the change. `Sim/ShotArms.cs` alternates; `shot-batch.sh` draws the phase per
+  shot as a balanced random permutation (`phases.tsv`), because a phase equal to the shot number
+  aliases the arm with seat and shot parity (`ACCURACY-PLAN.md` 3cl).
 
 What it cannot compare is anything the rockets share: the build, the system, the terrain under the
 target. Those still need a night.
@@ -895,7 +898,7 @@ An arm is dropped when any of these is true:
 | | |
 | --- | --- |
 | **Broken** | two or more of its shots produced no verdict, or arrived with fewer warheads than they released. That is a failure, not a miss distance, and a rank test on miss distance must not absorb it. |
-| **Wild** | two or more shots at or beyond **4 km**, or beyond **twice the same night's baseline median** once the baseline has flown twice, whichever is further out. 4 km is the widest baseline ever recorded on the 26.5S,64.0W shot, over 26 shots — but it is a fact about that target, and on a geometry where the control itself lands past it an absolute floor drops the arms that *match* the control. The baseline is never a candidate for dropping, so that asymmetry keeps the wrong one. |
+| **Wild** | two or more shots at or beyond **4 km**, or beyond **twice the same night's baseline median** once the baseline has flown twice, whichever is further out. 4 km is just past the widest baseline ever recorded on the 26.5S,64.0W shot, 3.43 km over 26 shots — but it is a fact about that target, and on a geometry where the control itself lands past it an absolute floor drops the arms that *match* the control. The baseline is never a candidate for dropping, so that asymmetry keeps the wrong one. |
 | **Catastrophic** | from 4 shots each: the arm's median is **3× the baseline's or worse**, *and* its best shot is worse than the baseline's median. The flown losses ran 4×, 11× and 29×; none of them needed twelve shots to see. |
 | **Settled loss** | from 6 shots each: rank test **p < 0.0294** with the arm's median above the baseline's. |
 
@@ -970,7 +973,10 @@ What lands in `~/shots/2026-08-23`:
 ```
 batch.tsv          when, where, which seed, which base commit, which KSA build
 arms.tsv           arm -> ref, commit SHA, DLL SHA-256
-plan.tsv           the run order, as flown
+plan.tsv           the run order, as flown, with any re-flown and reassigned shots appended
+phases.tsv         a --paired night's roster phase per shot
+slow.tsv           shots re-flown because --frame-check refused them
+dropped.tsv        arms the gate dropped, and when
 shots.tsv          one row per shot: n, block, arm, verdict, DLL hash, seconds, start time
 arms/<name>/       the built payload each arm was deployed from
 shots/NNN-<arm>.out   scenario.sh's stdout -- the SCENARIO lines and the verdict

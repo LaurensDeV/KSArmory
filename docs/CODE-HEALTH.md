@@ -11,15 +11,6 @@ not will be found again by the next reader.
 
 ---
 
-## Remove the automatic save repair after the release that ships it
-
-- [x] **Delete `Ksa/SaveRepairs.cs`, `Sim/SaveRepair.cs` and `SaveRepairTests.cs`, and the
-  `SaveRepairs.RunAll()` call in `KSArmoryMod.OnFullyLoaded`, in the release after the first one to
-  ship them** (the first release after v0.9.4). The owner's decision: the repair exists only to carry
-  saves across the Mk 42 losing its twenty shell subparts, for one release. Remove the two layout
-  rows in `CLAUDE.md` and the note under "A shipped part's subpart list is append-only" with it.
-  `tools/repair-saves.py` stays: it is the manual route and predates this.
-
 ## Modularity
 
 - [~] **`Interceptor` and `Slug` duplicate the frame and epoch bookkeeping.** The physics is done:
@@ -113,12 +104,12 @@ change, so each wants a flight before it is fixed.
 
 - [~] **`Ksa/Icbm/IcbmComputer.cs` was 4,337 lines and about 120 methods**, and everything after cutoff -- the split,
   clearance, trim, post-boost passes, aim correction and release -- is orchestrated there, out of the tests' reach.
-  It is split into ten partials by concern, 1,531 lines left in the main file. `docs/ICBM-OUTSTANDING.md` 5.3. A rig that flies past cutoff (2.5) is the
+  It is split into twelve partials by concern, 1,408 lines left in the main file. `docs/ICBM-OUTSTANDING.md` 5.3. A rig that flies past cutoff (2.5) is the
   other half: whatever of that orchestration is arithmetic belongs in `Sim/`, where it can be flown headlessly.
 - [x] **`Sim/Icbm/IcbmProgram.cs` was 1,966 lines**, the phase machine and every phase's rules in one class. Split by
-  phase into eight partials, 994 lines left in the main file. `docs/ICBM-OUTSTANDING.md` 5.3.
-- [~] **`Sim/IcbmConfig.cs` carries 65 settings.** Thirteen with flown or judged verdicts were removed on
-  2026-10-06 (5.1), and every doc comment is now its verdict and a pointer (5.2, 452 lines from 1,065). Several
+  phase into eight partials, 1,196 lines in the main file today. `docs/ICBM-OUTSTANDING.md` 5.3.
+- [~] **`Sim/IcbmConfig.cs` carries 108 public fields** (65 settings when this was written). Thirteen with flown or judged verdicts were removed on
+  2026-10-06 (5.1), and every doc comment is now its verdict and a pointer (5.2, 452 lines from 1,065; 784 lines today, as flags were added). Several
   that remain are off and unflown, and each is either flown and decided or removed.
 - [ ] **The body fall is summed over one link** (`KsaWorld.BodyFallEcl`): a round over the Moon keeps most of
   Earth's fall around the Sun as an error. Unflown; `docs/MIRV-NEXT.md` 2g.
@@ -184,6 +175,70 @@ stale in two places at once.
   never reproduced in game -- the rocket on the slope lays steadily either way, having no acceleration of its own --
   so the ship case is the one re-flight that would close this.
 
+
+## Found by the comment review, 2026-10-25
+
+Places where a comment and the code disagree and the code looks wrong, from the review that trimmed
+every comment against HEAD (`ca7ca31d`). Each was re-checked before being written here. None is fixed.
+The first three change behaviour and want a flight; the rest are tests, tooling and data.
+
+**Behaviour**
+
+- [ ] **`KsaWorld.ArrivalCeilingRadius` reaps against a ceiling that can be too low.** Its job is to err
+  high, because it decides whether a round is destroyed, but it takes `body.MaxTerrainHeightApprox`,
+  which omits the modifiers and sits under the real terrain (5.7 km against 8.0 km on Earth,
+  `docs/KSA-TERRAIN.md`). On an airless body a store over high ground could be reaped before it lands.
+  `KsaWorld.MaxTerrainHeightMetres` is the bound the terrain mask already uses. Fly on Luna.
+- [ ] **Nothing calls `Turret.Reset()`** (`Sim/Turret.cs`), so a system re-crewed onto a new platform
+  keeps its old bearing, commands and travel map.
+- [ ] **`PlumeSmoke.Tune` still sets the shared trail renderer's globals** (erosion, shadow steps, sky
+  ambient) that were chosen for the nuclear cloud, which no longer draws through it, so every
+  booster's contrail differs from stock.
+- [ ] **Marker labels are ImGui windows named by craft name** (`Ksa/Markers.cs`), which craft from one
+  blueprint share, so two such craft draw into one label window.
+- [ ] **`BallisticScenario.Find` repeats `CouldReachTheAim`'s test inline**, and the two disagree when the
+  craft's surface point cannot be read: `Find` accepts the craft and `CouldReachTheAim` refuses it.
+
+**Dead or contradictory**
+
+- [ ] **`IContact.TeamKey` has no reader** (`Ksa/Contact.cs`, `Ksa/RoundContact.cs`). IFF reads
+  `DeclaredTeam` alone and `UiScope` says never to use `TeamKey`; delete it or give it a use.
+- [ ] **`TargetSet.Shift` says a returned warhead "rides to the lead"**, while the class summary,
+  `ReleasePlan`, `Describe`, `ReleaseWalker`, `ReleaseLoop` and `IcbmComputer.Walk` all keep a spare
+  warhead aboard. Settle which is meant and fix the other.
+- [ ] **The Heavy MIRV Bus sheds `StoreMassKg="250"` per release; the Mk 21 is `MassKg="270"`**
+  (`KSArmory/Strategic.xml`). `StoreMassKg` is the round as carried and deliberately separate, so this
+  may be right; check it.
+
+**Tests that cannot fail, or may not**
+
+- [ ] `ThreatModelTests.ThreatGeometryIgnoresCommonMotion` calls `TryAssess` twice with the same
+  arguments, so it compares a value to itself. It should add one offset and one velocity to both inputs.
+- [ ] `TurretTests.ElevationTo_ReadsTheAngleAboveTheHorizon`'s last assertion is the same expression on
+  both sides.
+- [ ] `FrameRegressionTests.TrailPoints_DoNotSmearWithFrameVelocity` advances the platform after the
+  update, the phase CLAUDE.md says these tests must not use. Check it fails against a wrong form.
+- [ ] Output strings left behind by changed defaults: `ErrorBudgetTests` ("impact at the cutoff epoch"),
+  `GroundQueryEpochTests`' assertion message ("the shipped one" for the centre-only point),
+  `MirvBudgetTests.WhatHoldingGravityForAWholeFrameCosts` ("held" and "freshGravity" now fly the same
+  configuration), `ProbeGapTests` ("all four together" over three terms), and `PostBoostAimTests`'
+  "forty shots ... twenty-three ... thirty-seven", which does not add up.
+
+**Tooling and data**
+
+- [ ] `docs/PACK-API-SURFACE.md` omits `SearchSet`, `Decoy`, `Dispenser`, `Beam`, `ReleaseSpin` and
+  `Nozzle`, so `pack-api.py --check` passes while one of their attributes is renamed.
+- [ ] The example mod's copy is stale (`export-example-copy.py --check`, the Zuni textures) and has no
+  `Rockets.xml`.
+- [ ] `listing.py -h` prints no description: it reads `__doc__.splitlines()[1]`, a blank line.
+- [ ] `screenshot.sh` tells the user to pass `--force`; it reads only `FORCE=1`.
+- [ ] `shot-batch.sh` and `scenario.sh` print usage as a fixed `sed -n` range that stops mid-list, and
+  `scenario.sh`'s misses the `KSARMORY_SCENARIO_*` options below line 40.
+- [ ] `checkmesh.py` run bare prints the last example line, not the basic usage.
+- [ ] `ksa-user-dir.sh` searches the Linux folders in a different order from `Log.cs`.
+- [ ] `tools/model/pantsir.py` prints the tube block as C# under a heading saying it goes into
+  `Pantsir.xml` as `<Tube>`, and its `cyl()` docstring disagrees with the code about the hexagon spin.
+- [ ] `repair-saves.py` says renaming a subpart is free; CLAUDE.md says a `SubPartRef` rename is untested.
 
 ## Did not survive
 

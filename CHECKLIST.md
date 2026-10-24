@@ -369,18 +369,19 @@ Remaining untested: sections 5 (safety) and 6 (robustness) below.
 Nothing here has been flown. The whole window moved in one evening and every item is a claim
 made from reading.
 
-- [ ] **Components** is the first tab and the only one a craft always has. Rows are grouped by
-      role, each one folds open, and the position line is still there.
+- [ ] **Components** is the first tab and the only one a craft always has. Rows are sectioned by
+      kind of part, each one folds open, and the position line is still there.
 - [ ] A **Camera** row holds everything the Director tab used to. Two directors on one craft are
       two rows that aim independently, and taking the main view on one drops it from the other.
 - [ ] A **Launcher** row holds the tally, the reload bar, the mount readout, `live`, Reload,
       Safe all, chase and the bomb sight. A **Gun** row holds its belt and its own `live`.
 - [ ] A **Sensor** row holds the lock and the contact. The director's own sensor row says it is
       not the one fire control reads.
-- [ ] A **Fire control** row holds auto-engage, FIRE, Reset settings and the mouse
-      controls.
-- [ ] A second launcher of the same kind says **fitted, not run** rather than showing blanks.
-- [ ] The strip above the tabs shows *Clear to fire* / *Holding fire* from **every** tab, plus
+- [ ] A **Fire control** row holds rounds per target, *Never target the vehicle I'm flying*, the
+      mouse controls and Reset settings. Auto-engage and FIRE are on the header strip.
+- [ ] A second launcher of the same kind is a second station under one heading (`<kind>  x2`),
+      not a row of blanks.
+- [ ] The strip above the tabs shows *Ready* / *Holding: …* from **every** tab, plus
       rounds in flight and a word about the clock only when it is the problem.
 - [ ] A craft carrying **only a director** opens the window, lists its Camera and Sensor rows,
       and says *no weapons system on this craft* on the rest — **without faulting**. This is the
@@ -427,16 +428,16 @@ Ranked by how likely a failure is. Worth reading before you start.
 | ~~High~~ | ~~The mod's own `<MeshAtlas>` / `<PbrMaterial>` paths don't resolve~~ — **settled, it renders.** | [2.2](#22-the-part-renders) |
 | **Medium** | 30 t and 8 m of part on a stack: colliders, editor attachment, pad physics. | [2.3](#23-the-part-attaches), [2.4](#24-the-part-behaves-physically) |
 | **Medium** | `mod.toml` serving as both content manifest and StarMap manifest. Plausible, untested. | [1.1](#11-the-mod-loads) |
-| **Medium** | `Program.VehiclesInFrame` may not contain the loaded vehicles, so radar sees nothing. | [3.3](#33-radar-sees-a-target) |
+| **Medium** | The census (`KsaWorld.CollectVehicles`, off `Universe.CurrentSystem.All`) may not contain the loaded vehicles, so radar sees nothing. | [3.3](#33-radar-sees-a-target) |
 | **Medium** | Boresight is local "up" derived from the parent body; if `Vehicle.Parent` misbehaves the cone points somewhere daft. | [3.2](#32-the-search-cone-is-drawn) |
 | **Medium** | Shooting down a round. Three seams changed at once and none of them is reachable from the test project. | [7.1g](#71g-shooting-down-a-round---never-once-worked-so-nothing-here-has-ever-been-seen) |
-| **High** | The viewport rework on `2026.9.4.5400`. Every camera path was retargeted and none has been flown. | [3.1b](#31b-the-turret-slews), status note above |
+| **High** | The viewport rework on `2026.9.4.5400`. Every camera path was retargeted; the LITENING in a camera window and the main view, and the drop's chase, have flown since (5638 note above), and the sight at 16× and the secondary-viewport picker have not. | [3.1b](#31b-the-turret-slews), status note above |
 | **Medium** | The levelled horizon is now installed by writing a private backing field. It says in the log whether it took. | status note above |
 | **Medium** | A kill sheds debris, which are craft the radar can see and shoot at. | [4.4](#44-the-warhead-kills) |
-| **Medium** | Individual parts break instead of whole craft. Flown once against a drone; the ordering fault it exposed is fixed, and a long craft losing one end is still unwatched. | [4.4a](#44a-individual-parts-break--never-flown-the-whole-feature-is-unverified) |
-| **Medium** | A fragmenting craft costs frame time nobody has measured: one craft becomes several, each simulated. | [4.4a](#44a-individual-parts-break--never-flown-the-whole-feature-is-unverified) |
-| **Medium** | A launcher or director part destroyed outright now retires its roster entry after 120 fruitless searches. The bound has never been reached in flight. | [4.4a](#44a-individual-parts-break--never-flown-the-whole-feature-is-unverified) |
-| **Medium** | The ballistic computer writes attitude, throttle and staging on a vehicle nobody designed for it. Flown and arriving; what is unwatched is each change since. | [12](#12-the-ballistic-computer--flown-and-arriving) |
+| **Medium** | Individual parts break instead of whole craft. Flown once against a drone; the ordering fault it exposed is fixed, and a long craft losing one end is still unwatched. | [4.4a](#44a-individual-parts-break--flown-once-against-a-drone-most-of-it-still-unverified) |
+| **Medium** | A fragmenting craft costs frame time nobody has measured: one craft becomes several, each simulated. | [4.4a](#44a-individual-parts-break--flown-once-against-a-drone-most-of-it-still-unverified) |
+| **Medium** | A launcher or director part destroyed outright now retires its roster entry after 120 fruitless searches. The bound has never been reached in flight. | [4.4a](#44a-individual-parts-break--flown-once-against-a-drone-most-of-it-still-unverified) |
+| **Medium** | The ballistic computer writes attitude, throttle and staging on a vehicle nobody designed for it. Flown and arriving; what is unwatched is each change since. | [12](#12-the-ballistic-computer--flown-and-landing-inside-a-hundred-metres) |
 | **Low** | Guidance and fuse maths — covered by the headless suite, but never against real KSA motion. | [4.3](#43-a-crossing-target-is-intercepted) |
 | **Low** | `DestroyVehicleFromEvent` may behave oddly with `Cause = Collision`. | [4.4](#44-the-warhead-kills) |
 
@@ -489,7 +490,8 @@ output, StarMap's load messages, and anything that looks like a failure.
 tail -F "$(./tools/ksa-user-dir.sh)/Logs/KSArmory.log"
 ```
 
-It is truncated at each launch, so it always shows the current session. KSA's own log
+It is truncated at each launch, so it always shows the current session; the session before is kept
+as `KSArmory.prev.log` beside it. KSA's own log
 (the newest `KittenSpaceAgency.*.log`, same folder) covers mod discovery and asset loading — that is where
 part XML errors would appear.
 
@@ -635,7 +637,7 @@ Assets one needs a `<Transform>`.
 
 **If it fails:** `no weapons system on this craft` while the part *is* on it means
 `LauncherPart.Find` isn't matching — `Part.Id` may not equal the `PartGameData` Id, or the part
-is registered as a launcher and missing from `Arsenal.Components`, which is silent everywhere
+is registered as a launcher and missing from `Catalogue.Components`, which is silent everywhere
 else.
 
 ### 3.1b The turret slews
@@ -695,7 +697,7 @@ distance, then press **Overhead**, **Head-on** or **Passing by**. A drone appear
 exactly that course, so a 60 s / 400 m/s overhead pass spawns 24 km away and arrives in a minute.
 Drones are clones of your own craft, so no second craft needed.
 
-Arm the battery *before* the drone arrives — with **Auto engage** on it will handle the rest.
+Tick **Auto engage** *before* the drone arrives and it will handle the rest.
 
 - [ ] Spawn a drone while the world is running, several times in a row. The spawner now waits for the
       vehicle worker to release the shapes registry before building the drone. Racing it built half a
@@ -712,8 +714,8 @@ filters out anything below *Min target speed* (default 15 m/s).
 - [ ] Orange marker sphere drawn at its position.
 - [ ] Moving out of the cone or beyond range drops it from the list.
 
-**If it fails:** empty track list with a vessel clearly nearby means `Program.VehiclesInFrame`
-isn't returning loaded vehicles. Try widening *Cone half-angle* to 180 and *Range* to max
+**If it fails:** empty track list with a vessel clearly nearby means `KsaWorld.CollectVehicles`
+isn't returning loaded vehicles (the verbose world dump's `vehicles:` line counts them). Try widening *Cone half-angle* to 180 and *Range* to max
 first — that rules out geometry before blaming the API.
 
 ### 3.4 Threat classification
@@ -745,11 +747,12 @@ empty, or target gone.
 - [ ] On a Pantsir, the **Weapons** button is on the header strip, and the window lists
       `Pantsir-S1: Missiles` and `Pantsir-S1: Cannon` as two rows. Select the cannon: the header reads
       `showing Pantsir-S1 (1): Cannon`, and FIRE with nothing detected fires a burst. The line beside
-      it reads `Auto-engage held: nothing detected -- trigger is clear`, not `Holding fire`.
+      it reads `Ready`, with `auto: nothing detected` after it in grey while auto-engage is on, not
+      `Holding: …`.
 - [ ] Back on the missiles, with no threat locked, shift-click a craft the radar can see and press
-      FIRE: a round leaves for *that* craft. The line beside the trigger does not say `Holding fire`
+      FIRE: a round leaves for *that* craft. The line beside the trigger does not say `Holding: …`
       about it, even if it is not closing.
-- [ ] Shift-click a craft beyond the radar's reach: the line reads `Holding fire: <name> is not on
+- [ ] Shift-click a craft beyond the radar's reach: the line reads `Holding: <name> is not on
       the radar`, and FIRE refuses with the same words.
 - [ ] With auto-engage on, shift-click a craft that is not a threat and inside the guns' reach: the
       guns do **not** open fire on it by themselves.
@@ -920,8 +923,8 @@ Where latent bugs are most likely.
       when it is crewed and nothing moves it after, so taking control of something else leaves it
       defending itself. There is no button: pinning is not the operator's.
 - [ ] **6.6** **Staging away the launcher** — the craft reports no weapons system, firing refuses.
-- [ ] **6.7** **Two launchers** on one craft — **two** weapons, each with its own magazine, arm
-      switch and rounds in the air. The header's selector chooses which one the panel and the
+- [ ] **6.7** **Two launchers** on one craft — **two** weapons, each with its own magazine and
+      rounds in the air. The header's selector chooses which one the panel and the
       trigger are pointed at.
 - [ ] **6.8** **Long session** — leave auto-engage on for a while. No unbounded log growth, no
       frame-rate decay.
@@ -1021,7 +1024,7 @@ and nothing under `Sim/` can reach the wiring.
       explosion there means something is reading the two as one. **Seen in game on 2026.9.22.5482**: one explosion line for the first contact, the Phalanx's own shell's, and none for the shells it killed.
 - [ ] The defender's **missiles** can do it too, by proximity rather than contact. Needs a target
       further out than the 1.2 km minimum range — inside that the cannon is the only answer, which
-      is what `holding fire: target out of reach` says when it happens.
+      is what `auto-engage held: target out of reach` says when it happens.
 - [ ] Nothing shoots down its own salvo. Every launcher filters its own rounds out before the radar
       sees them, but a *second* launcher on the same craft is a separate system with its own list. **Seen in game on 2026.9.22.5482** for one case: the Pantsir engaged nothing of its own. A second launcher on the same craft was not flown. A missile on a flat path is shot down too, now the VPS-2 searches down to the mount's own -25 deg: detected at 2.6 km, engaged from 1.5, intercepted at 2.9 m about 0.7 km out. At 85 deg it was first seen 0.2 s before it burst beside the mount.
 - [ ] Frame time with a full CIWS burst up against a salvo of incoming rounds. The designated-target
@@ -1060,6 +1063,10 @@ arms, fires and kills.
 What a log cannot answer is appearance: the screenshot lands after the kill, so it never shows the
 round leaving the rail. The unticked boxes below are those.
 
+The LAU-7 part (`KSArmory_Prefab_SidewinderRail`) is hidden in the editor now and kept for saves;
+the store a player fits is the AIM-9J (`KSArmory_Prefab_Aim9J`), which brings its own rail and is
+the same fixed launcher.
+
 A *fixed* launcher — no turret, no pods, one round, no reload — takes paths the Pantsir never
 does, so a green suite says little about it.
 
@@ -1085,10 +1092,13 @@ does, so a green suite says little about it.
       nowhere else.
 
 - [ ] Two rails on one craft: **two** weapons. The roster keys on the craft and the launcher's
-      ordinal, so each has its own magazine and arm switch, and the header's selector chooses which
+      ordinal, so each has its own magazine, and the header's selector chooses which
       one the trigger is pointed at. Dropping one must not refill the other.
 
 ### 7.1d2 The AMRAAM rail — it loads and lays, and nothing past that is confirmed
+
+The LAU-128 part (`KSArmory_Prefab_AmraamRail`) is hidden in the editor now and kept for saves; the
+store a player fits is the AIM-120C (`KSArmory_Prefab_Aim120C`), which brings its own rail.
 
 **It reached the world.** From `KSArmory.log`, first session after it shipped:
 
@@ -1308,8 +1318,8 @@ the mesh and the XML, and the suite.
       30, 25 m at 45 and 79–83 m at 60. With the centre carried, the same 60 km shot lands 3.3 and 5.5 m
       off headlessly (`GroundLayTests`).
 - [x] **On Mars, where the air is 0.0135 of the reference.** The gun's longest reach there is
-      **174.1 km**, and `gunnery:1,ground,,,200000` — the invocation in CLAUDE.md's own usage
-      block — asks for a shot past it: the lay says `driving a gun laid to its longest reach`
+      **174.1 km**, and `gunnery:1,ground,,,200000` — the Mars example in `tools/scenario.sh`'s own
+      usage block — asks for a shot past it: the lay says `driving a gun laid to its longest reach`
       and throws the shell as far as it goes, landing 25.5 km short of a point it never claimed
       to cover. That example cannot pass by construction, which is worth knowing before reading
       its FAIL as a regression.
@@ -1498,8 +1508,8 @@ rocket standing on the pad, firing level; the owner confirmed what is ticked bel
 
 The Mk 82 rack this was first reported against now ships in `KSArmory-example-mod` rather than
 here, which changes nothing about the fault: every piece of the release path — `Slug`,
-`Ksa/GroundTest.cs`, `Ksa/BombSightOverlay.cs` — is still this mod's, and the **B61 rack** exercises
-all of it. Run it against that. Doing it against the example pack as well answers a second question
+`Ksa/GroundTest.cs`, `Ksa/BombSightOverlay.cs` — is still this mod's, and the **B61** exercises
+all of it (now on its own ejector, `KSArmory_Prefab_B61`; the B61 rack is hidden and kept for saves). Run it against that. Doing it against the example pack as well answers a second question
 for free, which is whether a registered weapon behaves like a compiled-in one.
 
 Two things shipped together and either could be it: `feat(rounds): drop a bomb` and
@@ -1983,7 +1993,7 @@ round 2 expired after 30.0s - closest 617 m, flew 33.0 km, final speed 1010 m/s,
 A 57E6 peaks near 1290 m/s, so that round shed under 300 m/s in thirty seconds and travelled 65 %
 past the system's 20 km engagement envelope. Both look wrong and neither is:
 `KsaWorld.MediumDensityRatioAt` returns **zero above `air.Height`**, which is correct because there
-is no atmosphere to resist anything, and the envelope decides when the battery *commits* rather
+is no atmosphere to resist anything, and the envelope decides when the system *commits* rather
 than how far a round may fly. `MaxFlightSeconds` is what ends it.
 
 So this is here to be confirmed, not to be fixed:
@@ -2041,24 +2051,23 @@ Still open below.
 - [ ] **A refused drive holds fire** - cannot be forced on demand, since it needs KSA to reject a
       transform write. If it ever happens the panel says which assembly froze and whether the
       launcher is holding fire; report the line rather than trying to reproduce it.
-- [ ] **Teams and IFF** - declare two teams under **KSArmory settings → Teams**, put the launcher on
+- [ ] **Teams and IFF** - declare two teams in the **Teams** window, put the launcher on
       one with its flag, and confirm the track list marks F / N / H / ? correctly and that a
-      friendly is not engaged. The flag is what places a craft; only something with nothing of this
-      mod's fitted falls back to its name, so for those name teams such that no team name is a
-      substring of another craft's name.
+      friendly is not engaged. The flag is the only thing that places a craft: one with nothing of
+      this mod's fitted is on no team, whatever it is called.
 - [ ] **Two mounts on one team do not shoot each other's rounds.** A Phalanx and a Pantsir, both
       flags on the same team, both auto-engaging, one firing. Neither may engage the other's shells,
       and neither track list may show them as `?`. **This is the case that only the rounds reach**:
       two craft standing on the same ground are under `MinTargetSpeed` and never enter each other's
       track lists at all, so nothing before the first shot exercises the classification. Check the
       Radar tab draws them **X** rather than a triangle.
-- [ ] **Removing a team** under **KSArmory settings → Teams** moves every craft on it to **No team**
-      in the switcher, and each one's **Teams and IFF** tab reads `Own team: none`. Declaring the
-      team again does not bring back the allied or neutral ticks it had.
+- [ ] **Removing a team** in the **Teams** window moves every craft on it to **No team**
+      in the switcher and in that window. Declaring the team again does not bring back the allied or
+      neutral ticks it had.
 - [x] **Warp overrun** - warp hard enough to exceed 0.32 s of simulated time per frame and confirm
       the log warns how much time was discarded. That warning is a diagnostic, not a fix. **Seen in game on 2026.9.22.5482**: `step 19583 ms exceeds the 320 ms ...; 19.26 s of simulated time discarded`.
 - [ ] **Stock drones** — Gemini7 / Hunter / Banjo / Polaris / Rocket each spawn and fly.
-- [ ] **Battery stays put** — fly a second craft; the battery remains on the launcher and the
+- [ ] **The system stays put** — fly a second craft; the system remains on the launcher and the
       panel says so.
 - [ ] **Two launchers on one craft** — two weapons, each with its own magazine, and the selector
       switching between them without either refilling.
@@ -2069,8 +2078,9 @@ Still open below.
 
 - [ ] A round fired at a low target passes through terrain rather than hitting it. Expected —
       rounds only test against their target — but confirm it does not throw.
-- [x] **Timewarp during flight.** Fire control steps on `Universe.GetElapsedTime()` via
-      `Sim/SimClock.cs`, never on StarMap's *player-time* delta: player time is wall-clock, so it
+- [x] **Timewarp during flight.** Fire control steps on `KsaWorld.ConsumeSimStep()`
+      (`Universe.GetLastSimStep()`, classified by `Sim/SimClock.cs`), never on StarMap's
+      *player-time* delta: player time is wall-clock, so it
       runs through a pause and stays at 1× under warp, which breaks tracking and lets a paused
       system fire.
 
@@ -2081,7 +2091,9 @@ Still open below.
 - [x] 2×–10× warp with rounds in flight: they still guide and still intercept.
 - [x] Above ~20× (0.32 s of sim time in one frame): the panel says *rounds stand down*, the
       rounds vanish, and nothing throws. Dropping them is intended, not a failure.
-- [x] Warp up and back down repeatedly: the battery recovers each time and re-acquires.
+      *Superseded: `Sim/WarpPolicy.cs` now holds the world below that step while anything flies
+      (6.1, 7.1f2), and abandons a salvo only when KSA refuses the slowdown.*
+- [x] Warp up and back down repeatedly: the system recovers each time and re-acquires.
 - [x] Load a save while rounds are in flight: they are abandoned, not flown into the new world.
 
 ### 7.6b The EO director — the sight as a part of its own
@@ -2108,9 +2120,9 @@ and looking sideways stays sideways. **Level the horizon** is the opt-in.
 - [ ] `EO Director` appears under **Sensors** in the editor and surface-attaches.
 - [ ] A craft carrying **only** a director and a command source tracks a target and shows the
       bracket. That is the whole point of the split and nothing before could do it.
-- [ ] Its **Camera** row under *Components* says **Director view**, and *off / main view*
+- [ ] Its row under *Components* has **Camera** (its own window) and **Main view**, and either
       drives the picture.
-- [ ] **Track with the director** off parks the head; **Aim by hand** drives it from the sliders.
+- [ ] **Track** off parks the head; **Hand** drives it from the sliders.
 - [ ] The elevation slider stops at **−20°**. Below that the window would pass through its own
       mast, which is a fact about the model rather than a preference.
 - [ ] On an unarmed craft: bracket, horizontal reference, edge cue and zoom, and **no** arm state,
@@ -2264,8 +2276,9 @@ flown straight up, read back with the bridge's `search`.
 placing one would do nothing at all — but the asset is shared with the stores that ship, and a part
 removed outright stops every saved craft carrying it from loading. It therefore carries
 `EditorTag Value="Hidden"`, which `PartTemplate.IsHidden` reads and `VehicleEditor` checks in the
-part list, the diameter filter and the root-part test. It has no profile in `Sim/Arsenal.cs` at
-all: it neither shoots nor sees.
+part list, the diameter filter and the root-part test. It has no definition in
+`src/KSArmory/KSArmory/` at all: it neither shoots nor sees. It is the **Weapons Pylon**
+(`KSArmory_Prefab_Rail`); the **Weapon Mount** is what a player places now.
 
 - [ ] It is **absent** from the editor's part list, and a saved craft carrying one still loads.
 - [ ] It renders and is textured on a craft that has one. Its atlas and material are its own; a
@@ -2597,8 +2610,8 @@ mod arrives at 32° and lands in millimetres; `docs/ICBM-OUTSTANDING.md` has whe
 **And accuracy has stopped buying anything.** The Mk 21's lethal radius is 2,000 m, so at 50 m every
 warhead is 40× inside it. Further work here is craft rather than capability.
 
-Fit a KSArmory weapon to any rocket — the MIRV bus is the one it is for — and open
-**Ballistic** on that craft's window.
+Fit the Heavy MIRV Bus to a rocket — the only part that provides `Guidance`, so the only one that
+brings the computer — and open **Ballistic** on that craft's window.
 
 ### 12.1 It knows where it is
 
@@ -2611,7 +2624,7 @@ Fit a KSArmory weapon to any rocket — the MIRV bus is the one it is for — an
       vehicle is flying around`, and nothing is flown at it.
 - [ ] With the tool off, world clicks do nothing to the target. A click on the panel never does,
       either way.
-- [ ] Typing coordinates and pressing **Designate those coordinates** works independently of it.
+- [ ] Typing coordinates and pressing **Designate** works independently of it.
 - [ ] With no target: `Holding: no target designated`, and nothing lights.
 - [ ] With a target and the computer disarmed: `Holding: not armed`. **The vehicle is still
       yours** — attitude, throttle and staging all respond to the keyboard.
@@ -2691,7 +2704,7 @@ trying to fly a vertical rise.
 - [x] `IMPACT IN` counts down and keeps counting through the burn, the cutoff and the coast.
 - [ ] The mark on the target stays on screen, and points from the edge when it is out of view.
 - [ ] A target the stack cannot afford reads `TARGET UNREACHABLE` with a shortfall in m/s.
-- [ ] With **Prediction adds the kick at the release** on (`IcbmConfig.KickAtTheRelease`), a target far off the
+- [ ] With `IcbmConfig.KickAtTheRelease` on (the default now, with no panel control), a target far off the
       plane from `ORBIT 300` (40 N, 10 E: a four-hour coast) keeps a steady predicted miss through the coast and
       lands inside 5 mm, where off it walked 0.35 -> 4.4 -> 1.35 km and landed 1.93 km out
       (`docs/ICBM-OUTSTANDING.md` 1.14).
@@ -2701,8 +2714,8 @@ trying to fly a vertical rise.
 Separation, the handover and the deployment are flown. No shipped part declares a decoupler, so it
 needs a craft built with a stock 3 m decoupler between the launcher and the stack below it.
 
-**Aim each tube before it fires** is off and stays off — flown and lost, see §12.7a — so the rest
-of this section is the default path.
+Re-pointing each tube before it fires was flown, lost and removed — see §12.7a — so the rest
+of this section is the only path.
 
 - [ ] A vehicle that cannot point releases anyway after a minute and says so, rather than holding
       warheads until the release altitude closes.
@@ -2760,6 +2773,8 @@ kilometres.
       was meant to.
 
 **Never yet exercised:** whether the bus's ~183 kg of MMH/NTO lasts. Nothing has spent it.
+*Superseded: the Heavy MIRV Bus carries about 500 kg (`KSArmoryGameData.xml`), and a long hold once
+emptied the jets' 133.8 kg (12.5).*
 
 ### 12.7a Turn re-pointing — flown, and it lost
 
@@ -2893,8 +2908,8 @@ Fly a MIRV shot, and once the burn is over and the bus is coasting:
 - [ ] The panel's `Divert reach:` line agrees with the picture — the metres it quotes are about the
       radius of the outline, not four times it.
 - [ ] **The frame cost.** `icbmdraw` in the mod-frame line was 11.1 ms of a 15.1 ms frame before
-      this; the worst frame is the number to read, because only one ring is re-draped per frame and
-      a spike would mean that rule is not holding. And `reach on <craft>` in a verbose log carries
+      this; the worst frame is the number to read. The outline and the rings are painted by the
+      ring pass now (`Ksa/GroundRings.cs`), not draped. And `reach on <craft>` in a verbose log carries
       what one pricing flight took.
 - [ ] Turning **Show what the bus can still divert to** off stops both: no outline, and no
       `reach on <craft>` lines.
@@ -3094,8 +3109,8 @@ Every built-in now registers from `src/KSArmory/KSArmory/<Family>.xml` (`docs/BU
       *Flown 2026-10-21 with Guns off in `builtins.json` rather than the menu, on `5inch_gun`: the log
       said it, hid 3 parts, the save loaded with all six vehicles and crewed nothing, no exceptions. The
       menu and the editor list not yet seen.*
-- [ ] **16.3** With Guns off, a craft carrying a Phalanx and a B61 rack: the rack keeps the settings it
-      had (its arm switch, its team), not the Phalanx's.
+- [ ] **16.3** With Guns off, a craft carrying a Phalanx and a B61: the B61 keeps the settings it
+      had (its team and the rest of its `SystemConfig`), not the Phalanx's.
 - [ ] **16.4** Tick it back, restart: the Phalanx is a weapon again and both keep their settings.
       *Flown 2026-10-21: switched back on, Guns registered 8 and `gunnery` passed, 4 of 4 drones. The
       settings half not yet checked.*

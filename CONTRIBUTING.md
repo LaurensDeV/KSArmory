@@ -23,7 +23,7 @@ Then:
 ```bash
 ./tools/install-hooks.sh   # commit-msg hook: a message that does not parse silently cuts no release
 ./tools/build.sh           # needs .NET 10 - a distro dotnet 8 fails with NETSDK1045
-./tools/test.sh            # the full suite, no game required
+./tools/test.sh            # the suite, no game required; --studies runs the instruments it leaves out
 ```
 
 ## What you need, and what you don't
@@ -127,7 +127,7 @@ gated for being on `dev`.
 
 That is the whole list, and it is the same script CI calls, so the two cannot drift.
 `./tools/check-all.sh --list` names the checks; `--with-sweep` adds the drive sweep, which is left
-out by default because it is ~43 s against the rest of the set's ~7 s.
+out by default because it takes ~43 s on its own.
 
 `./tools/install-hooks.sh` wires it to `pre-push`, so you get it without remembering. Push
 anyway with `git push --no-verify`.
@@ -144,9 +144,17 @@ deliberate, not something you need to fix.
 
 **Commit messages are [Conventional Commits](https://www.conventionalcommits.org/), and they are
 the input to versioning.** semantic-release parses them, so a message that does not parse produces
-no release and never reaches the changelog. **`feat`, `fix` and `perf` all cut a patch**; `docs`,
-`test`, `refactor` and `chore` cut nothing. Minor versions are never automatic — the maintainer
-tags them by hand when something genuinely lands.
+no release and never reaches the changelog.
+
+| Prefix | Effect on the version |
+| --- | --- |
+| `feat:`, `fix:`, `perf:`, `build:`, `revert:` | patch — `1.2.3` → `1.2.4` |
+| any type with `!` or a `BREAKING CHANGE:` footer | major — `1.2.3` → `2.0.0` |
+| `docs:`, `test:`, `chore:`, `ci:`, `style:`, `refactor:` | no release, and not in the changelog |
+| a minor — `1.2.3` → `1.3.0` | never automatic; the maintainer tags it by hand |
+
+`./tools/install-hooks.sh` installs a `commit-msg` hook that rejects a message that does not parse,
+and CI runs the same `tools/check-commit-msg.sh` over every commit in a push or pull request.
 
 So the type is a changelog decision, not a release-size one. `feat` still means a player can
 **observe** the difference by installing the new archive; capability that nothing yet uses is
@@ -184,8 +192,34 @@ hides best here, and it wears a different disguise each time.
 - [`docs/MODULARITY.md`](docs/MODULARITY.md) — how far the design generalises, and what is planned.
 - [`README.md`](README.md) — installing and playing, plus a "How it works" section.
 
-**Adding a weapon system is data plus art**, not new logic — a definition in `src/KSArmory/KSArmory/`. See
-the section of the same name in `CLAUDE.md`.
+## Adding a weapon system
+
+It is data plus art, not new logic. Nothing in `Sim/` or `Ksa/` names a built-in weapon.
+
+1. Model it — authored in Blender, following `.claude/skills/ksa-blender/SKILL.md`. The headless
+   generator builds the three parts that predate that and is not extended.
+2. Declare the part in `KSArmoryAssets.xml` and `KSArmoryGameData.xml`.
+3. Define a `<Launcher>` for it in a file in [`src/KSArmory/KSArmory/`](src/KSArmory/KSArmory/),
+   naming the `<Munition>` and `<Sensor>` it uses; [`docs/WEAPON-PACKS.md`](docs/WEAPON-PACKS.md) has
+   every attribute. The definition also gives the part its row in the panel.
+
+Discovery is by part Id, so the system picks up whatever is fitted. A launcher that cannot train is
+the same profile with `TurretMarker` left null. The section of the same name in `CLAUDE.md` has the
+rules a shipped part must keep.
+
+## Traps worth knowing about
+
+- **Ecl is absolute.** Positions near Earth are ~1.5×10¹¹ m and sweep past at ~29.8 km/s, so an
+  ecliptic value read as a local one is wrong by kilometres. Never orient or measure anything
+  with `VelocityEcl` — use the frame-relative velocity.
+- **Two instants, on purpose.** `DrawAnchor` samples the render position this frame and the
+  geometry's position one update earlier. Collapsing them puts the whole overlay ~500 m from the
+  craft. `DrawAnchorTests` fails if they are collapsed.
+- **Model defects are invisible in Blender.** Coplanar faces and zero-area UVs both render fine
+  in a preview and make the part crawl with flickering speckle in game. `checkmesh.py` catches
+  both.
+- **Bad asset Ids fail silently.** No log line, no error; the part just renders wrong.
+  `validate-parts.py` is the only thing that will tell you.
 
 ## Licence
 

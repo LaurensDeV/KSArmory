@@ -2,8 +2,9 @@
 
 > ## Read this before anything below — audited 2026-09-07, re-audited 2026-09-12
 >
-> **This file is now largely a record, and much of it is superseded.** `docs/ACCURACY-PLAN.md` is
-> the live document; its header and entries 3bb-3bv carry the current state. The reasoning here is
+> **This file is now largely a record, and much of it is superseded.** The live ranking is
+> `docs/ICBM-OUTSTANDING.md`; `docs/ACCURACY-PLAN.md`, itself now a record, carried the state this
+> header was audited against in entries 3bb-3bv. The reasoning here is
 > still worth having — §4 below lists what it holds that nothing newer does — but **do not take a
 > number from this file without checking it.**
 >
@@ -18,6 +19,7 @@
 > | B5, the tube cant | **dead** — the bus was straightened, all six axes read `(1,0,0)` |
 > | "a fifth of worlds do not get to fly the ladder" | that fifth is bound up with the **multi-rocket harness**, and N=1 against N=8 is p=0.145, not significant (3bn) |
 > | §5: the ladder stops at rung C because wall clock cannot be bought | the CPU-bound measurement stands; **the inference does not** — see §4 and 4b of the plan. **Dead outright since 2026-09-12**: the harness reports **>=0.97x real time at every sample**, at a 26.9 ms median frame, so there is nothing left to unclamp |
+> | §6: the first craft is the operator's, put on the pad by hand | a scenario loads its own save (`KSARMORY_SCENARIO_SAVE`), the bridge's `spawn` and `save` build one (`tools/make-rocket.py`), and its `orbit` puts it in orbit |
 >
 > **Re-audited 2026-09-12 (plan 3cx), and the framing itself is the correction.**
 >
@@ -56,8 +58,8 @@
 > 44° and 54° that 3bo measured.
 
 **Written as a plan.** §5's proposal was flown on 2026-08-25 and refuted, and rungs A to C have
-since been met — see the header above. `docs/MIRV-NEXT.md` is what the shot costs
-today; `docs/KINETIC-FLOOR.md` is what is left when every item on that list has landed;
+since been met — see the header above. `docs/MIRV-NEXT.md` was what the shot cost
+then, and is now a record; `docs/KINETIC-FLOOR.md` is what is left when every item on that list has landed;
 `docs/ARRIVAL-ANGLE.md` is the lever this plan is mostly about. This file is the route between
 them, the campaign that tests it, and the three pieces of harness the campaign needs before it can
 run unattended.
@@ -434,7 +436,7 @@ the flown 15° shots had 0.00–0.03 km of spread against 0.07–0.14.
 ## 4. Not driving the bus into the stack it just dropped
 
 *Built: `Sim/ProximityWatch.cs`, the keep-out interlock (`IcbmConfig.KeepOutCoversTheClearance`, on), and the
-`trim.Done` null is gone. What follows is the plan as written.*
+`trim.Done` null is gone; the tests are `ProximityWatchTests` and `KeepOutInterlockTests`. What follows is the plan as written.*
 
 **It has happened, once, and it was diagnosed.** 2026-08-25: a clearance latch was added on the
 argument that separation only ever opens, the trim then ran on a stale reading, and the bus hit its
@@ -782,7 +784,7 @@ under the game install. So the *first* craft is the operator's.
    a judgement about what to spend a night on, and is not a thing to automate.
 
 Everything between them is `shot-batch.sh --orbits <matrix> --arms <...> --blocks <n>` and a
-`shot-report.py` in the morning. `--orbits` and the orbit matrix were never built (`docs/ICBM-OUTSTANDING.md` 2.2). And per the batch protocol's own hard-won rule, the batch builds and
+`shot-report.py` in the morning. `--orbits` was never built; the orbit matrix was flown instead from saves made with the bridge's `orbit` verb, 36 cells on 2026-10-14 (`docs/ICBM-OUTSTANDING.md` 2.2). And per the batch protocol's own hard-won rule, the batch builds and
 stashes every arm **before the first shot flies**, so the tree is free all night and nothing done to
 it can reach a shot in flight.
 
@@ -800,7 +802,7 @@ shot has to be able to hold first.
 | **1** | **Rung A — make the steep arrival payable.** B1: the stall test that separates a dead axis from a slow one; the runaway guard as a rate. | `Sim/BusTrim.cs` | a 15° shot pays its post-boost demand in full; group inside **150 m**; 25 shots an arm against a 15° control |
 | **2** | **Rung B — one row steeper, nothing new.** | none expected | 20°, group inside **60 m**. If it needs new code, phase 1 was not finished |
 | **3** | **Rung C — the trim band and the release.** B2's quantum measurement, then the band; B5's per-tube release impulse (screenable on one flight). | `Sim/BusTrim.cs`, `Sim/ImpactPredictor.cs`, `Sim/IcbmConfig.cs` | 45–60°, group inside **15 m**, spread inside 5 m |
-| **4** | **Rung D — the round itself.** B3's 1 ms sub-step **paired** with the gravity re-read; ground per sub-step. Screened as split arms first, flown as one arm. | `Sim/Arsenal.cs`, `Sim/Slug.cs` | 60–88°, group inside **3 m** |
+| **4** | **Rung D — the round itself.** B3's 1 ms sub-step **paired** with the gravity re-read; ground per sub-step. Screened as split arms first, flown as one arm. | `Sim/Arsenal.cs` (since deleted; the Mk 21 is in `KSArmory/Strategic.xml`), `Sim/Slug.cs` | 60–88°, group inside **3 m** |
 | **5** | **Re-ask B4 where it now lives.** The aim loop's constants, re-measured at the rung the shot actually flies, starting rough. | `Sim/AimCorrection.cs`, `Sim/PostBoostAim.cs` | whatever is left above **1 m**, or the finding that nothing is |
 | **6** | **Rung E — take it back out to range.** The lofted 20° intercontinental shot, with everything C and D bought. | none expected | 2,000 km, group inside **20 m** |
 

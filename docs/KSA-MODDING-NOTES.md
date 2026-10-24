@@ -46,7 +46,7 @@ and a mismatch means the hook is silently skipped:
 | `[StarMapBeforeMain]` | `void M()` | before the game's main |
 | `[StarMapAllModsLoaded]` | `void M()` | after every mod has loaded — do Harmony patching here |
 | `[StarMapAfterOnFrame]` | `void M(double currentPlayerTime, double dtPlayer)` | postfix on `OnFrame`, **the per-frame tick** |
-| `[StarMapBeforeGui]` / `[StarMapAfterGui]` | `void M(double dt)` | around ImGui rendering |
+| `[StarMapBeforeGui]` / `[StarMapAfterGui]` | `void M(double dt)` | prefix on `OnDrawUiFrame` / postfix on `OnDrawUiViewports`, both inside `if (DrawUI)` |
 | `[StarMapUnload]` | `void M()` | teardown |
 
 Mods are loaded into separate `AssemblyLoadContext`s, so dependencies do not collide.
@@ -156,7 +156,10 @@ instead of overflowing. Anything carrying a "no time yet" sentinel needs its own
 `VehicleDestructionEvent { VehicleDestructionCause Cause; float PeakGLoad; float PeakDynamicPressure; }`
 with `Cause ∈ { GroundImpact, OceanImpact, Collision, ExcessiveGForce, AerodynamicForces, HydrodynamicForces }`.
 
-There is **no partial-damage API** — destruction is binary.
+There is **no public call that damages part of a craft.** The engine's own part failures are a
+`PartFailureEvent` written into the vehicle's private `VehicleUpdateState` (`PartFailure.Detect`)
+and applied by `ApplyRenderEventsToVehicles`; `KsaWorld.TryQueuePartFailure` reaches that state by
+reflection — `docs/KSA-FRAME-ORDER.md` §1 has why it queues rather than applies.
 
 ### Spawning a vehicle at runtime
 
@@ -347,7 +350,7 @@ Worth knowing:
   it counts no air**, so in vacuum every stage falls at full gravity whatever it says. `Drag`
   beside it decays velocity as `exp(-Drag x dt)`, scaled by air density over 1.225
   (`SimpleMovement.comp`).
-- **The pool is finite and shared.** `EmitterPool.Get` returns false when not enough emitters are
+- **The pool is finite and shared.** `ParticleSystem.EmitterPool.Get` returns false when not enough emitters are
   free, so a salvo can starve it. Handle the false — an effect is decoration.
 
 `SimpleColor` needs no `MaterialId`; `Pbr` does, and that would be a Core asset Id to keep in step.
@@ -449,7 +452,7 @@ commit `fb4c595`) and checked against the decompiled `Program.cs`. **None of it 
 
 **Something can still be drawn with the UI hidden.** `Program.OnFrame` runs `OnDrawUiFrame`,
 `OnDrawUiViewports` and `OnDrawUiThreadSafe` inside `if (DrawUI)`, then calls `DrawFps()` outside
-it, still inside the ImGui frame and before `ImGui.Render()` (Program.cs ~2255–2276). A Harmony
+it, still inside the ImGui frame and before `ImGui.Render()` (Program.cs ~2399–2420). A Harmony
 postfix on the private static `Program.DrawFps` therefore runs every frame with F2 on or off, and
 can draw on the foreground list. That mod checks `Program.DrawUI` inside the postfix and draws
 only when it is false, so nothing is drawn twice. Two catches: `ScreenshotCapture` clears
@@ -520,8 +523,9 @@ Each XML node maps to a C# pair:
 **Registering a new module type with the engine's hot-path updater is not solved here.** The
 registration lists are internal, so a genuinely new part module needs Harmony patching into
 them. Simulating the behaviour from a StarMap hook instead avoids all of that, and is what this
-repo does — from `[StarMapAfterGui]` rather than the frame hook, because a postfix on `OnFrame`
-lands *after* the render it was meant to feed. See `docs/FRAMES-AND-EPOCHS.md`.
+repo does — from `[StarMapAfterGui]` by preference, because a postfix on `OnFrame` lands *after*
+the render it was meant to feed, and from `Ksa/PreRenderHook.cs` or the frame hook only on a frame
+the UI pass skipped (`Sim/FrameLatch.cs`). See `docs/KSA-FRAME-ORDER.md` §7.
 
 ### A subpart is found at runtime by the Id its part gives it
 
@@ -617,7 +621,7 @@ side. `NoFaceSnapping` (Core's tag, `FaceSnapBlacklist`) is what turns the secon
 
 `Diameter` plus a `DiameterFilterlist` tag is what makes a part appear under a given stack size.
 
-### Removing a subpart breaks every save holding that part, and kills the process
+### Removing a subpart drops every craft holding that part from a save
 
 **A saved part is paired with its current definition by *position*, and the loop is bounded by
 the save while it indexes the definition** — `KSA.PartTree.Deserialize`:
@@ -635,19 +639,21 @@ So the three edits are not symmetric:
 | --- | --- |
 | **add** a subpart | fine — the loop stops at the save's shorter count, and the new one starts unconfigured |
 | **rename** a subpart | fine — `InstanceOf` is written into the save and never read back |
-| **remove** a subpart | `IndexOutOfRangeException` on load, **every time**, for every save holding it |
+| **remove** a subpart | `IndexOutOfRangeException` on load, **every time**, for every craft holding it |
 
-And it is not survivable. `UncompressedSave.Load` runs from `Popup.DrawAll` inside
-`OnDrawUiFrame`, and nothing between there and `Program.Main` catches it, so the game does not
-refuse the save — it terminates. There is no version field, no name match and no warning; the
-same positional pairing means a **reorder** silently applies one subpart's saved state to
-another.
+Since 2026.10.19.5638 the game survives it. `CelestialSystem.DeserializeSave` builds each craft
+inside a `try`/`catch`, so the exception drops that craft with the on-screen alert *"Cannot load
+{Vehicle}: its parts have changed since it was saved"* and ends the mission of every kitten aboard
+(`Universe.DeserializeSave`). The craft is then not in the world, so the next save leaves it out and
+the loss is permanent. Before 5638 nothing caught it and the game terminated. There is no version
+field and no name match; the same positional pairing means a **reorder** silently applies one
+subpart's saved state to another.
 
 A craft file in the vehicle library can carry `<SubPartRef>` too -- every design `tools/make-rocket.py`
 writes does -- so treat a design like a save.
 
 **So a shipped part's subpart list is append-only.** Before removing one, either accept that
-existing saves die, or leave the `<SubPart>` declared as an inert stub to hold the count.
+every saved craft carrying the part is lost, or leave the `<SubPart>` declared as an inert stub to hold the count.
 `tools/repair-saves.py` drops the surplus entries from saves written before a removal, which is
 the fix for a mod still in development; it reads the current definitions out of the asset XML, so
 it needs no record of what changed.
@@ -658,9 +664,12 @@ A roster is dressed from every `<Character>` registered, a mod's included — `K
 draws from `ModLibrary.AllCharacters` — so about a quarter of the kittens in any save made while a
 mod declaring one was installed wear it. The save records the Id on each `<Kitten>`, and on a
 `<Vehicle>` for one out on EVA, and `KittenEva.CreateKittenFromSaveData` resolves it through
-`ModLibrary.Get`, which throws on an Id nothing declares — inside the same uncaught load as above.
-So removing a character terminates the game on nearly every save, not just ones holding a part.
-`tools/repair-saves.py` re-dresses those kittens in Core's own characters.
+`ModLibrary.Get`, which throws on an Id nothing declares. Before 2026.10.19.5638 that was inside the
+same uncaught load as above and terminated the game; since then it is caught like a craft's, and the
+kitten on EVA is dropped with the alert. A roster `<Kitten>` keeps the Id as a string and is not
+resolved at load; it is resolved later, at the latest when the kitten steps out (`EVADoor`
+constructing a `KittenEva`), outside that catch — what that does to a running game has not been
+checked. `tools/repair-saves.py` re-dresses those kittens in Core's own characters.
 
 ### Mods load in manifest order, and Core leads only if the game wrote the manifest
 
@@ -830,10 +839,12 @@ Handy Core subparts: `CoreStructuralA_Subpart_TubeA` (0.854 × 0.101 tube),
 `Nosecone{Ballistic,Blunt}{1,2}MSkinA` for the cones themselves). Materials follow
 `<Category>_Material`, e.g. `CoreStructuralA_Material`.
 
-**Not solved**: rendering a mesh at an arbitrary runtime position (for mod-simulated objects
-rather than parts on a vehicle). `KSA.StaticMeshRenderable` has a public constructor and a
-`Transform` field, but needs `IMeshRenderer<InstanceData>` instances owned by the engine's
-render systems.
+**Rendering a part's mesh at an arbitrary runtime position works** through the part's own
+`PartModel`: `PartModel.AddInstance` draws it at any matrix with the part shader, from a prefix on
+`PartModelRenderer.UpdateRenderData` once per visible viewport. `Ksa/LooseBodyDrawHook.cs` is the
+worked example. A mesh that is not a part's is still unsolved: `KSA.StaticMeshRenderable` has a
+public constructor and a `Transform` field, but needs `IMeshRenderer<InstanceData>` instances owned
+by the engine's render systems.
 
 ## Character attachments
 
@@ -940,9 +951,11 @@ is why gun tracers are not particles at all but the mod's own compute pass
 
 ## Threading
 
-`[StarMapAfterOnFrame]` runs on the main thread (Harmony postfix on `Program.OnFrame`), so
-gizmo submission and `Universe.DestroyVehicleFromEvent` are safe from there. Vehicle physics
-itself runs on worker threads via `VehicleUpdateTask`; do not mutate vehicle state from those.
+Every StarMap hook runs on the main thread. Vehicle physics runs on worker threads via
+`VehicleUpdateTask`, and the next frame's run is already queued while a hook runs, so join it
+(`JobSystems.VehicleSolver.Wait()`, `KsaWorld.WaitForVehicleSolvers`) before destroying a vehicle,
+and never split one from a hook — `docs/KSA-FRAME-ORDER.md` §1. Gizmos submitted from
+`[StarMapAfterOnFrame]` are never drawn (see above).
 
 Never destroy vehicles while iterating `Program.VehiclesInFrame` — copy to a list first.
 
@@ -1075,7 +1088,10 @@ if (Program.ControlledVehicle == this && (!Program.IsControlledVehicleActive
 
 So anything written through the keyboard channel is discarded on the craft being flown whenever an
 ImGui window has the keyboard, and every other vehicle keeps it. A Harmony prefix on `PrepareWorker`
-does not escape it: the clear runs inside the body, after the prefix.
+does not escape it: the clear runs inside the body, after the prefix. It clears the held bits and not
+the throttle value, so `Ksa/AttitudeHook.cs` steps the throttle itself in the prefix
+(`KsaWorld.TryNudgeThrottle`) and puts held translation jets back in a postfix
+(`KsaWorld.TryRestoreJets`).
 
 `VersionInfo.CheckOnLaunch` runs at every launch whatever `[system] checkForUpdates` says — that setting
 only gates the menu's "Check for Update" — and a newer server version raises `UpdateAvailablePopup`, a
