@@ -8,28 +8,15 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// One of the places this mod patches the game: what lets it draw on KSA's ground-track map.
+/// A patch that lets the mod draw on KSA's ground-track map rather than render a planet of its own.
 ///
-/// <para>KSA already renders the planet — <see cref="GroundTrackWindow"/> holds a
-/// <c>PlanetMapExporter</c> whose equirectangular texture it draws, and <c>Vehicle</c> renders that
-/// exporter every frame for the window it owns. A mod can build its own exporter, since the
-/// constructor and <c>Program.GetRenderer</c> are both public, but then nothing would render it:
-/// driving it means descriptor sets per frame in flight and a command buffer at a valid instant,
-/// which is a Vulkan integration for a picture the game is already drawing. So the marks go on
-/// KSA's window instead.</para>
+/// <para>The target is <c>public override</c>, so <see cref="PinTheSignature"/> makes a KSA change
+/// to it a build error. The prefix only measures: the image's rect is locals in
+/// <c>DrawContent</c>, but the content region is fixed at <c>Begin</c> and the map drawn at the
+/// cursor, so reading both on the way in gives that rect.</para>
 ///
-/// <para><b>The target is <c>public override</c></b>, so <see cref="PinTheSignature"/> puts it in
-/// this assembly's metadata and <c>tools/api-surface.sh</c> tracks it — a KSA change to it is a
-/// build error rather than marks that quietly stop appearing. That is the property
-/// <see cref="AttitudeHook"/> has and <see cref="PreRenderHook"/> does not.</para>
-///
-/// <para><b>The prefix is a measurement, not an interception.</b> The image's rect is a pair of
-/// locals inside <c>DrawContent</c>, and a postfix cannot see them — but the content region is
-/// fixed at <c>Begin</c> rather than by the style the method pushes, and the map is drawn at the
-/// cursor, so reading both on the way in gives exactly the rect the image will occupy.</para>
-///
-/// <para><b>Nothing here may throw.</b> It runs inside the engine's GUI pass; the draw is wrapped
-/// and latched so a fault costs the marks rather than the window, and never repeats.</para>
+/// <para>Nothing here may throw: it runs in the engine's GUI pass, so a fault is latched and costs
+/// only the marks.</para>
 /// </summary>
 internal static class GroundTrackHook
 {
@@ -203,9 +190,8 @@ internal static class GroundTrackHook
 
         Check(__instance, imGuiArea, viewportMin, viewportMax);
 
-        // Last, and outside Check's early returns. Writing the view before the comparison leaves
-        // it reading this frame's pan against last frame's crop, which is a disagreement the mod
-        // caused and then reports -- flown, and it warned on the first centred frame.
+        // After Check: written before it, the comparison reads this frame's pan against last
+        // frame's crop and warns about a disagreement the mod caused.
         if (!_centreWanted) return;
 
         _centreWanted = false;
@@ -230,17 +216,14 @@ internal static class GroundTrackHook
 
         if (MapViewport.Same(min, max, viewportMin, viewportMax))
         {
-            // Said once per zoom the map is actually taken to, capped. A pass logged at one zoom
-            // is no evidence at all -- at zoom 1 the crop is 0..1 whatever the arithmetic does --
-            // so what makes this worth reading is that the zoom in it varies.
+            // Once per distinct zoom, capped: at zoom 1 the crop is 0..1 whatever the arithmetic
+            // does, so a pass at one zoom proves nothing.
             float zoom = __instance.GetZoom();
 
             if (_confirmed >= ConfirmUpTo || Math.Abs(zoom - _lastConfirmed) < 0.01f) return;
 
             _confirmed++;
             _lastConfirmed = zoom;
-            // Debug: this is the evidence that the comparison ran and ran at a zoom where it
-            // could fail, which is a developer's question. A disagreement is a player's, and warns.
             Log.Debug($"ground-track map: the crop matches MapViewport at zoom {zoom:F2} "
                       + $"({viewportMin}..{viewportMax})");
             return;

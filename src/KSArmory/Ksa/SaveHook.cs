@@ -8,16 +8,13 @@ namespace KSArmory;
 /// Which save is open, and that the game just wrote one -- what the settings kept in a save are
 /// written into and read back from.
 ///
-/// <para>KSA keeps no record of the loaded save. <c>GameSaves.Selected</c> is the row highlighted in
-/// the save list, which the console's load and save, a scenario's load and a save under a new name
-/// never touch, so a session started any of those ways wrote its settings to the user folder or to
-/// whatever row was highlighted. <c>UncompressedSave.Load</c> is every load and
-/// <c>UncompressedSave.Make</c> every save, overwrite and save-as, and each knows its name.</para>
+/// <para>KSA keeps no record of the loaded save. <c>GameSaves.Selected</c> is only the row highlighted
+/// in the save list, which a console load or save, a scenario's load and a save-as never touch.
+/// <c>UncompressedSave.Load</c> is every load and <c>UncompressedSave.Make</c> every save, overwrite
+/// and save-as, and each knows its name.</para>
 ///
-/// <para>Both are public, so <see cref="PinTheSignature"/> tracks them in
-/// <c>docs/KSA-API-SURFACE.md</c>. A patch that does not apply leaves the old guess and its
-/// timestamp watch in place. Nothing in a postfix may throw: they run inside the engine's save
-/// and load.</para>
+/// <para>A patch that does not apply leaves the save list's selection and the timestamp watch in
+/// place. Nothing in a postfix may throw: they run inside the engine's save and load.</para>
 /// </summary>
 internal static class SaveHook
 {

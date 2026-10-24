@@ -125,18 +125,13 @@ internal sealed class DropScenario
     private const double ClimbBudgetSeconds = 150.0;
     private const double FallBudgetSeconds = 180.0;
 
-    // Wall clock after the burst, so the chase's hold and hand-back reach the log before the harness
-    // closes the game. Sized off the hold itself rather than fixed: a nuclear burst is watched for
-    // as long as it leaves something moving, and a six-second wait closed the game a sixth of the
-    // way into it -- which is the hand-back, the part worth checking, never happening in any run.
+    // Wall clock after the burst, sized off the hold so the chase's hand-back reaches the log before
+    // the harness closes the game: a nuclear burst is watched for as long as something moves.
     private double LingerSeconds => CaptureAges() is { Length: > 0 } ages ? ages[^1] + 4.0
                                                                         : WatchSeconds + 4.0;
 
     // ...and it ends when the last capture is in, plus a moment for the screenshot to be written.
-    // Ending on wall clock alone makes a warped run sit out eighty seconds after it has already
-    // photographed everything, and ending on the burst's age alone never ends a paused one. The
-    // wall-clock bound stays underneath as the backstop for a drop with no captures at all, which
-    // is every store under the cloud threshold.
+    // The wall-clock bound is the backstop for a drop with no captures, and for a paused run.
     private bool LingerIsDone
         => (double.IsFinite(_allCapturedAt) && _lingered >= _allCapturedAt + 4.0)
            || _lingered >= LingerSeconds + _stillHeld;
@@ -154,15 +149,8 @@ internal sealed class DropScenario
         => BurstIsNuclear && _body is { } b && KsaWorld.HasAtmosphere(b);
 
     // How long the burst leaves something moving: a cloud's rise where there is air, the ejecta's
-    // flight where there is not. The capture ages are fractions of this rather than of the rise, so
-    // the same four cues land in the right places on either kind of body -- against the rise, an
-    // airless run photographed a sixteen-second dome at ages up to five minutes, every frame of it
-    // empty ground.
-    // Latched at the first ask rather than re-read, because it is a property of the burst and the
-    // thing it is read off is a round that has already arrived. Re-read every frame it walked from
-    // 16.0 s to 13.4 -- the round's position is fixed in the ecliptic while the body it landed on
-    // carries on, so the gravity resolved at it creeps. The captures are fractions of this, so a
-    // denominator that shrinks moves the last one past the end of what it was meant to photograph.
+    // flight where there is not, so the capture fractions land on either kind of body. Latched at
+    // the first ask: re-read off a landed round's frozen ecliptic point, the gravity there creeps.
     private double _watch = double.NaN;
 
     private double WatchSeconds
@@ -202,10 +190,8 @@ internal sealed class DropScenario
     private double _lostSince = double.NaN;
     private const double LostAfterSiteSeconds = 30.0;
 
-    // How old the burst is on the world's own clock, which is not _lingered. The two agree at 1x
-    // and nowhere else: the cloud, the fireball and the mark are all advanced on the simulated
-    // step, so a run at any other speed photographed by wall clock photographs different ages than
-    // the one it is being compared with. That is what kept warp and pause untestable.
+    // How old the burst is on the world's own clock, which is not _lingered: the cloud is advanced on
+    // the simulated step, so the two agree only at 1x.
     private double _burstAge;
 
     private WeaponSystem? _system;
@@ -246,18 +232,13 @@ internal sealed class DropScenario
         _watchTheCloud = watchTheCloud;
     }
 
-    // Whether this run exists to be looked at rather than scored. It keeps the cloud drawn; the
-    // chase stays ON, because the chase is the only thing that holds the view on the burst. Turned
-    // off, the view follows the LAUNCHING CRAFT, which is climbing away at 300 m/s and is 7 km up
-    // by 0.6 of the rise -- flown, with the cloud out of frame in every capture.
+    // Whether this run exists to be looked at rather than scored. The chase stays on: it is the only
+    // thing holding the view on the burst, and without it the view follows the climbing craft.
     private readonly bool _watchTheCloud;
 
     /// <summary>
-    /// Where to set the craft down before anything is dropped: a body, a latitude and a longitude.
-    /// Null drops from wherever the save left it.
-    ///
-    /// <para>What it is for is the burst on a body with no air, which no save is on and which draws
-    /// a different effect entirely — thrown ground instead of a column.</para>
+    /// Where to set the craft down before anything is dropped; null drops from wherever the save left
+    /// it. For a burst on a body with no air, which no save is on.
     /// </summary>
     public (string Body, double LatitudeDeg, double LongitudeDeg)? Site { get; init; }
 
@@ -300,14 +281,8 @@ internal sealed class DropScenario
             return false;
         }
 
-        // Said because it is the whole point of going there: which of the two effects a burst here
-        // will draw follows from this one answer.
-        //
-        // The medium beside it, because "has an atmosphere" and "what is this standing in" are
-        // different questions and the store obeys the second. The ocean is anywhere under the mean
-        // sphere whether or not there is any, so a site whose ground is below it drops the store
-        // into water on a body with no air -- which reads from the fall alone as drag that should
-        // not exist.
+        // The medium beside the air: the store obeys what it stands in, and below the mean sphere a
+        // body with no air can still read as ocean.
         double3 at = KsaWorld.PositionEcl(craft);
         _report($"on {body.Id}: "
                 + (KsaWorld.HasAtmosphere(body)
@@ -321,12 +296,8 @@ internal sealed class DropScenario
     }
 
     /// <summary>
-    /// What the world runs at while the burst is watched. One is the ordinary run.
-    ///
-    /// <para>Its own setting rather than the fall's, because the two ask opposite questions: the
-    /// fall's warp exists to sit in the state the engine refuses a speed change in, and is handed
-    /// back the instant the store lands so the hand-back is not watched at speed. This one starts
-    /// where that one stops.</para>
+    /// What the world runs at while the burst is watched, from the landing on; the fall's warp is
+    /// handed back the instant the store lands.
     /// </summary>
     public double LingerSpeed { get; init; } = 1.0;
 
@@ -345,13 +316,8 @@ internal sealed class DropScenario
     private double _stillHeld;
 
     /// <summary>
-    /// Whether to set off a second burst a few kilometres from the first once the store lands.
-    ///
-    /// <para>Harness only, and opt-in. What it exercises is that <c>CloudPass</c> draws every
-    /// standing cloud rather than the newest, which needs two far enough apart not to merge —
-    /// and nothing else produces that. A bus's six warheads land about 9 mm apart and are one
-    /// cloud by design, and the only shot that spreads them is a multi-target ballistic run whose
-    /// coast is hours long.</para>
+    /// Whether to set off a second burst <see cref="SecondBurstMetres"/> from the first once the store
+    /// lands, so <c>CloudPass</c> is seen drawing every standing cloud rather than the newest.
     /// </summary>
     public bool SecondBurst { get; init; }
 
@@ -361,19 +327,11 @@ internal sealed class DropScenario
     /// </summary>
     public bool ChaseTheCloud { get; init; }
 
-    /// <summary>
-    /// What to multiply that second burst's yield by, so one run carries two sizes.
-    ///
-    /// <para>It is how anything but the B61's third of a kilotonne gets looked at: the drop's store
-    /// is fixed, and both the cloud's shape and the airless dome's reach are read off the charge.
-    /// </para>
-    /// </summary>
+    /// <summary>What to multiply that second burst's yield by, so one run carries two sizes.</summary>
     public double SecondBurstYield { get; init; } = 1.0;
 
-    // Far enough apart that neither merges into the other and near enough that one camera holds
-    // both. The merge reaches only as far as the combined fireball -- 55 m at this yield -- and the
-    // pinned watch stands 1.85 cloud radii off with a 50 degree field, which is about 2.2 km of
-    // ground. At 3.5 km the second cloud was drawn and simply outside the frame.
+    // Past the merge, which reaches only the combined fireball (55 m at the B61's yield), and inside
+    // the pinned watch's frame, about 2.2 km of ground.
     private const double SecondBurstMetres = 1000.0;
 
     private bool _secondBurstDone;
@@ -386,12 +344,8 @@ internal sealed class DropScenario
         if (_round is not { } round || _body is not { } body || _craft is not { } craft) return;
         if (!TryLocalFrame(craft, body, out _, out double3 east, out _, out _)) return;
 
-        // Off the CRAFT's live position, never the round's. The round is dead and its PositionEcl
-        // is a frozen ecliptic point: converted to the body's rotating frame a frame later it has
-        // been left behind by the planet's 29.8 km/s, about 477 m at 1x. Asked for a burst 30 m
-        // from the first, that put it hundreds of metres away in the frame the clouds actually
-        // live in. The craft is standing at the drop site and is read this frame, so it carries
-        // none of that.
+        // Off the craft's live position: a dead round's PositionEcl is a frozen ecliptic point the
+        // planet leaves behind at 29.8 km/s, about 477 m a frame at 1x.
         _secondBurstDone = true;
 
         double charge = round.Munition.ChargeKg * Math.Max(SecondBurstYield, 0.0);
@@ -464,23 +418,12 @@ internal sealed class DropScenario
         return null;
     }
 
-    // Fractions of the burst's own watch to photograph it at. On a body with air that is the rise,
-    // and these are the rows of the tracking table in docs/NUCLEAR-EFFECT.md -- so a shot can be
-    // held against the measured shape rather than judged on its own, which is the whole difficulty
-    // with a cloud: every version of it looks like a cloud, and only the shape at a stated age says
-    // which one is right.
-    //
-    // The last is 0.95 rather than 1.00 because the chase hands the view back at exactly the watch:
-    // a capture on the boundary is a race with the release, and the frame that came back was the
-    // launching craft against a cloud deck with the mushroom nowhere in it.
+    // Fractions of the burst's watch: on a body with air, the rows of docs/NUCLEAR-EFFECT.md's
+    // tracking table. 0.95, not 1.00, because the chase hands the view back at exactly the watch.
     private static readonly double[] CaptureFractions = [0.10, 0.30, 0.60, 0.95];
 
-    // Those four as ages, plus the dissolve for a run watching a column.
-    //
-    // The fifth is an ABSOLUTE age rather than a fraction, because it is about the cloud's whole
-    // life and not its rise: MushroomCloud.Fade holds at one until half way through the stand and
-    // then squares away to nothing, and a run ending at the rise stops sixteen seconds before any
-    // of that starts, so without this the fade is never photographed.
+    // Those as ages, plus the flash and pulse before them and, for a column, the dissolve and the
+    // ground after it, which are absolute ages: the fade starts well after the rise ends.
     private double[] CaptureAges()
     {
         double watch = WatchSeconds;
@@ -489,20 +432,11 @@ internal sealed class DropScenario
         double[] rise = [.. CaptureFractions.Select(f => f * watch)];
         if (!BurstIsNuclear || _round is not { } round) return rise;
 
-        // The flash, before the rise fractions. The ball is incandescent for under two seconds at
-        // this yield and the earliest of those fractions is 3.8 s, so without this none of the
-        // burst lighting its own cloud is ever photographed.
+        // The ball burns for under two seconds at the B61's yield, before the first rise fraction.
         double flash = MushroomCloud.FlashSeconds(MushroomCloud.KilotonsFor(round.Munition.ChargeKg));
 
-        // Two during the luminous phase: the whiteout peaks about a tenth of the way through it
-        // and is gone well before the ball is, so one capture at 0.70 photographs the glow in the
-        // cloud and never the flash on the screen.
-        //
-        // And three across the THERMAL PULSE itself, which none of those reach: the double flash
-        // is over inside the first half second even after being slowed to be legible, and its
-        // whole signature is the minimum between the two maxima. Photographed at neither the
-        // burst nor the two peaks would say which curve is being drawn -- every version of a
-        // flash looks like a flash, which is the same difficulty the cloud has.
+        // Two in the luminous phase, since the whiteout peaks a tenth of the way in, and three across
+        // the thermal pulse, whose signature is the minimum between its two maxima.
         double kt = MushroomCloud.KilotonsFor(round.Munition.ChargeKg);
         double pulseTrough = MushroomCloud.PulseTroughSeconds(round.Munition.ChargeKg);
         double pulsePeak = MushroomCloud.PulsePeakSeconds(kt);
@@ -526,10 +460,7 @@ internal sealed class DropScenario
                 ? [.. withFlash, MushroomCloud.RiseSeconds + (MushroomCloud.StandSeconds * 0.85)]
                 : withFlash;
 
-        // And one PAST the cloud's whole life, which is the only frame that can show the ground
-        // still burned after the column over it has gone. Every capture before this one has a
-        // cloud in it, so a mark that quietly expired with its cloud would have looked correct in
-        // all of them.
+        // And one past the cloud's whole life: the only frame that shows the ground still burned.
         return [.. withDissolve, MushroomCloud.LifeSeconds + 6.0];
     }
 
@@ -540,13 +471,8 @@ internal sealed class DropScenario
     // How often a run that is watching at something other than 1x says where the burst has got to.
     private const double TraceEverySeconds = 2.0;
 
-    // The burst's age against the wall clock, for a run that asked for a speed.
-    //
-    // Only for those runs: at 1x the two numbers are equal by construction and the line says
-    // nothing, and every drop flown for accuracy is a 1x run whose log nobody wants forty extra
-    // lines in. A PAUSED run needs it most and is the reason it exists -- nothing else in the
-    // scenario prints between captures, so a world where the cloud correctly stops aging and one
-    // where the pass has died look identical from outside.
+    // The burst's age against the wall clock, only for a run not at 1x: paused, nothing else prints
+    // between captures to tell a cloud that stopped ageing from a pass that died.
     private void TraceLinger()
     {
         if (LingerSpeed == 1.0) return;
@@ -559,14 +485,8 @@ internal sealed class DropScenario
                 + $"{NuclearClouds.ScorchCount} mark(s)");
     }
 
-    // Cues a screenshot at each of those ages, for any burst big enough to leave something. The
-    // harness scores where a store landed and cannot say whether what stands over it looks right,
-    // which is the only question left about it.
-    //
-    // Cued off the burst's SIMULATED age, so a run at any speed photographs the same cloud. Wall
-    // clock is the same number at 1x and a different cloud at every other speed, which would make
-    // "does warp change what this looks like" a question nothing could ask. The linger is
-    // still ended on wall clock, because how long to hold a camera is a viewing duration.
+    // Cued off the burst's simulated age, so a run at any speed photographs the same cloud; the
+    // linger still ends on wall clock, since holding a camera is a viewing duration.
     private void CaptureBurst()
     {
         if (_round is not { } round) return;
@@ -585,28 +505,21 @@ internal sealed class DropScenario
             _captured++;
             if (_captured >= ages.Length) _allCapturedAt = _lingered;
 
-            // The game's own framebuffer rather than the desktop: tools/screenshot.sh needs the
-            // window in front and an unattended run on a machine somebody is using never has it.
-            // This also comes back without the panel over the cloud.
+            // The game's own framebuffer: tools/screenshot.sh needs the window in front.
             bool shot = KsaWorld.TryRequestScreenshot();
 
-            // The world's own speed beside the age, because the point of a warped run is that the
-            // ages match the 1x one and only the wall clock differs. Without it a reader cannot
-            // tell a run that held its speed from one the engine refused.
+            // Tells a run that held its speed from one the engine refused.
             _lingerSpeedSeen = Math.Max(_lingerSpeedSeen, KsaWorld.SimulationSpeed);
 
             if (CloudPassCost.Report() is { Length: > 0 } cost) _report(cost);
 
-            // Off the watch record rather than off the cloud's law, so the size reported is the
-            // size of whatever is actually standing there -- a column, or a dust dome.
+            // Off the watch record, so the size is that of whatever stands there, column or dome.
             string drawn = NuclearClouds.TryWatch(out _, out _, out double radius, out double top, out _)
                                ? $"{radius / 1000.0:F2} km across, top {top / 1000.0:F2} km"
                                : "nothing standing";
 
-            // The sun's elevation beside it, because it decides how the burst is lit and nothing
-            // else in a screenshot says what it was. Below the horizon a cloud is lit by the sky
-            // alone and is meant to be dark, which is indistinguishable from a lighting fault
-            // unless this number is written down next to the picture.
+            // Below the horizon a cloud is meant to be dark, which a picture alone cannot tell from a
+            // lighting fault.
             string sun = "sun unknown";
             if (_body is { } lit && _round is { } r)
             {
@@ -617,12 +530,8 @@ internal sealed class DropScenario
                 }
             }
 
-            // The age is the WORLD's, and the wall clock beside it is how a reader tells a run
-            // that held its speed from one the engine refused: at 1x they are the same number.
-            // The ball's own glow at this age, because the thermal pulse is the one thing here a
-            // screenshot cannot settle: at close range the whiteout saturates over the whole of
-            // it, and every version of a flash looks like a flash. The three pulse captures are
-            // only readable beside these numbers.
+            // The ball's glow at this age: close in the whiteout saturates, so the pulse captures are
+            // readable only beside it.
             string burning = _round is { } burst
                                  ? $", glow {MushroomCloud.FlashAt(burst.Munition.ChargeKg, age).Glow:F0}"
                                  : string.Empty;
@@ -707,10 +616,8 @@ internal sealed class DropScenario
         {
             _foundAt = double.NaN;
 
-            // A craft already set down at a site that then disappears from flight is not coming
-            // back: a rocket stood on uneven ground topples, and the wait below would say so every
-            // ten seconds for as long as anybody let it. Everything else in this scenario has a
-            // budget and gives up, and so does this.
+            // A craft set down at a site that then disappears is not coming back (a rocket on uneven
+            // ground topples), so this wait has a budget like everything else here.
             if (_siteRequested)
             {
                 if (double.IsNaN(_lostSince)) _lostSince = _sim;
@@ -751,11 +658,8 @@ internal sealed class DropScenario
 
         if (!PlaceCraft(_craft, dt, out string? placing)) return placing;
 
-        // Watching the cloud is a different run from scoring a drop, and it wants the opposite of
-        // everything the scoring one does. The craft stays ON THE PAD: a rocket that climbs away is
-        // a rocket the view follows away, and with the chase off the camera is the craft's. It
-        // never takes off, so the burst happens where the camera already is and the cloud grows in
-        // front of it.
+        // Watching the cloud, the craft stays on the pad: with the chase off the camera is the
+        // craft's, and a craft that climbs away takes the view with it.
         found.Policy.ChaseRounds = !_watchTheCloud;
         found.Policy.DrawBombSight = !_watchTheCloud;
 
@@ -919,11 +823,8 @@ internal sealed class DropScenario
 
         if (round.State == RoundState.Flying)
         {
-            // The store taken out of the world, which is not the same as the store failing to
-            // arrive and must not be reported as one. Its State is never written when this happens:
-            // AbandonFlight simply drops it from the roster and nothing steps it again, so the
-            // budget below would eventually call it "still falling" 180 s later. Asked of the
-            // system rather than of the round, because only the roster knows.
+            // Taken out of the world rather than failing to arrive: AbandonFlight drops it from the
+            // roster without writing its State, so only the roster can say.
             if (_system is { } owner && !Holds(owner, round))
             {
                 return $"FAIL the store was taken out of the world {since:F1} s after the release, "
@@ -1107,9 +1008,8 @@ internal sealed class DropScenario
                 + " from the flight off the release state"
                 + (_haveAgain ? $", {Offset(_againAnchor, landed)} from where it was sent" : ""));
 
-        // A send the kit could never reach is a different question, and asking the arriving one of
-        // it makes a run that can only ever fail -- which in a checklist is worse than no run at
-        // all, because a red that is supposed to be red teaches everyone to skip the file.
+        // A send the kit could never reach is judged on the walk, not the arrival, which it would
+        // always fail.
         if (_haveAgain && !_sentWasInReach)
         {
             _verdict = WalkedFarEnough(landed);
@@ -1135,13 +1035,8 @@ internal sealed class DropScenario
         return null;
     }
 
-    // Whether a store sent somewhere it cannot reach still walked as far as the ring promised.
-    //
-    // That is the only claim the ring makes out here, and it is the one worth flying:
-    // TailKitReach.SettlingMargin is measured headlessly against a sphere with no terrain, and this
-    // is the single piece of evidence that it stays a floor in the real game. Under-delivering is
-    // the failure -- a ring that promises a walk the kit cannot fly is the one way this instrument
-    // is worse than having none. Over-delivering is the design.
+    // Whether a store sent out of reach still walked as far as the ring promised: the in-game evidence
+    // that TailKitReach.SettlingMargin, measured headlessly, stays a floor. Over-delivering passes.
     private string WalkedFarEnough(double3 landed)
     {
         if (!_haveSentImpact) return "FAIL the unsteered landing at the send was not recorded";

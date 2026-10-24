@@ -5,17 +5,10 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// The pipper: where a store released now would land, and the arc it would take there.
-///
-/// <para>Flown rather than solved — see <see cref="BombSight"/> — so the ring is wherever the bomb
-/// will actually go, drag and terrain and all. The alternative is a tidier prediction than the
-/// round obeys, which is a sight that lies at exactly the moment it matters.</para>
-///
-/// <para>Solved every frame. It is BombSight.MaxSteps integration steps, each sub-stepped by the round, but the terrain lookup that
-/// would make that expensive only happens near the ground — see <see cref="CoarseGroundTest"/> —
-/// and solving continuously is what makes the pipper move like a sight rather than step like a
-/// clock. Anything cached between frames has to be carried forward correctly, and every way of
-/// getting that wrong puts the ring somewhere it is not.</para>
+/// The pipper: where a store released now would land, and the arc it would take there, flown by
+/// <see cref="BombSight"/> rather than solved.
+/// <para>Re-solved every <see cref="SolveIntervalSeconds"/> of wall clock and held between solves as
+/// offsets from the platform, which carry it with the aircraft.</para>
 /// </summary>
 internal sealed class BombSightOverlay
 {
@@ -28,17 +21,8 @@ internal sealed class BombSightOverlay
     // The pipper's orange, its alpha the brightness it keeps over dark ground.
     private static readonly float4 PaintedRing = new(1.0f, 0.45f, 0.10f, 0.05f);
 
-    // The arc, as offsets from the platform sample it was solved against -- never as ecliptic
-    // positions.
-    //
-    // DrawAnchor cancels exactly one frame of the planet's motion, against the platform sample of
-    // the update that measured the geometry. This is measured once and drawn for a quarter of a
-    // second, so held absolutely it accumulates 29.8 km/s of ecliptic motion between solves: up to
-    // 7.5 km of drift that resets on every refresh, which reads as the sight flashing across the
-    // screen. Interceptor's smoke trail is stored this way for the same reason.
-    //
-    // Relative to the *platform* rather than the ground, so the top of the arc stays on the
-    // aircraft that would drop the bomb.
+    // Offsets from the platform sample it was solved against, never ecliptic positions: DrawAnchor
+    // cancels one frame of the planet's motion, and a solve held 0.2 s would drift kilometres.
     private readonly List<double3> _path = [];
     private readonly List<double3> _next = [];
     private bool _solved;
@@ -50,13 +34,8 @@ internal sealed class BombSightOverlay
     // one another's last sample.
     private readonly CoarseGroundTest _ground = new(GroundTest.Shared);
 
-    // The impact, stored the same way and for a second reason beyond the drift.
-    //
-    // This is where a bomb released *now* would land, not where a released one is going. In steady
-    // flight that answer translates with the aircraft exactly -- same velocity, same fall, so the
-    // impact moves with the release point -- which means holding it platform-relative tracks it
-    // between solves for free. Anchoring it to the ground instead freezes it and makes it jump the
-    // aircraft's travel on every refresh: 50 m at 200 m/s, four times a second.
+    // Platform-relative too: in steady flight where a bomb released now lands moves with the aircraft,
+    // and a ground anchor would jump its travel on every solve, 40 m at 200 m/s.
     private double3 _impactOffset;
 
     /// <summary>Forgets the solution, so a system that stops carrying a bomb stops drawing one.</summary>
@@ -66,15 +45,8 @@ internal sealed class BombSightOverlay
         _path.Clear();
     }
 
-    // How often the sight is re-solved, in REAL seconds.
-    //
-    // One solve flies a whole BombSight.MaxSteps trajectory with a ground lookup per step, and
-    // there is one sight per weapons system -- so an unrated solve is 2048 steps times however
-    // many craft are armed, every frame, for a readout.
-    //
-    // Wall clock, not simulated: a solve is a computation budget rather than physics, so under
-    // timewarp a simulated interval passes every frame and a rate limit built on one stops
-    // limiting. Same trap IcbmState.PlayerStepSeconds documents.
+    // Wall clock: a solve is up to BombSight.MaxSteps steps per armed system, a computation budget
+    // rather than physics, and under timewarp a simulated interval passes every frame.
     private const double SolveIntervalSeconds = 0.2;
 
     // How long to wait before asking again once the store has been found unsightable. Long, but
@@ -95,11 +67,8 @@ internal sealed class BombSightOverlay
 
         _sinceSolve.Restart();
 
-        // Only a store that is released. A round that flies under its own power goes where it is
-        // steered, so a ballistic pipper would answer the wrong question.
-        //
-        // A guided tail kit still gets one: it is released and then falls, and the pipper says
-        // where it lands if nothing is designated -- which is the release cue either way.
+        // A powered round goes where it is steered. A tail kit still gets a pipper: it says where the
+        // store lands if nothing is designated.
         if (system.Munition.Powered) { Clear(); return; }
 
         if (!TryReleaseState(system, platform, out double3 releaseEcl, out double3 releaseVelocity))
@@ -108,19 +77,11 @@ internal sealed class BombSightOverlay
             return;
         }
 
-        // Into a scratch list, so a failed solve leaves the last good one on screen. A sight that
-        // blanks for a frame reads as broken, and the answer it had a quarter of a second ago is
-        // still very nearly right.
+        // Into a scratch list, so a failed solve leaves the last good one on screen.
         bool ok = Fly(system, platform, releaseEcl, releaseVelocity, _next, out double3 impact);
 
-        // A store that cannot reach the ground inside BombSight.MaxSteps has no pipper, and it will
-        // still have none a frame later -- so back off rather than re-flying 2048 steps at the
-        // solve rate for a shot that can never answer.
-        //
-        // The ballistic case is why this is needed. The gate above asks whether the round is
-        // *powered*, and a Mk 21 reentry vehicle is not, so it passes -- but the sight's horizon is
-        // MaxSteps x IntegrationStep, about 102 s, and a warhead released minutes above its target
-        // falls for far longer. Such a store can never have a pipper.
+        // No landing inside the horizon, MaxSteps x IntegrationStep (about 102 s), so back off: a
+        // reentry vehicle released minutes above its target never has a pipper.
         if (!ok)
         {
             _unreachable = true;
@@ -138,9 +99,6 @@ internal sealed class BombSightOverlay
         _impactOffset = impact - system.PlatformEcl;
         _solved = true;
 
-        // What the correction is worth, against how far the answer ended up from the craft. If the
-        // ring is ever wrong again these two numbers say whether the frame or the flight is to
-        // blame.
         _sinceTrace += Math.Abs(dtSim);
         if (_sinceTrace >= TraceSeconds)
         {
@@ -184,19 +142,8 @@ internal sealed class BombSightOverlay
         velocityOverGround = Vec.Zero;
         if (!system.TryNextReleaseEcl(out releaseEcl, out double3 velocityEcl)) return false;
 
-        // Flown in the ground's frame, not the ecliptic's, and that is the whole trick.
-        //
-        // Ecliptic velocities here are ~29.8 km/s of Earth's orbit, so a round integrated in them
-        // moves 1.5 km per step -- while GroundTest resolves each predicted position against the
-        // planet where it is *now*, which has not moved. One step in, the round reads as being a
-        // kilometre and a half underground and the trajectory ends immediately, leaving the pipper
-        // at the release point plus one step of orbital motion: kilometres out, fixed to the
-        // ecliptic, and indifferent to which way the craft is pointing.
-        //
-        // Taking the release velocity relative to the ground removes the carrier. What is left is
-        // the motion the ground sees, the predicted positions stay next to the planet the terrain
-        // is sampled from, and the path comes out already in the frame it has to be drawn in.
-        // The airspeed is unchanged: the frame's velocity is subtracted here instead of inside.
+        // Flown in the ground's frame: GroundTest resolves each predicted point against the planet as
+        // sampled now, and in the ecliptic a step carries 29.8 km/s of orbit, 1.5 km, underground.
         velocityOverGround = velocityEcl - KsaWorld.GroundVelocityAt(platform, system.PlatformEcl);
         return true;
     }
@@ -216,10 +163,8 @@ internal sealed class BombSightOverlay
                                 inheritedOverGround: KsaWorld.VelocityEcl(platform)
                                                      - KsaWorld.GroundVelocityAt(platform, system.PlatformEcl));
 
-    // The arc as an anti-aliased line two pixels wide with a dark edge, to match the rings painted
-    // under it: the same points the gizmo line takes, through the anchor BeginDraw set, projected
-    // and drawn on the list under the panel. Not hidden by terrain or the craft, which the gizmo
-    // line was; the arc is in the air above the ground it lands on, so that rarely shows.
+    // Through the anchor BeginDraw set, on the list under the panel; not depth-tested, which the arc
+    // in the air above its landing rarely shows.
     private void DrawArcOnScreen(double3 here, int stride)
     {
         _screen.Clear();
@@ -266,19 +211,13 @@ internal sealed class BombSightOverlay
         if (system.Platform is not { } platform) return;
         if (!KsaWorld.BeginDraw(platform, system.PlatformEcl)) return;
 
-        // Every rib would be a line per 0.2 s of fall, which is hundreds on a high drop and
-        // unreadable. Thinning keeps the arc the same shape and a fraction of the cost.
-        // Put back against *this* update's platform sample, which is the one BeginDraw anchored
-        // to. Measured and drawn against the same sample, the difference is the offset exactly and
-        // carries none of the motion between solves.
+        // This update's platform sample, the one BeginDraw anchored to.
         double3 here = system.PlatformEcl;
 
         int stride = Math.Max(1, _path.Count / ArcRibs);
 
         DrawArcOnScreen(here, stride);
 
-        // Painted on the terrain, so the ring reads as a place on the ground rather than a disc
-        // floating over it.
         double3 impactEcl = here + _impactOffset;
 
         // The store's own lethal radius, so what the ring circles is what the bomb reaches.

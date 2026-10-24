@@ -62,27 +62,18 @@ public sealed class KSArmoryMod
     private readonly ChaseCamera _chase = new();
     private readonly SightCamera _sight = new();
 
-    // The simulated step this frame, stashed for the cameras. Zero while paused, and scaled by
-    // timewarp and by the panel's slow-motion buttons -- which is exactly what a camera move that
-    // is supposed to track a round has to run on. Player time keeps ticking through a pause.
+    // For the cameras: a move tracking a round runs on simulated time, zero while paused.
     private double _lastSimStep;
 
-    // One per system, made on demand and forgotten with the craft. A dictionary rather than a
-    // field on WeaponSystem because a sight is drawing, and WeaponSystem is deliberately free of
-    // anything that only exists to be looked at.
+    // Kept here, not on WeaponSystem, which holds nothing that exists only to be looked at.
     private readonly Dictionary<WeaponSystem, BombSightOverlay> _sights = [];
 
-    // A pipper answers "where does a store dropped from here land", and a craft a ballistic
-    // computer is flying already has that answer drawn for it by IcbmOverlay -- against the whole
-    // trajectory rather than the next hundred seconds of fall.
-    //
-    // It is not only redundant: each solve is a flown trajectory, so a rocket climbing away from its
-    // pad would solve a perfectly good 8-to-80-second bomb sight the entire way up, and nothing
-    // looks at it.
     // With no panel -- a headless run -- every craft keeps its sight.
     private bool ShowsSight(WeaponSystems.Entry e)
         => _ui is null || ReferenceEquals(e.Craft, _ui.Focused);
 
+    // IcbmOverlay already draws where it lands, and each sight solve is a flown trajectory a
+    // climbing rocket would pay for the whole way up.
     private bool FlyingABallisticShot(WeaponSystem system)
         => _icbms?.For(system.Platform)?.Config.Armed == true;
 
@@ -95,9 +86,7 @@ public sealed class KSArmoryMod
         return sight;
     }
 
-    // The other half of the sight: what a store already gone can still be walked onto. Kept and
-    // swept exactly as the pipper is, and under the same switch -- it answers the same operator's
-    // question about the same weapon, a moment later.
+    // What a store already gone can still be walked onto, kept and swept as the pipper is.
     private readonly Dictionary<WeaponSystem, StoreReach> _storeReach = [];
 
     private StoreReach ReachFor(WeaponSystem system)
@@ -148,9 +137,7 @@ public sealed class KSArmoryMod
 
         Log.Info($"loading (mod id: {mod.Id})");
 
-        // Which KSA this was built for against which it is running, and therefore whether the
-        // panel offers reporting. Without it, buttons missing from the panel is a mystery from
-        // the outside and unanswerable from a log.
+        // Says why the panel does or does not offer reporting.
         bool supported = ReportDraft.GameIsSupported(Build.KsaBuild, Build.KsaRunning);
         Log.Info($"KSArmory {Build.Version} built for KSA {Build.KsaBuild ?? "?"}, "
                  + $"running {Build.KsaRunning ?? "?"} - reporting {(supported ? "on" : "off")}");
@@ -159,12 +146,9 @@ public sealed class KSArmoryMod
     [StarMapAllModsLoaded]
     public void OnFullyLoaded()
     {
-        // Every pack that was going to call Armoury.Register has done so by now: StarMap runs a
-        // dependent mod's entry point before this hook, which is a postfix on ModLibrary.LoadAll.
-        // Shutting the door here is what stops a registry growing under a crewed system.
-        // Asset-only packs, found by convention in every mod's folder. A pack that ships code has
-        // already called Armoury.Register from its own entry point by now; this is for the ones
-        // with no assembly at all, which is most of them.
+        // A pack that ships code has called Armoury.Register by now (StarMap runs a dependent's entry
+        // point before this postfix on ModLibrary.LoadAll); these are the asset-only ones. Frozen
+        // after, so no registry grows under a crewed system.
         InstalledPacks.RegisterAll();
         BuiltInFamilies.HideDisabledParts();
 
@@ -173,17 +157,14 @@ public sealed class KSArmoryMod
         Catalogue.Freeze();
         ReportRegistrations();
 
-        // Only now can this be asked. A pack registers before KSA has loaded a single asset
-        // bundle, so at that point there is no part in the world to check a profile against.
+        // Only now: a pack registers before KSA has loaded any part to check a profile against.
         foreach (PackFault fault in Catalogue.Audit(new DeclaredParts())) Log.Warn(fault.ToString());
 
-        // Before anything is crewed: without it nothing this mod does can point a vehicle, and the
-        // panel says so rather than leaving a rocket that refuses to steer unexplained.
+        // Before anything is crewed: without it nothing this mod does can point a vehicle.
         AttitudeHook.Install();
 
-        // The other half of stepping on a frame the GUI pass skipped. FrameLatch decides which
-        // hook runs the step; this is what puts a hidden-UI frame's step before the render rather
-        // than after it. Degrades to the frame postfix, so a refusal costs a frame and nothing.
+        // Puts a hidden-UI frame's step before the render; refused, the frame postfix steps it a
+        // frame late.
         PreRenderHook.Install(StepOnce);
         CloudPassHook.Install(() => _config.ShaderPass);
 
@@ -273,9 +254,7 @@ public sealed class KSArmoryMod
                      ? $"ready - {string.Join(", ", Catalogue.Launchers.Select(l => l.DisplayName))}"
                      : "ready - no weapons: every built-in family is switched off and no installed pack defines one");
 
-        // Logged, not just shown in the panel. Every link of this chain fails silently inside
-        // KSA, so without a record the only symptom is a kitten with no gun -- and that looks
-        // identical whether the XML never loaded, a reference did not resolve, or the mesh did.
+        // Logged: every link of this chain fails silently inside KSA.
         Log.Info($"particles graphics setting: {(Detonation.ParticlesEnabled ? "on" : "OFF")}");
         foreach (string preset in WarheadExplosion.Presets)
         {
@@ -297,9 +276,7 @@ public sealed class KSArmoryMod
         }
     }
 
-    // Logged whether or not anything registered. A pack that is installed but disabled, or whose
-    // assembly never loaded, never reaches us at all -- so this says what *registered*, and the
-    // absence of a line is the pack's own install to check rather than something we can report.
+    // What registered: a pack disabled or whose assembly never loaded never reaches here at all.
     private static void ReportRegistrations()
     {
         if (Catalogue.Registrations.Count == 0) return;
@@ -317,12 +294,8 @@ public sealed class KSArmoryMod
     }
 
     /// <summary>
-    /// Simulation tick.
-    ///
-    /// <para>StarMap passes a <em>player-time</em> clock and delta, and those are deliberately
-    /// ignored. Player time is wall-clock: it runs through a pause, so a system on it matures a
-    /// lock and fires into a frozen world, and it ignores timewarp, so the world outruns the
-    /// rounds. The simulation clock is the one that matches what the world did.</para>
+    /// Simulation tick. The player-time clock StarMap passes is ignored for simulation: it runs
+    /// through a pause and ignores timewarp.
     /// </summary>
     [StarMapAfterOnFrame]
     public void OnAfterFrame(double currentPlayerTime, double dtPlayer)
@@ -331,8 +304,7 @@ public sealed class KSArmoryMod
         {
             if (_disabled || _roster is null) return;
 
-            // Sim speed and pause state change what everything else in the log means, so record
-            // them rather than inferring them later from frozen timestamps.
+            // Logged, since they change what everything else in the log means.
             if (KsaWorld.InFlight)
             {
                 double speed = KsaWorld.SimulationSpeed;
@@ -356,30 +328,14 @@ public sealed class KSArmoryMod
         }
         finally
         {
-            // Unconditionally, and ahead of nothing: this is the only hook KSA always calls, so a
-            // release skipped by an early return or an exception would stop the mod for the rest of
-            // the session rather than for a frame.
+            // Unconditionally: the only hook KSA always calls, and a latch left set stops the mod
+            // for the session.
             _frame.EndFrame();
         }
     }
 
-    // One simulation step, from whichever hook reaches it first this frame.
-    //
-    // Two hooks because hiding the UI stops one of them. KSA's ToggleUi action -- F2 -- flips
-    // Program.DrawUI, and Program.OnFrame wraps the whole UI pass in it, including
-    // OnDrawUiViewports, which is what OnAfterGui postfixes. On that hook alone the simulation stops
-    // dead while the world carries on: rounds frozen, fire control halted, and a guided burn handed
-    // the entire skipped span in one step when the UI comes back -- measured as 73 seconds at 1x with
-    // no timewarp anywhere, worth 12,710 m/s in a single frame and a shot 3.1 km/s past its own
-    // cutoff.
-    //
-    // The GUI pass still runs it whenever it is called, and that ordering is not arbitrary:
-    // stepping there is what makes the round's offset and the anchor it is drawn against share an
-    // epoch. The frame postfix lands *after* the render, so a step taken there is drawn on the next
-    // frame against a platform that has moved on -- about 500 m at 1x, and docs/FRAMES-AND-EPOCHS.md
-    // is why. So the frame hook is the fallback rather than the home: a frame that drew is stepped
-    // exactly where it always was, and a frame that did not is stepped one hook later instead of
-    // not at all.
+    // From whichever hook reaches it first: F2 skips the GUI pass, which is still preferred because
+    // a step there shares an epoch with the draw. CLAUDE.md, "Not done", has why.
     private void StepOnce(double dtPlayer)
     {
         if (_disabled || _roster is null) return;
@@ -388,25 +344,18 @@ public sealed class KSArmoryMod
         KsaWorld.BeginFrame();
         KsaWorld.AuditBodiesOnce();
 
-        // Before anything integrates: the roster still holds the previous world's systems, and one
-        // more step of them is one more step of rounds that no longer have a world to fly in.
+        // Before anything integrates, or the previous world's rounds are stepped once more.
         if (WorldReloadHook.ConsumeReload()) ForgetTheWorld();
 
-        // The *scene*, not the craft. Losing the vehicle being flown does not end the flight: KSA
-        // clears Program.ControlledVehicle and carries straight on, so gating the whole simulation
-        // on it freezes every round in the air the instant a launcher dies. They then neither land
-        // nor expire - a salvo suspended mid-flight, which reads as rounds that despawned. Nothing
-        // in here needs a controlled craft; it walks the roster.
+        // The scene, not the craft: losing the vehicle being flown does not end the flight, and
+        // gating on it froze every round in the air.
         if (KsaWorld.InFlightScene)
         {
             using (_budget.Measure("sim", top: true)) StepSimulation(dtPlayer);
         }
 
-        // Here rather than in the GUI hook, and outside the flight gate above so a view is still
-        // handed back on the way out. Driving a camera is not drawing: hiding the UI takes the GUI
-        // pass away entirely, and a mod that stops restating a view it has borrowed leaves the
-        // player riding a frozen offset with no closing, no transition and no aim -- while the
-        // world it is pointed at carries on.
+        // Not in the GUI hook, which F2 skips: a borrowed view left unrestated freezes. Outside the
+        // flight gate, so a view is still handed back on the way out.
         using (_budget.Measure("cameras")) DriveCameras(dtPlayer);
 
         // Outside the flight gate: a rail is built in the editor, where nothing else here runs.
@@ -416,17 +365,13 @@ public sealed class KSArmoryMod
         if (!KsaWorld.UiDrawn && KsaWorld.InFlight) UpdateWorldClicks();
     }
 
-    // Drops everything held about a world a save load has just replaced. Nothing else does it:
-    // KsaWorld.InFlightScene stays true across a load, so the out-of-flight path never runs -- and
-    // DeserializeSave destroys every craft at once, which sends each system still flying rounds
-    // loose. A loose system is built to outlive its platform so its rounds keep flying, so those
-    // rounds cross into the new scene and go on being stepped until they expire.
+    // InFlightScene stays true across a load, so the out-of-flight path never runs, and every system
+    // still flying rounds has just gone loose into the new scene.
     private void ForgetTheWorld()
     {
         Log.Info("a save was loaded - forgetting the previous world");
 
-        // Discard rather than Clear: the settings about to be read belong to the save being opened,
-        // and writing the outgoing session's over them first is how a reload stops restoring them.
+        // Discard, not Clear, which would write this session's settings over the save being opened.
         _roster?.Discard();
         _armaments.Clear();
         _picture.Clear();
@@ -436,41 +381,26 @@ public sealed class KSArmoryMod
         _icbms?.Clear();
         KsaWorld.Wreckage.Clear();
 
-        // The clouds, the burned ground, the flash and the bang still on its way all belong to the
-        // world that was replaced: anchored to its bodies, they would stand in the new one.
         NuclearClouds.Clear();
         BulletHoles.Clear();
         Leaks.Clear();
         StoreMass.Clear();
 
-        // Keyed on live craft, every one of which DeserializeSave has just destroyed. CollectTeams
-        // rebuilds it on the next step that runs, so this only matters for a world that stays
-        // paused -- and a destroyed vehicle reachable from a dictionary is what KsaWorld's own
-        // census note forbids however briefly.
+        // Keyed on craft DeserializeSave has destroyed; CollectTeams rebuilds it, but not while paused.
         KsaWorld.TeamRoster.Clear();
 
-        // Markers pin the craft they show, and every one of them has just been destroyed.
         Markers.Forget();
 
-        // Forget, not release: DeserializeSave has already unfollowed every viewport camera, so the
-        // recording describes a pose in a scene that no longer exists and there is nothing left to
-        // hand it back to. Same treatment the editor gets, and for the same reason.
+        // The sight forgets rather than releases: DeserializeSave has already unfollowed every camera.
         _chase.Release();
         _sight.Forget();
 
-        // The universe clock restarted at the save's own time, so the boundary last integrated
-        // through belongs to a world that is gone.
+        // The universe clock restarted at the save's own time.
         KsaWorld.ResetSimStepTracking();
     }
 
-    // Everything that borrows the player's view, in claim order.
-    //
-    // The chase reads the sight's base field from the frame before and the sight is told whether
-    // the chase outranks it this frame, so the two are in this order and not the other: swapping
-    // them flies a transition begun through a magnified sight down a three-degree straw.
-    // Every tool that acts on a click in the world. Called from the UI pass when it runs and from the
-    // step when it does not, because a hidden UI stops only the pass: ImGui's frame, and with it the
-    // mouse, is read before KSA's DrawUI gate every frame. Its markers are drawn only with the UI.
+    // From the UI pass, or from the step when F2 skips it: ImGui's frame, and the mouse, are read
+    // before KSA's DrawUI gate.
     private void UpdateWorldClicks()
     {
         if (_roster is null || _ui is null) return;
@@ -478,17 +408,12 @@ public sealed class KSArmoryMod
         _mover.Update(_config);
         _bursts.Update(_config);
 
-        // Only the system the panel is showing. Every crewed system reading the same cursor would
-        // fire every launcher in the world at one click.
+        // Only the system the panel is showing, or one click fires every launcher in the world.
         if (_roster.For(_ui.Focused) is { } aimed) _designator.Update(aimed.Weapon, aimed.Policy);
 
-        // Same rule, and the same reason: every crewed computer reading one cursor would re-aim every
-        // missile in the world at a single click.
         if (_icbms?.For(_ui.Focused) is { } aimedSite) _sites.Update(aimedSite);
 
-        // Shift-click locks the installation the panel is showing onto whatever is under the cursor
-        // -- its turret, and every director it carries -- scoped to the shown system for the same
-        // reason the designator is: every crewed system reading one cursor would lock all of them.
+        // Shift-click locks the shown installation's turret and every director it carries.
         WeaponSystems.Entry? weapon = _roster.For(_ui.Focused);
         _lockHeads.Clear();
         _heads?.On(_ui.Focused, _lockEntries);
@@ -499,6 +424,8 @@ public sealed class KSArmoryMod
                           weapon is null ? null : (at, what) => _roster.DesignateWeapon(weapon, at, what));
     }
 
+    // Claim order: the chase reads the sight's base field from the frame before, so swapping them
+    // flies a transition begun through a magnified sight down a three-degree straw.
     private void DriveCameras(double dt)
     {
         if (_roster is null || _ui is null) return;
@@ -506,12 +433,8 @@ public sealed class KSArmoryMod
         _watch.Apply(dt);
         _bridge?.DriveCamera();
 
-        // After the watch camera: both write the view, and the chase takes it outright, so
-        // letting the watch nudge afterwards would fight it every frame.
-        //
-        // A ridden round whose craft has been destroyed is followed through its own system first.
-        // That system is on no craft the panel can focus any more, so asking the panel lets go of
-        // the round in mid-fall and leaves the view where the round was.
+        // After the watch camera, which would fight it. A ridden round whose craft is destroyed is
+        // followed through its own system, which no craft the panel can focus carries any more.
         if (_chase.RiddenSystem is { Platform: null } riding)
         {
             _chase.Apply(riding, enabled: true, dt, _lastSimStep, _config.FreezeChaseTransition,
@@ -535,20 +458,13 @@ public sealed class KSArmoryMod
         }
         else if (KsaWorld.InFlightScene)
         {
-            // Nothing is being shown, so nothing may be holding the player's view on its behalf.
-            // Skipping this is how a sight survives the craft it was looking through.
-            //
-            // The scene, not KsaWorld.InFlight: destroying the craft being flown clears the
-            // controlled vehicle and leaves the scene running, so asking whether the player has a
-            // craft sends the one case that most needs a hand-back down the path that does not do
-            // one -- and being shot while looking through a director is how that is reached.
+            // The scene, not InFlight: being shot while looking through a director clears the
+            // controlled vehicle and leaves the scene running, and that case needs the hand-back.
             _sight.Release();
         }
         else
         {
-            // Out of flight the recording describes a scene that no longer exists, and restoring
-            // a dead scene's camera mode and follow onto the editor is a view the player cannot
-            // account for. The new scene brings its own camera.
+            // Out of flight the recording describes a scene that no longer exists.
             _sight.Forget();
         }
     }
@@ -567,13 +483,8 @@ public sealed class KSArmoryMod
     }
 
     /// <summary>
-    /// Panel and world overlay.
-    ///
-    /// The gizmo drawing has to happen here, not in the frame hook. KSA's whole frame runs
-    /// inside OnFrame: it calls GizmosRenderer.ResetInstances() near the top, draws the UI,
-    /// then renders. A postfix on OnFrame therefore lands *after* the render, so anything it
-    /// submits is cleared by the next frame's reset before it is ever drawn. This hook is a
-    /// postfix on OnDrawUiViewports, which sits between the reset and the render.
+    /// Panel and world overlay. Gizmos are drawn here: this postfix on OnDrawUiViewports sits between
+    /// GizmosRenderer.ResetInstances() and the render, where a postfix on OnFrame would be cleared.
     /// </summary>
     [StarMapAfterGui]
     public void OnAfterGui(double dt)
@@ -582,28 +493,21 @@ public sealed class KSArmoryMod
 
         try
         {
-            // First, so the drawing below reads the state this frame produced. Stepping here
-            // rather than in the frame hook is what makes the round's offset and the anchor it is
-            // drawn against share an epoch - see StepOnce, which is also why this is the preferred
-            // hook rather than the only one.
+            // First, so the drawing reads this frame's state and shares its epoch; see StepOnce.
             StepOnce(dt);
 
             _drawFrom = System.Diagnostics.Stopwatch.GetTimestamp();
 
             using (_budget.Measure("ui")) _ui.Draw();
 
-            // Outside the overlay switch on purpose: for a shell with no subpart body this is the
-            // round itself rather than an annotation of it, and behind a debug switch a firing
-            // cannon puts almost nothing on screen. A shell drawn as a body is skipped inside.
+            // Outside the overlay switch: for a shell with no body this is the round itself.
             if (KsaWorld.InFlight)
             {
                 using (_budget.Measure("shells")) foreach (WeaponSystems.Entry e in _roster.All) Visuals.DrawShellStream(e.Weapon);
                 if (_heads is not null && !LaserBeams.Painting) foreach (OpticalHeads.Entry e in _heads.All) Visuals.DrawBeam(e.Head);
             }
 
-            // Outside the debug overlay switch, and deliberately: this is a sight the operator
-            // aims with, not an annotation of how the mod is thinking. Same reasoning as the
-            // shell stream above.
+            // Outside the overlay switch: a sight the operator aims with, not a diagnostic.
             GroundRings.BeginFrame();
             BulletHoles.Enabled = _config.BulletHoles;
             Leaks.Enabled = _config.TankLeaks;
@@ -637,38 +541,29 @@ public sealed class KSArmoryMod
                 Visuals.DrawDecoys(Countermeasures.Live);
             }
 
-            // Not behind the world-overlay switch. That switch is for diagnostics — search cones
-            // and drive facing — and this is the shot itself: where the warheads are going is the
-            // thing the operator is flying the rocket to change.
-            //
-            // Drawn during a scripted run too. It is 11.1 of a 15.1 ms mod frame and skipping it was
-            // tried: the frame fell to 0.78 ms and the wall clock did not move, because most of a
-            // run is at 1x where frame time buys nothing. Somebody watches these.
+            // Not behind the overlay switch: this is the shot, not a diagnostic. Drawn in a scripted
+            // run too: skipping it there (11.1 of a 15.1 ms mod frame) did not move the wall clock.
             if (KsaWorld.InFlight && _icbms is not null)
             {
                 using (_budget.Measure("icbmdraw")) IcbmOverlay.Draw(_icbms, _icbms.For(_ui.Focused), _trajectory);
             }
 
-            // Over the world, under the panel: ImGui draws windows in submission order, and the
-            // panel is submitted first, so a full-screen overlay added here sits above the scene
-            // and below anything the operator is reading.
+            // Under the panel, which is submitted first: ImGui draws windows in submission order.
             if (KsaWorld.InFlight && _config.DrawSystemMarkers)
                 using (_budget.Measure("markers")) Markers.Draw(_ui.Systems, _ui.Focused, dt);
 
             if (KsaWorld.InFlight && _config.DrawPartHealth)
                 using (_budget.Measure("health bars")) PartHealthBars.Draw();
 
-            // The weapon the trigger is pointed at, which is what the switcher and the sight
-            // already follow -- so the brackets are always on what FIRE would actually shoot.
-            // After the markers, so a lock reads over a system bracket on the same contact.
+            // On the trigger's weapon, so the brackets are on what FIRE would shoot; after the
+            // markers, so a lock reads over a system bracket.
             if (KsaWorld.InFlight && _config.DrawLockCue
                 && _ui.TriggerWeaponOn(KsaWorld.ControlledVehicle ?? _ui.Focused) is { } engaging)
             {
                 LockCueOverlay.Draw(engaging);
             }
 
-            // The cameras themselves were driven from StepOnce at the top of this hook. This is
-            // only the brackets over what the chased round is flying at.
+            // Only the brackets; the cameras were driven from StepOnce.
             if (KsaWorld.InFlight) ChaseHud.Draw(_chase);
 
             // After the panel, so a click on a window is not also a click on the world behind it.
@@ -682,10 +577,8 @@ public sealed class KSArmoryMod
                 if (_icbms?.For(_ui.Focused) is { } aimedSite) _sites.Draw(aimedSite);
                 TargetLock.Draw(_roster.For(_ui.Focused)?.Weapon, _heads?.Driving(_ui.Focused)?.Head);
             }
-            // The sight's own painting. Taking the view is in DriveCameras; this is what is
-            // drawn over it, and it is asked of the claim rather than of the setting: the sight
-            // yields the main view to the chase without releasing it, and painting through that
-            // leaves its bracket over a picture of something else, stacked under the chase's own.
+            // Asked of the claim, not the setting: the sight yields the view to the chase without
+            // releasing it, and must not paint over the chase's picture.
             if (KsaWorld.InFlight && _heads?.Driving(_ui.Focused) is { } head
                 && head.Policy.Viewport == KsaWorld.MainViewportIndex
                 && ViewClaim.SightPaints(true, true, _sight.Holding, _chase.HoldsMainView))
@@ -693,9 +586,7 @@ public sealed class KSArmoryMod
                 Sight.Draw(head.Head, head.Policy, _roster.For(_ui.Focused)?.Weapon);
             }
 
-            // Every camera window a head drives: its window first, which says where the picture
-            // is, then its sight, with the weapon on that head's own craft rather than the one the
-            // panel is showing.
+            // Each window a head drives, then its sight, with the weapon on that head's own craft.
             if (KsaWorld.InFlightScene && _heads is not null)
             {
                 foreach (OpticalHeads.Entry e in _heads.All)
@@ -721,10 +612,7 @@ public sealed class KSArmoryMod
         }
         finally
         {
-            // Everything the GUI pass costs, in one number rather than a span per feature and a
-            // hole where the rest was. Booked in a finally so a fault still closes the span --
-            // an exception here would otherwise leave the frame's largest cost unmeasured, which
-            // is the case most worth seeing.
+            // The whole GUI pass in one span, closed in a finally so a fault is still measured.
             if (_drawFrom != 0L)
             {
                 _budget.Book("draw",
@@ -735,7 +623,6 @@ public sealed class KSArmoryMod
         }
     }
 
-    // When the GUI pass started, or zero when it is not running.
     private long _drawFrom;
 
     // Claimed by whichever hook steps the frame, released by the one that cannot be skipped.
@@ -746,16 +633,11 @@ public sealed class KSArmoryMod
     {
         if (_roster is null) return;
 
-        // The world's vehicles are read many times over this pass and are the same answer every
-        // time. Thrown away here rather than at the end, so a pass always builds its own and never
-        // inherits one from a frame that has since had a craft destroyed out of it.
+        // At the start, so a pass never inherits a census from a frame a craft was destroyed out of.
         KsaWorld.InvalidateCensus();
 
-        // Every frame, before the clock gate. This reads where the world is and the whole
-        // overlay is drawn against it, so inside the gated step the drawing's frame of
-        // reference freezes on every frame that advances no simulated time.
-        // Before the sample, so a director fitted this frame is read this frame rather than
-        // being a frame behind everything measured against it.
+        // Before the clock gate and the sample: the overlay is drawn against it, and a director
+        // fitted this frame is read this frame.
         if (_heads is not null)
         {
             using (_budget.Measure("headsync"))
@@ -776,32 +658,19 @@ public sealed class KSArmoryMod
         using (_budget.Measure("headsample")) _heads?.SampleWorld();
         using (_budget.Measure("setsample")) _searchSets?.SampleWorld();
 
-        // Gate on the step the engine applied, not on the pause flag. Universe.IsPaused() is
-        // `simulationSpeed == 0.0`, a statement about the setting rather than about whether the
-        // world moved: on the frame speed drops to zero the engine still applies one real step, so
-        // the platform sample advances while a flag-gated round does not. The drawn offset is a
-        // difference of integrated positions, so that step stays in permanently and every pause
-        // adds another.
+        // Gated on the step the engine applied, not on the pause flag: on the frame speed drops to
+        // zero the engine still applies one real step, and the platform sample moves with it.
         {
-            // Read from the engine, not estimated from the frame time. The drawn offset advances
-            // the platform across the stepping interval to meet the round, so that interval must
-            // be the one the sample actually moved over. dtPlayer * SimulationSpeed is a guess
-            // that misses by up to 0.9 ms - 27 m against 29.8 km/s - and misses worst on the frame
-            // the speed changes.
-            //
-            // Consumed, not peeked: the engine answers with the last step, so asking twice without
-            // it having stepped returns the same one. See KsaWorld.ConsumeSimStep.
+            // From the engine, never dtPlayer * SimulationSpeed, which misses by up to 0.9 ms, 27 m
+            // at 29.8 km/s. Consumed, not peeked: see KsaWorld.ConsumeSimStep.
             double dtSim;
             using (_budget.Measure("consume")) dtSim = KsaWorld.ConsumeSimStep();
 
-            // Kept for the cameras, which run later in this same hook. The step is consumed
-            // exactly once per frame, so they cannot ask for it themselves.
+            // For the cameras, which cannot consume the step themselves.
             _lastSimStep = double.IsFinite(dtSim) && dtSim > 0.0 ? dtSim : 0.0;
 
-            // No step reported, no step taken - never substitute an estimate. The engine reports
-            // nothing exactly when it advanced nothing, so an estimate would integrate the round
-            // across an interval the world did not move over, and the whole of that lands in the
-            // drawn offset. Skipping costs one frame of round motion and nothing accumulates.
+            // No step reported, no step taken: an estimate would integrate across an interval the
+            // world did not move over, all of it landing in the drawn offset.
             bool skipped;
             using (_budget.Measure("clock"))
             {
@@ -815,9 +684,7 @@ public sealed class KSArmoryMod
 
             using (_budget.Measure("warp")) ApplyWarpPolicy(dtSim);
 
-            // Clamped, and the clamp discards time: the frame that overran cannot be un-run,
-            // and the policy above only takes effect from the next one. What it stops is the
-            // *next* thousand frames doing the same thing silently.
+            // The clamp discards time; the warp policy takes effect only from the next frame.
             if (double.IsFinite(dtSim) && dtSim > 0.0)
             {
                 double faithful;
@@ -825,17 +692,14 @@ public sealed class KSArmoryMod
 
                 double step = Math.Min(dtSim, faithful);
 
-                // Which craft is on which side, before anything reads it. Same pass and the same
-                // reason as the airborne census: it is what exists, not something per system --
-                // and the rounds collected below carry their shooter's side out of it.
+                // Before anything reads it; the rounds collected below carry their shooter's side.
                 using (_budget.Measure("teams"))
                 {
                     CollectTeams();
                     _searchSets?.AdoptTeams();
                 }
 
-                // Gathered once, not once per system: every crewed system scans the same sky, and
-                // building this per system would be quadratic in how many are in the world.
+                // Once, not per system, which would be quadratic in systems.
                 using (_budget.Measure("airborne")) CollectAirborne(step);
 
                 // After the airborne sample, which the warning receivers read, and before any round
@@ -843,10 +707,7 @@ public sealed class KSArmoryMod
                 // On the clamped step for the same reason: a decoy and the round judging it share one.
                 using (_budget.Measure("decoys")) _countermeasures?.Update(step, _airborne);
 
-                // What each craft's weapons have in the air between them. Before the fire loop for
-                // the same reason the airborne sample is: a tally built while systems are being
-                // stepped reports capacity the craft has already spent, and which of them it
-                // under-counts would be decided by the roster's iteration order.
+                // Before the fire loop, or which system under-counts is the roster's iteration order.
                 using (_budget.Measure("allocate")) _armaments.Refresh(_roster.All);
 
                 using (_budget.Measure("fire")) foreach (WeaponSystems.Entry e in _roster.All) e.Weapon.Update(step, _airborne);
@@ -854,9 +715,8 @@ public sealed class KSArmoryMod
                 // After the fire loop, so a round that left this step has already come off.
                 using (_budget.Measure("store mass")) WantStoreMass();
 
-                // Systems whose craft has been destroyed, still flying what they had in the air.
-                // After the crewed ones and on the same step, so a round is stepped exactly once
-                // per frame whichever side of its launcher's death it is on.
+                // After the crewed ones on the same step, so a round is stepped once whichever side
+                // of its launcher's death it is on.
                 using (_budget.Measure("loose")) _roster.UpdateLoose(step, _airborne);
 
                 // After every launcher radar has scanned and before the heads aim, so a director takes
@@ -864,22 +724,11 @@ public sealed class KSArmoryMod
                 using (_budget.Measure("search sets")) _searchSets?.Update(dtSim, _airborne);
                 using (_budget.Measure("picture")) _picture.Refresh(_roster.All, _searchSets?.All ?? []);
 
-                // The heads take the step as it comes, not the clamped one. That clamp exists to
-                // stop a *round* stepping over its own fuse radius, and a director has no fuse --
-                // it is a rate-limited drive, for which a long step simply means turning further.
-                //
-                // Applied here it would inject the one thing this component must not have: the
-                // clamp bites only on long frames, so at 16x a 25 ms frame (0.40 s) is truncated to
-                // 0.32 s while an 8.33 ms frame (0.13 s) is not. The head then under-advances on
-                // alternate frames, in step with the display's pacing -- which is a shake in the
-                // picture that appears above about 13x and nowhere below it.
+                // Unclamped: a director has no fuse, and the clamp biting only on long frames shook
+                // the picture with the display's pacing above about 13x.
                 using (_budget.Measure("heads")) _heads?.Update(dtSim, _airborne);
 
-                // On the simulated step and unclamped, for the same reason the heads are: the
-                // clamp is there to stop a *round* stepping over its own fuse radius, and a
-                // guidance loop has no fuse. It has a cutoff instead, which is timed against
-                // whatever step it is handed - so a long one costs accuracy honestly rather than
-                // being hidden by a truncation the loop cannot see.
+                // Unclamped too: a cutoff timed against a truncated step would hide the cost.
                 if (_icbms is not null)
                 {
                     using (_budget.Measure("icbm"))
@@ -890,10 +739,7 @@ public sealed class KSArmoryMod
             }
         }
 
-        // Outside the clock gate on purpose. Placing the round bodies is drawing, not
-        // simulating, and it has to happen on every rendered frame or the rounds sit still
-        // through any frame that advanced no simulated time while the world moved past
-        // them. Cheap, and it only reads state.
+        // Outside the clock gate: placing bodies is drawing, needed on every rendered frame.
         using (_budget.Measure("bodies"))
         {
             foreach (WeaponSystems.Entry e in _roster.All) e.Weapon.SyncRoundBodies();
@@ -902,19 +748,14 @@ public sealed class KSArmoryMod
         // Per frame, because a wobble is a shape and the periodic dump cannot see one.
         using (_budget.Measure("rates")) if (KsaWorld.ControlledVehicle is { } flown) Diagnostics.SampleBodyRates(flown, dtPlayer);
 
-        // Per frame and on player time, because it is the engine keeping up with the wall clock
-        // that is being measured rather than anything simulated. Debug, so the panel's verbose
-        // switch reaches it and a release build never pays for it.
+        // On player time: what is measured is the engine keeping up with the wall clock.
         if (Log.Threshold <= Log.Level.Debug)
         {
-            // Both terms from outside the engine's own accounting: the simulated step it actually
-            // delivered against a real clock. dtPlayer is clamped at a thirtieth, so anything built
-            // on it reports a world keeping up while it falls behind -- measured at eight rockets
-            // as "achieved 1.000" while advancing 10 s of world per 24 s of wall.
+            // Against a real clock: dtPlayer is clamped at a thirtieth, and at eight rockets read
+            // "achieved 1.000" while the world advanced 10 s per 24 s of wall.
             double wallNow = _wallClock.Elapsed.TotalSeconds;
 
-            // Taken before _lastWall moves, and shared by both instruments: reading it after the
-            // reassignment is a delta of exactly zero, which is a window that never closes.
+            // Before _lastWall moves, and shared by both instruments.
             double sinceLast = _lastWall > 0.0 ? wallNow - _lastWall : 0.0;
 
             if (sinceLast > 0.0)
@@ -935,22 +776,17 @@ public sealed class KSArmoryMod
                 Log.Debug(_solver.Take(_vehicleScratch.Count));
             }
 
-            // The other side of that subtraction: SolverLoad says what the frame and the engine's
-            // solver cost, this says what of the remainder is ours. Closed here so both windows
-            // are the same window.
+            // Closed here so FrameBudget's window and SolverLoad's are one.
             _budget.EndFrame(sinceLast);
 
             if (_budget.Due) Log.Debug(_budget.Take());
         }
 
-        // Everything from here to the end of the method: sounds, plumes, tracers, the bomb sight,
-        // the sweeps and the save-stamp check. One span, because it sits after _budget.EndFrame and
-        // would otherwise be outside the frame it belongs to as well as outside every child span.
+        // One span for the rest, which comes after _budget.EndFrame and would otherwise go unmeasured.
         using (_budget.Measure("tail"))
         {
 
-        // After the rounds have been stepped, so a motor is heard where its round now is
-        // rather than where it was at the start of the frame.
+        // After the rounds have been stepped, so effects sit where the round now is.
         ShellTracers.BeginFrame();
         LaserBeams.BeginFrame();
         if (_heads is not null) foreach (OpticalHeads.Entry e in _heads.All) LaserBeams.Collect(e.Head);
@@ -964,15 +800,10 @@ public sealed class KSArmoryMod
             ShellTracers.Collect(e.Weapon);
             _gunSound.Update(e.Weapon);
 
-            // Its own switch and its own solve, per weapon rather than per station: it costs
-            // BombSight.MaxSteps integration steps, and eight racks a metre apart would fly eight
-            // copies of one fall.
-            // Only the craft the panel is showing: another craft's sight is solved and drawn for
-            // nobody, and each solve is a flown trajectory.
+            // Per weapon, not per station, and only on the craft the panel shows: each solve flies
+            // BombSight.MaxSteps steps.
             if (e.Policy.DrawBombSight && !FlyingABallisticShot(e.Weapon) && ShowsSight(e))
             {
-                // Measured apart from the draw, because what a sight costs is the trajectory
-                // flying rather than the lines.
                 if (_ui?.AimsTheSight(e) ?? true)
                 {
                     using (_budget.Measure("sight solve")) SightFor(e.Weapon).Update(e.Weapon, _lastSimStep);
@@ -989,10 +820,7 @@ public sealed class KSArmoryMod
             }
         }
 
-        // The two effects that ride the round rather than the weapon. A round outliving its
-        // launcher keeps its plume and its tracer, which is the only thing that makes one visible
-        // at all once its body -- a subpart of the destroyed craft -- has gone with it. The rest
-        // are drawn on the mount and have nothing left to be drawn on.
+        // The effects that ride the round rather than the mount, for rounds outliving their launcher.
         IReadOnlyList<WeaponSystem> loose = _roster.Loose;
         for (int i = 0; i < loose.Count; i++)
         {
@@ -1002,17 +830,10 @@ public sealed class KSArmoryMod
             ShellTracers.Collect(loose[i]);
         }
 
-        // Read before anything else this frame: it takes the newest COMPLETE profiler frame, which
-        // is the one the GPU has finished with rather than the one being recorded now.
+        // The newest complete profiler frame, which the GPU has finished with.
         CloudPassCost.Sample();
 
-        // A cloud belongs to the world rather than to any weapon, and it is here rather than with
-        // the drawing because it is a thing in the world, not a duration somebody is watching. In
-        // the UI pass it would stop growing whenever the UI is hidden, which is the one time a
-        // player is watching it and nothing else.
-        //
-        // The scene gates it, not the craft. A mushroom cloud does not stop rising because whoever
-        // was flying has just been killed by it.
+        // Stepped here, not in the UI pass, which F2 skips; gated on the scene, not the craft.
         using (_budget.Measure("clouds"))
         {
             NuclearClouds.RedWaves = _config.RedWave;
@@ -1020,8 +841,7 @@ public sealed class KSArmoryMod
             else NuclearClouds.Clear();
         }
 
-        // The whiteout a burst leaves on the view. Stepped here rather than drawn in the UI pass:
-        // CloudPass writes it into the scene image so it survives the HUD being hidden.
+        // Stepped here: CloudPass writes it into the scene image so it survives a hidden HUD.
         BurstFlash.Update(_lastSimStep);
 
         // And the bangs and fronts still on their way.
@@ -1031,8 +851,7 @@ public sealed class KSArmoryMod
         BlastShake.Update(_lastSimStep);
         AttitudeHook.CheckShoves(_lastSimStep);
 
-        // A sight outlives nothing: without this the dictionary keeps a system for the session
-        // after its craft has gone, which is the leak every pooled effect below sweeps for.
+        // Pruned, or a sight keeps its system for the session after the craft has gone.
         if (_sights.Count > _roster.Count)
         {
             _sights.Clear();
@@ -1057,16 +876,11 @@ public sealed class KSArmoryMod
         _flashes.Sweep(_roster);
         _gunSound.Sweep(_roster);
 
-        // After the systems and the ballistic computers have run, so a scenario reads the state
-        // this frame produced rather than the one before it. Both steps: the world it watches runs
-        // on the simulated one, and the budget that stops an unattended run hanging cannot.
+        // After everything has run, so a scenario reads this frame's state. Its time budget runs on
+        // player time so an unattended run cannot hang.
         _scenario.Update(_roster, _icbms, _lastSimStep, dtPlayer);
 
-        // The panel has no change notification, so settings are written by comparing against what
-        // is already stored. Every frame rather than on a timer: a save and a load both fit inside
-        // half a second, and a load in that window loses the settings twice over, once because
-        // they were never written for that save and again when a later check writes the
-        // freshly-defaulted ones over the file. It is a file timestamp, not work.
+        // Every frame, not on a timer: a save and a load can both fit inside half a second.
         switch (_roster.Remember())
         {
             case WeaponSystems.SettingsMoment.Saved: _icbms?.WriteDown(); break;
@@ -1078,8 +892,7 @@ public sealed class KSArmoryMod
     [StarMapUnload]
     public void Unload()
     {
-        // Give the speed back before letting go of it, or unloading mid-salvo leaves the world
-        // stuck at whatever the policy had wound it down to, with nothing left to wind it back.
+        // Or unloading mid-salvo leaves the world stuck at the speed the policy wound it down to.
         if (_warp.Holding && KsaWorld.SetSimulationSpeed(_warp.HeldSpeed))
         {
             Log.Info($"timewarp restored to {_warp.HeldSpeed:F0}x - unloading");
@@ -1089,13 +902,11 @@ public sealed class KSArmoryMod
         _chase.Release();
         _sight.Release();
 
-        // After the cameras have let go, so nothing is mid-write when the controller is swapped
-        // back. The mod's own controller would otherwise outlive it for the rest of the session.
+        // After the cameras have let go, so nothing is mid-write when the controller is swapped back.
         KsaWorld.RestoreStockController();
         _mover.Release();
 
-        // Pooled emitters and audio channels belong to the game and nothing else gives them
-        // back: unloading while anything is burning or firing would keep them for the process.
+        // Pooled emitters and channels belong to the game, and nothing else gives them back.
         _motors?.StopAll();
         _gunSound?.StopAll();
         _plumes?.ReleaseAll();
@@ -1103,7 +914,6 @@ public sealed class KSArmoryMod
         _decoyEffects?.ReleaseAll();
         _flashes?.ReleaseAll();
 
-        // Markers pin the craft they are showing, so a destroyed one stays reachable otherwise.
         Markers.Forget();
 
         LetGoOfTheGame();
@@ -1112,32 +922,24 @@ public sealed class KSArmoryMod
         _ui = null;
         Log.Info("unloaded");
 
-        // Last, and after that line: the log batches its writes, so without this the tail of the
-        // session never reaches disk and a static timer goes on firing into an unloaded mod.
+        // Last: the log batches its writes.
         Log.Shutdown();
     }
 
-    // The main view, for the head on the craft the panel is showing. There is one main view, so
-    // one head at a time; it follows the player's craft, so KSA places it at
-    // following.GetPositionEcl() + CameraOffset during its own pass, and it has to be given back.
+    // One main view, so one head at a time: the one on the craft the panel shows.
     private void TakeMainView(OpticalHead system, OpticConfig policy)
     {
         bool wantsMainView = policy.Viewport == KsaWorld.MainViewportIndex;
 
-        // Asked every frame, including when the optic is off: that is what hands the view back
-        // after the player switches it off, and what lets the sight resume once the chase is done.
+        // Every frame, the optic off included: that hands the view back and resumes after a chase.
         ViewAction did = _sight.Apply(system, wantsMainView, outranked: _chase.HoldsMainView,
                                       policy.Magnification);
 
-        // Taking the view back by hand switches the optic off, rather than merely releasing it
-        // once. The setting is what asks for the view, so leaving it on means the very next frame
-        // takes it straight back -- which reads as the mod refusing to let go.
+        // Taking the view back by hand switches the optic off, or the next frame takes it again.
         if (did == ViewAction.StandDown) policy.Viewport = -1;
     }
 
-    // Every head with a camera window drives it, whichever craft the panel is showing: a window
-    // is how a site is watched while flying something else, and one that froze whenever the
-    // panel moved on would be no use for that.
+    // Every head with a window drives it, whichever craft the panel shows.
     private HashSet<int> _windowsDriven = [], _windowsDrivenBefore = [];
 
     private void DriveCameraWindows(double dt)
@@ -1172,8 +974,7 @@ public sealed class KSArmoryMod
             }
         }
 
-        // A window nothing drives is closed: with KSA's own window taken off it there is nothing
-        // left to close it by, and it would go on rendering unseen.
+        // With KSA's own window taken off, nothing else would close it and it would render unseen.
         foreach (int released in _windowsDrivenBefore)
         {
             if (_windowsDriven.Contains(released)) continue;
@@ -1186,9 +987,7 @@ public sealed class KSArmoryMod
     // One camera window on one head. It follows nothing, so it is positioned outright.
     private bool DriveWindow(OpticalHead system, OpticConfig policy, double dt, bool traced)
     {
-        // The window has an X on it. Closing one while a head is driving it leaves this pointing
-        // at a viewport nobody is showing, which draws nothing and reads as the head having
-        // stopped working -- so it is switched off here rather than left to look broken.
+        // The player closed it: switch the director off rather than drive a viewport nobody shows.
         if (!KsaWorld.IsUsableCameraWindow(policy.Viewport))
         {
             policy.Viewport = -1;
@@ -1205,10 +1004,8 @@ public sealed class KSArmoryMod
             trace = _viewTrace % 60 == 0;
         }
 
-        // Everything as this window's own camera draws it. It follows nothing, so it draws every
-        // craft at its simulated position, where the main camera draws those in its craft's
-        // physics bubble at their physics ones: metres apart, by a different amount each frame,
-        // which is a fixed angle of shake and grows with the zoom.
+        // As this window's camera draws it: following nothing, it draws craft at their simulated
+        // positions, metres from the main camera's physics ones.
         double3 anchor = system.PlatformEcl;
         if (system.Platform is { } platform
             && KsaWorld.TryDrawnCentreEcl(platform, out double3 drawnEcl, policy.Viewport))
@@ -1222,18 +1019,13 @@ public sealed class KSArmoryMod
             return false;
         }
 
-        // What happened to the pose since it was last written. Between one write and the render
-        // nothing should move it, so a drift here separates a camera that is being written over
-        // from geometry drawn in somebody else's frame.
+        // Nothing should move the pose between a write and the render; a drift says something did.
         if (trace) ProbeViewDrift(policy.Viewport);
 
-        // Says which head this window is showing. It matters because the window is meant to be
-        // dragged out onto a second monitor, where the title bar is the only thing identifying
-        // it, and four cameras all called "Camera 3" are four of the same window.
+        // On a second monitor the title bar is all that identifies the window.
         KsaWorld.NameViewport(policy.Viewport, ViewportTitle(system));
 
-        // A window has no player's field to borrow, so the magnification is taken against the
-        // engine's default, which is what the window shows at x1.
+        // Against the engine's default field: a window has no player's field to borrow.
         double fovDeg = SightZoom.FovDegreesFor(SightZoom.DefaultFovDeg, policy.Magnification);
 
         // Local "up" at the launcher, which is what the boresight already is — so the horizon
@@ -1273,8 +1065,6 @@ public sealed class KSArmoryMod
             double moved = Vec.Len(eye - _wroteEye);
             double turned = double.RadiansToDegrees(Vec.AngleBetween(_wroteForward, forward));
 
-            // Against the main camera too: if the window is being dragged around by the view the
-            // player is flying, that is where it will show.
             string against = KsaWorld.TryReadViewportPose(KsaWorld.MainViewportIndex,
                                                           out double3 mainEye, out _, out _)
                            ? $" mainSep {Vec.Len(mainEye - eye):F1} m"
@@ -1289,8 +1079,7 @@ public sealed class KSArmoryMod
         _wroteView = true;
     }
 
-    // The head and the craft carrying it. Both, because a window titled by the part alone is
-    // ambiguous the moment two craft in one world carry the same pod.
+    // The craft too: two craft can carry the same pod.
     private static string ViewportTitle(OpticalHead head)
     {
         string part = head.Profile.DisplayName;
@@ -1300,9 +1089,7 @@ public sealed class KSArmoryMod
              : part;
     }
 
-    // What each launcher and dispenser part should weigh now, from what it still carries. Asked of
-    // every one every frame, including those that shed nothing, so one put back -- a reload, a switch
-    // turned off -- has its mass put back too.
+    // Every part every frame, so a reload or a switch turned off puts its mass back too.
     private void WantStoreMass()
     {
         foreach (WeaponSystems.Entry e in _roster!.All)
@@ -1312,8 +1099,7 @@ public sealed class KSArmoryMod
 
             LauncherProfile p = w.Profile;
 
-            // A bus's warheads change the shot every accuracy number is measured on, so they come off
-            // only once a night has shown that costs nothing.
+            // A bus's warheads come off only under ShedWarheadMass: they change every accuracy number.
             double perRound = _icbms?.For(craft) is { } computer && !computer.Config.ShedWarheadMass
                             ? 0.0
                             : p.StoreMassKg;
@@ -1327,17 +1113,8 @@ public sealed class KSArmoryMod
         _countermeasures?.WantStoreMass();
     }
 
-    // Which side each craft fights for, as the panel's flag set it -- the half of IFF a craft's
-    // display name cannot carry.
-    //
-    // Rebuilt rather than kept, because the entries key on live Vehicles and a roster holding a
-    // destroyed one is what KsaWorld's own census note forbids. The cost is one insert per armed
-    // craft per frame, against the Contains-per-declared-team it saves every sensor on every
-    // contact.
-    //
-    // The rank, not the order, is what settles a craft whose installations disagree about their
-    // side: both rosters enumerate in a dictionary's order, and an allegiance
-    // decided by that is an unreproducible bug report.
+    // Rebuilt every frame, since it keys on live Vehicles. The rank, not the dictionary's order,
+    // settles a craft whose installations disagree about their side.
     private void CollectTeams()
     {
         KsaWorld.TeamRoster.Clear();
@@ -1360,19 +1137,9 @@ public sealed class KSArmoryMod
         }
     }
 
-    // Every round any crewed system has in the air, wrapped as contacts so a radar can see them.
-    //
-    // A round carries its shooter's side and its shooter's craft name rather than its own, which
-    // is what makes it inherit that allegiance: a launcher's own salvo reads as friendly to
-    // everything on its team without anything having to know a round from a craft. The side is
-    // carried rather than looked up because a loose system has no craft left to look one up by.
-    //
-    // Called once, here, before any system updates -- so every round in the world is still where
-    // last frame left it and one instant describes the lot. Each is then carried forward by the
-    // step it is about to be integrated across, which puts the sample at the end of this frame:
-    // the phase KSA reports vehicle state at, and the phase every TargetState is defined at. The
-    // error in that carry is the step's gravity and drag, ~1 mm; the error in not doing it is a
-    // whole frame of closing motion, and it lands on whichever system happens to update last.
+    // A round carries its shooter's side and name, carried because a loose system has no craft to
+    // look them up by. Once, before any system updates, and carried forward by the step to the end
+    // of the frame, where KSA reports vehicle state: ~1 mm of error against a frame of closing motion.
     private void CollectAirborne(double step)
     {
         _airborne.Clear();
@@ -1387,13 +1154,7 @@ public sealed class KSArmoryMod
                         KsaWorld.ParentBody(platform), step);
         }
 
-        // And the ones whose launcher has been destroyed. They are still in the air, so they are
-        // still contacts: a round nobody owns can be shot down, and one flying at you does not
-        // become harmless because the aircraft that released it did not make it home.
-        //
-        // No craft to anchor them to -- RoundContact takes a null one and declines to draw. The
-        // name is the launcher's, captured before it went, and it carries the team as well as the
-        // label, so allegiance outlives the craft too.
+        // Loose rounds are still contacts, with no craft to anchor them; RoundContact declines to draw.
         IReadOnlyList<WeaponSystem> loose = _roster.Loose;
         for (int i = 0; i < loose.Count; i++)
         {
@@ -1429,14 +1190,10 @@ public sealed class KSArmoryMod
         return Vec.IsFinite(total) ? total : Vec.Zero;
     }
 
-    // Says how much simulated time the clamp threw away, and how often. OverrunLog holds the
-    // counting and the rate limit; what is left here is reading the sky and choosing the words.
+    // OverrunLog holds the counting and the rate limit.
     private void ReportOverrun(double stepSeconds)
     {
-        // Rounds are the only thing this clamp reaches -- the heads and the ballistic computers
-        // take the step as it comes -- so an empty sky means nothing was left behind, whatever
-        // the clamp discarded. The first frame after a scene load is tens of seconds long and is
-        // always that case.
+        // Only rounds take the clamped step, so an empty sky lost nothing; a scene load is that case.
         bool anyInFlight = false;
         _roster?.FaithfulStep(out anyInFlight);
 
@@ -1452,34 +1209,23 @@ public sealed class KSArmoryMod
         else Log.Debug($"{what} Nothing was in the air across it.");
     }
 
-    // The shortest step any round in the air needs, which is what the world is held down to and
-    // what the integration is clamped at. Nothing flying means nothing to protect.
     private double FaithfulStepInFlight()
     {
         return _roster?.FaithfulStep(out _) ?? Interceptor.MaxFaithfulStep;
     }
 
-    // Keeps the world slow enough to simulate what is in the air, and gives the speed back when
-    // it lands. WarpPolicy holds the reasoning and all of the arithmetic.
     private void ApplyWarpPolicy(double dtSim)
     {
         if (_roster is null) return;
 
-        // Any round anywhere: the step has to be small enough for the busiest system, not for
-        // the one the panel happens to be showing. And small enough for the fussiest round in the
-        // air, which is the one that manoeuvres hardest: a ballistic weapon alongside an
-        // interceptor must not let the interceptor be stepped over.
+        // Any round anywhere, and the fussiest round in the air.
         _roster.FaithfulStep(out bool anyInFlight);
 
-        // The step the world is asked to hold to, not the one a round can survive. Those differ
-        // while a round is in air, and holding the world is the half that keeps the round in step
-        // with it - clamping the round's own step only drops the difference.
+        // The step the world is asked to hold to, not the one a round survives: clamping only drops
+        // the difference.
         double faithful = _roster.WarpTargetStep();
 
-        // A guided burn counts too, and for the same reason a round does: it is a thing being
-        // integrated that a long step ruins. The difference is where the damage lands — a round
-        // stepped over its fuse misses by metres, a burn cut off a step late misses by the
-        // velocity that step would have added, which at warp is kilometres a second.
+        // A guided burn too: cut off a step late at warp, it is kilometres a second out.
         bool anyBurning = false;
         double icbmFaithful = _icbms is null
                                   ? double.MaxValue
@@ -1513,14 +1259,10 @@ public sealed class KSArmoryMod
             case WarpAction.Abandon:
                 foreach (WeaponSystems.Entry e in _roster.All) e.Weapon.AbandonFlight(d.Why);
 
-                // Loose rounds too. More simulated time passed than can be integrated, and a round
-                // whose launcher is gone relates to the vanished world exactly as any other does.
                 IReadOnlyList<WeaponSystem> stranded = _roster.Loose;
                 for (int i = 0; i < stranded.Count; i++) stranded[i].AbandonFlight(d.Why);
 
-                // A burn the world outran cannot be finished honestly: the next cutoff decision is
-                // made on a step worth kilometres a second. Standing it down hands the vehicle back
-                // with an explanation, which beats flying it into the wrong ocean silently.
+                // A burn the world outran is stood down with an explanation.
                 _icbms?.AbandonBurns(d.Why);
                 break;
 

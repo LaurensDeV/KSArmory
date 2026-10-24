@@ -6,19 +6,9 @@ namespace KSArmory;
 
 /// <summary>
 /// The radar scope: a plan-position indicator for one installation's set, and for the infrared
-/// search parts aboard its craft.
-///
-/// <para>A different instrument from the director's map, not a second copy of it. The map is
-/// north-up terrain relief showing what a <em>head</em> can see over the skyline; this is the
-/// <em>set's</em> own picture — craft-centred, polar, no ground — which is the view that answers
-/// "what is out there and on what bearing".</para>
-///
-/// <para>It sits at the head of the Radar tab, above the track list that already reports the
-/// same contacts as numbers — one instrument in two readings rather than two instruments.</para>
-///
-/// <para>Geometry lives in <see cref="ScopeGeometry"/> so the conventions that look right while
-/// being wrong — a mirrored bearing, an inverted Y, slant range — are settled by tests rather than
-/// by looking at it.</para>
+/// search parts aboard its craft. Craft-centred and polar, with no ground.
+/// <para>Geometry lives in <see cref="ScopeGeometry"/>, so a mirrored bearing, an inverted Y or
+/// slant range is caught by tests rather than by eye.</para>
 /// </summary>
 internal partial class Ui
 {
@@ -34,8 +24,7 @@ internal partial class Ui
     private static readonly uint ScopeHostile = ImGui.ColorConvertFloat4ToU32(ScopeHostileInk);
 
 
-    // Opens this system's scope window and shuts anyone else's, so there is one rather than one
-    // per installation stacked on top of each other. Same rule the director's map follows.
+    // Shuts anyone else's: one scope window, as with the director's map.
     private void TakeScope(SystemConfig policy)
     {
         foreach (WeaponSystems.Entry other in _roster.All)
@@ -69,7 +58,6 @@ internal partial class Ui
         if (ImGui.Begin($"{tab} scope — {open.Weapon.Profile.DisplayName}###ksarmory_scope",
                         ref visible))
         {
-            // The same drawing the tab gets. A second copy would be a second thing to keep in step.
             DrawScopeFor(open.Weapon, open.Policy);
         }
 
@@ -77,7 +65,6 @@ internal partial class Ui
         open.Policy.ScopeOpen = visible;
     }
 
-    // The scope, at the head of the Radar tab and above the track list.
     private void DrawScope() => DrawScopeFor(_system, _policy);
 
     private void DrawScopeFor(WeaponSystem system, SystemConfig policy)
@@ -88,9 +75,6 @@ internal partial class Ui
             return;
         }
 
-        // North comes from the body's own axis, the same way the map gets it -- so a bearing on the
-        // scope is a bearing on the ground rather than one measured off the ecliptic, which is 23
-        // degrees out on Earth.
         Celestial? body = KsaWorld.ParentBody(platform);
         MapFrame? frame = body is null
             ? null
@@ -163,7 +147,6 @@ internal partial class Ui
 
         draw.AddCircle(centre, radius, ScopeRim, 64, 1.6f);
 
-        // Cardinal spokes and their letters, so a bearing can be read off without counting.
         ReadOnlySpan<string> marks = ["N", "E", "S", "W"];
         for (int i = 0; i < 4; i++)
         {
@@ -176,27 +159,21 @@ internal partial class Ui
             draw.AddText(new float2(label.X - 4f, label.Y - 7f), ScopeRim, marks[i]);
         }
 
-        // The site itself, dead centre by construction.
         draw.AddCircleFilled(centre, 3f, ScopeSelf);
     }
 
-    // Off the array's own angle rather than a clock, so a halted array draws a halted sweep --
-    // which is the honest reading of "this set is not scanning". One trace per radiating face:
-    // the Pantsir's wedge is double-sided, so it paints two half a turn apart.
+    // Off the array's own angle, not a clock, so a halted array draws a halted sweep. One trace per
+    // radiating face.
     private static void DrawScopeSweep(ImDrawListPtr draw, float2 centre, float radius,
                                        WeaponSystem system, MapFrame frame)
     {
         int faces = system.Profile.SearchRadarFaces;
         if (faces <= 0) return;
 
-        // Where the array's zero mark points, on the ground. The array turns about the craft's own
-        // up, so its bearing is the craft's heading plus however far it has spun.
         if (!TryCraftHeading(system, frame, out double heading)) return;
 
         Span<double> bearings = stackalloc double[ScopeGeometry.MaxSweepFaces];
-        // Traverse plus spin: the array rides the turret, so its angle is both. RadarPose composes
-        // them by adding, and reading the spin alone leaves the sweep behind whenever the turret
-        // has slewed off the craft's centreline.
+        // Traverse plus spin, as RadarPose composes them: the array rides the turret.
         double array = system.Turret.BearingRad + system.RadarSpinRad;
         int count = ScopeGeometry.SweepBearings(heading, array, faces, bearings);
 
@@ -207,8 +184,7 @@ internal partial class Ui
         }
     }
 
-    // The craft's own forward, as a compass bearing. Its +Y is the direction it drives, and the
-    // array's angle is measured from there.
+    // The craft's +Y, which the array's angle is measured from.
     private static bool TryCraftHeading(WeaponSystem system, MapFrame frame, out double bearingRad)
     {
         bearingRad = 0.0;
@@ -234,8 +210,6 @@ internal partial class Ui
     {
         Track? locked = system.LockedTrack;
 
-        // The craft's search parts too: the scope is what the craft can see by bearing, and a
-        // contact only an IRST holds is still out there on that bearing.
         _searchSets.On(system.Platform, _searchScratch);
 
         for (int i = 0; i < system.Radar.Tracks.Count; i++)
@@ -303,8 +277,7 @@ internal partial class Ui
                 draw.AddText(new float2(at.X - 5f, at.Y - 7f), colour, "M");
                 break;
 
-            // Geometry rather than a Greek delta: the font here is not guaranteed to carry one,
-            // and a symbol that renders as a box on somebody else's machine is worse than none.
+            // Geometry, not a Greek delta: the font is not guaranteed to carry one.
             case ScopeGeometry.Blip.Unknown:
                 draw.AddNgon(at, 6f, colour, 3, isLocked ? 2.2f : 1.5f);
                 break;
@@ -321,12 +294,11 @@ internal partial class Ui
                 break;
         }
 
-        // Transmitting: a mark beside the symbol rather than one of its own, because a hostile
-        // that switches its set on must not stop being drawn as a hostile.
+        // Beside the symbol, so a hostile that transmits is still drawn as a hostile.
         if (IsEmitting(track)) draw.AddText(new float2(at.X + 6f, at.Y - 9f), colour, ScopeGeometry.Emitting);
         if (heat) draw.AddText(new float2(at.X + 6f, at.Y + 1f), colour, ScopeGeometry.Heat);
 
-        // Held on the rim: a tick outward, so "out there, that way" is not read as "there".
+        // Held on the rim: a tick outward, so it is not read as being there.
         if (beyond)
         {
             float2 out2 = Face(centre, radius * 1.06f, ScopeGeometry.Plot(bearing, 1.0, 1.0));
@@ -340,16 +312,13 @@ internal partial class Ui
         }
     }
 
-    // A hostile's triangle points the way it is going over the ground, with a thin line running on
-    // past the lock ring. Against the ground under it, never the ecliptic: that velocity carries
-    // the planet's 29.8 km/s and would point every contact the same way.
+    // Its heading over the ground, never the ecliptic, which carries the planet's 29.8 km/s.
     private static void DrawHostile(ImDrawListPtr draw, float2 at, WeaponSystem system, MapFrame frame,
                                     Track track, uint colour, bool isLocked, bool beyond)
     {
         float thickness = isLocked ? 2.2f : 1.5f;
 
-        // Clamped to the rim, the symbol is not where the craft is, so a heading drawn from it
-        // would run along a track the craft is not on.
+        // Clamped to the rim, the symbol is not where the craft is.
         if (beyond || !TryGroundHeading(system, frame, track, out double heading))
         {
             draw.AddNgon(at, 6f, colour, 3, thickness);
@@ -380,9 +349,7 @@ internal partial class Ui
         return true;
     }
 
-    // The track antenna, on the lock. Every set here hands a contact from its search to a tracker
-    // that follows it alone, and this is that handover made visible. Stops at the ring, so the
-    // symbol inside it stays readable.
+    // Stops at the ring, so the symbol inside it stays readable.
     private static void DrawTrackBeam(ImDrawListPtr draw, float2 centre, float2 at, uint colour)
     {
         float dx = at.X - centre.X;
@@ -394,36 +361,25 @@ internal partial class Ui
         draw.AddLine(centre, new float2(centre.X + (dx * reach), centre.Y + (dy * reach)), colour, 1.2f);
     }
 
-    // Symbols mean nothing without a key, and this one has to be on the same screen as the face --
-    // symbology a reader has to remember is symbology they read wrong.
     private static void DrawScopeKey()
     {
-        // Spelled out rather than drawn: the triangle on the face is geometry precisely because the
-        // font may not carry one, so putting a Greek delta in the key would reintroduce the risk it
-        // was avoided for.
+        // Spelled out: the font may not carry a delta.
         ImGui.TextColored(ScopeHostileInk, "triangle pointing, with a line  hostile, and its heading");
         ImGui.TextDisabled("X  friendly or neutral      triangle  unknown side");
         ImGui.TextDisabled($"M  round in the air     {ScopeGeometry.Emitting}  transmitting     {ScopeGeometry.Heat}  held by an infrared search set");
         ImGui.TextDisabled("ringed, with a line  the lock, held by the track radar");
     }
 
-    // Whose it is, as the scope's own IFF sees it -- so the symbol agrees with what fire control
-    // would decide about the same contact rather than being a second opinion.
-    //
-    // Track.Team, never Contact.TeamKey: the latter is a craft *name*, and Classify wants a team.
-    // Handed the name, it answers Unknown for everything but a craft called exactly after its own
-    // side -- a whole scope of unknowns, which is the second opinion this line exists not to be.
-    // The radar has already resolved it.
+    // The IFF fire control uses, on Track.Team. Never Contact.TeamKey: that is a craft name, and
+    // Classify handed a name answers Unknown for nearly everything.
     private static ScopeGeometry.Blip SymbolOf(Track track, SystemConfig policy)
         => ScopeGeometry.SymbolFor(track.Contact is RoundContact, policy.Iff.Classify(track.Team));
 
-    // Read off the same roster the anti-radiation path asks, rather than a second source that
-    // could disagree about who is transmitting.
+    // The roster the anti-radiation path asks, so the two cannot disagree.
     private bool IsEmitting(Track track)
         => track.Contact.Handle is Vehicle craft && _roster.IsEmitting(craft);
 
-    // The body's own frame, so a bearing on the scope is a bearing on the ground rather than one
-    // measured off the ecliptic -- 23 degrees out on Earth. Same query the map's scan makes.
+    // North on the body's axis, not the ecliptic pole: 23 degrees apart on Earth.
     private static MapFrame? ScopeFrame(Celestial body, double3 anchorEcl)
     {
         try
@@ -437,7 +393,6 @@ internal partial class Ui
         }
     }
 
-    // Unit face coordinates to screen pixels.
     private static float2 Face(float2 centre, float radius, float2 unit)
         => new(centre.X + (unit.X * radius), centre.Y + (unit.Y * radius));
 }

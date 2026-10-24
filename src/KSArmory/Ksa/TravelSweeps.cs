@@ -18,10 +18,7 @@ internal sealed class TravelSweeps
 {
     public const int RaysPerFrame = 50;
 
-    /// <summary>
-    /// And no more time than this a frame, since a ray against a big craft costs more than one
-    /// against a small one (ms).
-    /// </summary>
+    /// <summary>Time is capped beside the rays because a ray against a big craft costs more (ms).</summary>
     public const double MsPerFrame = 1.0;
     public const int SettleFrames = 60;
 

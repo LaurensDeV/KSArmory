@@ -5,12 +5,8 @@ using KSA.Rendering.Particles;
 namespace KSArmory;
 
 /// <summary>
-/// The black smoke a gun shell leaves where it burst in the air, hanging there after the flash is
-/// gone. A sky dotted with them is what naval anti-aircraft fire looks like.
-///
-/// <para>Sized off the charge by its cube root, as the blast is, from the 5"/54's 3.3 kg: a 30 mm
-/// shell leaves a puff a third the size that is gone in a few seconds. Anchored to the body the
-/// burst was over and at rest in its frame, so it stays where the shell went off.</para>
+/// The black smoke a gun shell leaves where it burst in the air, sized off the charge by its cube root
+/// from the 5"/54's 3.3 kg, and at rest in the frame of the body it burst over.
 /// </summary>
 internal static class FlakPuff
 {

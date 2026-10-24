@@ -7,20 +7,14 @@ namespace KSArmory;
 /// <summary>
 /// Smoke drawn through the renderer KSA uses for solid-booster plumes.
 ///
-/// <para>It is the best-looking volume in the engine: a raymarched chain of swept capsules eroded
-/// by a Worley volume whose scale follows the capsule's own radius, self-shadowed, lit by the
-/// atmosphere LUTs, and stored in the <b>body-fixed</b> frame so what is drawn stays over the
-/// ground. Segments live twenty minutes and advect through an altitude-sheared wind field.</para>
+/// <para>A raymarched chain of swept capsules, self-shadowed, lit by the atmosphere LUTs and stored in
+/// the <b>body-fixed</b> frame. Segments advect through an altitude-sheared wind field.</para>
 ///
-/// <para><b>One private field is the whole obstacle.</b> <c>VolumetricTrailRenderer</c> is public,
-/// <c>SubmitEmitter</c> is public, <c>PlumeTrailEmitterState</c> is public — but
-/// <c>Program._volumetricTrailRenderer</c> has no accessor, where its sibling exhaust renderer got
-/// one. So the field is reflected once and everything after it is an ordinary call, which keeps all
-/// of it except the field name inside <c>docs/KSA-API-SURFACE.md</c>.</para>
+/// <para><b>One private field is the whole obstacle</b>: <c>Program._volumetricTrailRenderer</c> has
+/// no accessor, so it is reflected once and everything after it is an ordinary public call.</para>
 ///
-/// <para><b>A duty cycle is not in the way.</b> The <c>DutyCycle &gt; 0</c> test that stops a
-/// mod-declared plume is the <c>isFlowing</c> argument, computed where the engine calls this for a
-/// nozzle. A caller passing its own never meets it: no nozzle, no propellant, no thrust.</para>
+/// <para>The <c>DutyCycle &gt; 0</c> test that stops a mod-declared plume is the <c>isFlowing</c>
+/// argument, computed where the engine calls this for a nozzle; a caller passing its own never meets it.</para>
 ///
 /// <para><b>A segment only swells quickly if it is thrown.</b> KSA grows a segment as a jet entraining
 /// air, <c>r = r₀·∛(1 + t/T)</c> with <c>T = r₀ / (3·k·v)</c> on its release speed <c>v</c>; at rest
@@ -53,7 +47,7 @@ internal static class PlumeSmoke
         internal readonly PlumeTrailEmitterState State = new();
     }
 
-    // Core's DefaultPlumeTrail, which is what a booster lays. Twenty minutes is the whole reason a cloud can stand.
+    // Core's DefaultPlumeTrail, which is what a booster lays.
     private const float StockDensity = 1f;
     private const float StockLifetimeSeconds = 1200f;
 
@@ -143,23 +137,12 @@ internal static class PlumeSmoke
         return _renderer;
     }
 
-    // The renderer is shipped tuned for a booster's exhaust, which is a thin shredded trail. A
-    // cloud wants the opposite: dense, lumpy, and lit well enough to read as a volume.
-    //
-    // These are the renderer's own fields and are therefore global -- a booster's contrail gets
-    // them too, and comes out smoother than stock. There is no per-emitter override anywhere in the
-    // system, so that is the trade rather than an oversight.
+    // The renderer's own fields, so global: a booster's contrail gets them too, and there is no
+    // per-emitter override.
     private static void Tune(VolumetricTrailRenderer renderer)
     {
-        // Noise eats up to 80% of the shape by default, which shreds an exhaust nicely and leaves a
-        // cloud looking frayed. Rather less than that gives billows instead of tatters.
-        //
-        // But not much less, and the reason is mass rather than taste. A 0.3 kt surface burst lofts
-        // about 90 t of soil, which at any concentration that reads as visible dust fills a few
-        // hundred million cubic metres of air -- semi-transparently. Drawing the same volume opaque
-        // is what makes a small device look like it made far more smoke than it could have. Erosion
-        // is the only lever the renderer offers for that: there is no density or absorption field,
-        // and trailColor's alpha is unused.
+        // Noise erodes up to 80% of the shape by default; less gives billows instead of tatters.
+        // Erosion is the renderer's only lever on how opaque a volume reads: trailColor's alpha is unused.
         renderer.ErosionMaxDepth = 0.68f;
         renderer.ErosionEdgeSharpness = 0.93f;
 
@@ -167,7 +150,7 @@ internal static class PlumeSmoke
         // inside the billows rather than reach.
         renderer.SelfShadowStepCount = 8;
 
-        // And lift the shadowed side, which is what stops a big volume reading as a silhouette.
+        // Lifts the shadowed side, so a big volume does not read as a silhouette.
         renderer.SkyAmbientBrightness = 4.0f;
     }
 

@@ -11,17 +11,13 @@ namespace KSArmory;
 /// <para><c>Vehicle.UpdateRenderData</c> skips every part of a craft less than a pixel across from the
 /// camera, judged on the craft's own bounding sphere and position. A round's body is a subpart of the
 /// launcher, so it goes with it: on a 1440p screen at a 50° field a craft is under a pixel 1.65 km out for
-/// every metre it is across, and a chase camera riding a 5"/54 shell 3.7 m behind it lost the shell part-way
-/// down a 60 km shot while the mod went on placing it.</para>
+/// every metre it is across.</para>
 ///
 /// <para>A postfix asking the engine's own question again and drawing exactly when it did not, so the
-/// parts are never drawn twice. The rest of a culled launcher is drawn too — at under a pixel, which
-/// costs nothing anyone can see.</para>
+/// parts are never drawn twice. The rest of a culled launcher is drawn too, at under a pixel.</para>
 ///
-/// <para>The target is <c>public virtual</c>, so <see cref="PinTheSignature"/> puts it in
-/// <c>docs/KSA-API-SURFACE.md</c> and a signature change is a build error. A patch that does not apply
-/// leaves the engine's cull, which is today's behaviour. <b>Nothing here may throw</b>: it runs inside
-/// the engine's render preparation.</para>
+/// <para>A patch that does not apply leaves the engine's cull. <b>Nothing here may throw</b>: it runs
+/// inside the engine's render preparation.</para>
 /// </summary>
 internal static class RoundBodyDrawHook
 {
@@ -96,8 +92,7 @@ internal static class RoundBodyDrawHook
         {
             if (_hasRoundsInFlight is not { } hasRounds || viewport.GetCamera() is not { } camera) return;
 
-            // The engine's own test, on the same camera and the same craft: it drew the parts unless this
-            // is under a pixel, so drawing them only then never draws them twice.
+            // The engine's own test, on the same camera and craft, so the parts are never drawn twice.
             double range = camera.GetPositionEgo(__instance).Length();
             double pixels = camera.GetObjectDiameterPixels(2.0 * __instance.MeanRadius, range);
             if (!(pixels < 1.0) || !hasRounds(__instance)) return;
@@ -121,8 +116,7 @@ internal static class RoundBodyDrawHook
         }
     }
 
-    // Never called. It puts the patched method in this assembly's metadata, so docs/KSA-API-SURFACE.md
-    // tracks it and a KSA signature change is a build error here.
+    // Never called: puts the patched method in this assembly's metadata, so a signature change is a build error.
     private static void PinTheSignature(Vehicle vehicle, IViewport viewport, int frameIndex)
         => vehicle.UpdateRenderData(viewport, frameIndex);
 }

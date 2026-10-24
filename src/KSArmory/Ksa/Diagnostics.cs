@@ -4,24 +4,17 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Dumps the system's view of the world to the log.
-///
-/// When nothing appears on screen there are two candidate explanations - the mod is not seeing
-/// the world, or it is seeing it and failing to draw. This prints enough of both sides to tell
-/// which, including the reason each nearby vehicle was rejected by the radar.
+/// Dumps the system's view of the world to the log: enough to tell not seeing the world from failing
+/// to draw it, and why the radar rejected each nearby vehicle.
 /// </summary>
 internal static class Diagnostics
 {
     private static readonly List<Vehicle> Scratch = [];
 
-    // Next dump due, per system. Every system feeds this its own clock, which starts at zero when
-    // that system is crewed, so one shared deadline is always tripped by whichever was crewed
-    // first and pushed out past every other system's clock before any of them reach it. The others
-    // then never dump, and nothing says so. The log is the mod's only debugging channel, and the
-    // system worth dumping is rarely the oldest one.
+    // Per system, because each feeds its own clock from when it was crewed: one shared deadline is
+    // pushed past every younger system's clock, and they never dump.
     private static readonly Dictionary<IWeaponSystemView, double> NextDumpAt = [];
 
-    /// <summary>Emit a dump every <paramref name="intervalSeconds"/> while enabled.</summary>
     public static void Tick(IWeaponSystemView system, SystemConfig policy,
                             double clock, double intervalSeconds)
     {
@@ -145,10 +138,8 @@ internal static class Diagnostics
             {
                 double spread = _stepMax - _stepMin;
 
-                // Samples, not frames: this is fed once per system per frame, so two crewed
-                // systems double it. And the dump interval is simulated time, so at 0.01x the
-                // window is a hundred times longer in wall clock and can span a speed change,
-                // which makes the spread meaningless. The line only compares at one speed.
+                // Samples, not frames: fed once per system per frame. The window is simulated time,
+                // so it can span a speed change, and the spread compares only at one speed.
                 Log.Debug($"  step    = {_stepMin * 1000.0:F2}..{_stepMax * 1000.0:F2} ms over "
                          + $"{_stepSamples} samples, spread {spread * 1000.0:F2} ms "
                          + $"({(_stepMax > 0.0 ? spread / _stepMax * 100.0 : 0.0):F1}%), "
@@ -334,16 +325,9 @@ internal static class Diagnostics
         }
     }
 
-    // What KSA's attitude tracker has to work with on the craft being flown, and the arm that
-    // decides which nozzles it may work with at all.
-    //
-    // ThrusterController enrols a nozzle in a rotation axis on dot(thrust, normalize(axis x r))
-    // over 0.1, where r runs from the *vehicle's* centre of mass -- not the part's. So a ring
-    // sized to be a couple about its own part stops being one the moment that part is a stage on
-    // something bigger, and past a long enough arm the nozzles meant to steer fall under the
-    // threshold and are dropped in favour of whatever fires across it. tools/model/checkring.py
-    // cannot see this: it measures against the part's declared mass seat, which is the separated
-    // case. Nothing else reports the stacked one, which is why this is here.
+    // ThrusterController enrols a nozzle in a rotation axis on dot(thrust, normalize(axis x r)) over
+    // 0.1, with r from the vehicle's centre of mass, so a ring's arm changes once it is stacked.
+    // tools/model/checkring.py measures only the separated case; this reports the stacked one.
     private static void DumpAttitudeControl(IWeaponSystemView system)
     {
         if (system.Platform is not { } craft) return;
@@ -401,13 +385,8 @@ internal static class Diagnostics
         }
     }
 
-    // A wobble is a shape, not a magnitude, and the periodic dump is far too slow to see one. This
-    // samples the craft's own body rates every frame it is asked, so the trace says whether what is
-    // happening is one lurch, a decaying ring, or a sustained oscillation -- and at what rate,
-    // which is what separates a structural mode from a control loop chasing itself.
-    //
-    // Rate-limited by movement rather than by a clock: it prints only while something is actually
-    // turning, so a craft sitting still costs a comparison and writes nothing.
+    // Body rates every frame, since a wobble is a shape the periodic dump is too slow to see. Prints
+    // only while something is turning.
     private static double _quietFor;
 
     public static void SampleBodyRates(Vehicle craft, double dt)

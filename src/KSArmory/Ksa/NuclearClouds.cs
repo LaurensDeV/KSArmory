@@ -7,13 +7,12 @@ namespace KSArmory;
 /// The mushroom clouds standing in the world, and what draws them.
 ///
 /// <para>This holds where each one is and how old it is; <see cref="MushroomCloud"/> says what
-/// shape that age makes, and <see cref="CloudPass"/> raymarches it. Nothing here draws the column
-/// itself — what this class still draws directly is the fireball over it.</para>
+/// shape that age makes, and <see cref="CloudPass"/> raymarches it. This class draws only the
+/// fireball's light.</para>
 ///
 /// <para><b>Everything is body-fixed.</b> The burst is converted to the body's rotating frame once,
 /// and every position after that is an offset in it — so the cloud stands over the ground it was
-/// made on, through the planet's spin and its 29.8 km/s around the star. Held in the ecliptic it
-/// would be left behind within a frame, which is the same trap the bomb sight fell into.</para>
+/// made on, through the planet's spin and its 29.8 km/s around the star.</para>
 ///
 /// <para>Advanced on <b>simulated</b> time. A cloud is a thing in the world rather than a viewing
 /// duration, so it freezes with a pause and slows with the panel's slow-motion.</para>
@@ -45,9 +44,7 @@ internal static class NuclearClouds
         public double Dryness;
         public MushroomCloud.Shape Shape => MushroomCloud.At(ChargeKg, Age, Height, AirRatio, Front);
 
-        // Which way this one leans. Fixed per cloud rather than per frame, or the column would
-        // wander; and per cloud rather than global, so two bursts in sight of each other do not
-        // lean identically.
+        // Which way this one leans, fixed per cloud so the column does not wander.
         public required double3 Downwind;
 
         // Lifted off the sea rather than the ground, so the column is spray rather than dirt.
@@ -139,19 +136,12 @@ internal static class NuclearClouds
 
     private static readonly List<Cloud> _clouds = [];
 
-    // Which way the wind aloft blows at a place, in the body's own frame. Off where the burst is
-    // rather than off a clock, so the same crater leans the same way every time -- and two bursts
-    // within sight of each other land on nearly the same bearing, which is right: they stand in
-    // one wind.
-    //
-    // ONE RULE for the column and for the ground under it. The cloud leans downwind and sails
-    // downwind, and what falls out of it lands downwind; computed twice they could disagree, and a
-    // plume at right angles to the column it fell from is the plainest possible tell.
+    // Which way the wind aloft blows at a place, in the body's own frame, off where the burst is
+    // rather than a clock. One rule for the column and the fallout under it, so they cannot disagree.
     private static double3 DownwindAt(double3 burstCcf)
     {
-        // The vertical is the way out from the centre. The other two only have to be perpendicular
-        // to it: the shape has an axis of symmetry, so which way "east" points is not a question
-        // anybody has to answer.
+        // The vertical is out from the centre; the other two only have to be perpendicular to it,
+        // since the shape is symmetric about its axis.
         double3 up = Vec.Unit(burstCcf);
         double3 east = Vec.Unit(Vec.AnyPerpendicular(up));
         double3 north = Vec.Unit(Vec.Cross(up, east));
@@ -162,10 +152,8 @@ internal static class NuclearClouds
     }
 
 
-    // Every burst still burning, which is NOT the same list as the clouds. A burst with no air still
-    // flashes -- the device's own vapour, for half a second (MushroomCloud.VacuumFlashSeconds) -- so an
-    // airless burst belongs here while it grows no column at all. Kept separate rather than folded
-    // into _clouds, because the pass draws that list.
+    // Every burst still burning, not the same list as the clouds: an airless burst flashes for
+    // MushroomCloud.VacuumFlashSeconds and grows no column.
     private sealed class Burning
     {
         public required Celestial Body;
@@ -184,9 +172,7 @@ internal static class NuclearClouds
 
     private static readonly List<Burning> _burning = [];
 
-    // The layer a burst high over the atmosphere lit, which outlasts its fireball and its debris by
-    // minutes: XRayGlow. A fourth list for the reason the others are separate -- it lives on its own
-    // clock, and the pass draws it on its own dispatch.
+    // The layer a burst high over the atmosphere lit (XRayGlow): its own clock and its own dispatch.
     private sealed class Glow
     {
         public required Celestial Body;
@@ -395,10 +381,7 @@ internal static class NuclearClouds
         }
     }
 
-    // The ground each burst burned. A third list rather than a field on either of the others,
-    // because it outlives both: a cloud is gone in under ten minutes and a fireball in two, and a crater is
-    // not. It is also the only one an airless burst reaches, which is the case that most wants it
-    // -- there is no atmosphere out there to absorb the pulse.
+    // The ground each burst burned, its own list because it outlives the cloud and the fireball.
     private sealed class Scorch
     {
         public required Celestial Body;
@@ -426,20 +409,16 @@ internal static class NuclearClouds
 
     private static readonly List<Scorch> _scorches = [];
 
-    // How many marks stand at once. Bounded for a different reason from MaxClouds -- a cloud
-    // expires and that list drains on its own, where this one never does -- but not bounded LOW:
-    // a mark is dispatched over its own screen footprint rather than over the whole screen, so
-    // what each one costs for the rest of the session is a few per cent of a full-screen pass. The
-    // oldest is dropped, because permanent and unbounded is a leak.
+    // How many marks stand at once, oldest dropped: unlike a cloud a mark never expires. Not low,
+    // because a mark is dispatched over its own screen footprint.
     private const int MaxScorches = 12;
 
     /// <summary>How many patches of burned ground stand. Bounds <see cref="TryScorch"/>.</summary>
     public static int ScorchCount => _scorches.Count;
 
     /// <summary>
-    /// One of them: where it is now, and how wide. Under air its radius is the warhead's own lethal
-    /// radius, so the stain is the reach the panel, the overlay and the blast sweep already quote;
-    /// in vacuum there is no blast, and it is how far the radiation reaches instead.
+    /// One of them: where it is now, and how wide. Under air its radius is the warhead's lethal
+    /// radius; in vacuum, how far the radiation reaches.
     /// </summary>
     public static bool TryScorch(int index, out double3 centreEcl, out double radiusMetres,
                                  out double3 downwindEcl, out double overSeaMetres, out bool airless,
@@ -477,10 +456,7 @@ internal static class NuclearClouds
         }
     }
 
-    // A burst inside a mark that is already there is the same mark, for the reason the clouds
-    // merge: six warheads of a bus land 9 mm apart, and six coincident stains are six dispatches
-    // over one patch of ground. Charges add, so the merged mark is the one the combined yield
-    // would have made rather than the largest single.
+    // A burst inside a mark already there is the same mark, as the clouds merge; charges add.
     private static void Burn(Celestial body, double3 burstCcf, double chargeKg, bool airless,
                              double coupling = 1.0)
     {
@@ -572,9 +548,8 @@ internal static class NuclearClouds
     /// <summary>
     /// Where one of <see cref="TryBurning"/>'s fireballs is now: at the cap's centre, where the
     /// cloud pass draws its fire, for a burst that grows a cap; at the burst for one that does not.
-    /// What the glare round the ball is centred on -- centred on the burst instead, it hung on the
-    /// ground under a cloud that had risen away from it. With its radius, so the glare can ask how
-    /// much of the ball is hidden.
+    /// The glare round the ball is centred here. With its radius, so the glare can ask how much of
+    /// the ball is hidden.
     /// </summary>
     public static bool TryBall(int index, out double3 ballEcl, out double radiusMetres)
     {
@@ -607,10 +582,8 @@ internal static class NuclearClouds
     public static double BurningAge(int index)
         => index >= 0 && index < _burning.Count ? _burning[index].Age : double.NaN;
 
-    // The newest burst worth pointing a camera at, which is NOT the newest cloud: an airless burst
-    // grows no column and is still the thing to watch. Body-fixed like the clouds, and flat rather
-    // than a list because nothing about it advances -- how big a burst draws is settled when it
-    // happens.
+    // The newest burst worth pointing a camera at, not the newest cloud: an airless burst grows no
+    // column. Body-fixed like the clouds.
     private static (Celestial Body, double3 BurstCcf, double3 Up, AirlessBurst.Extent Drawn)? _watch;
 
     /// <summary>How many clouds are standing. Diagnostic.</summary>
@@ -805,11 +778,8 @@ internal static class NuclearClouds
     /// The newest burst, as a camera has to frame it: where it is, which way is up there, how far
     /// across the whole thing reaches and how high its top stands.
     ///
-    /// <para>Separate from <see cref="TryNewest"/> because the two answer different questions. That
-    /// one is the shader's, and there is nothing for it to march on an airless body; this one is
-    /// the camera's, and a dust dome is every bit as much a thing to look at as a column. The two
-    /// numbers are both needed because a dome is four times wider than it is tall, so a view framed
-    /// on height alone stands far too close.</para>
+    /// <para>Separate from <see cref="TryNewest"/>, the shader's, which has nothing to march on an
+    /// airless body. Both width and height, because a dust dome is four times wider than it is tall.</para>
     /// </summary>
     public static bool TryWatch(out double3 burstEcl, out double3 up,
                                 out double radiusMetres, out double topMetres,
@@ -847,12 +817,8 @@ internal static class NuclearClouds
     /// <summary>
     /// Starts whatever a burst leaves standing, if the charge is big enough to have left anything.
     ///
-    /// <para>Silent for a conventional warhead: a 500 lb bomb does not grow a mushroom, and
-    /// deciding that here rather than at the call site keeps every caller from having to know.</para>
-    ///
-    /// <para><b>A cloud is only one of the two answers.</b> On a body with no air this hands over
-    /// to <see cref="BurstEjecta"/>, which throws dust instead — so a burst still has one entry
-    /// point and no caller has to know which kind of body it happened over.</para>
+    /// <para>Silent for a conventional warhead. On a body with no air this hands over to
+    /// <see cref="BurstEjecta"/>.</para>
     /// </summary>
     /// <param name="burstHeight">
     /// How far over the ground or the sea it went off, where the caller measured it better than a
@@ -900,12 +866,9 @@ internal static class NuclearClouds
                                 chargeKg, MushroomCloud.GroundCoupling(kt, overGround), hasAir,
                                 hasAir && MushroomCloud.IsThin(airRatio));
 
-            // A burst inside one still going off is the SAME EVENT (MushroomCloud.IsTheSameBurst): six
-            // warheads of a bus land metres apart in one frame, and the truth is one burst of the combined
-            // yield. Its yield is added to everything that burst started -- the fireball's light, the glow,
-            // the aurora and the cloud -- rather than each being started again: six of each drew six glows,
-            // six curtain pairs and six lights over one spot. Only a burst still going off merges; a later
-            // bomb on the same spot is its own burst.
+            // A burst inside one still going off is the same event (MushroomCloud.IsTheSameBurst): its
+            // yield is added to the fireball's light, the glow, the aurora and the cloud that burst
+            // started. A later bomb on the same spot is its own burst.
             if (JoinTheSameBurst(body, burstCcf, chargeKg))
             {
                 if (setting == BurstSetting.Land && coupling > 0.01) Burn(body, groundCcf, chargeKg, !hasAir, coupling);
@@ -965,9 +928,7 @@ internal static class NuclearClouds
             }
 
             // Deep enough under the sea that the fireball never breaks the surface, there is no
-            // mushroom: the column is air rising through air, and there is none down there. Said
-            // once, because an empty sky over a burst is otherwise indistinguishable from a cloud
-            // that failed to draw.
+            // mushroom. Logged, so it is not mistaken for a cloud that failed to draw.
             if (setting == BurstSetting.Underwater)
             {
                 Log.Info($"nuclear burst under the sea on {body.Id}: its fireball never reaches the "
@@ -1008,10 +969,8 @@ internal static class NuclearClouds
                      + $"{coupling:P0} a surface burst, dust column {MushroomCloud.StemShare(kt, height):P0} "
                      + $"of a surface burst's stem (fallout-safe from {MushroomCloud.FalloutSafeHeight(kt):F0} m)");
 
-            // No particle collar round the foot. The raymarch flares the stem into the skirt itself,
-            // lit like the column above it and hidden by weather in front of it -- where particles
-            // are drawn after KSA's clouds and never tested against them, so a collar would sit on
-            // top of a deck the column had gone behind, and at high yields come out black besides.
+            // No particle collar round the foot: the raymarch draws the skirt, and particles are drawn
+            // after KSA's clouds without being tested against them.
 
             // And the condensation shell over the first couple of seconds, which is why a
             // photograph of a burst that early is a white dome rather than a ball of fire.
@@ -1024,13 +983,10 @@ internal static class NuclearClouds
                                                        MushroomCloud.DrawnCapAcross(kt) * 0.5),
                                               MushroomCloud.TallestDrawn(kt, height, airRatio)));
 
-            // At its largest, not at age zero: the ramp is at 60% there, and a diagnostic that
-            // reports the smallest the thing ever is sends the next reader looking in the wrong place.
+            // At its largest, not at age zero, where the ramp is at 60%.
             MushroomCloud.Flash peak = MushroomCloud.FlashAt(chargeKg, MushroomCloud.GrowthSeconds(kt, airRatio), height, airRatio);
 
-            // What is drawn, with the law beside it: they differ by MushroomCloud.DrawnScale, and a
-            // diagnostic reporting only the law sends the next reader to the wrong place when the
-            // thing on screen is not the size it says.
+            // What is drawn, with the law beside it: they differ by MushroomCloud.DrawnScale.
             double burstAlt = Vec.Len(burstCcf) - body.MeanRadius;
 
             Log.Info($"nuclear cloud: {kt:F2} kt at {burstAlt:F0} m altitude, rising to "
@@ -1051,7 +1007,7 @@ internal static class NuclearClouds
         }
     }
 
-    /// <summary>Advances every cloud and lays this frame's smoke.</summary>
+    /// <summary>Advances every cloud, fireball, glow, wave and aurora.</summary>
     public static void Update(double dtSim)
     {
         if (!double.IsFinite(dtSim)) return;
@@ -1115,11 +1071,8 @@ internal static class NuclearClouds
 
             lit = true;
 
-            // THE BALL IS THE CAP. A fireball cools, goes buoyant, rises, and the toroidal
-            // circulation the raymarch draws begins inside it -- there is one object, and the
-            // glowing core and the opaque cloud around it are two ages of it rather than two
-            // things. Drawn on a law of its own the ball stops a hundred metres up while the cap
-            // it has become climbs away without it, and the ember then sits in the stem.
+            // The ball is the cap: one object at two ages. On a law of its own the ball stops while
+            // the cap it has become climbs away, leaving the ember in the stem.
             double3 riseCcf = cloud.Up * shape.CapCentre;
 
             Fireball.Draw(cloud.Body.GetPositionEcl()

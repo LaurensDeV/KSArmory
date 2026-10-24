@@ -4,15 +4,9 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
-/// Brackets around what the chased round is flying at.
-///
-/// <para>Without them the target is a pixel until the last few frames, which leaves the ride
-/// looking like a camera pointed at empty sky. <see cref="Reticle"/> already floors the box at a
-/// minimum size for exactly that reason, so this is only the wiring.</para>
-///
-/// <para>Drawn as an ImGui overlay rather than with world-space lines: a wireframe drawn in the
-/// world shrinks with the target, which is the problem being solved, and the gizmo renderer only
-/// runs for the main viewport anyway.</para>
+/// Brackets around what the chased round is flying at, which is otherwise a pixel until the last frames.
+/// <para>An ImGui overlay, not world-space lines: those shrink with the target, and the gizmo renderer
+/// runs only for the main viewport.</para>
 /// </summary>
 internal static class ChaseHud
 {
@@ -38,10 +32,8 @@ internal static class ChaseHud
     {
         if (chase.Round is not { } round) return;
 
-        // Whatever it is flying at, not only a craft: a designated place on the ground is what a
-        // bomb arrives at, and refusing one leaves the ride with no bracket and no range at all --
-        // which is the picture of empty sky this exists to prevent. Read off the camera rather
-        // than resolved again, so the bracket is around the point it was aimed at.
+        // Any aim, a place on the ground included, read off the camera rather than resolved again so
+        // the bracket is around the point the camera was aimed at.
         if (chase.Aim is not { } aim) return;
 
         int viewport = KsaWorld.MainViewportIndex;
@@ -54,9 +46,8 @@ internal static class ChaseHud
 
         double range = Vec.Len(at - round.PositionEcl);
 
-        // Sized by how far through the flight the round is, not by how large the target looks.
-        // Apparent size makes a big craft start big and a kitten stay small -- the brackets then
-        // report what is being shot at, when what should be read off them is how close it is.
+        // Sized by how far through the flight the round is, not by the target's apparent size, so
+        // the brackets read as how close it is rather than how big the target is.
         float half = BracketHalfSize(chase.Closing, height);
 
         // Closed brackets, and no ranging ladder: the range is written beside it in metres, so a
@@ -76,8 +67,6 @@ internal static class ChaseHud
                 draw.AddLine(_strokes[i].A, _strokes[i].B, Target, 1.6f);
             }
 
-            // The number that makes the closing legible: without it the last second reads as the
-            // camera moving rather than the round arriving.
             draw.AddText(new float2(centre.X + half + 8f, centre.Y - 6f), Target, $"{range:F0} m");
         }
 

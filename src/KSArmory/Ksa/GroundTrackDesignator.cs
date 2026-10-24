@@ -4,23 +4,13 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
-/// Clicking KSA's ground-track map to put the warheads somewhere.
+/// Clicking KSA's ground-track map to put the warheads somewhere. Decided through
+/// <see cref="TargetEdit.ClickDoes"/> and <see cref="ReachDisplay.Verdict"/>, as
+/// <see cref="SiteDesignator"/> is, so a click on the map and one on the ground refuse alike.
 ///
-/// <para>The same decision as <see cref="SiteDesignator"/>, which takes a click on the world:
-/// <see cref="TargetEdit.ClickDoes"/> says whether a click designates or adds, and
-/// <see cref="ReachDisplay.Verdict"/> refuses one the bus could not divert to. Sharing those
-/// rather than restating them is what makes a click on the map and a click on the ground behave
-/// identically, including the refusals.</para>
-///
-/// <para><b>A release, not a press.</b> The map is an invisible button KSA drags and zooms with,
-/// so a press is the start of a pan as often as it is a click. The gesture is a release near where
-/// the press landed; anything further is the operator having moved the map, and designating there
-/// would put a warhead wherever the drag happened to end.</para>
-///
-/// <para><b>And it needs no arming.</b> <c>DesignateByClicking</c> gates the <em>world</em>
-/// designator, where a click already means other things and a mode is what separates them. A map
-/// window is the tool: there is nothing else a click on it could be for, so a switch there is a
-/// step that teaches nobody anything and leaves the window looking broken until it is found.</para>
+/// <para>The gesture is a release near its press, because the map is the invisible button KSA
+/// pans with. It needs no arming: <c>DesignateByClicking</c> gates only the world designator,
+/// where a click already means other things.</para>
 /// </summary>
 internal static class GroundTrackDesignator
 {
@@ -51,8 +41,7 @@ internal static class GroundTrackDesignator
             _pressed = mouse;
         }
 
-        // Right-click takes a target away whatever it holds. Shift-clicking a warhead off at a
-        // time is how it was done, and on a target holding all seven that is eight gestures.
+        // Right-click takes a target away whatever it holds, in one gesture.
         if (over && mark >= 0 && ImGui.IsMouseReleased(ImGuiMouseButton.Right))
         {
             Drop(computer, mark);
@@ -137,10 +126,8 @@ internal static class GroundTrackDesignator
 
         ReachVerdict verdict = Verdict(computer, site);
 
-        // Said at Debug either way. The screen is already answering -- the cursor's line says why
-        // a click will be refused before it is made -- but "I clicked the map and nothing
-        // happened" is the report this feature will actually get, and a verdict in the log is the
-        // difference between a refusal and a gesture that never reached here at all.
+        // Logged although the cursor line already says it: it tells a refusal from a click that
+        // never reached here.
         if (!ReachDisplay.Takes(verdict))
         {
             Log.Debug($"ground-track map: click on {site.Coordinates} refused, {verdict}");
@@ -186,9 +173,7 @@ internal static class GroundTrackDesignator
         return computer.Reach.Verdict(click, onTheBody: true, along, cross);
     }
 
-    // Beside the cursor rather than on the panel, for the reason SiteDesignator says it there: a
-    // refusal an operator has to look away to read is one they find out about by clicking and
-    // watching nothing happen.
+    // Beside the cursor rather than on the panel, so a refusal is read before the click.
     private static void Say(IcbmComputer computer, float2 mouse, double lon, double lat, int mark)
     {
         ImDrawListPtr list = ImGui.GetWindowDrawList();

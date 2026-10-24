@@ -5,19 +5,10 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Pick a craft up with one click and set it down with the next — a development tool for laying
-/// out a test range without flying anything into place.
-///
-/// <para>Placement goes through <c>Vehicle.TeleportToLocation</c>, which is how the game moves a
-/// craft itself: it builds the kinematic state from the craft's bounding box, so the hull arrives
-/// resting on the terrain rather than half inside it. Writing a position directly would put the
-/// craft's origin at the point and leave the rest wherever that happens to be.</para>
-///
-/// <para>The craft does <em>not</em> hover along under the cursor while held. Placement is a
-/// buffered engine event, so following the pointer would mean re-initialising the vehicle's
-/// kinematic state sixty times a second, with its velocity and orbit rebuilt on every one. What is
-/// held is the <em>choice</em>: the craft stays where it is, the ground under the cursor is marked,
-/// and the second click moves it once.</para>
+/// Pick a craft up with one click and set it down with the next, to lay out a test range.
+/// <para>Placed through <c>Vehicle.TeleportToLocation</c>, which builds the state from the bounding box
+/// so the hull rests on the terrain. A held craft stays put until the second click: placement is a
+/// buffered engine event, and following the pointer would rebuild its state and orbit every frame.</para>
 /// </summary>
 internal sealed class CraftMover
 {
@@ -60,9 +51,7 @@ internal sealed class CraftMover
         _hovered = null;
     }
 
-    /// <summary>
-    /// One frame of the tool. Does nothing at all while switched off, including reading the mouse.
-    /// </summary>
+    /// <summary>Does nothing while switched off, not even reading the mouse.</summary>
     public void Update(Config config)
     {
         if (!config.MoveCraftWithMouse)
@@ -89,16 +78,14 @@ internal sealed class CraftMover
                             + $"cursor={where.X:F0},{where.Y:F0} held={_held is not null}");
         }
 
-        // The panel and the marker labels are windows; a click meant for one of them is not a
-        // click on the world behind it.
+        // A click on the panel or a marker label is not a click on the world behind it.
         if (wantCapture)
         {
             _hovered = null;
             return;
         }
 
-        // Worked out every frame, not only on click: clicking blind and finding out afterwards
-        // which craft was nearest is not an interaction, it is a guess.
+        // Every frame, not only on click, so the hover ring shows what a click would take.
         _hovered = UnderCursor();
 
         if (!clicked) return;
@@ -188,12 +175,8 @@ internal sealed class CraftMover
         _held = null;
     }
 
-    // Where the next click would put the held craft.
-    //
-    // A craft under the pointer answers with its own footing rather than with the ray: a ray
-    // through a vehicle's middle carries on and meets the ground behind it, so aiming at one and
-    // taking the ray lands a vehicle-height's worth of parallax past it. Aiming at the held craft
-    // itself therefore leaves it exactly where it is, which is what clicking it twice should do.
+    // A craft under the pointer answers with its own footing: the ray through its middle meets the
+    // ground behind it, a vehicle-height of parallax past it.
     private bool TryTarget(out double3 groundEcl, out double latitudeDeg, out double longitudeDeg,
                            out string bodyName)
     {
@@ -215,8 +198,6 @@ internal sealed class CraftMover
     {
         if (!config.MoveCraftWithMouse) return;
 
-        // Nothing held: ring whatever the pointer is over, so the click is aimed rather than
-        // taken on trust.
         if (_held is null)
         {
             if (_hovered is not { } candidate || !KsaWorld.IsAlive(candidate)) return;
@@ -233,8 +214,6 @@ internal sealed class CraftMover
         double3 heldEcl = KsaWorld.PositionEcl(_held);
         if (!KsaWorld.BeginDraw(_held, heldEcl)) return;
 
-        // A ring around its feet, so it is obvious which one the next click moves without the
-        // marker sitting over the craft it is marking.
         DrawFootprint(_held, heldEcl, HeldColour);
 
         if (!TryTarget(out double3 groundEcl, out _, out _, out _)) return;

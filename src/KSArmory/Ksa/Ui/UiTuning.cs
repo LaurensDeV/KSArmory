@@ -3,20 +3,15 @@ using Brutal.ImGuiApi;
 namespace KSArmory;
 
 /// <summary>
-/// The panes that change how a system behaves: which side it is on, and the sensor, guidance and
-/// warhead numbers.
-///
-/// <para>The distinction the sliders keep making: IFF is per system, so it edits
-/// <c>_policy</c>; weapon performance belongs to the profiles, so it edits those and every system
-/// of that type feels it. See <see cref="Config"/> for why.</para>
+/// The sensor, guidance and warhead numbers. They edit the shared profiles, so every system running
+/// that loadout feels them; a system's own choices are on its component rows.
 /// </summary>
 internal sealed partial class Ui
 {
     private const float TsarBombaKg = 50_000_000_000f;
 
-    // A charge spans thirteen orders of magnitude, so the slider moves along its logarithm and the
-    // label says it in whichever of kg, t, kt or Mt reads. Typed input is off because what it would
-    // edit is the logarithm.
+    // Logarithmic: a charge spans thirteen orders of magnitude. Typed input is off because it
+    // would edit the logarithm.
     private static bool ChargeSlider(string label, ref float kg, float minKg, float maxKg)
     {
         float lo = MathF.Log10(minKg);
@@ -34,9 +29,7 @@ internal sealed partial class Ui
         return true;
     }
 
-    // Rounds this system throws that the guidance node does not already tune. Sliders enumerated
-    // by hand only ever reach the first weapon's round, which leaves every field on a second
-    // armament's round unreachable from the panel.
+    // Rounds the guidance node does not already tune: a second armament's round is otherwise unreachable.
     private void DrawOtherArmamentRounds()
     {
         IReadOnlyList<Armament> armaments = _fit.Armaments;
@@ -80,11 +73,8 @@ internal sealed partial class Ui
 
     private void DrawTuning()
     {
-        // Said once, at the top, and it is the most surprising thing about this tab. These
-        // sliders edit the shared Arsenal profiles, so they reach every system in the world
-        // running this loadout -- which is the intent, and is invisible from a window titled
-        // with one craft's name. It is also why they are not on the component rows: a number
-        // under a named part on a named craft reads as belonging to that one.
+        // Said at the top: the shared Catalogue profiles are edited, which a window titled with one
+        // craft's name does not suggest.
         ImGui.TextDisabled($"What a {_profile.DisplayName} is, not what this one is doing.");
         ImGui.TextDisabled("Changes reach every system in the world running it.");
         ImGui.Separator();
@@ -102,8 +92,7 @@ internal sealed partial class Ui
             return;
         }
 
-        // Named for the set, because a seeker head or a bomb sight is not a radar. The id stays
-        // fixed so the fold keeps its state when the selected weapon changes.
+        // A fixed id, so the fold keeps its state when the selected weapon changes.
         if (!ImGui.TreeNode($"{_sensor.DisplayName}###sensortuning")) return;
 
         ImGui.SliderFloat("Range (m)", ref _sensor.Range, 500f, 40000f);
@@ -136,9 +125,7 @@ internal sealed partial class Ui
             + "sky, because warm ground is what it has to be picked out of. 1 is none.");
     }
 
-    // What the set can tell targets apart by. All three are off at zero, which is where they ship:
-    // together they are the substrate chaff needs, and separately each is a real capability with a
-    // real cost the player should be choosing rather than inheriting.
+    // All three are off at zero, where they ship: each is a capability with a real cost.
     private void DrawDiscriminationControls()
     {
         ImGui.SliderFloat("Reference RCS (m2)", ref _sensor.ReferenceCrossSectionM2, 0f, 2000f);
@@ -148,8 +135,7 @@ internal sealed partial class Ui
 
         if (_sensor.ReferenceCrossSectionM2 > 0f)
         {
-            // Shown because the fourth-root law is not something anyone should have to take on
-            // trust while dragging a slider: it is what makes a small target reachable at all.
+            // Shows the fourth-root law at work.
             double small = ThreatModel.DetectionRange(
                 _sensor, new ThreatModel.ContactSignature(1.0, double.PositiveInfinity));
 
@@ -180,9 +166,7 @@ internal sealed partial class Ui
         }
     }
 
-    // What the world hides from this set. The sample count is the cost knob and is shown as one:
-    // every sample is a height-map fetch spent once per contact per scan, and nobody has measured
-    // what that costs in a frame.
+    // Every sample is a height-map fetch per contact per scan, and its frame cost is unmeasured.
     private void DrawHorizonControls()
     {
         ImGui.Checkbox("Horizon masking", ref _sensor.HorizonMasking);
@@ -201,12 +185,8 @@ internal sealed partial class Ui
         }
     }
 
-    // The drives, each node existing only if the system has that gear. A rate slider for an axis
-    // that does not turn is indistinguishable from one the engine is refusing.
-    //
-    // Rates only. Whether *this* mount tracks, spins or is aimed by hand is one installation's own
-    // choice and lives on its launcher's component row: a per-system control here would sit under a
-    // banner promising it reaches every Pantsir in the world, which it would not.
+    // Rates only, and only for gear the system has: a slider for an axis that does not turn looks
+    // like one the engine is refusing.
     private void DrawDriveNodes()
     {
         WeaponFit fit = _fit;
@@ -265,9 +245,7 @@ internal sealed partial class Ui
     {
         if (ImGui.TreeNode("Guidance"))
         {
-            // Steering, boost and the seeker are only read by rounds the guidance model flies.
-            // A ballistic round ignores every one of them, and a slider that changes nothing is
-            // worse than no slider: it reads as the setting having no effect.
+            // A ballistic round reads none of these.
             if (_fit.Steers)
             {
                 // Every steering round uses these two, a tail kit on a falling store included.
@@ -282,8 +260,7 @@ internal sealed partial class Ui
                 ImGui.SliderFloat("Fin deflection (deg)", ref _munition.FinDeflectionDeg, 0f, 30f);
                 Tip("Drawn only; it steers nothing. It is set larger than life, or the blades do not read.");
 
-                // A seeker to point: none exists on a store that is released and then falls, so a
-                // bomb rack is not offered one.
+                // A released store has no seeker.
                 if (_fit.Powered)
                 {
                     ImGui.SliderFloat("Seeker FOV (deg)", ref _munition.SeekerFovDeg, 10f, 90f);
@@ -306,9 +283,8 @@ internal sealed partial class Ui
             ImGui.SliderFloat("Launch speed (m/s)", ref _munition.LaunchSpeed, 5f, 300f);
             ImGui.SliderFloat("Max flight time (s)", ref _munition.MaxFlightSeconds, 3f, 180f);
 
-            // The envelope the system commits inside, which is not how far the round can fly:
-            // the set sees 36 km and the round reaches 20, and firing at everything detected
-            // spends the magazine on contacts the rounds expire short of.
+            // The envelope the system commits inside, not how far the round flies: the 1RS1 sees
+            // 36 km and the 57E6 is committed out to 20.
             ImGui.SliderFloat("Min engagement range (m)", ref _munition.MinRange, 0f, 5000f);
             ImGui.SliderFloat("Max engagement range (m)", ref _munition.MaxRange, 500f, 40000f);
 
@@ -322,24 +298,13 @@ internal sealed partial class Ui
         {
             ImGui.SliderFloat("Fuse radius (m)", ref _munition.FuseRadius, 2f, 200f);
             ImGui.SliderFloat("Fuse arm delay (s)", ref _munition.FuseArmSeconds, 0f, 5f);
-            // One slider, because the radii are read off the charge rather than chosen. Showing
-            // what it buys keeps the cube root visible: ten times the explosive is a bit over
-            // twice the reach, which is not what a reader expects and is the point.
-            //
-            // The top of the range is nuclear, and it has to be: a 300 t device is 300,000 kg, so
-            // a slider that stopped at a cannon shell would silently clamp one to a firework the
-            // first time anybody touched it. Logarithmic, or the whole conventional range -- every
-            // round the mod otherwise ships -- lives in the first thousandth of the travel.
-            //
-            // Without a ceiling of its own a warhead runs on to Tsar Bomba's 50 Mt, the largest ever
-            // set off. A dial-a-yield bomb stops at its own top setting instead.
+            // One slider: the radii are read off the charge. Up to 50 Mt, or a nuclear charge would
+            // be clamped the first time anybody touched it; a dial-a-yield bomb stops at its own top.
             float maxCharge = _munition.MaxChargeKg > 0f ? _munition.MaxChargeKg : TsarBombaKg;
             ChargeSlider("Explosive charge", ref _munition.ChargeKg, 0.01f, maxCharge);
             ImGui.TextDisabled($"  lethal {_munition.LethalRadius:F0} m, "
                                + $"blast {_munition.BlastRadius:F0} m, "
                                + $"fireball {_munition.FireballRadius:F0} m");
-            // What the ground under a store decides: whether it bursts in the air, and whether a
-            // chute slows it enough for whoever dropped it to get away.
             if (_munition.HitsTerrain)
             {
                 ImGui.SliderFloat("Burst height (m)", ref _munition.BurstHeightMetres, 0f, 10000f,

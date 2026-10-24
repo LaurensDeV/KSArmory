@@ -41,15 +41,13 @@ internal sealed class TerrainMapScan
     /// <summary>How many cells the last refresh could not read.</summary>
     public int Unknown { get; private set; }
 
-    /// <summary>Wall-clock seconds the last refresh took, which is the number worth watching.</summary>
+    /// <summary>Wall-clock milliseconds the last refresh took.</summary>
     public double LastScanMs { get; private set; }
 
     private double3 _sampledAt;
 
-    // Frames since the last scan, not simulated seconds. The rule that fire control runs on
-    // simulated time is about *integrating* the world; this is a cache refresh, and terrain
-    // streams in on the engine's own schedule whether the world is paused or not -- so a paused
-    // game should still pick it up.
+    // Frames, not simulated seconds: terrain streams in on the engine's schedule whether or not
+    // the world is paused, so a paused game should still pick it up.
     private int _sinceScan;
 
     /// <summary>Throws the grid away, so the next update samples from scratch.</summary>
@@ -91,8 +89,7 @@ internal sealed class TerrainMapScan
 
         if (MapFrame.TryAt(centre, anchorEcl, axis) is not { } frame)
         {
-            // At a pole, where there is no bearing. Nothing to draw rather than a rose pointing
-            // at an arbitrary perpendicular.
+            // At a pole there is no bearing; nothing rather than a rose on an arbitrary perpendicular.
             Frame = null;
             return;
         }

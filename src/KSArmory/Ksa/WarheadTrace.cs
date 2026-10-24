@@ -10,49 +10,29 @@ namespace KSArmory;
 /// <para><b>Measurement only.</b> Nothing here is read back by anything that flies, and the whole
 /// class is behind <see cref="Config.TraceWarhead"/>, which is off.</para>
 ///
-/// <para>What it exists to settle: a warhead misses its own release probe by <b>1.7 km</b> in flight
-/// and by <b>394 m</b> headlessly, and no rig can close that gap — every one of them flies a planet
-/// at the origin, which is the one case where a frame carrier is identically zero.
-/// <c>docs/MIRV-NEXT.md</c> item 2 has the headless decomposition and item -1 has why it is not
-/// evidence about the flight.</para>
+/// <para>The discriminator is <em>shape</em>: a prediction that walks off the release probe smoothly
+/// is two flight models integrating apart, one that steps is something discrete. Only a flight can
+/// say which, since every rig flies a planet at the origin. <c>docs/MIRV-NEXT.md</c> item 2.</para>
 ///
-/// <para>The discriminator is <em>shape</em>, not size. A prediction that walks away from the
-/// release probe smoothly is two flight models integrating apart; one that steps is something
-/// discrete — a step change, a warp transition, a surface the two models disagree about. Only the
-/// flight can say which, so this writes down enough per frame to tell them apart afterwards.</para>
-///
-/// <para><b>Epochs.</b> The round is read from <see cref="IcbmComputer"/>'s update, which
-/// <c>KSArmoryMod</c> runs <em>after</em> every weapons system has stepped its rounds — so the round
-/// and the celestial samples the Cci conversion uses are both at the end of the step just applied
-/// (<c>docs/KSA-FRAME-ORDER.md</c> §3-§4). The one thing that breaks that pairing is the round's own
-/// clamp: rounds are stepped by <c>min(dtSim, FaithfulStepInFlight())</c> and this by <c>dtSim</c>,
-/// so a clamped frame leaves the round short of the world. That difference is the <c>lag</c> term
-/// below — reported, never corrected.</para>
+/// <para><b>Epochs.</b> Read from <see cref="IcbmComputer"/>'s update, after every system has
+/// stepped its rounds, so the round and the celestial samples are both at the end of the step
+/// (<c>docs/KSA-FRAME-ORDER.md</c> §3-§4). The round's own step clamp breaks that pairing; the
+/// difference is the <c>lag</c> term, reported and never corrected.</para>
 /// </summary>
 internal sealed class WarheadTrace
 {
     /// <summary>Everything the trace needs of the computer that owns it, gathered per frame.</summary>
     /// <param name="TrueAimCci">
-    /// The aim point in <em>this</em> frame's inertial coordinates, at the frame's <em>edge</em>. It
-    /// is re-derived every frame because a place on a turning planet moves through Cci, so pairing
-    /// it with anything from another frame reads the planet's own rotation as a miss — and a burst
-    /// is somewhere <em>inside</em> the frame, so that holds at sub-frame scale too. Carry it to the
-    /// instant it is being compared against.
+    /// The aim point in this frame's inertial coordinates, at the frame's <em>edge</em>: a place on a
+    /// turning planet moves through Cci, so carry it to the instant it is compared against.
     /// </param>
     /// <param name="TerrainRadiusAt">
-    /// The surface the <em>prediction</em> stops on. Deliberately the computer's own delegate rather
-    /// than one built here: the question is whether the round and the mod's own predictor agree, and
-    /// a second height-field reader would answer a different one.
+    /// The computer's own delegate, not a second reader: the question is whether the round and the
+    /// mod's predictor agree.
     /// </param>
-    /// <param name="Craft">
-    /// Whose warhead this is. Eight rockets write into one log, so a line without it is a reading
-    /// that cannot be paired with the flight it came from — and the aim points are 12 km apart but
-    /// two of the eight sit 100 m apart, so recovering it from the landing coordinate does not work
-    /// either. Same fault the cutoff line and <c>why_it_ended</c> already carry a name for.
-    /// </param>
+    /// <param name="Craft">Several rockets write into one log, and a line has to pair with its flight.</param>
     /// <param name="StopOnTheSurface">
-    /// Whether the prediction's crossing is placed on the ground, as the computer's own are. The walk
-    /// is read against this probe, so it has to stop by the rule the aim was set by.
+    /// Stops by the rule the aim was set by, since the walk is read against this probe.
     /// </param>
     internal readonly record struct Setup(
         Celestial Parent,
@@ -66,19 +46,12 @@ internal sealed class WarheadTrace
         bool StopOnTheSurface = false,
         bool StopOnTheTerrain = false);
 
-    // How often the round's own state is written down, and how often the prediction is re-flown from
-    // it. Only the second is expensive - about two hundred RK4 steps at release, falling to a
-    // handful at the end - so it is the one that is rationed. Both are counted in *simulated*
-    // seconds, so a coasting warhead under 8x costs a line every quarter second of anyone's evening
-    // rather than every two.
+    // In simulated seconds. Only the re-flight is expensive, about two hundred RK4 steps at release.
     private const double SampleIntervalSeconds = 2.0;
     private const double ReflyIntervalSeconds = 10.0;
 
-    // Every frame across the three stretches a discrete fault would land on: the release, the
-    // entry, and the arrival. Entry is bounded by the round's own opinion of the air rather than by
-    // an altitude, because that is the same question WarpPolicy is answering when it slows the
-    // world - so the dense stretch and the short-step stretch are the same stretch by construction.
-    // A 400 s flight writes a few hundred lines.
+    // Every frame across the release, the entry and the arrival. Entry is the round's own short step
+    // in air, the question WarpPolicy asks, so the dense and short-step stretches coincide.
     private const double DenseAfterReleaseSeconds = 3.0;
     private const double DenseBeforeImpactSeconds = 10.0;
     private const double DenseReflyIntervalSeconds = 0.5;
@@ -96,27 +69,20 @@ internal sealed class WarheadTrace
     private double _sinceSample;
     private double _sinceRefly;
 
-    // Counted down by the step between re-flights, so the impact window arms on time rather than on
-    // whenever the next re-flight happens to fall.
+    // Counted down every step, so the impact window arms on time rather than at the next re-flight.
     private double _remaining = double.NaN;
 
-    // The release probe's impact, in inertial coordinates as they stood at the release epoch, with
-    // the arrival's own ground frame beside it. Every later prediction is brought back to this epoch
-    // before being differenced against it: the predictor un-rotates its answer by its own flight
-    // time, so two predictions taken T apart are expressed in frames T of planet rotation apart.
+    // At the release epoch. Every later prediction is brought back to it before differencing: two
+    // predictions taken T apart are in frames T of planet rotation apart.
     private double3 _probeGroundCci;
     private double3 _probeAlong;
     private double3 _probeCross;
     private double _probeSeconds = double.NaN;
     private bool _haveProbe;
 
-    /// <summary>True while a warhead is being followed.</summary>
     public bool Watching => _round is not null;
 
-    /// <summary>
-    /// Drop whatever is being followed, without reporting. What a new designation and a switched-off
-    /// trace both do.
-    /// </summary>
+    /// <summary>Without reporting.</summary>
     public void Forget()
     {
         _round = null;
@@ -133,14 +99,8 @@ internal sealed class WarheadTrace
     }
 
     /// <summary>
-    /// Start following one warhead, and write down the state it left on beside the prediction flown
-    /// from exactly that state.
-    ///
-    /// <para>This is <em>not</em> the same probe <see cref="IcbmComputer"/> already writes at
-    /// release: that one is flown from the bus's orbit state plus an assumed offset and kick, and
-    /// this one from the round's own position and velocity, after every separation kick. The gap
-    /// between the two lines is what the tube and the separation did that the mean release state
-    /// could not express, and the walk from this one is the fall alone.</para>
+    /// Flies a probe from the round's own state, after every separation kick, unlike
+    /// <see cref="IcbmComputer"/>'s release probe from the bus's state; the walk from it is the fall alone.
     /// </summary>
     public void Begin(IProjectile round, in Setup setup)
     {
@@ -163,9 +123,7 @@ internal sealed class WarheadTrace
         {
             ToCci(setup, round, out double3 positionCci, out double3 velocityCci);
 
-            // Full precision on purpose: this line is what lets the same release be re-flown in
-            // tests/KSArmory.Tests without the game, which is the only way the flight and the rig
-            // can be made to answer the same question.
+            // Full precision, so the release can be re-flown headlessly in the tests.
             Log.Info($"warhead trace on {setup.Craft}: {RoundLabel.For(round.Tube)} away"
                      + $" | Cci r=({positionCci.X:F1},{positionCci.Y:F1},{positionCci.Z:F1})"
                      + $" v=({velocityCci.X:F4},{velocityCci.Y:F4},{velocityCci.Z:F4})"
@@ -192,8 +150,6 @@ internal sealed class WarheadTrace
                 _probeCross = arrival.Cross;
             }
 
-            // Named, for the reason the landing line is (3ce): eight rockets write into one log and a
-            // reading that cannot be paired with its seat cannot be read against that seat's ground.
             Log.Info($"warhead trace on {setup.Craft}: probe from the round's own state ->"
                      + $" {LatLon(setup, hit.GroundFixedPointCci)},"
                      + $" {hit.Seconds:F1} s of flight,"
@@ -206,17 +162,12 @@ internal sealed class WarheadTrace
         }
         catch
         {
-            // A diagnostic that throws inside the frame loop is the game, not a log line.
+            // An exception inside the frame loop is the game, not a log line.
         }
     }
 
-    // Where the body's own fall lies against the arrival, which is the one thing that decides what
-    // it costs. The round carries none of this acceleration and the ground under it carries all of
-    // it, so the round is left behind by half of it times the square of the coast -- and the share
-    // resolved along local up is multiplied by cot(gamma) again before it reaches the ground.
-    //
-    // Reported, not corrected. It is a term nothing has ever written down, and the flown spread of
-    // what it can be worth on this trajectory is nought to nearly ten kilometres.
+    // A round left out of the body's fall toward its primary drifts by half of it times the coast
+    // squared, and the share along local up costs cot(gamma) times as much ground. Reported only.
     private static void SayWhereThePrimaryLies(in Setup setup, in ArrivalFrame arrival, double seconds)
     {
         double3 fallEcl = KsaWorld.BodyFallEcl(setup.Parent);
@@ -224,8 +175,7 @@ internal sealed class WarheadTrace
 
         if (magnitude <= 0.0 || !double.IsFinite(seconds) || seconds <= 0.0) return;
 
-        // A direction is identical in Ecl and Cci -- the two differ by a translation -- so the
-        // acceleration needs no conversion before it is resolved. Only a position would.
+        // A direction needs no conversion: Ecl and Cci differ by a translation.
         double3 parts = arrival.Resolve(Vec.Unit(fallEcl));
         double drift = 0.5 * magnitude * seconds * seconds;
 
@@ -235,8 +185,7 @@ internal sealed class WarheadTrace
                  + $" -- {drift:F0} m of drift over {seconds:F0} s, of which"
                  + $" {Math.Abs(drift * parts.X):F0} m is up");
 
-        // The other vector, and the one a stale force sample rides on. Square to the fall on a
-        // near-circular orbit, so resolving one says nothing about the other.
+        // The vector a stale force sample rides on: square to the fall on a near-circular orbit.
         double3 travelEcl = KsaWorld.BodyTravelEcl(setup.Parent);
         double speed = Vec.Len(travelEcl);
 
@@ -251,8 +200,8 @@ internal sealed class WarheadTrace
     }
 
     /// <summary>
-    /// One frame. <paramref name="simStep"/> is the step the engine applied, which is the interval
-    /// the world moved across — not the possibly shorter one the round was integrated by.
+    /// <paramref name="simStep"/> is the step the engine applied, which the world moved across, not
+    /// the possibly shorter one the round was integrated by.
     /// </summary>
     public void Update(double simStep, in Setup setup)
     {
@@ -275,9 +224,7 @@ internal sealed class WarheadTrace
 
             if (round.State != RoundState.Flying) { Finish(setup, round); return; }
 
-            // The per-frame half is DEBUG and the two ends are INFO, so at INFO this degrades to
-            // release-and-impact rather than to nothing - and the re-flight, which is the expensive
-            // part, is never paid for a line that would be discarded.
+            // At INFO only the two ends are written, and the re-flight is never paid for.
             if (Log.Threshold > Log.Level.Debug) return;
 
             _sinceSample += simStep;
@@ -293,7 +240,7 @@ internal sealed class WarheadTrace
                 Sample(setup, round, simStep, advanced);
             }
 
-            // Every frame for the first second: a short shot's walk off its release probe all happens there.
+            // Every frame for the first second, where a short shot's whole walk happens.
             double interval = age < 1.0 ? 0.0 : dense ? DenseReflyIntervalSeconds : ReflyIntervalSeconds;
             if (_sinceRefly >= interval)
             {
@@ -303,14 +250,12 @@ internal sealed class WarheadTrace
         }
         catch
         {
-            // As above. A trace that cannot answer says nothing and lets the flight continue.
+            // As above.
         }
     }
 
-    // The cheap line: the two clocks and where the round is. `lag` is the whole of what the clamp
-    // has discarded so far, and `dt`/`step` separate this frame's share of it from the world's own
-    // pacing - a jump in the walk that lands on a frame where those two disagree is the clamp, and
-    // one that lands where the simulation speed changed is a warp transition.
+    // `lag` is all the clamp has discarded so far. A jump in the walk on a frame where `dt` and
+    // `step` disagree is the clamp; one where the simulation speed changed is a warp transition.
     private void Sample(in Setup setup, IProjectile round, double simStep, double advanced)
     {
         ToCci(setup, round, out double3 positionCci, out double3 velocityCci);
@@ -336,10 +281,7 @@ internal sealed class WarheadTrace
                   + Whose(setup, round));
     }
 
-    // The expensive line: the same predictor, re-flown from where the round has got to. If the
-    // round were still on the arc the release probe flew, `t + remaining` would be constant at the
-    // probe's own flight time and the walk would be zero. Neither is a summary of the other - the
-    // arrival time says the round has left the arc, the walk says what that costs on the ground.
+    // On the probe's arc, `t + remaining` would stay at the probe's flight time and the walk be zero.
     private void Refly(in Setup setup, IProjectile round)
     {
         ToCci(setup, round, out double3 positionCci, out double3 velocityCci);
@@ -354,9 +296,7 @@ internal sealed class WarheadTrace
 
         _remaining = hit.Seconds;
 
-        // Back to the release epoch before differencing. The predictor un-carries its answer by its
-        // own flight time, so this one is expressed in the frame as it stood *now* and the release
-        // probe's in the frame as it stood at release.
+        // Back to the release epoch: this answer is in the frame as it stands now.
         double3 atReleaseEpoch = setup.Body.UncarryCci(hit.GroundFixedPointCci, _worldSeconds);
 
         Log.Debug($"warhead trace {++_lines}: t={_worldSeconds:F2}s age={round.Age:F2}s"
@@ -375,34 +315,20 @@ internal sealed class WarheadTrace
                   + Whose(setup, round));
     }
 
-    // Which warhead a line belongs to, appended rather than prefixed so every reader keyed on
-    // "warhead trace <n>:" keeps working.
-    //
-    // It has to be on the sample lines, not just the named ones: the counter is per trace, so with
-    // six warheads of eight rockets in one log the same `warhead trace 412:` appears 48 times and
-    // concurrent streams sit within a few counts of each other. Keying by arrival time and
-    // predicted lat/lon works and is not something a reader should have to invent.
+    // Appended, so readers keyed on "warhead trace <n>:" keep working. On every line: the counter
+    // is per trace, so one number appears once per warhead in the log.
     private static string Whose(in Setup setup, IProjectile round)
         => $" | {setup.Craft} {RoundLabel.For(round.Tube)}";
 
-    // Where it actually stopped, and the four things that could put it there: the clock it kept
-    // against the world's, the arc it was on against the arc predicted for it, the surface it stopped
-    // on against the surface the prediction flew to, and how it ended.
     private void Finish(in Setup setup, IProjectile round)
     {
         _round = null;
 
         try
         {
-            // The same correction MissFromAim makes on the scoring path, which is the one that
-            // measures right: the LIVE parent, back-dated by the sub-frame burst offset. Finish is
-            // reached by a poll, so the round's PositionEcl is frozen from an earlier step while
-            // the parent is not -- and the round detonates on the first sub-step of its frame, so
-            // DetonationElapsedInFrame is very nearly a whole frame of the body's 29.78 km/s.
-            //
-            // One correction, not two. Pairing a parent captured on the last flying frame AND
-            // back-dating it overshoots by exactly a frame: flown as -493 m below the surface
-            // uncorrected against +517 m above it double-corrected. docs/MIRV-NEXT.md item 8j.
+            // The live parent back-dated by the burst offset, as MissFromAim does: reached by a poll,
+            // the round's position is frozen while the parent is not. One correction, never two: a
+            // parent from the last flying frame and back-dated is a frame over. docs/MIRV-NEXT.md 8j.
             double3 parentAtBurst = InFrame.AtBurst(setup.Parent.GetPositionEcl(), setup.Parent.GetVelocityEcl(),
                                                     round.DetonationElapsedInFrame);
 
@@ -410,27 +336,20 @@ internal sealed class WarheadTrace
             double3 positionCci = (round.PositionEcl - parentAtBurst).Transform(cce2Cci);
             double3 velocityCci = (round.VelocityEcl - setup.Parent.GetVelocityEcl()).Transform(cce2Cci);
 
-            // Carried into the frame every live lookup is made in, so GroundTest -- which takes an
-            // Ecl point and finds the body itself -- reads the same geometry rather than the leak.
-            // By the ground's velocity, spin included: the lookup is answered at the frame's end
-            // rotation, and without the spin a round stopped exactly on its surface reads a mean
-            // 0.16 m off it.
+            // Into the frame GroundTest's lookups are made in, by the ground's velocity with the spin:
+            // without it a round stopped exactly on its surface reads a mean 0.16 m off it.
             double3 landingEcl = BlastSweep.GroundAtSample(round.PositionEcl,
                                                            KsaWorld.GroundVelocityAt(setup.Parent, round.PositionEcl),
                                                            round.DetonationElapsedInFrame);
 
-            // The burst is somewhere inside this frame while _worldSeconds is at its edge, and
-            // DetonationElapsedInFrame is that offset - negative, between -dt and zero. At 7 km/s a
-            // whole frame is kilometres, so it is the difference between an epoch and a guess.
+            // DetonationElapsedInFrame is negative, between -dt and zero: the burst is inside the frame.
             double atBurst = _worldSeconds + round.DetonationElapsedInFrame;
             double lag = atBurst - round.Age;
 
             double3 atReleaseEpoch = setup.Body.UncarryCci(positionCci, atBurst);
 
-            // The aim is re-derived at the frame's edge while the burst is inside it, so pairing the
-            // two raw reads one sub-frame of the planet's own rotation as a miss -- 0.416 m/ms at
-            // this latitude, which is metres on a median frame and eight on a slow one.
-            // BallisticScenario.MissFromAim carries the same term for the same reason.
+            // The aim is at the frame's edge and the burst inside it: raw, the planet's rotation reads
+            // as a miss, 0.416 m/ms at this latitude. BallisticScenario.MissFromAim carries the same.
             double3 aimAtBurst = setup.Body.CarryCci(setup.TrueAimCci, round.DetonationElapsedInFrame);
 
             Log.Info($"warhead trace on {setup.Craft}: {RoundLabel.For(round.Tube)} {Ended(round)}"
@@ -442,8 +361,8 @@ internal sealed class WarheadTrace
                      + $" | lag {lag * 1000.0:F1}ms = {lag * round.Speed:F0} m at {round.Speed:F0} m/s"
                      + $" over {_lines} sampled frames");
 
-            // Against the planets' own clock rather than the mod's: the round's age and _worldSeconds
-            // both sum the step it was handed, so comparing those two cannot see the step being wrong.
+            // Against the universe clock: the round's age and _worldSeconds both sum the step handed,
+            // so between them they cannot see the step being wrong.
             double elapsed = (double)(KsaWorld.SimClockNanoseconds - _clockAtBegin) / 1e9;
             Log.Info($"warhead trace: clock: universe time advanced {elapsed:F6} s over {_frames} frames;"
                      + $" the steps taken ran {(_worldSeconds - elapsed) * 1e9:+0.000;-0.000;0.000} ns from it,"
@@ -453,16 +372,8 @@ internal sealed class WarheadTrace
 
             if (round is Slug sampled) Log.Info($"warhead trace: {GroundSample(setup, sampled, landingEcl)}");
 
-            // The probe for docs/MIRV-NEXT.md item 8i. Across 24 flown shots the last sampled
-            // altitude is ~500 m and the landing is tens of metres BELOW the same surface, with the
-            // round's own age unchanged between the two -- 500 m in under 10 ms, which nothing can
-            // fly. So either the round moves without its clock recording it, or the two altitudes
-            // are not measured against the same thing, and every other candidate is eliminated:
-            // both terrain reads agree to +0.0 m, the sub-step overshoot is bounded at ~5 m, and
-            // `lag` reconciles the clocks to 1 ms rather than the frame a late Finish would cost.
-            //
-            // `alt` here is the SAME expression the per-frame sample logs, so a value near the last
-            // sample's says the references differ and a value near the surface says the round moved.
+            // docs/MIRV-NEXT.md 8i. `alt` is the per-frame sample's own expression: near the last
+            // sample's, the references differ; near the surface, the round moved.
             Log.Info($"warhead trace probe: frame {_frames} (last sample was frame {_lastSampleFrame}),"
                      + $" alt {setup.Body.AltitudeOf(positionCci):F1} m against the sample's"
                      + $" {_lastSampleAlt:F1} m, r {Vec.Len(positionCci):F1},"
@@ -481,22 +392,13 @@ internal sealed class WarheadTrace
         }
     }
 
-    // The one comparison a headless rig cannot make at all: the height field as the *round* reads it
-    // through GroundTest, and as the *prediction* reads it through the computer's own delegate, at
-    // the one point where it matters. docs/MIRV-NEXT.md item 2 lists a surface disagreement as a
-    // candidate for the missing kilometre, and a metre of it is about eleven metres of ground on
-    // this arrival.
-    // How far over the ground the prediction stopped, and what that is worth once it lands. The crossing
-    // sits on the chord between the samples bracketing it unless PredictionStopsOnTheTerrain is on, and
-    // over the engine's float-packed tread that is up to half a riser of height -- handed to the round as
-    // cot(gamma) times as much ground, because the miss kick is solved against this probe. Zero on the
-    // flat, which is why only a sloped seat shows it. docs/ACCURACY-PLAN.md 3es.
+    // How far over the ground the prediction stopped. Off the terrain flag the crossing is on the chord
+    // between samples, up to half a riser of the float-packed tread, worth cot(gamma) times as much
+    // ground to a kick solved against this probe. docs/ACCURACY-PLAN.md 3es.
     private static string ProbeStop(in Setup setup, in ImpactPredictor.Impact hit)
     {
-        // The GROUND-FIXED point, never the inertial one: TerrainRadiusAt wants the planet's rotation
-        // already taken back out, exactly as ImpactPredictor.SurfaceUnder un-carries before asking. Read
-        // at the raw impact this line said +37.6 m over a 364 s flight, which is the planet's turn and
-        // not a height. Un-carrying is a rotation, so the radius is the same either way.
+        // The ground-fixed point: TerrainRadiusAt wants the planet's rotation taken back out, as
+        // ImpactPredictor.SurfaceUnder does. The radius is the same either way.
         double ground = setup.TerrainRadiusAt(hit.GroundFixedPointCci);
         if (!double.IsFinite(ground)) return "stopping over ground the height field would not answer for";
 
@@ -508,20 +410,14 @@ internal sealed class WarheadTrace
                + (double.IsFinite(cot) ? $" ({over * cot:+0.0000;-0.0000;0.0000} m of ground)" : "");
     }
 
+    // The height field as the round read it through GroundTest, against the prediction's delegate.
     private static string Surfaces(in Setup setup, IProjectile round, double3 landingEcl,
                                    double3 positionCci)
     {
         double stoppedAt = Vec.Len(positionCci);
 
-        // The surface the round ACTUALLY stopped against, and the point it asked at -- both
-        // recorded by the round at the crossing, back-dated to its own instant within the frame.
-        //
-        // Re-querying GroundTest at the raw landing instead asks the height field at the frame's
-        // END rotation, which is item 40's fault reintroduced in the diagnostic that is supposed to
-        // detect it: measured over 50 traced warheads that read the two surfaces -0.34 +/- 1.46 m
-        // apart, worth 1.64 m of ground at cot(gamma), while the walk it is meant to explain is
-        // 35 mm and regresses on it at +0.013 m/m where a real surface error predicts -1.59.
-        // docs/ACCURACY-PLAN.md 3do.
+        // As the round recorded them at the crossing, at its own instant: re-querying at the raw
+        // landing asks the height field at the frame's end rotation. docs/ACCURACY-PLAN.md 3do.
         double flown = round is Slug { GroundRadiusUsed: var r } && double.IsFinite(r)
                            ? r
                            : double.NaN;
@@ -536,8 +432,7 @@ internal sealed class WarheadTrace
             return "surface at the landing point: the round recorded no surface to compare against";
         }
 
-        // Asked at the same point the round asked at, so what is left between the two numbers is
-        // the two height-field readers disagreeing rather than the instant they were asked at.
+        // At the round's own point, so what is left is the readers disagreeing.
         double3 askedCci = (askedAtEcl - setup.Parent.GetPositionEcl())
             .Transform(setup.Parent.GetCce2Cci());
         double predicted = setup.TerrainRadiusAt(askedCci);
@@ -548,21 +443,12 @@ internal sealed class WarheadTrace
                + $" the round is {stoppedAt - predicted:+0.000;-0.000;0.000} m off the prediction's";
     }
 
-    // The arrival this mod flies, for turning a height disagreement into the ground it would be
-    // worth. A round comes in at 32 deg, so cot is about 1.59.
+    // cot of the 32 deg arrival this mod flies.
     private const double CotArrival = 1.59;
 
-    // Where the round read the ground against where it stopped, which is the whole of its stopping
-    // height error and therefore -- times cot(gamma) -- the whole of its walk from the release probe.
-    //
-    // Two displacements are folded together in that error and the flown log cannot separate them:
-    // the round's own travel over the ground within the frame, and the frame-newer body sample
-    // Ksa/GroundTest.cs differences the lookup against, worth the ground's velocity times dt -- the
-    // body's travel, and its spin under the round. This prints the
-    // height field at the sampled point and at that point back-dated by the second term, so the two
-    // are read apart on KSA's own terrain rather than argued about. docs/KSA-FRAME-ORDER.md section 5
-    // is the epoch table; WeaponSystem.AirDensityIntoFrame is the same correction already applied to
-    // a neighbouring lookup.
+    // The round's stopping-height error folds its own travel within the frame together with the
+    // frame-newer body sample GroundTest differences against; this prints the height field with and
+    // without the second, on KSA's own terrain. docs/KSA-FRAME-ORDER.md section 5.
     private static string GroundSample(in Setup setup, Slug round, double3 landingEcl)
     {
         double3 sampledAt = round.GroundSampledAtEcl;
@@ -573,10 +459,7 @@ internal sealed class WarheadTrace
             return "ground sample: the round recorded none";
         }
 
-        // The counterfactual is the lookup un-back-dated, so it goes backwards by the same velocity
-        // the round walked it forward with: the body's travel, plus its spin under the round when it
-        // asks at its own epoch. Going FORWARD would apply the correction a second time, which is
-        // worse than either -- flown, -12.3 m held against -208.5 m doubled.
+        // Backwards by the velocity the round walked it forward with; forwards would correct twice.
         double3 walkedBy = round.GroundQueryAtOwnEpoch
             ? KsaWorld.GroundVelocityAt(setup.Parent, sampledAt)
             : setup.Parent.GetVelocityEcl();
@@ -588,13 +471,8 @@ internal sealed class WarheadTrace
 
         if (!read || !paired || !truth) return "ground sample: the height field would not answer";
 
-        // Both candidate radii against the truth under the landing point, so the log says what the
-        // correction would have been worth on this warhead rather than leaving it to be inferred.
-        // What `step` IS depends on the round, and the two are different quantities: with
-        // ResampleGroundNearImpact -- shipped on -- it is how far back from the frame's end the
-        // round crossed, and without it the frame's whole duration. Saying "over a X ms frame" for
-        // both reads as the frame rate, which it is not: regressing the walk on it looks like a
-        // per-frame test and is actually item 40's crossing-phase residual. ACCURACY-PLAN.md 3dr.
+        // With ResampleGroundNearImpact `step` is how far back from the frame's end the round crossed,
+        // not the frame; named apart so it is not read as the frame rate. ACCURACY-PLAN.md 3dr.
         string over = round.ResampleGroundNearImpact
             ? $"crossing {step * 1000.0:F1} ms back from the frame's end"
             : $"over a {step * 1000.0:F1} ms frame";
@@ -605,37 +483,20 @@ internal sealed class WarheadTrace
                + $" unpaired it would have held {asUnpaired - flown:+0.000;-0.000;0.000} m";
     }
 
-    // Vector, not magnitude: a bare distance mixes an overshoot with a cross-track error, and which
-    // of the two it is decides what to look at next - downrange is energy or timing, cross-track is
-    // the plane or the clock. docs/FRAMES-AND-EPOCHS.md, "Measure vectors, not magnitudes".
+    // Vector, not magnitude: docs/FRAMES-AND-EPOCHS.md, "Measure vectors, not magnitudes".
     private string Walk(in Setup setup, double3 atReleaseEpochCci)
     {
         if (!_haveProbe) return "";
 
         double metres = Ground(setup, atReleaseEpochCci, _probeGroundCci);
 
-        // Carried to the epoch the axes stand at. Both points are GROUND-FIXED -- each un-carried by
-        // its own flight time -- while _probeAlong and _probeCross were taken from the arrival, so
-        // resolving the raw separation turns it by the planet's spin over the fall: 1.4 deg at
-        // 340 s, a couple of centimetres across for every metre downrange. IcbmComputer.ProbeMissSaid
-        // carries it the same way. ACCURACY-PLAN.md 3dw.
-        //
-        // The two points are un-carried by slightly DIFFERENT times, and that residue stays: a round
-        // that stops higher arrives earlier and genuinely lands on ground the planet has turned less
-        // far. That is the cross channel's real content, not an artefact to remove.
+        // Carried to the arrival, where the axes were taken: both points are ground-fixed, and the
+        // spin over a 340 s fall is 1.4 deg. Their slightly different flight times are real cross
+        // content. As IcbmComputer.ProbeMissSaid; ACCURACY-PLAN.md 3dw.
         double3 separation = setup.Body.CarryCci(atReleaseEpochCci - _probeGroundCci, _probeSeconds);
 
-        // Four decimals, because the print is the endpoint's resolution and the endpoint has moved
-        // by two orders of magnitude. Two decimals is too coarse for a 21 mm walk, and wrong in a way that hides the question being
-        // asked of it -- the increments BETWEEN re-flies are tenths of a millimetre, so at 10 mm
-        // they are almost all zero and a rate read off them is quantisation. Measured: whether the
-        // walk grows per frame or per simulated second reads r = -0.185 against +0.083 on 399
-        // intervals, which is noise either way. ACCURACY-PLAN.md 3dq.
-        //
-        // Deliberately NOT Distance.Say, which is this repo's general answer to a fixed unit going
-        // blind: every reader of this line -- shot-report.py, miss43.py, the scratch scripts --
-        // parses the components as bare metres, and a unit that changes with the value silently
-        // rescales a night's worth of them. The magnitude carries a unit because it always has.
+        // Four decimals: increments between re-flies are tenths of a millimetre (ACCURACY-PLAN.md 3dq).
+        // Not Distance.Say: shot-report.py parses the components as bare metres.
         return $" | walk from the release probe {metres:F4} m"
                + $" ({Vec.Dot(separation, _probeAlong):+0.0000;-0.0000;0.0000} down,"
                + $" {Vec.Dot(separation, _probeCross):+0.0000;-0.0000;0.0000} cross)";
@@ -650,9 +511,7 @@ internal sealed class WarheadTrace
                                       stopOnTheSurface: setup.StopOnTheSurface,
                                       stopOnTheTerrain: setup.StopOnTheTerrain);
 
-    // Ecl to the parent's inertial frame, both terms from this frame's samples. The subtraction is
-    // what removes the ~29.8 km/s carrier exactly rather than approximately, which is the whole
-    // reason every ballistic quantity in this mod is in Cci.
+    // Both terms from this frame's samples, so the subtraction removes the ~29.8 km/s carrier exactly.
     private static void ToCci(in Setup setup, IProjectile round,
                               out double3 positionCci, out double3 velocityCci)
     {
@@ -671,8 +530,7 @@ internal sealed class WarheadTrace
         return $"{setup.Parent.GetLatitudeFromCce(cce):F4},{setup.Parent.GetLongitudeFromCce(cce):F4}";
     }
 
-    // Signed so that a descending arrival is positive, which is every arrival this reports on. It
-    // is the whole lever on how much a residual costs on the ground - docs/ARRIVAL-ANGLE.md.
+    // Positive descending.
     private static double ArrivalAngleDeg(in ImpactPredictor.Impact hit)
     {
         double3 up = Vec.Unit(hit.PointCci);

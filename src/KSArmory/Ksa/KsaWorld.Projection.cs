@@ -13,9 +13,7 @@ internal static partial class KsaWorld
     /// <summary>
     /// How large something at <paramref name="atEcl"/> appears on screen, in pixels.
     ///
-    /// <para>Measured by projecting a point one radius to the camera's right rather than by
-    /// reconstructing the field of view: the projection already knows the lens, and asking it
-    /// twice cannot disagree with itself.</para>
+    /// <para>By projecting a point one radius to the camera's right, so it cannot disagree with the lens.</para>
     /// </summary>
     public static bool TryApparentRadiusPixels(double3 atEcl, double metres, out float pixels)
     {
@@ -45,11 +43,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// Projects a world point onto the main viewport, culling anything behind the camera.
     ///
-    /// <para>Distinct from <see cref="TryProjectIntoViewport"/>, which passes
-    /// <c>ignoreBehind: false</c>. That is right for the gunner's sight, whose head is pointed at
-    /// its target and so cannot be looking away from it, and wrong for a marker over an arbitrary
-    /// craft: <c>EgoToScreen</c> only tests the point against the camera's forward when asked, so
-    /// without it a site *behind* the camera draws a bracket in front of it.</para>
+    /// <para>Unlike <see cref="TryProjectIntoViewport"/>'s <c>ignoreBehind: false</c>: without the test,
+    /// <c>EgoToScreen</c> draws a site behind the camera in front of it.</para>
     /// </summary>
     public static bool TryProjectAhead(double3 pointEcl, out float2 screen)
     {
@@ -103,16 +98,9 @@ internal static partial class KsaWorld
     /// <summary>
     /// Where a world point sits on screen, and whether it is actually in view.
     ///
-    /// <para>For a point that is off-screen or behind, <paramref name="screen"/> comes back
-    /// clamped to the edge of the viewport in the direction of the target, so a caller can draw
-    /// an indicator pointing at something it cannot see. That is the difference from
-    /// <see cref="TryProjectAhead"/>, which simply refuses.</para>
-    ///
-    /// <para>A point behind the camera has to be handled by hand: a projection matrix maps it to
-    /// the *opposite* side of the screen, so an arrow built from it points exactly the wrong way.
-    /// The camera basis is public, so the bearing is taken from the direction to the target
-    /// against the camera's own right and up, which is well defined for any point that is not
-    /// exactly on the axis.</para>
+    /// <para>Off screen or behind, <paramref name="screen"/> is clamped to the edge toward the
+    /// target, from the bearing against the camera's right and up: a projection throws a point behind
+    /// the camera to the opposite side.</para>
     /// </summary>
     public static bool TryProjectOrClamp(double3 pointEcl, out float2 screen, out bool inView)
     {
@@ -143,19 +131,9 @@ internal static partial class KsaWorld
     /// <summary>
     /// Where a world point lands on one camera window, <em>including off the edge of it</em>.
     ///
-    /// <para>The window is named rather than assumed. A sight painting the main view's projection
-    /// onto a secondary window puts its whole picture in the wrong place at the wrong scale, and
-    /// looks from outside exactly like a camera that is not being driven.</para>
-    ///
-    /// <para>For a shape whose ends are outside the picture but whose middle is inside — the
-    /// sight's horizontal reference is the case, and it is the whole shape. Rejecting a point for
-    /// being off-screen throws the line away exactly when it spans the view, which is always: the
-    /// reference reaches past both edges by design, and at 3° of field it reaches a long way past.
-    /// The draw list clips what it is given, so out-of-bounds coordinates are the caller's
-    /// friend.</para>
-    ///
-    /// <para>A point <em>behind</em> the camera is still refused, because a projection maps it to
-    /// the opposite side of the screen and a line drawn to it runs the wrong way.</para>
+    /// <para>The window is named, not assumed. Off-screen points are kept for a line spanning the
+    /// view, such as the sight's horizontal reference, which the draw list clips; a point behind the
+    /// camera is refused.</para>
     /// </summary>
     public static bool TryProjectUnbounded(int index, double3 pointEcl, out float2 screen)
     {
@@ -181,11 +159,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// The same projection, for a position already in the render frame.
     ///
-    /// <para>For anything drawn <em>over</em> a craft rather than beside it. A craft's analytic
-    /// position and the place its mesh is drawn differ by metres on the ground, which is noise
-    /// against a 22 m fuse and is the entire budget for a bracket: at 3° of field a metre is
-    /// several pixels, so a sight fed the analytic position sits visibly off the target it is
-    /// supposed to be on. <see cref="TryVehicleEgo"/> is where the drawn position comes from.</para>
+    /// <para>For anything drawn over a craft: the analytic position is metres off the mesh, several
+    /// pixels at 3°. <see cref="TryVehicleEgo"/> gives the drawn position.</para>
     /// </summary>
     public static bool TryProjectEgoOrClamp(int index, double3 posEgo, out float2 screen,
                                             out bool inView)
@@ -200,11 +175,7 @@ internal static partial class KsaWorld
             int w = viewport.Width, h = viewport.Height;
             if (w <= 0 || h <= 0) return false;
 
-            // Ego is measured from the camera that sampled it, and everything upstream samples
-            // against the main one -- so it is a *position* for that camera alone. Handing it to
-            // another window's camera displaces the bracket by however far the two cameras are
-            // apart, which is a few degrees at a kilometre and unbounded when the player pulls
-            // their view back. Re-based through Ecl, which is the frame both agree in.
+            // Ego belongs to the main camera that sampled it; another window's is re-based through Ecl.
             if (!ReferenceEquals(camera, Program.GetMainCamera()))
             {
                 if (Program.GetMainCamera() is not { } sampled) return false;

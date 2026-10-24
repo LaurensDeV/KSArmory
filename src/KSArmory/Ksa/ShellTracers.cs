@@ -17,8 +17,7 @@ namespace KSArmory;
 /// the round's own width (<see cref="TracerLook.Ball"/>), which the shader tells apart by the
 /// brightness's sign.</para>
 ///
-/// <para>Collected after the step rather than in the UI pass, so tracers stay up with the UI hidden:
-/// they are the rounds, not an annotation of them.</para>
+/// <para>Collected after the step rather than in the UI pass, so tracers stay up with the UI hidden.</para>
 /// </summary>
 internal static class ShellTracers
 {
@@ -98,7 +97,6 @@ internal static class ShellTracers
         double ballBrightness = BallBrightness * TracerLook.Daylight(
             camera.NearbyCelestial is { } near ? KsaWorld.SunElevationDeg(near, cameraEcl) : double.NaN);
 
-        // The tracers on the first pass and the rest on the second.
         for (int pass = 0; pass < 2; pass++)
         foreach (WeaponSystem system in _systems)
         {

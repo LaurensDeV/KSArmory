@@ -6,11 +6,8 @@ namespace KSArmory;
 
 /// <summary>
 /// Taking an endless emitter set out of the engine's particle pool, pointing it, and giving it back.
-///
-/// <para>Leaf functions rather than a base class: the effects holding these differ in what they key
-/// on, how many sets one holds and when they let go, and agree only on these three steps. The third
-/// is the one that matters — a set never given back is never returned to the pool, and once the pool
-/// is dry nothing in the world can spawn particles again.</para>
+/// <para>A set never given back never returns to the pool, and once the pool is dry nothing in the
+/// world can spawn particles again.</para>
 /// </summary>
 internal static class EmitterPool
 {
@@ -69,11 +66,9 @@ internal static class EmitterPool
     }
 
     /// <summary>
-    /// Fires a one-shot set for <paramref name="id"/> at <paramref name="origin"/>, and says how many
-    /// went; none when the pool is empty. Nothing is held: a one-shot set returns itself.
+    /// Fires a one-shot set and returns how many emitters went; a one-shot set returns itself. Points,
+    /// tunes, then registers, in <c>ExplosionSystem.FireStage</c>'s order, which <see cref="Take"/> does not.
     /// </summary>
-    // The order KSA's own ExplosionSystem.FireStage uses: point it, tune it, then register it, which
-    // is why this is not Take, which registers first.
     public static int Fire(string id, Celestial body, BubbleOrigin origin, Action<ParticleEmitter<ParticleUpdateData, ParticleRenderData>>? tune = null)
     {
         if (!Program.Instance.ParticleSystem.GetAndInitializeEmitters(id, out var handles)
@@ -108,7 +103,6 @@ internal static class EmitterPool
         VelocityBub = velocityCcf,
     };
 
-    /// <summary>Moves every emitter of a set to <paramref name="origin"/>.</summary>
     public static void Point(List<ParticleEmitter<ParticleUpdateData, ParticleRenderData>.Handle> handles,
                              BubbleOrigin origin)
     {
@@ -123,12 +117,8 @@ internal static class EmitterPool
     /// <summary>Stops a set and hands it back to the pool. Safe on emitters the engine has already reclaimed.</summary>
     public static void Give(Celestial body, List<ParticleEmitter<ParticleUpdateData, ParticleRenderData>.Handle> handles)
     {
-        // Kill() first, and it is what actually stops it. Celestial.RemoveEmitter only drops the
-        // handle from that body's list; ParticleSystem.UpdateEmitters walks the whole pool, so a
-        // removed emitter keeps being updated. An Endless one never completes its own simulation,
-        // so it spawns for the rest of the session and is never returned to the pool -- which is
-        // seen as particles frozen where the emitter last was, and eventually as nothing in the
-        // world being able to spawn any.
+        // Kill() is what stops it: RemoveEmitter only drops the handle from the body's list, and
+        // UpdateEmitters walks the whole pool, so an Endless emitter spawns on and never returns.
         foreach (var handle in handles)
         {
             try

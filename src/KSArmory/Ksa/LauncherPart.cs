@@ -6,9 +6,7 @@ namespace KSArmory;
 /// <summary>
 /// Locates the launcher part on a vehicle and works out where its tubes are in the world.
 ///
-/// The part itself (KSArmoryAssets.xml) is inert geometry - KSA sees a lump of
-/// structure with mass and a collider. This class is the bridge: it finds that part on the
-/// vehicle, and the system mounts to it.
+/// The part itself is inert to KSA, structure with mass and a collider; the system mounts to it.
 /// </summary>
 internal static class LauncherPart
 {
@@ -24,11 +22,8 @@ internal static class LauncherPart
     /// <summary>
     /// Finds a launcher on a vehicle, or null if it carries none.
     ///
-    /// <para>Matches against every launcher in <see cref="Catalogue"/> rather than one hardcoded
-    /// Id, so adding a weapon system is a registry entry and needs no change here. Answers the
-    /// "does this craft carry one at all" question and stops at the first match; a system
-    /// resolves its <em>own</em> launcher through <see cref="FindNth"/> on its ordinal, because
-    /// a craft carries one weapon system per launcher part.</para>
+    /// <para>Matches against every launcher in <see cref="Catalogue"/>, stopping at the first; a
+    /// system resolves its own launcher through <see cref="FindNth"/>.</para>
     /// </summary>
     public static (Part Part, LauncherProfile Profile)? Find(Vehicle vehicle)
     {
@@ -116,10 +111,6 @@ internal static class LauncherPart
 
     /// <summary>
     /// The turret subpart of a launcher, or null if it cannot be found.
-    ///
-    /// KSA models subparts as <see cref="Part"/> objects in their own right, each with its own
-    /// settable <c>Asmb2ParentAsmb</c> — so the turret can be slewed without splitting the
-    /// launcher into two separate parts joined by a node.
     /// </summary>
     public static Part? FindTurret(Part launcher, LauncherProfile profile)
         => FindSubPart(launcher, profile.TurretMarker);
@@ -209,8 +200,7 @@ internal static class LauncherPart
     /// currently aimed.
     ///
     /// <see cref="MuzzleEcl"/> builds a ring about the boresight instead, which coincides with the
-    /// mouths only on a fixed bundle of tubes: once the pods traverse and elevate the real mouths
-    /// sit metres off that ring, and rounds leave from the ring rather than from a tube.
+    /// mouths only on a fixed bundle of tubes.
     /// </summary>
     public static bool TryGetTubeMuzzlePartFrame(Part? pods, LauncherProfile profile, int tubeIndex, out double3 partFrame)
     {
@@ -258,10 +248,8 @@ internal static class LauncherPart
     /// <summary>
     /// Where a round's <em>centre</em> sits when seated in its tube, in the part frame.
     ///
-    /// <para>The body mesh is modelled about its centre, so placing it at the tube mouth leaves
-    /// half of it sticking out. Backing off half a body length puts the nose at the mouth and
-    /// the rest inside — which is where a loaded round belongs, and gives a launch something to
-    /// emerge from.</para>
+    /// <para>The body mesh is modelled about its centre, so half a body length back puts the nose
+    /// at the mouth.</para>
     /// </summary>
     public static bool TryGetSeatedPartFrame(Part? pods, LauncherProfile profile, int tubeIndex,
                                              double bodyLength, out double3 seated)
@@ -306,8 +294,7 @@ internal static class LauncherPart
         }
         catch (Exception e)
         {
-            // A silent false here shrinks the body to a millimetre and says nothing, which reads
-            // in game as a round that simply is not there. Say it once per launcher.
+            // Logged once per launcher: silent, it reads as a round that is not there.
             if (_seatFailure.Add(profile.PartId))
                 Log.Warn($"seating tube {tubeIndex} of {profile.PartId} failed: {e.GetType().Name}: {e.Message}");
             return false;
@@ -340,11 +327,9 @@ internal static class LauncherPart
     /// <summary>
     /// Where a round's body is actually <em>drawn</em>, in Ecl.
     ///
-    /// <para>Not <c>PlatformEcl + OffsetFromPlatform</c>, which is the same round measured from
-    /// the platform's <em>analytic</em> orbit position. A body is placed against the vehicle's
-    /// physics origin instead, and on a landed craft those are metres apart - so anything that has
-    /// to sit visually on the round, rather than merely near it, has to be built the way the body
-    /// is. See CLAUDE.md on anchoring to the tube.</para>
+    /// <para>Not <c>PlatformEcl + OffsetFromPlatform</c>, which is measured from the platform's
+    /// analytic position; a body is placed against the physics origin, metres apart on a landed
+    /// craft. See CLAUDE.md on anchoring to the tube.</para>
     /// </summary>
     public static bool TryGetBodyEcl(Vehicle platform, Part launcher,
                                      double3 launchAnchorPartFrame, double3 travelEcl,
@@ -416,9 +401,7 @@ internal static class LauncherPart
 
         try
         {
-            // Measured from the centre of mass, because that is what platformEcl is:
-            // GetPositionEcl returns the centre of mass while PositionVehicleAsmb is from the
-            // assembly origin, and adding one to the other is out by the whole offset.
+            // platformEcl is the centre of mass; PositionVehicleAsmb is from the assembly origin.
             ecl = platformEcl + platform.Asmb2Ego * (inVehicle - platform.CenterOfMassAsmb);
             return Vec.IsFinite(ecl);
         }
@@ -777,10 +760,9 @@ internal static class LauncherPart
     /// <summary>
     /// Points the turret at <paramref name="bearingRad"/> about the part's X axis.
     ///
-    /// <para><see cref="Part"/> caches the matrices derived from the quaternion, so without
-    /// <c>ResetCachedPosMatrixValues</c> the new orientation is stored and ignored. Both the plain
-    /// and <c>Safe</c> properties are written — one appears to be a snapshot for another thread,
-    /// and setting both is cheaper than guessing wrong.</para>
+    /// <para><see cref="Part"/> caches its matrices, so without <c>ResetCachedPosMatrixValues</c>
+    /// the new orientation is ignored. Both the plain and <c>Safe</c> properties are written, since
+    /// which one a render thread snapshots is not known.</para>
     /// </summary>
     /// <returns>False if KSA rejected the write; the caller should stop trying and say so.</returns>
     public static bool TryApplyTurretBearing(Part turret, double bearingRad)
@@ -936,11 +918,8 @@ internal static class LauncherPart
     /// <summary>
     /// Rotates a direction in the <em>launcher part's</em> frame out into Ecl, through the part's
     /// mounting and then the vehicle's attitude. The inverse of
-    /// <see cref="TryDirectionToPartFrame"/>: both apply the launcher's own mounting, and there is
-    /// deliberately no variant that stops at the vehicle assembly frame. The two frames differ by
-    /// the part's rotation, which is nothing on a surface mount and a half turn on a stack one, so
-    /// anything reading a launcher direction through the wrong one points backwards without saying
-    /// so.
+    /// <see cref="TryDirectionToPartFrame"/>; deliberately no variant stops at the vehicle frame,
+    /// which differs by a half turn on a stack mount.
     /// </summary>
     public static bool TryLauncherDirectionEcl(Vehicle platform, Part launcher, double3 partFrame,
                                                out double3 directionEcl)
@@ -968,15 +947,8 @@ internal static class LauncherPart
     /// <param name="launcher">
     /// The launcher, so its own mounting within the vehicle is undone as well.
     ///
-    /// <para>Without it this stops at the vehicle frame and hands <see cref="Turret.Track"/> a
-    /// direction in the wrong axes: that drive's axes are the launcher <em>part</em>'s, and the
-    /// reverse conversion <see cref="TryLauncherDirectionEcl"/> applies the mounting, so dropping
-    /// it here leaves aim and boresight disagreeing by exactly the part's rotation.</para>
-    ///
-    /// <para>That rotation is nothing on a launcher surface-attached unrotated and a half turn on
-    /// a stack-mounted one, which points a CIWS 180 degrees out. Null is tolerated and means the
-    /// vehicle frame, which is what a caller with no launcher resolved yet can honestly ask
-    /// for.</para>
+    /// <para><see cref="Turret.Track"/> works in the launcher part's axes, which differ from the
+    /// vehicle's by a half turn on a stack mount. Null means the vehicle frame.</para>
     /// </param>
     public static bool TryDirectionToPartFrame(Vehicle vehicle, Part? launcher,
                                                double3 directionEcl, out double3 partFrame)
@@ -1025,12 +997,8 @@ internal static class LauncherPart
     /// <summary>
     /// Position of the launcher part in the ecliptic frame.
     ///
-    /// Goes via the render frame deliberately: KSA offers <c>Part.PositionEgo</c> as a
-    /// purpose-built helper, and Ego is a pure translation of Ecl, so a round trip through it
-    /// is exact and avoids hand-rolling the assembly-to-world transform chain.
-    ///
-    /// Falls back to the vehicle origin when there is no camera (loading screens), which costs
-    /// at most a couple of metres on a kilometre-scale engagement.
+    /// Via the render frame, through <c>Part.PositionEgo</c>: Ego is a pure translation of Ecl.
+    /// Falls back to the vehicle origin when there is no camera.
     /// </summary>
     public static double3 ResolveOriginEcl(Vehicle vehicle, Part? launcher)
     {
@@ -1042,13 +1010,9 @@ internal static class LauncherPart
             Camera camera = Program.GetMainCamera();
             if (camera is null) return vehicleEcl;
 
-            // Where the craft is *drawn*, not where its orbit says it is. EclToEgo is only the
-            // last of GetPositionEgo's three cases: a craft sharing the followed craft's physics
-            // bubble is drawn at a physics-derived position instead, and that differs from the
-            // analytic one by metres on the ground. The mount is used to take a bearing at
-            // something the player picked off the screen, so it has to be where the launcher
-            // appears. The engine agrees -- its own GetMatrixAsmb2Ego(Camera) overload is exactly
-            // GetMatrixAsmb2Ego(camera.GetPositionEgo(this)). Identical for the followed craft.
+            // Where the craft is drawn: a craft in the followed craft's physics bubble is drawn at a
+            // physics position metres from the analytic one, and the bearing is taken at something
+            // picked off the screen. As the engine's own GetMatrixAsmb2Ego(Camera) overload does.
             double3 vehicleEgo = camera.GetPositionEgo(vehicle);
             double4x4 asmb2Ego = vehicle.GetMatrixAsmb2Ego(vehicleEgo);
             double3 partEgo = launcher.PositionEgo(ref asmb2Ego);
@@ -1065,10 +1029,7 @@ internal static class LauncherPart
     /// <summary>
     /// Muzzle position of one tube, in Ecl.
     ///
-    /// The hexagon is laid out in world space about the boresight rather than being read out
-    /// of the part's own rotation. The system always points its rounds along the boresight,
-    /// so building the ring around that axis keeps the tubes and the departing rounds
-    /// consistent with each other.
+    /// A ring laid out about the boresight rather than read off the part's rotation.
     /// </summary>
     public static double3 MuzzleEcl(LauncherProfile profile, double3 originEcl, double3 boresight, int tubeIndex)
         => TubeGeometry.MuzzleRingEcl(profile, originEcl, boresight, tubeIndex);
@@ -1078,10 +1039,8 @@ internal static class LauncherPart
     /// <see cref="MuzzleEcl"/> these land on the actual tubes.
     /// </summary>
     /// <param name="carrier">
-    /// The assembly the tubes ride: the pods, or the launcher part itself when the profile
-    /// declares none. Unlike the seating path this works straight in vehicle-assembly
-    /// coordinates, so an absent assembly cannot be stood in for with an identity - there has to
-    /// be a real part to measure the offset from.
+    /// The assembly the tubes ride: the pods, or the launcher part itself when the profile declares
+    /// none. Works in vehicle-assembly coordinates, so it needs a real part, not an identity.
     /// </param>
     /// <returns>False if the transform is unavailable; the caller should skip drawing.</returns>
     public static bool TryGetTubeMuzzlesEgo(Vehicle platform, Part? carrier, LauncherProfile profile, double3 platformEgo, Span<double3> into)

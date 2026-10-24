@@ -6,23 +6,12 @@ namespace KSArmory;
 /// <summary>
 /// Flies a scripted engagement with nobody watching, and says in the log what happened.
 ///
-/// <para>This exists because the gap between "the suite passes" and "it works" is a person
-/// clicking things, and that person is the bottleneck on every behaviour change this mod makes.
-/// KSA cannot run headless — it ships Windows-only natives and threads its simulation through a
-/// Vulkan renderer — but it does not need to. It needs to run <em>unattended</em>, which is a
-/// scenario file, a state machine and a line of output.</para>
+/// <para>KSA cannot run headless, but it can run unattended. Appearance still needs eyes: the
+/// harness screenshots at each <c>CAPTURE</c> marker.</para>
 ///
-/// <para>What it cannot do is judge appearance. Where a plume sits, whether a sight reads, whether
-/// an explosion sounds right: those still need eyes. The <c>CAPTURE</c> markers exist for that —
-/// the harness screenshots when it sees one, so the pictures at least arrive without anyone
-/// sitting through the flight.</para>
-///
-/// <para>Three shapes of scenario, and this file owns the half they share: the request, the save,
-/// the clocks and the verdict. An engagement is short enough to run inline; a ballistic shot is
-/// seven minutes of flight with a state machine of its own, and lives in
-/// <see cref="BallisticScenario"/>; a store let go off a climbing craft lives in
-/// <see cref="DropScenario"/>; and a gun scored shell by shell against drones lives in
-/// <see cref="GunneryScenario"/>.</para>
+/// <para>This file owns what every scenario shares: the request, the save, the clocks and the
+/// verdict. An engagement runs inline; <see cref="BallisticScenario"/>, <see cref="DropScenario"/>
+/// and <see cref="GunneryScenario"/> are the others.</para>
 /// </summary>
 internal sealed class ScenarioRunner
 {
@@ -53,8 +42,7 @@ internal sealed class ScenarioRunner
     private DropScenario? _drop;
     private GunneryScenario? _gunnery;
 
-    // Held rather than passed, because the flights are crewed once the world has loaded rather
-    // than when the run is asked for.
+    // Held, because the flights are crewed once the world has loaded.
     private ShotRequest _shot;
 
     // Which variant each rocket flies, when a batch is comparing two inside one world. Null is the
@@ -79,8 +67,7 @@ internal sealed class ScenarioRunner
     private bool _spawned;
 
     // "blackout=<kt>": a burst of that yield on the ground halfway to the target the moment the set
-    // first holds it, with nothing damaged by it, and what the radar holds reported every half
-    // second after. Before the set holds it the beam has nothing to lose, which proves nothing.
+    // first holds it, damaging nothing, and what the radar holds reported every half second after.
     // "noblackout" is the control: the same burst with the effect switched off.
     private double _blackoutKt;
     private double _blackoutReported;
@@ -92,8 +79,8 @@ internal sealed class ScenarioRunner
     private double _lastComplaint;
     private string _save = string.Empty;
 
-    // A chase ridden through a list of world speeds, one stretch each. For a camera fault that shows
-    // at some speeds and not others, which nobody can flip between by hand while a shell is flying.
+    // A chase ridden through a list of world speeds, one stretch each, for a camera fault that shows
+    // at some speeds and not others.
     private bool _chase;
     private bool _showClouds;
     private bool _twoClouds;
@@ -122,24 +109,15 @@ internal sealed class ScenarioRunner
     // wall clock, which a speed held for fifteen seconds never reaches.
     private const float ChaseDumpSeconds = 0.25f;
 
-    // Longest an engagement may take before it is called a failure. Generous: a 20 km engagement at
-    // 300 m/s closing is over a minute of flight before anything is decided.
+    // Longest an engagement may take before it is called a failure: 20 km at 300 m/s is over a minute.
     private const double EngagementBudgetSeconds = 90.0;
 
-    // The same for a ballistic shot, which is a different order of thing: seven minutes of
-    // simulated flight, and the warp it asks for can be refused. Wide enough to cover the whole
-    // shot at one times speed, because a run that gives up early reports a timeout for a shot that
-    // was going perfectly well.
+    // The same for a ballistic shot: wide enough for the whole shot at one times speed, since the
+    // warp it asks for can be refused.
     private const double BallisticBudgetSeconds = 2400.0;
 
-    // And its budget in simulated seconds, which is the one that catches a flight that is stuck
-    // rather than slow. A reentry vehicle expires at half an hour.
-    //
-    // Sized for a world holding several rockets, not one. Their releases are sequenced rather than
-    // simultaneous, so eight flights need well over the hour a single shot resolves in -- measured
-    // at 7 of 8 down on the hour, which reports a TIMEOUT carrying no per-flight line at all and
-    // costs the whole shot. A budget an arm can fail on for being slower than the baseline is a
-    // measurement of the budget.
+    // And its budget in simulated seconds, which catches a flight that is stuck rather than slow.
+    // Sized for several rockets, whose releases are sequenced: eight measured 7 of 8 down at an hour.
     private const double BallisticSimBudgetSeconds = 5400.0;
 
     // The world needs a few seconds after load before a craft is flyable and a system is crewed.
@@ -158,8 +136,7 @@ internal sealed class ScenarioRunner
     // A load, a climb and a fall, with the game's own start-up inside it.
     private const double DropBudgetSeconds = 300.0;
 
-    // The policy has to be told when the harness moves the world, or it reads the mod's own
-    // deliberate request as a competing writer and stands down for the rest of the salvo.
+    // The policy has to be told when the harness moves the world, or it stands down as overridden.
     private readonly WarpPolicy _warp;
 
     // One flight per rocket, each with its own magazine, group and verdict, and one shared list of
@@ -171,13 +148,10 @@ internal sealed class ScenarioRunner
     private readonly bool[] _viewTaken = new bool[1];
     private readonly List<string?> _outcomes = [];
 
-    // Which arm each flight drew, in the order they were crewed. Kept so the run's own summary can
-    // say how the arms were spread rather than leaving a reader to count the per-craft lines.
+    // Which arm each flight drew, in crewing order, for the run's summary.
     private readonly List<string> _armFlown = [];
 
-    // Crewed once, from whatever the roster holds the first time it holds anything. A rocket that
-    // appears later is not picked up: every rocket in a scripted world is on the pad at load, and a
-    // flight joined mid-ascent is a differently conditioned shot rather than a spare one.
+    // Crewed once, from whatever the roster first holds: a rocket appearing later is not picked up.
     private bool _crewed;
 
     private void SelectOther(WeaponSystems roster, Vehicle craft)
@@ -203,25 +177,20 @@ internal sealed class ScenarioRunner
         {
             if (!KsaWorld.IsAlive(computer.Craft)) continue;
 
-            // Crewed is not the same as able to fly this shot: a computer goes wherever a part
-            // provides guidance, whatever its weapon can reach. Counting one that cannot among our
-            // shooters leaves the real rocket with nothing to aim at, and it falls back to bare
-            // ground -- flown, and it moved the shot from 12,902 km to 6,261.
+            // Crewed is not able to fly this shot: a computer goes wherever a part provides guidance,
+            // and counting one that cannot reach leaves the real rocket aiming at bare ground.
             if (!BallisticScenario.CouldReachTheAim(computer, roster.GuidedFrom(computer.Craft)?.Weapon,
                                                     _shot))
             {
                 continue;
             }
 
-            // Drawn here and applied by the flight itself when it arms: the harness forces
-            // settings of its own at that moment, and an arm applied before them is an arm that
-            // silently flies the baseline.
+            // Drawn here and applied when the flight arms, after the harness forces its own settings.
             ShotArms.Arm? arm = _arms?.For(_shooters.Count, _armPhase);
 
             if (arm is { } drawn)
             {
-                // Said per craft, because this is the only record of which rocket flew which
-                // variant and the whole comparison is read back out of it afterwards.
+                // Per craft: the only record of which rocket flew which variant.
                 Report($"{_name}: {KsaWorld.DisplayName(computer.Craft)} flies arm {drawn.Describe()}");
                 _armFlown.Add(drawn.Name);
             }
@@ -239,16 +208,12 @@ internal sealed class ScenarioRunner
         _crewed = true;
         _ballistic = _flights[0];
 
-        // Said because trap 1's failure mode is silent: a run that flew one rocket and left the
-        // rest on the pad looks exactly like a run that flew them all, and reports the idea as
-        // free. The count here is what a batch checks against what it asked for.
+        // The count a batch checks against what it asked for: a run that left rockets on the pad
+        // otherwise looks like one that flew them all.
         Report($"{_name}: crewed {_flights.Count} flight(s): "
                + string.Join(", ", _shooters.ConvertAll(KsaWorld.DisplayName)));
 
-        // The split as flown, which is not always the split that was asked for: an odd number of
-        // viable rockets gives one arm an extra, and a save whose rockets cannot all reach the aim
-        // can give it several. A batch that reads this can drop a shot that came out lopsided
-        // instead of pooling it.
+        // The split as flown, which an odd or unreachable rocket can make lopsided.
         if (_arms is not null)
         {
             Report($"{_name}: arms " + string.Join(", ",
@@ -273,17 +238,13 @@ internal sealed class ScenarioRunner
 
         if (!allDone) return;
 
-        // Not FinishAll yet. WarheadTrace reports from a poll on the frame AFTER the round stops
-        // flying, and the last impact and END can land in the same millisecond -- so the arm that
-        // lands last would never report at all. On a paired night that is one whole arm; on a
-        // single-arm night the roster lands in one window and it cannot show.
+        // Not FinishAll yet: WarheadTrace reports on the frame after the round stops flying, so the
+        // last impact and END can land together.
         _phase = Phase.Settling;
         _settleFrom = _elapsed;
     }
 
-    // Hold the run open until every trace has reported, rather than for a guessed duration: the
-    // question "is anything still being followed" is exactly what the wait is for, and it costs
-    // nothing on a run with tracing off, where no computer is ever outstanding.
+    // Hold the run open until every trace has reported, rather than for a guessed duration.
     private const double SettleBudgetSeconds = 30.0;
 
     private double _settleFrom;
@@ -304,8 +265,7 @@ internal sealed class ScenarioRunner
 
         if (!outstanding) { FinishAll(); return; }
 
-        // A trace that never reports must not hang the run. Bounded rather than trusted, and said
-        // out loud -- a short group is a finding about the instrument and the report reads coverage.
+        // A trace that never reports must not hang the run: bounded, and logged.
         if (_elapsed - _settleFrom > SettleBudgetSeconds)
         {
             Report($"{_name}: settle gave up after {SettleBudgetSeconds:F0} s"
@@ -334,11 +294,7 @@ internal sealed class ScenarioRunner
         Finish($"{worst} {flew} of {_flights.Count} flight(s) flew");
     }
 
-    // One world, one clock, and every flight in it has an opinion -- so the requests are collected
-    // and the slowest wins rather than each flight writing the speed and the last one winning.
-    // Sim/WorldSpeed.cs holds the rule. With one rocket this is the rocket's own request; with
-    // several it is the difference between a shot flown at the speed it chose
-    // and one flown at whichever speed another rocket happened to want.
+    // One world, one clock: every flight's request is collected and the slowest wins (Sim/WorldSpeed.cs).
     private readonly List<double> _wantedSpeeds = [];
 
     private void ApplyWorldSpeed()
@@ -368,10 +324,8 @@ internal sealed class ScenarioRunner
     /// The scenario the harness asked for, or null. A short file beside the log, consumed as it is
     /// read so a second launch does not silently re-run the last request.
     ///
-    /// <para>Line one is the request. Line two, if there is one, is the arm spec — its own line
-    /// because <see cref="ShotArms"/> separates arms with the same <c>|</c> that separates the
-    /// request from the save, and a channel that cannot express the thing it carries is a channel
-    /// that mangles it silently. Line three is the phase.</para>
+    /// <para>Line one is the request. Line two, if there is one, is the arm spec, on its own line
+    /// because <see cref="ShotArms"/> uses the same <c>|</c> as the request. Line three is the phase.</para>
     /// </summary>
     public static string? Requested()
     {
@@ -395,36 +349,24 @@ internal sealed class ScenarioRunner
     public bool Active => _phase != Phase.Idle;
 
     /// <summary>
-    /// Reads the scenario file, if the harness left one. Deliberately a file rather than an
-    /// environment variable: the game is a Windows process launched from WSL and the environment
-    /// does not survive that reliably, while a path both sides agree on always does.
+    /// Reads the scenario file, if the harness left one: a file rather than an environment variable,
+    /// which does not survive a Windows process launched from WSL.
     /// </summary>
     public void Begin(string? request)
     {
         if (_phase != Phase.Idle || string.IsNullOrWhiteSpace(request)) return;
 
-        // Everything below overrides the player's own settings for the flight. A game kept open
-        // after END is somebody's session again, and one left with the shader pass off draws every
-        // tracer as a debug line.
+        // Everything below overrides the player's own settings for the flight.
         _before = _config.Snapshot();
         _thresholdBefore = Log.Threshold;
 
-        // The request is the first line; the arm spec and its phase are the two after it, and a
-        // one-line file is still the whole of the single-arm case.
-        // Trimmed per line rather than over the whole text: the file is written from WSL and read
-        // by a Windows process, so a line ending can arrive as CRLF and a stray carriage return on
-        // the request would go into the save name.
+        // Trimmed per line: a CRLF from WSL would put a carriage return into the save name.
         string[] lines = request.Split('\n');
         request = lines[0].Trim();
         _armSpec = lines.Length > 1 ? lines[1].Trim() : string.Empty;
         _armPhase = lines.Length > 2 && int.TryParse(lines[2].Trim(), out int phase) ? phase : 0;
 
-        // Line four is options, space separated. A file rather than an environment variable,
-        // because the game is a Windows process launched from WSL and the environment does not
-        // survive that -- the same reason the request itself travels this way.
-        //
-        // A set rather than one token: an equality test against the whole line silently ignores
-        // every flag but the first.
+        // Line four is options, space separated.
         string[] options = lines.Length > 3
             ? lines[3].Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             : [];
@@ -441,31 +383,19 @@ internal sealed class ScenarioRunner
         _chase = Array.IndexOf(options, "chase") >= 0;
 
         // "clouds": this run is being photographed, so the decoration below stays on and the chase
-        // stays off. Both halves are needed together -- a cloud nobody disabled is still invisible
-        // from a camera riding three metres behind the bomb that made it.
+        // stays off.
         _showClouds = Array.IndexOf(options, "clouds") >= 0;
 
         // The cloud follows the cloud switch rather than having one of its own. At zero the pass still
         // runs and paints the rings, holes and tracers; only a burst's own visuals are off.
-        // Timing runs either way: a run with the cloud off is the baseline the other is read
-        // against, and a number with no control looks decisive before it has said anything.
-        // "noshader" keeps the cloud and its pinned camera and turns only the PASS off, which is
-        // the control: same scene, same view, one variable. Without it a baseline run is framed
-        // differently from the run it is meant to be read against.
+        // Timing runs either way, so the cloud-off run is the baseline. "noshader" keeps the cloud
+        // and its pinned camera and turns only the pass off: same scene, same view, one variable.
         bool noShader = Array.IndexOf(options, "noshader") >= 0;
 
-        // "twoclouds": set off a second burst a few kilometres from the first, so the pass is
-        // exercised with more than one cloud standing. Nothing else in the scenarios produces two:
-        // a bus's six warheads land about 9 mm apart and are deliberately one cloud, and the only
-        // shot that spreads them is a multi-target ballistic run whose coast is hours long.
-        // "twoclouds" or "twoclouds=<multiple>". The multiple is on the SECOND burst's yield, so
-        // one run can carry two different sizes -- which is the only way to look at the airless dome
-        // at anything but the B61's third of a kilotonne.
-        // "cloudwarp=<n>": run the LINGER at that speed, which nothing else does. The drop's own
-        // warp argument is handed back the instant the store lands, deliberately -- the hand-back
-        // should not be watched at warp -- so without this the cloud, the mark and the fireball are
-        // never advanced at anything but 1x. A speed of 0 pauses instead, which is the other half of the
-        // same question.
+        // "twoclouds" or "twoclouds=<multiple>": a second burst a few kilometres from the first, so the
+        // pass runs with two clouds standing; the multiple is on the second burst's yield.
+        // "cloudwarp=<n>": run the linger at that speed, since the drop's own warp is handed back the
+        // instant the store lands. 0 pauses instead.
         _cloudWarp = 1.0;
         _stillAt = -1.0;
         _blackoutKt = 0.0;
@@ -558,9 +488,8 @@ internal sealed class ScenarioRunner
         CloudPassCost.Begin();
         CloudWatch.Reset();
 
-        // "watchelev=<deg>": stand the cloud watch that far above the horizontal instead. Low
-        // enough and the camera is under the weather deck the default pose looks down on, which is
-        // the other half of whether a burst goes behind a cloud correctly.
+        // "watchelev=<deg>": stand the cloud watch that far above the horizontal instead, low enough
+        // to be under the weather deck.
         foreach (string option in options)
         {
             if (!option.StartsWith("watchelev=", StringComparison.Ordinal)) continue;
@@ -623,16 +552,12 @@ internal sealed class ScenarioRunner
             }
         }
 
-        // "name" or "name|save". Skipping the configuration dialog gets the game past a dialog,
-        // not into a scene: settings.toml's startVehicle is only ever read *by* that dialog, so
-        // without one the game sits at a menu and nothing is ever in flight. Loading a save is
-        // the only way in that does not need a click, and GameSaves.LoadSaveGame is public.
+        // "name" or "name|save". settings.toml's startVehicle is only read by the configuration
+        // dialog, so loading a save (GameSaves.LoadSaveGame) is the only way in without a click.
         string[] parts = request.Split('|', 2);
         _save = parts.Length > 1 ? parts[1].Trim() : string.Empty;
 
-        // "name" or "name:arguments". Only the ballistic scenario carries any, and it carries them
-        // in the name rather than in a second file because the harness already has one channel to
-        // the game and a second one is a second thing that can go stale.
+        // "name" or "name:arguments", in the name rather than a second file that could go stale.
         string[] named = parts[0].Trim().Split(':', 2);
         _name = named[0].Trim();
 
@@ -746,10 +671,8 @@ internal sealed class ScenarioRunner
             return;
         }
 
-        // Refused rather than flown on one arm, and refused *here* rather than at crewing: a
-        // batch that spends seven minutes discovering its spec was mistyped has bought a shot
-        // belonging to neither arm, and a typo that silently flies the baseline twice is worse
-        // still -- it reports a dead heat.
+        // Refused here rather than at crewing: a mistyped spec that flies the baseline twice reports
+        // a dead heat.
         if (_armSpec.Length > 0)
         {
             if (!ShotArms.TryParse(_armSpec, out ShotArms arms, out string bad))
@@ -766,30 +689,16 @@ internal sealed class ScenarioRunner
         _shot = shot;
         _isBallistic = true;
 
-        // Nobody is watching a scripted shot and there is no second chance to ask for the numbers,
-        // which is the same reason BallisticScenario turns verbose logging on. Off everywhere else.
+        // Nobody is watching and there is no second chance to ask for the numbers. Off everywhere else.
         _config.TraceWarhead = true;
 
-        // Decoration nobody is looking at, and it is not cheap: a standing cloud costs 6-8 ms a
-        // frame, measured across 2026-09-09-walk2 as an 18-24 ms burn phase against 23-30 ms once
-        // the first warhead is down. Frame time is the only thing that buys simulation rate, and
-        // the two shots that night that lost every warhead were the two slowest. It changes nothing
-        // a burst DOES -- the sweep, the damage and the flash are elsewhere -- and like the staging
-        // above it is set here rather than anywhere an arm can reach, so it cannot differ between
-        // arms.
-        //
-        // Kept when the run is being photographed: turning the cloud off and then screenshotting it
-        // photographs an empty sky, which is a convincing-looking file that says nothing.
+        // A standing cloud costs 6-8 ms a frame (2026-09-09-walk2: 18-24 ms against 23-30 ms), and
+        // frame time buys simulation rate. It changes nothing a burst does, and is set here where no
+        // arm can reach it. Kept when the run is being photographed.
         _config.NuclearClouds = _showClouds;
 
-        // A scripted world lives for eight minutes with nobody looking at it, so a spent stage
-        // arcing back down is pure frame time -- and frame time is the only thing that buys
-        // simulation rate. It is what makes several rockets in one world affordable.
-        //
-        // It changes the step every shot is integrated at, which is a fidelity change rather than
-        // a guidance one: no part of the flight reads an ascent stage. The baseline is re-flown
-        // every night, so what it must not do is differ *between arms* -- and it cannot, being set
-        // here rather than by anything an arm can reach.
+        // A spent stage arcing back down is pure frame time, which buys simulation rate. Set here, so
+        // it cannot differ between arms.
         // Off only when a run is deliberately stressing the bubble. A spent stack separates at about
         // a metre a second, so keeping it holds every rocket inside the 4.194 km at which
         // SplitBubbles would release it -- which makes the shared bubble certain instead of a
@@ -814,11 +723,8 @@ internal sealed class ScenarioRunner
     /// <summary>
     /// One frame of the scenario. Does nothing unless one was asked for.
     ///
-    /// <para>Two clocks, and which is which matters. Everything about the <em>world</em> runs on
-    /// <paramref name="simStep"/>, because a scenario that accumulates while the game is paused or
-    /// under timewarp measures something nobody is watching — the same rule fire control obeys. The
-    /// budgets are the exception and are wall clock on purpose: they are what stops an unattended
-    /// run hanging, and a run that waits on simulated time waits for ever on a paused game.</para>
+    /// <para>The world runs on <paramref name="simStep"/>; the budgets are wall clock on purpose, so a
+    /// paused game cannot hang an unattended run.</para>
     /// </summary>
     public void Update(WeaponSystems roster, IcbmComputers? icbms, double simStep, double playerStep)
     {
@@ -842,9 +748,7 @@ internal sealed class ScenarioRunner
         // A hold for a burn window or a coast to the release is not a stuck flight, and either can run for hours.
         if (!_flights.Exists(f => f.IsWaiting)) _simElapsed += dt;
 
-        // Not while settling. Every flight has already been judged by then, so a run that spent its
-        // budget flying and then crossed it waiting for a trace would be reported TIMEOUT with a
-        // full set of verdicts in hand. The settle carries its own bound instead.
+        // Not while settling: every flight has been judged, and the settle carries its own bound.
         if (_phase != Phase.Settling)
         {
             if (_elapsed > _budget)
@@ -911,8 +815,7 @@ internal sealed class ScenarioRunner
             case Phase.WaitingForWorld:
                 if (!KsaWorld.InFlight || entry is null)
                 {
-                    // Every few seconds, because "TIMEOUT in WaitingForWorld" says which state it
-                    // died in and nothing about which of the two things it was missing.
+                    // Every few seconds, saying which of the two things it is still missing.
                     if (_elapsed - _lastComplaint > 10.0)
                     {
                         _lastComplaint = _elapsed;
@@ -1010,8 +913,7 @@ internal sealed class ScenarioRunner
 
         if (!_spawned)
         {
-            // The same numbers the panel's buttons use, so a scenario reproduces what a person
-            // would have clicked rather than a case only the harness can produce.
+            // The same numbers the panel's buttons use.
             if (TestTarget.Spawn(system.Platform!, _profile, 30.0, 300.0, 1500.0, "Gemini7") is not { } target)
             {
                 Finish("FAIL could not spawn a target");
@@ -1044,8 +946,7 @@ internal sealed class ScenarioRunner
                    + $"locked {(system.Radar.Locked is null ? "nothing" : "the target")}");
         }
 
-        // The first round leaving is the moment worth a picture: it shows the launcher, the round
-        // on its way and the plume, which is most of what a screenshot can settle.
+        // The first round leaving is the moment worth a picture.
         if (!_capturedLaunch && system.Rounds.Count > 0)
         {
             _capturedLaunch = true;
@@ -1092,13 +993,8 @@ internal sealed class ScenarioRunner
                + $"{FireballBlackout.Radius(charge, 0.0):F0} m for {FireballBlackout.Seconds(charge):F1} s");
     }
 
-    // What a timeout was waiting for. The phase names a state and says nothing about which of the
-    // things that state needed was missing, which is the whole of what a run that never finished
-    // has to answer. For a shot that got some of its warheads away it carries the group too: those
-    // are the numbers the run was for, and a bare "TIMEOUT" throws them away.
-    // The flight that is actually holding the run up, which on a multi-rocket save is rarely the
-    // first one. Reporting _flights[0] regardless describes a flight that has usually finished, so
-    // a timeout reads as a healthy shot and points the reader at the wrong rocket.
+    // What a timeout was waiting for, with the group of any warheads already away. Of the flight
+    // actually holding the run up, which on a multi-rocket save is rarely the first.
     private string Stuck()
     {
         if (_drop is not null) return $"{_phase}, {_drop.Where}";

@@ -13,21 +13,11 @@ internal static partial class KsaWorld
     /// <summary>
     /// Blocks until KSA's vehicle solver jobs have finished the step they are working on.
     ///
-    /// <para><b>Required before destroying a vehicle from a mod hook.</b> Disposing a vehicle
-    /// removes it from its <c>PhysicsBubble</c>'s <c>_vehicleStates</c>, which is the list
-    /// <c>VehicleUpdateTask.Run</c> enumerates off the main thread — the dispose surfaces as
-    /// <c>InvalidOperationException: Collection was modified</c> inside the engine.</para>
-    ///
-    /// <para>Waiting on the scheduler alone is the whole barrier, even though the work fans out
-    /// across a second job system: <c>Run</c> steps the bubbles through
-    /// <c>JobSystems.VehicleWorkerPool</c> inside a <c>using ParallelBatch</c>, and disposing
-    /// that batch awaits it — so the pool cannot still be running once the scheduler is idle.</para>
-    ///
-    /// <para>No mod hook sits in the safe window. <c>PrepareFrame</c> takes this barrier at
-    /// <c>Program.cs:1966</c> and re-dispatches at <c>:2003</c>, while the GUI hook fires at
-    /// <c>:2051</c> and the frame hook later still — so moving the call between hooks cannot
-    /// help. Taking the barrier costs a stall only on frames where something dies, and those jobs
-    /// had to finish before the next <c>PrepareFrame</c> anyway.</para>
+    /// <para>Required before destroying a vehicle from a mod hook: the dispose mutates the
+    /// <c>_vehicleStates</c> that <c>VehicleUpdateTask.Run</c> enumerates off the main thread. The
+    /// scheduler is the whole barrier, since the worker pool runs inside a disposed
+    /// <c>ParallelBatch</c>. No mod hook sits in <c>PrepareFrame</c>'s safe window
+    /// (<c>docs/KSA-FRAME-ORDER.md</c>).</para>
     /// </summary>
     public static void WaitForVehicleSolvers()
     {
@@ -37,8 +27,7 @@ internal static partial class KsaWorld
         }
         catch (Exception e)
         {
-            // Falling through to the destroy leaves the race in place; taking the frame down is
-            // worse.
+            // The race stays; taking the frame down is worse.
             Log.Warn($"could not join the vehicle solvers before a kill ({e.GetType().Name})");
         }
     }
@@ -49,14 +38,8 @@ internal static partial class KsaWorld
     /// shapes registry, which the vehicle worker holds for its whole run, and a removal refused
     /// half-way leaves the physics bubble indexing a vehicle list one shorter than it thinks.
     ///
-    /// <para><c>DestroyVehicleFromEvent</c> runs the engine's failure machinery, which ends in
-    /// <c>PartFailure.ShedDebris(vehicle, 12)</c> — so destroying one spent stage can leave up to
-    /// twelve vehicles behind rather than none. For a kill that is the point; for disposal it is
-    /// the opposite of what was asked, and it is what kept two worlds of 3ci carrying seven extra
-    /// vehicles, in one physics bubble that could no longer return to rails.</para>
-    ///
-    /// <para><c>EndMission</c> rather than <c>Kill</c>: nothing aboard a spent stage died, and the
-    /// crew disposition is the only thing separating the two.</para>
+    /// <para>Not <c>DestroyVehicleFromEvent</c>, which sheds up to twelve debris vehicles.
+    /// <c>EndMission</c> rather than <c>Kill</c>, the crew disposition being the only difference.</para>
     /// </summary>
     public static void Remove(Vehicle v)
     {
@@ -79,8 +62,7 @@ internal static partial class KsaWorld
     /// Destroys a vehicle, attributing it to collision damage. Must be called from the main
     /// thread, and only after <see cref="WaitForVehicleSolvers"/> — see there for why.
     ///
-    /// <para>This breaks the vehicle up and leaves debris. To take one out of the world instead,
-    /// use <see cref="Remove"/>.</para>
+    /// <para>Leaves debris; <see cref="Remove"/> does not.</para>
     /// </summary>
     public static void Destroy(Vehicle v, float blastSeverity)
     {
@@ -95,8 +77,6 @@ internal static partial class KsaWorld
             };
             Universe.DestroyVehicleFromEvent(v, evt);
 
-            // The census holds a reference, and a disposed vehicle is not what a fresh walk would
-            // have returned.
             InvalidateCensus();
         }
         catch (Exception e)
@@ -360,10 +340,8 @@ internal static partial class KsaWorld
     }
 
     /// <summary>
-    /// Where a craft's centre of mass is drawn, in Ecl; see <see cref="TryDrawnPartPointEcl"/>. For
-    /// the main camera, or for one viewport's: a camera following a craft draws the others in its
-    /// physics bubble at their physics positions and one following nothing at their simulated ones,
-    /// metres apart and by a different amount each frame.
+    /// Where a craft's centre of mass is drawn, in Ecl, for the main camera or one viewport's,
+    /// which draw other craft metres apart.
     /// </summary>
     public static bool TryDrawnCentreEcl(Vehicle craft, out double3 ecl, int viewIndex = -1)
     {
@@ -641,20 +619,12 @@ internal static partial class KsaWorld
     /// Every part of a craft a blast could break, with the three things
     /// <see cref="BlastDamage"/> needs about each.
     ///
-    /// <para>Positions are Ecl, taken against <paramref name="vehicleEcl"/> so the whole craft is
-    /// read at one instant — the same rule the blast sweep and the draw anchor obey. The centre of
-    /// mass correction is the one the tube geometry uses and for the same reason:
-    /// <c>GetPositionEcl</c> answers from the centre of mass while
-    /// <c>PositionVehicleAsmb</c> is measured from the assembly origin.</para>
+    /// <para>Ecl, against <paramref name="vehicleEcl"/> so the craft is read at one instant, with the
+    /// centre-of-mass correction the tube geometry uses. Internally attached parts are skipped, as
+    /// <c>PartFailure.Detect</c> skips them: the engine abandons one mid-split.</para>
     ///
-    /// <para><b>Internally attached parts are skipped, because the engine cannot isolate one.</b>
-    /// <c>PartFailure.Detect</c> excludes them for that reason, and a
-    /// <see cref="PartFailureEvent"/> naming one has it abandoned mid-split — leaving the craft in
-    /// fragments with the part still on it.</para>
-    ///
-    /// <para>Answers false if the tree could not be read at all, which is a different thing from a
-    /// craft with no breakable parts: the caller falls back to destroying it whole rather than
-    /// treating an unreadable craft as bulletproof.</para>
+    /// <para>False for an unreadable tree, which the caller destroys whole rather than treat as
+    /// bulletproof.</para>
     /// </summary>
     public static bool TryCollectDamageableParts(Vehicle v, double3 vehicleEcl,
                                                  List<DamageablePart> into, List<Part> handles)
@@ -720,10 +690,7 @@ internal static partial class KsaWorld
     /// <summary>
     /// Whether losing this many of a craft's parts at once destroys it outright.
     ///
-    /// <para>KSA's own rule, asked rather than reproduced. It is the engine's judgement about what
-    /// its own fragment machinery can survive — <c>IsolateAndDestroy</c> splits the vehicle once
-    /// per severable connection — so a copy of the threshold here would be a number free to drift
-    /// away from the code that has to cope with the answer.</para>
+    /// <para>KSA's own rule, asked rather than copied, so it cannot drift from the engine.</para>
     /// </summary>
     public static bool LosingThatManyPartsIsFatal(int failedCount, int partCount)
     {
@@ -773,24 +740,10 @@ internal static partial class KsaWorld
     /// Hands the engine a set of parts to break off a craft, to be applied at the engine's own
     /// point in the frame.
     ///
-    /// <para><b>Queued, never applied here, and that is the whole of why this is not a one-line
-    /// call to <see cref="PartFailureEvent.Apply"/>.</b> A vehicle's solver results are staged by
-    /// the worker run dispatched in <c>PrepareFrame</c> and applied at the *next* frame's
-    /// <c>ApplyVehicleSolvers</c>. Splitting a vehicle from a mod hook lands between those two, so
-    /// results computed against the whole craft are applied to its fragments — measured as
-    /// <c>ArgumentOutOfRangeException</c> out of <c>FlightComputer.UpdateTvcParams</c>, once per
-    /// frame per fragment, for ever. Destroying is safe from here for the reason splitting is not:
-    /// a destroyed vehicle's staged results have nowhere to land.</para>
-    ///
-    /// <para>So the event goes where <c>PartFailure.Detect</c> puts its own — the update state's
-    /// <c>PartFailureEvent</c> — and <c>ApplyRenderEventsToVehicles</c> applies it immediately
-    /// after the staged results, which is the ordering the engine's own crash damage runs in. The
-    /// field being public is that protocol; reaching the state holding it is the private part, and
-    /// it is verified rather than assumed.</para>
-    ///
-    /// <para>An event already pending is merged into rather than replaced: the engine has found
-    /// its own failure on this craft this frame, and dropping either set loses damage that was
-    /// really done.</para>
+    /// <para>Queued, never applied here: a split from a mod hook hands results staged against the
+    /// whole craft to its fragments. It goes where <c>PartFailure.Detect</c> puts its own, applied
+    /// by <c>ApplyRenderEventsToVehicles</c> (<c>docs/KSA-FRAME-ORDER.md</c>). A pending event is
+    /// merged into, not replaced.</para>
     /// </summary>
     public static bool TryQueuePartFailure(Vehicle v, List<Part> parts)
     {

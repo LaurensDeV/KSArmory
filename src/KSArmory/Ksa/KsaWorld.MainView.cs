@@ -32,13 +32,9 @@ internal static partial class KsaWorld
     /// <summary>
     /// Narrows or widens the main view.
     ///
-    /// <para>Clamped here and not merely by the caller: <c>SetFieldOfView</c> does not clamp, and
-    /// <c>UpdateProjection</c> throws <c>ArgumentOutOfRangeException</c> for a field of zero or
-    /// more than half a turn — out of the frame hook, which takes the mod down with it.</para>
-    ///
-    /// <para>Has to be rewritten every frame it is wanted. The player's zoom keys route through
-    /// <c>ChangeFieldOfView</c>, which clamps to 15°–120°, so a single keypress throws away
-    /// anything narrower than 15° and there is no notification that it happened.</para>
+    /// <para>Clamped here: <c>SetFieldOfView</c> does not clamp, and <c>UpdateProjection</c> throws
+    /// for zero or over half a turn. Rewritten every frame it is wanted, since the zoom keys'
+    /// <c>ChangeFieldOfView</c> clamps to 15°–120°.</para>
     /// </summary>
     public static bool TrySetMainViewFov(double degrees)
     {
@@ -64,10 +60,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// Where the main view's scene camera is and what it is looking along, both this frame.
     ///
-    /// <para>The base camera, not <c>GetMainCamera()</c>: that answers with the <em>map</em> camera
-    /// in map mode, which sits millions of metres out. The base camera is the one Fixed mode drives
-    /// and therefore the one being taken over, and in map mode it still holds the last pose the
-    /// player had in the world.</para>
+    /// <para>The base camera, which Fixed mode drives; <c>GetMainCamera()</c> is the map camera in
+    /// map mode.</para>
     /// </summary>
     public static bool TryMainCameraPose(out double3 positionEcl, out double3 forwardEcl)
     {
@@ -92,12 +86,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// Puts the main view's camera at a place, now, without waiting for a controller pass.
     ///
-    /// <para>For undoing the jump <c>Camera.SetFollow</c> makes: it sets
-    /// <c>PositionEcl = target.GetPositionEcl() + 2.5 * MeanRadius * forward</c> before switching
-    /// what is followed, so attaching the view to a round puts the camera 2.5 m from it. The
-    /// frame's view matrix is built in the viewport pass, which is over by the time a mod's hook
-    /// runs, so that jump is rendered — and the controller does not take over until the next
-    /// frame.</para>
+    /// <para>Undoes <c>Camera.SetFollow</c>'s jump to 2.5 mean radii from the target, which would
+    /// otherwise be rendered: the controller takes over only next frame.</para>
     /// </summary>
     public static bool TryPlaceMainCamera(double3 positionEcl)
     {
@@ -133,9 +123,7 @@ internal static partial class KsaWorld
     /// <summary>
     /// Whether the player is watching this craft — flying it, or pointing the camera at it.
     ///
-    /// <para>Both, because the two come apart: the camera is left on whatever it was following when
-    /// control moves elsewhere. Anything that wants to move the view politely has to ask about
-    /// both, or it will drag somebody off a craft they are deliberately looking at.</para>
+    /// <para>Both, because the camera stays on what it followed when control moves elsewhere.</para>
     /// </summary>
     public static bool IsWatching(Vehicle? vehicle)
     {
@@ -155,10 +143,7 @@ internal static partial class KsaWorld
     /// <summary>
     /// How far back the orbit camera sits, as the power KSA stores it in.
     ///
-    /// <para>A power rather than a distance: the engine scales it by the followed object's mean
-    /// radius, so one number frames a ground vehicle and a rocket alike. Written straight onto the
-    /// controller, which is what <see cref="GoTo"/> does when it carries a craft's own saved
-    /// zoom across.</para>
+    /// <para>The engine scales it by the followed object's mean radius.</para>
     /// </summary>
     public static bool SetOrbitZoomPower(double power)
     {
@@ -178,17 +163,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// Points the camera at a craft and takes control of it.
     ///
-    /// <para>Three steps: follow, control, match the zoom. Doing fewer leaves the camera watching
-    /// one craft while the controls drive another, or the view snapped to a zoom that belonged to
-    /// the last vehicle.</para>
-    ///
-    /// <para><b>It deliberately does not rebuild the vehicle's derived data.</b> Nothing here
-    /// modifies a part tree, and the engine does not do it either when it switches which vehicle is
-    /// followed and controlled — <c>Camera.SetFollow</c> sets <c>ControlledVehicle</c> and stops.
-    /// The rebuild reaches the shapes registry, which the vehicle worker holds for its whole run, and
-    /// this mod's hooks land inside that run whenever the worker has not finished, so rebuilding here
-    /// throws on a handover after a decoupler split.
-    /// <c>TestTarget</c>, which has to build a vehicle, waits the run out instead.</para>
+    /// <para>Follow, control and zoom. No rebuild of derived data, as <c>Camera.SetFollow</c> does
+    /// none: the vehicle worker holds the shapes registry, and rebuilding here throws after a split.</para>
     /// </summary>
     /// <returns>False if the craft is gone, or the engine refused any part of it.</returns>
     public static bool GoTo(Vehicle? vehicle)
@@ -215,20 +191,10 @@ internal static partial class KsaWorld
     /// <summary>
     /// Park the camera out at a celestial, without taking control away from whatever is flying.
     ///
-    /// <para><b>For a scenario nobody is watching, and it is a frame-rate lever rather than a
-    /// framing one.</b> KSA puts the orbit camera at <c>DistancePower x MeanRadius</c>
-    /// (<c>OrbitController.cs:593</c>), so following a rocket of some tens of metres sits the view
-    /// about a hundred metres off the ground with the terrain, the ocean and the atmosphere all
-    /// rendering at full detail. Following the body it is launching from puts the same power
-    /// thousands of kilometres out, where none of that costs anything.</para>
-    ///
-    /// <para><paramref name="power"/> is written onto the body's own <c>OrbitView</c> rather than
-    /// onto the controller, because the controller springs toward the followed object's view every
-    /// frame — a value set on the controller alone is interpolated away within a second.</para>
-    ///
-    /// <para><c>changeControl: false</c> is the load-bearing argument. The camera moves and
-    /// <see cref="Program.ControlledVehicle"/> does not, so the rocket keeps taking throttle and
-    /// staging while nothing looks at it.</para>
+    /// <para>A frame-rate lever for an unwatched scenario: the orbit camera sits at
+    /// <c>DistancePower x MeanRadius</c>, so following the body puts it thousands of km out. The
+    /// power goes on the body's <c>OrbitView</c>, which the controller springs toward, and
+    /// <c>changeControl: false</c> keeps the rocket flying.</para>
     /// </summary>
     public static bool WatchFrom(Celestial? body, double power)
     {
@@ -254,12 +220,8 @@ internal static partial class KsaWorld
     /// Reads the main view's orbit camera: the basis it is looking along, and both copies of the
     /// angles behind it.
     ///
-    /// <para>The angles live in two places and only one is writable.
-    /// <c>Camera.Following.OrbitView</c> holds the stored pair, which is what a mouse drag moves;
-    /// <c>OrbitController</c> holds an <em>output</em>, resprung towards it every frame. Writing
-    /// the controller's lasts one frame and fights the spring, which looks exactly like jitter.
-    /// Read both: the controller's built the camera being measured, so that is what the geometry
-    /// solves against, and the view's is what a write has to land on.</para>
+    /// <para><c>Following.OrbitView</c> is the writable pair; <c>OrbitController</c>'s is an output
+    /// resprung toward it each frame, which built the camera being measured.</para>
     /// </summary>
     public static bool TryReadMainOrbit(out OrbitAim.Reading reading)
     {
@@ -307,9 +269,7 @@ internal static partial class KsaWorld
     /// <summary>
     /// Whether the main view is still in the mode a borrower left it in.
     ///
-    /// <para>False means the player has taken it back, which is a decision rather than a fault:
-    /// whoever holds it should let go rather than fight, because trading writes over the camera
-    /// mode is what puts it into Fixed while still following.</para>
+    /// <para>False is the player taking it back, to be let go rather than fought.</para>
     /// </summary>
     public static bool MainViewIsFixed()
     {
@@ -326,8 +286,7 @@ internal static partial class KsaWorld
     /// <summary>
     /// Whether the main view is currently following this craft.
     ///
-    /// <para>Asked before anything borrows the view: a system on the far side of the world taking
-    /// the camera off whatever the player is watching is a hijack, however good the shot.</para>
+    /// <para>Asked before anything borrows the view.</para>
     /// </summary>
     public static bool MainViewFollows(IFollowable? target)
     {
@@ -343,7 +302,6 @@ internal static partial class KsaWorld
         }
     }
 
-    /// <summary>Index of the main viewport, for the projection helpers that take one.</summary>
     public static int MainViewportIndex
     {
         get
@@ -370,20 +328,14 @@ internal static partial class KsaWorld
     }
 
     /// <summary>What the main view was doing before something borrowed it.</summary>
-    /// <param name="FovDeg">
-    /// The field of view it was set to. Carried because the sight magnifies, and a borrower that
-    /// hands back everything except the zoom leaves the player at 3° with no control that reaches
-    /// it — their own zoom keys clamp at 15° and cannot widen past it.
-    /// </param>
+    /// <param name="FovDeg">Carried because the zoom keys cannot widen past a 15° clamp.</param>
     public readonly record struct MainView(IFollowable? Following, CameraMode Mode, double FovDeg,
                                            bool Valid);
 
     /// <summary>
     /// Records the main view so it can be handed back.
     ///
-    /// <para>Taken before the first write, not after. Setting Fixed clears the follow, so a
-    /// reading taken afterwards describes the borrowed state and restoring from it leaves the
-    /// player at a fixed point in space with no way home.</para>
+    /// <para>Before the first write: setting Fixed clears the follow.</para>
     /// </summary>
     public static MainView RememberMainView()
     {
@@ -403,11 +355,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// Whether something the view was following is still there to go back to.
     ///
-    /// <para>A destroyed craft is not, and it is the ordinary case rather than a corner: the thing
-    /// a borrower was watching is often the thing that just blew up. The engine has already
-    /// answered the same question for itself by pointing the view at the wreckage, so the right
-    /// move is to leave that alone — restoring over it puts the camera on a disposed vehicle and
-    /// holds it there.</para>
+    /// <para>A destroyed craft is not, the ordinary case: the engine has already pointed the view at
+    /// the wreckage, and restoring over it holds the camera on a disposed vehicle.</para>
     /// </summary>
     public static bool CanFollow(IFollowable? target) => target switch
     {
@@ -419,9 +368,7 @@ internal static partial class KsaWorld
     /// <summary>
     /// Puts back whatever the view was following before a mod borrowed it.
     ///
-    /// <para>Separate from the mode: following something of the mod's own has to be undone even
-    /// when the mode never changed, and leaving a camera pointed at an object the mod is about to
-    /// forget is how a view ends up stuck on a round that no longer exists.</para>
+    /// <para>Separate from the mode, which may never have changed.</para>
     /// </summary>
     public static bool RestoreFollow(MainView saved)
     {
@@ -442,18 +389,9 @@ internal static partial class KsaWorld
     }
 
     /// <summary>
-    /// Hands the main view back in the two halves it was taken in, and says whether each half
-    /// arrived. Every borrower goes through here, so a refusal cannot mean two different things in
-    /// two files.
-    ///
-    /// <para>Order is the contract: what the view follows is read before anything is written,
-    /// because the restore is about to change it and "did the player move this themselves" has no
-    /// answer afterwards.</para>
-    ///
-    /// <para>A follow that cannot be given back is <b>not</b> a refusal. A destroyed craft is the
-    /// ordinary way a chase or an engagement ends, and a follow the player has taken is theirs to
-    /// keep — neither has anything to retry, so counting either would leave a caller retrying
-    /// something that is never coming back.</para>
+    /// Hands the main view back in the two halves it was taken in. The follow is read before
+    /// anything is written; a follow that cannot be given back is not a refusal, as nothing is left
+    /// to retry.
     /// </summary>
     /// <returns>False if either half was refused, and the caller still holds the view.</returns>
     public static bool TryHandBackMainView(MainView saved, IFollowable? followed,
@@ -468,15 +406,8 @@ internal static partial class KsaWorld
     }
 
     /// <summary>
-    /// Gives back whichever half of the main view the player did not take, for a borrower whose
-    /// view has been taken over by hand. Every borrower stands down through here, so none of them
-    /// can leave behind something the others would have put back.
-    ///
-    /// <para>Whichever of the mode and the follow the player changed is theirs and stays; the other
-    /// is the mod's leavings and goes back. Leaving both strands them — a vessel switch leaves Fixed
-    /// standing, and Fixed is a mode no input can leave — and restoring both drags them off the very
-    /// thing they just chose. The field is handed back either way, because neither half restores it
-    /// and no zoom key reaches it.</para>
+    /// Gives back whichever half of the main view the player did not take: Fixed is a mode no input
+    /// can leave. The field is handed back either way.
     /// </summary>
     /// <returns>True if the mode was still the mod's, which is what a vessel switch looks like.</returns>
     public static bool StandDownMainView(MainView saved, IFollowable? followed)
@@ -522,13 +453,8 @@ internal static partial class KsaWorld
     // viewport and the swap outlives any single borrower of it.
     private static FixedController? _stockFixedController;
 
-    // The one name rather than a signature that the camera stands on, and the one thing
-    // api-surface.sh cannot check for it. GameViewport.FixedController is an auto-property whose
-    // setter is protected, behind IGameViewport's get-only one, so the backing field is the only
-    // way in -- same shape, and the same warn-and-degrade, as PlumeSmoke's reflected renderer.
-    //
-    // Null here is not a fault: the engine's own controller stays, which costs the levelled
-    // horizon and puts the sight's aim a frame behind again. Both are worse pictures, not crashes.
+    // A name api-surface.sh cannot check: the setter is protected, so the backing field is the only
+    // way in. Null keeps the engine's own controller, a worse picture rather than a crash.
     private static FieldInfo? _fixedControllerField;
 
     private static bool _lookedForFixedControllerField;
@@ -552,12 +478,7 @@ internal static partial class KsaWorld
         return _fixedControllerField;
     }
 
-    // Puts LevelHorizonController on the main viewport, once, and answers with whichever
-    // controller is now in place. Null only if the viewport has no controller at all.
-    //
-    // If the swap itself fails the engine's own is returned and everything carries on with the
-    // roll it always had -- this is an extension point nobody promised, so it has to be allowed
-    // to stop working.
+    // Once; a failed swap returns the engine's own, since nobody promised this extension point.
     private static FixedController? LevelTheHorizon(IGameViewport viewport)
     {
         if (viewport.FixedController is LevelHorizonController already) return already;
@@ -572,8 +493,7 @@ internal static partial class KsaWorld
             _stockFixedController ??= viewport.FixedController;
             field.SetValue(viewport, level);
 
-            // The write is the whole point, and a silent no-op would read exactly like a working
-            // swap: everything downstream still finds *a* controller.
+            // Checked: a silent no-op reads like a working swap.
             if (!ReferenceEquals(viewport.FixedController, level))
             {
                 Log.Warn("camera: the FixedController write did not take - keeping KSA's own");
@@ -619,31 +539,17 @@ internal static partial class KsaWorld
     /// <summary>
     /// Points the main view from a place, using Fixed mode as it is meant to be used.
     ///
-    /// <para>The camera keeps following whatever it followed. <c>FixedController.OnFrame</c> puts
-    /// it at <c>following.GetPositionEcl() + CameraOffset</c> looking along <c>CameraRotation</c>,
-    /// so those two fields are the whole interface — and the offset is measured from the followed
-    /// craft, not from the world.</para>
-    ///
-    /// <para><c>CameraRotation</c> must be non-zero before the mode is set. The controller crosses
-    /// it with the frame's up and normalises, so a zero vector divides by zero — which is the
-    /// entire reason this mode has a reputation for crashing.</para>
+    /// <para><c>FixedController.OnFrame</c> places it at <c>following.GetPositionEcl() +
+    /// CameraOffset</c> along <c>CameraRotation</c>, which must be non-zero before the mode is set.</para>
     /// </summary>
     /// <param name="offsetFromFollowed">
-    /// Where the camera goes <em>relative to the craft the view is following</em>, not an absolute
-    /// position. The controller adds it to <c>following.GetPositionEcl()</c> later in the frame,
-    /// so an offset derived from that position here is measured against a different instant from
-    /// the one it is applied to — which is a frame of the platform's motion, every frame, and
-    /// reads as the thing being watched shivering.
+    /// A pure separation from the followed craft, from the same sample, or the view shivers by a
+    /// frame of its motion.
     /// </param>
-    /// <param name="fovDeg">
-    /// The field this borrower wants. Required, and deliberately not optional: a borrower that
-    /// says nothing about the field inherits whatever the last one left behind, and the sight
-    /// leaves 3°. Making it part of driving the view is what stops that being possible.
-    /// </param>
+    /// <param name="fovDeg">Required, so no borrower inherits the last one's field.</param>
     /// <param name="pose">
-    /// Somewhere the controller may ask again, inside the engine's own viewport pass. Null is the
-    /// right answer for anything that does not need to be in phase with the frame, and passing it
-    /// every call is what takes the previous borrower's source back off the controller.
+    /// Asked again inside the engine's viewport pass; null when phase does not matter. Passed every
+    /// call, so the previous borrower's source comes off.
     /// </param>
     public static bool TryLookFromMainViewport(double3 offsetFromFollowed, double3 forwardEcl,
                                                double3 upEcl, double fovDeg, IViewPose? pose = null)
@@ -659,11 +565,7 @@ internal static partial class KsaWorld
             FixedController? controller = LevelTheHorizon(viewport);
             if (controller is null) return false;
 
-            // Only when the engine is deriving up for itself, which it does whenever the level
-            // controller could not be installed. Its axis is then ecliptic +Z, and a view along
-            // that divides by zero. LevelHorizonController has no such direction: it falls back
-            // for a view along the up it was given rather than refusing, so the chase is never
-            // dropped mid-flight.
+            // Only under the engine's own controller, whose up is ecliptic +Z.
             if (controller is not LevelHorizonController
                 && Math.Abs(Vec.Dot(Vec.Unit(forwardEcl), new double3(0, 0, 1))) > 0.999)
             {
@@ -684,9 +586,7 @@ internal static partial class KsaWorld
                 level.Pose = pose;
             }
 
-            // With the pose and not after it. A borrower supplying a pose source restates the
-            // field in phase every frame, so this is the take-over frame's value and the fallback
-            // if that source ever refuses.
+            // The take-over frame's field, and the fallback if the pose source refuses.
             TrySetMainViewFov(fovDeg);
 
             if (viewport.Mode != CameraMode.Fixed) viewport.SetCameraMode(CameraMode.Fixed);
@@ -716,10 +616,7 @@ internal static partial class KsaWorld
     /// <summary>
     /// Takes the mod off the controller without touching the mode, the follow or the field.
     ///
-    /// <para>Forgets the up that was being supplied and the source being asked. The controller
-    /// stays installed for the session — nothing but a mod puts a viewport in Fixed mode, so there
-    /// is nothing to disturb — but with no up it behaves exactly as KSA's own does, rather than
-    /// holding one from an engagement that is over.</para>
+    /// <para>The controller stays installed; with no up it behaves as KSA's own.</para>
     /// </summary>
     public static void StopDrivingMainView()
     {
@@ -766,10 +663,7 @@ internal static partial class KsaWorld
     /// Puts back only the camera mode, for a hand-back where the rest of the view is no longer the
     /// mod's to undo.
     ///
-    /// <para>Switching vessels is the case: it changes what the camera follows and leaves the mode
-    /// alone, so the follow is the player's choice and the Fixed mode is still the mod's leavings —
-    /// and Fixed is a mode no input can leave, because <c>FixedController</c> reads none and
-    /// <c>Viewport.NextCameraMode</c> has no case for it. Only the mode comes back.</para>
+    /// <para>A vessel switch: the follow is the player's, the Fixed mode still the mod's.</para>
     /// </summary>
     public static bool RestoreMainViewMode(MainView saved)
     {

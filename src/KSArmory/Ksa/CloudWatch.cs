@@ -4,23 +4,13 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// A camera pinned on a standing cloud, for a run that is being looked at or priced.
-///
-/// <para><b>It exists because the measurement needed it.</b> What the shader pass costs is set by
-/// how much of the screen it marches, so a camera the operator is free to move makes every number
-/// out of <see cref="CloudPassCost"/> a number about where somebody happened to be standing. Two
-/// runs cannot be compared until the view is the same in both.</para>
-///
-/// <para>The pose is also the one worth watching from, which is not a coincidence: a mushroom cloud
-/// is a side-on silhouette, and both the chase rig and a camera left on the pad look at it from
-/// somewhere else. Far enough to see the whole column, low enough to see it against the sky, aimed
-/// at the middle rather than the crater.</para>
+/// A camera pinned on a standing cloud. What the shader pass costs is set by how much of the screen it
+/// marches, so <see cref="CloudPassCost"/>'s numbers compare only from a fixed pose; this one is side-on,
+/// the column whole and against the sky.
 /// </summary>
 internal static class CloudWatch
 {
-    // The measuring distance is the watching one, and deliberately so: what the shader pass costs is
-    // set by how much of the screen it marches, so a number is only about the pass if it is read
-    // from the view somebody would actually watch from.
+    // The chase's observer distance, so a cost is read from the view somebody would watch from.
     private const double Heights = ChaseView.ObserverRadii;
 
     private const double DefaultElevationDeg = ChaseView.ObserverElevationDeg;
@@ -28,10 +18,8 @@ internal static class CloudWatch
     /// <summary>The pose's elevation, which a scenario may lower to stand under the weather.</summary>
     public static double ElevationDeg { get; set; } = DefaultElevationDeg;
 
-    // Where to look up the thing, as a fraction of its top. Below the middle: the cap is the wide
-    // part and wants the room above it. Measured against the TOP rather than the radius, which is
-    // the same number for a column and a quarter of it for a dust dome -- aiming a dome's own width
-    // up the sky points the camera over it entirely.
+    // A fraction of the top, not of the radius: the two agree for a column and a dome's width is a
+    // quarter of its top, so aiming by width points the camera over it.
     private const double AimAt = 0.45;
 
     private const double FieldOfViewDeg = 50.0;
@@ -70,12 +58,8 @@ internal static class CloudWatch
 
             double3 unitUp = Vec.Unit(up);
 
-            // ACROSS THE WIND, which is where a photographer would stand and is not what an
-            // arbitrary perpendicular gives. Everything about a burst that is not symmetric about
-            // its own axis lies on the downwind line -- the lean, the veer, the drift after the
-            // rise, and the fallout on the ground -- so a camera at an arbitrary bearing to it
-            // sees some fraction of all four and, on the bearing it happens to pick, none of them.
-            // It is still off the burst rather than off the clock, so two runs are one picture.
+            // Across the wind: the lean, the drift and the fallout all lie on the downwind line, and
+            // the bearing is the burst's own, so two runs are one picture.
             double3 acrossWind = Vec.Unit(Vec.Cross(unitUp, downwind));
             double3 east = Vec.Len2(acrossWind) > 0.5
                                ? acrossWind
@@ -107,10 +91,8 @@ internal static class CloudWatch
                           + (k * (Vec.Dot(k, forward) * (1.0 - Math.Cos(turn))));
             }
 
-            // Against where the engine has the followed craft NOW, which is what the offset has to
-            // be measured from: a separation taken from this mod's own sample of it carries a frame
-            // of its motion. On a pad drop the craft is standing still and the two agree, which is
-            // exactly why this is the run to pin a camera in.
+            // Against where the engine has the followed craft now: a separation from this mod's own
+            // sample of it carries a frame of its motion.
             double3 offset = eye - KsaWorld.PositionEcl(followed);
 
             if (!KsaWorld.TryLookFromMainViewport(offset, Vec.Unit(forward), unitUp,

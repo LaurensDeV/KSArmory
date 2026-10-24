@@ -33,13 +33,9 @@ internal sealed partial class IcbmComputer
     private double _sinceCoastProbe;
     private double _coastProbeMiss = double.NaN;
 
-    // What the rails decision saw BETWEEN probes, rather than at the instant one is taken.
-    //
-    // A probe is one reading every 10 simulated seconds and PhysicsBubble remakes the decision
-    // every sub-step, so an actuator commanded briefly is invisible to a sampled reading. That gap
-    // is not hypothetical: 3bh has a divergent world where every off-rails probe of BOTH arms read
-    // "neither actuator flag", and quieting still moved the off-rails share from 68% to 38% -- a
-    // difference with no visible cause, which is exactly what under-sampling looks like.
+    // The rails decision counted every frame between probes: PhysicsBubble remakes it every
+    // sub-step, so a briefly commanded actuator is invisible to one reading in ten seconds
+    // (docs/ACCURACY-PLAN.md 3bh).
     private int _railFrames;
     private int _offRailsFrames;
     private int _commandedFrames;
@@ -75,24 +71,13 @@ internal sealed partial class IcbmComputer
         return said;
     }
 
-    // The 168 seconds between cutoff and the first release, which is the one window in a flight that
-    // nothing instruments. Shot 006 of 2026-09-02-1508 put all eight rockets 75-99 km out, and the
-    // whole divergence happened in here: healthy through cutoff, healthy for 65 s of coast, then the
-    // predicted impact walks off at 252-342 m/s of simulated time in a straight line. The phase line
-    // fires on change and the warhead trace starts at release, so the ramp was only ever visible as
-    // a DEBUG stream nobody reads.
-    //
-    // Rate as well as position, because the discriminator is what KIND of ramp it is: a constant
-    // drift is the bus's own state moving, a growing one is the prediction diverging from a state
-    // that is not.
+    // The coast from cutoff to the first release, which nothing else instruments. The rate tells
+    // the ramps apart: a constant drift is the bus's state moving, a growing one is the prediction
+    // diverging from a state that is not.
     private void ProbeTheCoast(double simStep)
     {
-        // After the salvo the bus is no longer being guided, but it is still in the world and still
-        // in whatever bubble the world has made -- and 3cn's merge seed happens exactly there. A bus
-        // that goes silent from release to re-entry leaves that window unobservable, which is why
-        // the seed is bracketed to ten seconds and unattributed. This is the light version: no
-        // prediction, because there is nothing left to predict, just what frame it is being carried
-        // in and who is deciding that.
+        // After the salvo, only the bubble the spent bus is carried in: a bubble merge can seed
+        // there (docs/ACCURACY-PLAN.md 3cn), and there is nothing left to predict.
         if (_salvoAway)
         {
             _coastProbeMiss = double.NaN;
@@ -132,15 +117,11 @@ internal sealed partial class IcbmComputer
         double3 positionCci = (KsaWorld.PositionEcl(Craft) - parent.GetPositionEcl()).Transform(cce2Cci);
         double3 velocityCci = (KsaWorld.VelocityEcl(Craft) - parent.GetVelocityEcl()).Transform(cce2Cci);
 
-        // Zero above ~209 km, measured over 6,181 samples with no exception -- so this column is a
-        // guard rather than a reading. Every failure path in KsaWorld.MediumDensityRatioAt returns
-        // sea-level air, which here would bend the predicted arc down and land it short; nothing
-        // else in the flight would say so. docs/ACCURACY-PLAN.md 3an.
+        // Zero above ~209 km over 6,181 samples, so a guard rather than a reading: a failed air
+        // read here would land the prediction short and nothing else would say so (ACCURACY-PLAN 3an).
         double density = DensityRatioAt(positionCci);
 
-        // And where the impact is walking to, not just how far. A miss that grows is one number; a
-        // miss that grows because the impact is marching along the track is a different fault from
-        // one that grows because it is sliding across it.
+        // Where the impact walks, not only how far: along-track and cross-track are different faults.
         string lands = "";
 
         try
@@ -148,12 +129,8 @@ internal sealed partial class IcbmComputer
             double3 cce = hit.GroundFixedPointCci.Transform(parent.GetCci2Cce());
             lands = $", lands {parent.GetLatitudeFromCce(cce):F3},{parent.GetLongitudeFromCce(cce):F3}";
 
-            // The miss is an angle between two points and either of them can be what moves. The
-            // aim is built from a latitude and longitude the operator set and never changes, so
-            // reading it back through the same frames has one right answer -- and a readback that
-            // drifts is the conversion rather than the trajectory. Every computer in the world
-            // shares those frames, which is the only thing so far that would explain eight
-            // predictions moving in one frame. docs/ACCURACY-PLAN.md item 17.
+            // The aim read back through the same frames: it never changes, so a drifting readback
+            // is the conversion rather than the trajectory (docs/ACCURACY-PLAN.md, item 17).
             double3 aimCce = _trueAimCci.Transform(parent.GetCci2Cce());
             double aimLat = parent.GetLatitudeFromCce(aimCce);
             double aimLon = parent.GetLongitudeFromCce(aimCce);
@@ -163,16 +140,10 @@ internal sealed partial class IcbmComputer
         }
         catch
         {
-            // A frame the engine will not convert says nothing about the flight; the rest of the
-            // line is still worth having.
         }
 
-        // What the coast is doing that gravity does not account for. A ballistic coast is an exact
-        // function of one state, so propagating the previous probe's state forward under gravity
-        // alone and differencing gives the non-gravitational part directly -- and that is the only
-        // way to see it: the walk is about half a metre a second and is invisible in a printed
-        // speed. Log it as a VECTOR in a radial/along/cross basis -- a magnitude alone read as
-        // along-track once and the mechanism is cross-track. docs/ACCURACY-PLAN.md 3as.
+        // The non-gravitational push: the last probe's state coasted under gravity alone and
+        // differenced, as a radial/along/cross vector, since the push is cross-track (ACCURACY-PLAN 3as).
         double pushMps = double.NaN;
         double pushRadial = 0.0, pushAlong = 0.0, pushCross = 0.0;
 
@@ -185,10 +156,8 @@ internal sealed partial class IcbmComputer
             {
                 pushMps = Vec.Len(slip);
 
-                // The basis the walk is actually levered through. Cross-track is the one that
-                // moves an impact without moving the conic -- a normal impulse does no work and
-                // leaves |h| alone -- so a push that shows up here and not in the energy is the
-                // signature to look for.
+                // A cross-track impulse does no work and leaves |h| alone, so it moves the impact
+                // without showing in the energy.
                 double3 radial = Vec.Unit(positionCci);
                 double3 cross = Vec.Unit(Vec.Cross(positionCci, velocityCci));
                 double3 along = Vec.Cross(cross, radial);
@@ -203,32 +172,20 @@ internal sealed partial class IcbmComputer
         _coastProbeVelCci = velocityCci;
         _coastProbeHasState = true;
 
-        // Whether the state being read belongs to this frame. A clock that parts from the engine's
-        // is world-level by construction, and no other reading in this mod would see it.
+        // Whether the state being read belongs to this frame; no other reading would see a clock
+        // that parts from the engine's.
         double stateEpoch = KsaWorld.StateEpochSeconds(Craft);
         double clockGap = double.IsFinite(stateEpoch) ? KsaWorld.SimClockSeconds - stateEpoch : double.NaN;
 
-        // Whether anything is perturbing the bus while it waits, and how long the correction has
-        // gone without a reading. A coast is an exact function of one state, so a predicted impact
-        // that walks means that state is moving, and a perturbation far too small to see as a
-        // speed is tens of kilometres of impact -- cross-track, where the lever is the orbit
-        // radius over the angular momentum rather than this arc's 0.4-2.9 km per m/s along it. The rationing is the other half: one reading taken 975 s after the last is a
-        // full-size correction nothing has verified. docs/ACCURACY-PLAN.md item 17.
-        // On rails the engine propagates this vehicle as an exact conic and the step cannot matter;
-        // off rails it integrates, and the truncation scales with a step the nominal warp figure
-        // does not show. A prediction that starts walking on a coast is either that transition or
-        // the governor behind it, and neither is visible anywhere else. docs/ACCURACY-PLAN.md 17.
+        // On rails the engine propagates an exact conic; off rails it integrates, with a truncation
+        // the warp figure does not show (docs/ACCURACY-PLAN.md, item 17).
         bool? rails = KsaWorld.OnRails(Craft);
 
-        // Which actuator term is holding it, when one is. Absent on a vehicle that is on rails and
-        // absent on one held off by something neither flag can see -- and that second absence is
-        // the informative one, because it is what says to go looking past the actuators.
+        // Absent off rails means something neither actuator flag can see is holding it.
         string? actuator = rails is false ? KsaWorld.OffRailsActuator(Craft) : null;
 
-        // The bubble's frame, which decides whether going off rails is recoverable at all: only a
-        // Cci origin lets TryToPutOnRails put a coasting vehicle back. Printed with the origin's
-        // altitude and the leader's, because the frame is chosen by the heaviest member and a spent
-        // stage left low is what holds a whole bubble in Ccf.
+        // Only a Cci origin lets TryToPutOnRails put a coasting vehicle back, and the heaviest
+        // member picks the frame, so a spent stage left low holds the whole bubble in Ccf.
         string frame = KsaWorld.BubbleFrameOf(Craft) is var (name, originAlt)
             ? $", {name} origin at {originAlt / 1000.0:F0} km"
               + $", leader {KsaWorld.BubbleLeaderName(Craft)}"
@@ -256,9 +213,7 @@ internal sealed partial class IcbmComputer
                  + $", state {clockGap:+0.000;-0.000;0.000} s behind"
                  + (double.IsFinite(pushMps)
                         ? $", off-gravity {pushMps:F4} m/s"
-                          // Three sections, not two: a component that lands on negative zero takes
-                          // the sign from the value and the body from the POSITIVE section, which
-                          // prints "-+0.0000" and breaks anything reading the column back.
+                          // Three sections: with two, negative zero prints "-+0.0000".
                           + $" (r {pushRadial:+0.0000;-0.0000;0.0000}"
                           + $", a {pushAlong:+0.0000;-0.0000;0.0000}"
                           + $", c {pushCross:+0.0000;-0.0000;0.0000})"
@@ -270,9 +225,7 @@ internal sealed partial class IcbmComputer
                  + $", release in {IcbmProgram.Clock(SecondsToReleaseApproach)}");
     }
 
-    // What the world is doing to a bus nobody is flying any more. Bounded by the bus's own life, and
-    // silent unless the membership or the frame actually changes -- a line every ten seconds for
-    // every spent bus in the world would drown the log it is meant to make readable.
+    // A spent bus's bubble, logged only when its membership or frame changes.
     private int _watchedBubble = -1;
     private string _watchedFrame = "";
 

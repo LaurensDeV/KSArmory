@@ -14,7 +14,6 @@ public static class BuiltInFamilies
     /// <summary>Every family the core files declared at this start, in file order.</summary>
     public static IReadOnlyList<string> Loaded => _loaded;
 
-    /// <summary>The families switched off at this start.</summary>
     public static IReadOnlySet<string> OffAtStart => _offAtStart;
 
     /// <summary>The families the player has now asked to be off, which may differ until a restart.</summary>
@@ -24,7 +23,6 @@ public static class BuiltInFamilies
     private static HashSet<string> _offAtStart = [];
     private static HashSet<string> _wanted = [];
 
-    /// <summary>The families to switch off, read from the file.</summary>
     public static HashSet<string> ReadSwitches()
     {
         try

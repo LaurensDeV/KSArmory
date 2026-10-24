@@ -5,15 +5,9 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// The terrain under a director, and what it can see on it.
-///
-/// <para>Drawn from the height field rather than from anything the engine renders: KSA offers no
-/// map view a mod can borrow, so this samples the ground itself. That is why the square is shaded
-/// relief and not a picture — <c>GetTerrainHeightFromDirCce</c> answers with heights and nothing
-/// else, so there is no ground texture, no coastline and no colour to read off.</para>
-///
-/// <para>One scan for the whole panel rather than one per head. Only the selected head's map is
-/// drawn, and a second scan would double a cost that is the entire reason the grid is cached.</para>
+/// The terrain under a director, and what it can see on it: shaded relief, because KSA offers no
+/// map view to borrow and <c>GetTerrainHeightFromDirCce</c> answers with heights alone.
+/// <para>One scan for the panel, not one per head: only the selected head's map is drawn.</para>
 /// </summary>
 internal partial class Ui
 {
@@ -27,10 +21,7 @@ internal partial class Ui
     private static readonly uint MapLocked = ImGui.ColorConvertFloat4ToU32(new float4(0.98f, 0.35f, 0.30f, 1f));
     private static readonly uint MapAim = ImGui.ColorConvertFloat4ToU32(new float4(0.40f, 0.80f, 1.00f, 1f));
 
-    // Whichever head on the shown craft has its map open, or null.
-    //
-    // One window, so one head at a time -- the same exclusion the main view uses, and for the same
-    // reason: opening a second would silently redraw the first.
+    // One window, so one head at a time: opening a second would silently redraw the first.
     private OpticalHeads.Entry? SelectedHead()
     {
         foreach (OpticalHeads.Entry entry in _headScratch)
@@ -41,7 +32,6 @@ internal partial class Ui
         return null;
     }
 
-    // Opens this head's map, and shuts any other so the one window is unambiguous.
     private void TakeMap(OpticConfig policy)
     {
         foreach (OpticalHeads.Entry other in _headScratch)
@@ -79,8 +69,7 @@ internal partial class Ui
             return;
         }
 
-        // Sampled around the ground under the craft rather than around the craft: a map centred on
-        // something at 10 km reads as a map of nothing in particular, and the pod is looking down.
+        // Around the ground under the craft, not the craft itself, which may be 10 km up.
         double3 anchor = head.PlatformEcl;
         Celestial? body = KsaWorld.ParentBody(platform);
 
@@ -102,9 +91,7 @@ internal partial class Ui
 
         ImDrawListPtr draw = ImGui.GetWindowDrawList();
 
-        // Over the ground, not through space: a craft's ecliptic velocity is 29.8 km/s of the
-        // planet's own motion and would point every craft in the system the same way. The same
-        // distinction a round's airspeed obeys -- see KsaWorld.GroundVelocityAt.
+        // Over the ground: the ecliptic velocity carries the planet's 29.8 km/s.
         double3 overGround = frame.ToLocalDirection(
             KsaWorld.VelocityEcl(platform) - KsaWorld.GroundVelocityAt(platform, anchor));
 
@@ -136,8 +123,7 @@ internal partial class Ui
         if (ImGui.SmallButton("Rescan")) _map.Invalidate();
     }
 
-    // The terrain itself, one filled cell per sample. A quad per cell at 64x64 is 4096 rectangles,
-    // which ImGui draws without complaint; the expensive half is sampling them, not drawing them.
+    // 4096 rectangles at 64x64 is cheap to draw; sampling them is the cost.
     private void DrawRelief(ImDrawListPtr draw, float2 origin, float side)
     {
         int cells = _map.Cells;
@@ -176,7 +162,6 @@ internal partial class Ui
 
     private static void DrawGraticule(ImDrawListPtr draw, float2 origin, float side, float span)
     {
-        // A ring per 500 m out to the edge, which is what turns a picture into a range scale.
         float2 centre = new(origin.X + side * 0.5f, origin.Y + side * 0.5f);
 
         for (float ring = 500f; ring * 2f <= span * 1.45f; ring += 500f)
@@ -198,12 +183,10 @@ internal partial class Ui
     {
         float2 At(float2 unit) => new(origin.X + unit.X * side, origin.Y + unit.Y * side);
 
-        // The craft itself, dead centre by construction.
         float2 self = At(new float2(0.5f, 0.5f));
         draw.AddCircleFilled(self, 4f, MapSelf);
         draw.AddCircle(self, 7f, MapSelf, 0, 1.4f);
 
-        // Where the sight is looking, as a line from the craft to where it meets the ground.
         if (head.TryOpticViewEcl(out double3 eye, out double3 forward))
         {
             double3 local = frame.ToLocal(eye + forward * span);
@@ -243,11 +226,7 @@ internal partial class Ui
         }
     }
 
-    // Which way the craft is going over the ground, as an arrow off its own mark.
-    //
-    // A fixed length rather than a leader out to where it will be: a leader is the tactical
-    // convention and is unreadable here, because at 200 m/s a useful lead time is several times
-    // the width of a 2 km square. The arrow says the direction and the legend says the speed.
+    // A fixed length, not a lead line: at 200 m/s a useful lead time is several times a 2 km square.
     private static void DrawHeading(ImDrawListPtr draw, float2 origin, float side, double3 overGround)
     {
         if (TerrainMap.HeadingDeg(overGround) is not { } heading) return;
@@ -263,7 +242,6 @@ internal partial class Ui
 
         draw.AddLine(centre, tip, MapSelf, 2.0f);
 
-        // A head on it, so the line reads as pointing rather than as a radius of the range rings.
         float2 back = new(-along.X, -along.Y);
         float2 side1 = new(-along.Y, along.X);
 

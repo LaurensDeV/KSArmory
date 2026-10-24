@@ -5,13 +5,9 @@ using KSA.Rendering.Particles;
 namespace KSArmory;
 
 /// <summary>
-/// What a decoy looks like: a flare's white-hot core and the thick white smoke it trails, and chaff's
-/// faint grey puff where it stopped in the air.
-///
-/// <para>A flare holds a pooled emitter for as long as it burns, so every one taken is handed back the
-/// frame it is spent — <see cref="MotorPlume"/> has the reason. At most <see cref="MaxLit"/> burn at
-/// once; past that a flare still lays its smoke. Chaff is one fire-and-forget burst, which returns
-/// itself.</para>
+/// A flare's white-hot core and smoke trail, and chaff's grey puff where it stopped in the air.
+/// <para>A flare holds a pooled emitter while it burns and hands it back the frame it is spent
+/// (<see cref="MotorPlume"/> has why); past <see cref="MaxLit"/> a flare still lays its smoke.</para>
 /// </summary>
 internal sealed class DecoyEffects
 {

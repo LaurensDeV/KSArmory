@@ -48,11 +48,9 @@ internal sealed class PlanetMap : IDisposable
 
         try
         {
-            // Exactly the sequence KSA's own ground-track window uses, and nothing more.
-            // SetViewportResolution looks like the way to ask for a sharper picture and is not:
-            // it raises a rebuild flag that only the exporter's own OnDrawUI acts on, which
-            // nothing here calls -- so the request stays pending and the game died on the first
-            // frame that drew. The default is what the game's own map runs at.
+            // Exactly the sequence KSA's own ground-track window uses. Not SetViewportResolution: it
+            // raises a rebuild flag only the exporter's own OnDrawUI acts on, and left pending it
+            // crashes the game on the first frame that draws.
             PlanetMapExporter made = new(Program.GetRenderer(), Program.GetPlanetRenderer());
             made.ToggleEnabled();
 
@@ -112,8 +110,7 @@ internal sealed class PlanetMap : IDisposable
         }
         catch (Exception e)
         {
-            // Inside the engine's own command buffer, so this may not escape. Latched: a fault
-            // here would otherwise repeat every frame for as long as the window is open.
+            // Inside the engine's command buffer, so this may not escape; latched so it does not repeat.
             Fail(e.Message);
             Close();
         }

@@ -4,22 +4,12 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// A gun shooting at drones one after another, with every shell it fires scored where it burst.
+/// A gun shooting at drones crossing past it one after another, every shell scored where it burst
+/// against the lethal radius. <c>ground</c> scores shells against a designated place, short or long;
+/// <c>craft</c> scores whether each struck the nearest craft.
 ///
-/// <para>The engagement scenarios end on the first detonation, which says a gun can hit and nothing
-/// about how well — and a flak gun's first shell is rarely its best. This keeps shooting, crosses each
-/// drone past the mount rather than diving it onto it, and reports each burst's distance from the
-/// target, its range and its fuse time, then the spread of them against the shell's lethal radius.</para>
-///
-/// <para>Or at the ground: <c>ground</c> designates a place that far out and scores where each shell
-/// comes down against it, short or long — the check on a gun laid to land there rather than along the
-/// line of sight to it. Or at a craft: <c>craft</c> designates the nearest one and scores whether each
-/// shell struck it, which is the check that nothing near the mount can be flown through.</para>
-///
-/// <para>A drone is judged with its pieces. A burst that breaks parts off one leaves several craft
-/// named after it, all still flying and all still engaged, so a drone is over when none of them is
-/// left or its pass is — and whatever is left then is taken out of the world before the next one
-/// comes, or its shells would be scored against the wrong drone.</para>
+/// <para>A drone is judged with its pieces, which carry its name: it is over when none is left or
+/// its pass is, and what is left is removed so its shells are not scored against the next.</para>
 /// </summary>
 internal sealed class GunneryScenario
 {
@@ -272,11 +262,8 @@ internal sealed class GunneryScenario
     private double _sampleSeconds;
     private bool _haveVelocity;
 
-    // What the drone is doing to its velocity, twice a second, as the lead models it: slowing along
-    // the airflow read as a drag coefficient, and whatever pushes it across that. The lead holds the
-    // coefficient and the push as they are at the shot, so a miss that is neither the gun nor the
-    // shell is one of those two changing. Measured off the accelerometer the lead reads and off the
-    // velocity itself, because the two can disagree.
+    // The drone's acceleration split as the lead models it, off both the accelerometer and the
+    // velocity, which can disagree: a miss that is neither gun nor shell is one of these changing.
     private void SampleDrone(Vehicle platform, double dt)
     {
         if (_drone is null || !KsaWorld.IsAlive(_drone)) return;
@@ -305,9 +292,8 @@ internal sealed class GunneryScenario
         // airflow in the drone's own frame is what a coefficient that drifts has to be read against.
         double3 flowBody = Vec.Unit(air).Transform(doubleQuat.Conjugate(_drone.Body2Cce));
 
-        // The drag area the lead flies, for that airflow: if drag is only this, the measured slowing over
-        // v² ρ, times the mass, over the area stays constant through the pass. And the area the shape read
-        // at the last sample said it would have now, carried through the turn: the check on the tumble.
+        // If drag is only the lead's area, slowing * mass / (v² ρ area) stays constant through the
+        // pass; the area predicted at the last sample, carried through the turn, checks the tumble.
         DragShape? shape = KsaWorld.DragShapeOf(_drone);
         double area = shape?.AreaFacing(air) ?? double.NaN;
         double predicted = _lastShape?.AreaFacing(air, _sampleSeconds) ?? double.NaN;
@@ -456,8 +442,6 @@ internal sealed class GunneryScenario
     private int _fired;
     private readonly List<(double Miss, double Along)> _landings = [];
 
-    // A place on the ground that far out, and one shell at a time onto it, each off a lay that has
-    // settled since the last came down.
     // Set down once, then left to settle: the engine builds the resting state over a few frames, and a
     // craft designated mid-teleport is not where it will be.
     private const double PlaceSettleSeconds = 8.0;
@@ -498,6 +482,7 @@ internal sealed class GunneryScenario
         return _sincePlaced >= PlaceSettleSeconds;
     }
 
+    // One shell at a time, each off a lay that has settled since the last came down.
     private string? UpdateGround(WeaponSystem gun, double dt)
     {
         if (!_designated)
@@ -705,10 +690,8 @@ internal sealed class GunneryScenario
         return misses.Count == 0 ? $"{label} none" : $"{label} {misses.Count} at median {misses[misses.Count / 2]:F1} m";
     }
 
-    // Where a sight that looks sideways is looking, level, or zero for the fixed bearing. A sight
-    // looking up has no level part, so every gun sighted on the sky keeps the bearing it was flown
-    // on; a chin turret's looks out of its mounting face, and a drone brought in without it comes
-    // from behind the host whenever the gun is on the far side.
+    // A sideways-looking sight's level bearing, or zero for the fixed one: without it a chin
+    // turret's drone comes from behind the host whenever the gun is on the far side.
     private static double3 SightBearing(WeaponSystem gun)
     {
         if (gun.Sensor.ConeHalfAngleRad >= Math.PI || gun.Platform is not { } platform) return default;

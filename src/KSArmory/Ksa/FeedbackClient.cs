@@ -6,13 +6,8 @@ using System.Text.Json.Serialization;
 namespace KSArmory;
 
 /// <summary>
-/// Sends a report to the endpoint that files it as a GitHub issue.
-///
-/// <para>The mod holds no credential. A token shipped inside a DLL is extractable in seconds and
-/// would be the maintainer's, so the service holds it and this posts unauthenticated.</para>
-///
-/// <para>Nothing here blocks the frame. The send runs on its own task and this exposes only what
-/// the panel needs to draw: whether one is in flight, and what the last one came back with.</para>
+/// Sends a report to the endpoint that files it as a GitHub issue, on its own task. Unauthenticated:
+/// a token shipped inside a DLL is extractable, so the service holds it.
 /// </summary>
 internal sealed class FeedbackClient
 {
@@ -41,12 +36,8 @@ internal sealed class FeedbackClient
         Sent = false;
     }
 
-    /// <summary>
-    /// Posts a report and records the outcome. Returns immediately.
-    /// </summary>
-    /// <param name="log">
-    /// The mod's log, already tailed to the endpoint's limit, or null to send none.
-    /// </param>
+    /// <summary>Returns immediately; the outcome lands in <see cref="Status"/>.</summary>
+    /// <param name="log">The mod's log, already tailed to the endpoint's limit, or null to send none.</param>
     public void Send(ReportDraft draft, string? log)
     {
         if (Sending) return;
@@ -89,10 +80,8 @@ internal sealed class FeedbackClient
         });
     }
 
-    // Read by reflection: in game, calling the property directly throws MissingMethodException
-    // for get_StatusCode against a System.Net.Http that plainly declares it. Whatever the runtime
-    // resolves the type to, reflection asks the object it actually has. The assembly location is
-    // logged once so the cause can be named.
+    // Read by reflection: in game, calling the property directly throws MissingMethodException for
+    // get_StatusCode. The assembly location is logged once so the cause can be named.
     private static int StatusOf(HttpResponseMessage response)
     {
         Type type = response.GetType();
@@ -112,8 +101,6 @@ internal sealed class FeedbackClient
 
     private void Finish(int status, string body)
     {
-        // Every one of these is a thing the endpoint deliberately says. Reporting them as "failed"
-        // would hide the only part the player can act on.
         switch (status)
         {
             case 202:
@@ -128,9 +115,7 @@ internal sealed class FeedbackClient
                 return;
 
             case 422:
-                // The endpoint refuses for more than one reason and says which. The language
-                // check answers 422 as well, so assuming the worst of them tells a player
-                // asking for more guns that their feedback read as abusive.
+                // 422 has several reasons, the language check among them, and the body says which.
                 Fail(Reason(body) ?? "that report was not accepted - please rewrite it");
                 return;
 
@@ -139,8 +124,6 @@ internal sealed class FeedbackClient
                 return;
 
             case 503:
-                // The endpoint says when it cannot file, rather than thanking someone for a
-                // report nobody will read.
                 Fail(Reason(body) ?? "the endpoint cannot file reports right now - please try later");
                 return;
 

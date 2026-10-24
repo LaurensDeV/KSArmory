@@ -5,30 +5,16 @@ using KSA.Rendering.Water.Data;
 namespace KSArmory;
 
 /// <summary>
-/// Where the ground is under a round, from the engine's own height field.
-///
-/// <para><c>Celestial.GetTerrainHeightFromDirCce</c> is the same query the cursor's ground point is
-/// refined with, so a bomb arrives on the surface the player is looking at rather than on the mean
-/// sphere — which over a pad or a hillside are hundreds of metres apart.</para>
-///
-/// <para><b>Answered at the frame's end, in both of the body's motions.</b> The centre differenced
-/// out below is the celestial's end-of-frame sample, and <c>GetTerrainHeightFromDirCce</c> resolves
-/// the direction through <c>GetCcf2Cce()</c> — the end-of-frame <em>rotation</em>. A sub-step
-/// part-way through the frame therefore has to hand in a point walked forward by the ground's full
-/// velocity, spin included, which is <see cref="Slug.GroundQueryAtOwnEpoch"/>. There is no time
-/// argument here to do it with, and there deliberately is not: the sight and the camera ask this
-/// from places with no frame phase at all.</para>
-///
-/// <para>Terrain only, deliberately. A launch pad is 8 m of pedestal 40 m across and adding it here
-/// models it as an 8 m thicker planet everywhere; where a structure's surface is has no answer in
-/// this engine, and <c>docs/BLOCKED-ON-KSA.md</c> records why. A bomb dropped on a pad therefore
-/// bursts at ground level beside it rather than on top of it.</para>
+/// Where the ground is under a round, from <c>Celestial.GetTerrainHeightFromDirCce</c>, the query the
+/// cursor's ground point is refined with.
+/// <para>Answered at the frame's end in both of the body's motions: the centre is the end-of-frame
+/// sample and the direction resolves through the end-of-frame rotation, so a sub-step hands in a point
+/// walked forward by the ground's full velocity (<see cref="Slug.GroundQueryAtOwnEpoch"/>).</para>
+/// <para>Terrain only: a structure's surface has no answer in this engine (<c>docs/BLOCKED-ON-KSA.md</c>).</para>
 /// </summary>
 internal sealed class GroundTest : IGroundTest
 {
-    /// <summary>One for every round in the air. What it carries is a cache of which body is
-    /// underfoot, which is shared deliberately: rounds in one world are nearly always over the same
-    /// one.</summary>
+    /// <summary>Shared by every round: it caches which body is underfoot, nearly always the same one.</summary>
     public static readonly GroundTest Shared = new();
 
     // Which body the last lookup landed on, and how far behind the second-best was. Not thread
@@ -50,30 +36,15 @@ internal sealed class GroundTest : IGroundTest
             Celestial? nearest = null;
             double nearestDepth = double.MaxValue;
 
-            // The body last chosen, checked first. A full scan is one position read and a length
-            // per celestial, and this is asked once per round per step -- so on a world carrying
-            // several rockets it is the system walked thousands of times a frame to be told the
-            // same answer. Anything over Earth is over Earth for the whole flight.
-            //
-            // Kept honest by two tests, below. It re-scans by itself when they stop holding, which
-            // is what a round arriving somewhere else does -- and the cache is shared by every
-            // round, so "somewhere else" includes another round entirely, over another body.
+            // The body last chosen first: asked once per round per step, a full scan walks the
+            // system thousands of times a frame. The two tests below re-scan when they fail.
             if (_lastBody is { } cached)
             {
                 double depth = Vec.Len(positionEcl - cached.GetPositionEcl()) - cached.MeanRadius;
 
-                // Plainly over that body, as well as ahead of the runner-up. The runner-up alone
-                // is not enough, and fails for the one case it most needs to catch: it is
-                // measured from somewhere else. With Earth cached and the round on the Moon, the
-                // depth to Earth (3.78e8 m) and the Moon's depth from Earth (3.82e8 m) are the
-                // same number to within the two radii -- so that guard alone passes, every round
-                // on the Moon is tested against Earth's surface, and a bomb released 7 m over lunar
-                // ground falls through it and keeps going.
-                //
-                // Being within a mean radius of the surface cannot be true of two bodies at once
-                // at any separation this system has. A round further out than that rescans every
-                // step, which is what the cache was avoiding -- and is the right price, because a
-                // round out there is between bodies rather than about to arrive on one.
+                // Within a mean radius as well as ahead of the runner-up, which is measured from the
+                // old position: with Earth cached and a round on the Moon, the depth to Earth
+                // (3.78e8 m) and the Moon's own from Earth (3.82e8 m) pass that test alone.
                 if (depth < _lastRunnerUpDepth && depth < cached.MeanRadius)
                 {
                     nearest = cached;
@@ -102,9 +73,7 @@ internal sealed class GroundTest : IGroundTest
 
                 if (!ReferenceEquals(_lastBody, nearest))
                 {
-                    // Said once per change, never per step. Which body a round is being tested
-                    // against is invisible from outside and is the whole answer when one falls
-                    // through the ground.
+                    // Once per change: the whole answer when a round falls through the ground.
                     Log.Debug($"ground test: now against {nearest?.Id ?? "nothing"}"
                               + $" (runner-up {runnerUp / 1000.0:F0} km deep)");
                 }

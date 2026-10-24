@@ -5,13 +5,8 @@ namespace KSArmory;
 
 internal sealed partial class IcbmComputer
 {
-    // One warhead per designation, and it is the first away. A salvo leaves inside a tenth of a
-    // second and lands in a group tens of metres wide, so any of the six answers the question and
-    // six traces answer it six times.
-    //
-    // The round is reached by casting past IManualFire on purpose: a launcher owes a ballistic
-    // computer the ability to shoot and nothing else, and widening that role for a diagnostic would
-    // put rounds in front of everything else that takes it.
+    // Cast past IManualFire on purpose: widening that role for a diagnostic would put rounds in
+    // front of everything else that takes it.
     private void BeginTrace(IManualFire weapon)
     {
         if (!_traceWanted) return;
@@ -58,9 +53,7 @@ internal sealed partial class IcbmComputer
 
         if (TraceSetup() is not { } setup)
         {
-            // Said once rather than returning quietly. A stranded trace is indistinguishable in the
-            // log from a flight that was never traced, and reads as a sampling choice rather than
-            // a fault.
+            // Said, because a stranded trace otherwise reads as a flight that was never traced.
             if (!_saidTraceStranded)
             {
                 _saidTraceStranded = true;
@@ -85,12 +78,8 @@ internal sealed partial class IcbmComputer
     {
         if (Parent is not { } parent) return null;
 
-        // Latched, because a trace follows one round that has already left and the profile of a
-        // round in the air cannot change. `_warhead` is re-read from the launcher every frame, so
-        // it goes null the moment the launcher does -- and TraceSetup returning null there does not
-        // end the trace, it *strands* it: Finish is only reachable from Update, so the round lands
-        // with nothing watching and the flight is simply absent from the log. Measured on
-        // 2026-09-08: all eight traces began, four finished.
+        // Latched: `_warhead` goes null with the launcher, and null here strands the trace, since
+        // Finish is reachable only from Update.
         if ((_warhead ?? _tracedWarhead) is not { } warhead) return null;
 
         return new WarheadTrace.Setup(parent, Body, warhead, _trueAimCci, PredictStepSeconds,

@@ -6,9 +6,8 @@ namespace KSArmory;
 /// <summary>
 /// Finds an optical director on a craft and resolves the subparts it is built from.
 ///
-/// <para>Separate from <see cref="LauncherPart"/> because a director is not launcher gear. It is
-/// a part in its own right, on any craft, with or without a weapon anywhere near it — so it is
-/// found by walking the craft rather than by looking inside a launcher.</para>
+/// <para>Separate from <see cref="LauncherPart"/>: a director is a part in its own right, found by
+/// walking the craft rather than by looking inside a launcher.</para>
 /// </summary>
 internal static class OpticParts
 {
@@ -65,14 +64,11 @@ internal static class OpticParts
     /// <summary>
     /// Where the base has ended up, in the director part's frame.
     ///
-    /// <para><b>Read off the engine rather than worked out.</b> Whatever carries the base — a
-    /// turret's traverse, a hinge, an arm — has already written this transform by the time a head
-    /// is driven, so taking it as found is what lets a head ride anything without being taught
-    /// what any of it is. Reconstructing the pose instead would mean naming the mover.</para>
+    /// <para><b>Read off the engine rather than worked out</b>: whatever carries the base has already
+    /// written this transform by the time a head is driven.</para>
     ///
     /// <para><see cref="MountFrame.Fixed"/> when there is no base subpart or the engine will not
-    /// answer, which is the pose a director bolted to a hull has anyway — so the fallback is the
-    /// common case rather than a guess.</para>
+    /// answer, which is a hull-mounted director's pose anyway.</para>
     /// </summary>
     public static MountFrame MountOf(Part director, OpticProfile profile)
     {
@@ -116,9 +112,7 @@ internal static class OpticParts
     /// <summary>
     /// Turns the head to look along <paramref name="aimPartFrame"/>.
     ///
-    /// <para>False when the engine refuses the write, which is latched by the caller: a head that
-    /// has stopped moving must not go on claiming to be on target, or the sight paints a settled
-    /// bracket over a picture pointing somewhere else.</para>
+    /// <para>False when the engine refuses the write, which the caller latches.</para>
     /// </summary>
     public static bool TryApplyAim(Part head, OpticProfile profile, MountFrame mount,
                                    double3 aimPartFrame)
@@ -127,9 +121,8 @@ internal static class OpticParts
     /// <summary>
     /// Turns the outer roll gimbal to the roll the head's aim implies.
     ///
-    /// <para>Written from the same aim as the head rather than tracked separately, which is what
-    /// keeps the window flush in the shell: the two are one decomposition of one rotation, and
-    /// deriving them from different instants would show as the window standing off its aperture.</para>
+    /// <para>Written from the same aim as the head: the two are one decomposition of one rotation, and
+    /// from different instants the window would stand off its aperture.</para>
     /// </summary>
     public static bool TryApplyRoll(Part roll, OpticProfile profile, MountFrame mount,
                                     double3 aimPartFrame)

@@ -5,20 +5,10 @@ using KSA.Rendering.Particles;
 namespace KSArmory;
 
 /// <summary>
-/// What a nuclear burst throws along the ground — the base surge where there is air, and the
-/// thrown ground and debris shell where there is not.
-///
-/// <para>What <see cref="NuclearClouds"/> draws needs an atmosphere — a mushroom is buoyant — so on
-/// the Moon there is no cloud. This is what stands in for it, through the particle system, which
-/// writes its commands in the main render path and so draws anywhere.</para>
-///
-/// <para><b>Both emitters are one-shot.</b> Their XML declares <c>Burst</c>, so each spawns its
-/// particles once and hands itself back to the pool when they die. That is the whole reason this
-/// class holds no state: an <c>Endless</c> emitter would have to be tracked and killed, which is
-/// what <see cref="MuzzleFlash"/> exists to do.</para>
-///
-/// <para><see cref="AirlessBurst"/> is the arithmetic and this is the plumbing. Nothing here
-/// decides a size.</para>
+/// A nuclear burst's particles: the thrown ground and debris shell where there is no air for a
+/// mushroom, and the condensation shell where there is. <see cref="AirlessBurst"/> decides the sizes.
+/// <para>Every emitter is one-shot (<c>Burst</c> in its XML) and returns itself to the pool, which is
+/// why this holds no state.</para>
 /// </summary>
 internal static class BurstEjecta
 {
@@ -32,13 +22,8 @@ internal static class BurstEjecta
     private static bool _warned;
 
     /// <summary>
-    /// Throws the ground and lights the shell, for a burst on a body with no air.
-    ///
-    /// <para>Called by <see cref="NuclearClouds.Begin"/> rather than from the weapon, so a burst
-    /// has one entry point and no call site has to know which kind of body it is over.</para>
-    ///
-    /// <para>Returns how big what it drew is, which is what a camera needs to frame it. Empty when
-    /// nothing was drawn at all.</para>
+    /// For a burst on a body with no air, called by <see cref="NuclearClouds.Begin"/>. Returns the size
+    /// of what it drew, for a camera to frame; empty when nothing was drawn.
     /// </summary>
     public static AirlessBurst.Extent Begin(Celestial body, double3 burstCcf, double chargeKg,
                                             double burstAltitudeMetres)
@@ -71,9 +56,7 @@ internal static class BurstEjecta
                 });
             }
 
-            // Said whatever happens, including when nothing is thrown. Reporting only the case
-            // that drew something makes a burst drawing half its effect look like a burst the mod
-            // never saw: the shell fires, the dust does not, and the log is silent.
+            // Logged whatever happens, so a burst drawing half its effect is told from one never seen.
             string ejecta = $"no ejecta: a {fireball:F0} m fireball does not reach the ground";
 
             if (AirlessBurst.ThrowsEjecta(chargeKg, burstAltitudeMetres))
@@ -94,10 +77,7 @@ internal static class BurstEjecta
                         e.EmitterSpawnInfo.Radius = (float)(fireball * 0.40);
                         Speed(ref e.ParticleInfo, thrown.SpeedMetresPerSecond);
 
-                        // The same spread the emitter throws with, because the two are one fact:
-                        // a grain that leaves 25% fast flies 25% longer. Ranged independently, the
-                        // fast grains would be deleted at the top of their climb and the slow ones
-                        // go on falling after they had arrived.
+                        // The throw's own spread: a grain that leaves 25% fast flies 25% longer.
                         e.ParticleInfo.Lifespan = new float2(
                             (float)(thrown.FlightSeconds * (1.0 - AirlessBurst.SpeedSpread)),
                             (float)(thrown.FlightSeconds * (1.0 + AirlessBurst.SpeedSpread)));
@@ -131,12 +111,7 @@ internal static class BurstEjecta
         }
     }
 
-    /// <summary>
-    /// The condensation cloud, for a burst in humid air.
-    ///
-    /// <para><see cref="MushroomCloud.WilsonRadius"/> is the arithmetic and this is the plumbing.
-    /// It belongs to the atmospheric branch alone: there is nothing to condense without air.</para>
-    /// </summary>
+    /// <summary>The condensation cloud, sized by <see cref="MushroomCloud.WilsonRadius"/>.</summary>
     public static void BeginWilson(Celestial body, double3 burstCcf, double chargeKg)
     {
         if (!Detonation.ParticlesEnabled) return;
@@ -173,11 +148,8 @@ internal static class BurstEjecta
     }
 
     /// <summary>
-    /// How long the view is held on this burst, resolved against the body it happened over.
-    ///
-    /// <para>This half reads the world and <see cref="ChaseView.LingerSeconds"/> decides, through
-    /// the same gravity the ejecta is drawn with — so the camera is held for exactly as long as
-    /// there is something in the picture.</para>
+    /// How long the view is held on this burst: <see cref="ChaseView.LingerSeconds"/> with the same
+    /// gravity the ejecta is drawn with.
     /// </summary>
     public static double LingerSeconds(double3 burstEcl, Vehicle? near, double chargeKg, Celestial? known = null)
     {
@@ -188,10 +160,8 @@ internal static class BurstEjecta
                 double3 burstCcf = (burstEcl - body.GetPositionEcl()).Transform(body.GetCce2Ccf());
                 if (Vec.IsFinite(burstCcf))
                 {
-                    // Above the GROUND, the same measure Begin decides on. Against the mean sphere
-                    // the two halves of one burst disagreed about whether it threw anything at all:
-                    // a site 1598 m over the mean sphere and 7 m over the rock threw a full dome
-                    // and was then watched for the three seconds a burst that threw nothing gets.
+                    // Above the ground, the measure Begin decides on: the mean sphere is 1.6 km off
+                    // on high ground, and the two would disagree about whether anything was thrown.
                     return ChaseView.LingerSeconds(chargeKg, KsaWorld.HasAtmosphere(body),
                                                    GravityAt(body, burstCcf),
                                                    KsaWorld.HeightAboveTerrain(body, burstEcl));
@@ -203,7 +173,7 @@ internal static class BurstEjecta
             // Fall through to the cloud's own duration below.
         }
 
-        // What held the view before any of this existed, for a burst whose body cannot be resolved.
+        // A burst whose body cannot be resolved is held as one in air.
         return ChaseView.LingerSeconds(chargeKg, hasAir: true, 0.0, 0.0);
     }
 

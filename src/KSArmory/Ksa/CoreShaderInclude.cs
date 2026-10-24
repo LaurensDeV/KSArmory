@@ -4,30 +4,14 @@ using System.IO;
 namespace KSArmory;
 
 /// <summary>
-/// Writes the one line that lets this mod's shader reach KSA's own shader library.
-///
-/// <para><b>An absolute include resolves and a relative one cannot.</b> shaderc resolves an include
-/// against the requesting file, and Core's shaders sit under the install while a mod's sit under the
-/// player's Documents — there is no relative path between the two trees. An absolute one compiles,
-/// probed in flight, and the header's own relative includes then resolve inside the Core tree as
-/// they always did.</para>
-///
-/// <para><b>It cannot be committed, because it is the player's install.</b> So it is written beside
-/// the mod's own shaders at load, pointing at their copy. Nothing of RocketWerkz's is redistributed
-/// — the same arrangement as the build reading their assemblies from wherever the game is.</para>
-///
-/// <para>Written every load rather than once, because the path it holds is only true of the install
-/// that wrote it. A stale one fails as a shader that will not compile, which is not a sentence
-/// anybody can read.</para>
+/// Writes the include that lets this mod's shader reach KSA's own shader library, at every load.
+/// <para>Absolute, because shaderc resolves an include against the requesting file and Core's tree and a
+/// mod's have no relative path between them. It names the player's install, so it is never committed.</para>
 /// </summary>
 internal static class CoreShaderInclude
 {
-    // Where this mod's shaders live, relative to the mod folder, and what the generated header is
-    // called. KSArmoryCloud.comp includes it by this name and never knows the path inside it.
-    //
-    // IN A FOLDER CALLED Content. KSA's shader hot reload keys every include on the text after the
-    // first "Content" in its full path, and one with none throws inside that bookkeeping and is
-    // logged as an error on every compile -- the shader still builds, but a player sees the error.
+    // Under a folder called Content: KSA's shader hot reload keys every include on the text after the
+    // first "Content" in its path, and one with none logs an error on every compile.
     private const string Folder = "Shaders";
     private const string Subfolder = "Content";
     private const string Generated = "CoreAtmosphere.glsl";
@@ -47,10 +31,8 @@ internal static class CoreShaderInclude
     public static bool Available { get; private set; }
 
     /// <summary>
-    /// Writes it, next to the mod's own shaders.
-    ///
-    /// <para><paramref name="modFolder"/> is where this mod was loaded from. Returns false and says
-    /// why rather than throwing: without it the cloud still draws, on the approximated sky.</para>
+    /// Returns false and logs why rather than throwing: without it the cloud still draws, on the
+    /// approximated sky.
     /// </summary>
     public static bool Write(string modFolder)
     {

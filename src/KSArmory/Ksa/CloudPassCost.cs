@@ -3,17 +3,9 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// What the shader pass costs the GPU, read out of KSA's own profiler.
-///
-/// <para>A compute dispatch is asynchronous, so timing it from C# measures the recording rather
-/// than the work. The engine already writes timestamps around every region tagged with a
-/// <c>ProfilerTag</c> and keeps them per frame, so the number exists — this reads it back instead
-/// of asking somebody to open a window and look.</para>
-///
-/// <para><b>The whole frame is sampled beside it</b>, because the pass's own milliseconds are not
-/// the question. What decides whether the raymarch can replace the pens is what it does to the
-/// frame, and a pass that costs 2 ms on a 30 ms frame is a different answer from the same 2 ms on
-/// a 8 ms one.</para>
+/// What the shader pass costs the GPU, read back from the timestamps KSA's profiler keeps per
+/// <c>ProfilerTag</c> region: timing an asynchronous dispatch from C# measures only the recording.
+/// <para>The whole frame is sampled beside it: 2 ms on a 30 ms frame and on an 8 ms one are different answers.</para>
 /// </summary>
 internal static class CloudPassCost
 {
@@ -37,7 +29,6 @@ internal static class CloudPassCost
     private static int _lastFrameIndex = -1;
     private static bool _warned;
 
-    /// <summary>Whether anything has been measured yet.</summary>
     public static bool HasSamples => _frames > 0;
 
     /// <summary>Turns KSA's GPU profiler on, which it need not be.</summary>
@@ -70,9 +61,8 @@ internal static class CloudPassCost
     }
 
     /// <summary>
-    /// Reads the newest complete frame, once. Called every frame and cheap: it takes the last
-    /// COMPLETE index, so a frame still being written is never half-read, and the index is
-    /// remembered so the same frame is not counted twice when the render outruns the simulation.
+    /// Reads the last complete frame, so one still being written is never half-read, and only once,
+    /// so a frame is not counted twice when the render outruns the simulation.
     /// </summary>
     public static void Sample()
     {
@@ -117,10 +107,7 @@ internal static class CloudPassCost
                 _stages[name] = (total + ms, count + 1);
             }
 
-            // The frame is counted whether or not the pass ran. Without that there is no baseline:
-            // a 46 ms GPU frame means nothing until the same scene has been measured with the pass
-            // off, and a number with no control is what made this instrument look decisive when it
-            // had not yet said anything.
+            // Counted whether or not the pass ran, so a run with it off is the baseline.
             _frames++;
             _frameTotalMs += whole;
             _framePeakMs = Math.Max(_framePeakMs, whole);
@@ -144,16 +131,8 @@ internal static class CloudPassCost
 
         double frame = _frameTotalMs / _frames;
 
-        // Said even when the pass never ran, because that is the baseline the other run is read
-        // against and a run that reports nothing looks like a run that measured nothing.
-        //
-        // And a pass that FAILED to build says so rather than reading as one switched off: as one
-        // line, a shader that will not compile -- which the C# build cannot catch, because KSA
-        // compiles it at load -- is indistinguishable from the deliberate noshader control.
-        //
-        // Asked of a build that RAN and failed, not of there being no pipeline. A pass switched
-        // off is never asked to build, so reading the absence of one as a failure puts "FAILED TO
-        // BUILD" on every control run -- the same confusion with the sign flipped, and worse, because a control is the run that is supposed to report nothing.
+        // A shader KSA failed to compile at load says so, rather than reading as the "pass off"
+        // control; asked of a build that ran, since a pass switched off is never built.
         string had = _passFrames > 0
                          ? $"pass {_passTotalMs / _passFrames:F2} ms a frame over {_passFrames}, "
                            + $"peak {_passPeakMs:F2}"

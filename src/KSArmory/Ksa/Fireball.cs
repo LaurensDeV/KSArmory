@@ -5,14 +5,8 @@ using KSA.Rendering.Lighting;
 namespace KSArmory;
 
 /// <summary>
-/// The light a nuclear fireball casts on everything round it.
-///
-/// <para><b>The light alone; the ball itself is the cloud pass's</b> -- its fire, the glare and
-/// the whiteout. A mesh sphere inside the raymarched cloud reads as a hard-edged dark ball once it
-/// is under the bloom threshold, and it is placed a step before the camera moves where the cloud is
-/// placed at render, so it drifts off the cloud's centre whenever the camera pans.</para>
-///
-/// <para>Re-submitted every frame: lights are cleared and re-pushed in the same pass.</para>
+/// The light a nuclear fireball casts, re-submitted every frame. The ball itself is the cloud pass's:
+/// a mesh sphere read as a dark ball under the bloom threshold and drifted off centre as the camera panned.
 /// </summary>
 internal static class Fireball
 {
@@ -88,10 +82,8 @@ internal static class Fireball
     {
         Clear();
 
-        // Stand down entirely if the engine's own light spawner is live. MovePointLights walks
-        // this list against parallel lists only that spawner fills, so an entry of ours is
-        // rewritten at best and throws out of the frame loop at worst -- and its target is never
-        // cleared once set.
+        // MovePointLights walks this list against parallel lists only the engine's spawner fills, so
+        // with it live an entry of ours can throw out of the frame loop; its target is never cleared.
         if (LightDebug.Target is not null)
         {
             if (!_stoodDown)
@@ -109,10 +101,8 @@ internal static class Fireball
         float radiance = AlbedoLinear * glow;
         float intensity = radiance * 4f * MathF.PI * (float)(radiusMetres * radiusMetres);
 
-        // Out to where a burst is watched from, so the land round the watcher is lit by it; the
-        // falloff has made it faint by then. No shadows: the terrain takes this light through KSA's
-        // forward list, which has none, so a shadow map would cost a cube of the whole landscape a
-        // frame for nothing on the ground.
+        // No shadows: the terrain takes this light through KSA's forward list, which has none, so a
+        // shadow map would cost a cube of the landscape a frame for nothing on the ground.
         _pushed = Light.CreatePointLight(
             centreEgo, (float)(radiusMetres * RangeInRadii), colour, intensity, ELightFlags.None);
         LightDebug.Lights.Add(_pushed);

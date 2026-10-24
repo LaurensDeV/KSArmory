@@ -6,15 +6,11 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// The only place this mod flies somebody else's rocket. Attitude, throttle, ignition and staging,
-/// through KSA's own public interfaces and nothing else.
-///
-/// <para>Every write here is one the game already makes for itself somewhere. The attitude goes
-/// through the flight computer's <c>Custom</c> track target, which is what <c>PhysicsBubble</c>
-/// uses to point a kitten's manoeuvring unit; ignition, throttle and staging go through
-/// <see cref="Vehicle.ProcessInput"/>, which is the same call the keyboard makes. Nothing is
-/// patched and nothing private is reached for, which is what stops a KSA update turning this into
-/// a rocket that flies sideways rather than into a build error.</para>
+/// The only place this mod flies somebody else's rocket, and every write is one the game makes for
+/// itself: the attitude through the flight computer's <c>Custom</c> track target, as
+/// <c>PhysicsBubble</c> points a manoeuvring unit; ignition, throttle and thrusters through
+/// <see cref="Vehicle.ProcessInput"/>, the keyboard's call; staging through
+/// <c>ActivateNextSequence</c>. Public members only, so a KSA change is a build error.
 ///
 /// <para><b>Commands take a frame to arrive.</b> KSA copies a vehicle's control inputs into its
 /// worker state in <c>PrepareWorker</c>, which runs before this mod's hook — so a write made now
@@ -23,31 +19,17 @@ namespace KSArmory;
 /// </summary>
 internal static class VehicleCommand
 {
-    // Far enough that pointing at a place on the line and pointing along the line are the same
-    // thing. KSA's own aiming takes a target position rather than a direction, and at this range
-    // the difference is below the angle any drive can hold.
+    // KSA's aiming takes a position, not a direction; this far out the two agree below any drive's hold.
     private const double AimPointDistance = 1e12;
 
-    // How far off the wanted throttle is close enough to stop working the control.
     private const double ThrottleTolerance = 0.02;
 
     /// <summary>
-    /// Point the vehicle's nose along a direction in the parent body's inertial frame.
-    ///
-    /// <para>The rotation is laid out exactly as <see cref="VehicleReferenceFrameEx.GetTgt2Cci"/>
-    /// lays it out — the engine's own "aim at that" frame, which is what its <c>Toward</c> mode
-    /// uses — because guessing which body axis is the nose gives a vehicle that holds a perfectly
-    /// steady attitude ninety degrees from the one asked for.</para>
-    ///
-    /// <para><b>What it does not borrow is the roll reference.</b> The engine's is the direction of
-    /// the planet, which has no answer when the nose points at it or away from it, and does not
-    /// merely fail there — it <em>reverses</em>. A vertical rise points away from the planet for
-    /// its whole duration, so the commanded roll swings through half a turn and the vehicle spins
-    /// on its own axis. <see cref="AimFrame"/> supplies one that is carried forward instead.</para>
-    ///
-    /// <para>The frame is <c>EclBody</c> rather than the local horizon, because its frame rates are
-    /// zero: a commanded inertial direction wants no feed-forward, and the horizon frame's rates
-    /// would have the flight computer chasing a rotation nobody asked for.</para>
+    /// Points the nose along a direction in the parent body's inertial frame.
+    /// <para>Laid out as <see cref="VehicleReferenceFrameEx.GetTgt2Cci"/> lays it out, so the nose is
+    /// the engine's nose. The roll reference is <see cref="AimFrame"/>'s, not the engine's direction
+    /// of the planet, which reverses through the vertical and spins a vertical rise.</para>
+    /// <para>In <c>EclBody</c>, whose frame rates are zero: an inertial direction wants no feed-forward.</para>
     /// </summary>
     public static bool TryAim(Vehicle craft, double3 directionCci, double3 rollReferenceCci, bool loosely = false)
     {
@@ -83,13 +65,9 @@ internal static class VehicleCommand
         computer.CustomAttitudeTarget = VehicleReferenceFrame.EclBody.QuaternionToEulerAngles(target2Frame);
         computer.AttitudeMode = FlightComputerAttitudeMode.Auto;
 
-        // Re-derive the pointing deadband from the thrusters actually aboard. KSA widens it to
-        // whatever one control period of the minimum impulse can produce -- a stability guard, so
-        // the tracker is not asked to settle inside its own quantum -- but it only ever raises it.
-        // A stack that staged carries the guard sized for its boost RCS onto a bus whose thrusters
-        // are two orders finer, and nothing lowers it again: measured at 11.4 degrees of deadband
-        // against a live rate bit worth 0.07. Assigning the profile puts it back, and KSA's own max
-        // re-establishes the real floor on the same frame.
+        // KSA only ever raises the pointing deadband, so a staged stack keeps its booster's on the
+        // bus: measured 11.4 degrees against a rate bit worth 0.07. Assigning the profile resets it,
+        // and KSA re-raises it to the real floor on the same frame.
         computer.SetAttitudeProfile(loosely ? FlightComputerAttitudeProfile.Balanced : FlightComputerAttitudeProfile.Strict);
 
         // An automatic burn would fight this for the attitude and run its own throttle.
@@ -98,11 +76,10 @@ internal static class VehicleCommand
         return true;
     }
 
-    /// <summary>The engine's flight computer is holding an attitude of any kind, whoever set it.</summary>
+    /// <summary>Holding an attitude of any kind, whoever set it.</summary>
     public static bool HoldsAttitude(Vehicle craft)
         => KsaWorld.IsAlive(craft) && craft.FlightComputer.AttitudeMode != FlightComputerAttitudeMode.Manual;
 
-    /// <summary>Give the vehicle back to whoever was flying it.</summary>
     public static void ReleaseAttitude(Vehicle craft)
     {
         if (!KsaWorld.IsAlive(craft)) return;
@@ -114,15 +91,10 @@ internal static class VehicleCommand
     }
 
     /// <summary>
-    /// Adds an impulse and an angular impulse about the centre of mass, both in the craft's own
-    /// assembly frame, the way <c>Vehicle.Split</c> pushes two halves apart: into the physics state
-    /// it keeps, off rails so the change is integrated rather than overwritten by the conic, with
-    /// the orbit rebuilt from the new state. A craft on rails is brought up to date from its conic
-    /// first, as Split does, and one with no physics bubble is too far off to be integrated at all.
-    /// Neither the speed nor the spin at the craft's rim passes <paramref name="windSpeed"/>
-    /// (<see cref="BlastShove.Saturate"/>), and the spin is cut by the share the push is, because
-    /// both are the same wind falling off as the craft is carried with it. Only from
-    /// <see cref="AttitudeHook"/>'s window.
+    /// An impulse and an angular impulse about the centre of mass, in the craft's assembly frame,
+    /// written as <c>Vehicle.Split</c> pushes two halves apart: into the physics state, off rails,
+    /// orbit rebuilt. Neither the speed nor the rim's spin passes <paramref name="windSpeed"/>
+    /// (<see cref="BlastShove.Saturate"/>). Only from <see cref="AttitudeHook"/>'s window.
     /// </summary>
     public static bool TryShove(Vehicle craft, double3 impulseAsmb, double3 angularImpulseAsmb, double windSpeed,
                                 out double3 velocityChangeAsmb, out double3 spinChangeAsmb)
@@ -144,8 +116,7 @@ internal static class VehicleCommand
         if (!Vec.IsFinite(dv)) return false;
         if (!Vec.IsFinite(dw)) dw = Vec.Zero;
 
-        // The wind a craft feels falls as it is carried along, for the turn as much as for the push,
-        // so both are cut by the same share; and no rim outruns the wind.
+        // One share for both: the push and the turn are the same wind falling off as the craft is carried.
         double naive = Vec.Len(dv);
         double carried = BlastShove.Saturate(naive, windSpeed);
         double share = naive > 0.0 ? carried / naive : 1.0;
@@ -183,13 +154,8 @@ internal static class VehicleCommand
     }
 
     /// <summary>
-    /// Work the throttle toward a wanted setting, and report what the vehicle actually has.
-    ///
-    /// <para>KSA exposes no way to set a throttle outright — only the two controls a player holds
-    /// down, which move it at a fixed rate. So this is a servo rather than an assignment, and the
-    /// number it returns is the real one. Guidance is told that number rather than the one it
-    /// asked for, because a stack whose motors cannot be throttled at all would otherwise have its
-    /// cutoff timed against a thrust it never came down to.</para>
+    /// A servo, since KSA's throttle moves only at a fixed rate under its two held keys. Returns the
+    /// throttle the vehicle has, which guidance times its cutoff on rather than the one asked for.
     /// </summary>
     public static double DriveThrottle(Vehicle craft, double wanted, bool throughTheClear = false)
     {
@@ -211,19 +177,9 @@ internal static class VehicleCommand
     }
 
     /// <summary>
-    /// Hold the attitude-control thrusters on in the named directions, and off in the rest.
-    ///
-    /// <para>The same held-key model the throttle uses: <c>ProcessInput</c> sets and clears bits in
-    /// the vehicle's own <c>ThrusterCommandFlags</c>, which persist until released, so every
-    /// direction has to be written every cycle rather than only the ones wanted. This is the
-    /// keyboard's channel and nothing else — the translation flags survive the flight computer's
-    /// automatic attitude hold untouched, because that only ever clears the <em>rotation</em>
-    /// ones.</para>
-    ///
-    /// <para>Whether a direction does anything is the vehicle's business. KSA works out which
-    /// nozzles answer to which flag from where they point, so a bus whose clusters are laid out for
-    /// roll and pitch has no lateral translation at all and the command is simply ignored — which
-    /// is why <see cref="BusTrim"/> measures rather than assumes.</para>
+    /// Holds the thrusters on in the named directions and off in the rest: <c>ThrusterCommandFlags</c>
+    /// persist until released, so every direction is written every cycle. The attitude hold clears
+    /// only the rotation flags. A direction no nozzle answers is ignored, so <see cref="BusTrim"/> measures.
     /// </summary>
     public static void DriveTranslation(Vehicle craft, TrimAxes fire)
     {
@@ -245,19 +201,9 @@ internal static class VehicleCommand
     }
 
     /// <summary>
-    /// Put the vehicle's manual thrust in pulse mode, or back to direct.
-    ///
-    /// <para>KSA's own: a held translation key in <c>Pulse</c> becomes one pulse of each thruster's
-    /// <c>MinimumPulseTime</c>, at most every 0.15 s, instead of thrust for the whole frame. It is
-    /// the same field the keyboard's <c>ToggleManualThrustMode</c> writes, assigned rather than
-    /// toggled so the mod cannot end up holding the opposite of what it asked for.</para>
-    ///
-    /// <para><b>The attitude hold survives it.</b> The pulse branch builds only the translation
-    /// command; the tracking controller writes the rotation afterwards in either mode.</para>
-    ///
-    /// <para>Written from <see cref="AttitudeHook"/>'s window like the attitude, because applying a
-    /// worker's results copies the whole flight computer over the top of anything written outside
-    /// it.</para>
+    /// In <c>Pulse</c> a held translation key is one <c>MinimumPulseTime</c> pulse per thruster, at
+    /// most every 0.15 s; assigned rather than toggled. The attitude hold survives it. Only from
+    /// <see cref="AttitudeHook"/>'s window: a worker's results overwrite the flight computer.
     /// </summary>
     public static void SetPulseMode(Vehicle craft, bool pulsing)
     {

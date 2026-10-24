@@ -5,20 +5,16 @@ namespace KSArmory;
 
 internal sealed partial class IcbmComputer
 {
-    // One frame of the walk: finish a stop whose warheads have gone, and either re-aim at the next
-    // or end it. Nothing here runs for a set of one -- ReleaseLoop.Plan answers OneStop for every
-    // one-stop set and ReleaseWalker.Walking is then false, which is the whole of what leaves a
-    // single-target flight the shot every accuracy measurement on this mod was taken against.
+    // Finish a stop whose warheads have gone, and re-aim at the next or end. Nothing here runs for a
+    // set of one, since ReleaseWalker.Walking is false for it.
     private void StepTheWalk(IManualFire? weapon)
     {
         if (!_walker.Walking) return;
 
         ReleaseStep step = _walker.Step;
 
-        // A stop the rack cannot fill is over rather than still owed: waiting for a warhead that is
-        // not there strands the bus on one target with the rest of the walk unflown. The salvo's own
-        // size is the bound that holds either way -- a launcher REFILLS a few seconds after a salvo,
-        // so what is loaded stops meaning what is left the moment the first warhead goes.
+        // A stop the rack cannot fill is over, not owed. Bounded by the salvo's size, because a
+        // launcher refills a few seconds after a salvo.
         bool dry = weapon is not { TubesReadyToFire: > 0 } || _sequence.Emptied
                    || (_salvoSize > 0 && WarheadsAway >= _salvoSize);
 
@@ -50,14 +46,8 @@ internal sealed partial class IcbmComputer
                                        Math.Max(0, _salvoSize - WarheadsAway)));
     }
 
-    // Asked before the lead moves, and it is the trim's own question rather than the planner's: a
-    // hop is priced as the velocity change between two solutions, and BusTrim is handed the whole
-    // difference between the vehicle's velocity and the new solution's -- so the residual the
-    // release just left on the bus is added to it. Over the ceiling the trim refuses the WHOLE pass;
-    // over the budget it refuses nothing and the release happens with no divert flown.
-    //
-    // Zero cycles because HandOverTo resets the correction, so the next pass is the trim's first and
-    // PostCutoffSequence hands it the constant, or the hop's own ceiling.
+    // The trim's question, not the planner's: BusTrim is handed the release's residual on top of the
+    // hop, and over the ceiling refuses the whole pass. Zero cycles, since HandOverTo resets them.
     private HopHold TheTrimWillFlyTheNextHop(in ReleaseStep step, double ceiling)
         => ReleaseLoop.CanFlyTheHop(
                step.NextHopMetresPerSecond, _trim.ToGainMetresPerSecond,
@@ -143,15 +133,12 @@ internal sealed partial class IcbmComputer
                                                         - _trim.SpentMetresPerSecond)));
     }
 
-    // Put the bus on the next target. Everything cleared here belongs to the stop just flown, and
-    // every one of them is a fresh start rather than a reset of the flight: the trim keeps what it
-    // has spent and what it has learned about the thrusters, because the budget is the flight's and
-    // the acceleration is the vehicle's.
+    // Clears what belongs to the stop just flown; the trim keeps its spend and its thruster estimate,
+    // which are the flight's and the vehicle's.
     private void HandOverTo(int next)
     {
-        // The plan and the list have to index the same entries, and a lead that will not take means
-        // they no longer do. Ending the walk holds the rest of the warheads aboard, which is what an
-        // unassigned one already does; carrying on would aim the bus at whatever slid into the gap.
+        // A lead that will not take means the plan and the list no longer index the same entries;
+        // carrying on would aim the bus at whatever slid into the gap.
         if (!_targets.SetLead(next))
         {
             _walker.Finish();

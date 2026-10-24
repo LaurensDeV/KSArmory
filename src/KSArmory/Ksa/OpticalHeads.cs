@@ -5,18 +5,10 @@ namespace KSArmory;
 /// <summary>
 /// One <see cref="OpticalHead"/> per director fitted, each with its own <see cref="OpticConfig"/>.
 ///
-/// <para>Keyed on the craft <em>and</em> which director on it, unlike <see cref="WeaponSystems"/>,
-/// which crews one system per craft. A director is a small part that a craft can sensibly carry
-/// several of — one forward, one aft — and each is an instrument in its own right pointed
-/// somewhere different. Sharing one head between them would make the second one scenery.</para>
+/// <para>Keyed on the craft <em>and</em> which director on it, since a craft can carry several.</para>
 ///
-/// <para>Heads are crewed independently of weapons: a craft with a director and no armament gets
-/// one, and a craft with a launcher and no director gets none.</para>
-///
-/// <para>Which is also why this roster runs its own handover rather than reading the weapon
-/// roster's. A director is a separate part, so a split can leave it and a launcher on opposite
-/// halves — and a craft carrying nothing but a director publishes no launcher handover at all. The
-/// <em>decision</em> is shared: <see cref="PlatformHandover"/> draws the line for both.</para>
+/// <para>Crewed independently of weapons, with its own handover: a split can leave a director and a
+/// launcher on opposite halves. The decision is shared, <see cref="PlatformHandover"/>.</para>
 /// </summary>
 internal sealed class OpticalHeads(Config config)
 {
@@ -24,7 +16,6 @@ internal sealed class OpticalHeads(Config config)
 
     private readonly Config _config = config;
 
-    // Craft plus ordinal, because one craft can carry several and each is its own instrument.
     private readonly Dictionary<(Vehicle Craft, int Ordinal), Entry> _entries = [];
 
     private readonly List<(Vehicle, int)> _stale = [];
@@ -65,9 +56,7 @@ internal sealed class OpticalHeads(Config config)
     /// <summary>
     /// The head whose picture the player is being shown, or the first if none has claimed a view.
     ///
-    /// <para>The frame hook drives exactly one head, so asking for the first made every control
-    /// under a second director inert — settable, saved, and with nothing reading them. Asking
-    /// which one holds a viewport makes the row the player is looking at the row that works.</para>
+    /// <para>The frame hook drives exactly one head, so this is the one holding a viewport.</para>
     /// </summary>
     public Entry? Driving(Vehicle? craft)
     {
@@ -106,9 +95,8 @@ internal sealed class OpticalHeads(Config config)
     /// </summary>
     public void Sync(IReadOnlyList<Vehicle> craft)
     {
-        // Before the crewing loop, and it has to be: it re-keys entries onto craft the loop below
-        // is about to walk, and crewing first would put a second head on the same director —
-        // parked, at default zoom, watching nothing — with the operator's settings left behind.
+        // Before the crewing loop: it re-keys entries onto craft the loop walks, and crewing first
+        // would put a second, default head on the same director.
         FollowDecoupledDirectors(craft);
 
         for (int i = 0; i < craft.Count; i++)
@@ -116,10 +104,8 @@ internal sealed class OpticalHeads(Config config)
             Vehicle v = craft[i];
             if (!KsaWorld.IsAlive(v)) continue;
 
-            // A pod that is the whole craft has nothing to look out from. A breakup can leave one
-            // lying on the ground as a vehicle in its own right, which the editor would never have
-            // allowed anyone to build -- see KsaWorld.PartRides. A hull with a director on it is
-            // still an observation post, because a hull is not a store.
+            // A pod that is the whole craft, left by a breakup, has nothing to look out from
+            // (KsaWorld.PartRides); a hull with a director on it is still an observation post.
             if (!KsaWorld.HasPlatform(v)) continue;
 
             OpticParts.FindAll(v, _scratch);
@@ -149,12 +135,8 @@ internal sealed class OpticalHeads(Config config)
         }
     }
 
-    // A director that is no longer on the craft its head was crewed on, because a decoupler carried
-    // it onto another. Retirement is the wrong answer: the director is alive on a live craft, and
-    // dropping the entry throws away everything the operator set on it.
-    //
-    // Costs nothing when nothing has separated: an entry only loses its director if a part tree
-    // says so, so the scan below runs on the frame after a split and on no other.
+    // A director a decoupler carried onto another craft keeps its head and settings. The scan runs
+    // only on the frame after a split.
     private void FollowDecoupledDirectors(IReadOnlyList<Vehicle> craft)
     {
         bool anyLost = false;
@@ -196,24 +178,15 @@ internal sealed class OpticalHeads(Config config)
         _lost.Clear();
     }
 
-    // How many consecutive searches may come back empty before a director is taken to be gone
-    // rather than merely unreadable.
-    //
-    // Same bound and same reason as the weapons roster: a part tree read mid-rebuild returns
-    // nothing, which is indistinguishable from a part a warhead has destroyed, so only a long
-    // run of empty searches separates the two. Without it a destroyed director leaves its head
-    // searching the whole world every simulated frame for ever.
-    //
-    // A head has nothing in the air, so it is simply dropped rather than loosed.
+    // How many consecutive searches may come back empty before a director is taken to be gone: a
+    // tree read mid-rebuild returns nothing too. Same bound as the weapons roster.
     private const int FruitlessSearchesBeforeRetiring = 120;
 
     // Consecutive searches that found no craft carrying a head's director.
     private readonly Dictionary<OpticalHead, int> _fruitless =
         new(ReferenceEqualityComparer.Instance);
 
-    // Only while the craft it was crewed on is still alive. A destroyed one's head is dropped by
-    // the stale sweep in Sync, and searching from it would hand the entry to whichever neighbour
-    // carries the same part — a head left running for a craft that has gone.
+    // Only while the craft it was crewed on is alive; a destroyed one's head is dropped in Sync.
     private static bool HasLostItsDirector(Vehicle craft, Entry entry)
         => entry.Head is { Platform: not null, Director: null } && KsaWorld.IsAlive(craft);
 
@@ -252,9 +225,7 @@ internal sealed class OpticalHeads(Config config)
             Log.Warn($"the director {key.Ordinal + 1} on {KsaWorld.DisplayName(key.Craft)} has gone "
                      + $"and {choice.Why} - leaving its head where it is");
 
-            // Settled, though not moved: two craft carry it and neither was chosen. Dropping the
-            // head over a refusal would throw the operator's settings away for an excess of
-            // candidates.
+            // Settled, though not moved: two craft carry it and neither was chosen.
             return true;
         }
 

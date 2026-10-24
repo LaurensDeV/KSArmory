@@ -4,17 +4,8 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Something a sensor can hold: what it is called, how big it is, whether it still exists, and
-/// where it is.
-///
-/// <para><b>Not necessarily a craft.</b> Tying a contact to a <c>Vehicle</c> limits a sensor to
-/// the things KSA simulates, and this mod's own rounds are not among them — so a missile in
-/// flight could not be seen, tracked or shot at, including by the launcher that fired it.
-/// Everything a track is asked for is one of these five questions, and none of them needs the
-/// contact to be a craft.</para>
-///
-/// <para>The kinematics stay on <see cref="TrackState"/> in <c>Sim/</c>, which does not know what
-/// a contact is and does not need to. This is only the identity half.</para>
+/// Something a sensor can hold, not necessarily a craft: this mod's rounds are not KSA vehicles and
+/// still have to be seen and shot at. The kinematics a track reasons on are <see cref="TrackState"/>'s.
 /// </summary>
 internal interface IContact
 {
@@ -27,22 +18,13 @@ internal interface IContact
     string DisplayName { get; }
 
     /// <summary>
-    /// The name the team roster is matched against, which is not always what the contact is
-    /// called. A round's is its <em>shooter's</em> craft name, so it inherits that side's
-    /// allegiance without anything having to know a round from a craft.
-    ///
-    /// <para>The <em>fallback</em>, read only when <see cref="DeclaredTeam"/> says nothing.</para>
+    /// A craft's name, or a round's shooter's. Not an allegiance: <see cref="DeclaredTeam"/> alone is,
+    /// because a name says what a craft is called and not whose it is.
     /// </summary>
     string TeamKey { get; }
 
     /// <summary>
-    /// The side this contact was put on by the panel's flag, or null when nothing has said —
-    /// in which case <see cref="TeamKey"/> answers instead.
-    ///
-    /// <para>Two mechanisms because only one of them reaches everything. A craft with a launcher
-    /// or a director on it has a flag; a drone, an airliner or anything else in the world does
-    /// not, and a name is all it has. Declared wins, because it is the one somebody set on
-    /// purpose.</para>
+    /// The side the panel's flag put this contact on, or a round's shooter's; null is on no team.
     /// </summary>
     string? DeclaredTeam { get; }
 
@@ -52,7 +34,6 @@ internal interface IContact
     /// <summary>How hot it looks to an infrared set, in kW/sr (<see cref="Signature"/>).</summary>
     double HeatKwPerSr { get; }
 
-    /// <summary>False once it is gone, so fire control can drop it.</summary>
     bool IsAlive { get; }
 
     double3 PositionEcl { get; }
@@ -85,17 +66,8 @@ internal interface IContact
     bool TryDrawEgo(out double3 posEgo);
 
     /// <summary>
-    /// The craft that put this in the air, or null for something nobody launched.
-    ///
-    /// <para>Only so a sensor can disregard its <em>own</em> platform's rounds. IFF cannot do it:
-    /// allegiance decides what may be <em>engaged</em>, and a friendly contact is still tracked —
-    /// correctly, because a sight pointed at a friendly craft is doing its job. What is never
-    /// useful is a set watching its own salvo leave, from metres away, at the top of its
-    /// priority.</para>
-    ///
-    /// <para>Deliberately not "whose side it is on". Two launchers on one team should still see
-    /// each other's rounds, and seeing an incoming missile is the whole reason a round is a
-    /// contact at all.</para>
+    /// The craft that put this in the air, or null. Only so a set can ignore its own platform's
+    /// salvo; not a side, since two launchers on one team still see each other's rounds.
     /// </summary>
     Vehicle? LaunchedFrom { get; }
 }

@@ -5,43 +5,33 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// A bracket on every weapons system, labelled with its name, armament and range when the pointer
-/// is on it or when it has been pinned from the panel.
+/// A bracket on every weapons system, labelled with its name and range when the pointer is on it or
+/// when it has been pinned from the panel.
 ///
-/// <para>Modelled on the game's own object markers, so a site reads the way a mountain or a
-/// vessel already does. An ImGui overlay rather than gizmos: a marker belongs on the glass, at a
-/// constant size, rather than in the scene where it would shrink with distance and be occluded by
-/// the very terrain it is meant to find something behind.</para>
+/// <para>An ImGui overlay rather than gizmos, so it keeps a constant size and is not occluded by the
+/// terrain it is meant to find something behind.</para>
 /// </summary>
 internal static class Markers
 {
     private static readonly ImColor8 Idle = new(150, 200, 255, 150);
     private static readonly ImColor8 Active = new(90, 255, 120, 220);
 
-    // Behind the planet. Dimmed rather than hidden: where a system is stays worth knowing while it
-    // is out of sight, which is most of what the marker is for, but it must not read as something
-    // in view.
+    // Behind the planet: dimmed rather than hidden, so it does not read as something in view.
     private static readonly ImColor8 Hidden = new(150, 200, 255, 70);
     private static readonly ImColor8 HiddenActive = new(90, 255, 120, 90);
 
-    // Half-width of the bracket, in pixels. Constant: this is an icon, not a bounding box, and
-    // sizing it to the craft would make a distant site a sub-pixel dot -- which is the one case
-    // it exists for. Shared with the gunner's sight, which is meant to read as the same mark.
+    // Half-width of the bracket, in pixels: an icon, not a bounding box. Shared with the gunner's sight.
     private const float Half = Reticle.IconHalfSize;
     private const float Corner = 4f;
 
     // Pointer distance, in pixels, that counts as hovering a marker.
     private const float HoverRadius = 18f;
 
-    // Apparent size, in radians, past which a craft needs no marker because it is plainly in view.
-    // Angular rather than a distance, so a big vessel drops its bracket further out than a drone
-    // does -- what matters is how much of the view it fills, not how many metres away it is.
-    // About 1.7 degrees, which for the Pantsir is a little over a hundred metres.
+    // Apparent size, in radians, past which a craft is plainly in view and needs no marker; about
+    // 1.7 degrees.
     private const double FillsTheViewRad = 0.03;
 
     // How long a label stays up after being called for, and how much of that it spends fading.
-    // Long enough to read and find the thing, short enough that pressing it again is easier than
-    // remembering to switch it off.
     private const double ShowSeconds = 10.0;
     private const double FadeSeconds = 2.0;
 
@@ -49,9 +39,7 @@ internal static class Markers
     // label is unclickable: moving towards it leaves the bracket's hover radius and it vanishes.
     private const double ReachSeconds = 2.0;
 
-    // Systems whose label is showing, and for how much longer. Reference identity, which is what
-    // a Vehicle compares by -- two craft are never equal, so a stale entry cannot shadow a live
-    // one. Pruned in Draw as they expire or the craft is destroyed.
+    // Systems whose label is showing, and for how much longer, by reference. Pruned in Draw.
     private static readonly Dictionary<Vehicle, double> Showing = [];
     private static readonly List<Vehicle> Expired = [];
 
@@ -69,9 +57,8 @@ internal static class Markers
     }
 
     /// <summary>
-    /// Drops every label. These are static and hold a <c>Vehicle</c> each, so a locked one keeps a
-    /// destroyed craft reachable for the rest of the process unless the panel happens to draw
-    /// again and prune it.
+    /// Drops every label. Each holds a <c>Vehicle</c> statically, which keeps a destroyed craft
+    /// reachable until the next prune.
     /// </summary>
     public static void Forget()
     {
@@ -102,10 +89,8 @@ internal static class Markers
         float2 cursor = ImGui.GetMousePos();
         double3 eye = KsaWorld.CameraPositionEcl();
 
-        // Labelled because it is locked, because it was called for from the panel and has not run
-        // out, or because the pointer is on its bracket. Collected here and drawn after this
-        // window closes: a label is a window of its own so its lock can be clicked, and ImGui
-        // windows do not nest.
+        // Drawn after this window closes: a label is a window of its own so its lock can be
+        // clicked, and ImGui windows do not nest.
         List<(int Index, float2 At, float Alpha)> labels = [];
 
         for (int i = 0; i < systems.Count; i++)
@@ -115,8 +100,7 @@ internal static class Markers
 
             double3 atEcl = KsaWorld.PositionEcl(craft);
 
-            // Close enough to see plainly: no bracket, and no hover target either. A marker over
-            // something already filling the view is nothing but something to catch the pointer.
+            // Plainly in view: no bracket, and no hover target to catch the pointer.
             double range = Vec.Len(atEcl - eye);
             if (range > 1e-6 && KsaWorld.MeanRadius(craft) / range > FillsTheViewRad) continue;
 
@@ -132,8 +116,6 @@ internal static class Markers
                 (false, true) => Hidden,
             };
 
-            // In view gets the bracket; out of view gets an arrow at the edge pointing at it, so
-            // a site can be located from a craft that cannot see it.
             if (inView) DrawBracket(draw, at, colour, blocked);
             else DrawEdgeArrow(draw, at, colour);
 
@@ -183,8 +165,6 @@ internal static class Markers
         }
     }
 
-    // A triangle at the screen edge pointing the way to something out of view. Its range comes
-    // from the label, which every marker carries.
     private static void DrawEdgeArrow(ImDrawListPtr draw, float2 at, ImColor8 colour)
     {
         ImGuiViewportPtr main = ImGui.GetMainViewport();
@@ -196,7 +176,6 @@ internal static class Markers
         if (len < 1e-3f) return;
         dx /= len; dy /= len;
 
-        // Perpendicular, for the base of the triangle.
         float px = -dy, py = dx;
         const float Long = 11f, Wide = 7f;
 
@@ -206,10 +185,7 @@ internal static class Markers
                                colour);
     }
 
-    // Name and range, and nothing else. What a system is made of is a question the Components tab
-    // answers at leisure; a marker is read at a glance while looking for something.
-    // A window of its own, not part of the overlay, because the overlay is NoInputs and nothing
-    // drawn on it can be clicked. That is the whole reason the lock works.
+    // A window of its own because the overlay is NoInputs, and the lock has to be clickable.
     private static void DrawLabel(ImGuiViewportPtr main, float2 at,
                                   (Vehicle Craft, WeaponInventory Inventory) system, double3 eyeEcl,
                                   float alpha)
@@ -232,8 +208,7 @@ internal static class Markers
         float w = Math.Max(nameSize.X, detailSize.X + 34f) + 18f;
         float h = nameSize.Y + detailSize.Y + 18f;
 
-        // Up and to the right of the bracket, clear of it -- then held on screen, because a marker
-        // pinned to the edge would otherwise put its own label past it.
+        // Up and right of the bracket, held on screen so an edge-pinned marker's label stays visible.
         const float Edge = 4f;
         float x = Math.Clamp(at.X + Half + 6f, main.Pos.X + Edge, main.Pos.X + main.Size.X - w - Edge);
         float y = Math.Clamp(at.Y - h - 6f, main.Pos.Y + Edge, main.Pos.Y + main.Size.Y - h - Edge);
@@ -249,12 +224,10 @@ internal static class Markers
                                        | ImGuiWindowFlags.NoSavedSettings
                                        | ImGuiWindowFlags.NoMove;
 
-        // Keyed on the craft's Id, which KSA keeps unique, so each label is its own window and
-        // they do not fight over one set of state.
+        // Keyed on the craft's Id, so each label is its own window; craft from one blueprint share one.
         if (ImGui.Begin($"##KSArmoryLabel_{name}", flags))
         {
-            // Reaching for the lock takes the pointer off the bracket, which is what put the
-            // label up. Without this the label disappears on the way to its own button.
+            // Reaching for the lock takes the pointer off the bracket that put the label up.
             if (ImGui.IsWindowHovered(ImGuiHoveredFlags.AllowWhenBlockedByActiveItem
                                       | ImGuiHoveredFlags.ChildWindows))
             {
@@ -300,8 +273,6 @@ internal static class Markers
 
 
 
-    // Metres up close, kilometres beyond a kilometre. A site 340 m away reading "0.34 km" is
-    // harder to act on than the same number in metres.
     private static string Range(double metres)
     {
         if (!double.IsFinite(metres)) return "range unknown";

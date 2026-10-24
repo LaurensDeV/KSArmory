@@ -4,38 +4,22 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// The bang, arriving when it actually would.
-///
-/// <para>KSA plays an explosion's sound at the instant of the explosion, which is right for
-/// everything it ships: a conventional burst is heard from inside its own blast radius or not at
-/// all. A nuclear burst is watched from kilometres away, and the flash and the sound are separated
-/// by the whole of the time sound takes to get there — seven seconds from the two and a half
-/// kilometres the cloud is watched from. That gap is one of the most recognisable things about a
-/// burst, and playing the two together throws it away.</para>
-///
-/// <para><b>And a burst with no air makes no sound at all.</b> That falls out of the same rule
-/// rather than needing one of its own: there is nothing to carry it.</para>
-///
-/// <para><b>The bang is the front arriving, followed live.</b> Each burst's <see cref="BlastFront"/> is
-/// run out against where the camera is now, and when it reaches it the bang and the view's shake go
-/// together, as loud and as hard as <see cref="BlastAltitude.PeakPascals"/> puts the pressure there, and
-/// nothing under <see cref="BurstHearing.FeltPascals"/>. So a burst 37 km up is heard minutes later, and
-/// one at 77 km is not heard at all.</para>
+/// The bang, arriving when the front does: KSA plays an explosion's sound at the flash, which is right
+/// only from inside its blast radius.
+/// <para>Each burst's <see cref="BlastFront"/> is followed live against where the camera is now; when it
+/// arrives the bang and the shake go together, as loud as <see cref="BlastAltitude.PeakPascals"/> puts the
+/// pressure there and nothing under <see cref="BurstHearing.FeltPascals"/>. No air carries no front.</para>
 /// </summary>
 internal static class BurstSound
 {
-    // What Core's own nuclear-scale explosion uses. Taken out of the preset so the engine no
-    // longer plays it on contact; this plays it when it arrives instead.
+    // What Core's own nuclear-scale explosion uses, played here on arrival rather than at the flash.
     private const string BangId = "ExplosionBig";
 
-    // How long the echo layer of that bang runs at its own pitch: Core ships four, at 10.6 to
-    // 10.8 s. Said in the log beside the pitch, because the length is the part a reader can check
-    // by ear and the pitch is not.
+    // The echo layer's length at its own pitch: Core ships four, at 10.6 to 10.8 s. Logged because a
+    // length can be checked by ear and a pitch cannot.
     private const double EchoSeconds = 10.7;
 
-    // Bangs due within this long of each other from within this far of each other are one bang:
-    // six warheads of a bus land 9 mm apart in the same frame, and six copies of one sound played
-    // on top of each other is a louder bang, not six.
+    // Bangs this close in time and place are one: six warheads of a bus land in the same frame.
     private const double SameBangSeconds = 0.5;
     private const double SameBangMetres = 1000.0;
 
@@ -71,8 +55,7 @@ internal static class BurstSound
     private static readonly List<Front> _fronts = [];
     private static int _seeds;
 
-    // Bangs playing, re-placed every frame as ExplosionSoundSystem does, because a sound lasting
-    // thirty seconds is heard from wherever the camera has got to since.
+    // Re-placed every frame, as ExplosionSoundSystem does: a long sound is heard from where the camera now is.
     private static readonly List<(IChannel Channel, double3 Anchor, object? Body)> _playing = [];
 
     private static bool _warned;
@@ -91,10 +74,7 @@ internal static class BurstSound
         _playing.Clear();
     }
 
-    /// <summary>
-    /// Starts following a burst's front out to the camera. Nothing where the air at the burst carries no
-    /// front, which is the whole of what makes a burst over the air silent.
-    /// </summary>
+    /// <summary>Starts following a burst's front out to the camera; nothing where the air carries none.</summary>
     public static void Begin(Celestial body, double3 burstEcl, double chargeKg, double burstHeight = 0.0)
     {
         try
@@ -147,11 +127,7 @@ internal static class BurstSound
     // what reaches it, and it has come further.
     private const double ReflectedShare = 0.6;
 
-    /// <summary>
-    /// Follows every front on the simulated step, and as one reaches the camera plays the bang and shakes
-    /// the view together, as loud and as hard as the pressure there: a thing in the world, so it waits
-    /// through a pause and hurries under timewarp. Then re-places what is playing against the camera.
-    /// </summary>
+    /// <summary>On the simulated step, so a front waits through a pause and hurries under timewarp.</summary>
     public static void Update(double dt)
     {
         if (double.IsFinite(dt) && dt >= 0.0)
@@ -237,8 +213,7 @@ internal static class BurstSound
         if (BurstHearing.Heard(pascals)) Play(front.Anchored, front.Anchor, front.ChargeKg, ReflectedShare * BurstHearing.Loudness(pascals));
     }
 
-    // The front has reached the camera straight from the burst: the pressure there by G&D's rule, with
-    // the ground's own gain where the eye is, and the bang and the shake together if it is felt at all.
+    // The pressure at the eye by G&D's rule, with the ground's gain there.
     private static void Arrive(Front front, double3 burstEcl, double3 eyeEcl, double range)
     {
         AmbientAir earAir = KsaWorld.AirAt(front.Body, eyeEcl);
@@ -270,9 +245,7 @@ internal static class BurstSound
         if (!KsaWorld.TryGroundAnchorEcl(body, anchor, out double3 atEcl, out double3 velEcl)) return false;
         if (GameAudio.GetAudioCamera() is not { } camera) return false;
 
-        // Ego is a pure translation of Ecl, so a separation is the same vector in both. The ground's
-        // own motion is the source velocity: a Doppler shift on a bang that has already travelled
-        // for seconds is far below what anyone could place.
+        // Ego is a pure translation of Ecl, so a separation is the same vector in both.
         double3 posEgo = atEcl - camera.PositionEcl;
         if (!Vec.IsFinite(posEgo) || !Vec.IsFinite(velEcl)) return false;
 
@@ -296,10 +269,8 @@ internal static class BurstSound
             if (!TrySpatial(body, anchor, out SpatialAudio spatial)) return;
             if (ModLibrary.Get<SoundBehavior>(BangId) is not { } sound) return;
 
-            // Started paused, pitched and placed before it is let go, so no part of it is heard at
-            // the pitch of a rocket going off or mixed as though it were at the listener. The
-            // multiplier reaches every layer KSA's bang is made of -- the crack, the far report and
-            // the ten-second echo -- through the multi-channel wrapper.
+            // Started paused so no part of it is heard before it is pitched and placed. The multiplier
+            // reaches every layer of KSA's bang through the multi-channel wrapper.
             double kt = MushroomCloud.KilotonsFor(chargeKg);
             float pitch = (float)MushroomCloud.BangPitch(kt);
 

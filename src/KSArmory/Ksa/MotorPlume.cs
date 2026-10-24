@@ -8,10 +8,8 @@ namespace KSArmory;
 /// The flame at the nozzle: one endless emitter per burning round, re-anchored every frame and
 /// handed back at burnout.
 ///
-/// <para>Unlike <see cref="Detonation"/>, which fires a burst and forgets it, this holds an
-/// emitter open. Emitters come from a pool, so every one taken has to be returned or a few salvos
-/// exhaust it and nothing in the world can spawn particles again — <see cref="Release"/> is not
-/// tidiness, it is the whole reason this class tracks anything.</para>
+/// <para>Emitters come from a pool, so every one taken has to be returned or a few salvos exhaust it
+/// and nothing in the world can spawn particles again.</para>
 ///
 /// <para>The origin is rewritten each frame rather than parented to the round, because
 /// <see cref="BubbleFrame"/> offers only body-centred frames and a mod-simulated round is not
@@ -61,9 +59,8 @@ internal sealed class MotorPlume
     }
 
     /// <summary>
-    /// Hands back the emitters of any system the roster has forgotten. A craft destroyed with
-    /// rounds burning never reaches <see cref="Update"/> again, and they would be held for the
-    /// session.
+    /// Hands back the emitters of any system the roster has forgotten, which never reaches
+    /// <see cref="Update"/> again.
     /// </summary>
     public void Sweep(WeaponSystems roster)
     {
@@ -76,10 +73,8 @@ internal sealed class MotorPlume
         _finished.Clear();
     }
 
-    // Which system's round this is. The tables are keyed on the round, and Update is called once
-    // per system, so without an owner every system's sweep treats every other system's rounds as
-    // orphans: with two systems firing, each release the other's the instant it runs, and the
-    // shared emitter pool churns once per system per frame.
+    // Update runs once per system, so without an owner each system's sweep would release every
+    // other system's emitters as orphans.
     private void ReleaseOwnedBy(IEffectSource system)
     {
         foreach (KeyValuePair<IProjectile, Live> kv in _burning)
@@ -114,11 +109,8 @@ internal sealed class MotorPlume
             _burning[round] = live;
         }
 
-        // Where the body is drawn while there is one: PlatformEcl + OffsetFromPlatform is the same
-        // round measured from the platform's ANALYTIC position, which on a landed craft is metres
-        // from where the body is actually placed -- enough to swamp the nozzle offset below and
-        // leave the flame amidships. Once the launcher is destroyed there is no body, and the
-        // analytic form is then the exact answer rather than the approximate one.
+        // Where the body is drawn: PlatformEcl + OffsetFromPlatform is from the platform's analytic
+        // position, metres from the drawn body on a landed craft. With no launcher left it is exact.
         if (!system.TryRoundEffectEcl(round, out double3 bodyEcl)) return;
 
         // At the nozzle, not at the round's centre. A body mesh is modelled about its middle, so

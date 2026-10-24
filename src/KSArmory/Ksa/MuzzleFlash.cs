@@ -8,29 +8,21 @@ namespace KSArmory;
 /// The flash at the cannon's muzzles: one endless emitter per barrel cluster, held open while the
 /// gun is firing and for a moment after each round, then handed back.
 ///
-/// <para>Per system rather than per round, which is the whole design. A CIWS cycles at 75 rounds
-/// a second; taking a burst emitter from the pool that often would drain it within a second and
-/// leave nothing anywhere in the world able to spawn particles again. A gun firing is one
-/// continuous event, so it gets one continuous emitter.</para>
+/// <para>Per system rather than per round: a CIWS cycles at 75 rounds a second, and taking an emitter
+/// from the pool that often would drain it within a second.</para>
 ///
-/// <para>The moment after each round is for a gun too slow to hold a burst open. A one-round burst
-/// opens and closes inside a single step, so by the time anything asks whether the gun is firing it
-/// already is not, and a flash gated on that alone never appears.</para>
+/// <para>The moment after each round is for a gun too slow to hold a burst open: a one-round burst
+/// opens and closes inside a single step, so a flash gated on firing alone never appears.</para>
 ///
-/// <para>One per cluster rather than one per mount: a Pantsir's sponsons are 3.9 m apart and their
-/// mean is on the hull between them, where no barrel is. Both flash at the same instant, so they
-/// cannot share a set. Within a cluster it is anchored to the mean of its muzzles rather than to
-/// whichever barrel just fired, which keeps the flash on the cluster axis as the gun elevates
-/// instead of hopping between barrels.</para>
+/// <para>One per cluster rather than one per mount: a Pantsir's sponsons are 3.7 m apart and their
+/// mean is on the hull, where no barrel is. Within a cluster it is anchored to the mean of its
+/// muzzles, so the flash stays on the cluster axis rather than hopping between barrels.</para>
 ///
-/// <para>The tracers are <em>not</em> here, and cannot be. A muzzle-anchored emitter has no way to
-/// throw particles down the bore: the engine assigns <c>EmitterVelocity</c> only for a
-/// vehicle-parented emitter, so <c>InheritVelocity</c> has nothing to inherit from a celestial
-/// parent, and directional spawning is built about a fixed axis of the body frame rather than the
-/// turret's. They are <see cref="ShellTracers"/>, drawn in the shader pass.</para>
+/// <para>Tracers cannot be emitted here: the engine assigns <c>EmitterVelocity</c> only for a
+/// vehicle-parented emitter, and directional spawning is about a fixed axis of the body frame. They
+/// are <see cref="ShellTracers"/>.</para>
 ///
-/// <para>Emitters come from a pool, so every one taken must be returned — <see cref="ReleaseAll"/>
-/// is not tidiness, it is the reason this class holds any state at all. Same contract as
+/// <para>Emitters come from a pool, so every one taken must be returned, as in
 /// <see cref="MotorPlume"/>.</para>
 /// </summary>
 internal sealed class MuzzleFlash
@@ -71,10 +63,8 @@ internal sealed class MuzzleFlash
     }
 
     /// <summary>
-    /// Hands back the emitters of any system the roster has forgotten.
-    ///
-    /// <para>A craft destroyed mid-burst never reaches <see cref="Update"/> again, so without this
-    /// its emitter is held for the rest of the session and the pool bleeds one per kill.</para>
+    /// Hands back the emitters of any system the roster has forgotten, which never reaches
+    /// <see cref="Update"/> again.
     /// </summary>
     public void Sweep(WeaponSystems roster)
     {
@@ -134,8 +124,7 @@ internal sealed class MuzzleFlash
         {
             if (platform.Parent is not Celestial body) return null;
 
-            // One emitter set per cluster, taken up front. A mount with two sponsons flashes at
-            // both at once, so they cannot share a set.
+            // One emitter set per cluster, taken up front.
             var sets = new List<List<ParticleEmitter<ParticleUpdateData, ParticleRenderData>.Handle>>();
             for (int i = 0; i < clusters; i++)
             {

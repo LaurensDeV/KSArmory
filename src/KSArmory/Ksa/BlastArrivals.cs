@@ -5,30 +5,13 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// What a burst loads, held until the blast front gets there: the dent, the dust it throws off and
-/// the push of the wind behind it land as the front passes the part, not at the flash.
-///
-/// <para>The part breaking is still decided at the burst, by the kill path; this is what a part that
-/// survives is left with, and the pause between the flash and the hit is most of what makes it read
-/// as a blast. On the simulated step, like the bang, so it waits through a pause and hurries under
-/// timewarp.</para>
-///
-/// <para><b>The front is followed, not timed.</b> The burst is anchored to the ground it went off
-/// on, and each step every part still waiting is measured against the front as it is now: struck
-/// when the burst's own <see cref="BlastFront"/> reaches it, and pushed along the line from the burst
-/// to where it is then. A craft in flight moves and turns between the flash and the hit, and one
-/// climbing faster than the front is never caught; an arrival time and a direction fixed at the
-/// flash get both wrong.</para>
-///
-/// <para><b>Fronts reaching one part together load it together.</b> Each throws its own dust and
-/// pushes on its own as it arrives, because both of those simply add. A dent does not: two loads
-/// each short of the engine's threshold leave nothing asked about one at a time. So a front that
-/// arrives while another is still due at the same part inside this one's positive phase hands its
-/// load on, and the part is loaded once, at the last of them, with what is left of each and the
-/// most head-on pair meeting as at a wall (<see cref="BlastDamage.Combine"/>). Each front was charged
-/// to the part's health at its flash, so what fronts together cost it on top is that reflection
-/// (<see cref="BlastDamage.MeetingShare"/>), and the part breaks when its health runs out, unless the
-/// craft is one the burst may only dent.</para>
+/// The dent, the dust and the push a burst leaves, held until its front reaches each part; breaking
+/// is decided at the flash by the kill path. On the simulated step.
+/// <para>Followed, not timed: each step a waiting part is measured against the burst's own
+/// <see cref="BlastFront"/> from where the part is now, since a craft in flight moves between flash and hit.</para>
+/// <para>A front with another due at the same part inside its positive phase hands its load on, and the
+/// part is loaded once by <see cref="BlastDamage.Combine"/>, charged only the <see cref="BlastDamage.MeetingShare"/>,
+/// since dust and push add and a dent does not.</para>
 /// </summary>
 internal static class BlastArrivals
 {
@@ -102,7 +85,6 @@ internal static class BlastArrivals
     /// <summary>Forgets every front still on its way, for a scene that no longer contains them.</summary>
     public static void Clear() => _pending.Clear();
 
-    /// <summary>How many parts are still waiting for a front.</summary>
     public static int Pending => _pending.Count;
 
     /// <summary>
@@ -138,7 +120,6 @@ internal static class BlastArrivals
         });
     }
 
-    /// <summary>Follows the fronts and strikes what they have reached.</summary>
     public static void Update(double dt)
     {
         if (!double.IsFinite(dt) || dt < 0.0) return;

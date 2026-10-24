@@ -6,20 +6,13 @@ namespace KSArmory;
 /// <summary>
 /// The window a sight paints on, resolved once so nothing downstream asks again.
 ///
-/// <para><b>Which window is a question, not a constant.</b> A director may drive the view the
-/// player flies from or a camera window of its own, and the two want different draw lists,
-/// different sizes and different cameras. Reading the main view's for both is invisible while
-/// only the main view is used and puts the whole picture on the wrong monitor as soon as it is
-/// not.</para>
+/// <para>The main view and a camera window want different draw lists, sizes and cameras.</para>
 ///
 /// <para><b>The main view paints beneath the panel and a camera window paints over its image.</b>
-/// The background list renders under every window, which is what a sight on the glass wants of
-/// the main view. A camera window is a window: its picture is an opaque <c>Image</c>, so the same
-/// list would put the whole reticule behind it. The foreground list of that window's <em>platform
-/// viewport</em> is the one that lands on top — and naming the platform viewport is what follows
-/// the window onto a second monitor, because ImGui gives a torn-off window one of its own and a
-/// list belonging to the wrong one draws on the wrong screen. That list is above every window, so
-/// a window the mod draws itself paints on its own list instead (<see cref="InWindow"/>).</para>
+/// The background list renders under every window. A camera window's picture is an opaque
+/// <c>Image</c>, so it takes the foreground list of that window's <em>platform viewport</em>, which is
+/// what follows a torn-off window onto a second monitor. That list is above every window, so a
+/// window the mod draws itself paints on its own list instead (<see cref="InWindow"/>).</para>
 /// </summary>
 internal readonly struct SightSurface
 {
@@ -37,10 +30,8 @@ internal readonly struct SightSurface
 
     private readonly bool _clipped;
 
-    // What the last resolution came to, so a change is reported once instead of every frame.
-    // Which platform viewport a camera window belongs to is the whole question a second monitor
-    // asks, and it is not answerable from a screenshot: a sight missing because the window was
-    // never drawn and one missing because the head has no lock look identical.
+    // What the last resolution came to, so a change is logged once: a sight missing from an undrawn
+    // window and one missing for want of a lock look identical in a screenshot.
     private static int _saidIndex = int.MinValue;
     private static uint _saidImGuiId;
     private static bool _saidResolved;
@@ -58,10 +49,8 @@ internal readonly struct SightSurface
     public float2 Centre => new(Pos.X + Size.X * 0.5f, Pos.Y + Size.Y * 0.5f);
 
     /// <summary>
-    /// False when there is nothing to paint on — no such window, or one ImGui has not drawn yet,
-    /// which is the state a camera window is in for its first frame. Drawing nothing for a frame
-    /// is right; falling back to the main view would paint this head's reticule over the picture
-    /// the player is flying from.
+    /// False when there is nothing to paint on: no such window, or one ImGui has not drawn yet, as a
+    /// camera window's first frame. Never falls back to the main view.
     /// </summary>
     public static bool TryFor(int index, out SightSurface surface)
     {
@@ -70,9 +59,8 @@ internal readonly struct SightSurface
 
         try
         {
-            // The view the player flies from, which is the one ImGui itself calls main. Taken
-            // from ImGui rather than from the viewport's own rect because that is what every
-            // overlay on it has always used, and the two differ under a render scale.
+            // ImGui's main viewport rather than the game viewport's rect, as every overlay uses;
+            // the two differ under a render scale.
             if (index == KsaWorld.MainViewportIndex)
             {
                 ImGuiViewportPtr main = ImGui.GetMainViewport();
@@ -94,15 +82,11 @@ internal readonly struct SightSurface
 
             Report(index, imGuiId, resolved, pos, size);
 
-            // Nothing to paint on yet, which is where a camera window sits until ImGui has drawn
-            // it once. One blank frame, and never the main view's list instead.
             if (!resolved) return false;
 
             ImDrawListPtr draw = ImGui.GetForegroundDrawList(platform);
 
-            // Confines the sight to the picture. Without it the reference line, which is drawn
-            // far past both edges on purpose, runs out across the desktop -- and where this
-            // window is docked inside the game window, over whatever else is open there.
+            // The reference line is drawn far past both edges on purpose; this clips it to the picture.
             draw.PushClipRect(pos, pos + size, false);
 
             surface = new SightSurface(draw, pos, size, index, clipped: true);
@@ -114,9 +98,6 @@ internal readonly struct SightSurface
         }
     }
 
-    // Says where the sight is painting, whenever that changes. Debug rather than info: it is one
-    // line per window a player opens, and useless until somebody is asking why a second monitor
-    // is blank.
     private static void Report(int index, uint imGuiId, bool resolved, float2 pos, float2 size)
     {
         if (index == _saidIndex && imGuiId == _saidImGuiId && resolved == _saidResolved) return;

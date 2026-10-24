@@ -86,12 +86,8 @@ internal static partial class KsaWorld
     /// The craft's control frame, as three axes in the parent body's inertial frame: the nose, the
     /// starboard beam and the belly.
     ///
-    /// <para>The control frame rather than the assembly frame, because it is what KSA maps its
-    /// thrusters against — <c>ThrusterController</c> flags a nozzle
-    /// <c>TranslateForward</c>/<c>Right</c>/<c>Down</c> by which of these three its thrust points
-    /// along. So a translation command resolved in any other frame fires the wrong jets, and on a
-    /// craft whose command pod is mounted square to the stack it does it without looking wrong.
-    /// </para>
+    /// <para>The control frame, not the assembly frame: <c>ThrusterController</c> flags each nozzle
+    /// against these three, so a command resolved in any other frame fires the wrong jets.</para>
     /// </summary>
     public static bool TryControlFrameCci(Vehicle craft, Celestial parent,
                                           out double3 noseCci, out double3 rightCci, out double3 downCci)
@@ -230,14 +226,8 @@ internal static partial class KsaWorld
     public static void HoldTheKeyboard() => Brutal.ImGuiApi.ImGui.SetNextFrameWantCaptureKeyboard(true);
 
     /// <summary>
-    /// Whether KSA is throwing away the held controls on this craft this frame, and which of its reasons
-    /// applies.
-    ///
-    /// <para><b>The throttle and the trim this mod drives are held controls.</b>
-    /// <c>Vehicle.PrepareWorker</c> clears them on the controlled vehicle, before reading them, whenever the
-    /// UI holds the keyboard, that vehicle is marked inactive, or the world runs past 30x — so the craft
-    /// being flown keeps whatever throttle it had while any modal or text field has focus. KSA opens such a
-    /// modal by itself at every launch once a build newer than the install is published.</para>
+    /// Whether <c>Vehicle.PrepareWorker</c> clears the held throttle and trim on this craft this frame,
+    /// and why: the UI holding the keyboard, the vehicle inactive, or the world past 30x.
     /// </summary>
     public static bool DiscardsHeldControls(Vehicle craft, out string why)
     {
@@ -270,12 +260,9 @@ internal static partial class KsaWorld
     /// <summary>
     /// Closes every popup KSA has open, for a scenario nobody is there to click through.
     ///
-    /// <para><b>A modal takes the keyboard, and with it the controlled vehicle's throttle</b> —
-    /// <see cref="DiscardsHeldControls"/>. A rocket under one keeps full throttle through a staging that
-    /// needs it lowered, past its airframe's limit.</para>
-    ///
-    /// <para>Closed through the popup's own public <c>Active</c> flag, the one its buttons clear, on the
-    /// engine's private list. If that list moves this closes nothing and warns once.</para>
+    /// <para>A modal takes the controlled vehicle's throttle (<see cref="DiscardsHeldControls"/>).
+    /// Closed through the popup's public <c>Active</c> flag on the engine's private list; if that
+    /// list moves this closes nothing and warns once.</para>
     /// </summary>
     /// <returns>The type names of what was closed, empty when nothing was open.</returns>
     public static IReadOnlyList<string> CloseEnginePopups()
@@ -326,18 +313,9 @@ internal static partial class KsaWorld
     /// <summary>
     /// Give a craft a control part if it has none and one of ours can serve.
     ///
-    /// <para><b>A craft with no control part steers against the wrong axes.</b> KSA builds the
-    /// thruster control map in the control part's frame — <c>Helm2Body</c> is
-    /// <c>ControlConnector ?? ControlPart ?? Identity</c> — so with none it resolves every attitude
-    /// command against the raw assembly axes. A correction then comes out about a different axis
-    /// from the one that was wrong, which grows the error rather than cancelling it: measured on
-    /// the pad as an attitude error running 0.01 deg to 85 deg with the tracker firing throughout.</para>
-    ///
-    /// <para>Nothing elects one on its own. <c>CelestialSystem</c> restores whatever the save
-    /// recorded and there is no fallback, so a stack assembled without a command pod flies with
-    /// <c>Identity</c> for ever. This fills that hole and never takes a choice: it runs only when
-    /// <c>ControlPart</c> is already null, and KSA refuses any part not declaring
-    /// <c>&lt;Control /&gt;</c>, so a rail or a sight cannot become one through here.</para>
+    /// <para>With none, <c>Helm2Body</c> is <c>Identity</c> and corrections come out about the wrong
+    /// axis: on the pad an error ran 0.01 to 85 deg. Nothing else elects one, and this runs only when
+    /// <c>ControlPart</c> is null; KSA refuses any part not declaring <c>&lt;Control /&gt;</c>.</para>
     /// </summary>
     public static void EnsureControlPart(Vehicle craft, Part candidate)
     {

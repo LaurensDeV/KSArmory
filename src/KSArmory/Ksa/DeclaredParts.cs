@@ -3,17 +3,10 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// The part library, as <see cref="IPartCatalogue"/> — the only KSA contact the audit needs.
-///
-/// <para>Answers off <c>PartTemplate</c> rather than off anything on a craft, because the
-/// question is what was <em>declared</em>: a part nobody has placed yet still has to exist before
-/// a profile naming it means anything.</para>
-///
-/// <para><b>Asks through <c>ModLibrary.Get</c>, which throws, rather than through <c>Has</c> or
-/// <c>TryGet</c>, which do not.</b> Both of those dispatch on the type argument through a chain
-/// of branches that has no <c>PartTemplate</c> case and falls through to <c>false</c> — so
-/// <c>Has&lt;PartTemplate&gt;</c> answers "no such part" for every Id in the game, including
-/// Core's. Only <c>Get</c> reaches <c>AllParts</c>, and it reports a miss by throwing.</para>
+/// The part library as <see cref="IPartCatalogue"/>, off <c>PartTemplate</c> because the question is
+/// what was declared, not what is on a craft.
+/// <para>Asks through <c>ModLibrary.Get</c>, which throws on a miss: <c>Has</c> and <c>TryGet</c> have
+/// no <c>PartTemplate</c> case and answer false for every Id, Core's included.</para>
 /// </summary>
 public sealed class DeclaredParts : IPartCatalogue
 {
@@ -42,8 +35,7 @@ public sealed class DeclaredParts : IPartCatalogue
         }
         catch
         {
-            // A miss, which is the answer the audit wants -- and anything else the library does
-            // with a bad Id, since this is a report and must not cost a frame.
+            // A miss, or anything else the library does with a bad Id: this is a report and must not cost a frame.
             return null;
         }
     }

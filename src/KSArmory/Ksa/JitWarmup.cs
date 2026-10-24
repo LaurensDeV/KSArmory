@@ -5,18 +5,13 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Compiles the kill path before anything is shot, on a thread of its own.
-///
-/// <para>The first kill of a session ran it cold: on the Mk 42, 45 ms of one frame against 8-14 ms for
-/// every kill after. This takes the mod's detonation from 12.8 ms to 2.6 and the engine's destroy from
-/// 28 to 23 -- the rest of that is KSA building its debris vehicles for the first time, which no amount
-/// of compiling reaches: warming all of KSA.dll left it at 21.9.</para>
+/// Compiles the kill path before anything is shot, on a thread of its own. What it buys, and what
+/// it cannot: docs/BLOCKED-ON-KSA.md, "The first kill of a session pays for KSA's destroy running cold".
 /// </summary>
 internal static class JitWarmup
 {
-    // The engine's side of a kill: KsaWorld.Destroy is Universe.DestroyVehicleFromEvent, which spawns
-    // the destruction explosion and sheds up to twelve pieces as vehicles of their own. Delete this list
-    // the day KSA's first destroy runs warm; docs/BLOCKED-ON-KSA.md has the check.
+    // The engine's side of a kill, Universe.DestroyVehicleFromEvent. Delete the day KSA's first
+    // destroy runs warm; docs/BLOCKED-ON-KSA.md has the check.
     private static readonly Type[] EngineTypes =
     [
         typeof(Universe), typeof(PartFailure), typeof(ExplosionSystem), typeof(ExplosionVolumeManager),
@@ -57,7 +52,7 @@ internal static class JitWarmup
             }
             catch
             {
-                // A method the runtime will not compile ahead is compiled on first call, as before.
+                // Compiled on first call instead.
             }
         }
 

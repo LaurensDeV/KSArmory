@@ -4,12 +4,10 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Every dispenser fitted and every flare and chaff cloud in the air.
-///
-/// <para>One instance for the world, because a decoy is not anybody's: a seeker sees every flare in
-/// its field, whoever threw it. Decoys are stepped once a frame, after the airborne sample and before
-/// any system flies a round, so a seeker reads them as it reads a craft — at the end of the step it is
-/// about to integrate.</para>
+/// Every dispenser fitted and every decoy in the air, one instance for the world: a seeker sees every
+/// flare in its field, whoever threw it.
+/// <para>Stepped after the airborne sample and before any round, so a seeker reads a decoy as it reads
+/// a craft: at the end of the step it is about to integrate.</para>
 /// </summary>
 internal sealed class Countermeasures
 {
@@ -48,7 +46,7 @@ internal sealed class Countermeasures
 
     public IEnumerable<Entry> All => _entries.Values;
 
-    /// <summary>The dispensers on one craft, appended in part order.</summary>
+    /// <summary>Fills <paramref name="into"/> with the dispensers on one craft, in part order.</summary>
     public void On(Vehicle? craft, List<Entry> into)
     {
         into.Clear();
@@ -137,7 +135,6 @@ internal sealed class Countermeasures
         return DispenseOrder.Load(_onCraft, kind);
     }
 
-    /// <summary>Whether any dispenser on the craft is mid-salvo.</summary>
     public bool Busy(Vehicle craft)
     {
         DispensersOn(craft);

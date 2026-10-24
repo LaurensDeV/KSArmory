@@ -15,24 +15,11 @@ using RenderCore;
 namespace KSArmory;
 
 /// <summary>
-/// This mod's own full-screen compute pass, run inside KSA's frame.
-///
-/// <para><b>No renderer was ported to get here and nothing is patched but one prefix.</b> KSA
-/// compiles a <c>&lt;Shader&gt;</c> asset out of any mod's folder, <c>ComputePipelineWrapper</c>
-/// builds the descriptor sets, and <c>Program.GetRenderer</c> and the clamp samplers are public
-/// statics. The one thing it adds is somewhere to dispatch from, which is
-/// <see cref="CloudPassHook"/>.</para>
-///
-/// <para><b>Where it runs is the whole design.</b> Just before <c>SunbloomRenderer.Render</c> the
-/// engine has already put the scene colour into a storage layout and the depth into a sampled one,
-/// for its own screen-space volumetric particles — so a mod dispatching there inherits those
-/// barriers and needs none of its own. It is also before bloom and before the tonemap composite,
-/// which is what lets anything written here bloom and be graded like the rest of the scene.</para>
-///
-/// <para>Held per viewport and rebuilt when its target changes, because the descriptor sets name
-/// the images. The clouds are marched into a layer with a dither that moves every frame, and a
-/// resolve blends that with last frame's result reprojected onto this one: grain is what limits
-/// the march, and last frame's samples are the only ones that cost nothing.</para>
+/// This mod's own full-screen compute pass, dispatched from <see cref="CloudPassHook"/>: KSA compiles
+/// a mod's <c>&lt;Shader&gt;</c> asset and <c>ComputePipelineWrapper</c> builds the descriptor sets.
+/// <para>Held per viewport and rebuilt when its target changes, since the descriptor sets name the
+/// images. The clouds are marched with a dither that moves every frame, and a resolve blends that
+/// with last frame's result reprojected onto this one.</para>
 /// </summary>
 internal static class CloudPass
 {
@@ -56,10 +43,7 @@ internal static class CloudPass
     // The compute shader's workgroup, which has to match KSArmoryCloud.comp's local_size.
     private const int Group = 8;
 
-    // KSA's own GPU profiler rather than a query pool of this mod's. A compute dispatch is
-    // asynchronous, so timing it from C# measures the recording and not the work; the engine
-    // already writes timestamps around every region tagged this way, and its profiler window then
-    // lists this pass beside the passes it has to be afforded against.
+    // KSA's own GPU profiler, which CloudPassCost reads back.
     private static readonly ProfilerTag GpuTag = new("KSArmory Cloud"u8);
 
     // Each stage inside that region, so what the pass costs can be split by what costs it. Nested
@@ -228,12 +212,8 @@ internal static class CloudPass
     public static bool Available => _pipeline is not null;
 
     /// <summary>
-    /// Whether a build was attempted and did not produce a pipeline.
-    ///
-    /// <para>Not the same question as <see cref="Available"/> being false, and reading it as the
-    /// same reports a shader that would not compile for a pass nobody switched on: a pass
-    /// switched off is never asked to build, so it has no pipeline for a reason that is not a
-    /// fault. Only a build that ran and failed sets this.</para>
+    /// Whether a build ran and failed, which <see cref="Available"/> being false does not say: a
+    /// pass switched off is never built.
     /// </summary>
     public static bool BuildFailed { get; private set; }
 
@@ -402,10 +382,8 @@ internal static class CloudPass
             View view = ViewFor(viewport, colour, width, height);
             view.Frames++;
 
-            // With the cloud off, what is painted onto the scene still is: the targeting rings, which
-            // nothing else draws, the holes, the leaks and the tracers. Only a burst's own visuals --
-            // the cloud, its marks, its light and its sky -- wait for it, and none of what they need
-            // to build is touched.
+            // With the cloud off the rings, holes, leaks and tracers are still painted; only a burst's
+            // own visuals wait for it.
             if (tint <= 0f)
             {
                 if (Program.GetRenderCamera() is not { } plain) return;
@@ -479,13 +457,8 @@ internal static class CloudPass
             // over those surfaces.
             FireLight(commandBuffer, viewport, camera, view, depth);
 
-            // THE GROUND FIRST, because the clouds composite over what is already in the image and
-            // a mark is under the column rather than in front of it.
-            //
-            // One dispatch each. They are the cheap kind -- a scorch-only push leaves the shader
-            // before the march, measured at 0.04 ms a frame against the column's 2 -- and they run
-            // for the rest of the session, which is why NuclearClouds bounds the list rather than
-            // this loop.
+            // The ground first, since the clouds composite over the image. One dispatch per mark: a
+            // scorch-only push leaves the shader before the march, 0.04 ms against the column's 2.
             int marks = 0;
 
             using (commandBuffer.TagRegion(GpuTag))
@@ -502,10 +475,7 @@ internal static class CloudPass
 
                     float2 markOct = OctahedralPack(markWind);
 
-                    // ONLY THE PART OF THE SCREEN THE MARK IS ON. A mark is permanent, so a
-                    // full-screen dispatch each is a cost that never goes away and is the whole
-                    // reason NuclearClouds bounds how many may stand. Its own footprint is a few
-                    // per cent of that.
+                    // Only the part of the screen the mark is on: a mark is permanent.
                     Tile tile = TileFor(camera, markCentre, markWind, markRadius,
                                         markAirless ? 1.0 : ScorchFootprint.Reach, width, height);
                     if (tile.Empty) continue;
@@ -798,9 +768,7 @@ internal static class CloudPass
             Warn($"the pass threw and is standing down: {e.Message}");
             Release();
 
-            // AFTER Release, which clears it. A throw out of the build is a failure to build, and
-            // KSA compiles the shader at load -- so a GLSL fault arrives here and nowhere else,
-            // and reading it as a pass nobody switched on is the same silence by a third route.
+            // After Release, which clears it: KSA compiles the shader at load, so a GLSL fault arrives here.
             BuildFailed = true;
         }
     }
@@ -813,12 +781,8 @@ internal static class CloudPass
     private static readonly List<(int Index, double DistanceSq)> _order = [];
 
     /// <summary>
-    /// What share of the screen the last mark dispatched over, or 1 when none has.
-    ///
-    /// <para>Read out beside the pass's milliseconds rather than logged once, because it is a
-    /// property of where the camera is standing: the first mark of a run is dispatched on the frame
-    /// the bomb bursts, with the camera still down at the impact and inside the mark's own box, so
-    /// a number said once says 100% about a saving that is real everywhere else.</para>
+    /// What share of the screen the last mark dispatched over, or 1 when none has. Read beside the
+    /// pass's milliseconds, since it depends on where the camera stands.
     /// </summary>
     public static double LastMarkTile { get; private set; } = 1.0;
 

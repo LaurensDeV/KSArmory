@@ -61,14 +61,10 @@ internal static partial class KsaWorld
     /// <summary>
     /// Whether the engine is propagating this vehicle analytically rather than integrating it.
     ///
-    /// <para>The distinction is the whole accuracy question for a coast. On rails the state is an
-    /// exact Kepler conic evaluated at the frame's time and the step size cannot matter; off rails
-    /// it is velocity-Verlet, whose truncation grows with the step — and the step is scaled by an
-    /// engine speed governor the nominal warp figure does not show.</para>
+    /// <para>On rails the state is an exact Kepler conic; off rails it is velocity-Verlet, whose
+    /// truncation grows with a step scaled by an engine speed governor the warp figure does not show.</para>
     ///
-    /// <para>Unknown rather than false when it cannot be read: a vehicle the engine will not answer
-    /// for says nothing about which way it is being flown, and reading that as "integrated" would
-    /// invent the very transition this is here to detect.</para>
+    /// <para>Unknown rather than false when it cannot be read, so no transition is invented.</para>
     /// </summary>
     public static bool? OnRails(Vehicle? v)
     {
@@ -82,21 +78,12 @@ internal static partial class KsaWorld
     /// Which of the engine's actuator tests is holding this vehicle off rails, as a short label —
     /// or null when neither is, which narrows the cause to the four this cannot see.
     ///
-    /// <para><b>Naming the term is far cheaper than eliminating the terms one arm at a time.</b>
-    /// A bus that verifiably stopped commanding its attitude hold still coasted 72% off rails with
-    /// 88% of the coast quiet, against a control at 72% — `docs/ACCURACY-PLAN.md` 3bf.</para>
-    ///
     /// <para><c>PhysicsBubble</c> takes a vehicle off rails on
     /// <c>anyActuatorCommanded || AnyActuatorActive() || ocean || animating || KittenWantsWake</c>,
-    /// then on a freefall needing full physics, then on the origin's precision. The two actuator
-    /// terms are the ones a mod can read, and they are the ones under suspicion; the others are
-    /// ruled out by inspection for a coasting bus — it is not in an ocean, not a kitten, and the
-    /// precision test needs a bubble origin past 2.2e12 m.</para>
+    /// then on a freefall needing full physics, then on the origin's precision (past 2.2e12 m). The two
+    /// actuator terms are the ones a mod can read. <c>docs/ACCURACY-PLAN.md</c> 3bf.</para>
     ///
-    /// <para><b>The reading is one frame stale and says so.</b> The state carries the worker run
-    /// staged for this frame, so a flag set during the run this frame dispatches is not visible
-    /// until the next — which is a phase error of one frame on a term that persists for minutes,
-    /// and irrelevant at that scale.</para>
+    /// <para><b>One frame stale</b>: the state carries the worker run staged for this frame.</para>
     /// </summary>
     public static string? OffRailsActuator(Vehicle? v)
     {
@@ -126,10 +113,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// How long the engine's own flight plan for this vehicle is still verified for.
     ///
-    /// <para>The plan's expiry losing its race with sim time is one of the seven things that puts a
-    /// vehicle off rails, and the only one this mod can read without reflection — the actuator
-    /// flags hang off <c>Vehicle._threadWorkerUpdateState</c>, which is private. A margin that
-    /// collapses to nothing at the same probe the rails flag flips is the discriminator.</para>
+    /// <para>The plan expiring is one of the things that puts a vehicle off rails, readable without
+    /// reflection; a margin collapsing as the rails flag flips is the discriminator.</para>
     /// </summary>
     // Past a day the plan carries EndOfTime rather than a horizon, and that is not a margin.
     private const double FlightPlanHorizonSeconds = 86_400.0;
@@ -142,9 +127,7 @@ internal static partial class KsaWorld
         {
             double margin = (v!.FlightPlan.ExpiryGameTime - Universe.GetElapsedTime()).Seconds();
 
-            // RecalculateFlightPlan resets the horizon to EndOfTime, which comes back as ~1.7e29
-            // seconds and is not a margin. Reported as infinity so a reader sees "verified for as
-            // long as anyone cares" rather than a number that looks like data.
+            // RecalculateFlightPlan resets the horizon to EndOfTime, ~1.7e29 s: reported as infinity.
             return margin > FlightPlanHorizonSeconds ? double.PositiveInfinity : margin;
         }
         catch { return double.NaN; }
@@ -153,9 +136,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// How many vehicles share this one's physics bubble.
     ///
-    /// <para>World load is what separated the two divergent worlds from the eight healthy ones —
-    /// see <c>docs/ACCURACY-PLAN.md</c> 3ar. Read per craft rather than counted here because the
-    /// bubble is what the engine actually budgets against.</para>
+    /// <para>Per craft because the bubble is what the engine budgets against.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3ar.</para>
     /// </summary>
     public static int BubbleVehicleCount(Vehicle? v)
     {
@@ -176,8 +158,7 @@ internal static partial class KsaWorld
     ///
     /// <para>The frame is the <em>bubble's</em>, taken from its heaviest member, so a spent stage
     /// left below the near-surface radius holds the whole bubble in <c>Ccf</c> while the bus coasts
-    /// far above it. That is why releasing the attitude bought nothing: the actuator is one
-    /// condition of going off rails, and the frame is what refuses to undo it.</para>
+    /// far above it.</para>
     /// </summary>
     public static (string Frame, double OriginAltitudeMetres)? BubbleFrameOf(Vehicle? v)
     {
@@ -203,8 +184,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// What the bubble's heaviest member is called, which is what chooses the frame above.
     ///
-    /// <para>The altitude alone says a bubble has taken the rotating frame from something on the
-    /// ground and cannot say from <em>what</em>, which leaves a merge like 3cn's unattributable.</para>
+    /// <para>The altitude alone cannot say <em>what</em> on the ground gave the bubble its rotating
+    /// frame (<c>docs/ACCURACY-PLAN.md</c> 3cn).</para>
     /// </summary>
     public static string BubbleLeaderName(Vehicle? v)
     {
@@ -242,9 +223,7 @@ internal static partial class KsaWorld
     /// How far the flight computer says this craft is from the attitude it was asked for, in
     /// degrees, or NaN when it cannot be read.
     ///
-    /// <para>The engine's own error rather than one derived here: it is what the tracker acts on,
-    /// so it is the number that decides whether an actuator gets commanded — and a command is what
-    /// takes a vehicle off rails.</para>
+    /// <para>The engine's own error, which is what decides whether an actuator gets commanded.</para>
     /// </summary>
     public static double PointingErrorDeg(Vehicle? v)
     {
@@ -262,13 +241,9 @@ internal static partial class KsaWorld
     /// <summary>
     /// The nearest other vehicle to <paramref name="v"/>, and how far away it is.
     ///
-    /// <para>A bubble merges on proximity and only ever releases a vehicle whose parent body or
-    /// frame changes, so what keeps one alive is whatever stays close — see
-    /// <c>docs/ACCURACY-PLAN.md</c> 3au. The count alone cannot say what that is, and a lone rocket
-    /// shares a bubble with its own spent stage, so it is not simply other rockets.</para>
-    ///
-    /// <para>Walks the shared census rather than taking its own, and is called once per coast probe
-    /// rather than per frame.</para>
+    /// <para>A bubble merges on proximity and only releases a vehicle whose parent body or frame
+    /// changes, so what keeps one alive is whatever stays close (<c>docs/ACCURACY-PLAN.md</c> 3au).
+    /// Called once per coast probe rather than per frame.</para>
     /// </summary>
     public static Vehicle? NearestVehicle(Vehicle? v, out double metres)
     {
@@ -300,9 +275,7 @@ internal static partial class KsaWorld
     /// <summary>
     /// Whether the engine has been told to integrate <em>every</em> vehicle in the world.
     ///
-    /// <para>A public static the game writes from one debug checkbox and reads every sub-step. It
-    /// is the only switch in the engine that changes how all vehicles are propagated at one
-    /// instant, so it is worth knowing rather than assuming.</para>
+    /// <para>A public static the game writes from one debug checkbox and reads every sub-step.</para>
     /// </summary>
     public static bool ForcedOffRails
     {
@@ -317,8 +290,7 @@ internal static partial class KsaWorld
     /// The instant the engine's own state for this vehicle belongs to, in seconds.
     ///
     /// <para>Compared against <see cref="SimClockSeconds"/> it says whether the state being read is
-    /// the frame's or an older one. A world-level disturbance that moved every prediction at once
-    /// would show here as the two clocks parting, and nothing else this mod reads would notice.</para>
+    /// the frame's or an older one.</para>
     /// </summary>
     public static double StateEpochSeconds(Vehicle? v)
     {
@@ -332,16 +304,9 @@ internal static partial class KsaWorld
     /// Every live vehicle in the world, built at most once a frame and shared by everything that
     /// walks it.
     ///
-    /// <para><b>This is the mod's most repeated piece of work.</b> Each weapons system's radar
-    /// scan walks the whole system, and so do its contact candidates, so walked per system a world
-    /// with four armed craft walks it eight times a frame to reach the same answer. Nothing about
-    /// that answer is per system: it is what exists.</para>
-    ///
-    /// <para><b>Freshness is a generation, not a frame count.</b> The list may not outlive a
-    /// change to the world, because a destroyed vehicle stays in it as a disposed reference where
-    /// a fresh walk would simply omit it. So anything that removes a vehicle invalidates it, and
-    /// each hook that can start a pass invalidates it once on the way in. Holding it across a
-    /// frame is what <see cref="CollectVehicles"/>'s own warning is about, and this does not.</para>
+    /// <para><b>Freshness is a generation, not a frame count</b>: a destroyed vehicle stays in the
+    /// list as a disposed reference, so anything that removes a vehicle invalidates it, and each hook
+    /// that can start a pass invalidates it on the way in.</para>
     /// </summary>
     public static IReadOnlyList<Vehicle> Vehicles
     {
@@ -366,14 +331,10 @@ internal static partial class KsaWorld
 
     /// <summary>
     /// Which craft the panel's flag has put on which side, rebuilt once a frame by
-    /// <c>KSArmoryMod.CollectTeams</c>. Named for its type rather than <c>Teams</c>,
-    /// which is the helper that resolves a craft <em>name</em> to a side and is the fallback
-    /// underneath this.
+    /// <c>KSArmoryMod.CollectTeams</c>. A craft with no flag is on no team.
     ///
-    /// <para>Here rather than threaded through <c>Scan</c> for the reason <see cref="Wreckage"/>
-    /// is: every sensor in the world needs the same answer and none of them owns it. A
-    /// <see cref="VehicleContact"/> is built from a bare craft inside the scan, so the alternative
-    /// is a parameter on four update signatures to reach the one line that reads it.</para>
+    /// <para>Here rather than threaded through <c>Scan</c>, as <see cref="Wreckage"/> is: every
+    /// sensor needs the same answer and none owns it.</para>
     /// </summary>
     public static TeamRoster TeamRoster { get; } = new();
 
@@ -384,11 +345,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// Appends every vehicle the game currently has loaded into <paramref name="into"/>.
     ///
-    /// Reads <c>Universe.CurrentSystem.All</c> rather than <c>Program.VehiclesInFrame</c>.
-    /// The latter is a per-frame scratch buffer refilled by <c>RefreshVehiclesInFrame()</c>
-    /// at a point in the tick that does not line up with a Harmony postfix on OnFrame - it
-    /// reads back empty from there, which silently blinds the radar. The system's collection
-    /// is the authoritative list and is valid from any hook.
+    /// Reads <c>Universe.CurrentSystem.All</c> rather than <c>Program.VehiclesInFrame</c>, a
+    /// per-frame scratch buffer that reads back empty from a postfix on OnFrame.
     ///
     /// Copies immediately: the result must not be held across frames, and engine state must not
     /// be under iteration while vehicles are being destroyed.
@@ -427,7 +385,6 @@ internal static partial class KsaWorld
         }
         catch
         {
-            // Nothing more to try.
         }
     }
 
@@ -461,9 +418,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// How fast a craft is turning, in Ecl, rad/s.
     ///
-    /// <para><c>Body2Ego</c>, <c>Asmb2Cce</c> and <c>Asmb2Ego</c> all return the same quaternion,
-    /// so KSA's body frame and its assembly frame are one and the same and <c>BodyRates</c> needs
-    /// no conversion beyond the craft's attitude.</para>
+    /// <para><c>Body2Ego</c>, <c>Asmb2Cce</c> and <c>Asmb2Ego</c> all return the same quaternion, so
+    /// <c>BodyRates</c> needs no conversion beyond the craft's attitude.</para>
     /// </summary>
     public static double3 AngularVelocityEcl(Vehicle v)
     {
@@ -481,9 +437,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// The point a craft turns about, in Ecl — its centre of mass, not its assembly origin.
     ///
-    /// <para>The two differ by metres on a real stack, and a lever arm measured from the origin
-    /// gives a released store the wrong tangential velocity by exactly that offset times the spin
-    /// rate.</para>
+    /// <para>The two differ by metres on a real stack, which times the spin rate is a released
+    /// store's tangential velocity error.</para>
     /// </summary>
     public static double3 CentreOfMassEcl(Vehicle v)
     {
@@ -512,9 +467,8 @@ internal static partial class KsaWorld
     }
 
     /// <summary>
-    /// Local "up" at the platform: the radial-out direction from whatever body it is bound to.
-    /// This is the natural boresight for a defence site. Falls back to the platform's velocity
-    /// direction, and finally to +Z, so the caller always gets a usable unit vector.
+    /// Local "up" at the platform: radial out from its body. Falls back to the platform's velocity
+    /// direction, and finally to +Z, so it is always a unit vector.
     /// </summary>
     public static double3 LocalUp(Vehicle platform)
     {
@@ -571,9 +525,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// Whether a craft has anything for a store to ride on.
     ///
-    /// <para>The cheap form of <see cref="WeaponInventory.HasPlatform"/>, for the callers that walk
-    /// every craft every frame and would otherwise survey each one to ask a question the first part
-    /// usually answers. Same rule and same reason — see <see cref="PartRides"/>.</para>
+    /// <para>The cheap form of <see cref="WeaponInventory.HasPlatform"/>, for callers that walk every
+    /// craft every frame. Same rule, <see cref="PartRides"/>.</para>
     /// </summary>
     public static bool HasPlatform(Vehicle? vehicle)
     {
@@ -604,14 +557,11 @@ internal static partial class KsaWorld
     /// Whether a part attaches to the side of something rather than stacking on it, and so cannot
     /// be a craft on its own.
     ///
-    /// <para>Asked of the game rather than recorded here. <c>VehicleEditor.IsAllowedAsRootPart</c>
-    /// rejects a part if any of its connectors carries <c>ToSurface</c> or <c>FromSurface</c>, and
-    /// that is the same question: a rail, a rack and a targeting pod are stores, and a craft rooted
-    /// on one is a craft the editor would never have let anybody build. It happens anyway, because
-    /// isolating a failed part splits the vehicle wherever it can.</para>
+    /// <para>Asked of the game: <c>VehicleEditor.IsAllowedAsRootPart</c> rejects a part if any of its
+    /// connectors carries <c>ToSurface</c> or <c>FromSurface</c>. A breakup can still leave a craft
+    /// rooted on one.</para>
     ///
-    /// <para>A part with no connectors at all rides nothing and is treated as a platform, which is
-    /// the reading that cannot make a working craft disappear.</para>
+    /// <para>A part with no connectors at all is a platform, which cannot make a working craft disappear.</para>
     /// </summary>
     public static bool PartRides(Part part)
     {
@@ -642,10 +592,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// Flattens a craft's part tree into what <see cref="WeaponSurvey"/> takes.
     ///
-    /// <para>Position and orientation are read in the vehicle's assembly frame, which is the
-    /// frame the parts were placed in, so what comes back is where the player put them. Only the
-    /// top-level parts: a subpart is a piece of one part's own articulation, not a component
-    /// somebody bolted on.</para>
+    /// <para>In the vehicle's assembly frame, where the parts were placed. Top-level parts only: a
+    /// subpart is one part's own articulation.</para>
     /// </summary>
     public static void SurveyParts(Vehicle? vehicle, List<SurveyedPart> into)
     {
@@ -664,8 +612,7 @@ internal static partial class KsaWorld
         }
         catch
         {
-            // A tree being rebuilt underneath the read, during staging or docking. Next frame sees
-            // the finished one; reporting a half-built craft would be worse than reporting none.
+            // A tree rebuilt under the read, during staging or docking: none rather than half a craft.
             into.Clear();
         }
     }
