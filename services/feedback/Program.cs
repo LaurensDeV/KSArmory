@@ -41,8 +41,6 @@ public static class Program
     public static void Main(string[] args)
     {
         // The container has no curl or wget, so the health check is this program asking itself.
-        // Without it the only available check is `dotnet --info`, which passes while the service
-        // is dead.
         if (args.Contains("--healthcheck"))
         {
             Environment.Exit(IsHealthy() ? 0 : 1);
@@ -144,9 +142,8 @@ public static class Program
                 return Results.Unauthorized();
             }
 
-            // A report against a version two releases old is usually a bug that is already fixed,
-            // and the reporter cannot know that. Refusing with the number they need is the only
-            // answer that helps them; accepting it silently helps nobody.
+            // A report against an old version is usually a bug already fixed, and the reporter
+            // cannot know that; the refusal carries the version they need.
             string? minimum = config["MIN_MOD_VERSION"];
             if (!Guard.IsAtLeast(report.ModVersion, minimum))
             {
@@ -163,9 +160,8 @@ public static class Program
                 ? Judge(classifier, written, config, log)
                 : await Moderate(written, factory, config, log, cancellation);
 
-            // The log is judged too, and separately. It is mostly machine output, but a craft name
-            // is player-authored and reaches a public issue through it — so a slur in one would
-            // otherwise walk straight past a gate that only reads the summary.
+            // The log is judged separately: a craft name is player-authored and reaches the public
+            // issue through it.
             bool withLog = classifier is null
                            || LogGate.MayPublish(
                                report.Log,
@@ -174,8 +170,7 @@ public static class Program
             if (verdict == Verdict.Refused)
             {
                 // Said plainly rather than silently dropped: a false positive on a real bug report
-                // is possible, and someone who is told can rephrase. A flooder learns nothing
-                // useful from it either.
+                // is possible, and someone who is told can rephrase.
                 return Results.Json(
                     new { error = "that reads as abusive; please rewrite it" },
                     statusCode: StatusCodes.Status422UnprocessableEntity);
@@ -187,16 +182,12 @@ public static class Program
             switch (_ledger.Reserve(fingerprint, now, out string? already))
             {
                 case Reservation.Duplicate:
-                    // True, and nothing is lost: the same report is already filed. The reporter
-                    // gets the issue it became when we know it.
                     log.LogInformation("duplicate report, not filed again");
                     return already is null
                                ? Results.Accepted()
                                : Results.Accepted(already, new { url = already });
 
                 case Reservation.Ceiling:
-                    // A real report being dropped, so it is said. Answering "received" here would
-                    // thank someone for a report nobody will ever read.
                     log.LogWarning("the day's issue ceiling is spent; a report was refused");
                     return Results.Json(
                         new { error = "this endpoint is at its limit for today - please try tomorrow, or open an issue on GitHub" },
@@ -255,12 +246,8 @@ public static class Program
     }
 
     /// <summary>
-    /// <summary>
-    /// Whether the service answers its own health endpoint.
-    ///
-    /// <para>Reads the port from <c>ASPNETCORE_URLS</c> rather than assuming one, so a container
-    /// started on a different port is checked on that port instead of reporting a false failure
-    /// forever.</para>
+    /// Whether the service answers its own health endpoint, on the port <c>ASPNETCORE_URLS</c>
+    /// names rather than an assumed one.
     /// </summary>
     private static bool IsHealthy()
     {
@@ -281,12 +268,7 @@ public static class Program
         }
     }
 
-    /// <summary>
-    /// Scores text with the local model and turns the number into a verdict.
-    ///
-    /// <para>The thresholds are per label and live on <see cref="Classifier.Thresholds"/>, with the
-    /// measurements that chose them.</para>
-    /// </summary>
+    /// <summary>The thresholds, and the measurements that chose them, are on <see cref="Classifier.Thresholds"/>.</summary>
     private static Verdict Judge(Classifier classifier, string text, IConfiguration config, ILogger log)
     {
         try
@@ -305,26 +287,20 @@ public static class Program
         }
     }
 
-    /// <summary>What the moderator said, or that it never answered.</summary>
     private enum Verdict
     {
         /// <summary>Checked and acceptable, or no moderator configured.</summary>
         Allowed,
 
-        /// <summary>Checked and flagged.</summary>
         Refused,
 
-        /// <summary>The moderator could not be reached. Filed, and labelled as such.</summary>
+        /// <summary>The classifier failed or the moderator could not be reached. Filed, and labelled <c>unmoderated</c>.</summary>
         Unchecked,
     }
 
     /// <summary>
-    /// Asks OpenAI's moderation endpoint whether text is abusive.
-    ///
-    /// <para>Fails <b>soft</b>: an outage there must not stop bug reports arriving, so an
-    /// unreachable moderator files the issue with an <c>unmoderated</c> label instead. Failing
-    /// closed would make someone else's availability decide whether this works; failing silently
-    /// open would let an outage quietly publish anything.</para>
+    /// Asks OpenAI's moderation endpoint. Fails soft, as <see cref="Verdict.Unchecked"/>: an outage
+    /// there must not stop reports arriving, nor silently publish them unlabelled.
     /// </summary>
     private static async Task<Verdict> Moderate(
         string text,
@@ -369,9 +345,6 @@ public static class Program
         }
     }
 
-    /// <summary>
-    /// Takes one of the day's issue slots, unless this report is a duplicate or the day is spent.
-    /// </summary>
     /// <summary>A complaint to return, or null when the report is acceptable.</summary>
     private static string? Validate(Report report)
     {
@@ -395,14 +368,8 @@ public static class Program
         return report.Kind == "idea" ? $"[idea] {summary}" : $"[bug] {summary}";
     }
 
-    /// <summary>
-    /// Builds the issue body.
-    ///
-    /// <para>Everything the reporter wrote goes inside a fenced block. That is not formatting: a
-    /// mention in an issue body notifies the person named, so unfenced text is a way to make this
-    /// server ping strangers. Fencing also stops markdown and HTML in a report rendering as
-    /// anything but what was typed.</para>
-    /// </summary>
+    // Everything the reporter wrote is fenced: an unfenced mention notifies the person named, and
+    // markdown or HTML in a report would render as something other than what was typed.
     private static string Body(Report report, bool withLog)
     {
         var body = new System.Text.StringBuilder();
