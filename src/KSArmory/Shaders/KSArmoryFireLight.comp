@@ -5,14 +5,14 @@
 // light's intensity is taken into account: right for a lamp, and it drops a fireball's light beyond
 // about 3 km however bright it is. Terrain is lit by the forward loop, which has no such cut. So this
 // reads what the pre-pass wrote, and where the fireball's share is missing from it adds the forward
-// loop's diffuse term -- nowhere else, so nothing is lit twice. docs/NUCLEAR-EFFECT.md has the engine
-// code.
+// loop's diffuse term -- nowhere else, so nothing is lit twice. docs/BLOCKED-ON-KSA.md, "A bright
+// light far away, on craft and structures", has the engine code.
 //
 // Set 2 is KSA's bindless textures, which the planet's colour map is read from.
 //
 // Bindings follow ComputePipelineWrapper's order: the storage image, then the depths it samples, then
 // the views it reads in their read-only layout. Set 0 is the engine's global set, which the wrapper
-// binds, and the sun comes out of it through KSArmoryCloud.comp's header.
+// binds, and the sun comes out of it through Content/CoreAtmosphere.glsl, as in KSArmoryCloud.comp.
 
 #define SET_TEXTURE 2
 #define SET_CLOUD_DATA 5
@@ -104,15 +104,9 @@ void main()
     // KSA's own saturates to infinity under the ball, and infinity counts as kept.
     if (Luminance(texelFetch(prePassIrradiance, pixel, 0).rgb) >= KeptShare * Luminance(irradiance)) return;
 
-    // The pre-pass keeps a surface's normal and not its colour, but the pixel already shows it: in
-    // sunlight it is albedo / pi times the sun's colour, what the air lets through and N.L, which is
-    // StaticObject.frag's direct term, so the albedo divides out -- low where the surface is in a shadow
-    // the sun term cannot see, which errs dark. A surface turned nearly away from the sun divides by
-    // almost nothing and is not trusted: its edges lit up as a line. Where the sun does not reach the
-    // pixel is black and says nothing. A surface lying on the ground -- the pad and its apron -- takes
-    // the ground's own albedo there off the planet's colour map, which is what an apron is textured
-    // from; anything else the planet's mean albedo in its hue less the sky's blue. Taken off the screen
-    // instead, from the ground showing beside it, it copied the trees there across the apron.
+    // The albedo is recovered by dividing StaticObject.frag's direct sun term out of the pixel; near
+    // N.L zero that divides by almost nothing and is not trusted. Unlit, a surface lying on the ground
+    // takes the planet's colour map, anything else the mean albedo. docs/BLOCKED-ON-KSA.md has why.
     vec4 was = imageLoad(sceneColor, pixel);
     float level = Luminance(was.rgb);
     vec3 hue = level > 1e-6 ? clamp(was.rgb / level, 0.5, 1.5) : vec3(1.0);

@@ -2,8 +2,8 @@
 
 // The nuclear clouds' temporal resolve. KSArmoryCloud.comp marches every cloud into a layer this
 // frame, jittered by the frame number, and this blends that layer with where last frame's result
-// is now on screen and composites it into the scene. The march is 48 steps on a dither, and grain
-// is what limits it; the only thing that removes grain is more samples, and these are last frame's.
+// is now on screen and composites it into the scene. The march is at most 48 steps on a dither, and
+// grain is what limits it; only more samples remove grain, and these are last frame's.
 //
 // Bindings follow ComputePipelineWrapper's order: storage images, all of them here. Last frame's
 // history is one of them and is filtered by hand: the images are storage-only, and a sampler on an

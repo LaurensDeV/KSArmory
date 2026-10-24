@@ -10,15 +10,15 @@
 // this mod's own. That is the whole of why the real sky costs no plumbing.
 //
 // SET_TEXTURE is KSA's bindless textures, bound at 2 by CloudPass, which the weather's coverage
-// maps are read out of; the weather's shadow data is in this pass's own set, below. SET_CLOUD_DATA is pointed at a
-// slot this pass does not use, the way Core's own Volumetric.comp does it: the headers declare it,
-// nothing here calls what they declare, and an unused declaration binds nothing.
+// maps are read out of; the weather's shadow data is in this pass's own set, below. SET_CLOUD_DATA
+// is pointed at a slot this pass does not use, the way Core's own Volumetric.comp does it: the
+// headers declare it, nothing here calls what they declare, and an unused declaration binds nothing.
 #define SET_TEXTURE 2
 #define SET_CLOUD_DATA 5
 
 #include "Content/CoreAtmosphere.glsl"
 
-// This mod's nuclear cloud, evaluated per pixel instead of choreographed as capsules.
+// This mod's nuclear cloud, raymarched per pixel.
 //
 // Dispatched from a Harmony prefix on SunbloomRenderer.Render - the one point in KSA's frame where
 // the scene colour is already in a STORAGE layout and the depth already SAMPLED, both the engine's
@@ -26,7 +26,8 @@
 // what is written here blooms and is graded with the scene, and no barrier is this mod's to manage.
 //
 // Bindings follow ComputePipelineWrapper's order: set 1 takes the storage targets first, then the
-// depth sampler, then the colour samplers. The same layout Core's Volumetric.comp uses.
+// depth sampler, then the colour samplers, then the uniform buffers. The same layout Core's
+// Volumetric.comp uses.
 //
 // EVERYTHING IS CAMERA-RELATIVE. The world is a solar system in doubles; a float metre is hopeless
 // at that magnitude, so the burst arrives already differenced against the camera on the CPU and the
@@ -79,9 +80,6 @@ vec3 OctahedralUnpack(vec2 o)
     return normalize(n);
 }
 
-// Value noise and an fBm over it. The point of a raymarched cloud rather than a walked one is that
-// the detail is evaluated wherever the ray happens to be, at every scale, instead of being carried
-// by however many capsules somebody laid.
 float Hash(vec3 p)
 {
     p = fract(p * 0.3183099 + vec3(0.71, 0.113, 0.419));
@@ -175,8 +173,6 @@ float CapDome(vec2 p, float ringR, float tubeR)
     return (length(q) - 1.0) * min(r.x, r.y);
 }
 
-// Distance to the ring of the cap's torus. The cap is a vortex ring and this is the one shape a
-// stroke of capsules can only approximate: here it is the primitive.
 float Torus(vec3 p, float ring, float tube)
 {
     vec2 q = vec2(length(p.xz) - ring, p.y);
@@ -234,14 +230,9 @@ float StemWidthAt(float y, float capH)
 
     float t = clamp(y / capH, 0.0, 1.0);
 
-    // The flare belongs at the FOOT and nowhere else. Spread over the lower two thirds it is a
-    // cone rather than a column, which trades one wrong silhouette for another -- so it is an
-    // exponential rather than a ramp: three and a half times the stem at the ground, under twice
-    // it a tenth of the way up, and gone by a fifth. That is the concave skirt a column of lifted
-    // dust spreads into where the afterwind feeds it along the ground, and the raymarch draws it
-    // lit like the rest of the column where particles came out black. It widens again into the
-    // cap's underside so the two meet instead of the stem ending inside a wall.
-    // An air burst's column has much less of a skirt: there was no fireball on the ground to feed it.
+    // The flare is at the FOOT only, as an exponential rather than a ramp, which draws a cone:
+    // about 3.4 times the stem at the ground, under twice it a tenth of the way up, gone by a fifth.
+    // It widens again into the cap's underside so the two meet. An air burst's has much less skirt.
     float flare = FootFlare * mix(0.25, 1.0, groundCoupling);
     return 0.92 + (flare * exp(-t / FootFlareReach)) + (0.50 * smoothstep(0.76, 1.0, t));
 }
@@ -254,7 +245,7 @@ float ColumnStem(vec2 p, float capH, float columnR)
 
 // KSA's WEATHER SHADOWS, as its own planet and ocean passes read them: the buffers behind
 // CloudShadowsRenderer's set for the body the camera is near, field for field its StaticCloudShadowData
-// and DynamicCloudShadowData, which is why the padding is here. In this pass's own set at 9 and 10,
+// and DynamicCloudShadowData, which is why the padding is here. In this pass's own set at 6 and 7,
 // after its images, because KSA's set is declared for fragment shaders alone and reads as garbage
 // here -- see KsaWorld.TryWeatherShadowBuffers.
 struct WeatherShadowLayer
@@ -352,20 +343,17 @@ float WeatherShadow(vec3 worldPos, vec3 sunDir)
 
 // KSA'S WEATHER ALONG THIS PIXEL, as one sheet per crossing of a layer: where along the ray it is,
 // how deep the slab is there, and how much it lets through. The renderer hands over one distance and
-// one transmittance per pixel for ALL its layers together, the distance an opacity-weighted average
-// of theirs -- so with the cirrus over Earth's cumulus deck it lands between the two, and a cap
-// standing up through the cirrus read as behind the whole opaque deck wherever there was cirrus.
-// The layers' own radii put each sheet where it actually is; the averaged distance still says how
-// the opacity divides between the two sheets it falls between, which is all it can say.
+// one transmittance per pixel for ALL its layers, the distance an opacity-weighted average that lands
+// between two decks; the layers' own radii place each sheet, and the averaged distance only says how
+// the opacity divides between the two sheets it falls between.
 const int MaxSheets = 8;
 float sheetAt[MaxSheets];
 float sheetBand[MaxSheets];
 float sheetClear[MaxSheets];
 
 // For a sheet the eye is inside, the distance its opacity builds up over, from KSA's own averaged
-// distance; zero for a sheet seen from outside. A deck the eye is in is thickest round the eye, and
-// spread evenly along the stretch the ray spends in it -- hundreds of kilometres near the horizon --
-// it put most of the fog behind a burst the fog should have hidden.
+// distance; zero for a sheet seen from outside. Spread evenly along the ray's stretch in the deck --
+// hundreds of kilometres near the horizon -- it put the fog behind a burst it should have hidden.
 float sheetFog[MaxSheets];
 int sheetCount = 0;
 
@@ -538,8 +526,8 @@ layout (constant_id = 16) const float Extinction = 0.022;
 
 // What the pass writes instead of the picture, to look at one term alone: 0 the picture, 1 coverage,
 // 2 depth in the cloud, 3 the weather mask, 4 sunlight reaching the cloud, 5 the fireball's share of
-// its light. Sim/ShaderTunables.cs names them; a specialization constant, so the picture pays nothing
-// for them.
+// its light, 6 the sky's ambient, 7 the air's light in front, 8 the light per unit of cover. A
+// specialization constant, so the picture pays nothing for them.
 layout (constant_id = 0) const int DebugView = 0;
 
 // Camera-relative world position of a pixel at a given device depth.
@@ -589,19 +577,6 @@ float BallVisibleShare(vec3 centre, float radius, ivec2 size)
     return taps > 0.0 ? seen / taps : 1.0;
 }
 
-// The cloud's density at a point given relative to the burst. Pulled out of the march because the
-// sun march needs the same answer: a volume that is not asked how thick it is between a sample and
-// the light has no self-shadowing, and self-shadowing is most of what makes a cloud read as one.
-// The cloud's bulk, with no erosion on it: the torus unioned with the stem and nothing else.
-//
-// This is what the SHADOW march asks for, and it is four fifths of the cost of the whole pass.
-// Four taps at every one of 48 steps is 192 density evaluations a pixel, and running the full
-// fBm for each was paying for turbulent detail in a term that is then exponentiated into a
-// smooth falloff. A shadow wants to know how much cloud is in the way, not what shape its
-// surface is.
-// The wind leans the cloud super-linearly in height (Unlean), so the foot stays over the crater
-// while the cap rides downwind. A column standing exactly vertical is the plainest tell that a
-// shape was generated.
 // How far through its stand the cloud is, eased, in [0, 1]: MushroomCloud.Aged, with its two
 // times. MushroomCloudShaderTests holds these to the C#.
 const float StandBeginsSeconds = 57.0;
@@ -635,7 +610,8 @@ const float GroundAlbedo = 0.3;
 
 float leanTop = 0.0;
 
-
+// The wind leans the cloud super-linearly in height, so the foot stays over the crater while the
+// cap rides downwind.
 vec3 Unlean(vec3 world, vec3 up, float top)
 {
     float y = dot(world, up);
@@ -718,6 +694,8 @@ float CapChord(vec3 leaned, vec3 sun, vec3 up, float radius)
     return chord * smoothstep(0.0, 0.2 * across, chord);
 }
 
+// The cloud's bulk with no erosion, for the shadow march: up to 192 evaluations a pixel, where an
+// fBm each paid for detail the falloff then smooths away.
 float Bulk(vec3 leaned, vec3 up)
 {
     vec3 world = leaned;
@@ -740,7 +718,7 @@ float Bulk(vec3 leaned, vec3 up)
                clamp(-stem / max(stemR * 1.3, 1.0), 0.0, 1.0));
 }
 
-// The furthest the two erosion bands can move a surface inward, in the feature's own radii. The
+// The furthest the two erosion bands can move a surface outward, in the feature's own radii. The
 // coarse band runs to about 0.55 of its 1.05 and the fine to 0.15 of its 0.30; this is over both
 // with room to spare, because being generous here costs a few samples and being tight drops
 // density that should have been there.
@@ -867,19 +845,8 @@ float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float 
     float cap = min(Torus(capP, ringR, tubeR), CapDome(vec2(p.x, p.y - capH), ringR, tubeR));
     float stem = ColumnStem(p.xy, capH, columnR);
 
-    // The vortex turning over. The billows are already organised on the poloidal angle -- the angle
-    // around the ring -- so ADVECTING that angle with time is the circulation itself: up the inside,
-    // over the top, down the outside. It costs one subtraction, and nothing here remembers where
-    // it was, so rolling it draws no helix.
-    // REJECTED BEFORE ANY NOISE. The erosion below can only pull a surface inward by the coarse
-    // band's 1.05 and the fine band's 0.30 of the feature's own radius, so a sample further outside
-    // than that cannot come back with density however the noise falls -- this is exact, not an
-    // approximation. The fBm it skips is the most expensive thing in this shader and most samples
-    // inside the bounding sphere are nowhere near the cloud.
     // FALLOUT, the noise-free half: how far below the cap's own plane this is, and whether there
-    // is any cap at this radius to fall from. Asked here rather than below because the rejection
-    // is exact and has to stay exact -- a curtain the early-out throws away is a curtain that
-    // never draws.
+    // is any cap at this radius to fall from. Asked before the rejection so that it stays exact.
     float drop = (capH - p.y) / max(tubeR * FalloutReach, 1.0);
     float above = (drop > 0.0 && drop < 1.0)
                       ? min(Torus(vec3(p.x, 0.0, 0.0), ringR, tubeR),
@@ -906,6 +873,8 @@ float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float 
     // Also asked before the rejection: the trumpet reaches out under the cap, past the stem's own.
     float drawnUp = Inflow(flat_, p.xy, capH, ringR, tubeR, stemR, age) * stemShare;
 
+    // REJECTED BEFORE ANY NOISE, exactly: no erosion moves a surface out past ErodeReach, so a sample
+    // further outside every feature cannot come back with density. The fBm it skips is the dearest thing here.
     if (cap > ErodeReach * tubeR && stem > ErodeReach * columnR && above > ErodeReach * tubeR)
     {
         wet = condensed > 0.0 ? 1.0 : 0.0;
@@ -914,32 +883,24 @@ float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float 
 
     float around = atan(p.y - capH, p.x - ringR) - RollAngle(age);
 
-    // The coordinate turns about the ring, which is what rolls the cap the way a vortex does:
-    // inside rising, over the top, down the outside.
+    // The billows are organised on the poloidal angle round the ring, so advecting that angle with
+    // time is the circulation itself: up the inside, over the top, down the outside, and no helix.
     //
     // Frequency is per CLOUD rather than per metre, so every yield carries the same number of
     // billows -- about two dozen, which is where fBm starts reading as turbulence rather than as a
     // dent. Worley was tried here and is NOT in: docs/NUCLEAR-EFFECT.md has what it did instead.
     //
-    // TWO BANDS, and what matters is the amplitude rather than either frequency. A single band at
-    // 2.2 tube radii moves the surface further than the tube is thick, which erases the torus
-    // outright: the cap stopped reading as a cap and became a blob, and that silhouette is the one
-    // shape this volume exists to draw. The coarse band billows, the fine one is surface texture,
-    // and together they come to about half what the single band moved.
+    // TWO BANDS, and what matters is the amplitude: a single band at 2.2 tube radii moves the
+    // surface further than the tube is thick and erases the torus. Together these move about half that.
     // The drift through the noise speeds up with the churn, so the early cloud boils as well as rolls.
     float boil = age * 0.05 + ChurnBoost * 0.05 * ChurnSeconds * (1.0 - exp(-age / ChurnSeconds));
     float coarse = Fbm(world * (26.0 / max(radius, 1.0)) + vec3(0.0, around, boil));
-    // ONE octave, not an fBm. This band is surface texture at a single scale, and a second
-    // four-octave fBm here is the most expensive line in the shader for detail that is then
-    // exponentiated into a soft edge -- it cost 2.6 ms a frame on its own.
+    // ONE octave, not an fBm: a second four-octave fBm here cost 2.6 ms a frame for detail the
+    // falloff then softens away.
     float fine = Noise(world * (78.0 / max(radius, 1.0)) + vec3(around, 0.0, boil * 1.6));
 
-    // EACH FEATURE CARRIES ITS OWN SCALE, for both the erosion and the falloff. Driving the whole
-    // cloud off the cap's tube radius works only while everything is about that thick: once the
-    // stem is a fifth of the cap rather than a half, a tube-sized erosion is wider than the column
-    // it is cutting into and a tube-sized falloff caps its density at a third however deep inside
-    // it the sample is. The column came out a wisp with the cap floating over it -- the lollipop,
-    // arrived at through the density rather than through the proportions.
+    // EACH FEATURE CARRIES ITS OWN SCALE, for the erosion and the falloff: off the cap's tube radius,
+    // a stem a fifth of the cap is eroded wider than itself and its density capped at a third.
     float capErode = ((coarse - 0.42) * 1.05 + (fine - 0.50) * 0.30) * tubeR;
     float stemErode = ((coarse - 0.42) * 1.05 + (fine - 0.50) * 0.30) * columnR;
 
@@ -1015,9 +976,6 @@ float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float 
     return max(density, condensed);
 }
 
-// What a unit of the fireball's own glow is worth as light on the cloud. Its Glow peaks near 400
-// and the sun term beside it tops out around 2, so this is the number that decides whether a burst
-// tints its cloud or blows the frame out.
 // How bright the whiteout writes into the scene, which is HDR and not yet tonemapped. Measured
 // through KSA's whole post chain at its default exposure by writing known bands here: 0.25 comes
 // out as a mid grey (130), 1.0 as 240, and everything from 1.25 up clips to white. So the floor
@@ -1049,6 +1007,9 @@ layout (constant_id = 11) const float GlareWhiteDeg = 20.0;
 layout (constant_id = 12) const float HaloGain = 0.8;
 layout (constant_id = 13) const float HaloMost = 0.85;
 
+// What a unit of the fireball's own glow is worth as light on the cloud. Its glow peaks near 400
+// and the sun term beside it tops out around 2, so this decides whether a burst tints its cloud
+// or blows the frame out.
 layout (constant_id = 5) const float FireGain = 0.110;
 
 // How bright the fire in the young cloud's core glows at full heat, in the scene's units: 1.0 comes
@@ -1070,7 +1031,7 @@ layout (constant_id = 33) const float BallRadiance = 0.45;
 const float BallBurnGlow = 200.0;
 const float SootOpacity = 2.0;
 
-// How strongly the nitrogen oxides tint the cap, and how long they last.
+// How strongly the nitrogen oxides tint the cap; NoxSeconds is how long they last.
 layout (constant_id = 22) const float NoxStrength = 0.70;
 
 // Water droplets: whiter than anything the ground or the fire put in the cloud. And how far the
@@ -1079,7 +1040,7 @@ const vec3 CondensationWhite = vec3(0.58, 0.58, 0.59);
 layout (constant_id = 27) const float CapWhiteness = 0.55;
 layout (constant_id = 23) const float NoxSeconds = 22.0;
 
-// And the most it may contribute at any one sample. The sun term beside it tops out near 2.
+// The most the fireball's light may contribute at any one sample. The sun term tops out near 2.
 layout (constant_id = 6) const float FireCeiling = 6.0;
 
 // Henyey-Greenstein. Smoke scatters forward, so a cloud is brightest looking through it toward the
@@ -1153,8 +1114,8 @@ layout (constant_id = 30) const float VioletNits = 4.0;
 const float VioletSeconds = 0.7;
 const float VioletReachInBalls = 6.0;
 
-// The error function, to a few parts in ten thousand (Abramowitz and Stegun 7.1.26): what a
-// Gaussian integrates to along a ray.
+// The error function, to 1.5e-7 (Abramowitz and Stegun 7.1.26): what a Gaussian integrates to
+// along a ray.
 float Erf(float x)
 {
     float t = 1.0 / (1.0 + 0.3275911 * abs(x));
@@ -1202,11 +1163,7 @@ float DustAt(vec3 p, float y, float r, float front, float reach, float stemR, fl
            * (1.0 - smoothstep(0.55 * crest, crest, max(y, 0.0)));
 }
 
-// THE X-RAY GLOW: the layer of air, XRayGlow.LayerAltitude up and LayerThickness deep, that a burst
-// high over the atmosphere heats with its X-rays. Emission along the ray's path through the shell,
-// brightest under the burst and falling as the inverse square of the distance from it, and none where
-// the planet stands between the burst and the air. Added to the scene: it is light, and hides nothing.
-// The most the layer is brightened by being seen edge-on, over looking straight through it.
+// The most a glowing layer or shell is brightened by being seen edge-on, over looking straight through it.
 const float LimbGain = 4.0;
 
 // THE AURORA at one end of a high burst's field line: Aurora.cs, drawn as KSA's own aurora is
@@ -1662,6 +1619,10 @@ void DrawRedWave(ivec2 at, ivec2 size)
     imageStore(sceneColor, at, vec4(was.rgb + RedWaveColour * (nits * level), was.a));
 }
 
+// THE X-RAY GLOW: the layer of air, XRayGlow.LayerAltitude up and LayerThickness deep, that a burst
+// high over the atmosphere heats with its X-rays. Emission along the ray's path through the shell,
+// brightest under the burst and falling as the inverse square of the distance from it, and none where
+// the planet stands between the burst and the air. Added to the scene: it is light, and hides nothing.
 void DrawXRayGlow(ivec2 at, ivec2 size)
 {
     vec2 uv = (vec2(at) + 0.5) / vec2(size);
@@ -1778,8 +1739,7 @@ void main()
     // bounding sphere.
     //
     // Here rather than as an ImGui overlay because KSA wraps its entire UI pass in if (DrawUI),
-    // and both F2 and ScreenshotCapture clear that -- painted there it vanished from every
-    // screenshot the harness took, and would have vanished for any player who hid the HUD.
+    // and both F2 and ScreenshotCapture clear that.
     //
     // Carried by ONE dispatch however many clouds are standing: the pass runs once per cloud and
     // each would otherwise lay its own white over the last.
@@ -1909,7 +1869,8 @@ void main()
     }
 
     // THE WEATHER MASK, over the whole screen: red where KSA's clouds are opaque, green where the
-    // burst's centre counts as behind them, blue by how many sheets the pixel crosses. Written by the first cloud alone, and no cloud marches.
+    // burst's centre counts as behind them, blue by how many sheets the pixel crosses. Written by the
+    // first cloud alone, and no cloud marches.
     if (DebugView == 3 && wantsCloud)
     {
         if (firstCloud)
@@ -2074,16 +2035,10 @@ void main()
     float t1 = min(along + half_, sceneT);
     bool throughCloud = perpSq <= rSq && t1 > t0;
 
-    // Uniform march. The step is the span rather than a fixed metre count, so a cloud fills the
-    // same number of samples whether it is two kilometres away or twenty.
-    // Raised from 32 with the budget the raymarch freed. Grain is what a dither trades banding for,
-    // and the only thing that actually removes it is samples: interleaved gradient noise was tried
-    // in its place and is NOT in, because it is built to be resolved by temporal accumulation and
-    // there is none here -- a single frame of it is diagonal hatching across the stem.
-    //
-    // The count follows the chord rather than being fixed, so the SPACING is the same everywhere: a ray
-    // grazing the bound, or stopped by the ground inside it, took all 48 steps over a sliver of it. The
-    // spacing is what the picture is made of, so it looks the same for about two thirds of the samples.
+    // The spacing is the bound's diameter over MostSteps, so a cloud fills the same number of samples
+    // at two kilometres or twenty, and the count follows the chord: a ray grazing the bound, or stopped
+    // by the ground inside it, does not spend every step on a sliver. Interleaved gradient noise was
+    // tried for the dither and is not in: docs/NUCLEAR-NEXT.md, "Temporal accumulation".
     const int MostSteps = 48;
     const int LeastSteps = 6;
     int Steps = clamp(int(ceil(float(MostSteps) * (t1 - t0) / (2.0 * radius))), LeastSteps, MostSteps);
@@ -2155,10 +2110,8 @@ void main()
         }
 
         // TWO LOBES. The first is direct light surviving the path to this sample; the second is a
-        // cheap stand-in for multiple scattering, which is the whole reason a real cloud is bright
-        // in its middle rather than black. A single exponential over a path this long is zero
-        // however much light is falling on the cloud, and the widened cap made that the dominant
-        // term -- the cap went to a dark slab while the thin stem beside it stayed white.
+        // cheap stand-in for multiple scattering, which is why a real cloud is bright in its middle:
+        // a single exponential over a path through the cap is zero however much light falls on it.
         float sunlight = exp(-toSun * 0.010) + 0.45 * exp(-toSun * 0.0025);
         float fireShare = 0.0;
 
@@ -2316,16 +2269,14 @@ void main()
             fireShare = max(fireShare, inBall);
         }
 
-        // Raised with the falloff above: a core that now genuinely reaches full density is worth
-        // more optical depth per metre, and this is what separates a cloud from a stain.
         // Soot is black because it absorbs, so the dirty young cloud is also the thicker one: what
         // hides the fire everywhere but the gaps. A pale cloud at the same density lets it through.
         float extinction = density * Extinction * dt * (1.0 + SootOpacity * soot);
         float seenThrough = WeatherInFront(t0 + (float(i) + jitter) * dt);
 
         // What the step blocks, not its extinction: the two agree only while a step is optically
-        // thin, and the march spans the bound in a fixed 48 steps -- kilometres each over a
-        // megatonne-class cloud, where extinction times light counted it tens of times over.
+        // thin, and a step is a 48th of the bound -- kilometres over a megatonne-class cloud, where
+        // extinction times light counted it tens of times over.
         float through = exp(-extinction);
 
         scattered += transmittance * lit * (1.0 - through) * seenThrough;

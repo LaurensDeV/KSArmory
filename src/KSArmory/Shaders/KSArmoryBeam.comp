@@ -6,11 +6,8 @@
 // energy, so a far beam thins to a thread instead of vanishing. One dispatch per beam from
 // CloudPass, over its own patch of screen. Derivation: docs/BEAM-RENDERING.md.
 //
-// It reads its push constants, the scene, the depth and KSA's own weather images, all bound by the
-// pipeline, and indexes nothing: a bad index hangs the GPU, which on a driver that cannot reset it is
-// a blue screen. What lies behind a cloud is dimmed by the cloud's transmittance, since the clouds
-// write no depth. Where the CPU finds the beam entering cloud it ends there and glows
-// (docs/BEAM-RENDERING.md).
+// It indexes nothing: a bad index hangs the GPU, which on a driver that cannot reset it is a blue
+// screen. What lies behind a cloud is dimmed by the cloud's transmittance, since clouds write no depth.
 //
 // Bindings follow ComputePipelineWrapper's order: the storage image, the depth it samples, then the
 // weather's light and distance images -- stand-ins when there is no weather, which A.w says.
@@ -36,7 +33,7 @@ layout (push_constant) uniform PushConstants
 } pc;
 
 // The core's drawn radius at the window and at the far end (m). The COIL is invisible; this is drawn
-// for the operator, at the scale of the 1.5 m telescope it leaves. CloudPass's reach mirrors these.
+// for the operator, at the scale of the 1.5 m telescope it leaves. CloudPass.BeamReach mirrors ExitRadius.
 const float ExitRadius = 0.20;
 const float FarRadius = 0.08;
 
@@ -148,10 +145,9 @@ float Ball(vec3 dir, vec3 p, float r, float least, float tMax)
     return (r * r) / (rr * rr) * exp(-h2 / (rr * rr)) * along;
 }
 
-// Light in the cloud just above its base round p: falling away over r across, as light diffusing through
-// cloud does, with a long tail rather than a rim, and over depth
-// d upward, none under the base. Integrated along the ray by midpoints, within the halo's sphere and the
-// slab it fills, and normalised so a look straight up through its middle gathers one.
+// Light in the cloud just above its base round p: falling away over r across with a long tail rather
+// than a rim, over depth d upward, and none under the base. Integrated along the ray by midpoints within
+// the halo's sphere and slab, normalised so a look straight up through its middle gathers one.
 float Slab(vec3 dir, vec3 p, vec3 up, float r, float d, float tMax)
 {
     float tp = dot(dir, p);
@@ -231,7 +227,6 @@ void main()
     vec2 uv = (vec2(at) + 0.5) / vec2(size);
     vec3 dir = normalize(WorldAt(uv, 1.0));
 
-    // How wide one pixel is, as an angle: the next pixel's ray against this one.
     float pixelAngle = length(normalize(WorldAt(uv + vec2(0.0, 1.0 / float(size.y)), 1.0)) - dir);
 
     // Reverse-Z: zero is the sky, where nothing stops the ray.

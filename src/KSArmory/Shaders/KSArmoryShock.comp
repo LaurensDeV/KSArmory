@@ -19,7 +19,7 @@ layout (push_constant) uniform PushConstants
     mat4 InvViewProj;       // clip -> camera-relative world
     vec4 CentreRadius;      // the burst, camera-relative, and how far the front has got
     vec4 CentreUvStrength;  // the burst on screen, how hard the front bends light, its thickness
-    vec4 UpMode;            // the local vertical at the burst, one plus its height over the ground long, and 0 to copy or 1 to bend
+    vec4 UpMode;            // the local vertical at the burst, its length one plus the burst's height over the ground; w 0 to copy, 1 to bend
     vec4 Shake;             // across and up in shares of the height, a roll in radians, 1 while shaking
 } pc;
 
