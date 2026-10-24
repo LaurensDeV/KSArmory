@@ -9,10 +9,11 @@ namespace KSArmory.Tests;
 /// What sampling the ground once a frame costs, as a function of arrival angle.
 ///
 /// <para><see cref="Slug"/> asks <see cref="IGroundTest"/> where the ground is once per frame, before
-/// the sub-step loop, and holds it as a sphere across the whole frame. On a shallow arrival that is
+/// the sub-step loop, and holds it as a sphere across the whole frame unless
+/// <see cref="Slug.ResampleGroundNearImpact"/> is set. On a shallow arrival that is
 /// nearly free — <c>ProbeGapTests</c> prices it at zero on the 7.1 degree deorbit. It should not stay
 /// free: the vertical closing speed goes as <c>sin(gamma)</c>, so a round arriving steeply crosses
-/// the held surface proportionally faster and overshoots it deeper before the next sample notices.
+/// the held surface proportionally faster and overshoots it deeper before the next sample notices.</para>
 ///
 /// <para>Which matters because the whole case for a steeper arrival is that it divides every height
 /// term by <c>cot(gamma)</c>. A term that instead <em>grows</em> with the angle works against it.</para>

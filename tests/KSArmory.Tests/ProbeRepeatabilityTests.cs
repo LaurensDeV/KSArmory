@@ -5,22 +5,9 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Whether six warheads released from one coasting bus are predicted to land in one place.
+/// Releases from one coasting bus lie on one arc, so their predicted landings must agree: the kick is solved
+/// per warhead off its own probe, and any disagreement is cancelled as though real. ACCURACY-PLAN 3ed.
 /// </summary>
-/// <remarks>
-/// <para>They should be. A bus on a coast puts a warhead released at <c>t</c> and one released at
-/// <c>t + 0.15 s</c> on the <em>same arc</em>, so their predicted landings must agree — the later
-/// release is the same trajectory sampled further along. The mod's kick is solved per warhead off
-/// its own probe, so anything that makes those probes disagree is cancelled as though it were real,
-/// and lands as error.</para>
-///
-/// <para>Flown, 87% of that per-warhead differential turns out <b>not</b> to be a real difference
-/// between the warheads: the within-rocket landing deviation regresses on the probe's at
-/// <b>−0.869</b> where zero would mean the kick was cancelling something true
-/// (<c>docs/ACCURACY-PLAN.md</c> 3ed). This asks where the disagreement comes from with the game out
-/// of the way — the ejection impulse applied at six points of the arc, or the predictor's own
-/// state-to-state scatter.</para>
-/// </remarks>
 public class ProbeRepeatabilityTests(ITestOutputHelper Out)
 {
     private const double Mu = 3.986004418e14;

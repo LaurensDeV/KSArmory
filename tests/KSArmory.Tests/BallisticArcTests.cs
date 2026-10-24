@@ -25,7 +25,6 @@ public class BallisticArcTests
     private static readonly BallisticBody Still =
         new(EarthMu, EarthRadius, new double3(0, 0, 1), 0.0);
 
-    /// <summary>A point on the equator at a given longitude, at burnout altitude.</summary>
     private static double3 Equator(double longitudeRad, double altitude = 0.0)
         => new((EarthRadius + altitude) * Math.Cos(longitudeRad),
                (EarthRadius + altitude) * Math.Sin(longitudeRad), 0.0);
@@ -68,7 +67,7 @@ public class BallisticArcTests
 
     /// <summary>
     /// The one that separates a correct solve from a plausible one. Over a half-hour flight the
-    /// aim point is carried thousands of kilometres by the planet's own turn, and a solver that
+    /// aim point is carried hundreds of kilometres by the planet's own turn, and a solver that
     /// aims at where it is now lands nowhere near it.
     /// </summary>
     [Fact]
@@ -205,13 +204,12 @@ public class BallisticArcTests
     }
 
     /// <summary>
-    /// The integrator has to land where the solver said it would, to a metre, over half an hour.
+    /// The integrator has to land where the solver said it would, to two metres, over 25 minutes.
     ///
-    /// <para>This is the floor under every miss distance, and it was not always small. The crossing
-    /// search accepts the first sample <em>below</em> the ground, so a tolerance expressed as a
-    /// time step leaves the answer a few metres deep — which on a shallow arc at 7 km/s is tens of
-    /// metres downrange, always downrange, and reads as guidance error. On a lunar trajectory,
-    /// which is shallower still, it was kilometres.</para>
+    /// <para>This is the floor under every miss distance. The crossing search accepts the first
+    /// sample <em>below</em> the ground, so a tolerance expressed as a time step leaves the answer a
+    /// few metres deep — which on a shallow arc at 7 km/s is tens of metres downrange, always
+    /// downrange, and reads as guidance error.</para>
     /// </summary>
     [Fact]
     public void TheIntegratorLandsWhereTheSolverSaidItWould()

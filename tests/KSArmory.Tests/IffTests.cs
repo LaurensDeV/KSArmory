@@ -13,8 +13,6 @@ public class IffTests
 {
     private static IffPolicy Blue() => new() { OwnTeam = "Blue" };
 
-    // ---- Classification --------------------------------------------------
-
     [Fact]
     public void SameTeamIsFriendly()
     {
@@ -76,8 +74,6 @@ public class IffTests
         Assert.Equal(Allegiance.Neutral, policy.Classify("Blue"));
     }
 
-    // ---- Engagement ------------------------------------------------------
-
     [Fact]
     public void AFriendlyIsNeverEngagedWhileProtected()
     {
@@ -134,8 +130,6 @@ public class IffTests
         Assert.True(policy.MayEngageTeam("Blue"));
     }
 
-    // ---- Through the threat model ---------------------------------------
-
     /// <summary>
     /// The gate fire control actually calls. A friendly well inside the engagement envelope must
     /// still be refused, which is why this is a separate question from range.
@@ -163,8 +157,6 @@ public class IffTests
         Assert.False(ThreatModel.MayEngage(friendly, policy));
         Assert.True(ThreatModel.MayEngage(hostile, policy));
     }
-
-    // ---- More than two sides ---------------------------------------------
 
     /// <summary>
     /// Team names are arbitrary strings, so any number of sides can exist. With no alliances
@@ -237,8 +229,6 @@ public class IffTests
         Assert.Equal(Allegiance.Neutral, blue.Classify("Green"));
     }
 
-    // ---- Stepping a switcher row's flag ----------------------------------
-
     private static readonly string[] Declared = ["Red", "Blue", "Green"];
 
     /// <summary>
@@ -281,8 +271,6 @@ public class IffTests
         Assert.Null(Teams.Next(null, []));
         Assert.Null(Teams.Next("Red", []));
     }
-
-    // ---- Declaring and removing teams ------------------------------------
 
     [Fact]
     public void ADeclaredTeamIsTrimmedAndABlankOneIsNot()

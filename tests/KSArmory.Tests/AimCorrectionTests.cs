@@ -19,8 +19,8 @@ public class AimCorrectionTests
     ///
     /// <para>The step is the error divided by how much the aim was last measured to be worth, so an
     /// estimate below one asks to move the aim further than the error itself — and two observations
-    /// taken a moment apart can produce one from noise alone. Flown, before the bound: 28.6 km of
-    /// bias to 192.9 in a single cycle, then the clamp, then 205 km of miss.</para>
+    /// taken a moment apart can produce one from noise alone. Unbounded, one flown cycle took 28.6 km
+    /// of bias to 192.9 (<c>docs/MIRV-NEXT.md</c>).</para>
     /// </summary>
     [Fact]
     public void ItNeverMovesTheAimFurtherThanTheMissItIsRemoving()
@@ -52,8 +52,7 @@ public class AimCorrectionTests
     /// <para>The plant is not one this loop chooses. While the solver may pick its own flight time,
     /// moving the aim moves the impact by about as much again; once the guidance latches the
     /// arrival, the same aim change forces a different trajectory to arrive at the same instant and
-    /// the impact moves several times further. A fixed fraction can only be right for one of those,
-    /// and at 3,459 km the wrong one walked the bias to its 300 km limit with 209 km of miss.</para>
+    /// the impact moves several times further. A fixed fraction can only be right for one of those.</para>
     /// </summary>
     [Theory]
     [InlineData(1.0)]
@@ -94,9 +93,8 @@ public class AimCorrectionTests
     /// change forces a different trajectory to arrive at the same instant, and on a shallow
     /// near-orbital shot the response is amplified past where that gain is stable.</para>
     ///
-    /// <para>Flown at 3,459 km: 55.1 km of miss down to 43.7 at 77 km of bias, then 44.7, 47.9,
-    /// 65.2, 126.1, and pinned at the 300 km limit with 209 km of miss — the loop walking away from
-    /// its own best while the thing it was removing grew.</para>
+    /// <para>Flown at 3,459 km with a fixed gain, the miss fell from 55.1 km to 43.7 at 77 km of bias,
+    /// then grew until the bias pinned at its 300 km limit with 209 km of miss.</para>
     /// </summary>
     [Fact]
     public void ACorrectionThatStopsHelpingKeepsItsBestRatherThanRunningAway()

@@ -11,11 +11,10 @@ namespace KSArmory.Tests;
 /// patch it would have come out the far side of — measured at 7,645 km as a five-cycle excursion
 /// with a better aim 38 km beyond it. Twelve is how long the loop sits through such a patch.</para>
 ///
-/// <para><b>The counter was never reset by a pass that was neither better nor worse</b>, so it
-/// accumulated across a whole flight and twelve scattered excursions stopped the loop as readily as
-/// one run of twelve. It was unreachable while the band was a flat 250 m — nothing at this shot's
-/// scale is 250 m worse than the best — and the band that tracks the miss is what makes both
-/// branches live: <c>docs/ACCURACY-PLAN.md</c> 3bz.</para>
+/// <para><b>A pass that is neither better nor worse resets the counter.</b> Without that it
+/// accumulates across a whole flight, and twelve scattered excursions stop the loop as readily as
+/// one run of twelve. Only the band that tracks the miss reaches this: nothing at this shot's
+/// scale is a flat 250 m worse than the best. <c>docs/ACCURACY-PLAN.md</c> 3bz.</para>
 /// </summary>
 public class AimPatienceTests
 {
@@ -64,7 +63,7 @@ public class AimPatienceTests
     }
 
     /// <summary>
-    /// A pass that improves has always reset it, and that is not what changed.
+    /// A pass that improves resets the count.
     ///
     /// <para>Flat band, so every step down is a genuine improvement however far the walk goes — a
     /// proportional one stops registering once the improvements fall under its floor, which ends

@@ -6,14 +6,9 @@ namespace KSArmory.Tests;
 /// <summary>
 /// Selecting between weapon systems, tested against registries with <em>several</em> entries.
 ///
-/// <para>The mod ships one launcher, one round and one sensor, and every assertion in
-/// <see cref="ArsenalTests"/> is therefore trivially satisfied: with one candidate, "picked the
-/// right one" and "picked the only one" are indistinguishable, and the fallback in
-/// <c>Catalogue.Named</c> returns element zero, which <em>is</em> the answer. None of it can fail
-/// while the registry has one element, so none of it is guarding anything yet.</para>
-///
-/// <para>These use the internal registry overloads to put three of each in play. See
-/// <c>docs/MODULARITY.md</c>.</para>
+/// <para>With one candidate, "picked the right one" and "picked the only one" are
+/// indistinguishable, and the fallback in <c>Catalogue.Named</c> returns element zero. These use
+/// the internal registry overloads to put three of each in play. See <c>docs/MODULARITY.md</c>.</para>
 /// </summary>
 public class WeaponSystemSelectionTests
 {
@@ -48,11 +43,9 @@ public class WeaponSystemSelectionTests
     private static readonly IReadOnlyList<SensorProfile> ThreeSensors =
         [Sensor("set-a"), Sensor("set-b"), Sensor("set-c")];
 
-    // ---- Lookup with real alternatives ---------------------------------
-
     /// <summary>
-    /// Every entry must be reachable, not just the first. A lookup that ignored its argument and
-    /// returned element zero passes the shipping suite for the two middle cases.
+    /// Every entry must be reachable, not just the first: a lookup that ignored its argument and
+    /// returned element zero would pass against a registry of one.
     /// </summary>
     [Theory]
     [InlineData("Mod_Prefab_Alpha", 0)]
@@ -82,10 +75,8 @@ public class WeaponSystemSelectionTests
     }
 
     /// <summary>
-    /// The fallback is real, and with more than one entry it is finally distinguishable from a
-    /// successful match. It is deliberate — a launcher naming a round that does not exist is a
-    /// typo in Arsenal, not a reason for the game to fall over mid-flight — but it is also silent,
-    /// which is worth knowing when a new system fires the wrong round.
+    /// The fallback is deliberate — a launcher naming a round that does not exist is a typo in a
+    /// definition, not a reason for the game to fall over mid-flight — but it is also silent.
     /// </summary>
     [Fact]
     public void AnUnknownNameQuietlyFallsBackToTheFirstEntry()
@@ -93,8 +84,6 @@ public class WeaponSystemSelectionTests
         Assert.Same(ThreeMunitions[0], Catalogue.Named(ThreeMunitions, "no such round", m => m.Name));
         Assert.Same(ThreeSensors[0], Catalogue.Named(ThreeSensors, "no such sensor", s => s.Name));
     }
-
-    // ---- Switching between systems -------------------------------------
 
     /// <summary>
     /// All three profiles must move together. A launcher left pointing at the previous system's
@@ -166,8 +155,6 @@ public class WeaponSystemSelectionTests
         Assert.True(turret.ElevationRad <= float.DegreesToRadians(40f) + 1e-9,
             $"turret reached {double.RadiansToDegrees(turret.ElevationRad):F1} degrees past a 40 degree limit");
     }
-
-    // ---- The shape a fixed launcher takes -------------------------------
 
     /// <summary>
     /// A launcher that does not train is the same profile with nothing to animate. The registry

@@ -6,16 +6,12 @@ namespace KSArmory.Tests;
 /// The post-cutoff loop, run headlessly: the clearance, the sequencer, the trim and the correction
 /// in the order <c>Ksa/Icbm/IcbmComputer.cs</c> runs them, against a bus that moves when it is pushed.
 ///
-/// <para><b>The point is the feedback, not the pieces.</b> Each of those was already testable
-/// alone. What could only be reached by flying is that they drive each other: the decoupler's shove
-/// is the only thing carrying the halves apart, nulling it is precisely what the trim is for, and
-/// so the trim closes the gap that licenses it. Flown, that abandoned <b>87 of 144</b> corrections
-/// and cost the whole aim correction each time — <c>docs/MIRV-NEXT.md</c> <b>8y</b>.</para>
+/// <para>The pieces drive each other: the shove is all that carries the halves apart and nulling it is the
+/// trim's job, so the trim closes the gap that licenses it. Flown, 87 of 144 corrections abandoned
+/// (<c>docs/MIRV-NEXT.md</c> 8y).</para>
 ///
-/// <para>The bus is a point mass with a thruster, which is the whole of what the loop can observe
-/// about it. What this rig deliberately does <em>not</em> model is the part tree, the engine's
-/// frame ordering and the attitude — so a result here is about the loop's logic and never about
-/// whether KSA will fly it.</para>
+/// <para>The bus is a point mass with a thruster: no part tree, frame ordering or attitude, so a result
+/// here is about the loop's logic and never about whether KSA will fly it.</para>
 /// </summary>
 internal sealed class PostCutoffRig
 {
@@ -151,10 +147,8 @@ internal sealed class PostCutoffRig
     // The bus's own control axes, as the rig lays them out. One direction at a time, which is what
     // BusTrim commands and what makes its stop threshold readable along the axis being fired.
     //
-    // Forward is +Nose, not -Nose: BusTrim picks Forward when the velocity it still has to GAIN
-    // points along the nose, and pushes that way. Inverting it gives a rig whose trim drives the
-    // error outward while every test still passes -- caught by the residual growing from a 1.1 m/s
-    // shove to 2.5, which is the one reading that could not be explained by a working loop.
+    // Forward is +Nose: BusTrim picks Forward when the velocity still to GAIN points along the nose.
+    // Inverted, the trim drives the error outward (1.1 m/s to 2.5) while every test still passes.
     private static double3 Thrust(TrimAxes fire)
         => fire switch
         {

@@ -114,9 +114,9 @@ public class ReachAlongTheGroundTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// A shell that stays up longer than its clock is still laid to land. The clock is a fallback for a path
-    /// nobody can judge, and the flown lead searched only within it, which from Mars ended the gun's reach at
-    /// 90 km.
+    /// A shell that stays up longer than its clock is still laid to land: the clock is a fallback for a path
+    /// nobody can judge, and a lead searched only within it ends the gun's reach from Mars at 90 km.
+
     /// </summary>
     [Fact]
     public void AShellThatStaysUpLongerThanItsClockIsStillLaidToLand()

@@ -261,8 +261,7 @@ public class ArrivalFloorFlightTests(ITestOutputHelper Out)
     /// <para><see cref="UnderAFloorTheCorrectionIsWhatMisses"/> flies the mean sphere, where the
     /// predictor is a noiseless observer of itself — so a loop given more to work with is free
     /// averaging and cannot lose. Five of the seven headless improvements refused by flight had
-    /// exactly that shape. A floored shot's correction is the term rung A is priced against, and it
-    /// has never been asked this way.</para>
+    /// exactly that shape, <c>docs/MIRV-NEXT.md</c> item -1.</para>
     /// </summary>
     [Fact]
     public void UnderAFloorTheCorrectionIsWhatMissesOverRealRelief()

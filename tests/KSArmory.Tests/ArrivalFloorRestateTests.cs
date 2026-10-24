@@ -6,23 +6,9 @@ namespace KSArmory.Tests;
 
 /// <summary>
 /// Whether the arrival floor, priced from the state it is latched in, is still one the burn's own
-/// exit can fly. <c>docs/ACCURACY-PLAN.md</c> item 5e, and the answer is that it always is.
-///
-/// <para><b>The suspicion was that the floor is latched early and spent late</b> — priced from a
-/// low, slow vehicle with the whole stack aboard, satisfied by an arc departing from burnout — and
-/// that past some angle no such arc exists, which would explain why
-/// <see cref="IcbmConfig.ArrivalPreference"/> at 0.8 is a settled loss.</para>
-///
-/// <para><b>It goes the other way.</b> The post-boost state reaches <em>steeper</em> arcs than the
-/// latch state can afford, at every range measured: the existence wall at cutoff is 77.8 degrees
-/// against 67.8 affordable at latch on a 2,736 km shot, 62.2 against 56.2 at 6,269, and 40.9
-/// against 37.5 at 12,902. So re-checking the floor against the exit would <em>raise</em> it, and
-/// the latched floor is never the binding constraint.</para>
-///
-/// <para>What actually ends the control is cost, and specifically the trim's: flown
-/// 2026-09-01-2148, the debt still owed when the warheads left runs 2.63 / 2.56 / 2.60 m/s at
-/// preferences 0, 0.5 and 0.65 and jumps to <b>4.19</b> at 0.8, where the healthy-mode median goes
-/// 0.029 km to 0.098. It is not the divergent mode either — 3 of 24, Fisher p=0.234.</para>
+/// exit can fly. It always is: the post-boost state reaches <em>steeper</em> arcs than the latch
+/// state can afford at every range measured, so the latched floor is never the binding constraint.
+/// <c>docs/ACCURACY-PLAN.md</c> 3be has the measurements and what binds instead.
 /// </summary>
 public class ArrivalFloorRestateTests(ITestOutputHelper Out)
 {
@@ -140,7 +126,7 @@ public class ArrivalFloorRestateTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// The exit reaches steeper than the latch could afford, which is 5e's premise inverted.
+    /// The exit reaches steeper than the latch could afford, which is 5e's premise inverted (3be).
     ///
     /// <para>The one assertion worth keeping from the measurement: if this ever reverses, the floor
     /// really is being priced from the wrong state and 5e becomes live again.</para>

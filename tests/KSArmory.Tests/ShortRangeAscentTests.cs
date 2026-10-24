@@ -5,23 +5,11 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// What the ascent does when the target is close, which is not what a short shot wants.
+/// What the ascent does as the target comes closer, beside the arc a short shot wants.
 ///
-/// <para><b>Every target from 100 km to 800 km gets the identical shot.</b> Same cutoff altitude,
-/// same speed, same climb angle, same burn time, same propellant left — to every digit. A 100 km
-/// target is flown exactly as an 800 km one, and the arc each actually wants is nothing like the
-/// other: 1,697 m/s and a 73 km apogee at 300 km against 2,372 m/s and 146 km at 600.</para>
-///
-/// <para>It is not the release gate, the arrival floor or the pitch schedule. All three were moved
-/// and none of them unsticks it: <c>DeployAltitudeMetres</c> to 20 km changes only the hold
-/// message, <c>ArrivalPreference</c> to zero moves the long shots and not these, and
-/// <c>TurnEndMetres</c> to 15 km moves the numbers by 6% and keeps them identical across the
-/// range.</para>
-///
-/// <para>What is left is the handover. Closed-loop guidance cannot take the wheel until the air is
-/// thin, and by then the stack is at ~65 km doing ~3 km/s — already more than a short shot needs,
-/// so there is nothing left for the loop to decide. The floor is the ascent, and the ascent is
-/// flown before anything knows how far away the target is.</para>
+/// <para><c>docs/SHORT-RANGE.md</c>, "What is known", has why every short target in this rig flew
+/// one identical cutoff — closed-loop guidance cannot take the wheel until the air is thin, by which
+/// time the stack is already past what a short shot needs — and what answered it.</para>
 ///
 /// <para>This rig is two liquid stages that throttle and stop on command; the stack the game flies
 /// is in <see cref="GameStackShortRangeTests"/>.</para>

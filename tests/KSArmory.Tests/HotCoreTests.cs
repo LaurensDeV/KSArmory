@@ -77,7 +77,7 @@ public class HotCoreTests(ITestOutputHelper Out)
     }
 
     // Under KSA's law the 700 km shot reproduces the flown chase: the backstop off, it cuts off three minutes late after
-    // turning at over 60 deg/s; on, as flown since 10-06. The off half is what makes the on half mean anything.
+    // turning at over 60 deg/s. The off half is what makes the on half mean anything.
     [Fact]
     public void TheBackstopStopsTheHotCoreChasingItsLine()
     {

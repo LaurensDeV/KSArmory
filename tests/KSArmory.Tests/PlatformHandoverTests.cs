@@ -2,10 +2,8 @@ using Xunit;
 
 namespace KSArmory.Tests;
 
-/// <summary>
-/// Deciding which craft a launcher went to when a decoupler split the one it was on.
-/// </summary>
-public class PlatformHandoverTests
+public
+ class PlatformHandoverTests
 {
     private static HandoverCandidate At(int craft, double metres, bool crewed = false, int ordinal = 0)
         => new(craft, ordinal, metres, crewed);

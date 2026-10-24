@@ -13,9 +13,10 @@ public class PointingDriveTests
     private static readonly double Rate = double.DegreesToRadians(90);
 
     /// <summary>
-    /// The reason this type exists. Writing the commanded direction straight to the part put the
-    /// head on a new track within one frame, which reads as a glitch rather than as a sensor.
+    /// Written straight to the part, a commanded direction puts the head on a new track within one
+    /// frame, which reads as a glitch rather than as a sensor.
     /// </summary>
+
     [Fact]
     public void TheHeadSweepsOntoATrackRatherThanSnapping()
     {

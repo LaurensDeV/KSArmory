@@ -8,15 +8,14 @@ namespace KSArmory.Tests;
 /// Three things sample the surface on a ballistic shot and they have to agree: where the aim point
 /// is placed, where the prediction stops, and where the round stops.
 ///
-/// <para>Two of them read the height field raw. The third — <see cref="IGroundTest"/>, which is the
-/// one the round obeys — passes it through <see cref="GroundSurface.Height"/> first, because a
-/// height field answers with terrain and under an ocean that is the <em>seabed</em>. So over water
-/// the round stops kilometres of height above the surface the other two believe in, and on a
-/// shallow arrival a kilometre of height is eight to eleven kilometres of ground.</para>
+/// <para>A height field answers with terrain, and under an ocean that is the <em>seabed</em>; the
+/// round's <see cref="IGroundTest"/> passes it through <see cref="GroundSurface.Height"/>. Read raw
+/// instead, the other two sit kilometres of height below the round's surface, and on a shallow
+/// arrival a kilometre of height is eight to eleven kilometres of ground.</para>
 ///
 /// <para>These are pricing tests rather than regression guards: they take both surfaces as
-/// arguments, so they hold whether or not the wiring in <c>Ksa/Icbm/IcbmComputer.cs</c> ever asks
-/// <see cref="GroundSurface"/> the same question. <c>docs/KSA-TERRAIN.md</c> has the measurement
+/// arguments, so they do not check the wiring in <c>Ksa/Icbm/IcbmComputer.cs</c>.
+/// <c>docs/KSA-TERRAIN.md</c> has the measurement
 /// they are calibrated against — 71.2% of Earth's shipped height cubemap is below its waterline, at
 /// a mean depth of 3,776 m.</para>
 /// </summary>
@@ -66,10 +65,9 @@ public class SurfaceAgreementTests(ITestOutputHelper Out)
     /// <summary>
     /// The whole of the disagreement, priced on the mean depth of the shipped Earth height map.
     ///
-    /// <para>The prediction and the aim point both fly to the seabed; the round bursts on the
-    /// waterline above it. Nothing upstream is wrong and nothing downstream can see it — the aim
-    /// correction observes the prediction, so a surface only the round knows about is a surface no
-    /// amount of correcting reaches.</para>
+    /// <para>Read raw, the prediction and the aim point fly to the seabed while the round bursts on
+    /// the waterline above it — and the aim correction observes the prediction, so a surface only
+    /// the round knows about is one no amount of correcting reaches.</para>
     /// </summary>
     [Fact]
     public void ThePredictionFliesToTheSeabedAndTheRoundStopsOnTheSeaAboveIt()

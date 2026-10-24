@@ -5,24 +5,11 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Item 45. What is left of the ballistic miss once the release kick has cancelled everything the
-/// prediction gets wrong about <em>where</em> — which is what it gets wrong about <em>flying
-/// there</em>.
+/// Each warhead is kicked by its own release probe's miss, so what is left is the two flight models
+/// disagreeing: the predictor steps 2.0 s in vacuum and 0.25 s in air, the round 1 ms. ACCURACY-PLAN 3dl, 3dm.
 ///
-/// <para>Since item 43 each warhead is kicked by its own release probe's miss, so the landing is no
-/// longer scored against the ground: it is scored against the prediction the warhead was aimed by.
-/// What is left is the two flight models disagreeing, and they do not fly alike — the predictor
-/// steps 2.0 s in vacuum and 0.25 s in air against the round's 1 ms sub-step.
-/// <c>docs/ACCURACY-PLAN.md</c> 3dl and 3dm.</para>
-///
-/// <para><b>Measurement, not a gate.</b> What is asserted is the shape each sweep settled on — the
-/// predictor's step buys nothing and the round's sub-step buys everything — so that the day either
-/// stops being true, this says so. The numbers go to the test output.</para>
-///
-/// <para><b>It does not reproduce the flight and is not meant to.</b> A rig flies a planet at the
-/// origin, which is the one case where a frame carrier is identically zero; see
-/// <see cref="WarheadTrace"/>'s own note. This prices <em>which knob</em> the term hangs on, never
-/// how many metres it is worth in game.</para>
+/// <para>Measurement: the assertions pin the shape each sweep settled on. A planet at the origin makes every
+/// frame carrier zero, so this prices which knob the term hangs on, never its metres in game.</para>
 /// </summary>
 public class PredictorStepGapTests(ITestOutputHelper Out)
 {
@@ -174,10 +161,8 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// The <em>round</em>, stated rather than assumed, beside the geometry above. Three rig faults in
-    /// one session all had this shape — a default that reads as "unset" and flies as something real —
-    /// so what the rig flies is pinned against what the game flies rather than left to inspection.
-    /// <c>docs/ACCURACY-PLAN.md</c> 3dn.
+    /// The <em>round</em>, stated rather than assumed: a default that reads as "unset" flies as something
+    /// real, so what the rig flies is pinned against what the game flies. <c>docs/ACCURACY-PLAN.md</c> 3dn.
     /// </summary>
     [Fact]
     public void TheRigFliesTheRoundTheGameFlies()
@@ -198,16 +183,15 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
         Assert.Equal(1.0, DensityAt(new double3(R, 0, 0)), 9);
         Assert.Equal(Math.Exp(-1.0), DensityAt(new double3(R + ScaleHeight, 0, 0)), 9);
 
-        // And the integrator order, which is the one that cost a night: the property defaults to
-        // false and IcbmComputer sets it from a config that ships true.
+        // The integrator order: the property defaults to false and IcbmComputer sets it from a
+        // config that ships true.
         Assert.True(new IcbmConfig().SecondOrderWarheads,
                     "if released warheads stop being second order, this rig's numbers change by 300x");
     }
 
     /// <summary>
-    /// <b>Refuted.</b> The predictor's two steps were the declared suspect in 3dl, on a 70:1 ratio
-    /// against the round. Forty times finer moves the arrival by less than a tenth of a millimetre:
-    /// it bisects onto the crossing near the ground, so its step never reaches the answer.
+    /// Forty times finer moves the predictor's arrival by less than a tenth of a millimetre: it bisects
+    /// onto the crossing near the ground, so its step never reaches the answer (3dl).
     /// </summary>
     [Fact]
     public void ThePredictorsOwnStepBuysNothing()
@@ -242,19 +226,9 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>The sub-step is worth millimetres on the round the game flies, and metres on one nothing
-    /// flies.</b> <see cref="Slug.SecondOrder"/> defaults to false and
-    /// <see cref="IcbmConfig.SecondOrderWarheads"/> ships true, so a rig that leaves the property
-    /// alone measures a first-order round — 1.54 m at the shipped 1 ms against <b>4.7 mm</b>.
-    ///
-    /// <para>That is what makes <see cref="IcbmConfig.WarheadSubStepMs"/> a dead lever: eight times
-    /// finer recovers 4 mm of a 21 mm flown walk, which no night can resolve.
-    /// <c>docs/ACCURACY-PLAN.md</c> 3dn.</para>
-    ///
-    /// <para>Both columns are kept because the pair is the finding. <c>RoundIntegratorOrderTests</c>
-    /// makes the same point in vacuum, where second order is exact for a conic and the sub-step
-    /// moves the landing 0.000 m; this is the case with drag, where it does not vanish and is still
-    /// millimetres.</para>
+    /// The sub-step is worth millimetres on the second-order round the game flies (4.7 mm at 1 ms) and
+    /// metres on a first-order one nothing flies (1.54 m), so <see cref="IcbmConfig.WarheadSubStepMs"/> is a
+    /// dead lever. <c>docs/ACCURACY-PLAN.md</c> 3dn; <c>RoundIntegratorOrderTests</c> has the vacuum case.
     /// </summary>
     [Fact]
     public void TheSubStepIsMillimetresOnTheRoundTheGameFlies()
@@ -291,16 +265,10 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>The last difference between this rig and the flight that a rig can have.</b> Items 45-47
-    /// closed the predictor's step, the frame rate, the integrator's order, the surface and the
-    /// atmosphere, and the flown walk has no per-seat structure — 7 of 8 seats at −23 to −33 mm
-    /// against a 7.3x spread in relief — so it is a common systematic rather than terrain.
-    ///
-    /// <para>What is left is the planet turning. The round measures its airspeed against the ground
-    /// and <see cref="ImpactPredictor"/> subtracts <c>GroundVelocityCci</c> for the same reason, so
-    /// both carry the rotation and any disagreement between them shows only here. The rig has flown
-    /// a still planet throughout, which is the one case where every such term is identically zero.
-    /// <c>docs/ACCURACY-PLAN.md</c> 3dp.</para>
+    /// The planet turning: the round measures its airspeed against the ground and
+    /// <see cref="ImpactPredictor"/> subtracts <c>GroundVelocityCci</c>, so any disagreement between them
+    /// shows only on a spinning planet, never the still one the rest of this file flies.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3dp.
     /// </summary>
     [Fact]
     public void WhatThePlanetsRotationAddsToTheGapBetweenTheTwoModels()
@@ -370,14 +338,9 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>The drag's velocity is the round's one mis-paired argument.</b> The air and the pull are
-    /// read half a sub-step on and the speed the drag is taken at is not — and drag is quadratic in
-    /// it while the round is shedding ~450 m/s², so the start-of-step speed is always the larger and
-    /// the drag always too big. One-signed, every sub-step, for the whole fall.
-    ///
-    /// <para>This is what the 4.7 mm of 3dn actually was: not truncation paid for the integrator's
-    /// order, but one argument read at the wrong instant — and so removable rather than halveable.
-    /// <c>docs/ACCURACY-PLAN.md</c> 3dx.</para>
+    /// The air and the pull are read half a sub-step on, so the drag's speed must be too: drag is quadratic
+    /// in it while the round sheds ~450 m/s², so the start-of-step speed always makes it too big, one-signed
+    /// for the whole fall. <c>docs/ACCURACY-PLAN.md</c> 3dx.
     /// </summary>
     [Fact]
     public void TakingTheDragAtTheMidpointVelocityClosesTheGap()
@@ -485,17 +448,9 @@ public class PredictorStepGapTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>The air's motion is the fourth field that moves with the round, and it was the one held.</b>
-    /// <see cref="RoundFields"/> re-reads gravity, density and the ground inside the sub-step loop —
-    /// its own doc says those are the fields that "change materially over that distance" — while the
-    /// air's velocity was sampled once a frame at the round's pre-step position.
-    ///
-    /// <para>A re-entering round crosses about 150 m of ground in a frame and the air moves with the
-    /// ground, so a held sample measures the drag against air the round has left. The error is square
-    /// to the airspeed rather than along it, so it <b>tilts</b> the deceleration.
-    /// <see cref="ImpactPredictor"/> recomputes the same term at every RK stage, so the difference
-    /// lands squarely in the round's disagreement with its own prediction.
-    /// <c>docs/ACCURACY-PLAN.md</c> 3dx Rank 2.</para>
+    /// The air's motion moves with the round like gravity, density and the ground: a re-entering round
+    /// crosses about 150 m of ground a frame, so air held for the frame tilts the deceleration, while
+    /// <see cref="ImpactPredictor"/> re-reads it every RK stage. <c>docs/ACCURACY-PLAN.md</c> 3dx Rank 2.
     /// </summary>
     [Fact]
     public void HoldingTheAirsMotionForAWholeFrameMovesTheLanding()

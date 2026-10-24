@@ -33,7 +33,8 @@ public class PackFilesTests
         Assert.Equal(9000f, Catalogue.LoadoutFor(rail).Sensor.Range);
     }
 
-    // The shape the fix replaces, kept so the test above is known to need it.
+    // Read one file at a time, the same pack is refused: the test above depends on reading them together.
+
     [Fact]
     public void ReadOneFileAtATimeTheSamePackIsRefused()
     {

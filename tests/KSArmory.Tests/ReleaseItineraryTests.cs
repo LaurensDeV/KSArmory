@@ -32,11 +32,9 @@ public class ReleaseItineraryTests(ITestOutputHelper Out)
         return set;
     }
 
-    // ---------------------------------------------------------------- a set of one
-
     /// <summary>
-    /// The case every flight so far is. One target releases at the gate and spends what a
-    /// single-target flight already spends, so nothing about the schedule reaches it.
+    /// One target releases at the gate and spends what a single-target flight already spends, so
+    /// nothing about the schedule reaches it.
     /// </summary>
     [Fact]
     public void ASetOfOneIsExactlyTodaysRelease()
@@ -78,8 +76,6 @@ public class ReleaseItineraryTests(ITestOutputHelper Out)
 
         Assert.Equal(1, ReleaseItinerary.AtTheTrimCeiling(1, close).CoastFits);
     }
-
-    // ---------------------------------------------------------------- the schedule
 
     /// <summary>
     /// The rule: start early enough that the <em>last</em> release still happens at today's gate.
@@ -128,8 +124,6 @@ public class ReleaseItineraryTests(ITestOutputHelper Out)
                           + (stop.Affordable ? "" : "  -- beyond the budget"));
         }
     }
-
-    // ---------------------------------------------------------------- the order
 
     /// <summary>
     /// Farthest first. The set is flown in order of the reach it demands, because the earliest slot
@@ -199,8 +193,6 @@ public class ReleaseItineraryTests(ITestOutputHelper Out)
                     $"farthest first costs {farthestFirst:F1} m/s against {nearestFirst:F1} reversed");
     }
 
-    // ---------------------------------------------------------------- the budget
-
     /// <summary>
     /// Six targets do not fit today, and the type says so rather than flying five and calling it
     /// six: five hops at <see cref="BusTrim.MaxMetresPerSecond"/> on top of the single-target
@@ -260,9 +252,8 @@ public class ReleaseItineraryTests(ITestOutputHelper Out)
     /// there — <b>not</b> <see cref="BusTrim.MaxMetresPerSecond"/>, which is a ceiling on one solve.
     /// </summary>
     /// <remarks>
-    /// The reach here is the pinned along-track figure at 6,179 km, 355 m per m/s at cutoff falling
-    /// to 178 at the gate. Six targets 10 km apart then cost a fraction of what charging the ceiling
-    /// per hop reads, which is the difference between a feature and a refusal.
+    /// The reach here runs 688 m per m/s at the first slot down to 410 at the last. Six targets 4 km
+    /// apart then cost a fraction of what charging the ceiling per hop reads.
     /// </remarks>
     [Fact]
     public void AHopCostsWhatTheLandingMovesNotWhatOnePassMaySpend()
@@ -379,8 +370,6 @@ public class ReleaseItineraryTests(ITestOutputHelper Out)
         Assert.Equal(ReleaseItinerary.SingleTargetMetresPerSecond + 3.0, plan.NeedsMetresPerSecond, 6);
     }
 
-    // ---------------------------------------------------------------- the clock
-
     /// <summary>
     /// A hop interval that would put the first release before cutoff is said, not clipped. At
     /// 2,000 km the whole usable coast is 351 s against a 420 s gate, so the itinerary starts
@@ -419,8 +408,6 @@ public class ReleaseItineraryTests(ITestOutputHelper Out)
         // What does not move is the end of it, which is what keeps the last release on the gate.
         Assert.Equal(asked.LastBeforeArrivalSeconds, trimmed.LastBeforeArrivalSeconds, 6);
     }
-
-    // ---------------------------------------------------------------- the empty cases
 
     [Fact]
     public void AnEmptySetIsNoItinerary()

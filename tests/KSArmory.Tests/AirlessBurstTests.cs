@@ -26,7 +26,6 @@ public class AirlessBurstTests
     public void OnlyABurstWhoseFireballTouchesTheGroundThrowsAny(double altitude, bool throws)
         => Assert.Equal(throws, AirlessBurst.ThrowsEjecta(0.3 * Kt, altitude));
 
-    /// <summary>A charge too small for a cloud is too small for this too, at any altitude.</summary>
     [Fact]
     public void AConventionalChargeThrowsNothing()
         => Assert.False(AirlessBurst.ThrowsEjecta(MushroomCloud.ThresholdKg - 1.0, 0.0));
@@ -46,7 +45,6 @@ public class AirlessBurstTests
         // The reach is the yield's, so it does not move with gravity at all.
         Assert.Equal(moon.ReachMetres, earth.ReachMetres, 3);
 
-        // Flying it there is what costs less and takes longer.
         Assert.Equal(Math.Sqrt(Earth / Moon), earth.SpeedMetresPerSecond / moon.SpeedMetresPerSecond, 3);
         Assert.Equal(Math.Sqrt(Earth / Moon), moon.FlightSeconds / earth.FlightSeconds, 3);
 
@@ -55,7 +53,6 @@ public class AirlessBurstTests
                      moon.SpeedMetresPerSecond * moon.SpeedMetresPerSecond / Moon, 3);
     }
 
-    /// <summary>The throw scales with the fireball that made it, so one dial moves all of it.</summary>
     [Fact]
     public void TheReachFollowsTheFireball()
     {
@@ -77,7 +74,7 @@ public class AirlessBurstTests
 
     /// <summary>
     /// The camera is held for what is actually happening, which is three different things. Holding
-    /// for the rise regardless is what left it on an empty sky over a body that grows no cloud.
+    /// for the rise regardless leaves it on an empty sky over a body that grows no cloud.
     /// </summary>
     [Fact]
     public void TheWatchIsAsLongAsThereIsSomethingToWatch()
@@ -94,7 +91,6 @@ public class AirlessBurstTests
         Assert.True(highOverIt < onTheMoon);
     }
 
-    /// <summary>A charge that makes nothing is watched for no time at all.</summary>
     [Fact]
     public void AConventionalChargeIsNotWatched()
         => Assert.Equal(0.0, AirlessBurst.WatchSeconds(MushroomCloud.ThresholdKg - 1.0,
@@ -164,9 +160,9 @@ public class AirlessBurstTests
 
     /// <summary>
     /// Every size of device is framed the same way, which is the whole reason the drawing takes its
-    /// scale from the yield rather than from a constant somebody typed at one of them. The dome was
-    /// only ever LOOKED at around a third of a kilotonne, so this is what says a strategic yield
-    /// does not quietly come out shaped differently.
+    /// scale from the yield rather than from a constant typed at one of them. The dome has been
+    /// judged by eye only at about 0.3 kt, so this is what says a strategic yield is not shaped
+    /// differently.
     /// </summary>
     [Theory]
     [InlineData(0.3)]
@@ -199,7 +195,6 @@ public class AirlessBurstTests
         Assert.True(large > small * 5.0, $"{large:F0} m against {small:F0} m");
     }
 
-    /// <summary>A charge under the threshold draws nothing, so there is nothing to frame.</summary>
     [Fact]
     public void AConventionalChargeIsNotFramed()
         => Assert.True(AirlessBurst.ExtentOf(500.0, Moon, 0.0).Empty);
@@ -221,7 +216,7 @@ public class AirlessBurstTests
 
     /// <summary>
     /// The mark in vacuum is how far radiation reaches, not a blast: the square root of the yield,
-    /// where the blast law it used to borrow goes as the cube root.
+    /// where the blast law goes as the cube root.
     /// </summary>
     [Fact]
     public void AVacuumMarkScalesAsTheSquareRootOfTheYield()

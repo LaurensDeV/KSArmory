@@ -28,8 +28,8 @@ public class AimSpreadTests
     [Fact]
     public void AYieldTheSpreadWasNotTunedForStillClearsItself()
     {
-        // 300 kt, which ReentryVehicleMk21 says in as many words is one number away. A constant
-        // chosen against 20 kt would put every group back inside the next one's kill radius.
+        // 300 kt, a W87's yield, which the Mk 21's entry in KSArmory/Strategic.xml is one number
+        // away from. A constant chosen against 20 kt would put every group back inside the next one's kill radius.
         double bigLethal = Warhead.LethalRadius(300_000_000.0);
 
         Assert.True(AimSpread.SpacingMetres(bigLethal) > bigLethal);

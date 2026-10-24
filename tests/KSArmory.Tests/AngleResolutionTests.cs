@@ -21,7 +21,7 @@ public class AngleResolutionTests
 
     /// <summary>
     /// The one that fails against <c>acos</c>: a centimetre of ground is a 1.6e-9 rad angle, whose
-    /// cosine is 1.0 to the last bit of a double, so the old form answered exactly 0.0.
+    /// cosine is 1.0 to the last bit of a double, so <c>acos</c> answers exactly 0.0.
     /// </summary>
     [Theory]
     [InlineData(0.001)]
@@ -56,8 +56,7 @@ public class AngleResolutionTests
     }
 
     /// <summary>
-    /// The other endpoint. A chord form would do for small angles and lose precision here instead;
-    /// this is what makes the replacement safe for the thirty call sites that ask about degrees.
+    /// The other endpoint, where a chord form, good for small angles, would lose precision.
     /// </summary>
     [Theory]
     [InlineData(1e-7)]

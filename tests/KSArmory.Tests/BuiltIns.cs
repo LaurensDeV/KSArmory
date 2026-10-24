@@ -11,7 +11,7 @@ namespace KSArmory.Tests;
 /// every registry-wide invariant — that each launcher names a registered round, that each is also a
 /// recognised component — quietly covering one weapon fewer, with nothing failing to say so.</para>
 ///
-/// <para>Name lookups throw on a miss from here on. A weapon renamed in the move would otherwise
+/// <para>Name lookups throw on a miss from here on. A renamed weapon would otherwise
 /// come back as whichever round registered first, and every test asking for it would fly that
 /// instead.</para>
 /// </summary>

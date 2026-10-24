@@ -41,8 +41,6 @@ public class KineticFloorTests(ITestOutputHelper Out)
 
     private static MunitionProfile Warhead => DeorbitShot.Warhead;
 
-    // ---------------------------------------------------------------- integration
-
     /// <summary>
     /// What the round's own integrator costs, as a function of the step it is given.
     ///
@@ -55,8 +53,8 @@ public class KineticFloorTests(ITestOutputHelper Out)
         BallisticArc.Solution arc = DeorbitShot.Shot(out double3 from, out _);
 
         // The finest flight this can afford, as the thing every coarser one is measured against.
-        // First order in the step, so the reference's own error is one twentieth of the 1 ms
-        // flight's and a fiftieth of the shipped one's.
+        // First order in the step, so the reference's own error is a quarter of the shipped 1 ms
+        // flight's and a twentieth of a 5 ms one's.
         (double3 reference, double refSeconds) = DeorbitShot.FlyTheRound(from, arc.RequiredVelocityCci, 0.00025, AtStep(0.00025));
 
         Out.WriteLine($"reference: 0.25 ms step, {refSeconds:F1} s of flight, "
@@ -86,9 +84,8 @@ public class KineticFloorTests(ITestOutputHelper Out)
     /// What a finer sub-step would cost, in the only currency that matters — sub-steps per round
     /// per frame.
     ///
-    /// <para>The step is not free to shrink because <see cref="Interceptor.SubStep"/> is shared by
-    /// every round in the air, and a CIWS burst is 150 shells. A warhead is the opposite case: six
-    /// of them, for a few hundred seconds.</para>
+    /// <para>The sub-step is per munition (<see cref="MunitionProfile.SubStepSeconds"/>), so a
+    /// warhead's costs a CIWS burst's 150 shells nothing: six of them, for a few hundred seconds.</para>
     /// </summary>
     [Fact]
     public void WhatAFinerSubStepWouldCost()
@@ -213,8 +210,6 @@ public class KineticFloorTests(ITestOutputHelper Out)
         return -Math.Asin(Math.Clamp(sine, -1.0, 1.0)) * 180.0 / Math.PI;
     }
 
-    // ---------------------------------------------------------------- arithmetic
-
     /// <summary>
     /// What it costs to keep a round's position in the ecliptic, where the numbers are astronomical
     /// and the round is metres long.
@@ -306,8 +301,6 @@ public class KineticFloorTests(ITestOutputHelper Out)
                           + $"{Ulp(universe) * speed * 1e6:F3} um");
         }
     }
-
-    // ---------------------------------------------------------------- the ground
 
     /// <summary>
     /// What one metre of disagreement about where the surface is costs, at each arrival angle — and
@@ -516,8 +509,6 @@ public class KineticFloorTests(ITestOutputHelper Out)
                       + "so metre-scale slope is the procedural modifiers rather than the texture");
     }
 
-    // ---------------------------------------------------------------- the aim point
-
     /// <summary>
     /// How precisely a place can be <em>named</em>, which is a floor nothing downstream can beat.
     ///
@@ -553,8 +544,6 @@ public class KineticFloorTests(ITestOutputHelper Out)
         Out.WriteLine($"0.001 deg of latitude — what AimSite.Describe prints — is {R * (0.001 * Math.PI / 180.0):F0} m, "
                       + "and is display only: the stored value is a double and is never round-tripped through it");
     }
-
-    // ---------------------------------------------------------------- terminal guidance
 
     /// <summary>
     /// What a tail kit could still take out, given a perfect aim point.
@@ -628,8 +617,7 @@ public class KineticFloorTests(ITestOutputHelper Out)
     /// Whether terminal guidance removes the need for a steep arrival, or only the need for a good
     /// release.
     ///
-    /// <para><b>This is the question the whole 50 m -> 1 m plan turns on.</b> Five of the eight
-    /// terms in this file are heights, and a height becomes ground in proportion to
+    /// <para>Five of the eight terms in this file are heights, and a height becomes ground in proportion to
     /// <c>cot(gamma)</c> — so an unguided round cannot be a precision weapon at seven degrees at
     /// any price. A steered round is bounded by different things, and if it reaches the same floor
     /// on the arrival the mod already flies then the propellant a steep arrival costs buys
@@ -646,7 +634,7 @@ public class KineticFloorTests(ITestOutputHelper Out)
     /// whatever direction it arrives, and what is left is the sub-step alone.</para>
     ///
     /// <para><b>One term is deliberately absent and does not survive to the shallow end.</b> The
-    /// ground here is a smooth ball, so the terrain gain of section 5 — <c>slope / tan(gamma)</c>,
+    /// ground here is a smooth ball, so the terrain gain of <c>docs/KINETIC-FLOOR.md</c> section 5 — <c>slope / tan(gamma)</c>,
     /// which passes one and stops having a fixed point below about fifteen degrees — is not in
     /// these numbers. It multiplies whatever is left rather than adding to it, so it costs a
     /// guided round far less than an unguided one; but it is the one reason left to prefer a
@@ -699,8 +687,6 @@ public class KineticFloorTests(ITestOutputHelper Out)
                     $"2 g left {GroundMetres(steered, target):F2} m at {arrivalDeg:F1} deg, so the "
                     + "arrival angle is doing something to a steered round after all");
     }
-
-    // ---------------------------------------------------------------- helpers
 
     /// <summary>The spacing between representable doubles at a magnitude.</summary>
     private static double Ulp(double x)

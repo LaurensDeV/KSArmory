@@ -5,13 +5,8 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// What the post-boost vehicle's own thrusters buy, against the two things that move it off a
-/// solution the main burn arrived at exactly: the frame the cutoff landed on, and the decoupler
-/// that drops the spent stack.
-///
-/// <para>Scored where it matters — how far from the aim point the bus would arrive if it stopped
-/// here and fell — rather than on the loop's own intermediate numbers. A trim that reports zero
-/// velocity to gain and lands somewhere else has proved nothing.</para>
+/// Scored on where the bus would land if it stopped here and fell, not on the loop's own numbers:
+/// a trim that reports zero velocity to gain and lands somewhere else has proved nothing.
 /// </summary>
 public class BusTrimTests(ITestOutputHelper Out)
 {
@@ -36,11 +31,8 @@ public class BusTrimTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// How far from the aim point a free fall from here comes down.
-    ///
-    /// <para>Scored on the ground rather than at the committed instant, because that is what the
-    /// miss is: an along-track error is mostly a change in <em>when</em> the arc arrives, so a
-    /// position sampled at a fixed time under-reads it by most of an order of magnitude.</para>
+    /// Scored on the ground rather than at a fixed instant: an along-track error is mostly a change
+    /// in <em>when</em> the arc arrives, so a fixed-time sample under-reads it by nearly tenfold.
     /// </summary>
     private static double MissMetres(double3 positionCci, double3 velocityCci,
                                      double3 aimAtEpoch, double sinceEpoch)
@@ -52,10 +44,6 @@ public class BusTrimTests(ITestOutputHelper Out)
         return R * Vec.AngleBetween(hit.GroundFixedPointCci, Earth.CarryCci(aimAtEpoch, sinceEpoch));
     }
 
-    /// <summary>
-    /// Run the loop against a bus until it stops. Returns how long it took and how far off the
-    /// arrival the bus is left.
-    /// </summary>
     private (double Seconds, double Miss, TrimCommand Last) Trim(
         BusTrim trim, TrimBus bus, double3 aimAtEpoch, double3 referenceFrom, double3 referenceVelocity,
         double step, double maxSeconds = 300.0, bool log = false, double since = 0.0)
@@ -82,12 +70,8 @@ public class BusTrimTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// The whole job: a decoupler's shove is kilometres of miss, and the bus's own thrusters take
-    /// it back out.
-    ///
-    /// <para>Flown as 163 m for the one warhead that left before the split and 3.1–4.1 km for the
-    /// five that left after it. The shove here is the same 1.1 m/s, along the bus's own axis, which
-    /// is where a decoupler on the mounting joint puts it.</para>
+    /// The shove is 1.1 m/s along the bus's own axis, where a decoupler on the mounting joint puts
+    /// it; flown untrimmed, 163 m before the split and 3.1–4.1 km after it.
     /// </summary>
     [Fact]
     public void TheDecouplerShoveIsTakenBackOutBeforeAnythingLeaves()
@@ -123,14 +107,8 @@ public class BusTrimTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// Held, it still solves — and that is the whole reason the flag exists.
-    ///
-    /// <para>The trim waits for the bus to coast clear of the stack it dropped, because nulling the
-    /// decoupler's shove is nulling the separation. A loop that only starts looking once it is
-    /// allowed to act cannot tell an error that arrived with the separation from one that grew
-    /// during the wait, and those are different faults with different fixes. Flown: 203.83 m/s at
-    /// the moment it was released, against 1.23 m/s the flight before when it was not held at all.
-    /// </para>
+    /// A trim that only looked once allowed to fire could not tell an error that arrived with the
+    /// separation from one that grew during the clearance wait.
     /// </summary>
     [Fact]
     public void AHeldTrimStillSolvesAndStillFiresNothing()
@@ -189,8 +167,8 @@ public class BusTrimTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// A bus already on its solution fires nothing. The trim is on by default, so a launcher with
-    /// no decoupler and a clean cutoff has to pay nothing for it.
+    /// The trim is on by default, so a launcher with no decoupler and a clean cutoff has to pay
+    /// nothing for it.
     /// </summary>
     [Fact]
     public void ABusAlreadyOnItsSolutionFiresNothing()
@@ -233,12 +211,8 @@ public class BusTrimTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// It may not call itself finished on the state before the shove.
-    ///
-    /// <para>The split is deferred through the engine's input buffer, so for the first frames after
-    /// it is asked for the bus is still attached and exactly on its solution. A trim that stops
-    /// there stops on a problem that has not arrived, and nothing afterwards looks again — which is
-    /// the whole of the ordering bug this replaced.</para>
+    /// The split is deferred through the engine's input buffer, so for the first frames the bus is
+    /// still attached and exactly on its solution; a trim that stops there never looks again.
     /// </summary>
     [Fact]
     public void ItWillNotFinishBeforeTheShoveCouldHaveArrived()
@@ -293,13 +267,8 @@ public class BusTrimTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// A bus with only an axial pair still gets the axial error out, and says what it could not
-    /// reach rather than holding its warheads over it.
-    ///
-    /// <para><b>Not the shipped layout</b>, which has 4.243 units in every lateral direction — see
-    /// <see cref="BusAuthorityTests"/>. An axial-only bus is the case that exercises striking a
-    /// direction off, which is why it is tested: a loop that assumed three-axis authority would
-    /// push at nothing for ever.</para>
+    /// Not the shipped layout (<see cref="BusAuthorityTests"/>): an axial-only bus is what exercises
+    /// striking a direction off, where a loop assuming three-axis authority would push for ever.
     /// </summary>
     [Fact]
     public void ADirectionThatMovesNothingIsStruckOffRatherThanWaitedOn()
@@ -379,16 +348,8 @@ public class BusTrimTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// The answer does not depend on when the trim is asked, and that is the whole change.
-    ///
-    /// <para>A trim built on a re-solved transfer is only as good as the arrival time and aim point
-    /// it is parameterised by, and on a deorbit it demands about twenty metres a second more for
-    /// every second the arrival is out. Flown: a bus that owed 0.21 m/s at the split owed 228.97
-    /// after coasting 48 s clear of its spent stack, pushed by nothing at all. Nulling against the
-    /// trajectory the guidance actually flew to has no such parameter.</para>
-    ///
-    /// <para>The aim does not appear in <see cref="TrimSituation"/> at all any more, so the loop
-    /// that once wound the two together is gone by construction rather than by rule.</para>
+    /// A re-solved transfer demands about 20 m/s more per second the arrival is out on a deorbit;
+    /// nulling against the flown trajectory has no such parameter. docs/ICBM-GUIDANCE.md has the flight.
     /// </summary>
     [Theory]
     [InlineData(0.0)]
@@ -415,19 +376,14 @@ public class BusTrimTests(ITestOutputHelper Out)
 
         Out.WriteLine($"asked {delay,5:F0} s after cutoff -> owes {c.ToGainMetresPerSecond:F4} m/s");
 
-        // Still the shove five minutes later. It decays a few per cent rather than holding exactly,
-        // because the shoved vehicle is on a different conic and the two drift apart — which is the
-        // real answer rather than an error in it. The old formulation asked for hundreds.
+        // It decays a few per cent rather than holding exactly, because the shoved vehicle is on a
+        // different conic and the two drift apart — the real answer rather than an error in it.
         Assert.InRange(c.ToGainMetresPerSecond, 1.0, 1.15);
     }
 
     /// <summary>
-    /// Without the trajectory the burn was flown to there is nothing to trim towards, and it
-    /// refuses rather than inventing one.
-    ///
-    /// <para>Anything it could invent would be a transfer from wherever the vehicle happens to be,
-    /// which is the trajectory it is already on — so it would decide the bus was exactly where it
-    /// should be and null nothing, reporting success at a shot it never touched.</para>
+    /// Anything it invented would be a transfer from where the vehicle is, the trajectory it is
+    /// already on, so it would null nothing and report success.
     /// </summary>
     [Fact]
     public void WithNoCutoffSolutionItRefusesRatherThanInventingOne()
@@ -448,12 +404,8 @@ public class BusTrimTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// The residual is a timing limit, not a control error: it is what one step of the thrusters
-    /// adds, so a longer step leaves proportionally more behind.
-    ///
-    /// <para>Which is why the trim registers with the warp policy alongside a burn. It is the same
-    /// arithmetic that makes a guided cutoff unflyable at high timewarp, against a smaller number.
-    /// </para>
+    /// A timing limit, not a control error — the same arithmetic that makes a guided cutoff
+    /// unflyable at high timewarp, against a smaller number.
     /// </summary>
     [Theory]
     [InlineData(1.0 / 60.0)]
@@ -491,13 +443,8 @@ public class BusTrimTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// What the passes cost the tank, counted across all of them. A correction pass re-arms the
-    /// trim onto a moved arc, and a bus that arrives at the release dry cannot null the separation
-    /// impulse — 1.1 m/s of it is worth 3.8 km on this arc.
-    ///
-    /// <para>Measured in flight: 1,943 frames with thrusters firing against 24 settled, about
-    /// 36 m/s, on a bus carrying 70-90. <see cref="PostBoostAim.MaxTrimMetresPerSecond"/> is what
-    /// reads this.</para>
+    /// A correction pass re-arms the trim onto a moved arc, and a bus dry at the release cannot null
+    /// the separation. <see cref="PostBoostAim.MaxTrimMetresPerSecond"/> reads this total.
     /// </summary>
     [Fact]
     public void WhatTheThrustersSpendIsCountedAcrossPassesRatherThanPerNull()
@@ -525,11 +472,8 @@ public class BusTrimTests(ITestOutputHelper Out)
 
         Assert.True(afterFirst > 0.5, $"a 1.1 m/s null spent only {afterFirst:F2} m/s");
 
-        // A second pass: the arc moves under the bus and the trim is re-armed onto it, which is
-        // exactly what one post-boost correction pass does.
-        // Carried on from where the first left off. The trim solves against the cutoff trajectory
-        // propagated by SecondsSinceReference, so restarting that clock reads the coast since
-        // cutoff as error and the loop refuses the answer rather than firing at it.
+        // The clock carries on from the first pass: the trim propagates the cutoff trajectory by
+        // SecondsSinceReference, so restarting it reads the coast since cutoff as error.
         bus.VelocityCci += nose * 1.1;
         trim.Resume();
 
@@ -543,19 +487,8 @@ public class BusTrimTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// The flight-long budget is judged on what the tank has actually lost, whatever number of
-    /// nulls that was spread across — and it is asked every frame, which is where a caller keeping
-    /// its own running total comes apart.
-    ///
-    /// <para><see cref="BusTrim.SpentMetresPerSecond"/> is cumulative across every null — the test
-    /// above pins that — so banking it when a run finishes and adding the running total to the bank
-    /// counts each finished run once more for every run that follows. The overcount grows with the
-    /// square of the pass count rather than with the propellant, so it arrives suddenly and never
-    /// clears.</para>
-    ///
-    /// <para>In flight that stopped a bus on its third null having spent about a third of a 25 m/s
-    /// budget; it then coasted to release owing metres a second, which on this arc is kilometres —
-    /// docs/MIRV-NEXT.md item 0c.</para>
+    /// <see cref="BusTrim.SpentMetresPerSecond"/> is cumulative, so a caller banking it per run and
+    /// adding the running total overcounts with the square of the pass count. docs/MIRV-NEXT.md 0c.
     /// </summary>
     [Fact]
     public void TheBudgetIsWhatTheTankLost_NotWhatEachNullAddsToEveryNullAfterIt()
@@ -639,16 +572,8 @@ public class BusTrimTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// A spent budget ends the trim; a clearance wait does not. The two stops look alike from
-    /// outside and are opposite in the one way that matters.
-    ///
-    /// <para>Nothing releases a warhead until the trim is done — <c>IcbmComputer</c> holds the
-    /// salvo on <c>!Done</c> — so a stop that never lifts is the salvo never leaving. A clearance
-    /// wait lifts when the stack is clear. A tank does not refill, and only firing empties it, so a
-    /// budget expressed as withholding fire holds the warheads for the rest of the flight.</para>
-    ///
-    /// <para>Flown: a bus that rode to 7 km altitude with all six aboard, 215 m/s off a solution it
-    /// was not allowed to null — docs/MIRV-NEXT.md item 0c.</para>
+    /// <c>IcbmComputer</c> holds the salvo until the trim is Done, and a tank does not refill, so a
+    /// budget expressed as withheld fire holds the warheads for ever. docs/MIRV-NEXT.md 0c.
     /// </summary>
     [Fact]
     public void ASpentBudgetEndsTheTrim_WhereAClearanceWaitOnlyPausesIt()
@@ -665,7 +590,6 @@ public class BusTrimTests(ITestOutputHelper Out)
             DownCci = -Vec.Unit(fromCci),
         };
 
-        // Run one until it stops, or give up after this long. Returns what it last said.
         TrimCommand Fly(BusTrim trim, TrimBus bus, bool mayFire, double budget, double forSeconds)
         {
             double step = 1.0 / 60.0;
@@ -714,7 +638,6 @@ public class BusTrimTests(ITestOutputHelper Out)
         Assert.True(onClearance.ToGainMetresPerSecond > 0.0, "it stopped solving while it waited");
     }
 
-    /// <summary>A bus that has fired nothing has spent nothing, and a reset one starts again.</summary>
     [Fact]
     public void ABusThatHasNotFiredHasSpentNothing()
     {
@@ -727,14 +650,8 @@ public class BusTrimTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// The per-solve ceiling is sized by the caller, because it bounds two different jobs.
-    ///
-    /// <para>Nulling a decoupler's shove is ones of metres a second, and there an answer in the tens
-    /// really is the solve being asked the wrong question. Flying a deliberate aim correction is a
-    /// different currency and it grows with the trajectory — four of six shots at 12,902 km died on
-    /// the fixed ceiling of ten while asking for 11.5 to 13.4 m/s. A caller that says nothing gets
-    /// the old constant, and one that asks for less than it also gets the old constant: this may
-    /// only ever loosen, never tighten.</para>
+    /// A shove null is ones of m/s, an aim correction grows with the trajectory: four of six flown
+    /// shots at 12,902 km asked 11.5–13.4 m/s against the fixed ten.
     /// </summary>
     [Theory]
     [InlineData(double.NaN, true)]

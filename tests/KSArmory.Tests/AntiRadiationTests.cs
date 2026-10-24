@@ -132,10 +132,7 @@ public class AntiRadiationTests
 
         Assert.True(heard);
         Assert.Equal(RoundState.Detonated, state);
-        // The fuse triggers at FuseRadius + the target's radius, so 21 m is a hit. This is
-        // sampled once a frame while the round closes ~12 m per frame, so the recorded minimum
-        // sits a little above the true one -- loose enough to allow that, and nowhere near the
-        // hundreds of metres the miss cases record.
+        // 21 m is a hit; the 40 m bound is explained in ARadiatingSiteIsHit.
         Assert.True(closest < 40.0, $"closest approach was {closest:F0} m");
     }
 
@@ -190,8 +187,7 @@ public class AntiRadiationTests
     }
 
     /// <summary>
-    /// <see cref="TargetState.Emitting"/> defaults to true and only this guidance reads it, so
-    /// every other weapon behaves exactly as it did before the field existed.
+    /// <see cref="TargetState.Emitting"/> defaults to true and only this guidance reads it.
     /// </summary>
     [Fact]
     public void OtherGuidanceIgnoresEmissionEntirely()
@@ -202,10 +198,7 @@ public class AntiRadiationTests
         var (state, closest, heard) = Fly(_ => false, Site, Still, profile: seeker);
 
         Assert.Equal(RoundState.Detonated, state);
-        // The fuse triggers at FuseRadius + the target's radius, so 21 m is a hit. This is
-        // sampled once a frame while the round closes ~12 m per frame, so the recorded minimum
-        // sits a little above the true one -- loose enough to allow that, and nowhere near the
-        // hundreds of metres the miss cases record.
+        // 21 m is a hit; the 40 m bound is explained in ARadiatingSiteIsHit.
         Assert.True(closest < 40.0, $"closest approach was {closest:F0} m");
         Assert.False(heard, "only an anti-radiation round records an emission");
     }

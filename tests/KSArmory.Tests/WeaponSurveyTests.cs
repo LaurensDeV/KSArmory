@@ -89,9 +89,7 @@ public class WeaponSurveyTests
     }
 
     /// <summary>
-    /// Tree order, so "launcher 2" means the same thing between frames. The system already keys
-    /// on a part ordinal rather than a Part reference for this reason — KSA rebuilds the tree
-    /// during staging and docking.
+    /// Tree order, so "launcher 2" means the same thing between frames.
     /// </summary>
     [Fact]
     public void OrderFollowsTheCraft()
@@ -131,7 +129,6 @@ public class WeaponSurveyTests
         Assert.Empty(WeaponSurvey.Survey([At("KSArmory_Tube", 0, 0, 0)], []).Components);
     }
 
-    /// <summary>The shipped registry has to actually name the launcher the mod flies.</summary>
     [Fact]
     public void TheShippedRegistryFindsTheShippedLauncher()
     {
@@ -163,7 +160,7 @@ public class WeaponSurveyTests
     }
 
     /// <summary>
-    /// A craft can carry a camera and nothing else, and is still a weapons system worth showing:
+    /// A craft can carry a camera and nothing else, and is still an installation worth showing:
     /// the head is worth pointing by hand even with no radar to tell it where to look.
     /// </summary>
     [Fact]
@@ -178,9 +175,8 @@ public class WeaponSurveyTests
         Assert.True(inv.IsInstallation);
         Assert.Equal(1, inv.CountOf(WeaponRole.Camera));
 
-        // And emphatically not worth crewing. A system on a craft with no launcher falls back to
-        // whichever profile is first in the registry, then reports a head it cannot find and
-        // reloads a magazine it does not have -- which is what shipped for one commit.
+        // Not worth crewing: a system on a craft with no launcher would fall back to whichever
+        // profile is first in the registry and reload a magazine it does not have.
         Assert.False(inv.IsWeaponSystem);
         Assert.Equal(0, inv.CountOf(WeaponRole.Launcher));
     }
@@ -230,8 +226,6 @@ public class WeaponSurveyTests
 
         Assert.False(WeaponSurvey.Survey([Store("KSArmory_Guidance")], registry).HasGuidance);
     }
-
-    // ---- A store is not a craft ------------------------------------------
 
     /// <summary>
     /// The case a breakup produces and the editor forbids: a targeting pod or a missile rail as a
@@ -300,7 +294,7 @@ public class WeaponSurveyTests
 
     /// <summary>
     /// A prefab that stacks is the craft. The Pantsir and the CIWS sit on a node rather than on a
-    /// hull's flank, so one of them alone is a working weapons system and always was.
+    /// hull's flank, so one of them alone is a working weapons system.
     /// </summary>
     [Fact]
     public void APrefabThatStacksIsACraftOnItsOwn()

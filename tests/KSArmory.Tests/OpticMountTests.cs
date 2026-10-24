@@ -4,14 +4,8 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// A director whose base moves — riding a turret's traverse, a hinge, an arm, anything.
-///
-/// <para>The whole design is that the head reads where its base <em>is</em> rather than working it
-/// out from whatever moved it. So these pin the two halves of that: a mount carries the head's
-/// <em>position</em> and the surface it measures against, and it must <em>not</em> carry the head's
-/// aim — a ball already pointed at something does not swing when the thing under it turns. Getting
-/// the second wrong is invisible on a hull, where the mount is the identity, and wrong by the full
-/// traverse angle the moment anything rides a turret.</para>
+/// A moving base carries the head's position and the surface it measures against, never its aim. Carrying
+/// the aim is invisible on a hull, where the mount is the identity, and off by the whole traverse on a turret.
 /// </summary>
 public class OpticMountTests
 {
@@ -87,9 +81,8 @@ public class OpticMountTests
     }
 
     /// <summary>
-    /// The one that separates this design from composing the mover's angle in. A head is told where
-    /// to look in the part's frame, so turning its base must leave the aim alone — otherwise the
-    /// picture swings by the traverse every time the turret moves and the operator fights it.
+    /// A head is told where to look in the part's frame, so turning its base must leave the aim alone,
+    /// or the picture swings by the traverse every time the turret moves.
     /// </summary>
     [Fact]
     public void TurningTheMountDoesNotTurnWhereTheHeadLooks()

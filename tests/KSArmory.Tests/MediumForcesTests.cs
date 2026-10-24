@@ -23,11 +23,8 @@ public class MediumForcesTests
         NeutralDensityRatio = neutral,
     };
 
-    // ---- Buoyancy ---------------------------------------------------------
-
     /// <summary>
-    /// Zero switches the whole term off, which is what lets every round that only ever flies in air
-    /// behave exactly as it would if buoyancy had never been added.
+    /// Zero switches the whole term off, so a round that only ever flies in air feels no buoyancy.
     /// </summary>
     [Fact]
     public void ARoundWithNoNeutralDensityJustFalls()
@@ -52,8 +49,6 @@ public class MediumForcesTests
         Assert.True(Medium.Buoyancy(Gravity, Round(neutral: 840f), 400.0).Y < 0.0);
         Assert.True(Medium.Buoyancy(Gravity, Round(neutral: 840f), 1200.0).Y > 0.0);
     }
-
-    // ---- Drag -------------------------------------------------------------
 
     /// <summary>
     /// Nothing in a vacuum, nothing at rest, nothing for a round that declares no drag. Each of

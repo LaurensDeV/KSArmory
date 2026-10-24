@@ -34,7 +34,6 @@ public class BodyAttitudeTests
         Assert.True(Vec.Len(nose - Forward) < 1e-9, $"pointed {Fmt(nose)} instead of along the rack");
     }
 
-    /// <summary>Once it is really flying, the airflow decides and nothing else.</summary>
     [Fact]
     public void AtSpeedTheAirflowDecides()
     {
@@ -95,7 +94,6 @@ public class BodyAttitudeTests
                     $"turned {double.RadiansToDegrees(worst):F1} deg in one frame");
     }
 
-    /// <summary>Nothing usable leaves the attitude as it was, rather than a rotation of NaNs.</summary>
     [Fact]
     public void NothingUsableLeavesTheAttitudeAlone()
     {
@@ -142,7 +140,7 @@ public class BodyAttitudeTests
     ///
     /// <para>Nothing weathervanes in vacuum. Keyed on speed alone this is 7.3 km/s of "airflow"
     /// across the launcher, and the round snaps onto its orbital velocity the instant it
-    /// separates — which is a reentry vehicle flying sideways, seen in flight.</para>
+    /// separates, which is a reentry vehicle flying sideways.</para>
     /// </summary>
     [Fact]
     public void AStoreReleasedInVacuumDoesNotWeathervaneOntoItsOrbitalVelocity()
@@ -161,13 +159,13 @@ public class BodyAttitudeTests
         Assert.True(Vec.Len(Nose(BodyAttitude.Turn(AlongForward, orbital, 0.0, 10.0)) - Forward) < 1e-9,
                     "and a hard zero density must not divide by anything either");
 
-        // ...and the same round low down, where there IS air, still noses over as it always did.
+        // ...and the same round low down, where there IS air, still noses over.
         double3 inAir = Nose(BodyAttitude.Turn(AlongForward, orbital, 1.0, 1.0));
         Assert.True(Vec.Len(inAir - Vec.Unit(orbital)) < 1e-9,
                     $"in air the airflow still decides, got {Fmt(inAir)}");
     }
 
-    /// <summary>The sea-level band is unchanged, so every round fired before vacuum behaves alike.</summary>
+    /// <summary>In sea-level air the band runs from <see cref="BodyAttitude.NoAuthoritySpeed"/> to <see cref="BodyAttitude.FullAuthoritySpeed"/>.</summary>
     [Theory]
     [InlineData(1.0, 0.0)]
     [InlineData(41.0, 1.0)]

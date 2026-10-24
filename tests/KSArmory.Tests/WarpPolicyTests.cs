@@ -2,7 +2,6 @@ using Xunit;
 
 namespace KSArmory.Tests;
 
-/// <summary>The rules for keeping the world slow enough to simulate what is in the air.</summary>
 public class WarpPolicyTests
 {
     private const double Faithful = Interceptor.MaxFaithfulStep;
@@ -76,10 +75,8 @@ public class WarpPolicyTests
     /// <summary>
     /// The frame a speed change lands on is a hitch, and a frame rate is not inferred from it.
     ///
-    /// <para>The tell is that the speed cancels out of the formula, so a hitch of a given length
-    /// produces the <em>same</em> answer whatever the warp was — which is what made two very
-    /// different jumps both land on 1.5x. Asserted that way here: two speeds an order of magnitude
-    /// apart must not agree, because agreeing is the signature of having measured the hitch.</para>
+    /// <para>Read as a frame rate, the speed cancels out of the formula and a hitch gives the
+    /// <em>same</em> answer whatever the warp, so two speeds an order of magnitude apart must not agree.</para>
     /// </summary>
     [Fact]
     public void AHitchIsNotAFrameRate()
@@ -477,13 +474,6 @@ public class WarpPolicyTests
         Assert.Equal(WarpAction.Yield, last.Action);
         Assert.True(policy.Yielded);
     }
-
-    // ---- The step is the round's, not a constant -------------------------
-    //
-    // The world is slowed to whatever step the rounds in the air need. For a hard-manoeuvring
-    // interceptor that is a fraction of a second, which costs the player their timewarp for a
-    // twenty-second engagement. For a round that coasts ballistically it can be far longer, and
-    // holding the world down for a flight lasting minutes is what trips Abandon below.
 
     [Fact]
     public void ARoundThatToleratesALongerStepBuysBackMoreSpeed()

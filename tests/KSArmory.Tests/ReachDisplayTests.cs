@@ -392,18 +392,14 @@ public class ReachDisplayTests(ITestOutputHelper Out)
         Assert.False(reach.HasRegion);
     }
 
-    // ------------------------------------------------- the hop is measured where it is charged
-
     /// <summary>
-    /// <b>The check and the charge are one question.</b> Two targets on opposite edges of the ring
-    /// are twice its radius apart, and the second is refused.
+    /// The check and the charge are one question: two targets on opposite edges of the ring are twice
+    /// its radius apart, and the second is refused.
     /// </summary>
     /// <remarks>
-    /// <para>Measured from the <em>landing</em> both clicks are inside the ring and both were taken —
-    /// while <see cref="ReleaseItinerary"/> charges the hop between consecutive stops, so the pair
-    /// costs about 20 m/s against a 10 m/s ring and <c>ReleaseLoop</c> then refuses the whole walk.
-    /// The test states the old measurement beside the new one, so it cannot pass against the form it
-    /// exists to detect.</para>
+    /// Measured from the <em>landing</em> both clicks are inside the ring, but <see cref="ReleaseItinerary"/>
+    /// charges the hop between consecutive stops, about 20 m/s against a 10 m/s ring, and <c>ReleaseLoop</c>
+    /// then refuses the whole walk. The test asserts the landing-measured form too, so it cannot pass against it.
     /// </remarks>
     [Fact]
     public void ASecondTargetIsMeasuredFromTheStopTheHopLeavesFrom()
@@ -423,7 +419,7 @@ public class ReachDisplayTests(ITestOutputHelper Out)
         // The opposite edge is one ring radius from the landing and two from the stop the bus is on.
         Assert.Equal(ReachVerdict.OutsideReach, two.Verdict(TargetClick.Add, true, 0.0, -edge));
 
-        // And that is exactly what the old form got wrong: from the landing it is inside the ring.
+        // Measured from the landing, the same click is inside the ring.
         Assert.True(two.Footprint.Reaches(0.0, -edge, two.HopMetresPerSecond),
                     "measured from the landing the click is inside the ring, so this test proves nothing");
 
@@ -452,12 +448,9 @@ public class ReachDisplayTests(ITestOutputHelper Out)
     /// <c>ReleaseLoop</c> requires of a plan it is asked to fly.
     /// </summary>
     /// <remarks>
-    /// <para>It refuses outright a plan whose first stop is not the lead — <b>which was every real
-    /// set</b>, because the ordering was farthest-from-the-landing first and the lead sits <em>at</em>
-    /// the landing, so it sorted last and the bus would have walked out to the far end and back.</para>
-    ///
-    /// <para>And a stop that named a position in some re-ordered array rather than in the list the
-    /// lead indexes would aim the walk at the wrong entry, silently.</para>
+    /// <para>It refuses a plan whose first stop is not the lead; the lead sits <em>at</em> the landing, so a
+    /// farthest-first order puts it last. A stop naming a position in a re-ordered array rather than the
+    /// list the lead indexes would aim the walk at the wrong entry, silently.</para>
     /// </remarks>
     [Theory]
     [InlineData(0)]
@@ -487,12 +480,9 @@ public class ReachDisplayTests(ITestOutputHelper Out)
         Assert.Equal(plan.Stops[^1].Target + 1, walk.FromTarget);
     }
 
-    // ------------------------------------------------- a set of one is untouched
-
     /// <summary>
-    /// <b>Nothing R1 added can move a single-target flight.</b> With one place on the list the walk
-    /// is that place, the ring is around the landing, and the itinerary is the one stop it has always
-    /// been — whatever the lead index, the phase or the way the footprint was priced.
+    /// With one place on the list the walk is that place, the ring is around the landing, and the
+    /// itinerary is one stop, whatever the lead index, the phase or the way the footprint was priced.
     /// </summary>
     /// <remarks>
     /// Structural rather than by inspection: the flight reads <c>TargetSet.Primary</c> and

@@ -35,10 +35,6 @@ public class ThreatModelTests
     private static TrackState Threat(double timeToCpa) =>
         new() { IsThreat = true, TimeToClosestApproach = timeToCpa };
 
-    // ---------------------------------------------------------------------------------------
-    // Search volume
-    // ---------------------------------------------------------------------------------------
-
     [Fact]
     public void ATargetBeyondRangeIsNotSeen()
     {
@@ -72,10 +68,6 @@ public class ThreatModelTests
         SensorProfile s = Sensor();
         Assert.False(ThreatModel.TryAssess(double3.Zero, new double3(0, 100, 0), Up, s, Unseen, out _));
     }
-
-    // ---------------------------------------------------------------------------------------
-    // Threat classification — the crossing-target requirement
-    // ---------------------------------------------------------------------------------------
 
     [Fact]
     public void ACrossingTargetThatWillPassCloseIsAThreat()
@@ -258,10 +250,6 @@ public class ThreatModelTests
         Assert.False(ThreatModel.InSensorVolume(wide, Up, s, Unseen));
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Ranking a contested list — CHECKLIST.md 7.2
-    // ---------------------------------------------------------------------------------------
-
     [Fact]
     public void TracksSortMostImmediateThreatFirst()
     {
@@ -327,10 +315,6 @@ public class ThreatModelTests
         ];
         Assert.Equal(1, ThreatModel.IndexOfMostUrgent(tracks));
     }
-
-    // ---------------------------------------------------------------------------------------
-    // Salvo allocation — what stops one contact eating the whole magazine
-    // ---------------------------------------------------------------------------------------
 
     [Fact]
     public void ATrackStopsAcceptingRoundsAtTheSalvoLimit()
@@ -408,7 +392,6 @@ public class ThreatModelTests
         Assert.Equal([800.0, 4000.0, 8000.0], tracks.Select(t => t.Range));
     }
 
-    /// <summary>And a threat still outranks every non-threat, however near they are.</summary>
     [Fact]
     public void AThreatOutranksACloserNonThreat()
     {

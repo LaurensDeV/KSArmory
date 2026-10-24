@@ -100,8 +100,7 @@ public class CursorAimTests
     /// <summary>
     /// The camera unprojects against its framebuffer, which a render or display scale makes a
     /// different size from the window. Getting only the viewport offset right leaves an error
-    /// that is zero at the top-left and grows across the screen — "close, but not under the
-    /// pointer", which is exactly how it looked.
+    /// that is zero at the top-left and grows across the screen.
     /// </summary>
     [Fact]
     public void TheCursorIsScaledIntoFramebufferPixels()
@@ -142,8 +141,6 @@ public class CursorAimTests
                                                 800, 600, 1600, 1200, out _));
     }
 
-    // ---- The cursor is aimed from the mount, not from the camera ----------
-    //
     // A direction has no origin, so pointing a drive down the camera's ray is only right for
     // something infinitely far away. These pin the near case, where it is not.
 
@@ -178,8 +175,8 @@ public class CursorAimTests
     }
 
     /// <summary>
-    /// Why it went unnoticed: against the sky the two answers are the same to well under what a
-    /// drive can resolve. Aiming above the launcher was always going to look perfect.
+    /// Against the sky the two answers are the same to well under what a drive can resolve, so a
+    /// test aimed above the launcher cannot tell them apart.
     /// </summary>
     [Fact]
     public void AimingAtTheSkyIsIndistinguishableFromTheCamerasOwnDirection()

@@ -181,9 +181,8 @@ public class GroundImpactTests
     /// against the round by <c>bodyVelocity × (frame − elapsed)</c> — and the round then stops when
     /// *that* distance reaches the radius rather than when it reaches the ground.
     ///
-    /// <para>Flown at 29.8 km/s of carrier before the drift was carried: stop heights of 248–412 m,
-    /// which at the 13.8° arrival of a reentry vehicle is 1.0–1.7 km of ground.
-    /// <c>docs/MIRV-NEXT.md</c> items 8l and 8n.</para>
+    /// <para>Flown with the centre held for the frame: stop heights of 248–412 m, which at the 13.8°
+    /// arrival of a reentry vehicle is 1.0–1.7 km of ground. <c>docs/MIRV-NEXT.md</c> items 8l and 8n.</para>
     ///
     /// <para>The body's velocity is set across the radius rather than along it, so both a radial
     /// and a tangential component exist — which is what any real geometry gives.</para>

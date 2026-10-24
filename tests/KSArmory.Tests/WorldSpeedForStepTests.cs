@@ -7,12 +7,10 @@ namespace KSArmory.Tests;
 /// Asking the world for a step rather than a speed, which is what makes two machines the same
 /// experiment. <c>docs/MIRV-NEXT.md</c> <b>8ac</b>.
 ///
-/// <para>The scenario asked for its whole coast this way once and it was the wrong span: forty
-/// minutes of cruise in which nothing is integrated, pinned to a step it did not need, at four times
-/// the wall clock a shot. What needs the step is the trim, and <c>BusTrim.MaxFaithfulStep</c> is
-/// where it is asked for now — through <see cref="WarpPolicy"/>, which already holds the world down
-/// for anything being integrated. This stays as the arithmetic for turning a wanted step into a
-/// speed, which is the part that was right.</para>
+/// <para>Not for a whole coast, where nothing is integrated and the pinned step costs four times
+/// the wall clock a shot. What needs the step is the trim, which asks for
+/// <c>BusTrim.MaxFaithfulStep</c> through <see cref="WarpPolicy"/>; this is the arithmetic for
+/// turning a wanted step into a speed.</para>
 /// </summary>
 public class WorldSpeedForStepTests(ITestOutputHelper Out)
 {

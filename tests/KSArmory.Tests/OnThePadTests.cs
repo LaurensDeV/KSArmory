@@ -3,13 +3,10 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// The test the phase machine picks a vehicle up by, asked directly.
-///
-/// <para>It is public because a scripted shot has to know a rocket is still on the pad before it
-/// lights it, and the two questions have to be one function. A second copy of this rule drifts
-/// silently: the failure is a launch sequence entered for a vehicle already in the air, which flies
-/// a pitch programme from wherever it happens to be.</para>
+/// The phase machine and a scripted shot share this one test: a drifted copy enters a launch
+/// sequence on a vehicle already in the air, which flies a pitch programme from wherever it is.
 /// </summary>
+
 public class OnThePadTests
 {
     private const double TurnStart = 800.0;

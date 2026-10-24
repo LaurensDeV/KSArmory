@@ -8,12 +8,11 @@ namespace KSArmory.Tests;
 /// What a steeper arrival costs the <em>trim</em>, which is the account
 /// <see cref="ArrivalBudget.SteepestAffordableDeg"/> does not keep.
 ///
-/// <para><c>docs/ACCURACY-PLAN.md</c> item 5c, answered here and not the way it was asked. The
-/// budget prices what the <b>ascent</b> can pay to reach an angle and answers 67 degrees; flown at
-/// 54 the trim ran out and the shot lost 5.55x, so the standing reading was that a steep arrival is
-/// dear for the bus to correct on. It is not: at a fixed departure the exchange rate falls
-/// monotonically as the floor steepens, because a steeper floor is bought with a <em>longer</em>
-/// transfer and the rate is set by the transfer time.</para>
+/// <para><c>docs/ACCURACY-PLAN.md</c> item 5c. The budget prices what the <b>ascent</b> can pay
+/// to reach an angle and answers 67 degrees. A steep arrival is not dear for the bus to correct on:
+/// at a fixed departure the exchange rate falls monotonically as the floor steepens, because a
+/// steeper floor is bought with a <em>longer</em> transfer and the rate is set by the transfer
+/// time.</para>
 ///
 /// <para>What the floor really runs into is a wall — past some angle no arc satisfying it exists
 /// from where the burn leaves the vehicle at all, and the guidance falls back to a short steep one

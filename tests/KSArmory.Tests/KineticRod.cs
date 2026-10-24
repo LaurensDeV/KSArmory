@@ -17,8 +17,6 @@ namespace KSArmory.Tests;
 /// </summary>
 internal static class KineticRod
 {
-    // ---- the rod ---------------------------------------------------------
-
     /// <summary>Project Thor's rod: 6.1 m by 0.3 m of tungsten, which is what fixes every number below.</summary>
     public const double LengthMetres = 6.1;
 
@@ -108,8 +106,6 @@ internal static class KineticRod
         HitsTerrain = true,
     };
 
-    // ---- flying it -------------------------------------------------------
-
     /// <summary>Where a rod is and what it is doing when it reaches the top of the air.</summary>
     /// <param name="Altitude">Height above the mean sphere (m).</param>
     /// <param name="Speed">Inertial speed (m/s).</param>
@@ -198,8 +194,8 @@ internal static class KineticRod
     /// <param name="authority">Null steers with the profile's own ceiling and never varies it.</param>
     /// <param name="stepInAir">
     /// The frame the round is handed once there is air, which is what <c>WarpPolicy</c> holds the
-    /// world to through <see cref="IProjectile.FaithfulStepSeconds"/>. A rod arrives four times
-    /// faster than a Mk 21 does, so what that step costs is its own question.
+    /// world to through <see cref="IProjectile.FaithfulStepSeconds"/>. A rod arrives nearly three
+    /// times faster than a Mk 21 does, so what that step costs is its own question.
     /// </param>
     public static Flight Fly(MunitionProfile munition, Entry entry, double3? aimGroundFixed,
                              Authority? authority = null, double stepInAir = 0.02)
@@ -368,8 +364,6 @@ internal static class KineticRod
         double3 up = Vec.Unit(groundPoint);
         double3 normal = new(0, 0, 1);
 
-        // The plane's normal is +z and every ground point here lies in it, so +z is already the
-        // out-of-plane tangent and the in-plane one is what is left.
         double3 direction = lateral ? normal : Vec.Unit(Vec.Cross(normal, up));
 
         return Vec.Unit(groundPoint + (direction * metres)) * DeorbitShot.R;

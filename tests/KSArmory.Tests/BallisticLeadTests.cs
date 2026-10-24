@@ -167,8 +167,8 @@ public class BallisticLeadTests
     }
 
     /// <summary>
-    /// The case point defence exists for, and the one the old fixed four passes was never
-    /// calibrated against: a target moving at a large fraction of the shell's own speed.
+    /// The case point defence exists for: a target moving at a large fraction of the shell's own
+    /// speed.
     ///
     /// <para>The iteration contracts by roughly the speed ratio per pass, so against an aircraft
     /// at a twentieth of muzzle speed four passes is plenty and against an inbound missile at

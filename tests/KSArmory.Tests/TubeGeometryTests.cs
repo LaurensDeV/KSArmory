@@ -46,8 +46,6 @@ public class TubeGeometryTests
             $"but got ({actual.X:F6},{actual.Y:F6},{actual.Z:F6})");
     }
 
-    // ---- Tube positions ------------------------------------------------
-
     [Fact]
     public void AnUnrotatedPodPutsATubeWhereTheProfileSaysItIs()
     {
@@ -83,8 +81,6 @@ public class TubeGeometryTests
         Assert.False(TubeGeometry.TryMuzzlePartFrame(profile, tubeIndex, Vec.Zero, doubleQuat.Identity, out _));
         Assert.False(TubeGeometry.TrySeatedPartFrame(profile, tubeIndex, Vec.Zero, doubleQuat.Identity, 3.0, out _));
     }
-
-    // ---- Tube direction ------------------------------------------------
 
     /// <summary>
     /// The elevation convention, stated exactly. X is the traverse axis, so it carries the
@@ -155,8 +151,6 @@ public class TubeGeometryTests
         }
     }
 
-    // ---- Per-tube direction --------------------------------------------
-
     /// <summary>
     /// A tube with no direction of its own follows the pods. That is the parallel-bundle case, what
     /// the model generator emits, and what every tube on the Pantsir does.
@@ -202,7 +196,6 @@ public class TubeGeometryTests
         double3 right = TubeGeometry.TubeAxisPodFrame(splayed, 1);
         double3 centre = TubeGeometry.TubeAxisPodFrame(splayed, 2);
 
-        // Each canted tube is a unit vector along its own declared direction.
         AssertClose(Vec.Unit(new double3(0, 1, 1)), left, "left tube");
         AssertClose(Vec.Unit(new double3(0, 1, -1)), right, "right tube");
 
@@ -297,8 +290,6 @@ public class TubeGeometryTests
         AssertClose(new double3(2, 2, 0), b, "tube 1 seated");
     }
 
-    // ---- Seating -------------------------------------------------------
-
     /// <summary>
     /// A seated round sits half a body back from the mouth, along the tube. The mesh is modelled
     /// about its centre, so seating it at the mouth leaves half of it sticking out of the tube.
@@ -337,8 +328,6 @@ public class TubeGeometryTests
                 "the round is seated on the wrong side of the mouth - it would fly backwards out of the tube");
         }
     }
-
-    // ---- The drives ----------------------------------------------------
 
     /// <summary>
     /// Subparts do not nest in KSA, so the pods are a sibling of the turret and their
@@ -415,8 +404,6 @@ public class TubeGeometryTests
         AssertClose(combined * probe, split.Rotation * probe, "composed search-array rotation");
     }
 
-    // ---- Boresight modes -----------------------------------------------
-
     /// <summary>
     /// Local "up" is not a part-frame direction — it depends on where the parent body is — so it
     /// must be refused rather than guessed at. A mode that silently fell back to +X would leave a
@@ -447,8 +434,8 @@ public class TubeGeometryTests
     }
 
     /// <summary>
-    /// The other half of the pair, and the axis <see cref="BoresightMode.PartForward"/> used to
-    /// return. A sight that looks away from its mount wants this one; a seeker never does.
+    /// The other half of the pair: a sight that looks away from its mount wants this one; a seeker
+    /// never does.
     /// </summary>
     [Fact]
     public void MountNormalIsTheMountingFaceAndIgnoresTheDrives()
@@ -480,7 +467,6 @@ public class TubeGeometryTests
 
         Assert.True(Vec.Len(low - high) > 0.1, "the turret-slaved boresight did not move with the drives");
 
-        // And it is genuinely the tube axis, not something adjacent to it.
         DrivePose pose = TubeGeometry.PodPose(profile, 0.0, 0.2);
         AssertClose(TubeGeometry.TubeAxisPartFrame(profile, pose.Rotation, 0), low, "turret-axis boresight");
     }
@@ -499,8 +485,6 @@ public class TubeGeometryTests
             }
         }
     }
-
-    // ---- The cannon ------------------------------------------------------
 
     /// <summary>
     /// The cannon use the same drive as the pods on a different trunnion, so everything the pods
@@ -567,8 +551,6 @@ public class TubeGeometryTests
         Assert.Null(noGuns.GunsMarker);
     }
 
-    // ---- The muzzle ring fallback --------------------------------------
-
     [Fact]
     public void TheMuzzleRingSitsOnTheBoresightAtTheRightRadius()
     {
@@ -606,8 +588,6 @@ public class TubeGeometryTests
             }
         }
     }
-
-    // ---- Round bodies in flight ----------------------------------------
 
     /// <summary>
     /// A round that has not moved is exactly at its anchor. Any offset here appears in game as the
@@ -693,8 +673,6 @@ public class TubeGeometryTests
         AssertClose(expected, Vec.Unit(rotation * FireGeometry.NoseAxis), "body nose through both frames");
     }
 
-    // ---- Body roll -----------------------------------------------------
-
     /// <summary>
     /// A bomb nosing over falls in one plane, and a finned store does not roll out of it. Swinging
     /// the mesh's nose onto the flight direction by the shortest arc leaves the roll to whatever
@@ -727,10 +705,8 @@ public class TubeGeometryTests
     }
 
     /// <summary>
-    /// A round that has been released is gone. Building its attitude in the part frame glues the
-    /// roll to the launcher: a degree per degree the craft turns, on rounds already in the air.
-    /// The nose was fixed for this reason — see <c>IProjectile.ReleaseHeadingEcl</c> — and the roll
-    /// was left.
+    /// Building a released round's attitude in the part frame glues its roll to the launcher: a
+    /// degree per degree the craft turns, on rounds already in the air.
     /// </summary>
     [Fact]
     public void TurningTheCraftAfterReleaseDoesNotTurnTheRound()
@@ -791,8 +767,8 @@ public class TubeGeometryTests
     }
 
     /// <summary>
-    /// A round with no launch attitude recorded — one loaded from a save written before the field
-    /// existed — still leaves along its heading, on the shortest arc it always used.
+    /// A round whose launch attitude is unset (the default quaternion) still leaves along its
+    /// heading, on the shortest arc from the nose.
     /// </summary>
     [Fact]
     public void WithNoLaunchAttitudeRecordedTheNoseIsStillRight()
@@ -807,8 +783,6 @@ public class TubeGeometryTests
         AssertClose(Vec.Unit(asmb2Part * (ecl2Asmb * release)),
                     Vec.Unit(rotation * FireGeometry.NoseAxis), "body nose");
     }
-
-    // ---- Fins ----------------------------------------------------------
 
     [Fact]
     public void FinsGrowFromStowedToFullSpanWithoutChangingLength()
@@ -844,14 +818,8 @@ public class TubeGeometryTests
     }
 
     /// <summary>
-    /// A non-finite deployment is <em>not</em> laundered into a valid span, because
-    /// <c>Math.Clamp(NaN, ..)</c> is NaN. That makes the caller's finite check load-bearing rather
-    /// than defensive: <c>LauncherPart.TryPlaceFins</c> refuses the write, so the fins hold their
-    /// last good transform instead of being handed a singular one.
-    ///
-    /// <para>Pinned rather than fixed here on purpose. Clamping NaN to stowed would silently change
-    /// what the engine is handed in a case no test can reach, and this repository does not ship
-    /// behaviour changes it cannot verify in flight.</para>
+    /// <c>Math.Clamp(NaN, ..)</c> is NaN, so the caller's finite check is load-bearing:
+    /// <c>LauncherPart.TryPlaceFins</c> refuses the write and the fins hold their last good transform.
     /// </summary>
     [Fact]
     public void ANonFiniteDeploymentStaysNonFiniteSoTheCallerRejectsIt()
@@ -861,18 +829,9 @@ public class TubeGeometryTests
         Assert.False(Vec.IsFinite(TubeGeometry.FinScale(munition, double.NaN)));
     }
 
-    // ---- The anchor is a world point, not a part-frame one -----------------
-
     /// <summary>
-    /// A craft that rolls after firing must not drag the round with it.
-    ///
-    /// <para>The anchor is where the tube <em>was</em>, written down in the launcher's frame. The
-    /// travel term is re-converted through the craft's current attitude every frame and so stays
-    /// put; the anchor was not, so a rolling launcher swung every round already in flight about its
-    /// own centre. The lever arm is the whole distance from tube to centre of mass — metres on a
-    /// stack, and plainly visible in orbit.</para>
-    ///
-    /// <para>Checked where it matters: back out in the world, which is what a player sees.</para>
+    /// The anchor is where the tube was, in the launcher's frame at launch, so it has to be carried
+    /// through the craft's turn since as the travel is. Checked back in the world the player sees.
     /// </summary>
     [Fact]
     public void RollingTheCraftDoesNotMoveARoundAlreadyInFlight()
@@ -903,7 +862,6 @@ public class TubeGeometryTests
         }
     }
 
-    /// <summary>A launcher that never turns is untouched by any of this.</summary>
     [Fact]
     public void AnUnturnedCraftLeavesTheAnchorExactlyWhereItWas()
     {
@@ -913,7 +871,6 @@ public class TubeGeometryTests
                     "identity carry");
     }
 
-    /// <summary>An attitude that was never recorded must leave the anchor exactly as it is.</summary>
     [Fact]
     public void AnUnsetAttitudeLeavesTheAnchorAlone()
     {

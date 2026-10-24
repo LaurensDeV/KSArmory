@@ -3,9 +3,8 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// A frame in which the mod's hook never runs. KSA's screenshot capture sets
-/// <c>Program.DrawUI = false</c>, and the engine guards the call this mod postfixes with it, so
-/// the hook is not called at all — while the world keeps stepping.
+/// A frame in which the mod never steps while the world does. The next frame's span between step
+/// boundaries has to carry it, or the missed interval lands in the drawn offset.
 /// </summary>
 public class SkippedFrameTests
 {
@@ -69,7 +68,7 @@ public class SkippedFrameTests
         StepGate<Stamp> gate = new();
         gate.Consume(At(0.016), 0.016, Span);
 
-        // The gate's whole reason for existing survives the new argument.
+        // The span does not let a repeat through.
         Assert.Equal(0.0, gate.Consume(At(0.016), 0.016, Span));
     }
 

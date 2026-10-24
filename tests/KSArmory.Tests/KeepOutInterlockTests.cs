@@ -9,13 +9,11 @@ namespace KSArmory.Tests;
 ///
 /// <para><b>Why a gate was not enough.</b> <see cref="SeparationClearance"/> is consulted before a
 /// pass begins, and a pass that begins clear can still close the gap — because closing it is what
-/// nulling the relative velocity <em>does</em>. Flown 2026-08-25: a clearance latch let a pass run
-/// on a stale reading and the bus hit its own spent stack, 28 s of thrashing ending in
-/// <c>nothing left aboard moves the bus</c>.</para>
+/// nulling the relative velocity <em>does</em>. Flown, a pass on a stale clearance reading put the
+/// bus into its own spent stack.</para>
 ///
-/// <para>So the check moved inside the command. Every case here is about one frame's choice of
-/// direction rather than about the manoeuvre as a whole, because that is the granularity the fault
-/// had.</para>
+/// <para>So the check is inside the command, and every case here is about one frame's choice of
+/// direction rather than about the manoeuvre as a whole.</para>
 /// </summary>
 public class KeepOutInterlockTests(ITestOutputHelper Out)
 {
@@ -226,8 +224,7 @@ public class KeepOutInterlockTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// A caller with nothing to say passes the default, and the default is no constraint — so
-    /// every existing site behaves exactly as it did before the field existed.
+    /// A caller with nothing to say passes the default, and the default is no constraint.
     /// </summary>
     [Fact]
     public void TheDefaultSituationCarriesNoConstraint()

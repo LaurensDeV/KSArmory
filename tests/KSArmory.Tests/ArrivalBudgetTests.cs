@@ -27,10 +27,6 @@ public class ArrivalBudgetTests
                                                    Equator(separationRad), availableMetresPerSecond);
     }
 
-    /// <summary>
-    /// The whole point of the control: more in the tanks buys a steeper arrival. If this were flat
-    /// the clamp would be a decoration.
-    /// </summary>
     [Fact]
     public void MoreDeltaVBuysASteeperArrival()
     {
@@ -41,11 +37,6 @@ public class ArrivalBudgetTests
         Assert.True(fat > lean, $"{fat:F1} deg on 11 km/s against {lean:F1} on 7");
     }
 
-    /// <summary>
-    /// And it is a real bound rather than a preference: what it returns has to be affordable, and a
-    /// step past it has to not be. Anything else is a slider that lies in one direction or the
-    /// other.
-    /// </summary>
     [Fact]
     public void TheAnswerIsAffordableAndTheNextStepUpIsNot()
     {
@@ -73,9 +64,7 @@ public class ArrivalBudgetTests
     }
 
     /// <summary>
-    /// A stack that cannot fly the shot at all reports <b>zero</b>, not NaN. The two mean different
-    /// things to the panel — one is "you are short of propellant", which the reach readout already
-    /// says in words, and the other is "nothing has been costed yet".
+    /// Zero and NaN mean different things to the panel: short of propellant, against nothing costed yet.
     /// </summary>
     [Fact]
     public void AStackThatCannotAffordAnyArcReportsZeroRatherThanNothing()

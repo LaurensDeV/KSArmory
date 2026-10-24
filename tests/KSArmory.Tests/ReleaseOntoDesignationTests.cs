@@ -64,8 +64,8 @@ public class ReleaseOntoDesignationTests
     [Fact]
     public void ASingleStoreRackHasNoSalvoToSize()
     {
-        // The slider was showing 2 on a rack that holds one bomb, because its range collapsed to
-        // 1..1 while the stored default stayed. Below two there is nothing to choose.
+        // A stored default of 2 must not show on a rack holding one bomb: below two there is nothing to choose.
+
         LauncherProfile rack = Catalogue.LauncherForPart("KSArmory_Prefab_NukeRack")!;
         WeaponFit fit = WeaponFit.Of(rack, Catalogue.SensorNamed(rack.Sensor));
         Assert.True(fit.SalvoCapacity <= 1);

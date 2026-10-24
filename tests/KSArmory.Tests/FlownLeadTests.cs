@@ -406,8 +406,8 @@ public class FlownLeadTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// The harness above is only evidence if the old lead fails in it. Timed as if the shell kept its
-    /// muzzle speed, the burst at 15.7 km is short by the seconds the air took.
+    /// The harness above is only evidence if a lead timed as if the shell kept its muzzle speed fails
+    /// in it: the burst at 15.7 km is short by the seconds the air took.
     /// </summary>
     [Fact]
     public void TheLeadThatAssumesMuzzleSpeedBurstsFarShortAtRange()
@@ -481,11 +481,9 @@ public class FlownLeadTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// A CIWS against a drone coming at it: the closest approach is found by interpolating across a
-    /// whole integration step, and at a head-on closing speed of 1,300 m/s the timing error left in
-    /// it was 0.1 to 0.15 m of miss that no turn of the barrel takes out. The solve stalled short of
-    /// its tolerance and gave up -- and, seeded from last frame's answer, gave up on the frame after
-    /// every one it solved, so the gun swung between the lead and the target every other frame.
+    /// A CIWS against a drone coming at it, closing head-on at 1,300 m/s: a closest approach
+    /// interpolated across a whole integration step leaves 0.1 to 0.15 m of miss that no turn of the
+    /// barrel takes out, below which the solve stalls against its tolerance.
     /// </summary>
     [Theory]
     [InlineData(0.3, 0.8, 250.0, 10.0, 11.0)]

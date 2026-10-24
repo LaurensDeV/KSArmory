@@ -4,19 +4,14 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// What a round is allowed to shoot at.
-///
-/// <para>Guidance needs a position, a velocity and a size. Nothing about it cares whether those
-/// came from a craft, a component, or a coordinate — which is what lets a ground-attack round
-/// exist alongside an anti-air one in the same flight model.</para>
+/// Guidance needs a position, a velocity and a size, and does not care whether they came from a
+/// craft, a component or a coordinate.
 /// </summary>
 public class AimpointTests
 {
     private static readonly object Handle = new();
     private static readonly object TargetHandle = new();
     private static readonly double3 NoGravity = new(0, 0, 0);
-
-    // ---- Construction ----------------------------------------------------
 
     [Fact]
     public void AVehicleAimpointKeepsItsHandleAndKinematics()
@@ -44,8 +39,8 @@ public class AimpointTests
     }
 
     /// <summary>
-    /// A coordinate has nothing in the world behind it, so it can never be lost. That is the
-    /// whole point: a bomb aimed at a position keeps its aimpoint until it arrives.
+    /// A coordinate has nothing in the world behind it, so a bomb aimed at one keeps its aimpoint
+    /// until it arrives.
     /// </summary>
     [Fact]
     public void APointAimpointNeedsNothingFromTheWorld()
@@ -82,12 +77,6 @@ public class AimpointTests
         Assert.Equal(a.Radius, t.Radius);
     }
 
-    // ---- Flying at each kind ---------------------------------------------
-
-    /// <summary>
-    /// The flight model is indifferent to the kind. A round flown at a stationary coordinate must
-    /// arrive and fuse exactly as one flown at a craft does.
-    /// </summary>
     // Indexed rather than typed: xUnit requires a public test class, and AimpointKind is
     // internal, so it cannot appear in a public signature.
     [Theory]
@@ -128,13 +117,8 @@ public class AimpointTests
     }
 
     /// <summary>
-    /// A designated round carries <b>no handle at all</b>, and must still guide and fuse.
-    ///
-    /// <para>Every other test here hands the round a target object as well as an aimpoint, so a
-    /// null one is never exercised — but that is exactly what an operator pointing at a place
-    /// produces, because <see cref="Aimpoint.AtPoint"/> has nothing to name. Guidance keys on the
-    /// per-frame target state rather than on the handle, and this is what holds that: tie steering
-    /// to <c>TargetRef</c> and a designated round flies straight on and expires.</para>
+    /// Every other test here hands the round a target object, but <see cref="Aimpoint.AtPoint"/> has
+    /// nothing to name; steering tied to <c>TargetRef</c> would fly a designated round straight on.
     /// </summary>
     [Fact]
     public void ARoundWithNoTargetHandleStillFliesToItsDesignatedPoint()
@@ -166,19 +150,8 @@ public class AimpointTests
     }
 
     /// <summary>
-    /// A place on the ground is still a place when the whole world is moving through the ecliptic.
-    ///
-    /// <para>The other aimpoint tests cannot see this. They all fly from the origin at 600 m/s
-    /// against a target with zero velocity — a universe with no shared motion, in which holding an
-    /// aimpoint as a bare ecliptic coordinate is <em>correct</em>. Add the 29.8 km/s every real
-    /// body carries and the same code turns the frame into closing speed:
-    /// <c>v = 0 - VelocityEcl</c>, and proportional navigation drives the round sideways at full
-    /// lateral G.</para>
-    ///
-    /// <para>So it is written as an invariance: run the identical engagement in two frames and
-    /// require the same answer. That is the shape <c>docs/FRAMES-AND-EPOCHS.md</c> prescribes for
-    /// anything taking two positions, and the only shape that separates a frame bug from a
-    /// geometry bug.</para>
+    /// The other tests fly against a target at zero velocity, where a bare ecliptic coordinate is
+    /// correct; so this runs one engagement in two frames, as <c>docs/FRAMES-AND-EPOCHS.md</c> prescribes.
     /// </summary>
     [Fact]
     public void AGroundAimpointIsChasedTheSameInAnyFrame()
@@ -192,20 +165,15 @@ public class AimpointTests
         Assert.True(still.miss <= 15.0, $"stationary frame missed by {still.miss:F1} m");
         Assert.True(moving.miss <= 15.0, $"moving frame missed by {moving.miss:F1} m");
 
-        // The whole point: the answer must not depend on the frame. A metre of slack for the
-        // sub-step landing at a slightly different instant; a frame-dependent answer is 251 m out
-        // at the fuse and unbounded in the guidance.
+        // A metre of slack for the sub-step landing at a slightly different instant; a
+        // frame-dependent answer is 251 m out at the fuse and unbounded in the guidance.
         Assert.Equal(still.miss, moving.miss, 0);
         Assert.Equal(still.age, moving.age, 2);
     }
 
     /// <summary>
-    /// And the same engagement <b>misses</b> when the place is held as a bare ecliptic coordinate.
-    ///
-    /// <para>Without this the invariance test above proves nothing: it would pass just as happily
-    /// against code that never had the bug. The failing form is zero velocity on the aimpoint and
-    /// a position nothing advances, and it has to fail loudly here, because on screen it reads as
-    /// the round flying off sideways for no visible reason.</para>
+    /// Without this the invariance test above would pass as readily against code that never had the
+    /// bug: the failing form is a zero-velocity aimpoint at a position nothing advances.
     /// </summary>
     [Fact]
     public void HeldAsABareCoordinateTheSameShotMisses()
@@ -232,10 +200,8 @@ public class AimpointTests
         double3 frame = new(0, frameSpeed, 0);
         double3 ground = new(3000, 400, 0);
 
-        // Resampled from the world every frame, which is what the KSA side does with a Ground
-        // aimpoint: the place keeps up with its body instead of being left behind by it.
-        // anchored: what the ground actually is. Otherwise the failing form -- a coordinate written
-        // down once, with no velocity, which the planet then leaves behind at the frame speed.
+        // Anchored, it is resampled every frame as the KSA side does a Ground aimpoint; otherwise
+        // it is a coordinate written down once, which the planet leaves behind at the frame speed.
         Aimpoint aim = anchored
                            ? Aimpoint.OnGround(TargetHandle, Vec.Zero, ground, frame, 5.0)
                            : Aimpoint.AtPoint(ground, 5.0);
@@ -262,7 +228,6 @@ public class AimpointTests
         return (round.State, round.MissDistance, round.Age);
     }
 
-    /// <summary>A slug carries an aimpoint the same way, since it is on the contract.</summary>
     [Fact]
     public void AnUnguidedRoundCarriesAnAimpointToo()
     {
@@ -276,9 +241,8 @@ public class AimpointTests
     }
 
     /// <summary>
-    /// A place on a body has to be re-read every frame; nothing else does. It is only still in that
-    /// body's own frame, so held as the coordinate it was named at it is left behind by ~29.8 km/s
-    /// of orbital motion plus the site's spin — whatever is chasing it slides off within a second.
+    /// A place on a body is only still in that body's frame; held as the coordinate it was named at,
+    /// it is left behind by ~29.8 km/s of orbital motion plus the site's spin.
     /// </summary>
     [Fact]
     public void OnlyAPlaceOnABodyNeedsResampling()
@@ -291,9 +255,8 @@ public class AimpointTests
     }
 
     /// <summary>
-    /// What can die takes its aimpoint with it; what cannot, keeps it. This is why a designation is
-    /// an aimpoint rather than a contact — nothing ever reports a hillside, so a contact-shaped one
-    /// would have to be dropped the moment the world stopped mentioning it.
+    /// Why a designation is an aimpoint rather than a contact: nothing ever reports a hillside, so a
+    /// contact-shaped one would be dropped the moment the world stopped mentioning it.
     /// </summary>
     [Fact]
     public void OnlyAThingThatCanDieLosesItsAimpoint()

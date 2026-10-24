@@ -12,7 +12,7 @@ public class WarheadFootprintTests(ITestOutputHelper Out)
     private static readonly double3 Aim = new(R * 0.6, R * 0.8, 0.0);
     private static readonly double3 Axis = new(0, 0, 1);
 
-    /// <summary>Zero is every flight before this one: all six on the designation.</summary>
+    /// <summary>Zero is what ships: all six on the designation.</summary>
     [Theory]
     [InlineData(0.0)]
     [InlineData(-1.0)]

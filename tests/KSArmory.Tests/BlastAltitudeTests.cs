@@ -99,7 +99,7 @@ public class BlastAltitudeTests(ITestOutputHelper output)
 
     /// <summary>
     /// The damage charge dips with the blast and comes back with the X-rays: a burst high in the air is
-    /// weaker than one low down, and one above it is judged as today.
+    /// weaker than one low down, and one above it is judged on its whole charge.
     /// </summary>
     [Fact]
     public void TheDamageChargeFallsWithTheBlastAndRisesWithTheXRays()

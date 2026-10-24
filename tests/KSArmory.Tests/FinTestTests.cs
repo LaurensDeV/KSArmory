@@ -10,7 +10,7 @@ namespace KSArmory.Tests;
 /// </summary>
 public class FinTestTests
 {
-    private const double Authority = 29.43;   // 3 g, the B61's declared lateral limit
+    private const double Authority = 29.43;   // 3 g of lateral authority
     private const double Max = 0.20944;       // 12 degrees of blade travel
 
     private static double[] Blades(double t) =>
@@ -24,7 +24,7 @@ public class FinTestTests
     public void OppositeBladesAlwaysOppose()
     {
         // The property that makes a cruciform turn rather than roll. A per-blade sweep breaks
-        // this at almost every instant, which is what made the old one look wrong.
+        // this at almost every instant.
         for (int step = 0; step <= 400; step++)
         {
             double[] d = Blades(step * 0.01);
@@ -83,7 +83,7 @@ public class FinTestTests
     [Fact]
     public void NoBladeEverReversesWhileItIsMoving()
     {
-        // The fault this sweep was rebuilt for. Handing over from pitch to yaw turns the command
+        // Handing over from pitch to yaw turns the command
         // through a right angle, and blades 1 and 3 sit on the wrong side of it: with the set
         // still moving they reverse while 0 and 2 carry on, and one pair jerking on its own is
         // exactly what reads as broken. A reversal is only allowed at a standstill.

@@ -88,8 +88,7 @@ public class ProjectileContractTests
     /// The direction a round left along is recorded once and never touched by the simulation.
     ///
     /// <para>The body is drawn along it whenever there is no airflow to say otherwise, so if a
-    /// step could rewrite it, a round released in vacuum would swing about as its launcher did.
-    /// Seen in flight: rolling the bus rolled every reentry vehicle already off it.</para>
+    /// step could rewrite it, a round released in vacuum would swing about as its launcher did.</para>
     /// </summary>
     [Theory]
     [MemberData(nameof(AllKinds))]
@@ -107,8 +106,6 @@ public class ProjectileContractTests
         Assert.True(Vec.Len(round.ReleaseHeadingEcl - released) < 1e-12,
             $"{kind} lost the heading it was released along; the body would follow its launcher");
     }
-
-    // ---- Orientation -----------------------------------------------------
 
     /// <summary>
     /// A projectile must be orientable on the frame it is created, before it has ever been
@@ -139,8 +136,6 @@ public class ProjectileContractTests
 
         Assert.InRange(round.Speed, 599.0, 601.0);
     }
-
-    // ---- Frames ----------------------------------------------------------
 
     /// <summary>
     /// Travel starts at exactly zero. A body placed at its tube anchor plus travel would otherwise
@@ -204,8 +199,6 @@ public class ProjectileContractTests
         // One second at 300 m/s local, not 30 km of the planet's orbit.
         Assert.InRange(round.DistanceFlown, 280.0, 320.0);
     }
-
-    // ---- The fuse --------------------------------------------------------
 
     /// <summary>
     /// The detonation instant is measured against a world sample taken at the END of the step, so
@@ -277,8 +270,6 @@ public class ProjectileContractTests
         Assert.Equal(RoundState.Flying, round.State);
     }
 
-    // ---- Lifetime and robustness -----------------------------------------
-
     [Theory]
     [MemberData(nameof(AllKinds))]
     public void ARoundWithNothingToChaseExpiresCleanly(Kind kind)
@@ -337,8 +328,6 @@ public class ProjectileContractTests
         Assert.Equal(0.0, round.Age);
         Assert.Equal(0.0, Vec.Len(round.TravelSinceLaunch), 9);
     }
-
-    // ---- What actually differs between them ------------------------------
 
     /// <summary>
     /// The discriminator. If both implementations behaved identically the abstraction would be

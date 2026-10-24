@@ -18,7 +18,7 @@ public class MapFitTests
     [Fact]
     public void AWideShortBoxIsLimitedByItsHeight()
     {
-        // The reported fault: filling the width here squashes a 2:1 picture into 6:1.
+        // Filling the width here squashes a 2:1 picture into 6:1.
         float2 got = MapViewport.Fit(new float2(1200f, 200f), Aspect, Least, out float inset);
 
         Assert.Equal(400f, got.X, 3);

@@ -4,15 +4,9 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// The core modularity claim, exercised rather than asserted: <b>a second round is a second
-/// <see cref="MunitionProfile"/> and nothing else.</b>
-///
-/// <para>Every other test in the suite flies one round — the shipping 57E6 or a vacuum variant of
-/// it — so nothing checked that two genuinely different munitions fly differently through the same
-/// <see cref="Interceptor"/>. A flight model that quietly ignored half the profile would pass the
-/// whole suite. <see cref="GuidanceMode.Seeker"/> in particular appeared in exactly one test.</para>
-///
-/// <para>See <c>docs/MODULARITY.md</c>.</para>
+/// A second round is a second <see cref="MunitionProfile"/> and nothing else: two different profiles
+/// through the same <see cref="Interceptor"/> must fly differently, or a flight model ignoring half the
+/// profile passes. <c>docs/MODULARITY.md</c>.
 /// </summary>
 public class MunitionVarietyTests
 {
@@ -124,8 +118,6 @@ public class MunitionVarietyTests
 
     };
 
-    // ---- The profile actually drives the flight ------------------------
-
     /// <summary>
     /// The headline: one launcher, one geometry, two rounds, two outcomes. The long round reaches
     /// a target the short one cannot, and it is the profile alone that decides.
@@ -205,8 +197,6 @@ public class MunitionVarietyTests
             $"the 40 m fuse burst at {b.Age:F3}s and the 5 m fuse at {a.Age:F3}s - the radius is not being read");
     }
 
-    // ---- Guidance mode is a property of the round ----------------------
-
     /// <summary>
     /// A command-linked round is steered by the launcher and cannot be blinded; a seeker round
     /// stops steering once the target leaves its gimbal. Flying the same hard-crossing engagement
@@ -255,8 +245,6 @@ public class MunitionVarietyTests
         Assert.Equal(b.Closest, a.Closest, 6);
     }
 
-    // ---- Airframe limits -----------------------------------------------
-
     [Fact]
     public void TheLateralGLimitIsPerRound()
     {
@@ -294,8 +282,6 @@ public class MunitionVarietyTests
         Assert.True(a.Speed > b.Speed * 1.5,
             $"drag barely mattered: {a.Speed:F0} m/s clean against {b.Speed:F0} m/s draggy");
     }
-
-    // ---- Vacuum --------------------------------------------------------
 
     /// <summary>
     /// The same round, fired in vacuum and at sea level, must fly differently — otherwise the drag
@@ -351,8 +337,6 @@ public class MunitionVarietyTests
             previous = speed;
         }
     }
-
-    // ---- Kinetic kill --------------------------------------------------
 
     /// <summary>
     /// A hit-to-kill round is expressible with no new code: the trigger is

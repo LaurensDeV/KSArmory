@@ -5,11 +5,8 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// What the reader accepts, and — mostly — what it refuses.
-///
-/// A loader's interesting behaviour is almost entirely in what it will not take and what it says
-/// about it, because every refusal it declines to make is a weapon that loads wrong and flies
-/// with nothing on screen to show for it.
+/// Mostly what the reader refuses: every refusal it declines to make is a weapon that loads wrong
+/// and flies with nothing on screen to show for it.
 /// </summary>
 public class PackReaderTests
 {
@@ -34,8 +31,6 @@ public class PackReaderTests
           <Tube Position="0, 0, 0.9" Direction="1, 0, 0" />
         </Launcher>
         """;
-
-    // ---- Accepting ------------------------------------------------------
 
     [Fact]
     public void ABeltsTracersAreReadOffTheRound()
@@ -144,8 +139,9 @@ public class PackReaderTests
 
         Assert.Empty(pack.Faults);
 
-        // The built-ins predate qualification and keep bare keys, so the prefix is stripped
-        // rather than kept -- otherwise the launcher holds a name the catalogue cannot answer.
+        // The built-ins keep bare keys, so the prefix is stripped: kept, the launcher would hold a
+        // name the catalogue cannot answer.
+
         Assert.Equal("20MM", pack.Launchers[0].Munition);
         Assert.True(pack.Launchers[0].HasCannon);
     }
@@ -459,8 +455,6 @@ public class PackReaderTests
         Assert.Contains(pack.Faults, f => f.Reason.Contains("RateDegPerSecond"));
     }
 
-    // ---- Refusing -------------------------------------------------------
-
     [Fact]
     public void AFamilyOnAPacksRootIsRefusedAndOnTheCoresIsRead()
     {
@@ -484,10 +478,7 @@ public class PackReaderTests
         Assert.Equal(3, pack.Accepted);
     }
 
-    /// <summary>
-    /// The reason every attribute is consumed. A misspelling that is merely ignored leaves the
-    /// author looking at a number in their file that nothing reads.
-    /// </summary>
+    /// <summary>Every attribute is consumed, so a misspelling is refused rather than leaving a number nothing reads.</summary>
     [Fact]
     public void AMisspeltAttributeIsRefusedRatherThanIgnored()
     {
@@ -652,8 +643,6 @@ public class PackReaderTests
         Assert.Contains(pack.Faults, f => f.Reason.Contains("RollMarker"));
     }
 
-    // ---- The file itself ------------------------------------------------
-
     [Fact]
     public void AFileThatIsNotXmlIsRefusedWholeAndSaysSo()
     {
@@ -703,9 +692,10 @@ public class PackReaderTests
     }
 
     /// <summary>
-    /// The one that costs a whole flight model. On a machine whose decimal separator is a comma,
-    /// a culture-sensitive parse reads 2.4 as 24 — ten times the boost, and nothing to see.
+    /// On a machine whose decimal separator is a comma, a culture-sensitive parse reads 2.4 as 24:
+    /// ten times the boost, and nothing to see.
     /// </summary>
+
     [Fact]
     public void NumbersAreReadTheSameWhateverTheMachinesCulture()
     {

@@ -55,8 +55,8 @@ public class ScopePresentationTests
     }
 
     /// <summary>
-    /// A post-boost vehicle designates for its warheads and has no array to sweep. This is the one
-    /// that prompted the change: a rocket with nothing resembling a radar was given a radar tab.
+    /// A post-boost vehicle designates for its warheads and has no array to sweep, so a rocket with
+    /// nothing resembling a radar gets no radar tab.
     /// </summary>
     [Fact]
     public void ADesignationSetHasNoArrayAndSoNoPicture()

@@ -88,8 +88,6 @@ public class BlastSweepTests
                     $"the carrier reached the gap: {Math.Abs(still - carried):F4} m");
     }
 
-    // ---- What a gap that size means --------------------------------------
-
     [Fact]
     public void InsideTheLethalRadiusIsLethal()
     {

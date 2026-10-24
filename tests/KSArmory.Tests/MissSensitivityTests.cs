@@ -6,22 +6,12 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// How far the impact moves per metre a second left ungained at cutoff, at the two geometries the
-/// batch nights are actually scored on.
+/// Measurement only: metres of impact per metre a second left ungained at cutoff, on the ground-launched
+/// geometries the batch nights fly (<c>ErrorBudgetTests</c> has the deorbit).
 ///
-/// <para>Measurement only. Nothing here asserts an improvement — <c>ErrorBudgetTests</c> asks the
-/// same question of the 3,459 km deorbit pickup, and this asks it of the ground-launched shots,
-/// because a residual in metres a second says nothing until it is converted into metres.</para>
-///
-/// <para><b>Each arc is reconstructed from three numbers the flight itself logs</b> — cutoff
-/// altitude, downrange distance and flight time. The boost's own downrange travel is not logged,
-/// which is worth about three degrees of arrival per 200 km, so no arc here is pinned closer than
-/// that.</para>
-///
-/// <para><b>The arc's sensitivity is not the flown one, and the gap is the point.</b> What the
-/// nights measure is the miss <em>after</em> the trim and the aim loop have run, so the arc's
-/// figure is the miss a shot would have if nothing corrected it. The flown slopes below say how
-/// much of that survives.</para>
+/// <para>Each arc is rebuilt from the cutoff altitude, range and flight time the log prints; the boost's
+/// unlogged downrange travel is worth about three degrees of arrival per 200 km. The arc's figure is the
+/// uncorrected miss; the flown slopes say how much survives the trim and the aim loop.</para>
 /// </summary>
 public class MissSensitivityTests(ITestOutputHelper Out)
 {

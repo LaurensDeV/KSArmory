@@ -94,8 +94,6 @@ public class BlastDamageTests
         Assert.Equal(0.0, BlastDamage.FailureRadius(0.0, BlastDamage.ReferencePascals));
     }
 
-    // ---- The sweep -------------------------------------------------------
-
     private static DamageablePart PartAt(int index, double metres, double pascals)
         => new(index, new double3(metres, 0, 0), 0.0, pascals);
 
@@ -242,7 +240,6 @@ public class BlastDamageTests
         Assert.Equal(0.5, BlastDamage.PressureRatio(20.0, tolerance, fails * Math.Cbrt(2.0)), 9);
     }
 
-    /// <summary>Nothing past the radius the weapon is described by, however weak the part.</summary>
     [Fact]
     public void NoPressureReachesPastTheBlastRadius()
     {
@@ -313,7 +310,7 @@ public class BlastDamageTests
         Assert.Equal(0.5, BlastDamage.DentRatio(chargeKg, tolerance, lo), 6);
     }
 
-    /// <summary>A reference part dents all the way out to the blast radius, where the cube law stopped at 1.26x.</summary>
+    /// <summary>A reference part dents all the way out to the blast radius, where the cube law alone stops at 1.26x.</summary>
     [Theory]
     [InlineData(20.0)]
     [InlineData(3.0e5)]
@@ -406,7 +403,6 @@ public class BlastDamageTests
         Assert.Equal(p / breaking, BlastDamage.Combine(over).Share, 9);
     }
 
-    /// <summary>Two fronts arriving together at six tenths of what breaks a part break it between them.</summary>
     [Fact]
     public void FrontsTogetherCanBreakWhatNeitherBreaksAlone()
     {

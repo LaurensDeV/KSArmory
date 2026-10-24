@@ -26,10 +26,9 @@ public class ArsenalTests
 
             Assert.Equal(launcher.Sensor, Catalogue.SensorNamed(launcher.Sensor).Name);
 
-            // The cannon's round as well as the missile's. Arsenal.Named falls back to element
-            // zero, which for munitions is a 20 kg missile at 45 m/s under a rocket boost: a gun
-            // naming a shell that does not exist compiles, loads, passes every other gate and
-            // fires warheads out of its barrel.
+            // The cannon's round as well as the missile's. MunitionNamed falls back to the first
+            // registered round, so a gun naming a shell that does not exist compiles, loads, passes
+            // every other gate and fires whichever round registered first.
             if (launcher.GunMunition is { } shell)
             {
                 Assert.Equal(shell, Catalogue.MunitionNamed(shell).Name);
@@ -90,7 +89,7 @@ public class ArsenalTests
     [Fact]
     public void UnknownNamesFallBackRatherThanThrow()
     {
-        // A launcher naming a round that does not exist is a typo in Arsenal, not a reason for
+        // A launcher naming a round that does not exist is a typo in a definition file, not a reason for
         // the game to fall over mid-flight. The suite runs strict, so this asks as the game does.
         Catalogue.MissingNameThrows = false;
         try
@@ -411,14 +410,6 @@ public class ArsenalTests
         }
     }
 
-    /// <summary>
-    /// Every launcher is also a component, because they are two registries keyed on the same part
-    /// Id and only one of them decides whether a craft is a weapons system at all.
-    ///
-    /// <para>A launcher missing here loads, resolves its tubes, matches <c>LauncherForPart</c> and
-    /// is then invisible: the panel says "no weapons systems" about a craft carrying it, with
-    /// nothing in any log and nothing on screen but a part that does nothing.</para>
-    /// </summary>
     [Fact]
     public void EverySearchSetIsASensorComponentSearchingWithARegisteredSet()
     {
@@ -434,6 +425,14 @@ public class ArsenalTests
         }
     }
 
+    /// <summary>
+    /// Every launcher is also a component, because they are two registries keyed on the same part
+    /// Id and only one of them decides whether a craft is a weapons system at all.
+    ///
+    /// <para>A launcher missing here loads, resolves its tubes, matches <c>LauncherForPart</c> and
+    /// is then invisible: the panel says "no weapons systems" about a craft carrying it, with
+    /// nothing in any log and nothing on screen but a part that does nothing.</para>
+    /// </summary>
     [Fact]
     public void EveryRegisteredLauncherIsAlsoARecognisedComponent()
     {
@@ -547,8 +546,8 @@ public class ArsenalTests
 
     /// <summary>
     /// The heading a belt is displayed under is not its identity. <c>Armament.Label</c> is
-    /// "Cannon"; the row naming that armament is "2A38M 30 mm cannon". Matching on the first is
-    /// what made every Pantsir report its gun as not run.
+    /// "Cannon"; the row naming that armament is "2A38M 30 mm cannon". Matching on the first
+    /// reports every Pantsir's gun as not run.
     /// </summary>
     [Fact]
     public void AFitDoesNotRecogniseItsArmamentByTheHeadingItIsListedUnder()
@@ -574,10 +573,9 @@ public class ArsenalTests
     /// <para>It is a declared role rather than a found part, so a launcher that omits it gets no
     /// fire-control row — and every control that lives on that row goes with it: FIRE,
     /// aim with the mouse, fire at the mouse, protecting the craft being flown, and resetting the
-    /// installation. Three of the four launchers shipped without one, so a CIWS could not be fired
-    /// from the panel at all.</para>
+    /// installation.</para>
     ///
-    /// <para><c>tools/check-tunables.py</c> cannot catch this and passed throughout: it asks whether
+    /// <para><c>tools/check-tunables.py</c> cannot catch this: it asks whether
     /// a setting is written <em>somewhere</em> in the panel, and <c>MouseFire</c> is — on the one row
     /// only a Pantsir has. Reachable for one system is not reachable.</para>
     /// </summary>
@@ -671,9 +669,7 @@ public class ArsenalTests
     ///
     /// <para>The round's own symplectic Euler is the largest remaining term in a ballistic shot —
     /// 143 m of the 149 m it lands from its own probe on flat ground, and the slope under a shallow
-    /// arrival multiplies that. Flown at Mahia the correction converged to 15 m and the warheads
-    /// landed 756 m out. The mechanism for this was built and measured and no profile ever set the
-    /// field.</para>
+    /// arrival multiplies that.</para>
     ///
     /// <para>A cannon shell must <em>not</em> inherit it: six warheads at a millisecond is about 300
     /// sub-steps a frame, a 150-shell burst would be 7,500, and that cost has never been
@@ -740,8 +736,7 @@ public class ArsenalTests
     /// <summary>
     /// The sub-step count scales with the step, so a finer warhead does not shorten
     /// <see cref="MunitionProfile.MaxFaithfulStepSeconds"/> and hold the whole world's timewarp down
-    /// with it — the trap that cost 164 km when the integration clamp and the warp target were
-    /// confused for each other.
+    /// with it.
     /// </summary>
     [Fact]
     public void AFinerSubStepDoesNotMoveTheFaithfulStep()

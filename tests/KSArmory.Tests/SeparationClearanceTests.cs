@@ -104,9 +104,7 @@ public class SeparationClearanceTests
         Assert.Contains("2.0 m", c.Said);
         Assert.Contains("without trimming", c.Said);
 
-        // The flown near-miss: a 5.3 m stage wants 15.3, and the bus reached 15.1. At F0 both
-        // printed as 15. A decimal separates them -- it does not abolish the boundary, it puts it
-        // ten times finer than the case that actually occurs.
+        // Flown: a 5.3 m stage wants 15.3, and the bus reached 15.1. At F0 both print as 15.
         string near = SeparationClearance.Check(15.1, 5.3, 20.0).Said;
 
         Assert.Contains("still 15.1 m", near);
@@ -144,16 +142,10 @@ public class SeparationClearanceTests
     /// <summary>
     /// Losing the reading re-shuts the gate, and that is protective rather than a defect.
     ///
-    /// <para>It reads like one: the trim nulls its reference on <c>trim.Done</c>, so the frame after
-    /// a trim finishes reports no distance and the clearance goes backwards from clear to
-    /// unreadable. Latching it past that — "separation only ever opens, so a measured gap cannot
-    /// close" — is <b>wrong, and circularly so</b>. That premise holds only while the gate is shut.
-    /// Once it opens the trim runs, and nulling the velocity difference is nulling the separation,
-    /// so the pair can close again.</para>
-    ///
-    /// <para>Flown 2026-08-25 with the latch in: post-boost pass 1 fired a 7.3 m/s trim about 25 m
-    /// from the spent stack with no distance check left, thrashed for 28 s until the thrusters ran
-    /// dry, and put the bus into the booster. Every pass has to ask again.</para>
+    /// <para>"Separation only ever opens" holds only while the gate is shut: once it opens the trim
+    /// runs, and nulling the velocity difference is nulling the separation, so the pair can close
+    /// again. A latch, flown, put the bus into the booster; <c>docs/MIRV-NEXT.md</c>, "The clearance
+    /// latch put the bus into the booster".</para>
     /// </summary>
     [Fact]
     public void ClearanceIsNeverLatched()

@@ -3,12 +3,10 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// The audit, against a stand-in part library.
-///
-/// What it catches is the failure that has no other symptom: a profile naming a part nothing
-/// declared registers, resolves, matches nothing on any craft, and is indistinguishable from a
-/// mod that was never installed.
+/// A profile naming a part nothing declared registers, resolves and matches nothing on any craft:
+/// without the audit it is indistinguishable from a mod that was never installed.
 /// </summary>
+
 public class PackAuditTests
 {
     private sealed class Library(params string[] declarations) : IPartCatalogue

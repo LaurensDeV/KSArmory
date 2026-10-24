@@ -4,15 +4,8 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// The walker's acceptance and the trim's refusal, asked as one question.
-///
-/// <para><b>The flight this exists for.</b> Three of eight rockets walked, and where they did the
-/// warheads landed <b>4.00 km</b> out — exactly the target spacing. The walk priced the hop at
-/// <b>9.73 m/s</b> against a 10 m/s ceiling and accepted it; by the time <see cref="BusTrim"/> was
-/// asked the demand was <b>10.29</b>, because the residual the release had just left on the bus is
-/// added to the hop. Over the ceiling the trim refuses the <em>whole</em> pass, so the bus never
-/// moved — and three warheads already recorded against the next target left on the old
-/// solution.</para>
+/// Flown: a hop priced at 9.73 m/s against the 10 m/s ceiling reached <see cref="BusTrim"/> as 10.29 with the
+/// release's residual added, the whole pass was refused, and three warheads landed 4.00 km out on the old solution.
 /// </summary>
 public class ReleaseHopAffordableTests(ITestOutputHelper Out)
 {
@@ -31,10 +24,7 @@ public class ReleaseHopAffordableTests(ITestOutputHelper Out)
                 new ReleaseItinerary.Target(3, 4000.0, HopMetresPerSecond: hopMetresPerSecond)],
                SixThousand, reachMetresPerMetrePerSecond: null, lead: 0);
 
-    /// <summary>
-    /// <b>The gap, as the flight measured it.</b> A hop the planner accepts is not a pass the trim
-    /// will fly, and the difference is what the bus still owes.
-    /// </summary>
+    /// <summary>A hop the planner accepts is not a pass the trim will fly: the difference is what the bus still owes.</summary>
     [Fact]
     public void AHopUnderTheCeilingIsNotAPassUnderTheCeiling()
     {
@@ -53,9 +43,10 @@ public class ReleaseHopAffordableTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>What the refusal has to do.</b> The walk ends at the stop the bus is on, and that stop
-    /// takes every warhead left — so nothing is recorded against a target the bus never flew to.
+    /// The walk ends at the stop the bus is on, and that stop takes every warhead left, so nothing is
+    /// recorded against a target the bus never flew to.
     /// </summary>
+
     [Fact]
     public void ARefusedHopLeavesTheWarheadsWithTheTargetTheBusIsOn()
     {

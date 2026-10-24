@@ -117,8 +117,7 @@ public class GroundQueryEpochTests
 
     /// <summary>
     /// <b>The query is walked forward by the whole ground velocity, spin included.</b> Fails against
-    /// the shipped code — which walks it by the body's centre alone — by exactly the spin term over
-    /// one frame.
+    /// the centre-only back-date by exactly the spin term over one frame.
     /// </summary>
     [Theory]
     [InlineData(0.0167)]
@@ -151,7 +150,7 @@ public class GroundQueryEpochTests
 
     /// <summary>
     /// <b>The rotation sense, pinned.</b> Three points are available and only one is right: the
-    /// shipped centre-only back-date, the correction, and the correction applied backwards. The last
+    /// centre-only back-date, the correction, and the correction applied backwards. The last
     /// sits twice as far from the answer as doing nothing at all, which is what makes getting the
     /// sense wrong worse than leaving the term in.
     /// </summary>
@@ -219,7 +218,7 @@ public class GroundQueryEpochTests
     }
 
     /// <summary>
-    /// <b>Off, the question is exactly the one it always was</b> — even with the query seam supplied,
+    /// <b>Off, the query is the centre-only back-date</b> — even with the query seam supplied,
     /// which in game it always is. The switch is what a paired night flies, so a leak either way
     /// makes both arms one arm.
     /// </summary>
@@ -291,15 +290,15 @@ public class GroundQueryEpochTests
             return slug.GroundRadiusUsed;
         }
 
-        double shipped = Read(atOwnEpoch: false);
+        double centreOnly = Read(atOwnEpoch: false);
         double corrected = Read(atOwnEpoch: true);
 
-        Assert.True(double.IsFinite(shipped) && double.IsFinite(corrected));
+        Assert.True(double.IsFinite(centreOnly) && double.IsFinite(corrected));
 
         // Signed: east is where the ground is going, so the corrected query reads the higher ground.
         // Reversing the sense reads it lower by the same amount, which is the tell.
-        Assert.Equal(gradient * spinStep, corrected - shipped, 2);
-        Assert.InRange(corrected - shipped, 3.5, 4.5);
+        Assert.Equal(gradient * spinStep, corrected - centreOnly, 2);
+        Assert.InRange(corrected - centreOnly, 3.5, 4.5);
     }
 
     /// <summary>
@@ -330,11 +329,11 @@ public class GroundQueryEpochTests
             return Vec.Len(slug.PositionEcl - BodyVelocityEcl * slug.DetonationElapsedInFrame);
         }
 
-        double shipped = Stop(atOwnEpoch: false);
+        double centreOnly = Stop(atOwnEpoch: false);
         double corrected = Stop(atOwnEpoch: true);
 
         double wanted = gradient * spinStep;
 
-        Assert.InRange(corrected - shipped, wanted - 0.05, wanted + 0.05);
+        Assert.InRange(corrected - centreOnly, wanted - 0.05, wanted + 0.05);
     }
 }

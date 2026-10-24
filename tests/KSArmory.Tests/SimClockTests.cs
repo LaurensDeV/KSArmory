@@ -98,20 +98,17 @@ public class SimClockTests
     [Fact]
     public void ThereIsNoStateToGetWrongAcrossASceneChange()
     {
-        // Stateless by design. The previous version held a reference sample and needed priming,
-        // a reset on leaving flight, and a rule for the clock going backwards on load - three
-        // ways to be wrong that differencing created and that reading the applied step removes.
+        // Stateless by design: differencing a clock needs priming, a reset on leaving flight and a
+        // rule for the clock going backwards on load, and reading the applied step needs none.
         Assert.Equal(SimClock.State.Run, SimClock.Classify(0.016, paused: false, out _));
         Assert.Equal(SimClock.State.Idle, SimClock.Classify(0.0, paused: true, out _));
         Assert.Equal(SimClock.State.Run, SimClock.Classify(0.016, paused: false, out double dt));
         Assert.Equal(0.016, dt, 9);
     }
 
-    // ---- The viewing clock ------------------------------------------------
-
     /// <summary>
-    /// What is watched stops with the world. Player time runs on through a pause, which handed the
-    /// view back off a burst and swung a turned chase back behind its round while nothing moved.
+    /// What is watched stops with the world. Player time runs on through a pause, which would hand
+    /// the view back off a burst and swing a turned chase back behind its round while nothing moved.
     /// </summary>
     [Fact]
     public void AViewIsHeldThroughAPause()

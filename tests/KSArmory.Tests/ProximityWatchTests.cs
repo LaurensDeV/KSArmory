@@ -3,12 +3,8 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// What the bus's closest approach to its own spent stack was.
-///
-/// <para>The thing under test is a minimum over a whole coast, so every case here is about a
-/// reading that is <em>not</em> the last one: a watch that reports where the two ended up rather
-/// than where they were nearest would have said nothing about the 2026-08-25 collision, which
-/// happened seconds before the warheads left and left the pair drifting apart again.</para>
+/// The bus's closest approach to its spent stack is a minimum over the whole coast: a collision seconds
+/// before the release leaves the pair drifting apart again, so the last reading says nothing.
 /// </summary>
 public class ProximityWatchTests
 {
@@ -27,9 +23,8 @@ public class ProximityWatchTests
     }
 
     /// <summary>
-    /// The point of the whole class: it keeps the nearest approach, not the newest one. A pair that
-    /// closes to inside the keep-out and drifts apart again is exactly the flight that has to be
-    /// reported, and it is indistinguishable from a clean one at the end.
+    /// It keeps the nearest approach, not the newest: a pair that closes inside the keep-out and drifts
+    /// apart again is indistinguishable from a clean one at the end.
     /// </summary>
     [Fact]
     public void ItKeepsTheNearestApproachRatherThanTheLatest()
@@ -119,10 +114,8 @@ public class ProximityWatchTests
     /// A pair that never parted has not breached a keep-out — it has failed to separate, which is
     /// a different fault and has to read as one.
     ///
-    /// <para>This is the whole reason the watch arms. Every split begins with the halves adjacent,
-    /// so a minimum taken from the first frame is the split: across 94 recorded flights it read
-    /// <c>2.0 m at +0.0 s -- INSIDE THE KEEP-OUT</c>, identically, on every one. An instrument
-    /// with a single possible output cannot detect anything.</para>
+    /// <para>So the watch arms once parted: every split begins with the halves adjacent, and a minimum
+    /// from the first frame read 2.0 m at +0.0 s on all 94 recorded flights.</para>
     /// </summary>
     [Fact]
     public void APairThatNeverPartedIsNotABreach()

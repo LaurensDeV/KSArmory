@@ -4,13 +4,8 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// What the coast a set is planned against has to mean, and what it costs to get it wrong.
-///
-/// <para><b>The flight this exists for.</b> Two targets, 3 warheads each, flown against
-/// <c>SOLVER SCALE 8</c>: the plan was made and printed — <c>2 stops, 20.3 m/s of 60</c> — and then
-/// nothing of the loop ran. All six warheads went to the lead, on all eight rockets, and the log
-/// held not one <c>re-aiming at target</c>, <c>released n of m</c> or <c>walk complete</c> line.
-/// </para>
+/// The coast a set is planned against is the coast's own length, not the time left: against the
+/// time left, a two-stop plan collapses to one stop as the first release comes due.
 /// </summary>
 public class ReleaseWalkClockTests(ITestOutputHelper Out)
 {
@@ -30,7 +25,7 @@ public class ReleaseWalkClockTests(ITestOutputHelper Out)
                             Reach, lead: 0);
 
     /// <summary>
-    /// <b>The bug, as arithmetic.</b> <see cref="ReleaseItinerary.CoastFits"/> asks whether
+    /// <see cref="ReleaseItinerary.CoastFits"/> asks whether
     /// <c>CoastSeconds - GateSeconds</c> holds another hop, so a coast that is the time <em>left</em>
     /// rather than the coast's own length cuts the set to one stop at
     /// <c>Gate + Hop</c> — which is exactly <see cref="ReleaseItinerary.FirstBeforeArrivalSeconds"/>,
@@ -58,7 +53,7 @@ public class ReleaseWalkClockTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>The property the flight needs.</b> Planned against the coast's own length — what it was at
+    /// Planned against the coast's own length — what it was at
     /// cutoff — the count is settled, and no amount of the clock running down moves it.
     /// </summary>
     /// <remarks>
@@ -108,9 +103,8 @@ public class ReleaseWalkClockTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>The other half of what nothing pinned.</b> A two-stop walk bounds the sequencer to the
-    /// stop's quota and advances a stop when that quota is met — which is what the flight showed it
-    /// was not doing, six warheads leaving consecutively for one target.
+    /// A two-stop walk bounds the sequencer to the stop's quota and advances a stop when that quota
+    /// is met, rather than letting six warheads leave consecutively for one target.
     /// </summary>
     [Fact]
     public void ATwoStopWalkBoundsTheMagazineAndAdvances()

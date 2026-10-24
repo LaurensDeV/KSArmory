@@ -3,13 +3,10 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Which installed mods KSArmory reads weapons out of.
-///
-/// Thin, and the one case worth the file is <see cref="PackAvailability.Disabled"/>: a pack that
-/// is present but switched off must be *reported* rather than skipped, because KSA writes a newly
-/// discovered mod into the manifest disabled and says nothing about having done it. Silence there
-/// is indistinguishable from never having installed the pack.
+/// A <see cref="PackAvailability.Disabled"/> pack is reported, not skipped: KSA writes a newly
+/// discovered mod into the manifest disabled and says nothing, so silence reads as never installed.
 /// </summary>
+
 public class PackScanTests
 {
     [Fact]

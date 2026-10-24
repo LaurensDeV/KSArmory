@@ -46,8 +46,6 @@ public class ReleaseWalkerTests(ITestOutputHelper Out)
         return walker;
     }
 
-    // ---------------------------------------------------------- a set of one changes nothing
-
     /// <summary>
     /// <b>The one that matters.</b> Whatever the budget, the coast, the magazine or the spacing, a
     /// walker given a one-target set is not walking — so the gate stays the setting, the sequencer
@@ -103,16 +101,10 @@ public class ReleaseWalkerTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>The mirror, and the one nothing had.</b> The same three numbers on a set of <em>two</em>:
-    /// the gate opens a hop early, the sequencer is bounded to the stop's quota rather than handed
-    /// the magazine, and the target advances at the handover.
+    /// <b>The mirror.</b> The same three numbers on a set of <em>two</em>: the gate opens a hop
+    /// early, the sequencer is bounded to the stop's quota rather than handed the magazine, and the
+    /// target advances at the handover. All three are readings of <see cref="ReleaseWalker.Walking"/>.
     /// </summary>
-    /// <remarks>
-    /// All three took their not-walking branch on one flight — the gate read 422 s against a
-    /// setting of 420, six warheads left consecutively, and every round was recorded against the
-    /// lead. One cause, and this is the shape that names it: they are three readings of
-    /// <see cref="ReleaseWalker.Walking"/>.
-    /// </remarks>
     [Fact]
     public void ASetOfTwoDrivesEveryNumberTheFlightReads()
     {
@@ -211,8 +203,6 @@ public class ReleaseWalkerTests(ITestOutputHelper Out)
         Assert.Equal(2, walker.TargetIndex(2));
     }
 
-    // ---------------------------------------------------------- the walk itself
-
     /// <summary>Each stop gets its own quota, and the walk hands over exactly when it is met.</summary>
     [Fact]
     public void AStopEndsOnItsQuotaAndTheNextOneStarts()
@@ -283,8 +273,6 @@ public class ReleaseWalkerTests(ITestOutputHelper Out)
         Assert.Equal(2, walker.Walk.Stops);
     }
 
-    // ---------------------------------------------------------- the lines a night is scored off
-
     /// <summary>
     /// <b>The scoring contract.</b> The target index is zero-based, as
     /// <see cref="TargetSet.Entries"/> indexes, and the stop is one-based.
@@ -308,7 +296,6 @@ public class ReleaseWalkerTests(ITestOutputHelper Out)
         Out.WriteLine(last);
     }
 
-    /// <summary>And the summary names every stop, what went there and what the walk cost.</summary>
     [Fact]
     public void TheWalkSummaryNamesEveryStop()
     {

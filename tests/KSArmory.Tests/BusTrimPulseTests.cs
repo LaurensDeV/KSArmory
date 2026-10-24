@@ -17,8 +17,8 @@ namespace KSArmory.Tests;
 ///
 /// <para><b>Every fixture here asserts the regime it is in before it asserts the rule.</b> A fresh
 /// <see cref="BusTrim"/> has measured no thrust, so <see cref="BusTrim.StopBand(double, double,
-/// double)"/> hands back the hold's own band and nothing pulses at all — which is how the first
-/// build of these tests passed while the flown code did none of what they claimed.</para>
+/// double)"/> hands back the hold's own band and nothing pulses at all, so a fixture that never
+/// measured its thrusters passes without testing anything.</para>
 /// </summary>
 public class BusTrimPulseTests(ITestOutputHelper Out)
 {
@@ -79,7 +79,6 @@ public class BusTrimPulseTests(ITestOutputHelper Out)
     private static void Shove(TrimBus bus, double alongNose, double across = 0.0, double under = 0.0)
         => bus.VelocityCci += bus.NoseCci * alongNose + bus.RightCci * across + bus.DownCci * under;
 
-    /// <summary>Run the loop against the rig until it stops, or for as long as asked.</summary>
     private Flight Fly(BusTrim trim, TrimBus bus, double3 from, double3 reference,
                        double pulseSeconds, double since = 0.0, double forSeconds = 300.0,
                        double3 keepOut = default)
@@ -139,9 +138,6 @@ public class BusTrimPulseTests(ITestOutputHelper Out)
                     + "hold's and nothing here was under test");
     }
 
-    /// <summary>
-    /// The floor a hold stops at is the settle band, and pulses finish well inside it.
-    /// </summary>
     [Fact]
     public void APulsePhaseFinishesInsideTheBandAHoldStopsAt()
     {
@@ -284,10 +280,9 @@ public class BusTrimPulseTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>The same fault by the route it actually took in flight.</b> A struck-off axis is gone for
-    /// the null just as surely as a withheld one, and the loop went on pulsing the two sub-band side
-    /// components down to the pulse floor with 2.54 m/s standing on the tail — then reported
-    /// <c>nothing left aboard</c> about it, four seconds later than it could have.
+    /// <b>The same fault by the route it took in flight.</b> A struck-off axis is gone for the null
+    /// just as surely as a withheld one, so pulsing the two sub-band side components to the pulse
+    /// floor with 2.54 m/s on the tail only delays <c>nothing left aboard</c> by four seconds.
     /// </summary>
     [Fact]
     public void NothingPulsesWhileAStruckOffAxisCarriesMetresPerSecond()
@@ -362,7 +357,7 @@ public class BusTrimPulseTests(ITestOutputHelper Out)
     /// the one a fixture that holds first cannot reach. <see cref="BusTrim.Resume"/> clears
     /// <c>_pushed</c> and keeps <c>_bestAccel</c>, and a null that never holds never measures again —
     /// so the axis reads dead for the whole phase. A fixture that holds first refills that reading
-    /// and the mutation survives, which is exactly how the guard came to be deleted.</para>
+    /// and the mutation survives.</para>
     /// </summary>
     [Fact]
     public void APulseOnlyNullStrikesNoDirectionOff()
@@ -486,8 +481,7 @@ public class BusTrimPulseTests(ITestOutputHelper Out)
     /// <para>A command written this frame reaches the engine's worker on the next one, so the first
     /// interval of a pulse phase was driven by the <em>hold</em> before it — a whole frame of jets,
     /// which at this step is sixteen pulses. Credited to the phase, that one interval is most of the
-    /// delivery reading, which is what <c>docs/ACCURACY-PLAN.md</c> 3ez measured at 1.14x to 2.16x
-    /// and took for the thrusters over-delivering.</para>
+    /// delivery reading: 1.14x to 2.16x flown, <c>docs/ACCURACY-PLAN.md</c> 3ez.</para>
     ///
     /// <para><b>The lag is the whole fixture</b>, and <see cref="Fly"/> does not have it: it applies
     /// each command on the frame it was written, which is the one epoch where the unguarded reading
@@ -619,12 +613,10 @@ public class BusTrimPulseTests(ITestOutputHelper Out)
     /// <see cref="IcbmConfig.StallFallsBackToHolding"/>.
     /// </summary>
     /// <remarks>
-    /// <para><b>The regression is the 200 s bound, not the verdict.</b> The version this replaces held
-    /// the fallback open on a clock that its own branch returned before advancing, so the trim fired
-    /// nothing until <see cref="BusTrim.MaxSeconds"/> and gave up anyway — 110 s wasted and the
-    /// residual worse. Its fixture flew to 60 s against a 120 s timeout and could not see any of it, so
-    /// this one flies to 200 and asserts the null ended well inside the cap.
-    /// <c>docs/ACCURACY-PLAN.md</c> 3fb.</para>
+    /// <para><b>The regression is the 200 s bound, not the verdict.</b> A fallback held open on a
+    /// clock its own branch returns before advancing fires nothing until
+    /// <see cref="BusTrim.MaxSeconds"/> and gives up anyway, which a fixture flown to 60 s against a
+    /// 120 s cap cannot see; this one flies to 200 s. <c>docs/ACCURACY-PLAN.md</c> 3fb.</para>
     /// </remarks>
     [Theory]
     [InlineData(false)]
@@ -672,7 +664,6 @@ public class BusTrimPulseTests(ITestOutputHelper Out)
             Assert.True(gaveWay, "the phase never gave way, so the switch did nothing");
             Assert.False(trim.GaveUp, $"the hold did not finish the null: {last.Said}");
 
-            // The deleted version's failure, which its own fixture could not reach.
             Assert.True(elapsed < 0.5 * BusTrim.MaxSeconds,
                         $"the null ran {elapsed:F1} s against a {BusTrim.MaxSeconds:F0} s cap -- the "
                         + "fallback is waiting on a clock that is not advancing");

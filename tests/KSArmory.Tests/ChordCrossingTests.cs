@@ -114,10 +114,6 @@ public class ChordCrossingTests(ITestOutputHelper Out)
                     + $"against the chord's {chordOff * 1000.0:F3} mm");
     }
 
-    /// <summary>
-    /// And the pair the trace reports is matched for the first time: the radius the round says it
-    /// stopped on is the radius that is actually under where it stopped.
-    /// </summary>
     [Fact]
     public void TheRecordedSurfaceIsTheOneUnderTheLanding()
     {
@@ -132,7 +128,6 @@ public class ChordCrossingTests(ITestOutputHelper Out)
         Assert.Equal(actually, recorded, 3);
     }
 
-    /// <summary>Flat ground has no curvature, so the chord is the surface and nothing may move.</summary>
     [Fact]
     public void OnFlatGroundItChangesNothing()
     {

@@ -85,7 +85,8 @@ public class PostBoostTrimFloorTests
         Assert.Equal(6, aim.Cycles);
     }
 
-    /// <summary>Off is today's rule: the same readings take a third pass on the 5 m one.</summary>
+    /// <summary>Off, the same readings take a third pass on the 5 m one.</summary>
+
     [Fact]
     public void OffTheFloorIsTodaysRule()
     {

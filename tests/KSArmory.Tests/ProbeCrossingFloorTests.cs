@@ -317,15 +317,11 @@ public class ProbeCrossingFloorTests(ITestOutputHelper Out)
 
     /// <summary>
     /// <see cref="IcbmConfig.PredictionStopsOnTheTerrain"/> as it ships, rather than the rig's own
-    /// iterated refinement: one secant step inside the predictor, on the same bracket.
+    /// iterated refinement: up to <c>TerrainCrossingSteps</c> secant steps inside the predictor, on the same bracket.
     /// </summary>
     /// <remarks>
-    /// This is the regression test for 49c, and it is written to fail against the code before it: with
-    /// the flag off the reported crossing hangs millimetres over the ground on a slope, which is the
-    /// term the miss kick hands to the round. On the flat it moves by <b>nanometres</b> and not by
-    /// nothing — the chord cuts inside the sphere, so there is a sagitta of about `L²/8R` to give back
-    /// even there — and a flat case that moved further than that would mean the lookup was being spent
-    /// where it buys nothing.
+    /// Off, the crossing hangs millimetres over a slope, and the miss kick hands that to the round. On the flat it
+    /// moves by nanometres, the chord's sagitta of about `L²/8R`; more there would be a lookup buying nothing.
     /// </remarks>
     [Fact]
     public void TheShippedFlagPutsTheCrossingOnTheGroundAndLeavesLevelGroundAlone()
@@ -366,9 +362,8 @@ public class ProbeCrossingFloorTests(ITestOutputHelper Out)
                 continue;
             }
 
-            // The whole claim: the crossing comes down onto the ground. Three bounded secant steps
-            // beat walking the answer along its own arrival to convergence, because they re-ask the
-            // height field where the guess actually went rather than following one reading down.
+            // Bounded secant steps beat walking the answer along its arrival to convergence, because
+            // they re-ask the height field where the guess actually went.
             Assert.True(Mean(on) < Mean(off) * 0.35,
                         $"slope {slope}: {Mean(on):F3} mm over the ground against {Mean(off):F3} off");
         }

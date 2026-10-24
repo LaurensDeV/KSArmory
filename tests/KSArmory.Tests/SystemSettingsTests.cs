@@ -86,7 +86,6 @@ public class SystemSettingsTests
         Assert.Equal(55f, loaded.TurretManualElevationDeg, 3);
     }
 
-    /// <summary>Applying twice must not stack the team lists.</summary>
     [Fact]
     public void ApplyingTwiceDoesNotDuplicateTeams()
     {
@@ -101,8 +100,8 @@ public class SystemSettingsTests
     }
 
     /// <summary>
-    /// Nothing is written when nothing changed — this is called every half second, and rewriting
-    /// an unchanged file that often is how a settings file gets corrupted by a crash.
+    /// <c>SettingsStore.Remember</c> asks for a write only when <c>Differs</c> says something
+    /// changed, so an unchanged system must compare equal.
     /// </summary>
     [Fact]
     public void UnchangedSettingsCompareEqual()
@@ -170,9 +169,8 @@ public class SystemSettingsTests
     /// happen — <c>From</c>, <c>ApplyTo</c> and <c>Differs</c> — are written out by hand.
     ///
     /// <para>A field added to <see cref="SystemConfig"/> and forgotten in any of them is silently
-    /// not persisted: nothing throws, nothing is logged, and the setting is simply back at its
-    /// default on the next load. Four shipped that way — the scope's range and pop-out, the bomb
-    /// sight, and whether the set was told to stop transmitting.</para>
+    /// not persisted: nothing throws, nothing is logged, and it is back at its default on the next
+    /// load.</para>
     ///
     /// <para>Exempting a field is deliberate and has to name its reason, which is what stops this
     /// being satisfied by adding names to a list.</para>
@@ -299,13 +297,10 @@ public class SystemSettingsTests
                 .Deserialize<Dictionary<string, Dictionary<string, SystemSettings>>>(legacy));
     }
 
-    // ---- Teams survive a reload only if both halves come back ------------
-    //
-    // The memberships are stored per system and the names are session-wide. Restoring one without
-    // the other leaves every system certain of its allegiance in a world that has forgotten the
-    // teams exist, which classifies every contact Unknown, which is engageable by default: a
-    // two-sided world silently becomes a free-for-all with the panel still showing the old sides.
-
+    /// <summary>
+    /// Memberships are stored per system and the names per session. Restoring one without the
+    /// other classifies every contact Unknown, which is engageable by default.
+    /// </summary>
     [Fact]
     public void RestoringASystemPutsItsTeamsBackOnTheSessionRoster()
     {

@@ -5,17 +5,9 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// What the <see cref="ImpactPredictor"/>'s own step through the air is worth.
-///
-/// <para>The aim correction has exactly one observer and this is it. Six shots flown at 12,902 km
-/// walked a median <b>2,352 m downrange</b> from their own release probe and arrived <b>0.48 s
-/// early</b>, on well-conditioned flat ground — fifteen times what <c>ProbeGapTests</c> prices the
-/// round's own integrator at. That leaves the other integrator, and it was never measured because
-/// its step was a constant nothing could vary.</para>
-///
-/// <para><b>Measurement, not a threshold.</b> Nothing here asserts a number the predictor must
-/// beat; it asserts the shape — that the answer converges, and that the shipped step is far enough
-/// from converged to matter.</para>
+/// What the <see cref="ImpactPredictor"/>'s own step through the air is worth: it is the aim correction's
+/// only observer. The asserted bounds are loose; they pin the shape, converged over the sphere and over
+/// KSA's erosion, with the rig still able to see an octave that can hide between two samples.
 /// </summary>
 public class PredictorStepTests(ITestOutputHelper Out)
 {
@@ -84,8 +76,7 @@ public class PredictorStepTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>The negative this file records, and the exact ground it was established on.</b> The
-    /// shipped air step is converged <em>against a sphere</em>: it costs a fraction of a metre
+    /// The shipped air step is converged <em>against a sphere</em>: it costs a fraction of a metre
     /// across an order of magnitude of refinement, non-monotonically, which is the
     /// <see cref="ImpactPredictor.CrossingToleranceMetres"/> bisection floor rather than integration
     /// error.
@@ -143,21 +134,12 @@ public class PredictorStepTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>3z, tested and refuted.</b> The predictor's 250 ms step samples 782 m of ground apart,
-    /// and 3z reasoned from that plus a slope comparison that the long-range miss was the predictor
-    /// aliasing terrain. Over <b>KSA's own erosion spectrum</b> it costs a tenth of a metre.
+    /// The 250 ms step samples ground 782 m apart, yet over KSA's erosion it costs a tenth of a metre
+    /// (ACCURACY-PLAN 3z). It costs hundreds only for an octave taller than the arc's drop across one sample
+    /// (about 101 m here) and shorter than twice their spacing; KSA's largest such octave is 62.5 m at 1.33 km.
     ///
-    /// <para><b>The mechanism is real and the criterion was wrong.</b> A coarse step does cost
-    /// hundreds of metres — <see cref="WhereACoarseStepStartsToCost"/> reads 576 m — but only for an
-    /// octave both <em>taller</em> than the arc's drop across one sample interval (about 101 m at
-    /// this arrival) and <em>shorter</em> than twice the sample spacing, so it can hide between two
-    /// samples. Slope does not predict it at all: 0.79 costs 576 m and 0.84 costs nothing.
-    /// KSA's largest sub-Nyquist octave is 62.5 m at 1.33 km, well under the threshold.</para>
-    ///
-    /// <para><b>All three legs are load-bearing.</b> The sphere says the rig is sound. KSA's
-    /// spectrum is the finding. The tall octave is what stops this being another blind test — 3z
-    /// exists because the negative before it was established against a surface with nothing to
-    /// miss, and a null here means nothing unless the same rig can still see a real effect.</para>
+    /// <para>All three legs are load-bearing: the sphere says the rig is sound, KSA's spectrum is the
+    /// finding, and the tall octave proves the rig can still see a real effect.</para>
     /// </summary>
     [Fact]
     public void TheShippedAirStepIsConvergedOverKsasTerrainAndTheRigCanStillSeeAnEffect()

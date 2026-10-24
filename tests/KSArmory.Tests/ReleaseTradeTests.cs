@@ -5,22 +5,11 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// What several targets actually cost a bus: how far apart they can be, how many fit, and whether
-/// the window between the warhead's own radius and the budget is wide enough to be a feature.
+/// Measurement only: what several targets cost a bus. The assertions are sanity checks on the rig, so a
+/// geometry that stops reconstructing fails rather than printing nonsense.
 ///
-/// <para><b>Measurement only.</b> Nothing here asserts an improvement; the assertions are sanity
-/// checks on the rig, so a geometry that stops reconstructing fails loudly rather than printing
-/// nonsense.</para>
-///
-/// <para><b>The reach is pinned, which is what the flight is on.</b>
-/// <see cref="DivertFootprint.ArrivalClock.Pinned"/> is one projection off the same columns
-/// <see cref="ReleaseFocus.FlownSensitivity"/> already flies per salvo, and it is the reach a player
-/// has today — free-clock is 1.94x longer along the track at the 6,179 km gate and nothing across
-/// it, and no release loop re-commits the arrival per destination.</para>
-///
-/// <para>The along-track reach is the one quoted throughout: pinned, the two axes agree to within a
-/// few per cent, and along is the dearer, so a chain laid across the track is never worse than this
-/// says.</para>
+/// <para>The reach is <see cref="DivertFootprint.ArrivalClock.Pinned"/>, as the flight is, and along-track:
+/// pinned, the two axes agree within a few per cent and along is the dearer.</para>
 /// </summary>
 public class ReleaseTradeTests(ITestOutputHelper Out)
 {
@@ -111,10 +100,6 @@ public class ReleaseTradeTests(ITestOutputHelper Out)
     private static ReleaseItinerary.Bus BusFor(Shot shot)
         => new(new IcbmConfig().ReleaseBeforeArrivalSeconds, shot.CoastSeconds, Warheads: 6);
 
-    // ---------------------------------------------------------------------------------------
-    // 1. How far apart six targets can be
-    // ---------------------------------------------------------------------------------------
-
     /// <summary>
     /// The trade the six-target question actually turns on: with the whole budget spent on hops,
     /// how long a chain of six does it buy, and how far apart are its neighbours?
@@ -164,10 +149,6 @@ public class ReleaseTradeTests(ITestOutputHelper Out)
         }
     }
 
-    // ---------------------------------------------------------------------------------------
-    // 2. The trade the other way round
-    // ---------------------------------------------------------------------------------------
-
     /// <summary>How many targets a budget reaches at a spacing somebody would actually pick.</summary>
     [Fact]
     public void HowManyTargetsFitAtAGivenSpacing()
@@ -212,10 +193,6 @@ public class ReleaseTradeTests(ITestOutputHelper Out)
             }
         }
     }
-
-    // ---------------------------------------------------------------------------------------
-    // 3. The floor the weapon puts under it
-    // ---------------------------------------------------------------------------------------
 
     /// <summary>
     /// Whether the window is wide enough to be a feature at all: bounded below by the warhead, which

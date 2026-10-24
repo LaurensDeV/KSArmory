@@ -55,10 +55,8 @@ public class TargetSetShiftTests
     [Fact]
     public void ANewTargetThatBecameTheLeadCanStillBeGivenWarheads()
     {
-        // The case that broke it in play: AddTarget re-elects the lead to whichever target is
-        // farthest, so the empty new one often IS the lead by the time a warhead is wanted.
-        // Taking "from the lead" then took from a target holding nothing and refused, leaving the
-        // first target with all seven and every other with none.
+        // AddTarget re-elects the lead to whichever target is farthest, so the empty new one often
+        // IS the lead by the time a warhead is wanted, and taking "from the lead" takes from nothing.
         TargetSet set = WithTwo();
         set.SetLead(1);
 

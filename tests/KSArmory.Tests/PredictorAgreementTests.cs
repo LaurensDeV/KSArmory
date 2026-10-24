@@ -5,19 +5,11 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Whether the two models of one fall agree: <see cref="ImpactPredictor"/>, which the aim
-/// correction converges against, and <see cref="Slug"/>, which is what actually arrives.
-///
-/// <para><b>Flown as the game flies it, they agree to about fifty metres over a twenty-minute fall,
-/// and the frame rate does not enter.</b> That is the point of the two things this fixture sets that
-/// a naive one does not: the reentry vehicle's own millisecond sub-step, and a per-sub-step
-/// <see cref="Slug.GravityAt"/>. Omit either and the round is handed one gravity sample per frame,
-/// which fabricates a frame-rate-dependent error of over a kilometre — a round nobody flies.</para>
-///
-/// <para>So the <b>157 m</b> a warhead walks from its release probe at 12,902 km is not this: the
-/// integrators account for about a third of it and no part of it moves with the frame rate. The rest
-/// is somewhere the drag model, the terrain or the warp differ between the two.</para>
+/// <see cref="ImpactPredictor"/> against <see cref="Slug"/>: about fifty metres over a twenty-minute fall, whatever
+/// the frame rate, given the reentry vehicle's millisecond sub-step and a per-sub-step <see cref="Slug.GravityAt"/>.
+/// Omit either and one gravity sample a frame fabricates over a kilometre. ACCURACY-PLAN has the 157 m walk.
 /// </summary>
+
 public sealed class PredictorAgreementTests
 {
     private readonly ITestOutputHelper _out;

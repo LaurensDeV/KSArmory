@@ -13,8 +13,7 @@ public class SkyDispatchTests
     }
 
     /// <summary>
-    /// Three bursts at 400 km: three glows, six curtains and three shells, and every one of them drawn --
-    /// where the brightest alone drew one of each kind and left the other bursts with nothing.
+    /// Three bursts at 400 km: three glows, six curtains and three shells, and every one of them drawn.
     /// </summary>
     [Fact]
     public void SeveralBurstsEachShowTheirSky()
@@ -37,7 +36,7 @@ public class SkyDispatchTests
 
     /// <summary>
     /// The newest are kept whatever their brightness, so the choice does not move between frames as two
-    /// bursts' curtains cross -- ranked by brightness, the one drawn jumped between them.
+    /// bursts' curtains cross -- ranked by brightness, the one drawn would jump between them.
     /// </summary>
     [Fact]
     public void TheNewestAreKeptSoTheChoiceHoldsStill()

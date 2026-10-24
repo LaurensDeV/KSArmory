@@ -5,9 +5,9 @@ namespace KSArmory.Tests;
 /// <summary>
 /// The readout that has to stay legible as the shot improves.
 ///
-/// <para>Every aim readout printed kilometres to one decimal, which was right when a miss was
-/// kilometres and is blind now: on 2026-09-07-1824 the log read <c>bias 0.0 km</c> on every flight
-/// while the correction closed 4 km down to 20 m. <c>docs/ACCURACY-PLAN.md</c> 3bx.</para>
+/// <para>Kilometres to one decimal are blind once a miss is metres: flown, the log read
+/// <c>bias 0.0 km</c> on every flight while the correction closed 4 km down to 20 m.
+/// <c>docs/ACCURACY-PLAN.md</c> 3bx.</para>
 /// </summary>
 public class DistanceTests
 {
@@ -28,8 +28,8 @@ public class DistanceTests
         => Assert.Equal(said, Distance.Say(metres));
 
     /// <summary>
-    /// The readings the old format destroyed. Each of these printed as "0.0 km" — the whole of what
-    /// a ten-metre shot is made of, rendered as nothing.
+    /// Readings a fixed kilometre to one decimal prints as "0.0 km" — the whole of what a ten-metre
+    /// shot is made of, rendered as nothing.
     /// </summary>
     [Theory]
     [InlineData(8.0)]

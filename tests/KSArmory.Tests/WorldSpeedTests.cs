@@ -19,8 +19,7 @@ public class WorldSpeedTests
         Assert.True(double.IsNaN(WorldSpeed.Slowest([double.NaN, double.NaN])));
     }
 
-    /// <summary>One flight gets exactly what it asked for, which is what makes this a no-op
-    /// against the single-rocket behaviour it replaced.</summary>
+    /// <summary>One flight gets exactly what it asked for.</summary>
     [Theory]
     [InlineData(0.01)]
     [InlineData(1.0)]

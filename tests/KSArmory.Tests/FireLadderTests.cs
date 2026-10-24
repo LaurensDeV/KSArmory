@@ -5,8 +5,7 @@ namespace KSArmory.Tests;
 /// <summary>
 /// The reason a system gives for not shooting.
 ///
-/// <para>It is the mod's most-read line and had no test at all while it lived in <c>Ksa/</c>. What
-/// matters is not that each rung works but that they are asked <b>in order</b>: the ladder's whole
+/// <para>What matters is not that each rung works but that they are asked <b>in order</b>: the ladder's whole
 /// job is to name the <em>first</em> gate that says no, so a rung that overtakes the one above it
 /// reports a true statement that is not the answer — and the operator goes looking in the wrong
 /// place.</para>
@@ -70,8 +69,6 @@ public class FireLadderTests
     {
         Assert.Null(Hold(Ready()));
     }
-
-    // ---- The order, which is the whole contract ---------------------------
 
     /// <summary>
     /// No platform outranks everything, including having no launcher. Both are true of a system
@@ -138,8 +135,6 @@ public class FireLadderTests
         Assert.Equal("no firing solution yet (3 track(s))",
                      Hold(Ready() with { HasFiringSolution = false, TrackCount = 3 }));
     }
-
-    // ---- Which ladder a launcher is on ------------------------------------
 
     /// <summary>
     /// A gun-only launcher takes the belt's rungs. Its magazine is empty by construction, so
@@ -243,8 +238,6 @@ public class FireLadderTests
                           new SystemConfig { GunsEnabled = false }));
     }
 
-    // ---- Who owns the bearing ---------------------------------------------
-
     /// <summary>
     /// Only one weapon can own the bearing, and rounds leave along the tube — so a missile released
     /// while the turret is laid on the cannon's ballistic lead departs well off the target.
@@ -282,8 +275,6 @@ public class FireLadderTests
 
         Assert.Null(Hold(now));
     }
-
-    // ---- The target ------------------------------------------------------
 
     [Fact]
     public void NoLockIsReportedAfterTheDrivesAreSettled()
@@ -375,10 +366,8 @@ public class FireLadderTests
                           new SystemConfig { AutoEngage = false }));
     }
 
-    // ---- What binds the trigger, and what is only automatic fire's ---------
-
     /// <summary>
-    /// The reported fault. The trigger consults neither the envelope nor the salvo count, so a
+    /// The trigger consults neither the envelope nor the salvo count, so a
     /// panel saying "holding fire" about them describes a refusal that does not happen: the
     /// operator presses FIRE at a target inside the minimum, the round leaves, and it flies.
     /// </summary>
@@ -444,8 +433,6 @@ public class FireLadderTests
     {
         Assert.Null(FireLadder.Holding(Ready(), Policy(), Round()));
     }
-
-    // ---- A lock past the seeker's gimbal -----------------------------------
 
     /// <summary>
     /// A fixed rail with a crosser 46 degrees off its 40-degree seeker. The shot refuses to launch,

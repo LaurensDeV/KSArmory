@@ -12,8 +12,7 @@ namespace KSArmory.Tests;
 /// nozzles sum to 4.000 units of thrust fore and aft and <b>4.243 in every one of the four lateral
 /// directions</b>, with the roll torques cancelling exactly — so it translates cleanly on all six.
 /// Read off <c>KSArmoryAssets.xml</c> at KSA's 0.5 translation-enrolment threshold, and confirmed
-/// in flight: the 2026-08-25 baseline trimmed starboard 294 times and back 292 and converged, which
-/// a bus with no lateral authority could not do.</para>
+/// in flight by a baseline that trimmed starboard 294 times and back 292 and converged.</para>
 ///
 /// <para>That matters because <see cref="BusTrim"/> strikes a direction off after
 /// <see cref="BusTrim.DirectionStallSeconds"/> of firing without its own component falling by
@@ -107,7 +106,7 @@ public class BusAuthorityTests(ITestOutputHelper Out)
     /// <summary>
     /// A genuinely dead pair is still struck off, which is what the rule is actually for.
     ///
-    /// <para><b>The guard on the change that stopped striking off live axes.</b> Telling a dead
+    /// <para>Telling a dead
     /// thruster from a live one losing a race is only worth having if the dead one is still caught
     /// — otherwise the loop fires at nothing until its clock runs out. A bus with no lateral
     /// authority at all is that case, and <see cref="BusTrim"/>'s own note names it: a vehicle with
@@ -137,10 +136,10 @@ public class BusAuthorityTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// A live axis losing a race to a moving solution is no longer struck off.
+    /// A live axis losing a race to a moving solution is not struck off.
     ///
-    /// <para>Measured on the shipped bus at a drift of 1.03x its lateral authority: starboard was
-    /// struck off and 2.02 m/s abandoned, on an axis with 4.243 units of thrust. Every strike under
+    /// <para>Judged on the stall clock alone, a drift of 1.03x the lateral authority strikes
+    /// starboard off and abandons 2.02 m/s on an axis with 4.243 units of thrust. Every strike under
     /// a steep arrival is that case — <c>docs/METRE-LEVEL.md</c> B1 — and it is what stops the bus
     /// paying for the arrival angle that gets the miss under fifty metres.</para>
     /// </summary>
@@ -158,13 +157,13 @@ public class BusAuthorityTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// And what that is worth: the residual left on the bus in the band where the false positive
-    /// used to fire.
+    /// And what that is worth: the residual left on the bus in the band where a stall clock alone
+    /// strikes a live axis off.
     /// </summary>
     [Fact]
     public void NotStrikingOffALiveAxisLeavesLessOnTheBus()
     {
-        // Measured against the shipped rule, which abandoned 2.022 m/s here.
+        // The stall clock alone abandons 2.022 m/s here.
         (_, _, double toGain) = Run(driftPerSecond: 0.60, errorMs: 7.3);
 
         Out.WriteLine($"1.03x lateral authority leaves {toGain:F3} m/s (was 2.022 struck off)");

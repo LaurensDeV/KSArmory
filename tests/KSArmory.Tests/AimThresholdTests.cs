@@ -3,14 +3,8 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// The band the aim loop judges an improvement by, which has to shrink with the shot.
-///
-/// <para><c>AimCorrection.ImprovedByMetres</c> is 250 m flat. That was a quarter of the miss when it
-/// was chosen and is twenty-five times the whole of it now: traced 2026-09-07, the aim is 8 and 18 m
-/// off at release on two flights landing at 12 and 19 m, with 1 to 4 m made during the entire fall.
-/// No cycle can close 250 m at that scale, so the loop always stops on
-/// <see cref="PostBoostAim.PassesWithoutImprovement"/> whatever it might have achieved —
-/// <c>docs/ACCURACY-PLAN.md</c> 3bw.</para>
+/// <c>AimCorrection.ImprovedByMetres</c> is a flat 250 m against release misses of 8 and 18 m
+/// (traced 2026-09-07), so no cycle can register a change. <c>docs/ACCURACY-PLAN.md</c> 3bw.
 /// </summary>
 public class AimThresholdTests
 {
@@ -74,7 +68,6 @@ public class AimThresholdTests
         }
     }
 
-    /// <summary>Off is the shipped constant, whatever the miss — every flown night has had this.</summary>
     [Fact]
     public void OffIsExactlyTheOldBehaviour()
     {

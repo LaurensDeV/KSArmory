@@ -57,8 +57,7 @@ internal static class DeorbitShot
     public static double RoughGround(double3 bodyFixedCci)
         => R + Quantised(ReliefHeight(Vec.Unit(bodyFixedCci)));
 
-    // The three terms RoughGround has always carried, split out so the eroded variant can add an
-    // octave to them without either surface drifting from the other.
+    // Shared by RoughGround and the eroded variants, so an added octave cannot move the base relief.
     private static double ReliefHeight(double3 u)
         => 800.0 * Math.Sin(u.X * 12.0) * Math.Cos(u.Y * 9.0)
          + 150.0 * Math.Sin(u.Y * 130.0 + 1.7) * Math.Cos(u.Z * 110.0)
@@ -84,7 +83,7 @@ internal static class DeorbitShot
     /// than a 7 degree arc descends, which makes every crossing monotone and every sample grid fine
     /// enough. This octave is 40 m over 300 m, a slope of <b>0.84</b> against the arc's 0.125, so
     /// the clearance is genuinely non-monotone between samples and a coarse step can step over a
-    /// hill. <c>docs/ACCURACY-PLAN.md</c> 3z is the reading.</para>
+    /// hill. <c>docs/ACCURACY-PLAN.md</c> 3z and 3ab are the reading.</para>
     ///
     /// <para>It varies in <c>u.Y</c> alone because that is the direction a reentry in this file
     /// travels: a term built on <c>u.X</c> would be crossed at a grazing angle and alias far less.</para>
@@ -126,8 +125,8 @@ internal static class DeorbitShot
     /// <summary>
     /// <see cref="RoughGround"/> with <b>KSA's own erosion spectrum</b> on it rather than a single
     /// invented octave: seven octaves, lacunarity 2, gain 0.5, running 10.6 km down to 166 m of
-    /// wavelength at 500 m down to 7.8 m of amplitude. <c>docs/KSA-TERRAIN.md</c> line 122 is the
-    /// reading, off <c>EarthErosion</c>.
+    /// wavelength at 500 m down to 7.8 m of amplitude. <c>docs/KSA-TERRAIN.md</c>, "Where the detail
+    /// actually comes from", is the reading, off <c>EarthErosion</c>.
     ///
     /// <para>Undamped, so this is the <b>worst case</b>: in the game each octave is further scaled
     /// by the biome weight, which only ever reduces it.</para>
@@ -302,11 +301,8 @@ internal static class DeorbitShot
         /// <summary>
         /// Integrate at this sub-step rather than the profile's own. Zero leaves it alone.
         ///
-        /// <para>Applied as <see cref="MunitionProfile.SubStepSeconds"/> on a copy of the round's
-        /// profile — the shipped mechanism, and the one <c>arm/substep</c> uses — rather than by
-        /// handing the round shorter frames. Those are not the same thing: a shorter frame also
-        /// re-samples the ground and the air's motion, so the old form priced three changes and
-        /// called them one.</para>
+        /// <para>Applied as <see cref="MunitionProfile.SubStepSeconds"/> on a copy of the profile, not by
+        /// handing the round shorter frames: a shorter frame also re-samples the ground and the air's motion.</para>
         /// </summary>
         public double StepSeconds { get; init; }
 
@@ -314,8 +310,8 @@ internal static class DeorbitShot
         public static Refresh AsFlown => default;
 
         /// <summary>
-        /// The round before the per-sub-step gravity landed, kept only so a budget can show what
-        /// that change was worth. Nothing in the shipped tree flies this way.
+        /// Gravity held per frame, kept only so a budget can price per-sub-step gravity. Nothing
+        /// shipped flies this way.
         /// </summary>
         public static Refresh BeforeGravityPerSubStep => new() { HoldGravity = true };
 
@@ -349,7 +345,6 @@ internal static class DeorbitShot
         public double3 At(double seconds) => MetresPerSecond * seconds;
     }
 
-    /// <summary>The round's profile, with a finer sub-step if one was asked for.</summary>
     private static MunitionProfile MunitionFor(Refresh refresh)
         => refresh.StepSeconds > 0.0
                ? MunitionVariant.Of(Warhead, m => m.SubStepSeconds = (float)refresh.StepSeconds)
@@ -578,9 +573,9 @@ internal static class DeorbitShot
     /// </param>
     /// <param name="HeldSpeed">The speed the policy settled the coast at, or the request if it never acted.</param>
     /// <param name="HeldAt">
-/// When it first acted <em>during the coast</em>, in seconds of flight. NaN if it never did — the
-/// entry pulls the world to real time on every flight, so a hold from there on is not one.
-/// </param>
+    /// When it first acted <em>during the coast</em>, in seconds of flight. NaN if it never did — the
+    /// entry pulls the world to real time on every flight, so a hold from there on is not one.
+    /// </param>
     public readonly record struct WarpedFlight(double3 GroundFixed, double Seconds, double MeanStep,
                                                double HeldSpeed, double HeldAt);
 

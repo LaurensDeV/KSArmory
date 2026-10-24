@@ -194,8 +194,6 @@ public class PostBoostAimTests
         }
     }
 
-    // ------------------------------------------------- the nose the reading is taken through
-
     /// <summary>
     /// The prediction the correction reads adds the ejection kick along the bus's nose, so a nose
     /// that is turning is a moving instrument and nothing may be read off it.
@@ -330,8 +328,6 @@ public class PostBoostAimTests
         Assert.True(aim.Update(Step, Bus(true, double.NaN, directionCci: Vec.Zero)).MayMeasure);
     }
 
-    // ------------------------------------------------- the best, and the tank
-
     /// <summary>
     /// Passes stop when they stop beating the best seen. Flown, the correction converges by pass 5
     /// — 3.3 km down to 0.4 — and then wanders between 0.1 and 0.5 km for seven more, improving on
@@ -461,11 +457,8 @@ public class PostBoostAimTests
     /// <summary>
     /// A trim that refuses the arc ends the correction, and must not call that a settled aim.
     ///
-    /// <para>The two were one flag. Flown at 2,942 km: the correction's first pass moved the aim,
-    /// re-solving the arc asked the trim for 14.91 m/s against a ceiling of ten, the trim refused —
-    /// and the sequencer reported <c>aim settled 5.9 km out</c> half a second later and released.
-    /// The warheads landed 5.2 km out. Every word of that message was wrong: the aim had run one
-    /// pass of an unknown number, and nothing it found was ever applied.</para>
+    /// <para>Flown at 2,942 km, a first pass asked the trim for 14.91 m/s against a ceiling of ten and was
+    /// refused: the aim had run one pass and nothing it found was applied, so "settled" would be false.</para>
     /// </summary>
     [Fact]
     public void ATrimThatRefusesTheArcIsNotAnAimThatSettled()
@@ -483,11 +476,8 @@ public class PostBoostAimTests
     /// <summary>
     /// And it must not say "none of it was applied" once passes have been flown.
     ///
-    /// <para>That wording was written for the first-pass refusal and read as a reason for three
-    /// flights, long after two passes had taken a release from 3.5 km to 1.9. Naming a cause this
-    /// sequencer cannot see is worse than naming none: five separate paths set the flag, and the
-    /// one that actually fired at Mahia -- a spent budget -- was not the one the sentence
-    /// suggested.</para>
+    /// <para>Five separate paths set the flag, so naming a cause this sequencer cannot see is worse
+    /// than naming none.</para>
     /// </summary>
     [Fact]
     public void ARefusalAfterPassesHaveFlownDoesNotClaimNothingWasApplied()

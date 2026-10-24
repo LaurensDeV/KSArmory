@@ -121,8 +121,6 @@ public class FireGeometryTests
         Assert.Equal(0.0, Vec.AngleBetween(new double3(1, 0, 0), forward), 6);
     }
 
-    // ---- Spin at release -------------------------------------------------
-
     /// <summary>Earth's ecliptic motion, which both positions carry and which must cancel.</summary>
     private static readonly double3 SolarFrame = new(0, 29_800, 0);
 

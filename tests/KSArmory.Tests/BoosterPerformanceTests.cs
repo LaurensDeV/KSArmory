@@ -27,7 +27,7 @@ public class BoosterPerformanceTests
 
     /// <summary>
     /// The stack gets lighter as it burns, and treating the acceleration as constant is what makes
-    /// a cutoff late. This stage roughly triples its acceleration over the burn.
+    /// a cutoff late. This stage goes from 13,200 kg to 1,200 kg, so its acceleration grows elevenfold.
     /// </summary>
     [Fact]
     public void TheTimeToGainAVelocityAllowsForTheStackGettingLighter()

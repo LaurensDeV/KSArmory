@@ -9,18 +9,14 @@ namespace KSArmory.Tests;
 /// 29.8 km/s, and spinning.
 /// </summary>
 /// <remarks>
-/// <para>Every other rig flies a planet at the origin, where anything carried by the planet's own
-/// travel is identically zero. Two terms of the flown walk were exactly that and no rig could show
-/// either (<c>docs/ACCURACY-PLAN.md</c> 3el).</para>
+/// <para>A planet at the origin makes every term carried by its own travel identically zero
+/// (<c>docs/ACCURACY-PLAN.md</c> 3el).</para>
 ///
-/// <para><b>The ecliptic accumulator is scatter, not the walk.</b> Carrying the position at 1.5e11 m,
-/// where a double's step is 30.5 µm, moves a landing by up to ±11 mm with a jittering frame and
-/// averages near zero at every frame rate.</para>
-///
-/// <para><b>The air read against where the planet will be is a bias proportional to the frame.</b>
-/// The spin's radius measured to the end-of-frame body sample carries a frame of its travel, and the
-/// false wind that makes tilts the drag one way on every frame.</para>
+/// <para>Carrying the position at 1.5e11 m, where a double's step is 30.5 µm, is scatter: up to ±11 mm
+/// with a jittering frame, averaging near zero. The air read against the end-of-frame body sample is a
+/// bias proportional to the frame: a false wind tilting the drag one way every frame.</para>
 /// </remarks>
+
 public class MovingPlanetProbe(ITestOutputHelper Out)
 {
     private const double Mu = 3.986004418e14;
