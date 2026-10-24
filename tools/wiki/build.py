@@ -64,7 +64,7 @@ MOUNTS_TITLE = "Racks and rails"
 MOUNTS_FOLDER = "weapons/racks-and-rails"
 MOUNTS = [
     ("KSArmory_Prefab_WeaponsRail", "Ejector Rack", "Carriage",
-     "Thrown off an ejector it brings, the same launcher as the [Ejector Rack]({link})."),
+     "Hangs from the [Ejector Rack]({link}) it brings."),
     ("KSArmory_Prefab_LaunchRail", "Launch Rail", "LaunchRail", "Slides off the [Launch Rail]({link}) it brings."),
 ]
 
