@@ -148,9 +148,8 @@ internal sealed partial class IcbmProgram
             // Counted to the release, not the arrival: a coast ends when the warheads go, minutes earlier.
             : $"holding the warheads, release in {Clock(toArrival - gate)}";
 
-        // The line it was cut off on, not the airflow. The warheads leave along it, and a bus that
-        // swings to prograde the moment the engines stop throws them off the solution it just spent
-        // the whole burn arriving at.
+        // The line the computer set (the RVs' entry line, or a hop's), else the line it was cut off on;
+        // never prograde at cutoff, which throws the warheads off the solution the burn arrived at.
         double3 held = !CoastLineCci.Equals(Vec.Zero) ? CoastLineCci
                      : _thrustDirCci.Equals(Vec.Zero) ? Vec.Unit(state.AirflowCci) : _thrustDirCci;
 
