@@ -1,3 +1,31 @@
+## [0.9.9](https://github.com/LaurensDeV/KSArmory/compare/v0.9.8...v0.9.9) (2026-10-27)
+
+### Features
+
+* **model:** give the AIM-120C and AGM-88 rail hangers ([ef01a05](https://github.com/LaurensDeV/KSArmory/commit/ef01a055832873578c277c7fb379429ed80354aa))
+* **nuclear:** play the ANNIE film's bang and its flash pickup ([4e903f6](https://github.com/LaurensDeV/KSArmory/commit/4e903f6dbe23de1dd3e95edba5b20e8f6e64c0b7))
+* **rails:** an empty Missile Rail that becomes the rail of its missile ([ce75cb4](https://github.com/LaurensDeV/KSArmory/commit/ce75cb4089cd61e86e12bef18824be3144f81c76))
+* **rails:** carry an AIM-120C on a LAU-142 ejector ([cc6a86f](https://github.com/LaurensDeV/KSArmory/commit/cc6a86f735f596a87bd0d2ec7c80c2a6f68d0898))
+* **rails:** carry each missile on its own rail, the pods on the pylon ([2f16503](https://github.com/LaurensDeV/KSArmory/commit/2f165031258fe2f957f86e5cc3096fe4fe18eec1))
+* **rails:** give rocket pods their own rack, rename it Weapon Mount ([edaaabe](https://github.com/LaurensDeV/KSArmory/commit/edaaabe6c9fab490a7c7c6366019674566364cb9))
+* **rails:** hang every missile and the B61 from one ejector ([0ff85fb](https://github.com/LaurensDeV/KSArmory/commit/0ff85fb87721ff193cf2c1042a0e57eae64b29b9))
+* **rails:** hang the missile rails under a weapons pylon ([8972e70](https://github.com/LaurensDeV/KSArmory/commit/8972e70b199cbbf24f505c06f83f4ad471ba09dc))
+* **rails:** show a missile alone until it is attached ([7d2684c](https://github.com/LaurensDeV/KSArmory/commit/7d2684ca2db27cf54084fe9ae539ba76ea4e93eb))
+* **rails:** slide missiles off a launch rail, hang pods from the rack ([36ab235](https://github.com/LaurensDeV/KSArmory/commit/36ab2358efd540cdc44f9816a82039b0a1312c15))
+* **rockets:** carry Zuni rockets in a LAU-10 and a six-round pod ([f88b7f2](https://github.com/LaurensDeV/KSArmory/commit/f88b7f2c6c6e9724224713b434594161d4926097))
+* **rockets:** click the Zuni pods into the weapons pylon ([88b3745](https://github.com/LaurensDeV/KSArmory/commit/88b37455b4467d710292b23d9d7cfcc4a23a17da))
+
+### Fixes
+
+* **model:** rebuild the AIM-120C from a repaired source ([388888a](https://github.com/LaurensDeV/KSArmory/commit/388888a4dc33d18f7d8109955da3442f23cd3e13))
+* **model:** stop the AIM-120C reading near-black ([b0ecda2](https://github.com/LaurensDeV/KSArmory/commit/b0ecda28d7546cb511302421921f6f89da3d7b26))
+* **model:** turn the AIM-120C's mesh right side out ([f9bd6d4](https://github.com/LaurensDeV/KSArmory/commit/f9bd6d4a5943fe43ac9deba9fd473983bedfee3a))
+* **pantsir:** carry the real 1,400 cannon rounds and fire 5,000 a minute ([c138556](https://github.com/LaurensDeV/KSArmory/commit/c138556f35eba603f9de60320a744852f5b3bd57))
+* **rails:** click a pylon-free rail into the pylon's station ([d4d5d23](https://github.com/LaurensDeV/KSArmory/commit/d4d5d23915b4113765d80711a3913d7153fdf67c))
+* **rails:** push a store over the ejector's stroke, with the arms on it ([4d48c44](https://github.com/LaurensDeV/KSArmory/commit/4d48c440e36c0cf5743c6d43e6fbb81fcb1fadb5))
+* **rockets:** seat the Zuni pods on the Weapon Mount the right way round ([c2e33fa](https://github.com/LaurensDeV/KSArmory/commit/c2e33faebac65a9c04b4396b2fcc6d857980694f))
+* **rounds:** hold a store straight until it is clear of its launcher ([fda6280](https://github.com/LaurensDeV/KSArmory/commit/fda628094781806a32ca37f3858f78a9a5c1044c))
+
 ## [0.9.8](https://github.com/LaurensDeV/KSArmory/compare/v0.9.7...v0.9.8) (2026-10-22)
 
 ### Features
