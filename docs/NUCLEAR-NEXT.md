@@ -378,6 +378,19 @@ the same darkening the crater itself reaches.
 
 ### 8. A rumble, not a bang — built, and not yet heard
 
+**Since 2026-10-25 the bang is a recording**, not Core's `ExplosionBig`: the Upshot-Knothole ANNIE
+film's, 16 kt heard from about 10.7 km, with the hiss and a scream over its tail taken out
+(`tools/annie-sounds.py`), so the paragraphs below about Core's three layers describe what it
+replaced. It is pitched only down, for a burst bigger than ANNIE's 16 kt: what it sounds like is mostly
+the 10.7 km it crossed, which no yield changes, and played faster for the B61 it was a thin thud. What
+the distance took off it is put back close in by **Core's own close crack**, its first layer alone, told
+the range on Core's `Distance` parameter scaled by the cube root of the yield (`MushroomCloud.CrackDistance`),
+so it is full within 100 m of a 0.3 kt burst and gone by a kilometre. And FMOD is given the burst's
+velocity against the camera, as KSA's own explosions give it: given its ecliptic one, a bang past the
+500 m where it is fully 3D was Dopplered to a thud or to nothing, which the old bang hid in its echo. Beside it, the film's other sound: the recording
+equipment picking up the flash, played at the instant of the burst wherever it is heard
+(`BurstHearing.PickupLoudness`).
+
 **The rumble was already there.** Core's `ExplosionBig` is a crack, a distance-filtered far report
 and a **10.6–10.8 s** echo layer whose spatial data turns non-directional between one and ten
 kilometres — which is the enveloping part of a real roll. What was missing was that it was the same

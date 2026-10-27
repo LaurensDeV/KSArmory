@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-337 types and 898 members across 12 assemblies.
+339 types and 905 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -819,6 +819,17 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### KSA.ChannelWrapper
+
+- `KSA.SpatialAudio get_SpatialAudio()`
+- `float get_FadeVolumeMultiplier()`
+- `float get_HpfValue()`
+- `float get_LpfValue()`
+- `float get_PitchMultiplier()`
+- `float get_SimPitchMultiplier()`
+- `float get_SoundVolumeMultiplier()`
+- `float get_VolumeMultiplier()`
+
 ### KSA.CloudLayerReference
 
 - `KSA.DistanceReference get_BottomAltitude()`
@@ -830,10 +841,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.CloudsReference
 
 - `System.Collections.Generic.List`1<KSA.CloudLayerReference> Layers`
-
-### KSA.ClusterChannelWrapper
-
-*referenced as a type only*
 
 ### KSA.ConicalTankTemplate
 
@@ -1111,8 +1118,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.IChannel
 
-- `KSA.ClusterChannelWrapper get_SubscribedClusterSound()`
 - `bool IsPlaying()`
+- `bool IsVirtual()`
 - `void ApplyParameters()`
 - `void SetParameter(KSA.KeyHash, float)`
 - `void SetPaused(bool)`
@@ -1333,10 +1340,9 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `float Mass`
 
-### KSA.MultiChannelWrapper
+### KSA.MultiSound
 
-- `bool IsPaused()`
-- `void SetPaused(bool)`
+- `System.Collections.Generic.List`1<KSA.SoundBehavior> Sounds`
 
 ### KSA.OffsetMassProperties
 
@@ -1804,11 +1810,18 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `void Play(KSA.SpatialAudio, float, ref KSA.IChannel, bool)`
 
+### KSA.SoundReference
+
+- `KSA.SpatialSoundData SpatialSoundData`
+
 ### KSA.SpatialAudio
 
 - `double Distance()`
-- `double get_AtmosphericPressure()`
 - `void .ctor(Brutal.Numerics.double3, Brutal.Numerics.double3, double)`
+
+### KSA.SpatialSoundData
+
+*referenced as a type only*
 
 ### KSA.SphericalTankTemplate
 

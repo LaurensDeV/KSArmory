@@ -1,6 +1,6 @@
 # Source recordings
 
-The recordings every shipped gun sound in `src/KSArmory/Sounds/` is cut from, with the provenance
+The recordings every shipped sound in `src/KSArmory/Sounds/` is cut from, with the provenance
 of each, kept here so the cuts can be remade and their licences found.
 
 | File | Source | Licence |
@@ -54,3 +54,17 @@ The gun's gunshot, one per round. Kept stereo as recorded, so the cut can be rem
 A firing loop and its tail, kept stereo as sent. `./tools/m197-sounds.py` writes the mono
 `src/KSArmory/Sounds/KSArmory_M197_{Loop,Tail}.wav`; the loop is cut where the recording repeats its
 own head, so the seam lands inside the shot rhythm. `--report` prints what it would write.
+
+## A nuclear burst: Upshot-Knothole ANNIE
+
+| File | Source | Licence |
+| --- | --- | --- |
+| `annie/Upshot-Knothole_ANNIE_1953.flac` | the soundtrack of the 1953 ANNIE test footage, from the US National Archives, as posted with Alex Wellerstein's *The Sound of the Bomb (1953)*, Restricted Data, 2012-07-13 (`nuclearsecrecy.com/blog/2012/07/13/the-sound-of-the-bomb-1953/`, gone by 2026-10-25); sent by the mod's author as a WAV trimmed by happyscribe.com, file name `Operation_Upshot-Knothole_ANNIE_nuclear_test,_1953` | **public domain** — the post credits the US National Archives, and a US federal government work carries no copyright |
+
+ANNIE was 16 kt, filmed from about 10.7 km: a countdown ("one, zero"), the equipment picking up the
+burst at the instant of the flash, and the bang 31.3 s later, with voices and a scream around it.
+Mono in the recording, both channels identical. `./tools/annie-sounds.py` writes
+`src/KSArmory/Sounds/KSArmory_Nuclear_{Pickup,Bang}.wav`: the pickup without the countdown, the bang
+without the scream over its tail, and the film's hiss taken out of both. The pickup's buzz is a
+harmonic series on 24 Hz, the film's frame rate, so the hum notch is not put on it. `--report`
+prints what it would write.

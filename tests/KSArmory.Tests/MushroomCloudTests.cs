@@ -616,7 +616,7 @@ public class MushroomCloudTests
     }
 
     [Fact]
-    public void TheBangNeverRisesAboveTheSampleAndNeverFallsThroughTheFloor()
+    public void TheBangIsNeverPlayedFasterThanRecordedAndNeverFallsThroughTheFloor()
     {
         double last = double.MaxValue;
 
@@ -632,10 +632,16 @@ public class MushroomCloudTests
     }
 
     [Fact]
-    public void TheWarheadSoundsBiggerThanTheBomb()
+    public void TheBombPlaysTheRecordingAsItWasMade()
     {
-        // The two nuclear charges the arsenal ships: the Mk 21's 20 kt and the B61's 0.3 kt.
-        Assert.True(MushroomCloud.BangPitch(20.0) < MushroomCloud.BangPitch(0.3) * 0.5);
+        Assert.Equal(1.0, MushroomCloud.BangPitch(0.3), 9);
+    }
+
+    [Fact]
+    public void TheCrackCarriesFurtherForABiggerBurstByTheCubeRoot()
+    {
+        Assert.Equal(500.0, MushroomCloud.CrackDistance(500.0, MushroomCloud.CrackAnchorKt), 9);
+        Assert.Equal(250.0, MushroomCloud.CrackDistance(500.0, MushroomCloud.CrackAnchorKt * 8.0), 9);
     }
 
     /// <summary>

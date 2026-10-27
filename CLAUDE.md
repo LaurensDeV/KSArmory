@@ -680,7 +680,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/CloudPassCost.cs` | what that pass costs the GPU, read back out of KSA's own profiler — **the whole frame is sampled beside it**, because 2 ms on a 30 ms frame and 2 ms on an 8 ms one are different answers |
 | `Ksa/Radioactivity.cs` | every burst's radiation still in the world, body-fixed as the ground it lies on — and **a burst above the air written into KSA's own belts**, one merged belt per field, so the gauge's orbit average and the map's Magnetospheres overlay show it too; only into a field KSA already gives belts |
 | `Ksa/DoseRateHook.cs` | a place the mod patches the game: **a postfix on `Radiation.ComputeDoseRate`**, which only KSA's Radiation gauge calls, adding the bursts to its reading; a patch that does not apply leaves the gauge reading KSA's sources alone |
-| `Ksa/BurstSound.cs` | the bang, arriving when it actually would — **each burst's front followed live to the camera**, so seven seconds behind the flash where a cloud is watched from and a minute for 50 Mt 37 km overhead, **as loud as the pressure there** and not at all under 50 Pa or where there is no air, and **slower and deeper by the cube root of the yield**, so a warhead is not the same file as a rocket going off |
+| `Ksa/BurstSound.cs` | a nuclear burst's two sounds, both recorded at ANNIE: the **equipment picking up the flash** at the instant of the burst, and the bang, arriving when it actually would — **each burst's front followed live to the camera**, so seven seconds behind the flash where a cloud is watched from and a minute for 50 Mt 37 km overhead, **as loud as the pressure there** and not at all under 50 Pa or where there is no air, and **slower and deeper by the cube root of the yield** above ANNIE's 16 kt and never faster, with **Core's own close crack** under it near the burst, since the recording's was lost to 10.7 km of air |
 | `Ksa/BurstFlash.cs` | the view going white for a moment when a burst goes off in front of you, and the glare round the ball for **as long as it burns** — **the model, not the drawing**: `CloudPass` writes it into the scene image, because KSA wraps its whole UI pass in `if (DrawUI)` and both F2 and a screenshot clear that |
 | `Ksa/CloudWatch.cs` | a camera pinned on a standing cloud — **the measurement needed it**, because what the pass costs is set by how much of the screen it marches and a camera the operator can move makes every number one about where somebody stood. The pose is also the one worth watching from, which is not a coincidence: a mushroom is a side-on silhouette |
 | `Ksa/CoreShaderInclude.cs` | the one line that lets this mod's shader reach KSA's own shader library — **an absolute include resolves where no relative one can**, since Core's shader tree and a mod's do not meet; written at load against the player's install, never committed |
@@ -744,7 +744,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `src/KSArmory/KSArmory/DirectedEnergy.xml` | the YAL-1 beam director, its laser and its sensor |
 | `src/KSArmory/KSArmory/Strategic.xml` | the B61 on the ejector launcher, the shipped B61 rack (hidden, kept for saves), the Heavy MIRV Bus, their B61 and Mk 21, the bombsight and the bus's designation set |
 | `src/KSArmory/Meshes/`, `Textures/` | art. `KSArmory_MeshAtlas.glb` is generated — rebuild with `tools/model/build.sh`; every other atlas is **authored**, and its `.blend` is not in this repository |
-| `src/KSArmory/Sounds/` | the cannon, cut from a recording by `tools/cut-cannon.py`; the Mk 42's gunshot, cut from its recording by `tools/mk42-sounds.py`; the M197's loop and tail, by `tools/m197-sounds.py`. A warhead's burst is KSA's own explosion, sound and all |
+| `src/KSArmory/Sounds/` | the cannon, cut from a recording by `tools/cut-cannon.py`; the Mk 42's gunshot, cut from its recording by `tools/mk42-sounds.py`; the M197's loop and tail, by `tools/m197-sounds.py`; a nuclear burst's pickup and bang, by `tools/annie-sounds.py`. A conventional warhead's burst is KSA's own explosion, sound and all |
 | `src/KSArmory/mod.toml` | serves as both the content-mod and StarMap manifest |
 | `tests/KSArmory.Tests/` | links the KSA-free sources and flies engagements headlessly |
 | `KSArmory.sln` | both projects, for editors only — every script builds a csproj directly |
@@ -757,7 +757,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 898 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 905 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -845,7 +845,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/cut-cannon.py` | cuts a gunfire recording into spin-up, loop and tail, on measured envelope boundaries |
 | `tools/mk42-sounds.py` | cuts the Mk 42's recording into its mono gunshot |
 | `tools/m197-sounds.py` | cuts the M197's recordings into a seamless mono loop and its tail |
-| `tools/audio/` | the recordings the shipped gun sounds are cut from — the CC0 Phalanx, the Mk 42's and the M197's — and the provenance of each |
+| `tools/annie-sounds.py` | cuts the ANNIE film's soundtrack into a nuclear burst's pickup and bang — **without the countdown, the scream or the film's hiss** |
+| `tools/audio/` | the recordings the shipped sounds are cut from — the CC0 Phalanx, the Mk 42's, the M197's and the ANNIE film's — and the provenance of each |
 | `branding/` | **the brand's sources**: the mark, its small and favicon forms, the light mark and the patch, as SVG; and the PNGs rendered from them -- the README's lockup for each of GitHub's themes, the mod icon and the patch |
 | `tools/wiki/branding.mjs` | those PNGs, rendered from `branding/`'s SVGs in the brand fonts by headless Chromium, and refusing to write one set in a fallback font |
 | `listing/` | **the store page**, Borea's and SpaceDock's, apart from the developers' `README.md` — abstract, description, icon and screenshots, rendered for each site by `tools/listing.py`. Every image URL is pinned to a commit and Borea's record pins its hash, so replacing one means sending new records |
@@ -1379,7 +1380,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from about 770,000 lines to the files
-defining the 337 types this mod actually uses.
+defining the 339 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 34 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 16 MB —
