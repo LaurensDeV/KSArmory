@@ -619,6 +619,12 @@ the loop after it returns early. So dropping the flag does not stop a part attac
 it to the other route and a different axis: for a hull modelled with +X up, that lays it on its
 side. `NoFaceSnapping` (Core's tag, `FaceSnapBlacklist`) is what turns the second route off.
 
+**A part with both a `ToSurface` connector and a node connector snaps by whichever is declared
+last.** `HandleConnectorConnections` walks the grabbed part's connectors in declaration order and
+each snap re-places the part, so a node declared first is overridden by the surface snap after it:
+a store whose station node came first hung from the Weapon Mount by its rack face instead, turned
+round. Declare the `ToSurface` connector first and the node after it, as every store here does.
+
 `Diameter` plus a `DiameterFilterlist` tag is what makes a part appear under a given stack size.
 
 ### Removing a subpart drops every craft holding that part from a save
