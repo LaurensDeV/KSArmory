@@ -37,13 +37,13 @@ VIEWS = {"KSArmory_Prefab_LaunchRail": ("KSArmory_Prefab_Aim9J", "LaunchRail")}
 # turn about (1, 1, 1) takes X to Y, Y to Z and Z to X, and keeps the handedness.
 KSA_TO_Y_UP = [0.5, 0.5, 0.5, 0.5]
 
-# Stores and what they hang from are shown under their mounting face, as they are carried: the turn
-# above and then half a turn about forward, which puts +X down.
+# Stores, what they hang from, and a pod or turret hung under a hull are shown under their mounting
+# face, as they are carried: the turn above and then half a turn about forward, which puts +X down.
 HANGING = {"KSArmory_Prefab_Aim9J", "KSArmory_Prefab_Aim120C", "KSArmory_Prefab_Agm88",
            "KSArmory_Prefab_B61", "KSArmory_Prefab_Lau10", "KSArmory_Prefab_ZuniPod6",
            "KSArmory_Prefab_SidewinderRail", "KSArmory_Prefab_AmraamRail", "KSArmory_Prefab_HarmRail",
            "KSArmory_Prefab_NukeRack", "KSArmory_Prefab_WeaponsRail", "KSArmory_Prefab_Rail",
-           "KSArmory_Prefab_LaunchRail"}
+           "KSArmory_Prefab_LaunchRail", "KSArmory_Prefab_Litening", "KSArmory_Prefab_M197"}
 KSA_TO_HANGING = [-0.5, 0.5, 0.5, -0.5]
 
 # KSA's ModelPbr.frag discards a texel under this alpha; its glass draws at this opacity.
