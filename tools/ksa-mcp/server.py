@@ -97,8 +97,6 @@ def send(cmd: str, timeout: float = 30.0, **args) -> dict:
     raise Refused(f"no reply to '{cmd}' in {timeout:.0f} s -- is the game running with this build?")
 
 
-# ---- the game's lifetime -------------------------------------------------------------------
-
 STATE = Path(__file__).resolve().parent / ".launched"
 
 
@@ -141,8 +139,6 @@ def quit_game() -> str:
     STATE.unlink(missing_ok=True)
     return "closed"
 
-
-# ---- captures ------------------------------------------------------------------------------
 
 def capture(label: str = "shot", frames: int = 1, every_s: float | None = None,
             every_frames: int | None = None, variants: list[dict] | None = None,
@@ -269,9 +265,8 @@ def player_captures(name: str | None = None, crop: bool = False, width: int = 96
 def reload_shaders() -> str:
     """Copies the shaders from the tree into the installed mod and recompiles them in the game.
 
-    A write from WSL reaches the game late: flushed or not, the game has been seen compiling the file
-    as it was before the copy, and reporting "reloaded". So the reply's size for each file is checked
-    against the tree's, and the reload is repeated until the game compiled what the tree holds."""
+    A write from WSL can reach the game late, flushed or not, and it reports "reloaded" over the old
+    file; so the reload is repeated until the reply's size and hash match the tree's."""
     src = REPO / "src" / "KSArmory" / "Shaders"
     dst = user_dir() / "mods" / "KSArmory" / "Shaders"
     want = {}
@@ -301,8 +296,6 @@ def log_tail(pattern: str = "", lines: int = 40) -> str:
         text = [t for t in text if pattern.lower() in t.lower()]
     return "\n".join(text[-lines:])
 
-
-# ---- the tools -----------------------------------------------------------------------------
 
 # Named poses round a burst, so a picture next month is the same shot as one today.
 PRESETS = {

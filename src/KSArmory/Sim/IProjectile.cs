@@ -9,12 +9,10 @@ namespace KSArmory;
 /// harder, steer harder, fuse wider. It cannot express a different <em>kind</em> of weapon:
 /// <see cref="Interceptor"/>'s loop is integrate → guide → fuse, a slug's is a fall that ends on
 /// contact, and a beam has no flight. Those are separate implementations of this.</para>
-///
-/// <para>Every member here has a caller on the KSA side. Must stay free of KSA types.</para>
 /// </summary>
 internal interface IProjectile
 {
-    /// <summary>Flying, detonated or expired. The system reaps on anything but flying.</summary>
+    /// <summary>The system reaps on anything but <see cref="RoundState.Flying"/>.</summary>
     RoundState State { get; }
 
     /// <summary>
@@ -36,9 +34,6 @@ internal interface IProjectile
     /// </summary>
     double FaithfulStepSeconds { get; }
 
-    // ---- Where it is ----------------------------------------------------
-
-    /// <summary>Absolute position in the ecliptic frame.</summary>
     double3 PositionEcl { get; }
 
     /// <summary>Absolute velocity in the ecliptic frame. Carries the platform's ~29.8 km/s.</summary>
@@ -89,6 +84,22 @@ internal interface IProjectile
     double3 ReleaseHeadingEcl { get; set; }
 
     /// <summary>
+    /// Seconds from release to the motor lighting, which an ejector sets so its round falls clear first.
+    /// Set at launch from the launcher, because a munition is shared with launchers that light at once.
+    /// </summary>
+    double MotorDelaySeconds { get; init; }
+
+    /// <summary>
+    /// An ejector's push, as the acceleration its arms give the round over their stroke and how long that
+    /// lasts. Zero for a round that leaves with all its speed at once.
+    /// </summary>
+    double3 EjectAccelerationEcl { get; init; }
+    double EjectSeconds { get; init; }
+
+    /// <summary>Whether the motor is burning now: what pushes it, lights its plume and makes it hot.</summary>
+    bool MotorBurning => Age >= MotorDelaySeconds && Age - MotorDelaySeconds <= Munition.TotalBoostSeconds;
+
+    /// <summary>
     /// The platform's attitude when this round left, as Asmb2Ecl. Set at launch, never updated.
     ///
     /// <para>The launch anchor is a point in the world written down in the launcher's frame, so it
@@ -102,8 +113,6 @@ internal interface IProjectile
     /// own numbers, so the projectile carries them rather than the system holding one set.
     /// </summary>
     MunitionProfile Munition { get; init; }
-
-    // ---- What it is chasing ---------------------------------------------
 
     /// <summary>Opaque handle to the target, compared by reference. Null once lock is lost.</summary>
     object? TargetRef { get; }
@@ -136,8 +145,6 @@ internal interface IProjectile
     /// <summary>Whether guidance can currently see or be commanded onto the target.</summary>
     bool SeekerInView { get; }
 
-    // ---- How it ended ----------------------------------------------------
-
     /// <summary>
     /// Range at the fuse trigger. Not a miss distance: it is bounded by the fuse radius whatever
     /// the projectile did.
@@ -161,8 +168,6 @@ internal interface IProjectile
     /// struck that one, whatever fire control was aiming at.</para>
     /// </summary>
     object? StruckBody { get; }
-
-    // ---- Behaviour -------------------------------------------------------
 
     /// <summary>
     /// Ends this round because something else destroyed it in the air.
@@ -222,8 +227,8 @@ internal interface IProjectile
     /// implementation that aims must back-date it.
     /// </param>
     /// <param name="mediumDensityRatio">
-    /// Density of whatever the round is flying through, as a fraction of sea-level air. Water is
-    /// ~840, vacuum 0 — the flight model never asks which it is.
+    /// Density of whatever the round is flying through, over <see cref="Medium.ReferenceDensityKgPerM3"/>.
+    /// Water is ~840, vacuum 0 — the flight model never asks which it is.
     /// </param>
     void Update(double dt, TargetState? target, double3 gravity, double3 frameVelocityEcl,
                 double3 platformEcl, MunitionProfile munition, double mediumDensityRatio = 1.0);

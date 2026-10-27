@@ -5,12 +5,7 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Point at the world and set off a warhead there — a development tool for looking at the effect
-/// without flying an engagement to get one.
-///
-/// <para>It exists because the three reasons for seeing no explosion look identical in game: the
-/// asset never loaded, the burst was placed in the wrong frame, or nothing detonated. This removes
-/// the third by making a burst something that can be asked for on demand.</para>
+/// Click the world to set off a warhead there, to look at the effect without flying an engagement.
 /// </summary>
 internal sealed class BurstTool
 {
@@ -26,8 +21,7 @@ internal sealed class BurstTool
 
         // A click on the panel is not a click on the world behind it.
         if (ImGui.GetIO().WantCaptureMouse) return;
-        // Shift is the designate gesture, so a shift-click is not a click on the world.
-        // Without this, locking a target while this tool is on also sends a round at it.
+        // Shift-click designates; without this it would also set off a burst.
         if (ImGui.GetIO().KeyShift) return;
 
         if (!ImGui.IsMouseClicked(ImGuiMouseButton.Left, repeat: false)) return;
@@ -42,10 +36,8 @@ internal sealed class BurstTool
 
         double chargeKg = ChargeOf(config);
 
-        // The nuclear fireball rather than the chemical one, for a nuclear burst. They disagree by
-        // a factor of three at these charges -- the chemical law is a cube root and this is not --
-        // and lifting a surface burst by the wrong one makes it an air burst, which is a different
-        // weapon: the whole cloud model below assumes the fireball is touching the ground.
+        // The nuclear fireball for a nuclear burst: the chemical law is a cube root, three times off at
+        // these charges, and lifting a surface burst by it would make it an air burst.
         double radius = config.BurstNuclear
                             ? MushroomCloud.PeakFireballRadius(config.BurstYieldKt, config.BurstHeightMetres)
                             : Warhead.FireballRadius(chargeKg);
@@ -58,21 +50,11 @@ internal sealed class BurstTool
 
         Detonation.Explode(at, chargeKg, KsaWorld.ControlledVehicle);
 
-        // From the GROUND point, not the lifted one. The lift above exists so the ball is not drawn
-        // half-buried, and is right for the ball -- but the cloud is built as offsets from whatever
-        // it is given, so handing it the lifted point floats the stem, the skirt and the cap by a
-        // whole fireball radius. That is 55 m at 0.3 kt and about 900 m at 340 kt, which reads as a
-        // mushroom hanging in the air over the crater. The real weapon path passes its true burst
-        // point and has never had this.
-        //
-        // Unconditional: NuclearClouds decides for itself whether a charge is large enough to have
-        // made a cloud, so the tool does not need to know and cannot disagree with the real path.
-        // An air burst's own point, since the cloud measures its height from it.
+        // The burst point, not the lifted one: the cloud is built as offsets from what it is given, so
+        // the lifted point would float it by a fireball radius. NuclearClouds decides whether there is one.
         NuclearClouds.Begin(burst, KsaWorld.ControlledVehicle, chargeKg);
 
-        // The marker is drawn at the cursor and the burst happens at the cursor, so the one hides
-        // the other. Sized off the flash rather than fixed: that is how long there is something to
-        // look at, and it keeps a conventional charge's marker back for almost no time at all.
+        // The marker would hide the burst under the cursor, so it is held back for the flash.
         _markerHiddenUntil = Universe.GetElapsedTime().Seconds()
                              + MushroomCloud.FlashSeconds(MushroomCloud.KilotonsFor(chargeKg));
 

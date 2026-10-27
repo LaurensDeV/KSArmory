@@ -5,19 +5,11 @@ namespace KSArmory;
 /// <summary>
 /// How far each fin of a cruciform set is deflected to produce one lateral command.
 ///
-/// <para>A fin's lift acts along its own normal — the direction square to the blade — so a fin
-/// contributes to the command in proportion to how much of the command lies along that normal.
-/// A fin edge-on to the demand does nothing and stays neutral, and the pair across the body from
-/// each other deflect opposite ways, which is what makes the set turn rather than roll.</para>
+/// <para>A fin's lift acts along its own normal, so each takes the share of the command along it, and
+/// opposite fins deflect opposite ways, so the set turns rather than rolls.</para>
 ///
-/// <para><b>Presentation only.</b> The flight model steers through
-/// <see cref="Interceptor.GuidanceAccel"/> and knows nothing about fins; this decides what the
-/// blades are drawn doing about it. Nothing here feeds back, so a wrong answer is ugly rather
-/// than wrong.</para>
-///
-/// <para>The command is normalised by the round's own authority, so full deflection means "as
-/// hard as this airframe pulls" rather than a number of m/s². That keeps a 3 g bomb and a 35 g
-/// missile using the same blade travel for their own respective limits.</para>
+/// <para><b>Drawn only.</b> The flight model steers through <see cref="Interceptor.GuidanceAccel"/>.
+/// The command is normalised by the round's own authority, so full deflection is that airframe's limit.</para>
 /// </summary>
 internal static class FinMixer
 {

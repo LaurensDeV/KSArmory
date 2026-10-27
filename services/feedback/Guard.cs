@@ -33,7 +33,6 @@ public static partial class Guard
                 continue;
             }
 
-            // C0 and C1 control ranges, and the DEL character.
             if (c < 0x20 || (c >= 0x7F && c <= 0x9F)) continue;
 
             // Bidi overrides and isolates: these reverse how the rest of a line reads.
@@ -90,9 +89,8 @@ public static partial class Guard
     /// <para>Names survive. That is the point: a craft name is player-authored text that reaches a
     /// public issue through the log, and it is the only part of a log anyone can choose.</para>
     ///
-    /// <para>Each line is returned separately because whoever scores them should score them one at
-    /// a time. A whole log judged as one document dilutes a single abusive line among the hundred
-    /// dull ones around it — measured at insult 0.95 alone against 0.34 in company.</para>
+    /// <para>Lines are returned separately so each is scored alone; <see cref="LogGate.MayPublish"/>
+    /// has why.</para>
     /// </summary>
     public static Condensed Condense(string? value)
     {
@@ -141,10 +139,8 @@ public static partial class Guard
     /// </summary>
     public readonly record struct Condensed(IReadOnlyList<string> Lines, bool Whole);
 
-    // What Condense will read at most. Measured against a real log, 12 KB of it condenses to 25
-    // lines and 1,627 characters, so these are several times the headroom it needs — and the
-    // headroom is the point, because exceeding them withholds the log. The ceiling exists so a
-    // hostile log cannot turn one scan into a minute of model passes.
+    // A real 12 KB log condenses to 25 lines and 1,627 characters; exceeding these withholds the
+    // log, so they are several times that, and bounded so a hostile log cannot cost a minute of passes.
     private const int CondenseLine = 400;
     private const int CondenseLines = 96;
     private const int CondenseBudget = 8_000;
@@ -192,18 +188,16 @@ public static partial class Guard
     /// Whether text reads as English, so it can be judged by an English classifier and read by
     /// whoever triages it.
     ///
-    /// <para>Deliberately lenient. Two independent signals have to agree that it is <em>not</em>
-    /// English before it is refused, and short text is always accepted: "turret stuck" carries no
-    /// evidence either way, and refusing a real bug report because it was terse would be worse
-    /// than reading an occasional one in Dutch.</para>
+    /// <para>Deliberately lenient: refused when over 30% of its letters are another script, or
+    /// past 25 words when too few are English function words. Refusing a terse real bug report
+    /// would be worse than reading an occasional one in Dutch.</para>
     /// </summary>
     public static bool LooksEnglish(string? value)
     {
         string text = (value ?? "").Trim();
         if (text.Length == 0) return true;
 
-        // Script first: this is the reliable half. A body of Cyrillic or CJK is not English
-        // whatever its length, and no word-frequency argument is needed.
+        // Script first, the reliable half: Cyrillic or CJK is not English at any length.
         int latin = 0, other = 0;
         foreach (char c in text)
         {
@@ -215,15 +209,11 @@ public static partial class Guard
 
         if (latin + other > 0 && other > (latin + other) * 0.3) return false;
 
-        // Then function words, which only mean anything with enough of them to count.
         string[] words = text.Split(
             [' ', '\n', '\t', '\r', '.', ',', ';', ':', '!', '?', '(', ')', '"', '/'],
             StringSplitOptions.RemoveEmptyEntries);
 
-        // Long enough that their absence is evidence. Short imperative English carries no function
-        // words at all -- "pls add more guns", "turret wont move", "more ammo please" -- and
-        // refusing those as foreign was worse than reading the occasional report in Dutch, which
-        // is the trade this whole function is supposed to make.
+        // Short imperative English carries no function words at all: "pls add more guns".
         if (words.Length < 25) return true;
 
         int markers = words.Count(w => EnglishMarkers.Contains(w.Trim('\'')));

@@ -2,7 +2,7 @@
 
 A survey of real weapon systems by *functional architecture*, mapped onto this mod's vocabulary.
 Its question is not "what else could we model" but "which real families share a data model with the
-seven we ship, and which need a different one".
+weapons we ship, and which need a different one".
 
 **Relation to the other docs.** `docs/MODULARITY.md` asks how far the profile/registry split
 stretches, from the inside. This asks the same question from the outside, starting from the
@@ -42,16 +42,16 @@ The parts list is not what separates families. These eight axes are:
 | Axis | Values in the real world | Where this mod sits |
 | --- | --- | --- |
 | **A. Who holds the track in flight** | nobody, the launcher, the operator, the round, a third party | launcher or round |
-| **B. What ends the engagement** | impact, proximity burst, dwell reached, probabilistic degradation, time fuse, nothing | impact or proximity |
-| **C. Transit time** | zero (beams), sub-second (guns), seconds to minutes, hours (loiter, mines) | sub-second to seconds |
+| **B. What ends the engagement** | impact, proximity burst, dwell reached, probabilistic degradation, time fuse, nothing | impact, proximity, time fuse, dwell (the beam) |
+| **C. Transit time** | zero (beams), sub-second (guns), seconds to minutes, hours (loiter, mines) | zero (the beam), sub-second to tens of minutes |
 | **D. Launcher-to-aim coupling** | trainable, fixed rail, vertical with the aim decided later, gravity release, emplaced | trainable, rail, release |
-| **E. Magazine topology** | belt, tubes, heterogeneous cells, rail, swappable pod, arm fed by a rotary magazine | tubes plus one belt |
+| **E. Magazine topology** | belt, tubes, heterogeneous cells, rail, swappable pod, arm fed by a rotary magazine | tubes, one belt, a beam's lasing seconds |
 | **F. Fire-unit autonomy** | self-contained, needs an external illuminator, an external track, or an external authority | self-contained only |
 | **G. Trajectory shape** | direct, ballistic with two branches, lofted, vertical plus turnover, routed, boost-glide, loiter-then-dive | direct or ballistic |
-| **H. Kill mechanism** | blast, hit-to-kill, shaped charge, penetrator, submunitions, burn-through, electronic upset, deception | blast |
+| **H. Kill mechanism** | blast, hit-to-kill, shaped charge, penetrator, submunitions, burn-through, electronic upset, deception | blast, burn-through (the beam), deception (flares and chaff) |
 | **I. Feedback loop** | none, between shots by human eye, **within the burst by radar**, in flight | in flight only |
 | **J. Firing unit** | round, burst, ripple, **salvo with a shared impact time** | round and burst |
-| **K. When the fuse is decided** | design time, load time, **at the muzzle after ignition**, by the round | design time |
+| **K. When the fuse is decided** | design time, load time, **at the muzzle after ignition**, by the round | design time, or at the muzzle (`TimedFuse`) |
 | **L. Muzzle velocity** | constant, **a chosen discrete value**, **measured per round**, decaying with wear | constant |
 
 That slice is coherent and well chosen. Every gap below is a family that falls outside it.
@@ -87,9 +87,9 @@ Two things inside this cluster are still genuinely new:
   measures where those rounds actually passed the target and drives that error to zero, typically
   by the third round. That is a feedback term, not a fresh lead solve, and it is the single most
   characteristic behaviour of a CIWS. `BallisticLead` has no notion of observing its own results.
-  `AUDIT-2026-08` item 6 records that the solver ignores drag while the shell does not, worth 93 ms
-  and 28 m against a 300 m/s crosser: closed-loop spotting is the mechanism that would absorb that
-  error instead of accumulating it.
+  `AUDIT-2026-08` item 6 recorded the solver ignoring the shell's drag; `BallisticLead.TrySolveFlown`
+  now flies the shell's own drag and the target's acceleration, so what spotting would absorb is
+  whatever that flight still gets wrong.
 - **High off-boresight cueing and lock-on-after-launch.** With a helmet sight the aim line and the
   launcher axis are decoupled by more than 80 degrees, so the round turns hard off the rail rather
   than leaving a tube already pointed at the target. `LaunchAlongTube` is the switch for this and
@@ -140,14 +140,18 @@ Loitering munitions (Switchblade, Lancet, Harop) transit, orbit for tens of minu
 dive, and can be **waved off seconds before impact**. Mines have an arming delay of weeks and a
 ship counter, and a CAPTOR is a mine that releases a torpedo.
 
-`IProjectile` is `Flying → Detonated | Expired | ShotDown`, and `Interceptor.TargetRef` is
-`{ get; private set; }`, so a round in the air cannot change its mind at all. `AUDIT-2026-08`
+`IProjectile` is `Flying → Detonated | Expired | ShotDown`. A round in the air can be sent somewhere
+else (`IProjectile.Retarget`, which a falling store takes through `Sim/StoreRetarget.cs`), but it has
+no mission state: no orbit, no wave-off, no dormancy. `AUDIT-2026-08`
 records three separate blockers for a mine, of which self-detonation on a `Point` aimpoint is the
 one that bites first.
 
 ### Cluster 6: no projectile at all. **Needs a sibling to `IProjectile`.**
 
-Lasers (LaWS, HELIOS, Iron Beam, DragonFire), high-power microwave, jammers, decoys.
+Lasers (LaWS, HELIOS, Iron Beam, DragonFire), high-power microwave, jammers, decoys. Two have an
+instance: the YAL-1's beam (`Sim/Beam.cs`), fired by a `LauncherProfile` with `FiresBeam` through the
+director on its part, and flares and chaff (`Sim/Decoy.cs`, `Sim/SeekerLock.cs`), which are points with
+a signature rather than rounds. Jammers and high-power microwave have none.
 
 A laser has no flight time. What replaces it is **dwell**: the beam holds the same few square
 centimetres of a moving target for seconds, and anything that breaks the hold restarts the clock.
@@ -161,9 +165,8 @@ closes. A jammer also reveals its own bearing by transmitting, which is what mak
 triangulation work. Decoys spawn attractive-looking nothings and turn a seeker's lock into a
 *choice among candidates*.
 
-`docs/MODULARITY.md` costs this correctly and, if anything, understates it: the seam wanted is a
-sibling of `IProjectile` at the *armament* level, and `WeaponFit` caps at two armaments by
-construction.
+`docs/MODULARITY.md` costs the general case: the seam wanted is a sibling of `IProjectile` at the
+*armament* level. `ArmamentKind` has three values — tubes, belt, beam — and a fourth is code.
 
 ---
 
@@ -177,23 +180,24 @@ none.
 
 | # | Gap | Unlocks | Instances today |
 | --- | --- | --- | --- |
-| 1 | **Sensor as a placed entity, separate from its launcher** | all of cluster 2 | **one**: the standalone EO director already senses without a weapon |
+| 1 | **Sensor as a placed entity, separate from its launcher** | all of cluster 2 | **two**: the standalone director senses without a weapon, and an IRST part feeds its craft's picture (`Ksa/CraftPicture.cs`), which a beam on auto-engage fires on |
 | 2 | **`GuidanceMode` as a sequence, not a constant** | AMRAAM, SM-6, Patriot, Mk 48, AARGM | zero |
 | 3 | **Hit-to-kill as a kill mode** | PAC-3, THAAD, SM-3, every exo interceptor | zero, but nearly free |
 | 4 | **A finite engagement-channel resource** | Aegis, and saturation as a mechanic | zero |
 | 5 | **Heterogeneous magazine cells** | Mk 41, S-400, HIMARS pod swap | zero |
 | 6 | **Vertical launch with turnover, and a launcher with no aim** | all naval VLS | zero |
-| 7 | **Dwell-time effectors** | lasers, HPM | zero |
-| 8 | **Soft kill: jammers and decoys** | EW, chaff, flares, Nulka | zero |
+| 7 | **Dwell-time effectors** | lasers, HPM | **one**: the YAL-1 beam |
+| 8 | **Soft kill: jammers and decoys** | EW, chaff, flares, Nulka | **one**: the ALE-47 flares and chaff; no jammer |
 | 9 | **A route rather than a point** | cruise missiles, GMLRS, fire missions | zero |
-| 10 | **Bearing-only contacts** | IRST, ESM, passive sonar, jam strobes | zero |
-| 11 | **Per-round fuse and charge selected at firing** | AHEAD airburst, artillery charge zones | **one**: `TimedFuse` is wired end to end and unused |
+| 10 | **Bearing-only contacts** | IRST, ESM, passive sonar, jam strobes | zero: the shipped IRST holds a full track |
+| 11 | **Per-round fuse and charge selected at firing** | AHEAD airburst, artillery charge zones | **one**: the 5"/54's `TimedFuse` |
 | 12 | **Trajectory shape as a profile choice** | top attack, high-angle fire, boost-glide | zero |
 | 13 | **Closed-loop spotting** | every CIWS, and it is what a CIWS *is* | **one**: `RoundContact` already makes rounds visible |
 | 14 | **Firing-unit patterns beyond round and burst** | ripple, MRSI, time on target | zero |
 | 15 | **Muzzle velocity as chosen or measured rather than constant** | artillery charge zones, AHEAD | zero |
 
-**Only 1, 3, 11 and 13 have an instance, and only those four should be built now.**
+**1, 3, 11 and 13 were the four with an instance when this was ranked**, and 7 and 8 have since been
+built. Of what is left, only those four should be built now.
 
 - **1 is the highest leverage item on the list and its instance already exists.** `Ksa/OpticalHead.cs`
   is crewed per director, holds what it is handed through its own `SensorProfile`, and needs no weapon
@@ -212,14 +216,13 @@ none.
   own outbound stream, computes its closest approach to the target and drives that to zero, usually
   by the third round. Both halves are already here: `RoundContact` makes a round something a sensor
   can hold, and closest approach is the primitive `ThreatModel` already computes, pointed at a
-  different pair of objects and fed to the drives instead of to a priority queue. It is also the
-  honest answer to `AUDIT-2026-08` item 6, where `BallisticLead` ignores drag the shell obeys and
-  costs 28 m against a 300 m/s crosser: a loop that observes its own error absorbs that rather than
-  accumulating it.
+  different pair of objects and fed to the drives instead of to a priority queue. A loop that
+  observes its own error absorbs whatever the flown lead still misses rather than accumulating it.
 - **11 wants `TimedFuse` to become a value rather than a bool.** AHEAD and Bofors 3P measure each
   round's *actual* muzzle velocity as it leaves the barrel and program the fuse in flight-time terms
-  at the muzzle. `WeaponSystem` already sets `slug.FuseSeconds` from the same lead solve that
-  produces the aim, so the machinery is there and no shipped shell selects it.
+  at the muzzle. `WeaponSystem` sets `slug.FuseSeconds` from the same lead solve that produces
+  the aim, and the 5"/54 selects it; what is missing is a fuse value chosen per round rather than a
+  flag on the munition.
 
 ### Reskins: say these out loud and stop costing them
 
@@ -238,7 +241,7 @@ Extending the same list in `AUDIT-2026-08`. All are a profile entry plus art:
   uses.
 - **Mechanically scanned radar**: the mod already behaves as an AESA, tracking everything in the
   field of view with no scan penalty or revisit interval. The buildable thing is the *penalty*, and
-  `RadarSpinRad` already advances on simulated time and currently feeds only the mesh.
+  `RadarSpinRad` already advances on simulated time and feeds only the mesh and the scope's sweep.
 
 ### The one-line version
 
@@ -254,9 +257,10 @@ any number of additional definitions.
 Not candidates. Things that are wrong now, diagnosed from the source and **not flown**, so per
 CLAUDE.md they are diagnoses rather than fixes.
 
-1. **`Catalogue.Named` falls back to element zero** on an unknown key, so a typo'd munition name
-   silently flies the first round in the registry. Still true, still pinned by
-   `WeaponSystemSelectionTests`.
+1. **`Catalogue.Named` falls back to element zero** on an unknown key. Still true in the game, and
+   pinned by `ArsenalTests.UnknownNamesFallBackRatherThanThrow`; it cannot reach a player, because
+   `PackReader` refuses a reference that names nothing and the suite runs with
+   `Catalogue.MissingNameThrows` on.
 2. **`Aimpoint.OnPart` has no production call site.** Component-level aiming is read by
    `WeaponSystem` and produced by nobody. That is now the mod's gap rather than KSA's: a burst
    breaks parts one by one and part health accumulates, so a hit aimed at a part has something to

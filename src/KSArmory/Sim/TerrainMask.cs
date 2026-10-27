@@ -6,34 +6,23 @@ namespace KSArmory;
 /// Whether the ground between two points hides one from the other, against the real height field
 /// rather than against the mean sphere.
 ///
-/// <para><see cref="LineOfSight"/> is the cheap half and stays in front of this: a sphere
-/// containing the terrain cannot produce a false negative, so anything it rejects is genuinely
-/// hidden and never reaches here. What is left is the band where the segment passes close enough
-/// to the surface for a ridge to matter, and that is the only part sampled.</para>
-///
-/// <para>The cost is the whole design constraint. Every sample is a height-map fetch, and a sensor
-/// runs this once per contact per scan — so the count is fixed and given by the caller, the
-/// interval sampled is narrowed first by closed-form geometry, and a segment that never comes
-/// within the body's own highest terrain costs nothing at all.</para>
+/// <para><see cref="LineOfSight"/> is the cheap half and stays in front of this. Every sample is a
+/// height-map fetch, once per contact per scan, so the caller fixes the count and only the band below
+/// the highest terrain is sampled.</para>
 /// </summary>
 public static class TerrainMask
 {
     /// <summary>
-    /// True when terrain stands between the two points.
-    ///
-    /// <para>Samples strictly inside the segment. Both ends routinely sit on the ground — a
-    /// launcher on a hillside, a target on a pad — and a sample taken at either would find the
-    /// terrain that the endpoint is standing on and call everything hidden.</para>
+    /// Samples strictly inside the segment: both ends routinely sit on the ground, and a sample at
+    /// either finds the terrain it stands on.
     /// </summary>
     /// <param name="maxTerrainHeight">
-    /// The highest terrain on this body (m). Only a bound, and only used to skip work: a segment
-    /// that stays above it cannot be blocked, whatever the height field says.
+    /// The highest terrain on this body (m), used only to skip work.
     /// </param>
     /// <param name="samples">How many height lookups this look may cost. Zero or less asks none.</param>
     /// <param name="clearanceMetres">
-    /// How far the terrain must stand above the ray before it counts. Absorbs the height field's
-    /// own coarseness near a grazing endpoint, where the ray is metres above ground for
-    /// kilometres and a single optimistic sample would blind the sensor.
+    /// How far the terrain must stand above the ray before it counts: near a grazing endpoint the ray is
+    /// metres above ground for kilometres, and one coarse sample would blind the sensor.
     /// </param>
     public static bool Blocked(double3 eye, double3 target, double3 centre, double meanRadius,
                                double maxTerrainHeight, int samples, double clearanceMetres,
@@ -50,7 +39,6 @@ public static class TerrainMask
 
         double3 along = target - eye;
 
-        // Interior points of the band, evenly spaced and both ends left out.
         for (int i = 1; i <= samples; i++)
         {
             double t = from + (to - from) * i / (samples + 1);
@@ -69,14 +57,8 @@ public static class TerrainMask
     }
 
     /// <summary>
-    /// The part of the segment that passes below <paramref name="ceiling"/> from the centre, as a
-    /// fraction of it. False when none of it does.
-    ///
-    /// <para>Closed form, because it is what makes the sampling affordable: the distance from a
-    /// centre to a point on a segment is a quadratic in how far along it is, so the interval
-    /// where that distance is small enough for terrain to reach is exactly one root pair. Against
-    /// an aircraft the band is a fraction of a long segment, and against something in orbit there
-    /// is no band at all.</para>
+    /// The part of the segment that passes below <paramref name="ceiling"/> from the centre, as
+    /// fractions of it; false when none does. One root pair of a quadratic in the fraction.
     /// </summary>
     public static bool TryBandBelow(double3 eye, double3 target, double3 centre, double ceiling,
                                     out double from, out double to)

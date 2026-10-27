@@ -7,9 +7,8 @@ namespace KSArmory;
 /// that breaks.
 ///
 /// <para>A hit costs its <see cref="BlastDamage.Share"/> times the scale, and the share is exactly
-/// one where the part fails, so at a scale of one a fresh part breaks exactly where it did before
-/// parts had health. What the ledger adds is that a load short of that is not forgotten: two
-/// bursts at half the breaking load break the part between them.</para>
+/// one where the part fails, so at a scale of one a fresh part breaks exactly at its failure radius.
+/// A load short of that is not forgotten: two bursts at half the breaking load break the part.</para>
 ///
 /// <para>Keyed on the engine's own part object, held weakly, so a part that leaves the world
 /// takes its entry with it and nothing has to prune the ledger.</para>

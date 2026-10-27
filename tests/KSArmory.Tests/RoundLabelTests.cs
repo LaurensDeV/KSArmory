@@ -48,8 +48,8 @@ public class RoundLabelTests
     }
 
     /// <summary>
-    /// A shell says that it is one. Naming the barrel alone would be as opaque as the tube number
-    /// was: a reader has to tell a shell from a missile without knowing the encoding.
+    /// A shell says that it is one. Naming the barrel alone would be as opaque as the sentinel: a
+    /// reader has to tell a shell from a missile without knowing the encoding.
     /// </summary>
     [Fact]
     public void AShellSaysItIsAShell()

@@ -38,12 +38,9 @@ fi
 #
 # The default is every RocketWerkz first-party assembly plus the loader and the third-party
 # libraries the game ships, so the private repository is a general KSA SDK mirror that *any*
-# mod can build against - not just this one. That is ~44 assemblies and under 10 MB; mirroring
-# only what this mod's csproj references leaves the next mod discovering its assemblies are
-# missing.
+# mod can build against - not just this one: 44 assemblies, about 16 MB.
 #
 # Deliberately excluded: the .NET runtime (System.*, Microsoft.*), which every SDK already has.
-# That is what keeps this at 10 MB instead of 45.
 #
 # --subset narrows it to only what this repository's projects reference. Smaller, and a
 # defensible position on holding less of someone else's copyrighted code, but only useful for
@@ -59,8 +56,7 @@ referenced="$(grep -ohP '(?<=\$\(KsaDllDir\))[A-Za-z0-9._]+(?=\.dll)' \
 # version is not guaranteed to be the same assembly.
 #
 # Not all of it comes from the game. 0Harmony ships with the StarMap loader, so the search below
-# has to look where the copy step already does -- a name found in neither is caught by the
-# referenced-assemblies guard, and one found only in StarMap used to be dropped silently.
+# looks where the copy step does; a name found in neither is caught by the referenced-assemblies guard.
 EXTRAS=(BepuUtilities BepuPhysics MathNet.Numerics MemoryPack.Core
         CommunityToolkit.HighPerformance Tomlet 0Harmony)
 

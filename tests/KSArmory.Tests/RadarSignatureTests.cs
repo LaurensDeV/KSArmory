@@ -4,9 +4,8 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Detection that depends on what a target <em>is</em>. Three rules, each off at zero and each
-/// shipped that way, so the tests come in pairs: what it does when set, and that the set behaves
-/// exactly as before when it is not.
+/// Three detection rules, each off at zero and shipped that way, so the tests come in pairs: what
+/// each does when set, and that the set is unchanged when it is not.
 /// </summary>
 public class RadarSignatureTests
 {
@@ -26,12 +25,9 @@ public class RadarSignatureTests
     private static ThreatModel.ContactSignature Of(double radius, double height = double.PositiveInfinity)
         => new(radius, height);
 
-    // ---- The fourth-root law --------------------------------------------
-
     /// <summary>
-    /// The whole reason this is a function. Received power falls as the fourth power of range, so
-    /// a target a hundredth the size is seen at a third of the range and not at a hundredth of it.
-    /// Scaling linearly would make every small target invisible.
+    /// Received power falls as the fourth power of range, so a target a hundredth the size is seen
+    /// at a third of the range, not a hundredth of it.
     /// </summary>
     [Fact]
     public void RangeGoesAsTheFourthRootOfCrossSection()
@@ -121,8 +117,6 @@ public class RadarSignatureTests
         Assert.False(ThreatModel.InSensorVolume(at15Km, Up, s, Of(0.5)));
     }
 
-    // ---- The Doppler notch ----------------------------------------------
-
     /// <summary>
     /// The cost of a notch, and the reason it ships off. CPA classification exists to engage a
     /// target passing by, and a notch is exactly what loses one.
@@ -168,8 +162,6 @@ public class RadarSignatureTests
         Assert.True(opening.ClosingSpeed < 0.0, "this target is opening, so the test is the right way round");
     }
 
-    // ---- The clutter floor ----------------------------------------------
-
     [Fact]
     public void TheClutterFloorHidesWhatIsDownInTheGroundReturn()
     {
@@ -198,12 +190,7 @@ public class RadarSignatureTests
                                           ThreatModel.ContactSignature.Unknown, out _));
     }
 
-    // ---- All three off ---------------------------------------------------
-
-    /// <summary>
-    /// The one that matters for everything already flown: with the three at their defaults, a
-    /// contact is assessed exactly as it was before any of them existed.
-    /// </summary>
+    /// <summary>With the three at their defaults, a contact is assessed as if none of them existed.</summary>
     [Fact]
     public void AtTheirDefaultsNoneOfTheThreeChangesAnything()
     {

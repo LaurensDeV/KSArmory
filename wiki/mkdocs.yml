@@ -1,5 +1,5 @@
 # ksarmory.com. tools/wiki/build.py assembles the pages into build/docs and writes this file to
-# build/mkdocs.yml with the weapon pages filled in where the marker is; run that, not mkdocs directly.
+# build/mkdocs.yml with the weapon pages filled in where the marker is; run that, not zensical directly.
 site_name: KSArmory
 site_url: https://ksarmory.com/
 site_description: Weapon systems for Kitten Space Agency, and how to make your own.
@@ -10,6 +10,8 @@ site_dir: site
 
 theme:
   name: material
+  # build/mkdocs.yml is the config read, so this is relative to wiki/build.
+  custom_dir: ../overrides
   # Off: the default loads Roboto from Google on every page. assets/ksarmory.css serves the brand fonts from here.
   font: false
   logo: assets/mark.svg
@@ -30,6 +32,8 @@ theme:
   features:
     - navigation.tabs
     - navigation.sections
+    # A family's overview is its section's own page, so /weapons/<family>/ stays where links already point.
+    - navigation.indexes
     # A page's sections indented under it in the navigation, rather than in a column of their own.
     - toc.integrate
     - navigation.top
@@ -45,19 +49,18 @@ markdown_extensions:
   - md_in_html
   - tables
   - toc:
-      permalink: true
+      permalink: "#"
   - pymdownx.superfences
   - pymdownx.highlight
 
 nav:
   - Home: index.md
-  - Players:
-      - Installing: players/install.md
-      - Using it: players/using.md
+  - Guide:
+      - Installing: guide/install.md
+      - Using it: guide/using.md
   - Weapons:
       - Every weapon: weapons/index.md
       # generated: one entry per family
   - Making weapon packs:
       - Weapon pack reference: modding/weapon-packs.md
       - Coming from KSP modding: modding/from-ksp.md
-      - Pack API surface: modding/pack-api.md

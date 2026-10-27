@@ -6,10 +6,8 @@ namespace KSArmory;
 public static class FireGate
 {
     /// <summary>
-    /// A launcher with no training gear is always laid — there is nothing that could be pointing
-    /// the wrong way. One whose drive the engine has refused is frozen wherever it stopped, and is
-    /// not: firing then ejects rounds along a stale tube transform, which guidance recovers from
-    /// well enough that nothing but the drawn facing line shows it happened.
+    /// A launcher with no training gear is always laid. One whose drive the engine refused is frozen
+    /// and is not: it would eject rounds along a stale tube transform, which only the facing line shows.
     /// </summary>
     /// <param name="aiming">Slewing onto a track, rather than stowed or driven from the panel.</param>
     /// <param name="trains">The profile declares gear that has to be aimed before firing.</param>
@@ -21,10 +19,8 @@ public static class FireGate
         => !aiming || !trains || (drivesAccepted && assembliesResolved && settled);
 
     /// <summary>
-    /// Whether a burst already begun may go on. One the operator fired runs to its end wherever the
-    /// barrels swing — the gun is theirs to sweep, and with mouse aim a quick flick is exactly that —
-    /// while an automatic burst stops once the gun has swung off its lay or what it was fired at is
-    /// gone, since it would otherwise go on into the next contact or back to rest.
+    /// Whether a burst already begun may go on. The operator's runs to its end wherever the barrels
+    /// swing; an automatic one stops once the gun is off its lay or its target is gone.
     /// </summary>
     public static bool BurstMayContinue(bool operatorBurst, bool laid, bool targetGone)
         => operatorBurst || (laid && !targetGone);
@@ -46,20 +42,10 @@ public static class FireGate
     /// than what the missile is about to be fired at — the gun's ballistic lead, or the operator's
     /// cursor. Rounds leave along the tube, so the ring's aim is the missile's launch heading.
     ///
-    /// <para>The envelopes overlap — 200–4000 m for the cannon against 1200–20000 m for the
-    /// missiles — and inside that band the turret can only point at one solution. A missile
-    /// launched along the tube in that state leaves ~18° off for a 300 m/s crosser. Proportional
-    /// navigation recovers well enough that the intercept still lands, so nothing on screen shows
-    /// the round leaving a launcher aimed somewhere else.</para>
-    ///
-    /// <para>The cannon win the overlap rather than the missiles because the lead is only applied
-    /// when the guns can actually take the shot, and a missile held for one pass is cheaper than
-    /// a missile spent off-axis.</para>
-    ///
-    /// <para>The same shape covers the operator: with mouse aim on, the ring follows the cursor
-    /// while auto-engage commits the round to the radar's lock, which can be anywhere — up to
-    /// 180° away. Nothing else catches that. A command-link round is exempt from
-    /// <see cref="CanGuideOntoAimpoint"/> by its first line, so the seeker limit never runs.</para>
+    /// <para>Where the Pantsir's envelopes overlap the turret points at one solution, and a missile
+    /// launched on the gun's lead leaves ~18° off for a 300 m/s crosser; proportional navigation hides it.
+    /// The cannon win the overlap: a missile held for one pass is cheaper than one spent off-axis. With
+    /// mouse aim on, the ring follows the cursor while auto-engage fires at the lock, up to 180° away.</para>
     /// </summary>
     /// <param name="ringIsElsewhere">
     /// The turret is laid on something the missile is not being fired at. For the cannon that
@@ -74,31 +60,18 @@ public static class FireGate
     /// Whether a round leaving along <paramref name="launchDirection"/> can steer onto where it
     /// was sent.
     ///
-    /// <para>A seeker only guides while its target is inside its gimbal limit of the round's own
-    /// flight path — and outside it there is no steering, so the flight path never changes, so it
-    /// never comes back inside. The limit is therefore decided at launch and permanently: a round
-    /// released more than <paramref name="seekerFovRad"/> off its aimpoint flies straight on until
-    /// it expires. That is invisible in flight, which is why it is a gate rather than a comment.</para>
-    ///
-    /// <para>Only a launcher whose rounds leave along a fixed tube can get here. One that trains
-    /// has already laid the tube on the target, and a command-linked round is steered by the
-    /// launcher rather than by anything it can see for itself.</para>
+    /// <para>Outside its gimbal limit a seeker does not steer, so the flight path never brings the target
+    /// back: a round released more than <paramref name="seekerFovRad"/> off its aimpoint flies straight
+    /// on until it expires.</para>
     /// </summary>
     /// <param name="operatorHeld">
-    /// The aimpoint is a place someone designated rather than something the round has to find.
-    /// It is steered onto like a command-linked round however the round is guided otherwise —
-    /// there is nothing a gimbal limit could lose.
+    /// The aimpoint is a place someone designated, steered onto like a command-linked round.
     /// </param>
     public static bool CanGuideOntoAimpoint(GuidanceMode guidance, bool operatorHeld,
                                             double seekerFovRad,
                                             double3 launchDirection, double3 toAimpoint)
     {
-        // An unguided round is not being steered anywhere, so there is nothing here to refuse:
-        // where it goes was settled by the tube. Command link is steered by the launcher, and an
-        // operator-held shot has no other way to reach a place the launcher cannot be pointed at.
-        //
-        // An anti-radiation round is gated too: it homes on a different thing from a seeker, but
-        // it homes through the same gimbal, so it is lost off-axis at launch for the same reason.
+        // An anti-radiation round homes through the same gimbal as a seeker, so it is gated too.
         if (guidance is not (GuidanceMode.Seeker or GuidanceMode.AntiRadiation) || operatorHeld)
         {
             return true;

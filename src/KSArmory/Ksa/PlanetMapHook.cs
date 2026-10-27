@@ -22,8 +22,8 @@ namespace KSArmory;
 ///
 /// <para><b>Nothing here may throw.</b> It runs inside the engine's command buffer; the render is
 /// wrapped and latched by <see cref="PlanetMap"/>, so a fault costs the picture rather than the
-/// frame. Note the engine's own call site is guarded by whether the nearby body is billboarded —
-/// where it does not run, neither does this, and the picture holds its last frame.</para>
+/// frame. The engine's own call site is skipped while the nearby body is billboarded, and then the
+/// picture holds its last frame.</para>
 /// </summary>
 internal static class PlanetMapHook
 {
@@ -101,8 +101,7 @@ internal static class PlanetMapHook
         map.Render(commandBuffer, nearbyCelestial, viewport, frameIndex);
     }
 
-    // Never called. It exists so the patched member is in this assembly's metadata, which is what
-    // makes a KSA signature change a build error. See the class remarks.
+    // Never called: puts the patched member in this assembly's metadata, so a signature change is a build error.
     private static void PinTheSignature(PlanetRenderer planets, CommandBuffer commandBuffer,
                                         Celestial body, IViewport viewport, int frameIndex)
         => planets.ProcessExporter(commandBuffer, body, viewport, frameIndex);

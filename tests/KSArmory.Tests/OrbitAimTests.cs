@@ -4,13 +4,8 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Recovering the orbit camera's angles from its own basis.
-///
-/// <para>These reconstruct what KSA's OrbitController does — build a forward by rotating a
-/// horizontal about the frame's vertical by the azimuth, then about the camera's right by the
-/// elevation — and assert that solving for a direction and feeding the answer back through that
-/// construction lands on it. That round trip is the whole contract: the frame the angles are
-/// measured in is private, so the only way to aim the camera is to invert its own output.</para>
+/// KSA's OrbitController measures its angles in a private frame, so the only way to aim it is to invert its
+/// own construction: azimuth about the frame's vertical, then elevation about the camera's right.
 /// </summary>
 public class OrbitAimTests
 {
@@ -154,11 +149,10 @@ public class OrbitAimTests
     }
 
     /// <summary>
-    /// The test that lets the player take the view back. A write lands exactly, so the stored
-    /// angles read back the same next frame unless something else moved them — and anything else
-    /// is the player. Without it the turn drags the camera back for its whole run, which reads as
-    /// the mod refusing to stop trying.
+    /// A write lands exactly, so stored angles that read back different were moved by the player,
+    /// and the turn must let go rather than drag the camera back for its whole run.
     /// </summary>
+
     [Fact]
     public void AnUntouchedViewReadsBackAsTheSameAim()
     {

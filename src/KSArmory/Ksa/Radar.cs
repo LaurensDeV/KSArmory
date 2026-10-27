@@ -16,14 +16,10 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     /// <summary>
     /// What this set can see.
     ///
-    /// <para>Owned by the system that fitted it rather than read through <c>Config</c>: with more
-    /// than one system alive a shared field is whichever system resolved last. Live tuning still
-    /// works, because profiles are shared instances.</para>
+    /// <para>Owned by the system that fitted it rather than read through <c>Config</c>.</para>
     /// </summary>
     /// <remarks>
-    /// Unset until a launcher is adopted, and zero range until then rather than a real set's:
-    /// seeding from whichever profile happens to be registered first gives an unfitted radar
-    /// somebody else's reach.
+    /// Zero range until a launcher is adopted, never the first registered profile's reach.
     /// </remarks>
     public SensorProfile Sensor { get; set; } = SensorProfile.None;
 
@@ -39,9 +35,8 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     /// The best contact on scope, whether or not it may be engaged. What an <em>instrument</em>
     /// follows, as against <see cref="Locked"/>, which is what a weapon may shoot.
     ///
-    /// <para>The same as <see cref="Locked"/> whenever there is a threat, so a sight and a gun
-    /// agree about the thing that matters. They part company over a contact that will never close:
-    /// the gun is right to ignore it and the sight is right to watch it.</para>
+    /// <para>The same as <see cref="Locked"/> whenever there is a threat; they differ over a contact
+    /// that will never close.</para>
     /// </summary>
     public Track? Watched { get; private set; }
 
@@ -62,9 +57,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     /// <summary>
     /// Craft the last scan discarded because the planet was in the way.
     ///
-    /// <para>Counted rather than dropped quietly: a system that suddenly sees nothing looks
-    /// broken, and this is the difference between "nothing is flying" and "everything is behind
-    /// the world".</para>
+    /// <para>Counted so a set that sees nothing can say why.</para>
     /// </summary>
     public int MaskedByTerrain { get; private set; }
 
@@ -89,9 +82,8 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     public bool ChaffBroke(object? handle) => _notch.IsBroken(handle);
 
     /// <summary>
-    /// Pieces of craft this mod's warheads broke up, left out of the picture this scan. Counted for
-    /// the same reason as the masked ones: a burst that leaves a dozen pieces falling and a scope
-    /// showing none reads as the set having missed them. See <see cref="KSArmory.Wreckage"/>.
+    /// Pieces of craft this mod's warheads broke up, left out of the picture this scan, counted for
+    /// the same reason. See <see cref="KSArmory.Wreckage"/>.
     /// </summary>
     public int IgnoredWreckage { get; private set; }
 
@@ -102,32 +94,22 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
     // scan, so what was not seen this scan is dropped and starts again if it comes back.
     private Dictionary<object, AccelerationEstimate> _acceleration = new(ReferenceEqualityComparer.Instance);
     private Dictionary<object, AccelerationEstimate> _accelerationNext = new(ReferenceEqualityComparer.Instance);
-    // An index over Tracks, with the same lifetime: cleared and refilled by every scan. Reference
-    // equality because a handle is an identity rather than a value -- everything else that matches
-    // one uses ReferenceEquals, and a contact type that ever overrode Equals would silently fold
-    // two distinct contacts onto one track.
+    // An index over Tracks, refilled every scan. Reference equality because a handle is an
+    // identity: a contact type overriding Equals would fold two contacts onto one track.
     private readonly Dictionary<object, Track> _byHandle = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>
     /// The live track for a target handle, or null if this set is not holding it.
     ///
-    /// <para>O(1) because fire control asks once per round in the air: a scan against a salvo is
-    /// thousands of lookups a frame, and a linear search over the track list is that many times
-    /// the track count.</para>
+    /// <para>O(1) because fire control asks once per round in the air.</para>
     /// </summary>
     public Track? TrackFor(object? handle) =>
         handle is not null && _byHandle.TryGetValue(handle, out Track? track) ? track : null;
 
-    /// <summary>
-    /// Rebuilds the track list from the current world state.
-    /// </summary>
-    /// <param name="platform">The vehicle carrying the system.</param>
     /// <param name="boresight">Unit vector the radar is pointed along, in Ecl.</param>
     /// <param name="dt">Seconds since the previous scan.</param>
     /// <param name="airborne">
-    /// Contacts that are not craft -- rounds somebody else has in the air. Assessed through the
-    /// same threat model and the same IFF as anything else: a sensor should not care what kind of
-    /// thing it is looking at, only where it is going and whose it is.
+    /// Rounds somebody else has in the air, through the same threat model and IFF as a craft.
     /// </param>
     public void Scan(Vehicle platform, double3 boresight, double dt,
                      IReadOnlyList<IContact>? airborne = null)
@@ -141,10 +123,8 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         IgnoredWreckage = 0;
         _notch.BeginScan(dt);
 
-        // A set that has been told to stop transmitting sees nothing. That is the whole of the
-        // trade against an anti-radiation round -- going quiet costs the site its own picture, so
-        // it is a decision rather than a free defence. Only a set that transmits can be silenced;
-        // a passive seeker answers false and is unaffected.
+        // A silent set sees nothing: going quiet against an anti-radiation round costs the site its
+        // picture. A passive set answers false and is unaffected.
         if (_sensor.Emits && _policy.RadarSilent)
         {
             _dwell.Clear();
@@ -156,9 +136,7 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         double3 originEcl = KsaWorld.PositionEcl(platform);
         double3 originVel = KsaWorld.VelocityEcl(platform);
 
-        // Once per scan, not once per contact. The clutter floor and the look-down read it, and the body every
-        // contact is measured against is the one under the set rather than the one under each of
-        // them -- a set does not see a target against a different planet's ground.
+        // Once per scan: every contact is measured against the body under the set, not under it.
         KsaWorld.MeanSphereUnder(originEcl, out double3 groundCentre, out double groundRadius);
 
         IReadOnlyList<Vehicle> world = KsaWorld.Vehicles;
@@ -185,14 +163,9 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         {
             for (int i = 0; i < airborne.Count; i++)
             {
-                // A set does not watch its own platform's salvo leave. The mirror of the rule
-                // above for craft, and needed for the same reason: a round clearing the tubes is
-                // metres away and closes nothing, so it takes the top of the priority list and
-                // holds it for the round's whole flight. IFF will not do this — allegiance decides
-                // what may be *engaged*, and a friendly contact is still tracked.
-                //
-                // On a launcher carrying a director this is the difference between a sight that
-                // watches the target and one that follows every round out to 30 km.
+                // A set does not watch its own platform's salvo leave: a round clearing the tubes
+                // is metres away and would hold the top of the priority list. IFF does not cover
+                // this, because a friendly contact is still tracked.
                 if (ReferenceEquals(airborne[i].LaunchedFrom, platform)) continue;
                 if (_sensor.CuedOnly && !ReferenceEquals(airborne[i].Handle, Cue)) continue;
 
@@ -205,8 +178,6 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         (_acceleration, _accelerationNext) = (_accelerationNext, _acceleration);
         _accelerationNext.Clear();
 
-        // Refresh dwell bookkeeping, dropping anything no longer seen, and index the tracks by
-        // handle in the same pass.
         _dwell.Clear();
         foreach (Track t in Tracks)
         {
@@ -219,9 +190,6 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         UpdateLock();
     }
 
-    // One contact, through the same geometry, masking and IFF a craft gets. Anything that only a
-    // craft can answer is already behind IContact, so there is nothing here that knows the
-    // difference.
     private void Consider(IContact contact, Vehicle platform, double3 originEcl, double3 originVel,
                           double3 boresight, double dt, double3 groundCentre, double groundRadius)
     {
@@ -278,17 +246,14 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
             return;
         }
 
-        // A fireball's ionised air, which absorbs a beam that crosses it. A handful of spheres, so
-        // cheap, but asked only of what the cone let through and only of a set that transmits.
+        // A fireball's ionised air absorbs a beam that crosses it; asked only of a transmitting set.
         if (_sensor.Emits && _config.NuclearBlackout && NuclearClouds.BlacksOut(originEcl, targetPos))
         {
             MaskedByBurst++;
             return;
         }
 
-        // The skyline, and last of all the rejects. Every sample is a height-map fetch, so it is
-        // only worth spending on a contact that range, cone and the planet's own bulk have all
-        // already let through.
+        // The skyline last of all the rejects: every sample is a height-map fetch.
         if (_sensor.HorizonMasking
             && KsaWorld.IsHiddenByTerrain(originEcl, targetPos, _sensor.TerrainSamples,
                                           _sensor.TerrainClearanceMetres, out _))
@@ -334,15 +299,8 @@ internal sealed class Radar(Config config, ISensorPolicy policy)
         int first = ThreatModel.IndexOfFirstThreat(Tracks);
         Locked = first >= 0 ? Tracks[first] : null;
 
-        // What an instrument should look at, which is not what a weapon may shoot: the best thing on
-        // scope whether or not it qualifies as a threat, held until another is clearly better
-        // (Sim/WatchChoice.cs).
-        //
-        // A weapon is right to hold fire at something that will never come close; a sight pointed
-        // at it is doing its job. Without this a director watches nothing at all whenever the only
-        // contact is a passer-by, and lags the launcher whenever a threat is still maturing —
-        // fire control reaches its own verdict first and the missiles leave before the picture
-        // has moved.
+        // What an instrument should look at: the best thing on scope whether or not it is a threat,
+        // held until another is clearly better (Sim/WatchChoice.cs).
         int fresh = Locked is not null ? first : Tracks.Count > 0 ? 0 : -1;
         int held = _watchedHandle is null ? -1 : Tracks.FindIndex(t => ReferenceEquals(t.Contact.Handle, _watchedHandle));
         int watched = WatchChoice.Choose(Tracks, fresh, held);

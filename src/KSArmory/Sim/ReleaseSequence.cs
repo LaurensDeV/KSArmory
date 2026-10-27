@@ -11,22 +11,13 @@ namespace KSArmory;
 /// </param>
 /// <param name="NextTubeAxisCci">Where that tube points now, measured this frame.</param>
 /// <param name="NoseAxisCci">
-/// Where the launcher's own axis points now — the mean of its live tube axes, which is what the
-/// cants cancel to.
-///
-/// <para>The frame each turn is applied to, and it has to be this one rather than the held command:
-/// see <see cref="ReleasePointing.TryAimTubeFromHere"/>. Zero where the part tree will not answer,
-/// which falls back to turning the held command by the latched axis.</para>
+/// The mean of the live tube axes now, which each turn is applied to rather than the held command
+/// (<see cref="ReleasePointing.TryAimTubeFromHere"/>). Zero where the part tree will not answer.
 /// </param>
 /// <param name="SweepMetresPerSecond">How fast the vehicle's own turn is sweeping the tubes.</param>
 /// <param name="EjectionMetresPerSecond">
-/// What the tubes throw a round at, which is what turns a cant into the currency a release is
-/// decided in: a tube <c>θ</c> off the line throws its round <c>2·sin(θ/2)</c> of this away from
-/// where it was aimed.
-///
-/// <para>Carried rather than assumed, because it belongs to the munition and two canted launchers
-/// need not agree about it. Zero or less prices the cant at nothing and spends only the sweep,
-/// which is the honest answer for a store that is dropped rather than thrown.</para>
+/// What the tubes throw a round at: a tube <c>θ</c> off the line throws it <c>2·sin(θ/2)</c> of this
+/// sideways. Zero or less prices the cant at nothing, for a store that is dropped.
 /// </param>
 /// <param name="SecondsLeftToDeploy">
 /// How long the release window has left. NaN when unknown, which is treated as "plenty" — a
@@ -44,7 +35,6 @@ internal readonly record struct ReleaseSituation(
     double3 HeldDirectionCci,
     double3 HeldRollCci);
 
-/// <summary>What to hold and whether to let one go.</summary>
 internal readonly record struct ReleaseCommand(
     double3 DirectionCci,
     double3 RollCci,
@@ -56,54 +46,25 @@ internal readonly record struct ReleaseCommand(
 /// <summary>
 /// Letting a magazine go along one line.
 ///
-/// <para>The bus holds one attitude through its coast, and where a launcher's tubes are canted off
-/// it, warheads released from that attitude leave on different vectors and scatter. Once <see cref="Begin"/>
-/// has latched the axes this turns the bus by one cant before each release so the tube about to fire
-/// lies on the mean — see <see cref="ReleasePointing"/> — waits for it to settle, releases, and moves
-/// on. One at a time, because each tube wants a different attitude.</para>
+/// <para>Where the tubes are canted, once <see cref="Begin"/> has latched the axes this turns the vehicle
+/// before each release so the tube about to fire lies on the mean (<see cref="ReleasePointing"/>),
+/// measured from where the launcher is rather than the held command, since KSA leaves roll free.</para>
 ///
-/// <para><b>What decides a release is one number.</b> Both things held against it — how far off the
-/// line the tube is, and how fast the vehicle is sweeping it — are lateral velocity put on the
-/// round, so they are added and spent against <see cref="LateralBudgetMetresPerSecond"/> rather than
-/// tested separately. Two independent thresholds compare nothing: a tube on the line while the
-/// vehicle sweeps is a <em>smaller</em> error than one canted while it is still, and a pair of gates
-/// refuses the first and accepts the second.</para>
+/// <para>The cant and the sweep are both lateral velocity on the round, so they are summed against
+/// one <see cref="LateralBudgetMetresPerSecond"/>. With no axes latched nothing paces the salvo and
+/// the magazine empties in consecutive frames, on purpose. <c>docs/ICBM-GUIDANCE.md</c>, "The release
+/// gate is one budget, not two thresholds" and the two sections after it.</para>
 ///
-/// <para><b>Each turn is measured from where the launcher is, not from what it was told to hold.</b>
-/// Those two differ by the vehicle's own pointing error, and KSA leaves a vehicle's roll free
-/// entirely — see <see cref="ReleasePointing.TryAimTubeFromHere"/> and <c>docs/MIRV-NEXT.md</c>
-/// item 5.</para>
-///
-/// <para><b>Where the budget cannot be met, the best the vehicle will give is taken.</b> A separated
-/// bus that cannot null its residual rate has a sweep no waiting improves, so the only term left is
-/// the pointing and the release goes at the pointing's own best — see
-/// <see cref="StoppedImprovingSeconds"/>. A vehicle that is still settling keeps improving one term
-/// or the other and is never offered that, which is what stops a rigid stack releasing mid-swing.</para>
-///
-/// <para><b>Nothing paces a salvo it is not re-pointing.</b> With no axes latched every tube wants
-/// the same attitude, the only gate left is that the vehicle is steady, and a magazine empties in
-/// consecutive frames. That is the intent rather than an oversight: warheads off one release state
-/// share a time of flight and land together, where a paced salvo gives each of them a different one
-/// — and on a bus falling toward its release altitude that differential is a larger error than
-/// anything the pause would buy. <c>docs/ICBM-GUIDANCE.md</c> has the flown numbers.</para>
-///
-/// <para><b>It gives up rather than holding warheads.</b> A bus that cannot point, one that will not
-/// settle, or one running out of window releases on the nominal line anyway: a scattered salvo beats
-/// one still aboard when the release altitude closes, because the shot is already paid for.</para>
+/// <para>It gives up rather than holding warheads: a scattered salvo beats one still aboard when the
+/// release altitude closes.</para>
 /// </summary>
 internal sealed class ReleaseSequence
 {
     /// <summary>
     /// How much lateral velocity a release may put on a round, in metres a second at the tube.
     ///
-    /// <para>The whole of it: the vehicle's sweep and the tube's cant are the same quantity and are
-    /// added before the comparison. On a deorbit's ~3,400 m per m/s it is about 170 m of spread, and
-    /// it is what the flown salvos were released inside.</para>
-    ///
-    /// <para><b>At the tube, not at the hull.</b> A round on top of a long stack is tens of metres
-    /// from the centre of mass, so one degree a second there is half a metre a second at the tube.
-    /// This is the quantity that actually reaches the round and it does not care how long the
-    /// vehicle is.</para>
+    /// <para>Sweep and cant summed. On a deorbit's ~3,400 m per m/s it is about 170 m of spread. At the
+    /// tube rather than the hull, because a hull rate's effect grows with the stack's length.</para>
     /// </summary>
     public const double LateralBudgetMetresPerSecond = 0.05;
 
@@ -111,21 +72,17 @@ internal sealed class ReleaseSequence
     /// How long a term has to go without getting better before it is read as this vehicle's floor
     /// rather than as a transient.
     ///
-    /// <para>This is what separates a bus that cannot hold from a stack that has not finished
-    /// settling, and no single frame can tell them apart. A settling vehicle improves one term or
-    /// the other every few tenths of a second — an exponential approach on a twenty-second time
-    /// constant is still closing by <see cref="SweepClosingMetresPerSecond"/> inside three seconds
-    /// until it is well within the budget — so patience costs it nothing and buys the
-    /// distinction.</para>
+    /// <para>Separates a bus that cannot hold from a stack still settling: even a 20 s exponential
+    /// approach still closes by <see cref="SweepClosingMetresPerSecond"/> inside this until it is well
+    /// within the budget.</para>
     /// </summary>
     public const double StoppedImprovingSeconds = 3.0;
 
     /// <summary>
     /// How much lower the sweep must get to count as still coming down.
     ///
-    /// <para>A tenth of the budget: small enough that a vehicle slowly braking its own rotation
-    /// keeps resetting the clock above — that is the vehicle which must not be released mid-settle —
-    /// and large enough that noise on a floor does not.</para>
+    /// <para>A tenth of the budget: a vehicle slowly braking its rotation keeps resetting the clock
+    /// above, and noise on a floor does not.</para>
     /// </summary>
     public const double SweepClosingMetresPerSecond = 0.005;
 
@@ -133,32 +90,21 @@ internal sealed class ReleaseSequence
     /// How steady the tubes must be before <see cref="Begin"/> will latch their axes, in metres a
     /// second at the tube.
     ///
-    /// <para><b>An order of magnitude looser than the release budget, and deliberately.</b> Latching
-    /// is a measurement and releasing is an act: a reference taken slightly off is a bias the
-    /// sequencer then applies to every tube equally, where a release taken off the line is on that
-    /// round and permanent. What it has to exclude is the large transient right after a split —
-    /// flown at 0.438 m/s, which is about ten degrees a second — not the residual jitter a light
-    /// bus can never null.</para>
-    ///
-    /// <para>Gating this on the release budget instead lets re-pointing be switched on and never
-    /// start: a vehicle whose sweep floors above the budget never latches, so the cant it
-    /// exists to remove stays in and nothing says why.</para>
+    /// <para>Ten times the release budget: a slightly-off reference biases every tube equally, and what
+    /// it must exclude is the transient right after a split (flown at 0.438 m/s), not the jitter a light
+    /// bus never nulls. Gated on the release budget, a vehicle whose sweep floors above it never latches.</para>
     /// </summary>
     public const double SteadyToLatchMetresPerSecond = 0.5;
 
     /// <summary>
     /// How long to wait for one tube before letting it go anyway.
     ///
-    /// <para>A vehicle with no attitude authority would otherwise hold its rounds for ever, which is
-    /// the worse failure of the two.</para>
+    /// <para>A vehicle with no attitude authority would otherwise hold its rounds for ever.</para>
     /// </summary>
     public const double PerTubeTimeoutSeconds = 60.0;
 
     /// <summary>
     /// Below this much window per remaining warhead, stop turning and just get them away.
-    ///
-    /// <para>Spread on the ground is a worse shot; rounds still aboard when the release altitude
-    /// closes are no shot at all.</para>
     /// </summary>
     public const double NotWorthRepointingBelowSeconds = 5.0;
 
@@ -166,11 +112,9 @@ internal sealed class ReleaseSequence
     /// How much further off the line than it started a tube may drift before the turn is read as
     /// unfollowed rather than unfinished.
     ///
-    /// <para>The command is a constant — one rotation of the frozen coast attitude, rebuilt from the
-    /// same latched axis every frame — so an error that <em>grows</em> is the vehicle failing to hold
-    /// what it was given, and no amount of patience fixes that. A degree is a sixth of the bus's cant
-    /// and far above the noise on the measurement, and an overshoot cannot trip it: an overshoot goes
-    /// past the line, not back past where the turn began.</para>
+    /// <para>The command is a constant rotation, so an error that grows is the vehicle not holding it.
+    /// A degree is far above the measurement noise, and an overshoot cannot trip it: it goes past the
+    /// line, not back past where the turn began.</para>
     /// </summary>
     public const double NotFollowingDegrees = 1.0;
 
@@ -178,14 +122,8 @@ internal sealed class ReleaseSequence
     /// How much closer to the line counts as the turn getting somewhere, and how long it may go
     /// without doing so.
     ///
-    /// <para>A quarter of a degree in ten seconds is 0.025 deg/s. A turn that slow needs four minutes
-    /// for one cant, which is past <see cref="PerTubeTimeoutSeconds"/> anyway — so nothing that could
-    /// have finished is given up on, and a bus that is simply not moving is found in ten seconds
-    /// rather than sixty.</para>
-    ///
-    /// <para>Measured in degrees rather than in the budget's currency on purpose: whether the vehicle
-    /// is following a rotation it was commanded is a question about the turn, not about what the
-    /// release costs the round.</para>
+    /// <para>0.025 deg/s: a turn that slow could not finish inside <see cref="PerTubeTimeoutSeconds"/>
+    /// anyway, so a bus that is not moving is found in ten seconds rather than sixty.</para>
     /// </summary>
     public const double ClosingDegrees = 0.25;
 
@@ -210,10 +148,7 @@ internal sealed class ReleaseSequence
     /// <summary>
     /// Whether the magazine it was given has been let go. It does not fill again.
     ///
-    /// <para>A launcher reloads — that is what a launcher does, and a few seconds after a salvo it
-    /// is full again. A ballistic missile deploys <em>once</em>, so this latches on the magazine
-    /// reaching empty and nothing clears it but <see cref="Reset"/>. Without it the next salvo goes
-    /// the moment the last one lands, and the one after that, all the way to the ground.</para>
+    /// <para>Latched until <see cref="Reset"/>, because the launcher reloads and a bus deploys once.</para>
     /// </summary>
     public bool Emptied { get; private set; }
 
@@ -232,9 +167,8 @@ internal sealed class ReleaseSequence
     /// <summary>
     /// Latch the tube axes and the line they average to.
     ///
-    /// <para>Called on the frame the vehicle is first both ready and settled — which is the
-    /// attitude the aim correction converged against, and therefore the one the reference has to be
-    /// measured at. Everything after is an offset from it.</para>
+    /// <para>Called on the frame the vehicle is first both ready and settled: the attitude the aim
+    /// correction converged against.</para>
     /// </summary>
     public bool Begin(ReadOnlySpan<double3> tubeAxesCci)
     {
@@ -277,8 +211,7 @@ internal sealed class ReleaseSequence
     {
         ReleaseCommand held = new(now.HeldDirectionCci, now.HeldRollCci, false, now.NextTube, 0.0, "");
 
-        // One magazine per sequence. Watched rather than counted, because how many it started with
-        // is the launcher's business and a reload is indistinguishable from a fuller one.
+        // Watched rather than counted: a reload is indistinguishable from a fuller magazine.
         if (now.TubesLeft > 0) _hadRounds = true;
         else if (_hadRounds) Emptied = true;
 
@@ -294,7 +227,7 @@ internal sealed class ReleaseSequence
             return held;
         }
 
-        // A different tube means the last one went. Its clock starts now, not when the salvo did.
+        // A different tube means the last one went.
         if (now.NextTube != _tube)
         {
             _tube = now.NextTube;
@@ -331,9 +264,8 @@ internal sealed class ReleaseSequence
         double3 direction = now.HeldDirectionCci;
         double3 roll = now.HeldRollCci;
 
-        // Turned off where the launcher is now, not off what it was told to hold. The latched form
-        // is the fallback for a part tree that will not say where it is pointing, and it leaves the
-        // vehicle's own standing pointing error and everything its roll has done in the answer.
+        // The latched form is only the fallback for a part tree that will not answer: it leaves the
+        // vehicle's own pointing error and roll in the answer.
         bool fromHere = measured && Vec.IsFinite(now.NoseAxisCci)
                         && !Vec.Unit(now.NoseAxisCci).Equals(Vec.Zero);
 
@@ -382,10 +314,8 @@ internal sealed class ReleaseSequence
 
         RecordSweep(stepSeconds, now.SweepMetresPerSecond);
 
-        // Two questions, and both have to answer yes: has nothing better than this sweep turned up
-        // in a while, and is the vehicle at that floor now rather than at the top of a swing? A
-        // vehicle still oscillating is on the line and still at different instants, so it satisfies
-        // both only once it has stopped.
+        // Both: nothing better has turned up in a while, and the vehicle is at that floor now rather
+        // than at the top of a swing.
         bool sweepIsAFloor = !(now.SweepMetresPerSecond > _bestSweep + LateralBudgetMetresPerSecond)
                              && (_wontSettle || _sinceSweepFell >= StoppedImprovingSeconds);
 
@@ -395,10 +325,8 @@ internal sealed class ReleaseSequence
         bool turnGotSomewhere = turning && measured && !double.IsNaN(_startedOff)
                                 && _bestOff <= _startedOff - ClosingDegrees;
 
-        // The pointing has nothing left to give: it has passed its own best, or it has stopped
-        // finding a better one. Nothing left to give is not the same as good — where the sweep is a
-        // floor above the budget the pointing is the only term still moving, and this is the moment
-        // it is worth the most.
+        // The pointing has passed its own best or stopped improving; not the same as good, but with the
+        // sweep floored above the budget this is the moment it is worth the most.
         bool pointingIsDone = !turning
                               || (turnGotSomewhere
                                   && (offDegrees > _bestOff + ClosingDegrees
@@ -406,10 +334,8 @@ internal sealed class ReleaseSequence
 
         bool late = _waiting >= deadline;
 
-        // One tube's whole clock spent above the budget on a sweep that will not come down is the
-        // evidence, and it is not worth gathering six times over: every later tube pays the same
-        // wait for the same answer, and each of those waits puts the next warhead on a different
-        // release state and a different time of flight.
+        // Learnt once rather than per tube: each later wait would put the next warhead on a different
+        // release state and time of flight.
         if ((sweepIsAFloor || late) && now.SweepMetresPerSecond > LateralBudgetMetresPerSecond)
         {
             _wontSettle = true;
@@ -418,9 +344,8 @@ internal sealed class ReleaseSequence
         bool best = sweepIsAFloor && pointingIsDone;
         bool go = withinBudget || best || late;
 
-        // Releasing off the line because the clock ran out means the turn failed, and the rest go on
-        // the mean axis rather than each spending its own clock discovering the same thing. Releasing
-        // at the pointing's own best is the turn working, however far off the line that best is.
+        // Off the line because the clock ran out is a failed turn, and the rest go on the mean axis;
+        // released at the pointing's own best is the turn working.
         if (go && !pointed && !pointingIsDone) _gaveUp = true;
 
         string said = abandoned.Length > 0
@@ -469,9 +394,7 @@ internal sealed class ReleaseSequence
         if (stepSeconds > 0.0) _sinceSweepFell += stepSeconds;
     }
 
-    // Why this turn will not finish, or nothing while it still might. The command is one constant
-    // rotation of a frozen attitude, so an error that grows or stops shrinking is the vehicle rather
-    // than the arithmetic, and waiting out the rest of the clock costs the salvo its time on target.
+    // Why this turn will not finish, or empty while it still might.
     private string WhyTheTurnIsNotWorking(int tube, bool measured, double offDegrees)
     {
         if (measured && !double.IsNaN(_startedOff) && offDegrees > _startedOff + NotFollowingDegrees)
@@ -489,10 +412,8 @@ internal sealed class ReleaseSequence
                      + "rest will go on the mean axis";
     }
 
-    // What this frame did, as the per-tube record a salvo leaves behind. A release says so even when
-    // nothing went wrong: six impact points are only diagnosable against the six release states that
-    // produced them, and those are gone by the time anything lands. What was spent is quoted against
-    // the budget, because the number alone does not say which side of it the release fell.
+    // A release says so even when nothing went wrong: impact points are only diagnosable against the
+    // release states that produced them.
     private string Say(in ReleaseSituation now, bool go, bool withinBudget, bool best, bool pointed,
                        bool blind, bool measured, double offDegrees, double lateral)
     {

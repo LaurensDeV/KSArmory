@@ -6,17 +6,9 @@ namespace KSArmory;
 /// The built-in-test sweep a tail kit runs on the rack, so the blades can be seen moving without
 /// dropping the round.
 ///
-/// <para><b>It produces a steering command, not deflections.</b> That is the whole design: the
-/// command goes through <see cref="FinMixer"/>, the same mixer the round uses in flight, so the
-/// blades can only ever sit in a pose some real demand would have put them in. Driving each blade
-/// independently — a wave chasing round the body, say — looks lively and is aerodynamic nonsense:
-/// it puts opposite fins at angles that no pitch, yaw or roll input could ask for.</para>
-///
-/// <para>The sweep exercises one axis at a time, pitch then yaw, which is what a control check
-/// actually is and what makes it readable as a test rather than as a steering bug.</para>
-///
-/// <para>Drawn only, exactly like <see cref="FinMixer"/>. Nothing here reaches the flight model:
-/// a round on the rack is not steering.</para>
+/// <para><b>It produces a steering command, not deflections</b>, put through <see cref="FinMixer"/>, so
+/// the blades only ever sit in a pose a real demand would give. One axis at a time, pitch then yaw.
+/// Drawn only.</para>
 /// </summary>
 public static class FinTest
 {
@@ -30,8 +22,8 @@ public static class FinTest
     /// The commanded lateral acceleration to show at <paramref name="seconds"/>, in the round's
     /// own frame with the nose along +X. Feed it to <see cref="FinMixer.DeflectionRad"/>.
     ///
-    /// <para>Zero at the start and end of each half, and <em>stationary</em> there too, so the
-    /// blades ease to rest before the other axis takes over rather than reversing at speed.</para>
+    /// <para>Zero and stationary at the start and end of each half, so the blades come to rest before
+    /// the other axis takes over.</para>
     /// </summary>
     /// <param name="authority">
     /// The round's own maximum lateral acceleration — the sweep reaches exactly this, so the
@@ -49,21 +41,16 @@ public static class FinTest
         bool pitch = t < half;
         double local = pitch ? t : t - half;
 
-        // Rest at neutral between axes. Handing over from pitch to yaw turns the command through
-        // a right angle, and half the blades are on the wrong side of that turn: with the set
-        // still moving, exactly one pair reverses while the other carries on, which is the
-        // asymmetry that reads as a fault. Stopped at neutral, there is no reversal to see.
+        // Handing over from pitch to yaw while moving reverses one pair and not the other, which
+        // reads as a fault; at rest there is no reversal.
         double sweep = half * SweepFraction;
         if (local >= sweep) return Vec.Zero;
 
-        // Eased, not linear. A bare sine arrives at the stops and at neutral travelling at full
-        // rate; smoothstep has zero slope at both ends, so each axis accelerates from rest and
-        // comes back to rest.
+        // Smoothstep inside the sine, so each axis starts and ends at rest.
         double u = local / sweep;
         double eased = u * u * (3.0 - 2.0 * u);
         double amplitude = authority * Math.Sin(2.0 * Math.PI * eased);
 
-        // Pitch acts across the body's +Y, yaw across its +Z; the axial component never steers.
         return pitch ? new double3(0.0, amplitude, 0.0)
                      : new double3(0.0, 0.0, amplitude);
     }

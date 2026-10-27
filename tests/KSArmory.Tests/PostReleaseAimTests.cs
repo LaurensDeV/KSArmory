@@ -137,9 +137,10 @@ public class PostReleaseAimTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// A place outside the region is still taken: the store steers at it and lands nearer than it
-    /// would have. Reporting rather than refusing is the whole rule in <c>WeaponSystem.Designate</c>.
+    /// Steered at a place outside the region, the store still closes on it. In game
+    /// <c>StoreRetarget.Reaches</c> keeps it on its own target instead, since it lands in between on nothing.
     /// </summary>
+
     [Fact]
     public void APlaceOutsideTheRegionIsStillTakenAndStillHelps()
     {

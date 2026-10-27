@@ -5,10 +5,9 @@ namespace KSArmory.Tests;
 /// <summary>
 /// Which of the vehicles that appeared during a split is this stack's own half.
 ///
-/// <para>Flown 2026-09-03: a world of eight rockets on one profile had computers adopting each
-/// other's spent stages at 20 and 40 km, because the census took the nearest new vehicle at any
-/// distance. What that costs is the separation gate — it measures the adopted stack, so it reads
-/// kilometres and passes at once.</para>
+/// <para>Taking the nearest new vehicle at any distance adopts another rocket's spent stage in a
+/// world of several — flown, at 20 and 40 km — and the separation gate then measures the adopted
+/// stack and passes at once.</para>
 /// </summary>
 public class ShedStageTests
 {
@@ -29,9 +28,8 @@ public class ShedStageTests
     }
 
     /// <summary>
-    /// The flown fault. A decoupler parts two halves at about a metre a second, so nothing this
-    /// vehicle dropped is tens of kilometres away — and taking the nearest anyway is what adopted
-    /// another rocket's stage.
+    /// A decoupler parts two halves at about a metre a second, so nothing this vehicle dropped is
+    /// tens of kilometres away, and taking the nearest anyway adopts another rocket's stage.
     /// </summary>
     [Theory]
     [InlineData(20_000.0)]

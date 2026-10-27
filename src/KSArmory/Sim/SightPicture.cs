@@ -7,17 +7,14 @@ namespace KSArmory;
 /// reference lies, how far the head is looking above it, and where a target that has left the
 /// picture went.
 ///
-/// <para>Separate from <see cref="Reticle"/> because these answer in the world and it answers in
-/// pixels. The split matters once the sight zooms: at 16× a target moves off screen in a fraction
-/// of a second, and everything here exists to say where it went.</para>
+/// <para>These answer in the world; <see cref="Reticle"/> answers in pixels.</para>
 /// </summary>
 public static class SightPicture
 {
     /// <summary>
     /// How far a look direction is above the local horizontal (rad), positive up.
     ///
-    /// <para>Against the launcher's own up rather than any celestial axis, so it reads as elevation
-    /// at the site rather than as latitude.</para>
+    /// <para>Against the launcher's own up, so it reads as elevation at the site, not latitude.</para>
     /// </summary>
     public static double ElevationRad(double3 forwardEcl, double3 upEcl)
     {
@@ -33,23 +30,12 @@ public static class SightPicture
     /// Points at zero elevation spanning <paramref name="halfAngleRad"/> either side of where the
     /// head is looking. Their projection is the sight's horizontal reference.
     ///
-    /// <para>Points rather than a screen-space line: a line drawn flat across the view is only
-    /// right where the camera happens to be level, and the whole reason to draw one is the case
-    /// where it is not. Projecting places that genuinely sit on the horizontal plane gets the tilt
-    /// for free, including whatever the engine's own roll is doing.</para>
+    /// <para>World points rather than a screen-space line, so projecting them carries the camera's
+    /// tilt and roll. An arc rather than two ends: level places lie on a circle round the eye.</para>
     ///
-    /// <para><b>An arc rather than two ends.</b> Level places lie on a circle around the eye, and
-    /// the straight chord between two of them dips below level in the middle — by a quarter of the
-    /// distance across a wide span, which is kilometres. Several short segments follow the circle
-    /// instead, and the span is the caller's to match to the field of view.</para>
-    ///
-    /// <para>Zero when the head is looking along its own up, where the horizontal plane projects
-    /// to a point and there is no line to draw.</para>
+    /// <para>Zero when the head looks along its own up, where the plane projects to a point.</para>
     /// </summary>
-    /// <param name="distance">
-    /// How far out to place them. Far enough that they read as direction rather than as objects,
-    /// and near enough to stay in front of the camera.
-    /// </param>
+    /// <param name="distance">How far out to place them, in metres.</param>
     /// <returns>How many points were written, in order across the picture.</returns>
     public static int ReferenceArc(double3 eyeEcl, double3 forwardEcl, double3 upEcl,
                                    double halfAngleRad, double distance, Span<double3> into)
@@ -66,9 +52,8 @@ public static class SightPicture
         if (Vec.Len2(right) < 1e-12) return 0;
         right = Vec.Unit(right);
 
-        // Forward with the vertical taken out. Deriving it from the cross product rather than by
-        // rejecting `up` out of `forward` keeps the three axes exactly orthogonal, which is what
-        // makes every point land at the same elevation.
+        // From the cross product rather than by rejection, so the axes are exactly orthogonal and
+        // every point lands at the same elevation.
         double3 flat = Vec.Unit(Vec.Cross(up, right));
 
         double half = Math.Clamp(halfAngleRad, 1e-4, 1.4);
@@ -87,11 +72,8 @@ public static class SightPicture
     /// <summary>
     /// Which way an off-screen contact lies, as a unit vector in screen space.
     ///
-    /// <para>Necessary rather than decorative once the sight magnifies: at 16× the field is three
-    /// degrees, so a target that breaks lock or a head still slewing leaves nothing on screen at
-    /// all and no cue about which way to look. Fed the already-clamped edge position — putting a
-    /// point on the edge is <c>KsaWorld.TryProjectOrClamp</c>'s job, and it is the only one of the
-    /// two that can handle a contact behind the camera.</para>
+    /// <para>Fed the already-clamped edge position: <c>KsaWorld.TryProjectOrClamp</c> is what handles
+    /// a contact behind the camera.</para>
     /// </summary>
     public static bool TryPointing(float2 from, float2 to, out float2 towards)
     {
@@ -115,24 +97,13 @@ public static class SightPicture
     /// The up to build a view basis from: last frame's, corrected towards the one wanted by at
     /// most <paramref name="maxStepRad"/>, and by less than that the worse a reference it is.
     ///
-    /// <para><b>Corrected rather than chosen.</b> Picking between the wanted up and the carried one
-    /// at a threshold flips the picture: a switching rule is discontinuous wherever the switch is,
-    /// and the two rules disagree by however far the carried one has drifted. Moving the threshold
-    /// moves the flip; it does not remove it. Measured at 89° of roll for 1.3° of aim, with the
-    /// view sitting exactly on the cutoff.</para>
+    /// <para>Corrected rather than chosen: switching between the two at a threshold flips the picture
+    /// there, measured at 89° of roll for 1.3° of aim. So there is no cutoff.</para>
     ///
-    /// <para>So there is no cutoff. The reference is always the carried one, and the wanted one
-    /// only ever pulls it — quickly where it is a good reference, not at all where the view lies
-    /// along it and it says nothing. A stabilised head is a control loop, not a lookup.</para>
-    ///
-    /// <para><paramref name="lastUp"/> zero seeds it: with nothing carried there is nothing to
-    /// correct, so the wanted one is taken outright. False only when neither is usable, which is a
-    /// view along its own up on the very frame it was taken.</para>
+    /// <para><paramref name="lastUp"/> zero seeds it with the wanted one. False only when neither is
+    /// usable.</para>
     /// </summary>
-    /// <param name="up">
-    /// Orthogonal to <paramref name="forwardEcl"/>, so the caller hands it straight back next
-    /// frame without it drifting into the view.
-    /// </param>
+    /// <param name="up">Orthogonal to <paramref name="forwardEcl"/>, to be handed back next frame.</param>
     public static bool TryStableUp(double3 forwardEcl, double3 preferredUp, double3 lastUp,
                                    double maxStepRad, out double3 up)
     {
@@ -144,13 +115,11 @@ public static class SightPicture
         bool wanted = Across(forward, preferredUp, out double3 target, out double authority);
         bool carried = Across(forward, lastUp, out double3 held, out _);
 
-        // Nothing carried yet, or nothing to carry towards: whichever exists is the answer.
         if (!carried) { up = target; return wanted; }
         if (!wanted) { up = held; return true; }
 
-        // How far the wanted up may pull this frame. Scaled by how much of it lies across the
-        // view: none of it does when the view is along it, and that is exactly when its direction
-        // is meaningless — so it stops pulling instead of being switched away from.
+        // Scaled by how much of the wanted up lies across the view, so along it, where it says
+        // nothing, it stops pulling instead of being switched away from.
         double step = Math.Max(0.0, maxStepRad) * authority;
         double apart = Vec.AngleBetween(held, target);
 
@@ -167,8 +136,7 @@ public static class SightPicture
         return true;
     }
 
-    // The part of a candidate lying across the view, and how much of it there is. The length is
-    // the sine of the angle between them, which is precisely how good a roll reference it is.
+    // The length is the sine of the angle to the view, which is how good a roll reference it is.
     private static bool Across(double3 forward, double3 candidate, out double3 across,
                                out double authority)
     {

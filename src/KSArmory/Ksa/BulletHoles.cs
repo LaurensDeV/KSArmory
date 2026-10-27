@@ -4,18 +4,11 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// The holes shells have left in hulls, for <see cref="CloudPass"/> to paint as
-/// <c>Shaders/KSArmoryHole.comp</c>.
-///
-/// <para><b>Painted along the path the shell came in on, not round the point it met.</b> The same
-/// burst dents the hull, measured at 0.57 m deep for a 5"/54, and a mark round the undented point
-/// never reaches the skin as drawn; projected along the path it lands on whatever surface is there.</para>
-///
-/// <para><b>Held in the frame of the sub-part that was struck</b>, as the engine's own ray cast
-/// answers it, and carried to the camera through <c>Part.MatrixAsmb2Ego</c> when the pass records —
-/// the matrix the engine draws that sub-part with. So a hole stays on the mesh however the craft
-/// flies, turns or articulates, with no epoch of its own to get wrong, and goes with the part if a
-/// breakup takes it onto another craft.</para>
+/// The holes shells have left in hulls, painted by <see cref="CloudPass"/> with <c>Shaders/KSArmoryHole.comp</c>.
+/// <para>Painted along the shell's path, not round the point: the burst dents the skin, 0.57 m for a
+/// 5"/54, and a mark round the undented point never reaches it.</para>
+/// <para>Held in the struck sub-part's frame and carried to the camera through the matrix the engine
+/// draws that sub-part with, so a hole has no epoch of its own and goes with the part.</para>
 /// </summary>
 internal static class BulletHoles
 {
@@ -34,7 +27,6 @@ internal static class BulletHoles
     // Each hole's own soot pattern, fixed when it is made so it does not change as older ones go.
     private static int _made;
 
-    /// <summary>Whether holes are made and painted, from the session's setting.</summary>
     public static bool Enabled { get; set; } = true;
 
     public static int Count => _holes.Count;
@@ -74,9 +66,8 @@ internal static class BulletHoles
     }
 
     /// <summary>
-    /// A hole as one view draws it: relative to that view's camera, the way the shell went in, a
-    /// direction square to that fixed to the part — so the petals turn with the hull rather than with
-    /// the camera — its two radii and the seed its pattern is drawn from.
+    /// A hole relative to one view's camera. <see cref="Side"/> is fixed to the part, so the petals turn
+    /// with the hull rather than with the camera.
     /// </summary>
     public readonly record struct Placed(double Range, double3 Centre, double3 Inward, double3 Side,
                                          float Core, float Scorch, float Seed);
@@ -151,7 +142,6 @@ internal static class BulletHoles
     private const int PruneEveryFrames = 60;
     private static int _sincePruned;
 
-    /// <summary>Drops every hole whose part is no longer on a live craft.</summary>
     public static void Prune()
     {
         if (++_sincePruned < PruneEveryFrames) return;

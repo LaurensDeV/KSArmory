@@ -3,6 +3,15 @@
 **A record.** The reference for several targets is `docs/ICBM-GUIDANCE.md`, "Several targets"; what is open is
 `docs/ICBM-OUTSTANDING.md`. What stays here is how each part was priced and the flights that shaped it.
 
+**Superseded since these entries were written**, so read them as of their date:
+
+- **A set holds seven, not six.** `TargetSet.MaxTargets` is 7, one per RV on the Heavy MIRV Bus; "six is
+  `TargetSet.MaxTargets`" below was true on 2026-10-02.
+- **One target has its own gate.** A set of one releases at `IcbmConfig.SingleTargetReleaseBeforeArrivalSeconds`,
+  350 s; `ReleaseBeforeArrivalSeconds`, 420 s, is now the walk's gate (`docs/ICBM-OUTSTANDING.md` 1.14).
+- **Targets are placed before launch** (R1 below was built): `ReachHold.NotCoasting` no longer exists, and the pad
+  draws the epoch reach.
+
 **Phase 0 has been flown headlessly**
 (`tests/KSArmory.Tests/MirvDivertTests.cs`), so the numbers below are measured rather than estimated —
 and it moved three of the plan's decisions, each marked **priced** where it appears. What it did not

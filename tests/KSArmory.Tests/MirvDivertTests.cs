@@ -349,10 +349,6 @@ public sealed class MirvDivertTests(ITestOutputHelper Out)
     private static string Say(Jacobian j)
         => $"flight {j.FlightSeconds:F0} s, arrives {j.ArrivalDeg:F1} deg";
 
-    // ---------------------------------------------------------------------------------------
-    // 1. Divert sensitivity
-    // ---------------------------------------------------------------------------------------
-
     /// <summary>
     /// How far one metre a second of bus velocity moves the landing, at the epoch the warheads are
     /// actually let go, and at the cutoff the plan's estimates were taken from.
@@ -429,10 +425,6 @@ public sealed class MirvDivertTests(ITestOutputHelper Out)
             Out.WriteLine("");
         }
     }
-
-    // ---------------------------------------------------------------------------------------
-    // 2. What the bus can pay
-    // ---------------------------------------------------------------------------------------
 
     /// <summary>
     /// The bus's own divert budget, off the part XML and the save rather than off the guidance cap.
@@ -563,10 +555,6 @@ public sealed class MirvDivertTests(ITestOutputHelper Out)
         }
     }
 
-    // ---------------------------------------------------------------------------------------
-    // 3. Staggered arrivals
-    // ---------------------------------------------------------------------------------------
-
     /// <summary>
     /// What it costs to put a second warhead on the same target a stated interval later — the divert
     /// that changes the arrival clock and nothing else.
@@ -619,10 +607,6 @@ public sealed class MirvDivertTests(ITestOutputHelper Out)
             Out.WriteLine("");
         }
     }
-
-    // ---------------------------------------------------------------------------------------
-    // 4. What waiting costs
-    // ---------------------------------------------------------------------------------------
 
     /// <summary>
     /// What a second of holding costs the warheads still aboard, and how the divert leverage decays
@@ -715,10 +699,8 @@ public sealed class MirvDivertTests(ITestOutputHelper Out)
     /// every later arc to that same instant, so a divert between destinations is an exactly-determined
     /// three-by-three and strictly dearer.</para>
     ///
-    /// <para><b>This is the number that decides whether a release loop may keep one arrival for the
-    /// whole itinerary</b>, or has to re-commit it per destination — which would need a re-latch after
-    /// cutoff that does not exist today, the latch living inside <c>Resolve</c>, which the coast never
-    /// reaches.</para>
+    /// <para>This decides whether a release loop may keep one arrival for the whole itinerary or must
+    /// free it per destination, as <see cref="IcbmConfig.HopsFreeTheirArrival"/> does.</para>
     /// </remarks>
     [Fact]
     public void ThePinnedArrivalIsWhatADivertActuallyCosts()

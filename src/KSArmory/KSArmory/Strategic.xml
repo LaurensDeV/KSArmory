@@ -28,12 +28,8 @@
     RoundReach instead. FuseArmSeconds="4": at 490 m lethal, what has to be cleared is the blast.
 
     MaxFaithfulStepSeconds and PreferredStepSeconds are 30 s because the ground stops this store, not a
-    proximity fuse. The default 0.32 s bounds how far a round may move past its own fuse radius, which
-    for this store is zero; left at the default, a high release holds the world at about 19x for a
-    fall of minutes, and the engine refuses that during its own warp-to-a-time, which abandons
-    everything in the air. Flown from 250 km at frames of 0.32 to 20 s it lands in the same place to the
-    metre, because it sub-steps at 5 ms whatever the frame. Smaller is not safer here: the step bounds a
-    clamp that throws away the rest of the frame, and at 8 s, 400x warp landed it 2,776 m off.
+    proximity fuse: the default 0.32 s would hold the world near 19x for a fall of minutes. Smaller is not
+    safer, since a frame past the step is discarded. CLAUDE.md, "A store with no proximity fuse".
   -->
   <Munition Name="B61" DisplayName="B61 tactical bomb"
             BodyMarker="B61" BodyLength="3.556"
@@ -60,9 +56,9 @@
     (ACCURACY-PLAN 3eu). The yield is a playability choice: a W87 is 300 kt; 20 kt gives exactly 2.0 km
     lethal and 6.0 km of blast. FuseArmSeconds="10" clears the bus and the other RVs at 0.5 m/s.
 
-    SubStepSeconds="0.001": the round's own integrator was 143 m of a 149 m miss at the default step,
-    falling about 31 m per millisecond, so this is where it stops being the largest term. Affordable for
-    seven warheads (about 300 sub-steps a frame) and nowhere else. PreferredStepSeconds="0.180": the
+    SubStepSeconds="0.001": at the default step the round's own integrator is 143 m of its 149 m gap to
+    its own prediction, and at this one the gap is 6 m (docs/METRE-LEVEL.md). Affordable for seven
+    warheads (about 300 sub-steps a frame) and nowhere else. PreferredStepSeconds="0.180": the
     world is held to a coast frame of about 96 ms, where the round and its own prediction disagree least,
     flown five against five (median 1.66 to 1.06 km). docs/MIRV-NEXT.md item 7e.
   -->
@@ -143,6 +139,21 @@
             MuzzleForwardOffset="0.435" LaunchAlongTube="true" EjectAwayFromMount="1.2" LaunchLoft="0"
             MuzzleOffset="2" ReloadSeconds="0" SettleSeconds="0">
     <Tube Position="0.43510, 1.77800, 0.00000" Direction="0, 1, 0" />
+  </Launcher>
+
+  <!--
+    The B61 as players fit it, on the ejector launcher it brings, its hooks at the 30-inch stations: thrown
+    6 m/s out of the mounting face as an ejector rack throws a bomb, the push an estimate. The rack above
+    is hidden from the editor and kept for saves.
+  -->
+  <Launcher PartId="KSArmory_Prefab_B61" DisplayName="B61 bomb"
+            FireControlLabel="B61 release"
+            Munition="B61" Sensor="BOMBSIGHT" StoreMassKg="374" TubeArmamentLabel="Bombs"
+            MuzzleForwardOffset="0.393" LaunchAlongTube="true" LaunchLoft="0"
+            EjectSpeed="6" CarriageMarker="Carriage"
+            EjectorArmMarker="CarriageArm" EjectorStrokeMetres="0.10"
+            MuzzleOffset="2" ReloadSeconds="0" SettleSeconds="0">
+    <Tube Position="0.39300, 1.77800, 0.00000" Direction="0, 1, 0" />
   </Launcher>
 
 </WeaponPack>

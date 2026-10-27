@@ -16,7 +16,7 @@ public class MuzzleClusterTests
     [Fact]
     public void ARotaryClusterStaysOneGroup()
     {
-        // BuiltIns.Ciws.GunMuzzles, which span about 0.21 m.
+        // A six-barrel rotary ring about 0.21 m across.
         double3[] muzzles =
         [
             new(-0.19500, 1.98000,  0.00000),
@@ -32,9 +32,7 @@ public class MuzzleClusterTests
         foreach (int g in into) Assert.Equal(0, g);
     }
 
-    /// <summary>
-    /// A Pantsir's four are two sponsons, and must stay two — this is the case the average broke.
-    /// </summary>
+    /// <summary>A Pantsir's four are two sponsons, and must stay two.</summary>
     [Fact]
     public void TwoSponsonsStayTwoGroups()
     {
@@ -54,7 +52,8 @@ public class MuzzleClusterTests
         Assert.Equal(into[2], into[3]);
         Assert.NotEqual(into[0], into[2]);
 
-        // And the thing that made this visible: the mean of all four is on the centreline.
+        // The mean of all four is on the centreline, where there is no gun.
+
         double3 mean = (muzzles[0] + muzzles[1] + muzzles[2] + muzzles[3]) / 4.0;
         Assert.Equal(0.0, mean.Z, 6);
         Assert.True(Math.Abs(muzzles[0].Z) > 1.5, "which is nowhere near either sponson");

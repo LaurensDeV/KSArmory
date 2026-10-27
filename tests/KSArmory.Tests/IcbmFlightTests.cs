@@ -154,10 +154,7 @@ public class IcbmFlightTests
 
     /// <summary>
     /// A rocket on a pad has nothing lit, and firing the next sequence is the only thing that
-    /// changes that. The computer used to refuse to ask for one until something had already pushed
-    /// — which is a launch that can never happen: it held the vertical rise on the attitude
-    /// thrusters, saw no propellant for four seconds, and reported a burn that ended short of a
-    /// solution it had never begun.
+    /// changes that, so the computer has to ask for it before anything has pushed.
     /// </summary>
     [Fact]
     public void ItLightsTheFirstEngineItselfFromAColdPad()

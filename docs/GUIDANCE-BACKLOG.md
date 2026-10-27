@@ -29,10 +29,11 @@ Roughly in order of how much existing code each one reuses.
    The illuminator as a scarce channel (Aegis) is taxonomy gap 4 and not needed for the first version.
 
 2. **Semi-active laser (SAL).** A seeker homing on a spot a designator holds on the target. The
-   LITENING pod and the EO director already designate (`IOpticalHead.Designation`), so the designator
-   exists; what is missing is a round whose aimpoint is re-read live from it and is lost when the
-   designator loses line of sight or stops lasing. The laser may come from another craft — which
-   touches taxonomy gap 1 — but self-designation works first.
+   designator half exists: a director with a laser lays a coded spot (`OpticConfig.LaserCode`,
+   `Sim/LaserCode.cs`), every spot in the world is collected each frame whichever craft made it
+   (`Ksa/LaserDesignators.cs`), and a director's tracker can already lock onto another's spot by
+   code (`Sim/SpotSearch.cs`). What is missing is a round that homes on a spot by its code, re-read
+   each step, and is lost when no spot on that code is in its seeker's view.
 
 3. **Seeker notch.** A Doppler seeker that loses a beaming target with no chaff involved, but only
    when **looking down**, with the ground behind the target; looking up against the sky there is no

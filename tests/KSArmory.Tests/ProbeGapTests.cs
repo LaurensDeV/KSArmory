@@ -7,21 +7,12 @@ namespace KSArmory.Tests;
 /// <summary>
 /// Why a warhead lands past the release probe that predicted it, taken apart into named terms.
 ///
-/// <para>The probe is <see cref="ImpactPredictor"/> flown from the state the round actually left on,
-/// so any gap here is a miss <see cref="AimCorrection"/> cannot remove — its only observer is that
-/// same predictor. Flown 21 August with the guidance solved to 0.1 km at release, the warheads
-/// landed 1.57-1.88 km out in groups 0.02-0.03 km wide: one bias, six rounds, and nothing upstream
-/// left to blame.</para>
+/// <para>The probe is <see cref="ImpactPredictor"/> flown from the state the round left on, so any gap
+/// here is a miss <see cref="AimCorrection"/> cannot remove: its only observer is that same predictor.
+/// Measurement only, against <c>docs/MIRV-NEXT.md</c> item 2.</para>
 ///
-/// <para><b>Measurement only.</b> Nothing here asserts an improvement; every test either reports a
-/// number or pins a difference that was measured, so the budget can be re-run after a change.
-/// <c>docs/MIRV-NEXT.md</c> item 2 is the backlog entry these numbers are spent against.</para>
-///
-/// <para><b>Every figure is quoted on both surfaces</b>, the mean sphere and
-/// <see cref="DeorbitShot.RoughGround"/>. The smooth planet is the one case where the round and the
-/// prediction read the same surface however far apart they are, so it prices the flight models
-/// against each other and nothing else — and <c>docs/MIRV-NEXT.md</c> item -1 records seven
-/// headless improvements that scored well there and lost in flight.</para>
+/// <para>Every figure is quoted on each of <see cref="Surfaces"/>: the mean sphere prices the flight models
+/// against each other and nothing else, and wins there have lost in flight (<c>docs/MIRV-NEXT.md</c> item -1).</para>
 /// </summary>
 public class ProbeGapTests(ITestOutputHelper Out)
 {
@@ -335,8 +326,8 @@ public class ProbeGapTests(ITestOutputHelper Out)
                 Out.WriteLine($"  removing {term,-42}{moved,8:F0} m");
             }
 
-            // All four at once, which is the round made as much like the predictor as this rig can
-            // make it. What is left is the two schemes themselves plus the crossing rule.
+            // Every term at once, the round made as much like the predictor as this rig can make it.
+            // What is left is the two schemes themselves plus the crossing rule.
             double3 converged = Fly(new DeorbitShot.Refresh
             {
                 AirMotion = true,
@@ -434,22 +425,11 @@ public class ProbeGapTests(ITestOutputHelper Out)
     private const double BallisticScenarioWarp = DeorbitShot.ScenarioWarp;
 
     /// <summary>
-    /// <b>The cancelling pair is gone, and the sub-step is what is left.</b>
+    /// Per-sub-step gravity is the shipped baseline (its cancelling partner was the pull centre,
+    /// <c>docs/MIRV-NEXT.md</c> 2d), and converging the sub-step is a lone term worth all that is left.
     ///
-    /// <para><c>docs/MIRV-NEXT.md</c> item 2d records re-reading gravity per sub-step being priced
-    /// headlessly as a large win and flying worse three times out of three. The explanation was that
-    /// it took out one half of a cancelling pair — and the other half was the <em>pull centre</em>,
-    /// not the sub-step. Both shipped together on 2026-08-24 and the pair took the mean miss from
-    /// 0.44 km to 0.05 km.</para>
-    ///
-    /// <para>So the warning that came out of 2d does not reach the sub-step. Against the round the
-    /// game actually flies, gravity's own marginal contribution is <b>zero</b> — it is already the
-    /// baseline — and converging the sub-step is a lone term worth the whole of what is left.</para>
-    ///
-    /// <para>The first assertion is the one that matters: if it ever stops reading zero, either the
-    /// shipped tree has lost the per-sub-step gravity or <see cref="DeorbitShot.Refresh.AsFlown"/>
-    /// has gone stale against it again — and every other column of every budget taken with this rig
-    /// is then priced against a round nothing flies.</para>
+    /// <para>The first assertion matters most: if it fails, <see cref="DeorbitShot.Refresh.AsFlown"/> has
+    /// gone stale against the tree and every budget taken with this rig prices a round nothing flies.</para>
     /// </summary>
     [Fact]
     public void GravityIsAlreadyShippedAndTheSubStepIsTheWholeOfWhatIsLeft()
@@ -473,9 +453,8 @@ public class ProbeGapTests(ITestOutputHelper Out)
         Out.WriteLine($"the shipped round               {gap,8:F0} m");
         Out.WriteLine($"...and with the sub-step converged {left,6:F0} m");
 
-        // What says the rig still models the change that shipped in August, and the assertion that
-        // catches AsFlown going stale against the tree again: the two configurations have to be
-        // hundreds of metres apart, because that difference is the whole of what that flight won.
+        // Catches AsFlown going stale: with and without per-sub-step gravity the round lands hundreds
+        // of metres apart.
         Assert.True(Math.Abs(before - gap) > 100.0,
                     $"the rig no longer distinguishes the shipped round from the pre-2026-08-24 one; "
                     + $"{before:F0} m against {gap:F0} m");
@@ -742,10 +721,8 @@ public class ProbeGapTests(ITestOutputHelper Out)
     /// Whether the gap between the round and its own probe grows with the <b>arrival angle</b> —
     /// which would put a floor under exactly the lever <c>docs/ARRIVAL-ANGLE.md</c> is built on.
     ///
-    /// <para><b>Flown 2026-09-02 and this is the follow-up.</b> Eight rockets, four arriving at
-    /// 17.7 degrees and four at 32.0, gave probe-to-round gaps of −1/29/65/150 m and 34/219/228/318:
-    /// rank correlation with the arrival angle <b>+0.90</b>, and with the local ground's roughness
-    /// only +0.17. One shot cannot separate those, so this holds everything still but the angle.</para>
+    /// <para>Flown, the gap ranked +0.90 with the arrival angle and +0.17 with the ground's roughness over
+    /// eight rockets at 17.7 and 32.0 deg; one shot cannot separate those, so this varies only the angle.</para>
     ///
     /// <para>The release position and speed are fixed and only the flight-path angle is rotated, so
     /// no two rows differ in energy, in where they start, or in the ground they cross. If the gap
@@ -798,13 +775,8 @@ public class ProbeGapTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// What re-sampling the ground per sub-step is worth, now that the epoch displacement is
-    /// corrected and the round's own within-frame travel is what is left.
-    ///
-    /// <para><c>docs/ACCURACY-PLAN.md</c> item 2 after 3al. The lookup is now paired to the round's
-    /// own epoch, so the sample is no longer a kilometre of the body's motion away — but it is still
-    /// held for a whole frame while the round crosses 6 to 183 m of ground, and the flown residual
-    /// stopping-height error is 0.3 to 40.9 m. This prices closing that.</para>
+    /// What re-sampling the ground per sub-step is worth. The lookup is paired to the round's own epoch
+    /// but held a whole frame while the round crosses 6 to 183 m of ground (<c>docs/ACCURACY-PLAN.md</c> 3al).
     ///
     /// <para><b>The surfaces bracket rather than model.</b> <c>RoughGround</c> carries 0.3 m
     /// peak-to-peak below a kilometre and the erosion spectrum 94-111 m, where the flown aimpoints

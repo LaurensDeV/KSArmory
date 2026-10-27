@@ -4,23 +4,11 @@
     ./tools/check-studies.py            # regenerate tests/KSArmory.Tests/STUDIES.md
     ./tools/check-studies.py --check    # fail if the committed record is stale (for CI)
 
-`[Trait("kind", "study")]` takes a test out of the loop `tools/test.sh` runs on every push. The
-tag is a label and nothing verifies it is honest, so a test that genuinely guards a behaviour can
-be tagged by mistake and stop running locally -- silently, because the suite goes green with one
-fewer test in it and nobody counts.
-
-This does not decide whether a tag is right; nothing mechanical can. A study asserts that the
-flight completed and writes its finding out for a reader, while a guard asserts a measured bound,
-and both are spelled `Assert.True(...)`. Telling them apart means reading what the number means.
-
-What it does instead is make the set *visible*. The record is committed, so tagging a test puts a
-line in the author's own diff, where the question "is this really a study?" gets asked by a human
-at the moment it can still be answered cheaply. ProbeCrossingFloorTests is the case in point: it
-sweeps slopes and prints a table like every study here, and it is the only thing holding
-IcbmConfig.PredictionStopsOnTheSurface to `Mean(on) < Mean(off) * 0.35`.
-
-The blast radius is bounded either way -- ci.yml runs `test.sh --studies` as its own step, so a
-mis-tagged guard is caught before a merge rather than never. This buys back the push loop.
+`[Trait("kind", "study")]` takes a test out of the loop `tools/test.sh` runs on every push, and
+nothing can tell a study's `Assert.True(...)` from a guard's. So this does not judge the tag: the
+record is committed, so tagging a test puts a line in the author's own diff, where a human can ask
+whether it is really a study. ProbeCrossingFloorTests reads like one and is a guard. ci.yml runs
+`test.sh --studies` as its own step, so a mis-tagged guard is still caught before a merge.
 """
 import re
 import sys
@@ -37,7 +25,6 @@ METHOD = re.compile(r"^\s*(?:public|private|internal)\s+(?:async\s+)?\w[\w<>,.\[
 
 
 def studies():
-    """Every test carrying the trait, by class and method, as `Class.Method`."""
     found = []
     for path in sorted(TESTS.glob("*.cs")):
         cls = None

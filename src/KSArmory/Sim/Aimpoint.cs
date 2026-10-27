@@ -17,12 +17,9 @@ internal enum AimpointKind
     /// <summary>
     /// A place on a body, which moves with it.
     ///
-    /// <para>Distinct from <see cref="Point"/> and not a refinement of it. A point on the ground is
-    /// only stationary in the body's own frame: in the ecliptic it carries the planet's ~29.8 km/s
-    /// of orbital motion plus up to 465 m/s of spin. Held as a <see cref="Point"/> it is left
-    /// behind at 180 km per six seconds of flight, and — worse — the round reads a 29.8 km/s
-    /// closing velocity that is entirely the frame, so proportional navigation slams it sideways
-    /// at full lateral G.</para>
+    /// <para>Not a <see cref="Point"/>: in the ecliptic it carries ~29.8 km/s of orbital motion and up to
+    /// 465 m/s of spin, so held still it is left behind and proportional navigation reads the frame as
+    /// closing velocity.</para>
     /// </summary>
     Ground,
 
@@ -54,24 +51,14 @@ internal readonly record struct Aimpoint(
     /// <summary>Nothing to arrive at. What a bomb is released with.</summary>
     public static readonly Aimpoint Nothing = new(AimpointKind.None, null, default, default, 0.0);
 
-    /// <summary>
-    /// Whether this has to be re-read from the world every frame.
-    ///
-    /// <para>A place on a body does, always. It is only still in that body's <em>own</em> frame:
-    /// held as the ecliptic coordinate it was when it was named, it is left behind by ~29.8 km/s
-    /// of orbital motion plus up to 465 m/s of spin. Whatever is chasing it — a round, or a sensor
-    /// told to watch it — slides off within a second.</para>
-    /// </summary>
+    /// <summary>Whether this has to be re-read from the world every frame: a place on a body, always.</summary>
     public bool NeedsResampling => Kind == AimpointKind.Ground;
 
     /// <summary>
     /// Whether this still names anything, given whether its handle is still alive.
     ///
-    /// <para>A craft that has been destroyed takes its aimpoint with it. Ground and a bare
-    /// coordinate do not — neither can die, and something told to watch a valley should find it
-    /// there on looking back. That asymmetry is why a designation is an aimpoint rather than a
-    /// contact: a contact-shaped one would have to be dropped the moment nothing reported it,
-    /// and nothing ever reports a hillside.</para>
+    /// <para>Ground and a bare coordinate cannot die, which is why a designation is an aimpoint rather
+    /// than a contact: nothing ever reports a hillside.</para>
     /// </summary>
     public bool Survives(bool handleAlive)
         => Kind switch

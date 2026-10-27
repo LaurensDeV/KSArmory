@@ -6,9 +6,9 @@ namespace KSArmory.Tests;
 /// <summary>
 /// That a cycle taking no reading reports none.
 ///
-/// <para>The trap this pins is not hypothetical: a settled loop went on printing its final tuple
-/// every frame, 463 times a flight, and the median of those echoes was read as a distribution over
-/// 3,788 samples. A readout that freezes is indistinguishable from a live one unless it says so.</para>
+/// <para>A readout that freezes is indistinguishable from a live one unless it says so: a settled
+/// loop echoing its final tuple every frame reads, taken as a median, as hundreds of samples it never
+/// took.</para>
 /// </summary>
 public class AimReadoutTests
 {

@@ -108,7 +108,6 @@ internal sealed partial class Ui
         Tip("Its own team and its allies. Leave it on outside a test range.");
     }
 
-    // Who is on a team, as the switcher lists them.
     private string Members(string? team)
     {
         int n = 0;

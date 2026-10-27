@@ -1,7 +1,7 @@
 # What is left on the MIRV bus
 
 Everything below is either measured in flight or explicitly marked as untested. `docs/ICBM-GUIDANCE.md` has the algorithm;
-`CHECKLIST.md` §12.7 has the in-flight list. This file is only the backlog.
+`CHECKLIST.md` §12.7 has the in-flight list. This file was the backlog.
 
 **Most of it is now a record rather than a plan**, and the item numbers are the addressing scheme —
 over a hundred references from other docs, tests and source comments point at them, so a section keeps
@@ -12,11 +12,11 @@ the ballistic computer and the bus is ranked in `docs/ICBM-OUTSTANDING.md`. What
 | --- | --- |
 | [0c](#0c-the-budget-stopped-the-trim-dead-and-a-stopped-trim-never-lets-the-warheads-go--fixed-unflown) | **the budget held every warhead aboard — fixed, and it wants the flight** |
 | [0d](#0d-a-reloaded-launcher-gets-a-second-salvo-and-a-tenth--fixed-unflown) | **the bus fired ten salvos, so every group figure was over sixty warheads — fixed** |
-| [1](#1-null-the-separation-impulse---reformulated-unflown) | null the separation impulse — reformulated, never flown as its own arm |
+| [1](#1-null-the-separation-impulse--reformulated-unflown) | null the separation impulse — reformulated, never flown as its own arm |
 | [2](#2-the-walk-was-the-planets-own-fall-toward-the-sun--flown-fixed-and-a-quarter-of-what-it-was) | **flown and fixed — 2.88 to 0.72 km — and 0.48 km was flown on 2026-08-22.** The walk grew sevenfold in two days; bisect it |
 | [2g](#2g-the-body-fall-is-summed-over-one-link-so-a-lunar-shot-keeps-most-of-it) | the body fall is summed over one link, so a lunar shot keeps most of the fault — unflown |
-| [6](#6-point-the-bus-at-the-target-on-release---cosmetic-do-it-last) | point the bus at the target on release — cosmetic |
-| [7e](#7e-that-05-km-is-one-latched-warp-decision-not-frame-pacing---measured-fixed-headlessly) | the warp latch — **flown and closed**, by the harness rather than by the constant |
+| [6](#6-point-the-bus-at-the-target-on-release--cosmetic-do-it-last) | point the bus at the target on release — cosmetic |
+| [7e](#7e-that-05-km-is-one-latched-warp-decision-not-frame-pacing--measured-fixed-headlessly) | the warp latch — **flown and closed**, by the harness rather than by the constant |
 | [7f](#7f-three-stopping-rules-were-sized-for-a-kilometre-shot--built-as-an-arm-unflown) | **three stopping rules sized for a kilometre shot — built as `arm/aim`, wants the night** |
 | [7g](#7g-never-freezing-loses-and-the-target-is-on-a-crest--flown-2026-08-25) | **flown and closed — never-freezing loses 5.7x, and the target sits on a crest the arrival is parallel to** |
 | [9](#9-the-budget-at-the-065-km-level) | the ranked budget, of which #2 (reopening the aim after cutoff) is the live one |
@@ -29,6 +29,11 @@ Everything else is flown, closed, or retired, and says so in its own heading.
 > (thrust over mass) and the pointing band all move with it, and `BusTrim`'s thresholds and the RCS
 > nozzle sizing were both tuned against the old figure. **Re-baseline before comparing anything
 > here against a new shot.**
+>
+> It has changed again since. The bus that ships is the Heavy MIRV Bus: seven RVs rather than six,
+> an axial engine, a 3,450 kg `SolidSphereMass` (seven 250 kg RVs and about 1,700 kg of structure
+> and engine) and about 500 kg of propellant (`KSArmory_Prefab_MirvBus` in `KSArmoryGameData.xml`;
+> `docs/POSTBOOST-BUS.md` has the sizing).
 >
 > It was corrected because it was wrong, and because 6,300 kg on the nose made a stack chatter
 > against the ground hard enough to be unflyable: measured at ±2,116 deg/s² of angular acceleration
@@ -2566,7 +2571,7 @@ says so.
 > **So `ReentryVehicleMk21.PreferredStepSeconds` currently has no effect on a flown shot at either
 > value**, and `CoastStepDeterminismTests` pins a headless behaviour the flown configuration never
 > enters. That is worth knowing before the next person reads the 0.180 in `Arsenal.cs` as load-
-> bearing. The five shots are kept at `~/shots/2026-08-24-coast-void`.
+> bearing (the value now lives in `KSArmory/Strategic.xml`). The five shots are kept at `~/shots/2026-08-24-coast-void`.
 
 **The night that settles it**, flying since 2026-08-24 01:00. Both arms are commits, so nothing in
 the working tree reaches a shot and the tree can be worked on while it flies:
@@ -5159,6 +5164,11 @@ measure an arm acting on the loop. Across every run on disk **29.8 ms gave 0 pas
 directly. Tonight: 29.8 ms, 2 passes, 0.10 km.
 
 ## 9. The budget at the 0.65 km level
+
+*Partly superseded. `Slug` now reads gravity per sub-step through `Slug.GravityAt`, which
+`Sim/RoundDriver.cs` sets (item 2), so "the frozen gravity" below describes the code as it was. The
+bus's tubes are straight, so the cant terms are gone (item 5). The live budget is
+`docs/ICBM-OUTSTANDING.md`.*
 
 `MirvBudgetTests` re-measures the whole group now that every term the 11 km budget was dominated by
 has been fixed. It flies the real `IcbmProgram` through `IcbmFlightRig` with the aim correction wired

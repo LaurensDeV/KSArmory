@@ -11,8 +11,7 @@ namespace KSArmory;
 internal static partial class KsaWorld
 {
     // The views this mod may drive, in the order its viewport numbers index. GameViews rather than
-    // Views because only a game viewport has a camera and controllers -- which also keeps the
-    // part-thumbnail renderer out, since it is not one.
+    // Views: only a game viewport has a camera and controllers.
     private static ReadOnlySpan<IGameViewport> GameViewports
     {
         get
@@ -22,9 +21,8 @@ internal static partial class KsaWorld
         }
     }
 
-    // One of the game's camera windows, by the index the panel names it with. The registry's
-    // order is not promised, so an index means something only for as long as the span it was read
-    // from -- which is one frame. Every caller resolves afresh.
+    // One of the game's camera windows, by the panel's index. The registry's order is not promised,
+    // so every caller resolves afresh each frame.
     private static bool TryViewport(int index, out IGameViewport viewport)
     {
         viewport = null!;
@@ -43,9 +41,8 @@ internal static partial class KsaWorld
         typeof(ViewportBase).GetProperty(nameof(ViewportBase.OptionFlags))?.GetSetMethod(nonPublic: true);
 
     /// <summary>
-    /// Which craft a ground-track window belongs to. The window holds it privately and nothing
-    /// else names it, so this is reflection; a refusal means the marks are not drawn, which is the
-    /// honest failure for an overlay.
+    /// Which craft a ground-track window belongs to, by reflection on a private field; a refusal
+    /// means the marks are not drawn.
     /// </summary>
     public static bool TryGroundTrackCraft(GroundTrackWindow window,
                                            [NotNullWhen(true)] out Vehicle? craft)
@@ -106,15 +103,12 @@ internal static partial class KsaWorld
     }
 
     /// <summary>
-    /// Where that window is looking: its zoom, and its pan in pixels. Both are private fields of
-    /// the viewport KSA drags and zooms, so this is reflection, and it reports rather than throws
-    /// when a field moves — driving the map is a test's business, and a clear refusal is worth
-    /// more there than an exception inside the GUI pass.
+    /// Where that window is looking: its zoom, and its pan in pixels, private fields reached by
+    /// reflection. Reports rather than throws when a field moves.
     /// </summary>
     /// <remarks>
-    /// Nothing a player does comes through here. KSA's own wheel and drag write the same fields
-    /// from inside <c>CreateDraggableZoomableViewport</c>, which also re-clamps them, so a value
-    /// set here is a starting point rather than a setting.
+    /// KSA's own wheel and drag write and re-clamp the same fields in
+    /// <c>CreateDraggableZoomableViewport</c>, so a value set here is a starting point.
     /// </remarks>
     public static bool TrySetGroundTrackView(Vehicle craft, double? zoom, double? panX,
                                              double? panY, out string trouble)
@@ -258,11 +252,9 @@ internal static partial class KsaWorld
     /// Where one camera window's picture sits on the desktop, and which ImGui platform window it
     /// is currently part of.
     ///
-    /// <para><paramref name="imGuiId"/> is what separates a secondary view docked inside the game
-    /// window from the same view dragged onto another monitor: ImGui gives a torn-off window a
-    /// platform viewport of its own, and a draw list belonging to the wrong one renders on the
-    /// wrong screen. KSA records it in <c>DrawImGui</c>, so it is a frame old at worst and zero
-    /// until that window has been drawn once.</para>
+    /// <para><paramref name="imGuiId"/> separates a view docked in the game window from one torn off
+    /// onto another monitor. KSA records it in <c>DrawImGui</c>, so it is a frame old at worst and
+    /// zero until the window has been drawn once.</para>
     /// </summary>
     public static bool TryViewportPicture(int index, out float2 pos, out float2 size,
                                           out uint imGuiId)
@@ -292,11 +284,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// Names a camera window after whatever is driving it.
     ///
-    /// <para>A window on another monitor is identified by its title and nothing else, and "Camera
-    /// 3" says nothing about which of four it is. Written only when it differs: the name is the
-    /// ImGui window's identity, so rewriting it every frame would reset its position and drag it
-    /// back out of the monitor the player put it on. KSA restores the default name when the
-    /// viewport is released, so there is nothing to put back.</para>
+    /// <para>Written only when it differs: the name is the ImGui window's identity, and rewriting it
+    /// resets its position. KSA restores the default name when the viewport is released.</para>
     /// </summary>
     public static void NameViewport(int index, string name)
     {
@@ -315,10 +304,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// Whether an index still names a camera window a player can see.
     ///
-    /// <para>The window has an X on it, and closing it hands the lease back — after which the
-    /// index either names a viewport nobody is showing or, once the registry has been rebuilt,
-    /// somebody else's. Driving one costs nothing visible and looks exactly like the head being
-    /// broken, which is the failure this whole row is prone to.</para>
+    /// <para>Closing the window hands the lease back, after which the index names a viewport nobody
+    /// is showing, or somebody else's.</para>
     /// </summary>
     public static bool IsUsableCameraWindow(int index)
     {
@@ -336,10 +323,7 @@ internal static partial class KsaWorld
     /// <summary>
     /// Reads back where a camera window is actually looking from and along.
     ///
-    /// <para>For the one question a screenshot cannot answer: whether anything moved the camera
-    /// between the mod writing it and the engine drawing with it. Nothing else in the mod reads a
-    /// camera it drives — the aim is written and trusted — so a fight over the pose would show up
-    /// only as a scene that will not sit still.</para>
+    /// <para>Whether anything moved the camera between the mod writing it and the engine drawing.</para>
     /// </summary>
     public static bool TryReadViewportPose(int index, out double3 eyeEcl, out double3 forwardEcl,
                                            out double3 upEcl)
@@ -376,14 +360,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// Opens one of the game's spare camera windows and returns the index that names it.
     ///
-    /// <para>KSA builds four at startup and leases them out; this is the same call behind its own
-    /// <c>View &gt; Add Camera</c>. The lease is what stops two owners driving one window, and it
-    /// is given back by KSA itself when the player closes the window — so nothing here has to
-    /// track one.</para>
-    ///
-    /// <para>The window ImGui puts it in can be dragged out of the game onto another monitor:
-    /// KSA turns on ImGui's platform viewports, and the window it opens sets no flag against
-    /// it.</para>
+    /// <para>KSA builds four at startup and leases them out, the call behind its own
+    /// <c>View &gt; Add Camera</c>; KSA takes the lease back when the player closes the window.</para>
     /// </summary>
     public static bool TryOpenCameraWindow(out int index)
     {
@@ -395,8 +373,7 @@ internal static partial class KsaWorld
 
             opened.SetVisible(true);
 
-            // The index is a position in the registry's span, so it is read back rather than
-            // remembered -- opening one is exactly the event that can move the others.
+            // Read back rather than remembered: opening one can move the others.
             ReadOnlySpan<IGameViewport> viewports = GameViewports;
             for (int i = 0; i < viewports.Length; i++)
             {
@@ -429,12 +406,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// Where a point in Ecl lands on screen inside one viewport, in absolute screen pixels.
     ///
-    /// <para>The camera projects into its own framebuffer, so the result is viewport-local and
-    /// has to be offset by where that window sits — otherwise an overlay drawn from it lands on
-    /// the main view instead.</para>
-    ///
-    /// <para>False when the point is behind the camera or outside the window, which is the
-    /// caller's cue to draw nothing rather than to clamp it to an edge.</para>
+    /// <para>The camera projects into its own framebuffer, so the result is offset by where the
+    /// window sits. False when the point is behind the camera or outside the window.</para>
     /// </summary>
     public static bool TryProjectIntoViewport(int index, double3 pointEcl, out float2 screen,
                                               out int width, out int height)
@@ -470,10 +443,8 @@ internal static partial class KsaWorld
 
     /// <summary>Vertical field of view of a viewport's camera (rad), for scaling an overlay.</summary>
     /// <remarks>
-    /// <c>GetFieldOfView</c> hands back <c>_fovRadians</c> unconverted while
-    /// <c>SetFieldOfView</c> takes degrees. Reading one and writing the other without noticing is
-    /// a factor of 57.3, which is why the two directions are wrapped here rather than called
-    /// directly.
+    /// <c>GetFieldOfView</c> answers in radians while <c>SetFieldOfView</c> takes degrees, which is
+    /// why both are wrapped here.
     /// </remarks>
     public static double ViewportFovRad(int index)
     {
@@ -491,14 +462,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// Puts one viewport's camera at a point in Ecl, looking along a direction.
     ///
-    /// <para>Must be written every frame. Each viewport runs a controller that rewrites its
-    /// camera from whatever mode it is in, so this holds only for as long as it keeps being
-    /// reapplied — and only if it runs after that controller. The GUI hook does, which is why
-    /// the call sits there.</para>
-    ///
-    /// <para>The window is one KSA built at startup and hands out on request — see
-    /// <see cref="TryOpenCameraWindow"/>. A mod still cannot <em>make</em> a viewport, which is
-    /// the difference between borrowing a window and stealing the main camera.</para>
+    /// <para>Must be written every frame, after the viewport's controller rewrites its camera; the
+    /// mod's step runs after the viewport pass.</para>
     /// </summary>
     /// <param name="fovDeg">The field of view to draw with, clamped here as the main view's is.</param>
     public static bool TryLookFromViewport(int index, double3 eyeEcl, double3 forwardEcl,
@@ -514,19 +479,11 @@ internal static partial class KsaWorld
 
             IGameViewport viewport = viewports[index];
 
-            // A view in Map mode renders the map scene — starfield, orbits, planets as discs —
-            // and GetCamera() hands back the *map* camera, so moving it puts the map somewhere
-            // else rather than showing the world from here. Fixed is the mode that draws the
-            // scene from wherever its camera happens to be, which is the whole point.
+            // Fixed, because in Map mode GetCamera() hands back the map camera.
             //
-            // Unfollow before Fixed for the same reason as the main view: FixedController divides
-            // by zero on its own default CameraRotation whenever the camera it drives is following
-            // something. Every frame rather than only when the mode changes, because a follow can
-            // arrive at any time and this window is a likely place for one: KSA's vessel-next and
-            // vessel-previous act on the *hovered* viewport, so the cursor resting over the sight
-            // is enough to attach one. Once attached, the controller places the camera at
-            // following + CameraOffset — an offset this path never writes, because it aims with
-            // LookAt — which parks the view inside whichever craft was switched to.
+            // Unfollow before Fixed: FixedController divides by zero on its default CameraRotation
+            // while following something. Every frame, because KSA's vessel-next and -previous act on
+            // the hovered viewport and can attach a follow at any time.
             try
             {
                 if (viewport.GetCamera() is { Following: not null } followed)
@@ -555,15 +512,12 @@ internal static partial class KsaWorld
 
             SetNearbyContext(camera);
 
-            // LookAt sets the rotation alone; the view matrix the render, the culling and every
-            // projection read is rebuilt in Camera.OnFrame, which ran in the viewport pass before
-            // this. Without it the window draws with last frame's aim: one frame of the line of
-            // sight's swing, a fixed angle that judders with the frame time and grows with the zoom.
+            // LookAt sets the rotation alone; the view matrix is rebuilt in Camera.OnFrame, which ran
+            // in the viewport pass before this, so without it the window draws last frame's aim.
             camera.OnFrame(dt);
 
-            // Setting the fields is not enough on its own: the sky and atmosphere are shaded from
-            // data the engine uploads per viewport, which by this point in the frame already holds
-            // where the camera *was*. These recompute and re-upload it for the new position.
+            // The sky and atmosphere are shaded from per-viewport data already uploaded for where the
+            // camera was; these re-upload it for the new position.
             if (Program.Instance is { } program)
             {
                 program.UpdateShaderData(dt, viewport);
@@ -579,10 +533,9 @@ internal static partial class KsaWorld
         }
     }
 
-    // The engine derives this context for the main camera alone (Program.OnFrameCelestials), and
-    // a window's terrain LOD, sky and grey-ball suppression all read it. Derived from the window's
-    // own camera rather than copied from the main one: the two can be hundreds of kilometres
-    // apart, and the copied altitude picks a planet mesh LOD for where the player is.
+    // The engine derives this context for the main camera alone (Program.OnFrameCelestials), and a
+    // window's terrain LOD, sky and grey-ball suppression read it. From the window's own camera,
+    // which can be hundreds of kilometres from the main one.
     private static void SetNearbyContext(Camera camera)
     {
         Celestial? body = Program.FindNearbyCelestial(camera);
@@ -625,8 +578,7 @@ internal static partial class KsaWorld
     /// <summary>
     /// Gives a camera window back the engine's default field of view, once nothing is driving it.
     ///
-    /// <para>The window is the player's again through View &gt; Add Camera, and its own zoom keys
-    /// clamp to 15°, so a director let go at x16 would otherwise leave it at 3° with no way out.</para>
+    /// <para>Its zoom keys clamp to 15°, so a director let go at x16 would leave it at 3°.</para>
     /// </summary>
     public static void ResetViewportFov(int index)
     {

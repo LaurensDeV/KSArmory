@@ -5,12 +5,8 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// The post-cutoff loop as a loop, which until now could only be watched by flying.
-///
-/// <para>What these are for is the coupling, not the pieces. <c>docs/MIRV-NEXT.md</c> <b>8y</b>:
-/// the decoupler's shove is the only thing carrying the halves apart, the trim exists to null
-/// exactly that, and so a trim that works shuts the gate that licenses it. Flown, it abandoned
-/// <b>87 of 144</b> corrections.</para>
+/// The coupling, not the pieces: a trim that nulls the shove shuts the gate that licenses it
+/// (<c>docs/MIRV-NEXT.md</c> 8y). See <see cref="PostCutoffRig"/>.
 /// </summary>
 public class PostCutoffLoopTests(ITestOutputHelper Out)
 {
@@ -32,11 +28,8 @@ public class PostCutoffLoopTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// 8y's mechanism, reproduced: a shove too small to open the keep-out before the timeout leaves
-    /// the pair closing, and the clearance abandons with no correction applied at all.
-    ///
-    /// <para>This is the failure that costs the whole aim correction, and it is a property of the
-    /// loop rather than of any one piece — every part of it behaves correctly.</para>
+    /// A shove too small to open the keep-out before the timeout leaves the pair closing, and the
+    /// clearance abandons with no correction applied, while every piece behaves correctly.
     /// </summary>
     [Fact]
     public void AShoveTooSmallToClearIsAbandonedRatherThanTrimmed()
@@ -52,9 +45,8 @@ public class PostCutoffLoopTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// And the discriminator is the gap, not the rocket. 8y paired every flight's closest approach
-    /// with how its trim ended and found it exact: the ones that succeeded opened to the keep-out
-    /// and never came closer.
+    /// The discriminator is the gap, not the rocket: flown (8y), the trims that finished were the ones
+    /// whose pair opened to the keep-out and never came closer.
     /// </summary>
     [Fact]
     public void WhetherItFinishesIsDecidedByTheGapAndNothingElse()
@@ -83,12 +75,7 @@ public class PostCutoffLoopTests(ITestOutputHelper Out)
         Assert.True(double.IsFinite(smallest));
     }
 
-    /// <summary>
-    /// The interlock, in the loop: a shove too small to open the gap is no longer thrown away.
-    ///
-    /// <para>The abandoned case is the one that costs the whole aim correction, and it is what
-    /// every flight of the 2026-08-29 night ended on — 8 of 8, on every arm.</para>
-    /// </summary>
+    /// <summary>With the interlock, a shove too small to open the gap is still trimmed.</summary>
     [Theory]
     [InlineData(0.1)]
     [InlineData(0.2)]
@@ -114,8 +101,7 @@ public class PostCutoffLoopTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// The regime, headlessly. A coarser step is what the slow machine produces, and the question
-    /// 8ac could not answer without flying is whether the loop itself minds.
+    /// A coarser step is what a slow machine produces (MIRV-NEXT 8ac); the loop must not abandon on it.
     /// </summary>
     [Theory]
     [InlineData(0.033)]
@@ -139,13 +125,8 @@ public class PostCutoffLoopTests(ITestOutputHelper Out)
     /// a threshold below what one frame of firing adds is one nothing can reach — so a coarser
     /// world leaves proportionately more velocity on the bus.
     ///
-    /// <para><b>Measured, and linear in the step:</b> 0.118 m/s at 33 ms, 0.245 at 66, 0.420 at
-    /// 108, 0.750 at 200. Between the two regimes <c>docs/MIRV-NEXT.md</c> <b>8ac</b> observed —
-    /// 66 ms and 108 — that is <b>1.7x</b> the residual, and the residual is what the miss is a
-    /// multiple of: several thousand metres per metre a second at the ranges this flies.</para>
-    ///
-    /// <para>It is not the whole of the regime's 2.2x in miss, and it is the first part of it that
-    /// can be measured without a rocket.</para>
+    /// <para>Measured on this rig: 0.118 m/s at 33 ms, 0.245 at 66, 0.420 at 108, 0.750 at 200, so
+    /// 1.7x between the 66 and 108 ms regimes of <c>docs/MIRV-NEXT.md</c> 8ac.</para>
     /// </summary>
     [Fact]
     public void TheResidualLeftOnTheBusIsLinearInTheStep()
@@ -169,9 +150,7 @@ public class PostCutoffLoopTests(ITestOutputHelper Out)
                     $"the residual is not linear in the step: {string.Join(", ", slope)}");
     }
 
-    /// <summary>
-    /// The two regimes, side by side, which is the number 8ac could not get without flying.
-    /// </summary>
+    /// <summary>The two regimes of MIRV-NEXT 8ac, side by side.</summary>
     [Fact]
     public void TheSlowRegimeLeavesMoreOnTheBusThanTheFastOne()
     {

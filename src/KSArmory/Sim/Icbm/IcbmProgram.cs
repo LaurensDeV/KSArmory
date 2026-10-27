@@ -207,14 +207,9 @@ internal sealed partial class IcbmProgram
     /// continent. So a burn is something warp has to be held down for, exactly as rounds in the air
     /// are — see <see cref="WarpPolicy"/>, and this is the number that asks for it.</para>
     ///
-    /// <para><b>Deliberately a round third of a second, which is a round's 0.32 to within a
-    /// rounding.</b> Asking for materially less is asking the world to
-    /// run slower than anything else in the mod needs, and the policy answering that request is a
-    /// control loop against a shared actuator: from a thousand times speed the first thing it
-    /// computes is a speed of nearly zero, which pauses the game and then abandons the burn for not
-    /// being able to run slow enough. The accuracy bought is not worth what it costs — a third of a
-    /// second of step is a few hundred metres at the far end, and cancelling the shot is all of
-    /// it.</para>
+    /// <para><b>Deliberately close to a round's 0.32 s.</b> Asking for materially less makes the
+    /// policy compute a speed of nearly zero from a thousand times speed, which pauses the game and
+    /// abandons the burn; a third of a second costs a few hundred metres at the far end.</para>
     /// </summary>
     public const double MaxFaithfulStep = 0.3;
 
@@ -245,7 +240,7 @@ internal sealed partial class IcbmProgram
     /// </summary>
     public const double OutrunShareOfTheStack = 0.6;
 
-    /// <summary>Inside this much of cutoff, solve every step. It is thirty frames and it decides the shot.</summary>
+    /// <summary>Inside this much of cutoff, solve every step: these frames decide the shot.</summary>
     public const double SolveEveryStepWithin = 0.75;
 
     /// <summary>
@@ -802,24 +797,13 @@ internal sealed partial class IcbmProgram
     /// Give up the committed arrival. After cutoff nothing solves again, so this opens the release gate on the arc the
     /// trim refused and stops every later post-boost pass; <see cref="TryCommitTheCheapestArrival"/> is the commit.
     ///
-    /// <para><b>For the one state the latch cannot get itself out of.</b> The arrival is pinned
-    /// during the burn and the two branches that can unpin it both live there, so after cutoff it
-    /// stands whatever the trajectory does. What the trim is then asked for is
-    /// <c>RequiredVelocity(arrival) − v</c>, which moves about <b>2.35 m/s for every second the
-    /// arrival is out</b> — so <see cref="BusTrim.MaxMetresPerSecond"/> is crossed at 4.3 s and the
-    /// trim gives up on a bus it could otherwise have flown. Flown once in twelve shots: all eight
-    /// rockets 75-99 km out on clean burns, every trim refusing before its first pulse.</para>
+    /// <para><b>For the one state the latch cannot get itself out of.</b> Only the burn can unpin the
+    /// arrival, and after cutoff the trim's ask moves about 2.35 m/s per second the arrival is out, so
+    /// <see cref="BusTrim.MaxMetresPerSecond"/> is crossed at 4.3 s.</para>
     ///
-    /// <para><b>Why this does not reintroduce the runaway it was latched against.</b> That failure
-    /// is a loft re-applied to the cheapest arc from the vehicle's current state, which converges on
-    /// the arc it is already flying and walks the answer outward every cycle — measured at 162 km.
-    /// It needs thrust. After cutoff the trajectory is fixed but for the trim's own metre a second,
-    /// so re-solving is idempotent: the answer does not move. The latch's purpose expires exactly
-    /// where the burn does.</para>
-    ///
-    /// <para>The caller decides when, and it should be a state that is already lost rather than a
-    /// threshold — <c>Ksa/Icbm/IcbmComputer.cs</c> asks only once the trim has refused over its ceiling.
-    /// </para>
+    /// <para>The loft runaway the latch guards against (162 km) needs thrust; after cutoff re-solving
+    /// is idempotent. <c>Ksa/Icbm/IcbmComputer.Trim.cs</c> calls it only once the trim has refused
+    /// over its ceiling.</para>
     /// </summary>
     public bool ReleaseArrival()
     {
@@ -928,8 +912,8 @@ internal sealed partial class IcbmProgram
     /// <remarks>
     /// <b>Only a walk of several targets writes it.</b> <see cref="ReleaseItinerary"/> counts its
     /// releases back from the gate so the <em>last</em> one lands on it, which means the first has
-    /// to happen <c>(N-1) x 65 s</c> earlier — and a walk of one returns the gate itself, so a
-    /// single-target flight leaves this NaN and reads the setting live as it always has.
+    /// to happen <c>N-1</c> hops earlier — and a walk of one returns the gate itself, so a
+    /// single-target flight leaves this NaN and reads the setting live.
     /// </remarks>
     public double ReleaseGateSeconds { get; set; } = double.NaN;
 

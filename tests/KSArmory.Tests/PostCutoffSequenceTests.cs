@@ -3,11 +3,8 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// The loop that decides where the warheads land, now that it can be asked without a rocket.
-///
-/// <para>Flown, a correction that ran to completion landed at 140 m and every other ending at 5 to
-/// 45 km. Until this moved out of <c>Ksa/Icbm/IcbmComputer.cs</c> none of it could be examined except by
-/// spending a night — and a night needs a machine in the fast regime, which is not dependable.</para>
+/// The loop after cutoff decides where the warheads land: flown, a correction that ran to completion
+/// landed at 140 m and every other ending at 5 to 45 km.
 /// </summary>
 public class PostCutoffSequenceTests
 {
@@ -93,8 +90,7 @@ public class PostCutoffSequenceTests
     /// With the interlock covering it, an abandoned clearance stops WAITING rather than giving up:
     /// the trim fires on and the keep-out withholds the directions that point at the stack.
     ///
-    /// <para>This is the whole of it. An abandoned trim returns before any aim correction is
-    /// applied — 87 of 144 flights, and 8 of 8 on the night that attributed the ending per rocket,
+    /// <para>An abandoned trim returns before any aim correction is applied: 87 of 144 flights,
     /// against 140 m for a correction that runs to completion.</para>
     /// </summary>
     [Fact]
@@ -123,7 +119,7 @@ public class PostCutoffSequenceTests
         Assert.Equal(42.0, plan.CeilingMetresPerSecond);
     }
 
-    /// <summary>Off, it abandons exactly as it always did. This is what ships.</summary>
+    /// <summary>Off, an abandoned clearance gives up. On is what ships.</summary>
     [Fact]
     public void WithoutTheSettingAnAbandonedClearanceStillGivesUp()
     {
@@ -186,8 +182,8 @@ public class PostCutoffSequenceTests
 
     /// <summary>
     /// The shipped default, walked one pass at a time: the first is the constant and each pass
-    /// after it is bounded by what the last one left. This is the sequence 8aa read as a diverging
-    /// solve -- the demand exceeding whatever remains, every pass, until the budget is gone.
+    /// after it is bounded by what the last one left, so a demand exceeding whatever remains reads
+    /// as a diverging solve (MIRV-NEXT 8aa).
     /// </summary>
     [Fact]
     public void TheShippedSequenceNarrowsAsTheBudgetIsSpent()

@@ -10,7 +10,7 @@ namespace KSArmory.Tests;
 ///
 /// <para>What these pin is the pair of things that would be silently wrong: that the command is
 /// differenced against the target's own motion rather than read off the round's ecliptic velocity,
-/// and that a round without the mode still falls exactly as it did before.</para>
+/// and that a round without the mode falls on ballistics alone.</para>
 /// </summary>
 public class TailKitGuidanceTests
 {

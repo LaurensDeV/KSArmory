@@ -3,19 +3,14 @@ using System.Reflection;
 namespace KSArmory;
 
 /// <summary>
-/// What build this is, read off the assembly rather than written down.
-///
-/// <para>The version is set by semantic-release through <c>tools/set-version.sh</c>, so a
-/// constant here would be a second copy that only ever goes stale — and the one place it matters
-/// is a bug report, where a stale number is worse than none.</para>
+/// What build this is, read off the assembly: semantic-release sets the version through
+/// <c>tools/set-version.sh</c>, so a constant here would be a second copy that goes stale.
 /// </summary>
 internal static class Build
 {
     /// <summary>
-    /// Whether this is a developer's install: a <c>developer</c> file beside the assembly, which
-    /// <c>tools/deploy.sh</c> writes and the release archive never carries. It shows the tools
-    /// that exist for working on the mod -- the bridge, the scenario runner, the research
-    /// switches -- which a player has no use for.
+    /// A <c>developer</c> file beside the assembly, which <c>tools/deploy.sh</c> writes and the release
+    /// archive never carries. It shows the bridge, the scenario runner and the research switches.
     /// </summary>
     public static bool Developer { get; } = ResolveDeveloper();
 
@@ -32,19 +27,13 @@ internal static class Build
         }
     }
 
-    /// <summary>Version string for the panel, e.g. <c>0.8.1</c> or <c>0.8.1+dev</c>.</summary>
+    /// <summary>Version string for the panel, e.g. <c>0.9.8</c>: a prerelease suffix is kept, a <c>+commit</c> is not.</summary>
     public static string Version { get; } = Resolve();
 
-    /// <summary>
-    /// The KSA build this was compiled against, stamped in from <c>ksa-assemblies.lock</c> at
-    /// build time, or null if the stamp is missing.
-    /// </summary>
+    /// <summary>The KSA build compiled against, stamped from <c>ksa-assemblies.lock</c>; null if the stamp is missing.</summary>
     public static string? KsaBuild { get; } = ResolveKsaBuild();
 
-    /// <summary>
-    /// The KSA build actually running, read off the loaded assembly. No file and no network: the
-    /// game's own version is its assembly version.
-    /// </summary>
+    /// <summary>The KSA build running: the game's own version is its assembly version.</summary>
     public static string? KsaRunning { get; } = ResolveKsaRunning();
 
     private static string? ResolveKsaRunning()
@@ -90,7 +79,7 @@ internal static class Build
 
             if (!string.IsNullOrWhiteSpace(informational))
             {
-                // The SDK appends "+<commit>" when SourceLink is on. The hash is noise in a panel.
+                // The SDK appends "+<commit>" when SourceLink is on.
                 int plus = informational.IndexOf('+');
                 return plus > 0 ? informational[..plus] : informational;
             }

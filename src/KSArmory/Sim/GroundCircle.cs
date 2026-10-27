@@ -5,17 +5,9 @@ namespace KSArmory;
 /// <summary>
 /// A ring of ground a fixed distance from a place — what a blast radius is, drawn on a map.
 ///
-/// <para><b>It is not a circle on an equirectangular map.</b> A degree of longitude is a degree of
-/// latitude times the cosine of where you are, so the same radius in metres is wider in longitude
-/// the further from the equator it sits, and at a pole it wraps the whole way round. Drawing a
-/// screen-space circle instead would be right at the equator and increasingly wrong everywhere
-/// else, which is the kind of error that looks like a rendering artefact rather than a lie about
-/// how far a warhead reaches.</para>
-///
-/// <para>So each point is walked on the sphere. The forms are the standard ones for a destination
-/// given a bearing and an angular distance, which stay correct over a pole and for a radius large
-/// enough to matter — a megatonne's blast radius is tens of kilometres, and the ring a scenario
-/// draws round a target is not always small.</para>
+/// <para>Not a circle on an equirectangular map: it widens in longitude by 1/cos(latitude) and wraps
+/// whole at a pole. Each point is walked on the sphere with the great-circle destination formula,
+/// which holds over a pole and at any radius.</para>
 /// </summary>
 internal static class GroundCircle
 {

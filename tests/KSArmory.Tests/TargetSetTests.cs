@@ -11,8 +11,8 @@ public class TargetSetTests
     private static AimSite At(double lat, double lon) => new("Earth", lat, lon, "");
 
     /// <summary>
-    /// The case every flight so far is, and the one the release loop must not cost anything:
-    /// one target holding the whole salvo is the plan that flies today.
+    /// One target holding the whole salvo is the single-target flight's plan, and the release loop
+    /// must not cost it anything.
     /// </summary>
     [Fact]
     public void OneTargetHoldingEveryWarheadIsTodaysSalvo()
@@ -212,8 +212,6 @@ public class TargetSetTests
         Assert.Empty(set.ReleasePlan(0));
     }
 
-    // ------------------------------------------------- the booster flies to the farthest
-
     /// <summary>
     /// The booster is aimed at whichever target is farthest downrange, not at the first clicked.
     /// </summary>
@@ -238,7 +236,7 @@ public class TargetSetTests
 
     /// <summary>
     /// <b>A set of one is exactly the shot every accuracy measurement on this mod is taken
-    /// against</b>, and nothing the multi-target work added can move it.
+    /// against</b>, and nothing about several targets can move it.
     /// </summary>
     /// <remarks>
     /// The flight reads <see cref="TargetSet.Primary"/> and <see cref="TargetSet.ReleasePlan"/> and

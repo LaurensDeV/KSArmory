@@ -6,15 +6,9 @@ namespace KSArmory;
 /// <summary>
 /// Paints the gunner's sight over the camera window the optical head is driving.
 ///
-/// <para>An ImGui overlay rather than gizmos: gizmos are drawn in the world and would sit *in*
-/// the scene at the target's distance, scaling and occluding with it. A sight is on the glass.</para>
-///
-/// <para><b>Two reticules, because one ring can only be laid on one solution.</b> The launcher
-/// points at the cannon's ballistic lead whenever the guns have the engagement, and at the target
-/// itself otherwise — so the pipper and the target bracket are in different places precisely when
-/// the lead matters, and the line between them is the lead being taken. Where they are drawn is
-/// read back from fire control rather than solved again here: a second solve would take the
-/// target's position from a later instant and paint a pipper the turret was never sent to.</para>
+/// <para><b>Two reticules, because one ring can only be laid on one solution.</b> The pipper is
+/// read back from fire control rather than solved again: a second solve takes the target from a
+/// later instant and paints a pipper the turret was never sent to.</para>
 /// </summary>
 internal static class Sight
 {
@@ -33,19 +27,13 @@ internal static class Sight
     // that a camera on the ground is not looking at points beyond the horizon.
     private const double ReferenceDistanceMetres = 30000.0;
 
-    /// <param name="weapon">
-    /// The weapons system the head is watching for, if any. Null for a director on a craft that
-    /// carries no armament — the bracket, the reference and the zoom all still mean something,
-    /// and the arm state, the ammo and the gun's pipper do not exist to be drawn.
-    /// </param>
+    /// <param name="weapon">Null for a director on a craft with no armament.</param>
     public static void Draw(IOpticalHead system, OpticConfig policy, ISightPicture? weapon)
     {
         if (policy.Viewport < 0 || system.OpticPart is null) return;
 
-        // The window this head is actually driving, which need not be the one the player flies
-        // from. Everything below is measured and drawn against it -- a projection, a field of
-        // view or a centre taken from the main view instead puts the whole picture on the wrong
-        // window, at the wrong scale, from a camera pointing somewhere else.
+        // The window this head is driving, which need not be the main view: everything below is
+        // measured and drawn against it.
         if (!SightSurface.TryFor(policy.Viewport, out SightSurface surface)) return;
 
         Draw(system, policy, weapon, surface);
@@ -72,9 +60,7 @@ internal static class Sight
                 DrawBoresight(draw, centre);
             }
 
-            // Outside the symbology switch: this is a control's own state rather than an
-            // annotation of one, and a drag with nothing showing where its rest area ends is a
-            // control you have to learn by feel.
+            // Outside the symbology switch: it is a control's own state.
             if (policy.MouseAim && policy.Viewport == KsaWorld.MainViewportIndex)
             {
                 DrawDragIndicator(draw, policy, centre);
@@ -82,8 +68,7 @@ internal static class Sight
 
             DrawTarget(surface, system, policy, weapon);
 
-            // Outside the symbology switch, like the drag ring: it says the picture is of the
-            // craft itself, which no setting should hide.
+            // Outside the symbology switch: it says the picture is of the craft itself.
             if (system.Masked) DrawWarning(surface, "MASK", 28f);
             if (system.AtGimbalLimit) DrawWarning(surface, "GIMBAL LIMIT", 46f);
             DrawLaser(surface, system, policy);
@@ -96,8 +81,7 @@ internal static class Sight
         }
     }
 
-    // Where the cursor is against the rest area, drawn from the same numbers the head acts on --
-    // a ring that lies about when it will move is worse than no ring.
+    // Where the cursor is against the rest area, drawn from the same numbers the head acts on.
     private static void DrawDragIndicator(ImDrawListPtr draw, OpticConfig policy, float2 centre)
     {
         if (!KsaWorld.TryCursorFromViewCentre(policy.MouseDeadZonePx, out float2 fromCentre,
@@ -114,8 +98,7 @@ internal static class Sight
 
         if (!SightPicture.TryPointing(centre, centre + fromCentre, out float2 towards)) return;
 
-        // From the edge of the ring rather than from the middle, so the line reads as the command
-        // it is -- how far past resting the cursor has gone -- and never covers the boresight.
+        // From the edge of the ring, so it never covers the boresight.
         float2 from = new(centre.X + towards.X * radius, centre.Y + towards.Y * radius);
         float2 to = centre + fromCentre;
 
@@ -124,9 +107,8 @@ internal static class Sight
         draw.AddCircleFilled(to, 3f, colour);
     }
 
-    // The head's own axis, which is the middle of the view because the camera is boresighted on it.
-    // Small and always present: at high magnification with no target the picture is otherwise
-    // featureless, and there is nothing to say the sight is even running.
+    // The head's own axis, the middle of the view. Always present, so a featureless magnified
+    // picture still shows the sight is running.
     private static void DrawBoresight(ImDrawListPtr draw, float2 centre)
     {
         const float gap = 5f;
@@ -138,19 +120,16 @@ internal static class Sight
         Line(draw, new float2(centre.X, centre.Y + gap), new float2(centre.X, centre.Y + gap + arm), Reticle);
     }
 
-    // The horizontal through the site, drawn from places that genuinely sit on it. A line laid
-    // flat across the screen would only be right where the camera happens to be level, and the
-    // whole reason to draw one is that it is not.
+    // The horizontal through the site, drawn from points that sit on it rather than flat across
+    // the screen, which is only right while the camera is level.
     private static void DrawReferenceLine(SightSurface surface, IOpticalHead system)
     {
         ImDrawListPtr draw = surface.Draw;
 
         if (!system.TryOpticViewEcl(out double3 eye, out double3 forward)) return;
 
-        // Sized to the field the camera is actually showing. A fixed span puts both ends far
-        // outside a magnified picture, and at 3° that is most of a right angle away -- behind the
-        // camera at any elevation, which is a reference line that vanishes the moment it is
-        // needed.
+        // Sized to the field the camera is showing: a fixed span puts both ends behind the camera
+        // at high magnification.
         double fovRad = KsaWorld.ViewportFovRad(surface.Index);
         double half = Math.Clamp(fovRad, 0.02, 1.2);
 
@@ -162,9 +141,8 @@ internal static class Sight
         Span<float2> at = stackalloc float2[ArcPoints];
         Span<bool> ok = stackalloc bool[ArcPoints];
 
-        // Off the edge of the picture is expected and kept -- the draw list clips. Only a point
-        // behind the camera is dropped, and then the segments touching it are skipped rather than
-        // the whole line, so the reference survives the head swinging past the vertical.
+        // The draw list clips off-picture points; only a point behind the camera is dropped, with
+        // the segments touching it, so the reference survives the head swinging past the vertical.
         for (int i = 0; i < n; i++)
         {
             ok[i] = KsaWorld.TryProjectUnbounded(surface.Index, arc[i], out at[i]);
@@ -176,15 +154,13 @@ internal static class Sight
         {
             if (!ok[i] || !ok[i + 1]) continue;
 
-            // Broken either side of the middle so the reference never crosses whatever is being
-            // watched, which at zero elevation is exactly where the target sits.
+            // Broken either side of the middle so the reference never crosses what is being watched.
             if (i == middle || i + 1 == middle) continue;
 
             Line(draw, at[i], at[i + 1], Pending);
         }
     }
 
-    // The target bracket, the gun pipper, and the lead between them.
     private static void DrawTarget(SightSurface surface, IOpticalHead system, OpticConfig policy,
                                    ISightPicture? weapon)
     {
@@ -193,12 +169,8 @@ internal static class Sight
 
         if (system.LockedTrack is not { } track) return;
 
-        // Where the craft is *drawn*, which is not where it is simulated. A bracket is the one
-        // thing that has to sit exactly on the target, and the analytic-versus-physics gap is
-        // metres on the ground -- noise at 50° of field and tens of pixels at 3°.
-        //
-        // And as the surface's own camera draws it: a camera window follows nothing and draws a
-        // craft somewhere else from the main view, which follows the player's.
+        // Where the craft is drawn, not simulated: the gap is metres on the ground, tens of pixels at
+        // 3°. And as this surface's camera draws it, which for a camera window is not the main view's.
         double3 targetEgo;
         if (surface.Index != KsaWorld.MainViewportIndex && track.Contact is VehicleContact craftContact)
         {
@@ -217,15 +189,11 @@ internal static class Sight
 
         if (!inView)
         {
-            // Off the glass entirely, which magnification makes routine rather than exceptional.
             DrawEdgeCue(draw, centre, at, colour, track);
             return;
         }
 
-        // The same small bracket the on-screen system markers use, and deliberately not sized to
-        // how large the target looks. The sight is boresighted on what it is watching, so an
-        // apparent-size box grows without bound as the target closes and ends up covering the
-        // view it is drawn on.
+        // The markers' small fixed bracket: an apparent-size box would grow to cover the view.
         const float half = KSArmory.Reticle.IconHalfSize;
 
         int count = KSArmory.Reticle.Build(at, half, settled, _strokes);
@@ -236,9 +204,8 @@ internal static class Sight
         string label = KSArmory.Reticle.RangeAndClosing(track.Range, track.ClosingSpeed);
         Text(draw, new float2(at.X - half, at.Y + half + 6f), label, colour);
 
-        // Why the head is not on it, when it is not. The bracket alone says a contact is held,
-        // never that anything is being done about it -- and a head resting with a contact tracked
-        // draws exactly the picture of a camera that has stopped working.
+        // Why the head is not on it: a bracket says a contact is held, never that the head is
+        // doing anything about it.
         OpticHold hold = OpticFollow.Why(OnAxis(system, track), policy.MouseAim, policy.Manual,
                                          system.Designation.Kind != AimpointKind.None,
                                          policy.Tracking || system.FollowsCue, settled);
@@ -249,9 +216,8 @@ internal static class Sight
         }
     }
 
-    // Whether the head is looking at the contact, measured off the same view the camera is
-    // driven from rather than off where the bracket landed -- a bracket clamped to the edge has
-    // no distance left in it, which is the case that most needs an answer.
+    // Whether the head is looking at the contact, off the view the camera is driven from rather
+    // than off the bracket, which may be clamped to the edge.
     private static bool OnAxis(IOpticalHead system, Track track)
     {
         if (!system.TryOpticViewEcl(out double3 eye, out double3 forward)) return true;
@@ -262,8 +228,7 @@ internal static class Sight
         return double.RadiansToDegrees(Vec.AngleBetween(forward, toTarget)) <= OpticFollow.OnAxisDeg;
     }
 
-    // Where the shells will actually be. Sized to what the round covers at that range rather than
-    // to a fixed icon, so the ring closing on the bracket is the shot coming together.
+    // Where the shells will be, sized to what the round covers at that range.
     private static void DrawPipper(SightSurface surface, ISightPicture system,
                                    float2 targetAt, Track track, double3 targetEgo)
     {
@@ -271,10 +236,8 @@ internal static class Sight
 
         if (!system.TryRingAimEcl(out double3 aimEcl, out bool isGunLead) || !isGunLead) return;
 
-        // The lead as a separation from the target, carried onto the target's *drawn* position.
-        // The solve is measured from the analytic one, so projecting it directly would put the
-        // pipper and the bracket in two different frames and show their gap as a lead that is not
-        // there.
+        // The lead as a separation from the target, carried onto its drawn position: the solve is
+        // from the analytic one, and projected directly the gap would show a lead that is not there.
         double3 leadEgo = targetEgo + (aimEcl - track.PositionEcl);
 
         if (!KsaWorld.TryProjectEgoOrClamp(surface.Index, leadEgo, out float2 at,
@@ -292,8 +255,7 @@ internal static class Sight
                                                 surface.Size.Y);
         radius = Math.Clamp(radius, 6f, 90f);
 
-        // The lead itself. Drawn from the bracket to the pipper because that separation *is* the
-        // lead being taken, and at 4 km against a crosser it is most of the screen.
+        // From the bracket to the pipper: that separation is the lead being taken.
         Line(draw, targetAt, at, Gun);
 
         draw.AddCircle(at + new float2(1f, 1f), radius, Shadow, 0, 2.5f);
@@ -325,8 +287,6 @@ internal static class Sight
         Text(draw, new float2(at.X - 24f, at.Y + 14f), $"{track.Range / 1000.0:F1} km", colour);
     }
 
-    // The block a gunner reads without looking away from the target: what is on, what is loaded,
-    // and how far in the optics are wound.
     private static void DrawStatus(SightSurface surface, ISightPicture system, OpticConfig policy)
     {
         ImDrawListPtr draw = surface.Draw;
@@ -357,8 +317,7 @@ internal static class Sight
             at.Y += line;
         }
 
-        // Which weapon owns the bearing. Only one can: the ring is laid on the gun's lead or on the
-        // target, and a missile released in the first state leaves along a tube pointing elsewhere.
+        // Which weapon owns the bearing: the ring is laid on the gun's lead or on the target.
         if (system.TryRingAimEcl(out _, out bool isGunLead))
         {
             Text(draw, at, isGunLead ? "GUN HAS THE RING" : "MSL HAS THE RING",
@@ -408,16 +367,13 @@ internal static class Sight
         Line(surface.Draw, w, n, Laser);
     }
 
-    // A pod's warnings, under the crosshair: on the picture rather than the panel, whose lines would
-    // jump as they come and go.
     private static void DrawWarning(SightSurface surface, string label, float below)
     {
         float2 size = ImGui.CalcTextSize(label);
         Text(surface.Draw, new float2(surface.Centre.X - size.X * 0.5f, surface.Centre.Y + below), label, Pending);
     }
 
-    // On whole pixels: a label riding a projected point moves by fractions of one every frame, and a
-    // glyph drawn at a fraction is resampled across its neighbours, so a steady number shimmers.
+    // On whole pixels: a glyph drawn at a fraction is resampled, so a steady number shimmers.
     private static void Text(ImDrawListPtr draw, float2 at, string what, ImColor8 colour)
     {
         at = new float2(MathF.Round(at.X), MathF.Round(at.Y));

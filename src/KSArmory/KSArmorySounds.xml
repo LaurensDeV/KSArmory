@@ -4,8 +4,9 @@
   has.
 
   The .wav files beside this are recordings, each cut by a script so it can be re-cut, with where it
-  came from in tools/audio/README.md: the Phalanx's, and the 5"/54 Mk 42's gunshot. A warhead's burst
-  is KSA's own explosion and brings its own sound, so none is declared here.
+  came from in tools/audio/README.md: the Phalanx's, the 5"/54 Mk 42's gunshot, the M197's, and a
+  nuclear burst's two from the ANNIE film. A conventional warhead's burst is KSA's own explosion and
+  brings its own sound.
 
   Mono on purpose. The engine spatialises the source, and a stereo file has nothing to spatialise:
   it arrives already mixed and sits in the listener's head.
@@ -15,7 +16,7 @@
       Every gun sound here is Priority 110, above everything Core plays: its explosions are 123 and
       124, its engines 125, and anything undeclared 128, where lower wins. FMOD mixes only 64 voices
       for real and silences the least important of the rest, so at 128 a gun firing through a string
-      of kills went quiet beside the explosions it was causing. There are only a few gun channels at
+      of kills goes quiet beside the explosions it is causing. There are only a few gun channels at
       once, so the explosions keep every other voice.
     -->
 
@@ -35,8 +36,7 @@
       tail, which is what makes a synthesised loop read as a texture rather than as an event.
 
       Cut from a recording by tools/cut-cannon.py, whose cut points are measured off the envelope
-      rather than typed in. See tools/audio/README.md, which also carries the licence question
-      that has to be settled before a release ships these.
+      rather than typed in.
 
       Same shape as Core's DefaultEngineSoundBehavior, which is a CompoundSound for the same
       reason an engine is: it starts, it runs, it stops.
@@ -97,5 +97,29 @@
         <Sound Id="KSArmoryM197Loop" />
         <StopSound Id="KSArmoryM197Tail" />
     </CompoundSound>
+
+    <!--
+      A nuclear burst, cut from the Upshot-Knothole ANNIE film by tools/annie-sounds.py. The bang is
+      placed at the burst and arrives with the front (Ksa/BurstSound.cs), its loudness the pressure at
+      the ear, so the engine's own fall-off is held out past any range it is heard at. The pickup is
+      the observer's own equipment reacting to the flash, so it is not placed at all.
+
+      SimSpeed="OnlyLower", because both are recordings of a real event: at the default every sound
+      plays 1 + speed/5 fast, which is 1.2x at 1x. Slowed with slow motion and frozen by a pause, as
+      the burst is; still cut off above 10x, as every sound KSA plays is.
+    -->
+    <SpatialSoundData Id="KSArmoryNuclearBangSpatialData" DistanceFilter="false">
+        <VolumeRange Min="200000" Max="400000" />
+        <TwoDRange Min="50" Max="500" />
+    </SpatialSoundData>
+
+    <Sound Id="KSArmoryNuclearBang" ChannelId="ExternalChannel" Priority="123" SimSpeed="OnlyLower">
+        <SoundFile Path="Sounds/KSArmory_Nuclear_Bang.wav" Volume="1.0"/>
+        <SpatialSoundData Id="KSArmoryNuclearBangSpatialData" />
+    </Sound>
+
+    <Sound Id="KSArmoryNuclearPickup" ChannelId="ExternalChannel" Priority="123" SimSpeed="OnlyLower">
+        <SoundFile Path="Sounds/KSArmory_Nuclear_Pickup.wav" Volume="1.0" TwoD="true"/>
+    </Sound>
 
 </Assets>

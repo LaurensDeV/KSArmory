@@ -7,35 +7,20 @@ namespace KSArmory;
 /// <c>saves/&lt;save&gt;/KSArmory/systems.json</c>, and each ballistic computer's setup beside it in
 /// <c>ballistic.json</c>, keyed the same way.
 ///
-/// <para><b>Keyed on the craft's display name, which is not unique.</b> A squadron built from one
-/// blueprint shares an Id, so those craft share one entry: they all restore the same settings and
-/// the last one saved overwrites the rest. There is no fix here to make, because a
-/// <c>Vehicle</c> reference does not survive a save and the Id is the only thing that does. The
-/// collision is reported when the roster crews the second craft, which is where it is visible.
+/// <para><b>Keyed on the craft's display name, which is not unique.</b> Craft built from one
+/// blueprint share an Id and so one entry; a <c>Vehicle</c> reference does not survive a save and the
+/// Id is the only thing that does. The roster reports the collision when it crews the second craft.
 /// </para>
 ///
-/// <para>KSA's save format cannot be extended — <c>UniverseData</c> is a fixed XML-mapped class —
-/// and StarMap has no save or load hook. But a save is a <em>directory</em>, so the next best
-/// thing to being in the save is being in it, beside the <c>universe.xml</c> it belongs to. The
-/// mod-named subfolder is so several mods can do this without agreeing on filenames.</para>
+/// <para>KSA's save format cannot be extended (<c>UniverseData</c> is a fixed XML-mapped class), but a
+/// save is a directory, so deleting, copying or renaming one carries these settings with it. With no
+/// save open they fall back to the KSA user directory, and the first save opened adopts them.</para>
 ///
-/// <para>That placement makes the awkward cases disappear rather than need handling. Deleting a
-/// save deletes these settings with it, so a new save under the same name cannot inherit a
-/// stranger's armed systems. Copying a save copies them; renaming takes them along. None of that
-/// needs code, which is the whole reason for choosing it over one file keyed by save name.</para>
-///
-/// <para>A session with no save open — a fresh sandbox — has nowhere to put them and falls back to
-/// a folder in the KSA user directory. Those settings are adopted by the first save that opens,
-/// which is what a player who set a system up and then saved would expect.</para>
-///
-/// <para>Every failure is swallowed and logged. A settings file is a convenience: a mod that
-/// refuses to run because it could not read one is worse than one that starts from defaults.</para>
+/// <para>Every failure is swallowed and logged: a missing settings file starts from defaults.</para>
 /// </summary>
 internal static class SettingsStore
 {
     private const string ModFolderName = "KSArmory";
-    // Named for what the panel calls them, not for the class that happens to run one today.
-    // A fixed emplacement or a sensor mast is a weapons system and is not a battery.
     private const string FileName = "systems.json";
     private const string BallisticFileName = "ballistic.json";
 

@@ -7,22 +7,16 @@ namespace KSArmory;
 /// The smoke trail a burning round leaves behind it, through the same volumetric renderer the
 /// mushroom clouds use.
 ///
-/// <para>A missile is what that renderer actually wants. Its own note says a <em>stationary</em>
-/// emitter lays one dragged segment rather than a chain, which is why a cloud has to fake movement
-/// with forty-five cursors tracing circles; a round in flight simply is the moving point, and one
-/// cursor draws its whole trail.</para>
+/// <para>A moving emitter lays a chain, so one cursor draws a round's whole trail.</para>
 ///
 /// <para><b>Nothing is pooled and nothing is released.</b> A <see cref="PlumeSmoke.Strand"/> is a
-/// state object rather than a borrowed emitter, and skipping a frame is how a chain is ended: the
-/// engine's tracker sees a gap in the frame numbers and closes the open segment itself. So a round
-/// that stops burning, is reaped, or is shot down needs no unwinding — this simply stops submitting
-/// for it. The segments already laid are the world's, not this class's.</para>
+/// state object, and skipping a frame is how a chain is ended: the engine's tracker sees a gap in the
+/// frame numbers and closes the open segment itself.</para>
 ///
-/// <para>Three limits, all the engine's and all read out of it rather than guessed:
-/// a segment lives <b>1200 s</b>, a global setting shared with every booster in the world; segments are capped at <b>16,384 per celestial body</b> and evicted
-/// oldest-first, which is a budget shared with <see cref="NuclearClouds"/>; and only the camera's
-/// nearby body is drawn, with or without air, so a motor burning above the atmosphere lays a trail
-/// there too.</para>
+/// <para>The engine's limits: a segment lives <b>1200 s</b>, a global setting shared with every
+/// booster; segments are capped at <b>16,384 per celestial body</b>, evicted oldest-first and shared
+/// with <see cref="NuclearClouds"/>; and only the camera's nearby body is drawn, with or without
+/// air.</para>
 /// </summary>
 internal sealed class MotorSmoke
 {
@@ -46,8 +40,6 @@ internal sealed class MotorSmoke
 
         if (!_config.MotorSmoke || !PlumeSmoke.Available || system.EffectBody is not { } body)
         {
-            // Not a release: dropping the entries is all there is to do, and the trail already in
-            // the air goes on ageing out of its own accord.
             ForgetOwnedBy(system);
             return;
         }
@@ -89,34 +81,22 @@ internal sealed class MotorSmoke
     /// <summary>Drops every cursor. The smoke already laid stays where it is.</summary>
     public void Clear() => _laying.Clear();
 
-    // While the motor burns, which is the whole of it: a solid rocket smokes because it is
-    // burning, and the trail behind a coasting round is what it laid earlier rather than anything
-    // it is still doing.
     private static bool Burning(IProjectile round)
         => round.State == RoundState.Flying
            && round.Munition.TotalBoostSeconds > 0f
-           && round.Age <= round.Munition.TotalBoostSeconds;
+           && round.MotorBurning;
 
     private void Lay(IProjectile round, IEffectSource system, Celestial body, double3 centre)
     {
-        // Nothing until the round has cleared its tube. It is seated with its *centre* on the
-        // launch anchor, so its nozzle starts half a body length inside and does not reach the
-        // mouth until the round has travelled a whole one. Laying before that draws the trail from
-        // inside the launcher and up the tube the round is still leaving, where the real thing only
-        // ever appears at the mouth.
-        //
-        // Travel rather than age, so it holds for a round that leaves slowly and for one that is
-        // dropped before its motor lights. On a rail there is no tube and nothing to clear, but the
-        // same body length is a twentieth of a second of flight, which is not a difference anyone
-        // can see.
+        // Nothing until the nozzle has cleared the tube: the round is seated with its centre on the
+        // launch anchor, so that is a whole body length of travel. Travel rather than age, so it
+        // holds for a slow exit and for a store dropped before its motor lights.
         double clearance = round.Munition.BodyLength;
         if (Vec.Len2(round.TravelSinceLaunch) < clearance * clearance) return;
 
         if (!system.TryRoundEffectEcl(round, out double3 ecl)) return;
 
-        // Behind the nozzle, not at the round's centre: smoke laid at the middle of the body reads
-        // as the missile dragging a column out of its own flank. The same half-length the plume
-        // steps back by, and for the same reason.
+        // At the nozzle, half a body behind the centre, as the plume is.
         double3 along = Vec.Unit(round.VelocityLocal);
         if (Vec.Len2(along) > 0.5) ecl -= along * (round.Munition.BodyLength * 0.5);
 
@@ -133,14 +113,8 @@ internal sealed class MotorSmoke
             live.Owner = system;
         }
 
-        // Off the round's own size, so a 30 mm shell does not lay the column a HARM does.
-        //
-        // Small fractions, because BodyLength is a missile's *length* and the trail wants its
-        // calibre: a HARM is 4.17 m long and about a quarter of a metre across, so anything near
-        // unity here is a column tens of times wider than the round. The laid radius is roughly
-        // the body, and the expanded one is what makes a moving point read as a billowing trail
-        // rather than a wire -- reached within PlumeSmoke's 5 s swell, so it is what the trail
-        // looks like for almost all of its life rather than an eventual size.
+        // Fractions of BodyLength, a length, because the trail wants the calibre. The expanded
+        // radius is reached within PlumeSmoke's 5 s swell, so it is the trail's look for most of its life.
         double width = round.Munition.BodyLength * _config.MotorSmokeWidth;
 
         float laid = (float)(width * 0.08);

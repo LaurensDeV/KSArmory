@@ -7,86 +7,41 @@ namespace KSArmory;
 /// Flies one ballistic shot with nobody watching: designate, arm, stage, and report what the
 /// warheads did.
 ///
-/// <para>The engagement scenarios beside this one settle in a minute; a ballistic shot is seven
-/// minutes of simulated flight with five events in it worth knowing about, spread across four of
-/// them. So this reports as it goes rather than only at the end — <b>the SCENARIO lines are the
-/// report</b>, and the verdict at the bottom is a summary of them, not the whole output.</para>
-///
-/// <para><b>It does not fight <see cref="WarpPolicy"/>.</b> One speed is asked for, once, at the
-/// moment the shot is committed, and nothing here writes the speed again: the policy holds the
-/// world down for the burn, the trim and the rounds in the air, and hands the rest back. Asking for
-/// a speed the policy is holding is a loop neither side wins, which is why the number asked for
-/// sits under what the policy would allow a burn to run at anyway.</para>
-///
-/// <para>What it cannot do is put a rocket on the pad — see <c>CLAUDE.md</c>, "A scenario
-/// cannot place a craft through the system XML". It waits for a craft that already has one
-/// aboard.</para>
+/// <para>Reports as it goes: the SCENARIO lines are the report, and the verdict sums them up.</para>
+/// <para>It does not fight <see cref="WarpPolicy"/>: a speed is requested at the commit, under what the
+/// policy allows a burn, and the policy holds the world down where it must. It cannot place a
+/// craft, so it waits for one the save already has.</para>
 /// </summary>
 internal sealed class BallisticScenario
 {
     /// <summary>
-    /// How fast the world runs while the shot is being set up.
-    ///
-    /// <para>Slow enough that a vehicle resumed mid-flight moves a negligible distance across the
-    /// frames arming takes, so the state it is picked up in is the same on every run and two builds
-    /// can be compared. Not paused, because the computer cannot sample a paused world and the
-    /// scenario would wait for a craft it can never see.</para>
+    /// How fast the world runs while the shot is set up: slow enough that a vehicle resumed mid-flight
+    /// is picked up in the same state on every run, and not paused, since the computer cannot sample
+    /// a paused world.
     /// </summary>
     public const double SetupSpeed = 0.01;
 
     /// <summary>
-    /// How fast the world is asked to run, once, when the shot is committed.
-    ///
-    /// <para>Under the ceiling <see cref="WarpPolicy"/> allows a guided burn — one
-    /// <see cref="IcbmProgram.MaxFaithfulStep"/> less its margin, about eleven times normal at
-    /// sixty frames a second — so the ascent runs at the speed asked for and the policy never has
-    /// to take it away. The descent is a different matter: a reentry vehicle in thick air needs a
-    /// far shorter step than that, and the policy slows the world for it and gives this back
-    /// afterwards.</para>
+    /// How fast the world is asked to run when the shot is committed: under the ceiling
+    /// <see cref="WarpPolicy"/> allows a guided burn, about eleven times at 60 fps.
     /// </summary>
     public const double WarpFactor = 8.0;
 
-    // Far higher than the burn's, and it can be: a ballistic coast with nothing in the air is not
-    // being integrated by anything this mod owns, so the step it runs at costs no accuracy. Half an
-    // hour at eight times is still nearly four minutes of sitting watching it.
+    // A coast with nothing in the air is integrated by nothing this mod owns, so its step costs no accuracy.
     public const double CoastWarpFactor = 100.0;
 
     /// <summary>
-    /// How long after the last release, in simulated seconds, before a salvo is called finished.
-    ///
-    /// <para>A bus that gives up with warheads still aboard is a real outcome rather than a hang,
-    /// and waiting for a magazine that will never empty is how a harness turns one into the
-    /// other.</para>
+    /// Simulated seconds after the last release before a salvo is called finished: a bus that gives
+    /// up with warheads aboard is an outcome, not a hang.
     /// </summary>
     public const double SalvoOverSeconds = 120.0;
 
     private readonly ShotRequest _shot;
-    // How far back the view sits once it moves to the target. A power rather than a distance:
-    // KSA scales the orbit camera by the followed craft's mean radius, so one number frames a
-    // ground vehicle and a rocket alike, and this is far enough that a warhead is in shot before
-    // it arrives rather than after.
+    // A power, not a distance: KSA scales the orbit camera by the followed craft's mean radius.
     private const double WatchZoomPower = 3.0;
 
-    // How far out the view sits during the flight, as a multiple of the body's mean radius.
-    //
-    // A frame-rate setting rather than a framing one. KSA places the orbit camera at
-    // DistancePower x MeanRadius, so following a rocket puts it a hundred metres off the ground
-    // with the terrain, ocean and atmosphere all at full detail; following the body it launched
-    // from puts the same number tens of thousands of kilometres out, where none of that is drawn.
-    //
-    // MEASURED FROM THE CENTRE, not from the surface. One is 6,371 km on Earth, which parks the
-    // camera exactly at ground level on the far side hugging the terrain at full detail -- flown,
-    // and worth nothing: 31.7 ms against 31.5. Five is about 25,000 km up, past anything the
-    // engine draws in detail, and is worth 31.7 -> 29.5 ms.
-    //
-    // Seven per cent rather than the large win moving the camera off the ground buys in ordinary
-    // play, and the reason is that a scripted shot is not rendering-bound. Seventeen vehicles in
-    // one world put the cost in the vehicle solver, which is docs/METRE-LEVEL.md section 5's flown
-    // finding that the game is CPU-bound and the GPU idle. Kept because it is free, not because it
-    // is a lever.
-    //
-    // Nobody is watching a scripted shot until the warheads arrive, and the view goes back to the
-    // target for that.
+    // Following the body, in mean radii from its centre: one puts the camera on the ground. Five is
+    // past the detailed terrain and bought 31.7 -> 29.5 ms a frame, flown; a shot is CPU-bound.
     private const double FlightZoomPower = 5.0;
 
     private readonly Action<string> _say;
@@ -255,10 +210,8 @@ internal sealed class BallisticScenario
 
         if (!_committed)
         {
-            // A refusal is an answer, not a wait. The phase machine only reaches NoSolution after
-            // looking, and it never runs backwards — so a scenario that keeps waiting there spends
-            // a whole timeout to report something the first cycle already knew, which for an
-            // unattended run is the difference between a minute and a quarter of an hour.
+            // A refusal is an answer, not a wait: the phase machine reaches NoSolution only after
+            // looking, and never runs backwards.
             if (_computer.Program.Phase == IcbmPhase.NoSolution)
             {
                 return $"FAIL {_computer.Command.Hold} -- "
@@ -269,10 +222,8 @@ internal sealed class BallisticScenario
             return null;
         }
 
-        // Held down rather than set once. The site's auto-engage is restored from the save's own
-        // settings and can come back after the aim is taken, and one frame of it on is a salvo
-        // intercepted.
-        // Every launcher on the site, not the selected one: any of them left on intercepts.
+        // Every frame and every launcher on the site: the save's settings can restore auto-engage
+        // after the aim is taken, and any one left on intercepts.
         if (_disarmSite && _defendedSite is { } defended)
         {
             roster.AllOn(defended, _defences);
@@ -323,21 +274,12 @@ internal sealed class BallisticScenario
         return $"{(verdict.Pass ? "PASS" : "FAIL")} {verdict.Said}{held}";
     }
 
-    // The first craft that could fly this shot: a ballistic computer, a launcher with something in
-    // it, and still on the ground. The last of those is asked of IcbmProgram rather than answered
-    // here, because the phase machine picks a vehicle up by exactly that test and two of them would
-    // drift apart silently.
+    // The first craft that could fly this shot: a ballistic computer, a loaded launcher and the reach.
+    // Whether it is on the ground is IcbmProgram's own test, so the two cannot drift apart.
     private void Find(WeaponSystems roster, IcbmComputers icbms)
     {
-        // KSA loads a save paused, and everything below is read from a computer that only samples
-        // the world inside the mod's clock gate — so on a paused world nothing is ever true, and a
-        // scenario that only waits waits for ever. Unpausing is the scenario's business rather than
-        // the computer's: a player who paused did so on purpose.
-        // Slowly, not at 1x. A save resumed mid-flight has a vehicle that keeps moving while this
-        // runs, so the state it is picked up in depends on how many frames arming happened to take
-        // - and two builds compared against each other are then two different shots. Measured: the
-        // same save picked up at 415 s of flight on one build and 450 s on another, which is 164 km
-        // of difference that belongs to the harness rather than to anything being tested.
+        // KSA loads a save paused, and the computer samples nothing while paused. Unpaused slowly:
+        // at 1x one save was picked up 415 s and 450 s into its flight on two builds, 164 km apart.
         if (KsaWorld.IsPaused && AskForSpeed(SetupSpeed))
         {
             _say($"the world was paused; asked for {SetupSpeed:0.##}x while the shot is set up");
@@ -347,18 +289,14 @@ internal sealed class BallisticScenario
 
         foreach (IcbmComputer computer in icbms.All)
         {
-            // One instance per rocket when there are several, so each keeps its own magazine,
-            // group and verdict. Without this every instance latches whichever computer the
-            // roster happened to enumerate first and the rest of the world is furniture.
+            // One instance per rocket when there are several, each with its own magazine and verdict.
             if (_bound is not null && !ReferenceEquals(computer, _bound)) continue;
 
             if (!KsaWorld.IsAlive(computer.Craft)) continue;
 
             string name = KsaWorld.DisplayName(computer.Craft);
 
-            // Null until the computer has sampled the world once, which it cannot do while the
-            // clock gate is shut. Named separately from the tests below because it means "not
-            // looked yet" rather than "looked and the answer was no".
+            // Null until the computer has sampled the world once: "not looked yet", not "no".
             if (computer.Parent is not { } parent)
             {
                 why.Add($"{name} has not sampled the world yet");
@@ -400,11 +338,8 @@ internal sealed class BallisticScenario
             double airspeed = Vec.Len(KsaWorld.VelocityEcl(computer.Craft)
                                       - KsaWorld.GroundVelocityAt(parent, KsaWorld.PositionEcl(computer.Craft)));
 
-            // Wherever it is. The phase machine joins a flight by looking at the vehicle rather
-            // than by assuming a pad — low and still is the launch sequence, dynamic pressure is an
-            // ascent already under way, above the air is a hold — so a scenario that insists on a
-            // pad refuses the case the operator most often tests, which is a save resumed near
-            // apogee with the boost already flown.
+            // Wherever it is: the phase machine joins a flight from the vehicle's state, and a save
+            // resumed near apogee is the case most often tested.
             _onThePad = IcbmProgram.IsOnTheGround(computer.AltitudeMetres, airspeed,
                                                   computer.Config.TurnStartMetres);
 
@@ -422,9 +357,7 @@ internal sealed class BallisticScenario
             double aimLat = _shot.LatitudeDeg;
             double aimLon = _shot.LongitudeDeg;
 
-            // Shoot at whatever is defending, when there is something. A shot at bare ground proves
-            // the guidance and nothing else; a shot at a site that can see it coming is the
-            // engagement worth flying, and it puts the impact somewhere with a camera on it.
+            // At a defended site when there is one, which puts the impact somewhere with a camera on it.
             Vehicle? site = FindDefendedSite(roster, computer.Craft);
 
             if (site is not null
@@ -434,32 +367,14 @@ internal sealed class BallisticScenario
             {
                 _defendedSite = site;
 
-                // Disarmed, because a scoring run cannot let the target shoot at what it is
-                // measuring. Held on the reasoning rather than on evidence: the 30 of 48 warheads
-                // that go missing at 2,000 km are fratricide and not this site -- they die inside a
-                // sibling group's own 2 km lethal radius, and the site reads armed=False through
-                // the whole salvo. AimSpread is what answers that one. Nothing flown here has ever
-                // caught this site firing, so what the disarm stops is a possibility.
-                //
-                // The engagement is worth flying and is not this scenario's job. What this one
-                // measures is where the warheads go.
-                // Unconditionally, and again every frame below. Guarding on "is it armed now"
-                // does nothing: at the moment the aim is taken the site has not armed yet, so the
-                // guard would skip and it arms itself afterwards.
+                // Disarmed, since a scoring run cannot let the target shoot at what it measures;
+                // unconditionally and every frame, as the site arms itself after the aim is taken.
                 _disarmSite = true;
 
                 if (_shot.AimWasGiven)
                 {
-                    // The operator named a point, so the site goes to it rather than the aim coming
-                    // here. Moving what is already in the world beats spawning a second one: two
-                    // identical launchers is a scene nobody can read, and the shot stays at the
-                    // coordinates every other run was measured at.
-                    // BESIDE the aim, not on it. AimSpread anchors seat 0 on the operator's point
-                    // exactly, so a site standing there is a 4.7 m obstacle inside the impact
-                    // scatter: five warheads across the two nights of 3ci stopped on its roof and
-                    // were scored as bursts rather than landings, every one of them on the same
-                    // arm. Far enough to be clear of a group that lands within tens of metres, near
-                    // enough that it is still the camera. ACCURACY-PLAN.md 3ci.
+                    // The site moves beside the named point, not onto it: AimSpread puts seat 0 on the
+                    // point, and warheads stopped on the site's roof. docs/ACCURACY-PLAN.md 3ci.
                     double standoffDeg = SiteStandoffMetres / parent.MeanRadius * 180.0 / Math.PI;
 
                     if (KsaWorld.TryPlaceOnSurface(site, parent.Id, aimLat + standoffDeg, aimLon))
@@ -484,9 +399,7 @@ internal sealed class BallisticScenario
                 }
             }
 
-            // Not all at one point. See SpreadAim: eight groups on one aim are eight groups
-            // inside each other's kill radius, and the first one down removes the rest from the
-            // measurement.
+            // Not all at one point (SpreadAim): groups on one aim are inside each other's lethal radius.
             (aimLat, aimLon) = SpreadAim(parent, computer, system.Munition, aimLat, aimLon);
 
             computer.Designate(new AimSite(parent.Id, aimLat, aimLon, "scenario aim point"));
@@ -512,9 +425,7 @@ internal sealed class BallisticScenario
         if (_sinceComplaint < 10.0) return;
         _sinceComplaint = 0.0;
 
-        // Every craft's verdict, not the last one looked at. A scene has several weapon-carrying
-        // craft and the interesting refusal is rarely the final one - reporting a single reason
-        // hides the launcher behind whatever happened to be iterated after it.
+        // Every craft's verdict, not the last one looked at: the interesting refusal is rarely the last.
         _say(why.Count > 0
                  ? $"waiting -- {string.Join("; ", why)}"
                  : "waiting -- nothing in the scene carries a ballistic computer");
@@ -522,33 +433,27 @@ internal sealed class BallisticScenario
 
     // Arm, and then light the first engine once the program has a trajectory to fly.
     //
-    // Two frames, and that ordering is forced rather than tidy: the phase machine returns "not
-    // armed" before running any of itself, so there is no launch solution to gate the staging on
-    // until the computer is armed. Staging without one lights a rocket with nothing steering it.
+    // Two frames: the phase machine returns "not armed" before running, so there is no launch
+    // solution to gate the staging on until the computer is armed.
     private void Commit()
     {
         if (_computer is not { } computer) return;
 
         if (!computer.Config.Armed)
         {
-            // A stack flown wide open is destroyed by its own acceleration once the boosters are
-            // gone and a light upper stage is left on a full-sized motor. The harness flies craft
-            // it did not design, so it holds them to something an airframe survives rather than
-            // trusting whatever the stack happens to be capable of.
+            // A light upper stage on a full-sized motor is destroyed by its own acceleration, and the
+            // harness flies craft it did not design.
             if (computer.Config.MaxAccelerationGee <= 0.0f)
             {
                 computer.Config.MaxAccelerationGee = ScenarioAccelerationGee;
             }
 
-            // Forced rather than left to the config, because the harness has no channel for it:
-            // ShotRequest carries where to aim and the bar, and nothing else reaches the computer.
-            // Zero is the shipped default and means the cheapest arc wins.
+            // Forced: ShotRequest carries only the aim and the bar. Zero is the shipped default.
             computer.Config.MinArrivalAngleDeg = ScenarioArrivalFloorDeg;
             computer.Config.CorrectAim = ScenarioCorrectsAim;
 
-            // Last, so an arm has the final word. The two lines above are the harness forcing
-            // settings it has no other channel for, and an arm applied before them is an arm that
-            // silently flies the baseline -- which reports a dead heat rather than a failure.
+            // Last, so an arm has the final word: applied before the forced settings it would
+            // silently fly the baseline.
             if (_arm is { } arm && !ShotArms.TryApply(arm, computer.Config, out string bad))
             {
                 _say($"FAIL {bad}");
@@ -564,9 +469,8 @@ internal sealed class BallisticScenario
 
         ReportPhase();
 
-        // The harness does not light the rocket. Ignition is the program's own first stage request
-        // and firing a second sequence here would spend one of the player's on top of it -- and a
-        // harness that staged by hand would pass whether or not the computer can launch at all.
+        // Ignition is the program's own first stage request; staging here would spend a second
+        // sequence and pass whether or not the computer can launch.
         if (_onThePad)
         {
             if (computer.Program.Phase != IcbmPhase.Rising) return;
@@ -582,14 +486,8 @@ internal sealed class BallisticScenario
 
         _committed = true;
 
-        // Park the view thousands of kilometres out for the flight. Nobody is watching a scripted
-        // shot, and the camera's distance is what decides how much terrain, ocean and atmosphere
-        // the engine renders every frame -- following a rocket sits it about a hundred metres up
-        // with all of it at full detail. It comes back to the target for the impact, which is the
-        // only part anyone looks at.
-        //
-        // One flight does this, not eight: the view is shared, and eight rockets each parking it
-        // is the same shared-resource problem Sim/WorldSpeed.cs settles for the world clock.
+        // Park the view far out for the flight, where the engine renders no terrain detail, until
+        // the impact. One flight does this, since the view is shared.
         if (!_viewTaken[0] && _computer?.Parent is { } parent
             && KsaWorld.WatchFrom(parent, FlightZoomPower))
         {
@@ -640,32 +538,14 @@ internal sealed class BallisticScenario
 
     }
 
-    // Warp only once the salvo is away, and nothing before it.
-    //
-    // WarpPolicy bounds the *step* rather than the speed, so anything whose step stays inside
-    // MaxFaithfulStep is allowed and the policy never intervenes — 8x at sixty frames is 0.13 s,
-    // comfortably inside it. What that costs is whatever stops on a frame boundary: the cutoff
-    // residual measured 3.16 m/s a frame at 8x against 0.40 at normal speed, and the trim settles
-    // at 0.098 m/s against 0.017. Neither is a policy failure; both are the price of a long step,
-    // and the only part of this flight that has no such price is the coast after the last warhead
-    // has gone.
-    // FORTY-FIVE KEEPS THE GATE SHUT ON THIS SHOT, AND THAT IS WORTH 470 m. The warheads are held
-    // until the arrival is inside ReleaseBeforeArrivalSeconds, 420 s, and the coast is entered with
-    // about 464 s to run -- so the margin asks for 465 and the coast is flown at 1x throughout.
-    // IcbmProgram.SteadyBeforeReleaseSeconds
-    // carries the number and the measurement, because the panel's own coast warp stops at the same
-    // place and two copies of it would drift.
-    //
-    // The scenario's note above prices the same effect at 8x -- a cutoff residual of 3.16 m/s a
-    // frame against 0.40 -- and a hundred is far past it. So the wall clock this could save, about
-    // forty seconds a shot, costs an order of magnitude of accuracy. It was the right trade when a
-    // shot missed by 2.9 km and it is not one at 50 m.
+    // The coast is warped only up to IcbmProgram.SteadyBeforeReleaseSeconds before the release,
+    // which carries the number and its measurement; the panel's coast warp stops at the same place.
+    // A long step costs whatever stops on a frame boundary: the cutoff residual was 3.16 m/s at 8x
+    // against 0.40 at 1x.
 
     private void CoastToTheReleasePoint()
     {
-        // Off the release count for the same reason the post-release warp is: the magazine refills
-        // a few seconds after the salvo, so `ammo < _loaded` stops distinguishing "the warheads have
-        // gone" from "they never left".
+        // Off the release count: the magazine refills a few seconds after the salvo.
         if (_computer is not { } computer || _board.Released > 0) return;
         if (computer.Command.Phase != IcbmPhase.Coast) return;
 
@@ -683,11 +563,8 @@ internal sealed class BallisticScenario
         if (roomToWarp == _coasting) return;
         _coasting = roomToWarp;
 
-        // The whole speed, and WarpPolicy takes it back where something is being integrated. Asking
-        // for a step here instead pins the entire pre-release cruise -- forty minutes of flight in
-        // which nothing is integrated and any step is free -- and cost four times the wall clock a
-        // shot for no accuracy at all. The step that matters is the trim's, and BusTrim.MaxFaithfulStep
-        // only records it: asked for, the world cannot run slow enough and the burn is abandoned.
+        // The whole speed, which WarpPolicy takes back where something is integrated: asking for a
+        // step instead would pin a cruise in which nothing is, at four times the wall clock.
         if (AskForSpeed(roomToWarp ? CoastWarpFactor : 1.0))
         {
             _say(roomToWarp
@@ -741,10 +618,7 @@ internal sealed class BallisticScenario
     // and flown badly: what the engines left ungained, and how far the mod's own prediction of the
     // arc it cut off on lands from the target.
     //
-    // Named, because a paired night runs several arms in one world and an unnamed residual cannot
-    // be attributed to any of them. 3bo needs exactly this reading: the trim's demand is 4.5x
-    // larger at a 54 degree arrival than a 44, and whether that is a lighter stack at cutoff or the
-    // clearance wait is decided by the residual per arm.
+    // Named, because a paired night runs several arms in one world. docs/ACCURACY-PLAN.md 3bo reads it per arm.
     private void ReportCutoff()
     {
         if (_saidCutoff || _computer is not { } computer) return;
@@ -777,9 +651,7 @@ internal sealed class BallisticScenario
         if (_computer is not { } computer) return;
         if (computer.TrimSaid.Length == 0) return;
 
-        // On what it is doing rather than on the number it is doing it at. The trim reports a fresh
-        // figure every frame while it closes, and a report that echoes each of them is a hundred
-        // lines saying one thing - the numbers that matter are the two it carries either side.
+        // On what the trim is doing, not its figure, which changes every frame while it closes.
         string doing = computer.TrimSaid.Split(',')[0];
         if (doing == _saidTrim) return;
 
@@ -851,28 +723,16 @@ internal sealed class BallisticScenario
             }
         }
 
-        // Warped once the releases have stopped, not on the first one. The coast's frame is what a
-        // round's error accumulates against -- 0.06 m/s of drift per millisecond of frame -- so
-        // warping between releases gives the warheads that have already left a different frame from
-        // the ones still aboard. Flown: the first warhead out landed 140.86 km off while the five
-        // released after the change grouped at 3.67-3.75 km.
-        //
-        // Keyed on the releases going quiet rather than on the magazine emptying, so a shot that
-        // holds warheads back still warps.
+        // Warped once the releases go quiet, not on the first: a round's error accumulates against
+        // the coast's frame, 0.06 m/s per millisecond, so every warhead must leave on the same one.
         _sinceLastRelease += simStep;
 
-        // The long wait before the release point, which is most of the flight now the warheads are
-        // held until the arrival is close. Warped through, and given back well before the first one
-        // leaves: every warhead has to see the same frame in its opening seconds, which warping
-        // between releases would break.
+        // The long wait before the release point, warped through and given back before the first leaves.
         WarpToTheBurnWindow();
         CoastToTheReleasePoint();
 
-        // Counted off the releases rather than off the magazine, because the magazine refills.
-        // `ammo < _loaded` reads as "the salvo has gone" for about three seconds and then stops:
-        // the launcher reloads inside QuietAfterReleaseSeconds, ammo returns to its loaded count,
-        // and the branch is never entered again: `holding fire: reloading (3 s)` lands 34 ms after
-        // the sixth warhead leaves. ShotGroup.Released only ever increases.
+        // Counted off the releases, which only increase: the launcher reloads inside
+        // QuietAfterReleaseSeconds and the magazine's count comes back.
         if (_board.Released > 0)
         {
             if (_board.Released != _releasedLastSeen)
@@ -985,12 +845,8 @@ internal sealed class BallisticScenario
         }
     }
 
-    // Where this rocket aims, which is the operator's point only for the first of a group.
-    //
-    // The bearing is taken from the *group's* reference shot rather than from this rocket's own,
-    // so every displacement is along one line. Pads spread east against a single target fan
-    // inwards, and two rockets each displaced square to their own path move towards each other --
-    // which puts back the overlap this exists to open.
+    // Where this rocket aims, the operator's point only for the first of a group. The bearing is the
+    // group's reference shot's, so every displacement is along one line rather than fanning inwards.
     private (double LatitudeDeg, double LongitudeDeg) SpreadAim(
         Celestial parent, IcbmComputer computer, MunitionProfile munition,
         double baseLat, double baseLon)
@@ -1017,9 +873,7 @@ internal sealed class BallisticScenario
                                 AimSpread.SpacingMetres(munition.LethalRadius),
                                 bearing, parent.MeanRadius);
 
-        // Said per rocket, because a run scored against eight different points has to record what
-        // they were: a reader comparing two flights' misses is comparing two distances to two
-        // places, and nothing else in the log says so.
+        // Said per rocket: nothing else in the log records which point each was scored against.
         double off = GroundMetresBetween(parent, baseLat, baseLon,
                                          aim.LatitudeDeg, aim.LongitudeDeg);
 
@@ -1043,16 +897,10 @@ internal sealed class BallisticScenario
     private const bool ScenarioCorrectsAim = true;
 
     /// <summary>
-    /// Whether this craft's weapon could reach the aim point at all.
-    ///
-    /// <para><b>The one test that separates a rocket that can fly this shot from one that
-    /// cannot.</b> A computer is crewed wherever a part provides guidance, whatever its weapon can
-    /// reach, so a harness that calls every computer's craft one of its own shooters can leave the
-    /// shot with nothing to aim at. Same check <see cref="Find"/> makes, exposed so the two cannot
-    /// answer differently.</para>
-    ///
-    /// <para>Unknowable is not viable: a craft whose surface point or parent cannot be read yet is
-    /// not yet a rocket, and the caller asks again next frame.</para>
+    /// Whether this craft's weapon could reach the aim point at all: a computer is crewed wherever a
+    /// part provides guidance, whatever its weapon can reach. Unknowable is not viable; the caller
+    /// asks again next frame. <see cref="Find"/> repeats the test inline, and lets an unreadable
+    /// surface point through where this refuses it.
     /// </summary>
     public static bool CouldReachTheAim(IcbmComputer computer, WeaponSystem? system,
                                         in ShotRequest shot)
@@ -1072,15 +920,9 @@ internal sealed class BallisticScenario
         return system.Munition.MaxRange >= reach;
     }
 
-    // Anything armed that is not one of the rockets this run is flying. "Not the launching craft"
-    // is the wrong test the moment there are several: the next crewed craft is then another rocket,
-    // and the shot is aimed at it -- which with an explicit --aim also teleports it, so one probe
-    // threw a rocket 6,269 km and dropped it at 5 km under power. METRE-LEVEL.md 5b, traps 2 and 3.
-    //
-    // The exclusion is the harness's own list rather than "has a ballistic computer": computers are
-    // crewed from Ui.Draw, so what is crewed depends on the panel having drawn, and an armed target
-    // is crewed as a weapons system exactly like a rocket is. What is knowable here is which craft
-    // this run put a flight on, and that is the question being asked.
+    // Anything armed that is not one of this run's rockets, by the harness's own list: with several
+    // rockets "not the launching craft" aims at another rocket (docs/METRE-LEVEL.md 5b, traps 2 and 3),
+    // and which craft carry a computer depends on the panel having drawn.
     private Vehicle? FindDefendedSite(WeaponSystems roster, Vehicle launching)
     {
         foreach (WeaponSystems.Entry entry in roster.All)
@@ -1152,13 +994,8 @@ internal sealed class BallisticScenario
         return fresh;
     }
 
-    // Where this round was sent: the flight's own record of the stop that was current when it left.
-    //
-    // Asked of the computer rather than observed here, and the difference is a warhead: a handover
-    // lands on the same frame the last of a stop's quota leaves, so a lead index read after that
-    // frame attributes that warhead one stop late. The fallback is for a round this computer did
-    // not release -- which for a single-target shot cannot happen, target zero being the only index
-    // there is.
+    // Where this round was sent, as the computer recorded it: a handover lands on the frame a stop's
+    // last warhead leaves, so a lead index read here attributes it a stop late.
     private int TargetOf(IProjectile round)
     {
         if (_computer?.TargetOfRound(round) is int said and >= 0) return said;
@@ -1166,11 +1003,8 @@ internal sealed class BallisticScenario
         return _computer?.LeadTarget ?? 0;
     }
 
-    // One target's place, in the ecliptic.
-    //
-    // A set of one goes through `TargetEcl()` -- the same expression every accuracy number on this
-    // mod was taken through. Past that the entry is named outright rather than through the lead,
-    // which by the arrival is wherever the walk finished.
+    // One target's place, in the ecliptic. A set of one goes through TargetEcl(), as every accuracy
+    // number was taken; past that the entry is named, since the lead is wherever the walk finished.
     private static double3? AimEclOf(IcbmComputer computer, int target)
         => computer.Targets.Count > 1 && target >= 0 && target < computer.Targets.Count
                ? computer.SiteEcl(computer.Targets[target].Site)
@@ -1232,10 +1066,7 @@ internal sealed class BallisticScenario
             double miss = MissFromAim(round, target, out string resolved);
             _board.For(target).Arrive(miss);
 
-            // Named, and in the unit that shows it. This is the only line carrying where each
-            // warhead of a group landed, so it is the only reading the spread within one group can
-            // come off -- and eight rockets write into one log, where an unnamed round belongs to
-            // none of them.
+            // Named: the only line carrying where each warhead landed, in a log several rockets share.
             string whose = _computer is { } owner ? $" on {KsaWorld.DisplayName(owner.Craft)}" : "";
 
             // Only when there is more than one place to name. A single-target flight's line is what

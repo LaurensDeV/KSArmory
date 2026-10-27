@@ -39,10 +39,10 @@ against **2026.8.22.5348** and the line numbers are ours.
 `Ksa/CloudPass.cs` reconstructs world position from the resolved depth inside
 `SunbloomRenderer.Render` and marks the ground there, which is a depth-projected decal by another
 route — it conforms to terrain and tessellation, and it reaches anything in the depth buffer.
-What the box rasterisation below still buys over it is **cost and scale**: a cube touches only its
-own screen footprint where a compute dispatch is full-screen, which is the whole reason
-`NuclearClouds.MaxScorches` is twelve. It also buys image-based decals, which a procedural mark
-does not need and a burn mark on a hull does.
+What the box rasterisation below still buys over it is the last of the **cost**: a cube touches
+only its own screen footprint, where the compute mark is dispatched over a rectangle of workgroups
+round it (`CloudPass`, `ScorchFootprint`), and `NuclearClouds.MaxScorches` holds it to twelve. It
+also buys image-based decals, which a procedural mark does not need and a burn mark on a hull does.
 
 ---
 
@@ -108,7 +108,10 @@ The clutter row is what decides it, and it is worth understanding because it is 
 this engine. Ground clutter placement is **entirely on the GPU**: a compute shader writes instance
 data into a device-local buffer with no transfer-src usage, and the readback path that exists
 (`KSA.Terrain.Physics/ClutterEcotypePhysicalData.ReadbackGroundClutter`) is never constructed in a
-shipping build. There is no CPU-addressable transform for a rock. But the clutter pre-pass and draw
+shipping build. There is no CPU-addressable transform for a rock. (Not on 2026.10.19.5638:
+`GroundClutterRenderer` now constructs a `ClutterEcotypePhysicalData` per ecotype, and its update
+calls `ReadbackGroundClutter` every frame, so generated clutter positions do reach the CPU. The depth
+route still reaches a rock with no per-rock anchor.) But the clutter pre-pass and draw
 both write scene depth — so a decal that reconstructs its receiving surface *from depth* reaches
 clutter for free, and every other approach cannot reach it at all.
 
@@ -320,7 +323,8 @@ a C string.
 
 ### 7.1 The hit point is already computed, and already thrown away
 
-`Ksa/HullTest.cs:59` calls `Part.RayCastEgo` and discards six out-parameters:
+`Ksa/HullTest.cs:49` calls `Part.RayCastEgo` and discards six out-parameters (the shell-hole cast in
+`KsaWorld.Parts.cs` is a second one, at the strike, that keeps them):
 
 ```csharp
 if (!parts[i].RayCastEgo(in asmb2Round, ray, out double near, out double far,
@@ -401,10 +405,10 @@ the same frame. Composing them anywhere else reopens the question.
 
 ## 8. What it costs us
 
-**It would be another place this mod patches the game, and a different kind.** There are six today
-(`AttitudeHook`, `PreRenderHook`, `WorldReloadHook`, `RoundBodyDrawHook`, `LooseBodyDrawHook` and
-`CloudPassHook`), each prefixing or postfixing one method, most of them with the signature tracked in
-`docs/KSA-API-SURFACE.md`. A decal pass has a materially different risk profile: it binds to a dozen
+**It would be another place this mod patches the game, and a different kind.** Ten hook classes
+patch twelve methods today (`AttitudeHook`, `PreRenderHook`, `WorldReloadHook`, `RoundBodyDrawHook`,
+`LooseBodyDrawHook`, `CloudPassHook`, `SaveHook`, `GroundTrackHook`, `PlanetMapHook`, `DoseRateHook`),
+each a prefix or postfix, most of them with the signature tracked in `docs/KSA-API-SURFACE.md`. A decal pass has a materially different risk profile: it binds to a dozen
 render internals at once. That is a
 decision to take deliberately, not a detail of the implementation.
 

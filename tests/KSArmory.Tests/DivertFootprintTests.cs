@@ -236,8 +236,6 @@ public class DivertFootprintTests(ITestOutputHelper Out)
         }
     }
 
-    // ------------------------------------------------- the reach before the flight has flown
-
     /// <summary>
     /// <b>The measurement the pre-launch reach rests on.</b> Pinned, the footprint is the release
     /// epoch and nothing else: the arc it is flown on cannot move it.

@@ -33,7 +33,7 @@ public class WarheadTests
 
     /// <summary>
     /// Ordering that cannot be violated, whatever the charge. Three free fields could; one
-    /// figure and a shared law cannot, which is the reason for the change.
+    /// figure and a shared law cannot.
     /// </summary>
     [Theory]
     [InlineData(0.01)]
@@ -58,8 +58,8 @@ public class WarheadTests
     }
 
     /// <summary>
-    /// The cannon keeps the 4 m lethal radius it was tuned with. Its blast radius is a
-    /// consequence rather than a choice now, and that is the one number this change moves.
+    /// The cannon keeps the 4 m lethal radius it was tuned with; its blast radius is a consequence
+    /// of the charge rather than a choice.
     /// </summary>
     [Fact]
     public void TheCannonKeepsItsLethalRadius()

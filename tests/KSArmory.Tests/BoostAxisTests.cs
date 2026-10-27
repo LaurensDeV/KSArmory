@@ -4,12 +4,8 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Which way a boosting round's motor pushes.
-///
-/// <para>Along the round, which is the velocity it has <em>gained</em> since release — not along
-/// the velocity it has. A rail-launched round inherits the whole of its craft's velocity and adds
-/// <c>LaunchSpeed</c> of its own, so its total velocity points wherever the craft was going
-/// whatever the rail was aimed at.</para>
+/// The motor pushes along the velocity gained since release, not the velocity the round has: a
+/// rail-launched round inherits its craft's whole velocity, which points wherever the craft was going.
 /// </summary>
 public class BoostAxisTests
 {
@@ -44,9 +40,8 @@ public class BoostAxisTests
     }
 
     /// <summary>
-    /// The reported fault. A launcher that has turned round is still travelling the way it came,
-    /// so a motor thrusting along the round's total velocity drives it away from everything the
-    /// rail is pointing at — 210 m/s² for five seconds of it on an AGM-88.
+    /// A launcher that has turned round still travels the way it came, so thrust along the total
+    /// velocity drives the round away from what the rail points at.
     /// </summary>
     [Fact]
     public void AMotorPushesAlongTheRailAndNotAlongTheCraftsTrack()
@@ -76,10 +71,8 @@ public class BoostAxisTests
     }
 
     /// <summary>
-    /// The property that makes this safe to change: a launcher standing still has gained exactly
-    /// what it has, so every ground system flies as it always did. That is also why thrusting
-    /// along the flight path was indistinguishable from thrusting along the tube for as long as
-    /// every launcher in the mod sat on the ground.
+    /// A launcher standing still has gained exactly what it has, so the two axes agree for every
+    /// ground system.
     /// </summary>
     [Fact]
     public void AStationaryLauncherIsUnchanged()
@@ -93,8 +86,7 @@ public class BoostAxisTests
 
     /// <summary>
     /// Both terms are the frame's own samples, so the ecliptic's ~29.8 km/s cancels in the
-    /// subtraction. Carrying the whole launch through it must not move the round relative to its
-    /// rail — the fault this replaced was exactly a frame leaking into an axis.
+    /// subtraction and must not move the round relative to its rail.
     /// </summary>
     [Fact]
     public void SharedMotionDoesNotReachTheAxis()

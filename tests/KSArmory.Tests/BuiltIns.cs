@@ -11,7 +11,7 @@ namespace KSArmory.Tests;
 /// every registry-wide invariant — that each launcher names a registered round, that each is also a
 /// recognised component — quietly covering one weapon fewer, with nothing failing to say so.</para>
 ///
-/// <para>Name lookups throw on a miss from here on. A weapon renamed in the move would otherwise
+/// <para>Name lookups throw on a miss from here on. A renamed weapon would otherwise
 /// come back as whichever round registered first, and every test asking for it would fly that
 /// instead.</para>
 /// </summary>
@@ -87,4 +87,9 @@ public static class BuiltIns
     public static MunitionProfile NukeB61 => Catalogue.MunitionNamed("B61");
     public static SensorProfile BusDesignation => Catalogue.SensorNamed("MIRVBUS");
     public static SensorProfile BombSight => Catalogue.SensorNamed("BOMBSIGHT");
+
+    public static LauncherProfile Lau10 => Catalogue.LauncherForPart("KSArmory_Prefab_Lau10")!;
+    public static LauncherProfile ZuniPod6 => Catalogue.LauncherForPart("KSArmory_Prefab_ZuniPod6")!;
+    public static MunitionProfile RocketZuni => Catalogue.MunitionNamed("ZUNI");
+    public static SensorProfile RocketSight => Catalogue.SensorNamed("ZUNISIGHT");
 }

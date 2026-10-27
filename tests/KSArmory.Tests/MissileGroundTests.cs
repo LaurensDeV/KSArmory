@@ -3,10 +3,8 @@ using Xunit;
 
 namespace KSArmory.Tests;
 
-/// <summary>
-/// A guided missile stops on the ground: one fired downhill used to fly through the hill still
-/// steering, because only an unguided round ever asked where the ground was.
-/// </summary>
+/// <summary>A guided missile stops on the ground rather than flying through a hill still steering.</summary>
+
 public class MissileGroundTests
 {
     private const double PlanetRadius = 6_000_000.0;

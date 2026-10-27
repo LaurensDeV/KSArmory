@@ -126,7 +126,7 @@ public class ShotRequestTests
 
     /// <summary>
     /// A bar with no aim, which is what a night flown at whatever the scene defends needs: the shot is judged
-    /// and the site is not moved. <c>mirv::5</c> -- an empty aim and a bar -- was refused as one field.
+    /// and the site is not moved. <c>mirv::5</c> is an empty aim and a bar, not one field.
     /// </summary>
     [Theory]
     [InlineData("5", 5_000.0)]
@@ -151,8 +151,8 @@ public class ShotRequestTests
     }
 
     /// <summary>
-    /// Several places, separated by ';'. One segment must still take the old path exactly, which is
-    /// what lets every scenario line ever written keep working.
+    /// Several places, separated by ';'. One segment must read exactly as a single place does, so
+    /// every existing scenario line keeps working.
     /// </summary>
     [Fact]
     public void SeveralPlacesAreSeparatedBySemicolons()

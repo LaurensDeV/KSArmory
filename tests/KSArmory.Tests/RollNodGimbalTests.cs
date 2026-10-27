@@ -7,14 +7,11 @@ namespace KSArmory.Tests;
 /// The roll-nod gimbal a targeting pod is hung on, which is a different mechanism from the mast
 /// head and not a variation of it.
 ///
-/// <para>What has to hold is one sentence with teeth: <b>the window's rotation, relative to the
+/// <para>What has to hold: <b>the window's rotation, relative to the
 /// shell's, is a pure tilt about an axis square to the pod's centreline.</b> The two bodies are one
 /// decomposition of one rotation, and a decomposition that does not decompose draws a nose whose
 /// ball twists inside its own shroud. Nothing but this can see it — the aim is correct either way,
 /// so the picture is right and the model is wrong.</para>
-///
-/// <para>The rest is the keyhole and the stop, both of which are the mechanism rather than a
-/// preference.</para>
 /// </summary>
 public class RollNodGimbalTests
 {
@@ -222,8 +219,8 @@ public class RollNodGimbalTests
     }
 
     /// <summary>
-    /// And every position on the sliders is reachable, so the travel clamp never moves a
-    /// hand-driven command — which is what kept the controls and the ball disagreeing.
+    /// Every position on the sliders is reachable, so the travel clamp never moves a hand-driven
+    /// command and the controls and the ball cannot disagree.
     /// </summary>
     [Fact]
     public void NothingTheHandControlsCanNameIsOutsideTheTravel()
@@ -293,8 +290,8 @@ public class RollNodGimbalTests
     }
 
     /// <summary>
-    /// A pod parks looking out of its own mounting face, because dead ahead is its keyhole. The
-    /// mast head keeps the old rest direction, which is along the host.
+    /// A pod parks looking out of its own mounting face, because dead ahead is its keyhole. A mast
+    /// head parks along the host.
     /// </summary>
     [Fact]
     public void APodStowsLookingDownAndAMastHeadAlongTheHost()
@@ -325,10 +322,6 @@ public class RollNodGimbalTests
                      OpticGeometry.ElevationRad(OpticGeometry.ClampToTravel(Mast(), aim)), 9);
     }
 
-    /// <summary>
-    /// The mast head's roll is unchanged by any of this, which is what says the branch was added
-    /// rather than the old behaviour rewritten.
-    /// </summary>
     [Fact]
     public void AMastHeadStillLeansItsUpTowardsItsMountingFace()
     {

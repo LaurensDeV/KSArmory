@@ -30,7 +30,6 @@ public class ScopeGeometryTests
         Assert.Equal(expectedDeg, ScopeGeometry.BearingRad(east, north) / Deg, 6);
     }
 
-    /// <summary>And it is always a bearing, never a negative angle.</summary>
     [Fact]
     public void BearingIsAlwaysPositive()
     {
@@ -57,7 +56,6 @@ public class ScopeGeometryTests
         Assert.Equal(0.0f, east.Y, 5);
     }
 
-    /// <summary>A contact on top of the site is at the centre, whatever its bearing.</summary>
     [Fact]
     public void ZeroRangeIsTheCentre()
     {
@@ -151,7 +149,6 @@ public class ScopeGeometryTests
         Assert.Equal(180.0, into[0] / Deg, 6);
     }
 
-    /// <summary>The craft's heading carries the whole picture round with it.</summary>
     [Fact]
     public void TheCraftsHeadingCarriesTheSweep()
     {
@@ -168,7 +165,6 @@ public class ScopeGeometryTests
         Assert.Equal(270.0, into[1] / Deg, 6);
     }
 
-    /// <summary>It wraps rather than running off, however far the array has turned.</summary>
     [Fact]
     public void TheSweepWrapsRatherThanRunningOff()
     {
@@ -259,8 +255,8 @@ public class ScopeGeometryTests
     }
 
     /// <summary>
-    /// Zero opens at the whole reach, and a setting saved against the old fixed table lands on the
-    /// nearest step rather than drawing a face that matches no button.
+    /// Zero opens at the whole reach, and a stored setting that is not a step lands on the nearest
+    /// one rather than drawing a face that matches no button.
     /// </summary>
     [Theory]
     [InlineData(0f, 36_000f)]

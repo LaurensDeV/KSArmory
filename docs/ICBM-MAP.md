@@ -1,6 +1,6 @@
 # A planet map to set ICBM targets on
 
-**Part record, part plan.** Phases 0 to 2 are built and on `dev`'s line; phase 3 is not. KSA
+**Part record, part plan.** What is built is on `dev`; **What is left** is not. Written and flown on KSA
 `2026.10.13.5602`.
 
 ## What is built
@@ -8,10 +8,11 @@
 | | |
 | --- | --- |
 | the surface | three patches on `GroundTrackWindow.DrawContent` and `GenericImGuiViewport.CreateDraggableZoomableViewport` — the rect, the draw, and KSA's own crop taken as it is worked out |
-| the marks | the target set with the lead filled and warhead counts, and the divert footprint walked round and projected |
+| the marks | the target set with the lead filled and warhead counts, each target's fireball, lethal and blast rings (skipped while under a few pixels), the craft, and the divert footprint walked round and projected (`Ksa/GroundTrackMarks.cs`) |
 | the click | a release near its own press reads back a place and hands it to `TargetEdit.ClickDoes` and `ReachDisplay.Verdict`, the same rules a world click obeys |
 | the controls | on the Ballistic tab, beside the clicking mode they extend; the calibration grid stays developer-only |
 | the levers | `ground_track` and `designate` on the bridge, so a map can be opened, centred on a place and targeted without a mouse |
+| a window of its own | the installation's own map (`Ksa/Ui/UiPlanetMap.cs`, `Ksa/PlanetMap.cs`, `Ksa/PlanetMapHook.cs`): KSA's exporter rendered for the panel's craft, with the target list beside it and KSA's own pan-and-zoom viewport; right-click removes a target |
 
 **Flown:** the crop agrees with KSA's at zoom 1, 2, 7, 25, 120, 900 and 5000; the lead's screen
 position is consistent to a pixel between zoom 1 and 300 against an image rect solved from the
@@ -85,5 +86,5 @@ Earth today, so a set that silently mixed them would not show up in testing.
 | A KSA update moves the crop arithmetic | marks placed with a stale crop sit somewhere plausible | the live check warns once and the marks use KSA's own answer |
 | A KSA update moves a private field read by reflection | the bridge cannot drive the map | refuses with a reason; the feature itself does not depend on it |
 | Clicking at full-planet zoom | a click reads as precise and is not | show its resolution at the current zoom; the pane stays the exact route |
-| Drawing per-target rings at true scale | a lethal radius is sub-pixel at planet zoom | a minimum pixel size, as the world rings already do |
+| Drawing per-target rings at true scale | a lethal radius is sub-pixel at planet zoom | today a ring under `RingLeastPx` (6 px) is not drawn at all; a minimum drawn size is not built |
 | Target set mixing bodies | a warhead aimed at a place not on this planet | assert on `AimSite.BodyName` |

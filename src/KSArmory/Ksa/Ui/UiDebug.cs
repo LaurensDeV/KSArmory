@@ -5,9 +5,6 @@ namespace KSArmory;
 
 /// <summary>
 /// Development tools: spawning targets, moving craft, setting off warheads by hand, and the log.
-///
-/// <para>Nothing here is part of playing with the mod, which is why it all sits in the debug windows
-/// rather than alongside the system panes.</para>
 /// </summary>
 internal sealed partial class Ui
 {
@@ -56,9 +53,7 @@ internal sealed partial class Ui
                 double height = _config.BurstHeightMetres;
                 double coupling = MushroomCloud.GroundCoupling(kt, height);
 
-                // The air that high over the craft being flown, which is what decides whether there is a
-                // mushroom at all -- said in so many words, because from the ground a burst over the air
-                // looks like nothing happened.
+                // Said outright, because from the ground a burst above the air looks like nothing happened.
                 double air = KsaWorld.ControlledVehicle is { } flying
                                  ? KsaWorld.AirDensityRatioAt(flying, KsaWorld.PositionEcl(flying)
                                                                      + (KsaWorld.LocalUp(flying) * height))
@@ -107,8 +102,6 @@ internal sealed partial class Ui
             }
         }
 
-        // Straight overhead, for when the pointer is not the question -- it needs no aim and no
-        // ground under it, so it still answers "does the effect work at all".
         if (Build.Developer)
         {
             ImGui.SliderFloat("Shader pass", ref _config.ShaderPass, 0f, 1f, "%.2f");
@@ -130,7 +123,6 @@ internal sealed partial class Ui
         }
     }
 
-    // A burst overhead, where it cannot be missed.
     private void FireTestBurst()
     {
         if (!_crewed || _system.Platform is not { } platform)
@@ -145,8 +137,7 @@ internal sealed partial class Ui
         Detonation.Explode(at, chargeKg, platform);
     }
 
-    // Inline beside the other test aids rather than on a component row: it is not something a
-    // Mk 82 rack "has", and the answer to "why are the fins moving" must not be behind a fold.
+    // Not on a component row: no rack "has" it, and why the fins move must not be behind a fold.
     private void DrawFinTest()
     {
         ImGui.Checkbox("Sweep seated fins (built-in test)", ref _config.FinTestSweep);
@@ -158,8 +149,6 @@ internal sealed partial class Ui
         foreach (WeaponSystems.Entry e in _roster.All)
             if (e.Weapon.Munition.FinsPerRound > 0) hinged++;
 
-        // Says nothing is happening rather than leaving the tick box looking broken: every
-        // launcher in the world may well have no hinged blades to sweep.
         if (hinged == 0)
             ImGui.TextDisabled("  no launcher in this world carries hinged fins");
         else
@@ -190,7 +179,6 @@ internal sealed partial class Ui
         }
     }
 
-    // Reused each frame so the list does not allocate per draw.
     private readonly List<(string Id, bool HasAir)> _bodies = [];
 
     private void DrawSendToBody()
@@ -226,7 +214,6 @@ internal sealed partial class Ui
                     Log.Warn($"could not place {KsaWorld.DisplayName(craft)} on {id}");
             }
 
-            // Which burst a test there will get, since that is the whole reason to go.
             Tip(hasAir
                     ? "Has an atmosphere: a nuclear burst grows a mushroom cloud."
                     : "Airless: a nuclear burst throws a dust dome and a debris shell instead.");
@@ -235,8 +222,7 @@ internal sealed partial class Ui
 
     private void DrawTestTargets()
     {
-        // Flown past the craft the panel shows, which needs no weapons system: a director alone is
-        // something to point at them, and an unarmed craft is something to watch them pass.
+        // Needs no weapons system: a director or an unarmed craft is enough to watch them pass.
         KSA.Vehicle? platform = _crewed ? _system.Platform : Focused;
         if (platform is null)
         {
@@ -250,7 +236,6 @@ internal sealed partial class Ui
         ImGui.SliderFloat("Speed (m/s)", ref _spawnSpeed, 50f, 2000f);
         ImGui.SliderFloat("Miss distance (m)", ref _spawnMiss, 0f, 5000f);
 
-        // Spawning beyond radar range is the easiest way to see nothing happen at all.
         float spawnRange = _spawnSpeed * _spawnSeconds;
         if (sensorRange is not { } range)
         {
@@ -267,8 +252,6 @@ internal sealed partial class Ui
             ImGui.TextDisabled($"spawns {spawnRange / 1000f:F1} km out, inside sensor range");
         }
 
-        // Which craft to fly as the drone. A stock vessel reads as an actual intruder;
-        // cloning the launcher means air-defence sites attacking air-defence sites.
         ImGui.SliderInt("Drone type", ref _spawnCraft, 0, TestTarget.StockCraft.Length);
         string craft = _spawnCraft < TestTarget.StockCraft.Length
             ? TestTarget.StockCraft[_spawnCraft]
@@ -302,8 +285,6 @@ internal sealed partial class Ui
 
     }
 
-    // Logging and the world dump: developer switches, so they sit with the others rather than
-    // with the target spawner.
     private void DrawLogging()
     {
         if (ImGui.Checkbox("Verbose log", ref _config.VerboseLog))
@@ -336,8 +317,6 @@ internal sealed partial class Ui
     private void DrawDiagnostics()
     {
 
-        // Writes the system's whole world view to the log, including why each nearby vehicle was
-        // or was not tracked. Far more useful than staring at an empty screen.
         ImGui.BeginDisabled(!_crewed);
         if (ImGui.Button("Write diagnostic dump"))
         {
@@ -369,9 +348,7 @@ internal sealed partial class Ui
             ImGui.TextDisabled("  on -- release and impact only; tick Verbose log for the rest");
         }
 
-        // A diagnostic about the render rate rather than a state of any weapon: it means the
-        // frames are outrunning the simulation clock, which is what explains stuttering round
-        // bodies. Reads the selected system, so it needs one.
+        // Frames outrunning the simulation clock, which is what makes round bodies stutter.
         if (_crewed && _system.FramesWithoutSimStep > 0)
         {
             ImGui.TextColored(Amber,

@@ -4,25 +4,16 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
-/// The rows describing an optical director: what it is looking at, what it is looking through, and
-/// which contacts it will watch.
-///
-/// <para>Split from <see cref="Ui"/>'s weapons-system panes because a director is not one. It is a
-/// part in its own right, crewed per head rather than per weapons system, and nothing here reads
-/// <c>_system</c> or <c>_policy</c> — a craft carrying one director and no armament has every row
-/// below and none of those.</para>
+/// The rows describing an optical director. Nothing here reads <c>_system</c> or <c>_policy</c>:
+/// a craft carrying one director and no armament has every row below and neither of those.
 /// </summary>
 internal sealed partial class Ui
 {
-    // Which of the game's camera views an optical director drives, and how far its optics are
-    // wound in. The head is a part in its own right, so this reads the head fitted to the craft
-    // being shown rather than anything belonging to the weapons system.
     private void DrawOpticView(OpticalHeads.Entry entry)
     {
         OpticConfig policy = entry.Policy;
 
-        // Declared and unresolved is a fault worth saying out loud. A head that is fitted and
-        // cannot be found looks exactly like one that is not fitted, and both then show nothing.
+        // Said outright: a head fitted and not found otherwise looks like one not fitted.
         if (entry.Head.OpticPart is null)
         {
             ImGui.TextColored(Amber, "Optical director: head subpart not found");
@@ -38,8 +29,6 @@ internal sealed partial class Ui
         int main = KsaWorld.MainViewportIndex;
         bool onWindow = policy.Viewport >= 0 && policy.Viewport != main;
 
-        // Buttons, all three: each opens or takes something, and a radio or a tick box reads as a
-        // setting while a window arrives somewhere else.
         bool spare = KsaWorld.SpareCameraWindows > 0;
         if (!onWindow && !spare) ImGui.BeginDisabled();
         if (Toggle("Camera", onWindow))
@@ -101,11 +90,8 @@ internal sealed partial class Ui
 
         if (policy.Manual)
         {
-            // Named and bounded by the head's own gimbal. A pod has no bearing and no elevation,
-            // and driving it in those terms cross-couples the two: changing the elevation moves
-            // the roll the shell is sent to as well, so the nose turns when only the ball should
-            // tilt. It also names directions past the nod stop, which the travel clamp then moves
-            // -- leaving the sliders reading one thing and the ball pointing at another.
+            // In the gimbal's own axes: bearing and elevation on a pod cross-couple roll and nod,
+            // and name directions past the nod stop that the travel clamp then moves.
             bool rollNod = entry.Head.Profile.Gimbal == GimbalKind.RollNod;
             var (first, second) = OpticGeometry.ManualRanges(entry.Head.Profile);
 
@@ -122,13 +108,10 @@ internal sealed partial class Ui
 
         DrawOpticSettings(entry.Head, policy);
 
-        // The chosen window has gone, so stop writing to something that is no longer shown.
         if (onWindow && !KsaWorld.IsUsableCameraWindow(policy.Viewport)) policy.Viewport = -1;
     }
 
-    // The laser's switch and what it is doing, in words. On a camera window the switch is on the
-    // picture, so here it is reported rather than duplicated. The code is under Settings: it
-    // matters only to a weapon homing on it, and the default does.
+    // On a camera window the switch is on the picture, so here it is only reported.
     private void DrawLaser(OpticalHead head, OpticConfig policy, bool onWindow)
     {
         if (onWindow)
@@ -181,7 +164,6 @@ internal sealed partial class Ui
             + "1111 to 1788: the first 1, the second 1-7, the last two 1-8.");
     }
 
-    // A button that shows whether what it opens is open.
     private static bool Toggle(string label, bool on)
     {
         if (on) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
@@ -190,10 +172,7 @@ internal sealed partial class Ui
         return pressed;
     }
 
-    // Magnification and symbology. Detents rather than a slider: a real sight has optical stops,
-    // and a factor arrived at by dragging is one nobody can return to.
-    // There is one main view, so one head at a time may be pointed at it. Secondary viewports
-    // need no exclusion -- each is its own window and two heads can fill two of them.
+    // One main view, so one head at a time; camera windows are excluded per window in TakeWindow.
     private void TakeMainView(OpticConfig policy, int main)
     {
         foreach (OpticalHeads.Entry other in _headScratch)
@@ -221,6 +200,7 @@ internal sealed partial class Ui
         policy.Viewport = index;
     }
 
+    // Detents rather than a slider: a factor arrived at by dragging is one nobody can return to.
     private static void DrawMagnification(OpticalHead head, OpticConfig policy)
     {
         ImGui.Text("Zoom:");
@@ -240,7 +220,6 @@ internal sealed partial class Ui
         }
     }
 
-    // What nobody needs on the way past, folded.
     private void DrawOpticSettings(OpticalHead head, OpticConfig policy)
     {
         if (!ImGui.TreeNode("Settings")) return;
@@ -259,15 +238,7 @@ internal sealed partial class Ui
         ImGui.TreePop();
     }
 
-    // What the head is following right now, and the only way to stop it.
-    //
-    // A status, kept apart from the team picker below, which is a policy: one says what the head is
-    // doing and the other says what it is allowed to do, and a heading that sounds like the first
-    // over controls that are the second is worse than either alone.
-    //
-    // The Release button is the whole exit. Nothing else clears a designation -- a craft that dies
-    // takes its own with it, and ground never dies, so without this a shift-click on a hillside is
-    // followed for the rest of the session.
+    // Release is the only thing that clears a designation on the ground, which never dies.
     private void DrawWhatItWatches(OpticalHead head, OpticConfig policy)
     {
         if (head.Designation.Kind != AimpointKind.None)
@@ -291,8 +262,6 @@ internal sealed partial class Ui
             return;
         }
 
-        // The craft's picture holding something this head is not watching is the answer to "why
-        // is it not looking at the contact the IRST has".
         string? pictured = head.Pictured switch
         {
             KSA.Vehicle v => KsaWorld.DisplayName(v),

@@ -6,14 +6,10 @@ namespace KSArmory;
 /// What the ground under a burst adds to its blast at a point, as a multiple of the free-air
 /// overpressure there.
 ///
-/// <para><b>On the ground it is the hemisphere</b>: the half of the energy that would have gone down
-/// is reflected up, so everything is loaded as though by twice the charge. <b>In the air it is the
-/// reflection</b>: near ground zero the front strikes the ground and is reflected, and past an
-/// incidence of about 40° the two merge into the Mach stem, one front standing on the ground and
-/// carrying the reflected overpressure -- twice the incident for a weak front, up to eight for a
-/// strong one (Glasstone and Dolan, 3.23-3.33). A point above the stem feels the free-air front.
-/// That is why weapons are air-burst: at the right height the stem loads the ground harder than a
-/// surface burst of the same yield.</para>
+/// <para><b>On the ground it is the hemisphere</b>: twice the charge. <b>In the air it is the
+/// reflection</b>: past about 40° incidence the incident and reflected fronts merge into the Mach stem,
+/// carrying twice the incident overpressure for a weak front and up to eight for a strong one (Glasstone
+/// and Dolan, 3.23-3.33). A point above the stem feels the free-air front.</para>
 ///
 /// <para>The damage law goes as the cube of the distance, so a pressure multiple is exactly a charge
 /// multiple, and a caller applies this by scaling the charge.</para>

@@ -32,7 +32,6 @@ public sealed class Ledger(int maxPerDay, TimeSpan duplicateWindow)
     private int _filedToday;
     private DateOnly _today;
 
-    /// <summary>Issues filed so far today, for whoever wants to watch the ceiling approach.</summary>
     public int FiledToday
     {
         get { lock (_gate) { return _filedToday; } }

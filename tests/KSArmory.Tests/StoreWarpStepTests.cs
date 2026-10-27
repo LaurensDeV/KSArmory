@@ -9,9 +9,8 @@ namespace KSArmory.Tests;
 ///
 /// <para>Both step fields default to <see cref="Interceptor.MaxFaithfulStep"/>, which bounds how
 /// far a round may move before it steps over its own <see cref="MunitionProfile.FuseRadius"/>. A
-/// store with no proximity fuse is not bounded by that at all, and leaving it there asked
-/// <see cref="WarpPolicy"/> to hold the world at about 19x for a fall lasting minutes — which ends
-/// in the store being abandoned.</para>
+/// store with no proximity fuse is not bounded by that at all, and left there it would ask
+/// <see cref="WarpPolicy"/> to hold the world at about 19x for a fall lasting minutes.</para>
 /// </summary>
 public class StoreWarpStepTests(ITestOutputHelper Out)
 {

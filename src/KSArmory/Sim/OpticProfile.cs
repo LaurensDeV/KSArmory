@@ -38,8 +38,8 @@ public enum GimbalKind
 /// One optical head: where it sits, how fast it turns, and what it sees with.
 ///
 /// <para>Its own profile type rather than fields on <see cref="LauncherProfile"/>, because a head
-/// need not be part of a launcher. It bolts to anything, finds its own targets and drives the
-/// player's view, so a craft carrying nothing else is an observation post.</para>
+/// need not be part of a launcher. It bolts to anything, holds what it is cued with and drives
+/// the player's view, so a craft carrying nothing else is an observation post.</para>
 ///
 /// <para>Two bodies and no named axes. A head is aimed by the shortest rotation onto the
 /// commanded direction — see <see cref="PointingDrive"/> — which has no singularity looking
@@ -107,20 +107,14 @@ public sealed class OpticProfile
     /// </summary>
     public float EyeForward = 0.30f;
 
-    /// <summary>
-    /// How fast the head slews (deg/s). The rate limit is the whole point: writing the commanded
-    /// direction straight to the part snaps the head onto a track the instant there is one, which
-    /// reads as a fault rather than as a sight.
-    /// </summary>
+    /// <summary>How fast the head slews (deg/s); <see cref="PointingDrive"/> has why it is limited.</summary>
     public float SlewRateDeg = 90f;
 
     /// <summary>
     /// How far down the head may look (deg, negative below the mounting face).
     ///
-    /// <para>Not a preference. The window and its hood stand off the pivot by more than the mast
-    /// stops short of it, so a head pointed straight down puts its lens through its own mount. No
-    /// geometry fixes that — a ball on a mast cannot see past what holds it up — which is why a
-    /// real director has the same limit for the same reason.</para>
+    /// <para>Not a preference: below it the window puts its lens through its own mount
+    /// (<see cref="OpticGeometry.ClampToTravel(OpticProfile, MountFrame, double3)"/>).</para>
     /// </summary>
     public float MinElevationDeg = -20f;
 

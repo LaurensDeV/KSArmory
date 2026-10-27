@@ -7,10 +7,9 @@ namespace KSArmory.Tests;
 /// two differently asks <see cref="MunitionProfile.Powered"/>, and none of it may ask whether the
 /// round is guided.
 ///
-/// <para>The distinction is not academic. Keying these on "unguided" is what left a guided bomb
-/// rack refusing its own trigger for "no lock" — on a rack carrying no radar to lock with — and
-/// silently switched its bomb sight off at the same time. Both are invisible to every other check
-/// in the repository: the part loads, the round seats, the log says nothing.</para>
+/// <para>Keyed on "unguided", a guided bomb rack refuses its own trigger for "no lock" — on a rack
+/// carrying no radar to lock with — and switches its bomb sight off. Nothing else in the repository
+/// sees either: the part loads, the round seats, the log says nothing.</para>
 /// </summary>
 [Collection("catalogue")]
 public class ReleasedStoreTests

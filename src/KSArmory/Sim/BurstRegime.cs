@@ -3,8 +3,8 @@ namespace KSArmory;
 /// <summary>
 /// Which of a burst's behaviours the air it went off in switches on, each keyed on the physics that
 /// decides it rather than on one density: pressure for the blast, the fireball against the scale height
-/// for the mushroom, and the column above for whether X-rays escape. On Earth each reproduces the
-/// threshold it replaces; on another body each moves by what actually differs there.
+/// for the mushroom, and the column above for whether X-rays escape. Each gives Earth's threshold on
+/// Earth and moves by what actually differs on another body.
 /// </summary>
 internal static class BurstRegime
 {

@@ -950,7 +950,6 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         return true;
     }
 
-    // IcbmComputer.DriveTrim, less its logging.
     // IcbmComputer.ReleaseAnArrivalTheTrimCannotFly, less its wait for a flown prediction.
     private void ReleaseAnArrivalTheTrimCannotFly(in TrimCommand trim, in IcbmState state)
     {
@@ -969,6 +968,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
         if (Program.TryCommitTheCheapestArrival(state)) _trim.Resume();
     }
 
+    // IcbmComputer.DriveTrim, less its logging.
     private TrimCommand DriveTrim(double step, in IcbmState state)
     {
         if (!Config.TrimBeforeRelease || !_command.ReadyToDeploy || Program.ReleasesAtCutoff) return default;

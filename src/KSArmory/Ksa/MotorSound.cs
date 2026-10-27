@@ -20,21 +20,16 @@ internal sealed class MotorSound(Config config)
 {
     private readonly Config _config = config;
 
-    // Core's engine loop, standing in until the mod ships its own sample: it resolves on every
-    // install, which a mod-supplied Id does not until the asset is actually there.
+    // Core's engine loop: it resolves on every install.
     private const string DefaultMotorId = "DefaultEngineSoundBehavior";
 
-    // Core's engine loop is driven by a Throttle parameter, and everything about how it sounds
-    // hangs off it: Sounds.xml maps throttle 0 to 0.1x volume AND 0.5x pitch. Left unset it plays
-    // at a tenth of its level, an octave down. A rocket motor has one setting, so this is pinned
-    // wide open rather than being anything the round decides.
+    // Sounds.xml maps Throttle 0 to 0.1x volume and 0.5x pitch, so left unset the loop plays a tenth
+    // as loud and an octave down. A rocket motor has one setting.
     private static readonly KeyHash ThrottleHash = KeyHash.Make("Throttle");
     private const float FullThrottle = 1f;
 
-    // Owner alongside the channel. The table is keyed on the round, and Update is called once
-    // per system, so without an owner every system's sweep treats every other system's rounds as
-    // orphans: with two systems firing, each cuts the other's the instant it runs, and every
-    // channel is stopped and restarted once per system per frame.
+    // Update runs once per system, so without an owner each system's sweep would cut every other
+    // system's channels as orphans.
     private readonly Dictionary<IProjectile, (IRoundsInFlight Owner, IChannel Channel)> _burning = [];
     private readonly List<IProjectile> _finished = [];
 
@@ -104,21 +99,18 @@ internal sealed class MotorSound(Config config)
         _finished.Clear();
     }
 
-    // The round's own profile, never the system's. Cannon shells share the system's round list
-    // and carry a different munition: measured against the missile's burn they would each get a
-    // rocket motor for two seconds, and a burst is twelve of them a second. A shell has no motor,
-    // which its own BoostSeconds of zero already says.
+    // The round's own profile, never the system's: cannon shells share the round list and carry
+    // a munition whose BoostSeconds is zero.
     private static bool Burning(IProjectile round)
         => round.State == RoundState.Flying
            && round.Munition.TotalBoostSeconds > 0f
-           && round.Age <= round.Munition.TotalBoostSeconds;
+           && round.MotorBurning;
 
     private void Follow(IProjectile round, IRoundsInFlight system,
                         double3 platformEgo, double3 platformVelEgo, double pressure)
     {
-        // Built from the round's offset from its platform, never from an absolute Ecl position
-        // converted on its own. The offset is the one quantity the mod already keeps epoch-clean,
-        // and at 29.8 km/s the alternative is audibly in the wrong place.
+        // From the round's offset from its platform, which is epoch-clean; an absolute Ecl position
+        // converted on its own is a step of 29.8 km/s out.
         double3 posEgo = platformEgo + round.OffsetFromPlatform;
         double3 velEgo = platformVelEgo + round.VelocityLocal;
 

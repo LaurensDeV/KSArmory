@@ -69,7 +69,6 @@ public class ArrivalFloorTests(ITestOutputHelper Out)
     {
         BallisticArc.Solution shot = DeorbitShot.Shot(out double3 _, out double3 _);
 
-        // Measured on the code before the floor was threaded through, and reproduced by it exactly.
         Assert.Equal(487.3176637923442, shot.CheapestFlightSeconds, 9);
         Assert.Equal(487.3176637923442, shot.FlightSeconds, 9);
         Assert.Equal(-309.36951058623885, shot.RequiredVelocityCci.X, 9);
@@ -303,8 +302,8 @@ public class ArrivalFloorTests(ITestOutputHelper Out)
 
     /// <summary>
     /// And going back to the pad un-flies it, like everything else <see cref="IcbmProgram.Reset"/>
-    /// clears. It cleared twenty-five fields and not this one, so a vehicle that once could not
-    /// afford its arrival carried the claim into every later flight.
+    /// clears, or a vehicle that once could not afford its arrival carries the claim into every
+    /// later flight.
     /// </summary>
     [Fact]
     public void ResetClearsTheUnaffordableFloor()
@@ -331,9 +330,8 @@ public class ArrivalFloorTests(ITestOutputHelper Out)
     /// degrees, costing 5.0, 6.2, 7.5, 7.4 and 8.1 km/s, which is the orbital velocity being
     /// spent. Only a demand to arrive <em>exactly</em> vertically has no window at all, because a
     /// transfer arriving radially at a point is the degenerate case where no plane is determined.
-    /// Mid-ascent is where a floor is a wall, and
-    /// <see cref="AFloorNothingReachesIsNamedRatherThanReportedAsAnUnreachableTarget"/> is
-    /// that.</para>
+    /// Mid-ascent is where no arc satisfies a floor, and
+    /// <see cref="AFloorNothingReachesIsFlownAtWhatIsAffordableAndSaidSo"/> is that.</para>
     /// </summary>
     [Fact]
     public void AFloorNoWindowReachesIsNamedToo()
@@ -360,7 +358,7 @@ public class ArrivalFloorTests(ITestOutputHelper Out)
     /// <para>What that costs is measured here. Over 10 to 30 degrees the flown arrival is within
     /// 2.2 degrees of the arc: steeper below about 13 degrees, where the air bends a graze up, and
     /// shallower above, where it bleeds the speed that held the arc steep. So a floor set at 30
-    /// lands nearer 28 (<c>docs/ARRIVAL-ANGLE.md</c>).</para>
+    /// lands nearer 28 (<c>docs/ARRIVAL-ANGLE.md</c>, "Measured on the arc, not through the air").</para>
     /// </summary>
     [Fact]
     public void TheArcAndWhatLandsDifferByUnderTwoAndAHalfDegreesTheAirsWay()

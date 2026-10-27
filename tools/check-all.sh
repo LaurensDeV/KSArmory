@@ -6,13 +6,10 @@
 #     ./tools/check-all.sh --with-sweep # ...plus the drive sweep, which is ~43 s on its own
 #     ./tools/check-all.sh --list       # name the checks and exit
 #
-# This is the script `.githooks/pre-push` runs and the one `ci.yml` calls, so the two cannot
-# drift. That is the same one-script-two-callers discipline check-commit-msg.sh uses: one list,
-# so "before you open a PR" and "what CI runs" cannot mean different things.
+# `.githooks/pre-push` and `ci.yml` both run this script, so the two cannot drift.
 #
-# Checks needing the game assemblies are skipped with a notice rather than failing: a contributor
-# without KSA can still run most of this, and saying which ones were skipped is the difference
-# between "it passed" and "it passed what it could".
+# A check needing the game assemblies is skipped and named rather than failed, so a contributor
+# without KSA can run the rest and see what was not run.
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -31,9 +28,8 @@ done
 
 ATLAS="src/KSArmory/Meshes/KSArmory_MeshAtlas.glb"
 
-# Every other atlas is authored, and authored art is the only art nobody can rebuild from a clean
-# checkout -- so this is its one gate. Globbed rather than named: a hand-listed atlas is how the
-# third one ships unchecked while this script still exits 0.
+# Every other atlas is authored and cannot be rebuilt from a clean checkout, so this is its one
+# gate. Globbed, so a new atlas cannot be left off a hand-kept list.
 AUTHORED_ATLASES=()
 for glb in src/KSArmory/Meshes/*.glb; do
     [[ -f "$glb" && "$glb" != "$ATLAS" ]] && AUTHORED_ATLASES+=("$glb")
@@ -81,9 +77,8 @@ else
     skip "Shell tooling is sane" "shellcheck not installed"
 fi
 
-# Above the assemblies gate on purpose: the feedback service never loads KSA, so its rules are
-# checkable on any machine. They decide what a stranger's text becomes on a public page, which is
-# not something to leave until someone happens to have a game install.
+# Above the assemblies gate: the feedback service never loads KSA, so its rules are checkable on
+# any machine.
 if (( LIST )) || command -v dotnet >/dev/null 2>&1; then
     run "Feedback service rules"    ./tools/test-api.sh
 else
@@ -113,10 +108,8 @@ else
     skip "Mesh has no z-fighting or degenerate UVs" "no atlas at $ATLAS"
 fi
 
-# The authored atlas, with the proximity advisory off and the two hard checks on. That band is
-# calibrated to box()'s 8 mm modelling skin; a mesh authored in the Blender UI has no skin, so it
-# reports every deliberate panel step rather than a defect. Zero-UV-area triangles and exact
-# coplanar overlaps are never deliberate, so those still run.
+# The proximity band is calibrated to box()'s 8 mm modelling skin, which an authored mesh does not
+# have, so it is off; zero-UV-area triangles and exact coplanar overlaps still run.
 if (( LIST )) || (( ${#AUTHORED_ATLASES[@]} )); then
     run "Authored meshes have no z-fighting or degenerate UVs" \
         ./tools/model/checkmesh.py "${AUTHORED_ATLASES[@]}" --near-max 0
@@ -136,16 +129,15 @@ fi
 
 run "Thruster rings steer on their axial pair" ./tools/model/checkring.py --check
 
-# Slow, and off by default: the defect it finds is only reachable by changing the model or the
-# drive limits, so it does not belong in the loop you run on every push.
+# Off by default: the defect it finds is only reachable by changing the model or the drive limits.
 if (( WITH_SWEEP )) || (( LIST )); then
     run "Nothing adrift or passing through" ./tools/model/checkswept.py --step 2 --bearing-step 5
 fi
 
 if (( LIST )) || have_assemblies; then
     run "Build"                 ./tools/build.sh
-    # The guards. The ten flight-model studies are left out for the reason the drive sweep above
-    # is: they assert no behaviour, and CI runs them in a step of its own.
+    # The guards only: the flight-model studies assert no behaviour, and CI runs them in a step of
+    # its own.
     run "Test"                  ./tools/test.sh
     run "KSA API surface"       ./tools/api-surface.sh --check
     run "Assemblies match lock" ./tools/check-assemblies.sh

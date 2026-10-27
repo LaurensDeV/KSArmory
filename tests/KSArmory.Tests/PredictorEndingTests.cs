@@ -5,11 +5,8 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Which way out a prediction that found no impact took.
-///
-/// <para>From outside every exit is the same <c>false</c>, and the release probe's flown failures took
-/// the one that costs most: the whole six-hour horizon at the air step, about 85,000 steps, for a state
-/// a millimetre from one that lands. <c>docs/ACCURACY-PLAN.md</c> 3ep.</para>
+/// Every exit without an impact is the same <c>false</c> from outside; the costly one flies the whole six-hour
+/// horizon at the air step, about 85,000 steps, from a state a millimetre from one that lands. ACCURACY-PLAN 3ep.
 /// </summary>
 public class PredictorEndingTests(ITestOutputHelper Out)
 {
@@ -103,7 +100,8 @@ public class PredictorEndingTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// The flown failure, as the log will now name it: the air step's stages dip under the mean sphere
+    /// The flown failure: the air step's stages dip under the mean sphere
+
     /// beneath 204 m of ground, read the ocean there, and throw the warhead off the planet faster than it
     /// can escape — so nothing is ever under the ground again and the whole horizon is flown.
     /// </summary>

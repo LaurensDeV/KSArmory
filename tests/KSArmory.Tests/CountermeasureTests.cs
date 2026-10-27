@@ -4,12 +4,8 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Flares and chaff against a seeker: which decoy fools which seeker, how often, and that a seeker
-/// no decoy can fool flies exactly as it did before there were any.
-///
-/// <para>Every seduction case is flown over many seeds and asserted as a rate, because a decoy takes a
-/// seeker with a probability. Each has a partner that must <em>not</em> be decoyed on the same
-/// geometry, so a rate proves the decoy did it rather than the geometry being unwinnable.</para>
+/// A decoy takes a seeker with a probability, so each case is a rate over seeds, with a partner on
+/// the same geometry that must <em>not</em> be decoyed — so the decoy did it, not the geometry.
 /// </summary>
 public class CountermeasureTests
 {
@@ -54,8 +50,8 @@ public class CountermeasureTests
     private static readonly Geometry Beaming = new(new(3000, 0, 0), new(0, 220, 0), new(0, 0, -30));
 
     /// <summary>
-    /// Flies one engagement, the target dispensing a cartridge of <paramref name="decoy"/> every
-    /// <paramref name="interval"/> seconds from one second in. True if the round reached the target.
+    /// The target dispenses a cartridge every <paramref name="interval"/> seconds from one second in;
+    /// a hit is a pass within 25 m.
     /// </summary>
     private static (bool Hit, bool EverDecoyed) Fly(MunitionProfile munition, DecoyProfile? decoy, int seed,
                                                     Geometry g, double3 carrier = default,
@@ -289,8 +285,6 @@ public class CountermeasureTests
         Assert.Null(seeker.Steer(SeekerPick.Lost, target));
     }
 
-    // ---- The decoys themselves ------------------------------------------
-
     [Fact]
     public void AFlareIsBrightAtOnceAndChaffBlooms()
     {
@@ -318,7 +312,6 @@ public class CountermeasureTests
         Assert.True(chaff.VelocityEcl.Z is < 0.0 and > -3.0, $"chaff sinking at {chaff.VelocityEcl.Z:F2} m/s");
     }
 
-    /// <summary>A decoy on the ground lies there, carried with the ground, and still burns out on time.</summary>
     [Fact]
     public void ALandedDecoyLiesWhereItFellAndBurnsOut()
     {
@@ -351,8 +344,6 @@ public class CountermeasureTests
         double elapsed = 90 * Dt;
         Assert.True(Vec.Len(moving.PositionEcl - (carrier * elapsed) - still.PositionEcl) < 1e-6);
     }
-
-    // ---- The dispenser ---------------------------------------------------
 
     [Fact]
     public void ASalvoIsSpacedOnSimulatedTimeAtAnyFrameRate()

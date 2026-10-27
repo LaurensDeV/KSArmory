@@ -11,7 +11,7 @@ ignored.
 
 `docs/WEAPON-PACKS.md` is the same surface written for the author, with the reasons attached.
 
-**Definition schema 1.** 8 elements, 171 attributes, 15 entry-point lines.
+**Definition schema 1.** 8 elements, 177 attributes, 15 entry-point lines.
 
 ## Entry point
 
@@ -41,6 +41,7 @@ to build; widening it to take a profile type would put that back.
 | Attribute | Reads | Default |
 | --- | --- | --- |
 | `Name` | text, required | **required** |
+| `Guidance` | one of `Seeker`, `AntiRadiation`, `CommandLink`, `Inertial`, `None` | `CommandLink` |
 | `DisplayName` | text, required | **required** |
 | `BodyMarker` | text | *none* |
 | `BodyModel` | text | *none* |
@@ -56,8 +57,8 @@ to build; widening it to take a profile type would put that back.
 | `FinsPerRound` | whole number | `0` |
 | `FinStowedScale` | number | `0.06` |
 | `LaunchSpeed` | number | `45` |
-| `BoostSeconds` | number | `2.4` |
-| `BoostAccel` | number | `520` |
+| `BoostSeconds` | number | `2.4`, or `0` for `None` and `Inertial` |
+| `BoostAccel` | number | `520`, or `0` for `None` and `Inertial` |
 | `MaxFlightSeconds` | number | `30` |
 | `MaxFaithfulStepSeconds` | number | *the flight model's own* |
 | `PreferredStepSeconds` | number | `0` |
@@ -66,7 +67,6 @@ to build; widening it to take a profile type would put that back.
 | `MaxRange` | number | `20000` |
 | `NavConstant` | number | `4` |
 | `MaxLateralG` | number | `35` |
-| `Guidance` | one of `Seeker`, `AntiRadiation`, `CommandLink`, `Inertial`, `None` | `CommandLink` |
 | `SeekerFovDeg` | number | `55` |
 | `SeekerBand` | one of `Radar`, `Infrared`, `None` | `Radar` |
 | `CountermeasureResistance` | number | `0` |
@@ -141,6 +141,8 @@ to build; widening it to take a profile type would put that back.
 | `GunRodMarker` | text | *none* |
 | `GunFeedMarker` | text | *none* |
 | `GunRotorMarker` | text | *none* |
+| `EjectorArmMarker` | text | *none* |
+| `CarriageMarker` | text | *none* |
 | `TurretPivot` | three numbers | `0, 0, 0` |
 | `PodPivotFromTurret` | three numbers | `0, 0, 0` |
 | `RadarPivotFromTurret` | three numbers | `0, 0, 0` |
@@ -174,6 +176,10 @@ to build; widening it to take a profile type would put that back.
 | `LaunchAlongTube` | true or false | `true` |
 | `LaunchLoft` | number | `0.35` |
 | `EjectAwayFromMount` | number | `0` |
+| `EjectSpeed` | number | `0` |
+| `MotorDelaySeconds` | number | `0` |
+| `EjectorStrokeMetres` | number | `0` |
+| `EjectorReturnSeconds` | number | `0.8` |
 | `MuzzleOffset` | number | `8` |
 | `GunAmmo` | whole number | `480` |
 | `StoreMassKg` | number | `0` |

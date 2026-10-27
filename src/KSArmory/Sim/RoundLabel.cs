@@ -3,17 +3,9 @@ namespace KSArmory;
 /// <summary>
 /// What to call a round in a line somebody reads.
 ///
-/// <para><see cref="IProjectile.Tube"/> carries two different things in one field. A round from a
-/// tube gets that tube's number from one, which is the range <see cref="Magazine"/> owns and the
-/// index its body subpart is selected by. A gun round has no tube at all — the cannon fire through
-/// <see cref="LauncherProfile.GunMuzzles"/>, and a launcher with a cannon may declare no tubes
-/// whatever — so a shell carries the negative of its barrel number instead. That sign is what
-/// keeps a shell out of the magazine's range, so it can never be reclaimed as a tube or write
-/// itself over a missile's body.</para>
-///
-/// <para>Which makes it a number that must not be printed raw: tubes are numbered from one
-/// everywhere a player sees one, so a negative reads as a fault in the launcher rather than as the
-/// shell it actually is.</para>
+/// <para><see cref="IProjectile.Tube"/> is a tube number from one for a round from a tube, and the
+/// negative of the barrel number for a shell, which keeps a shell out of <see cref="Magazine"/>'s
+/// range. So it must never be printed raw.</para>
 /// </summary>
 internal static class RoundLabel
 {

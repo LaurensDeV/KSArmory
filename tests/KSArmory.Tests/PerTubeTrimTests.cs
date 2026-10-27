@@ -5,19 +5,12 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Trimming the bus between releases so each tube's own ejection kick lands on the arc, which is
-/// what a real post-boost vehicle does about a canted magazine and is the velocity-side alternative
-/// to turning the whole vehicle — <c>docs/MIRV-NEXT.md</c> item 5.
+/// Measurement only: trimming the bus between releases so each canted tube's kick lands on the arc, the
+/// velocity-side alternative to turning the bus (<c>docs/MIRV-NEXT.md</c> item 5). It prices a bus with other
+/// thrusters, cant or trajectory without redoing the reasoning.
 ///
-/// <para><b>Measurement, and it does not win.</b> Nothing here is a feature under test: the
-/// arithmetic is the deliverable, and it says the shipped bus cannot fly this at all. The tests
-/// stay so that a bus with different thrusters, a different cant or a different trajectory can be
-/// priced again without redoing the reasoning.</para>
-///
-/// <para><b>The trajectory here is the idealised one</b> — the cheapest arc from a 200 km circular
-/// pickup, held retrograde — which <c>MirvBudgetTests</c> measures as about twice as sensitive to a
-/// metre a second as the one the guidance actually leaves the bus on. The ratios between the rows
-/// are what this file is for; the metres belong to this arc.</para>
+/// <para>The arc is the idealised 200 km pickup, held retrograde, about twice as sensitive per metre a second
+/// as the flown one (<c>MirvBudgetTests</c>): the ratios between rows carry over, the metres do not.</para>
 /// </summary>
 public class PerTubeTrimTests(ITestOutputHelper Out)
 {
@@ -64,8 +57,8 @@ public class PerTubeTrimTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>The finding.</b> Putting one tube's kick where the last one's was is a velocity change
-    /// with nothing along the bus's nose in it.
+    /// Putting one tube's kick where the last one's was is a velocity change with nothing along the
+    /// bus's nose in it.
     ///
     /// <para>A cant is a cone, so every tube's kick has the same axial share and the difference
     /// between any two of them is perpendicular to the axis. The shipped bus is four clusters of

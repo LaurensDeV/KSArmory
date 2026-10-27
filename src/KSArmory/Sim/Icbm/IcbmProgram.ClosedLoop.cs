@@ -4,8 +4,7 @@ namespace KSArmory;
 
 internal sealed partial class IcbmProgram
 {
-    // Never looser than HoldDirectionBelow, so a stack burning at full thrust holds where it
-    // always did and only a throttled-down one holds later.
+    // Never looser than HoldDirectionBelow, so only a throttled-down stack holds later than that.
     private double HoldDirectionThreshold(in IcbmState state)
     {
         double frame = state.Booster.AccelerationNow * _lastStep
@@ -86,10 +85,7 @@ internal sealed partial class IcbmProgram
         {
             _releasesAtCutoff = _shortShot && (state.AirDensityRatio >= AirCountsAbove || StaysUnderTheReleaseAltitude(state));
 
-            // Recorded here rather than in Coasting, which clears it. What was left when the
-            // engines stopped is the whole story of a shot that lands short on an otherwise
-            // perfect trajectory, and reporting a zero says every burn closed perfectly - which is
-            // exactly what a burn that ended forty metres a second early also says.
+            // Recorded here rather than in Coasting, which clears it.
             LatchResidual();
             AccelerationAtCutoff = state.Booster.AccelerationNow;
             StepAtCutoff = _lastStep;
@@ -140,15 +136,6 @@ internal sealed partial class IcbmProgram
                        : "guiding to cutoff");
     }
 
-    // Cutting off is a timing problem, not a threshold one. An engine can only be shut down on a
-    // frame boundary, and a light upper stage at ten gravities changes its velocity by more in one
-    // frame than any sensible tolerance allows - so waiting for the velocity still to gain to fall
-    // below a fixed number waits for something that cannot happen. It overshoots instead, turns
-    // round to brake, overshoots the other way, and burns the stage dry hunting.
-    //
-    // So: stop when less than half a frame of burning is left, which puts the cutoff at the frame
-    // boundary nearest the ideal instant and leaves the residual symmetric. The rising-again test
-    // behind it is the backstop for a solve that never converges at all.
     // A proportional ramp settles where it asks for exactly what pushes against it: two seconds of the stack's drag
     // left to gain, which on a liquid stack in the air never reaches the cutoff. docs/SHORT-RANGE.md.
     private bool PushesThrough(in IcbmState state)
@@ -188,6 +175,8 @@ internal sealed partial class IcbmProgram
         return led.Equals(Vec.Zero) ? command.ThrustDirectionCci : led;
     }
 
+    // Stop when less than half a frame of burning is left, so the cutoff lands on the frame boundary nearest the ideal
+    // instant; docs/ICBM-GUIDANCE.md, "Cutting off is a timing problem". The rising-again test is the backstop.
     private bool ShouldCutOff(in IcbmState state)
     {
         _cutTest = CutoffTest.Threshold;

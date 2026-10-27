@@ -1,20 +1,7 @@
-// Reads the exact external API surface a compiled assembly depends on, straight out of its
-// metadata tables.
+// Reads the external API surface a compiled assembly binds to, out of its TypeRef and MemberRef
+// tables rather than its source, so overloads and parameter types are as the compiler resolved them.
 //
 //   apisurface <KSArmory.dll> [--assemblies KSA,Brutal,Bepu,StarMap]
-//
-// Why not grep the C#: `using KSA;` plus a call to `vehicle.Parts` tells you nothing about
-// which overload bound, what the parameter types were, or that `double3`'s constructor is part
-// of your surface. The compiler already resolved all of that and wrote it into the TypeRef and
-// MemberRef tables. Reading those gives the real answer, and it cannot drift from the code.
-//
-// Why it matters: KSA is pre-release and its API moves between builds. After an update the
-// decompiled corpus is hundreds of thousands of lines, and diffing it wholesale is unreadable.
-// This list is what turns that diff into a checklist of the few dozen members we actually touch.
-//
-// The output is names and signatures of *our* dependencies - it says nothing about how KSA
-// implements them - so it is safe to commit to a public repository, the same way
-// ksa-assemblies.lock holds hashes and names only.
 
 using System.Collections.Immutable;
 using System.Reflection.Metadata;
@@ -42,7 +29,6 @@ using var pe = new PEReader(stream);
 var md = pe.GetMetadataReader();
 var provider = new Signatures();
 
-// assembly ref handle -> simple name
 var assemblyOf = new Dictionary<AssemblyReferenceHandle, string>();
 foreach (var handle in md.AssemblyReferences)
     assemblyOf[handle] = md.GetString(md.GetAssemblyReference(handle).Name);
@@ -72,7 +58,6 @@ bool Wanted(string assembly) => prefixes.Any(p => assembly.StartsWith(p, StringC
     }
 }
 
-// assembly -> type -> set of members
 var surface = new SortedDictionary<string, SortedDictionary<string, SortedSet<string>>>(StringComparer.Ordinal);
 
 void Touch(string assembly, string type, string? member = null)
@@ -85,12 +70,11 @@ void Touch(string assembly, string type, string? member = null)
     if (member is not null) members.Add(member);
 }
 
-// Every type we name at all, even if we never call a member on it (a parameter type, a cast).
+// Every type named at all, even one no member is called on (a parameter type, a cast).
 foreach (var handle in md.TypeReferences)
     if (ResolveType(handle) is { } t)
         Touch(t.Assembly, t.Name);
 
-// Every member we actually bind to.
 foreach (var handle in md.MemberReferences)
 {
     var mr = md.GetMemberReference(handle);
@@ -150,11 +134,7 @@ foreach (var (assembly, types) in surface)
 Console.Out.Write(sb.ToString());
 return 0;
 
-/// <summary>
-/// Turns metadata signature blobs into readable type names. Only the shapes that actually occur
-/// in this mod's references are spelled out; anything else degrades to a plain name rather than
-/// throwing, because an unreadable signature is not worth failing a diagnostic tool over.
-/// </summary>
+// A signature shape not spelled out here degrades to a plain name rather than throwing.
 file sealed class Signatures : ISignatureTypeProvider<string, object?>
 {
     public string GetPrimitiveType(PrimitiveTypeCode code) => code switch

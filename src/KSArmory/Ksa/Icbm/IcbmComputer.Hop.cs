@@ -15,7 +15,6 @@ internal sealed partial class IcbmComputer
         => Config.HopsBurnTheEngine && Config.HopsSizeTheirOwnSlots
            && _release is { } release && release.Profile.HopEngineThrustNewtons > 0.0;
 
-    // What the engine pushes the bus at now, or zero where it has none.
     private double EngineAcceleration
         => HopsBurnTheEngine && _release is { } release && KsaWorld.IsAlive(Craft) && KsaWorld.MassKg(Craft) > 0.0
                ? release.Profile.HopEngineThrustNewtons / KsaWorld.MassKg(Craft)

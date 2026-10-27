@@ -20,16 +20,15 @@ internal sealed class RoundFollowable : IFollowable
 
     private IProjectile? _round;
 
-    // Where a burst was, in the frame of the body it happened over -- the only description of a
-    // place that does not move. The fallback for a burst no body could be found for is the craft
-    // that fired it, which is wrong in the same way but far less so than the ecliptic.
+    // Where a burst was, in the frame of the body it happened over. The fallback with no body is the
+    // craft that fired it, wrong in the same way but far less so than the ecliptic.
     private object? _burstBody;
     private double3 _burstAnchor;
     private Vehicle? _anchor;
     private double3 _anchorOffset;
 
-    // The weapon that fired it, asked where the round's body is DRAWN. Not for its own sake: what
-    // matters is that the camera and the mesh come out of one expression.
+    // The weapon that fired it, asked where the round's body is drawn, so the camera and the mesh
+    // come out of one expression.
     private IEffectSource? _source;
     private Vehicle? _platform;
 
@@ -53,15 +52,8 @@ internal sealed class RoundFollowable : IFollowable
         _round = null;
         LastPositionEcl = burstEcl;
 
-        // Body-fixed, because a burst happens over ground and ground turns. Against the launching
-        // craft instead it flies away with it, which for a rocket still under thrust is kilometres
-        // across the hold a nuclear burst gets; as a bare ecliptic point the planet leaves it
-        // behind at ~29.8 km/s, which over the same hold is a thousand kilometres.
-        //
-        // It is also what makes the hold survive the launching craft dying, which a nuclear one has
-        // every chance of: the ground the burst happened over is still there, and nothing below
-        // reads the craft unless no body could be resolved at all. See ChaseView.LingerSeconds for
-        // how long that is now.
+        // Body-fixed: against the launching craft the hold flies away with it, and as a bare ecliptic
+        // point the planet leaves it at ~29.8 km/s. It also survives the launching craft dying.
         _burstBody = KsaWorld.TryAnchorToGround(burstEcl, out object? body, out double3 anchor)
                      ? body
                      : null;
@@ -74,9 +66,7 @@ internal sealed class RoundFollowable : IFollowable
     /// <summary>
     /// Holds wherever it is now, fixed to the ground under that point, with nothing tracked.
     ///
-    /// <para>For a view handed back with nothing to hand it to: the craft it was taken from has
-    /// been destroyed, so the view goes on following this. Untracked instead, its last position is
-    /// an ecliptic point the planet leaves behind at ~30 km/s, and the camera goes with it.</para>
+    /// <para>For a view handed back when the craft it was taken from has been destroyed.</para>
     /// </summary>
     public void HoldWhereItIs()
     {
@@ -127,31 +117,17 @@ internal sealed class RoundFollowable : IFollowable
     /// <summary>
     /// Where the round's body is <em>drawn</em> — the one expression, shared with the mesh.
     ///
-    /// <para><b>The camera is not trying to be right; it is trying to be paired.</b> Nothing here
-    /// can be correct in absolute terms: the mod's reading of the round is a step behind the world
-    /// the engine has just advanced, a craft's analytic orbit position is not where its parts are
-    /// drawn, and the gap between those two opens and closes as the craft goes off rails and back
-    /// — which is what lighting an engine does. None of that is visible. What is visible is the
-    /// separation between the eye and the mesh, so every one of those terms cancels the moment
-    /// both sides come out of <see cref="IEffectSource.TryRoundEffectEcl"/>, which is the call the
-    /// body placement itself uses.</para>
+    /// <para><b>The camera is not trying to be right; it is trying to be paired</b> with the mesh,
+    /// through <see cref="IEffectSource.TryRoundEffectEcl"/>. Correcting one side alone is worse than
+    /// leaving both wrong. CLAUDE.md, "And what RoundFollowable reports".</para>
     ///
-    /// <para>Correcting one side alone is worse than leaving both wrong, and that is not a
-    /// figure of speech: a term added here to put the camera in the engine's epoch takes it
-    /// <em>away</em> from the mesh, which stayed in the mod's. The plume and the tracer hang on
-    /// this same call for the same reason — a flame has to sit on the body rather than near it.</para>
-    ///
-    /// <para>It must also be the same answer all frame. <see cref="GetPositionEclFromCce"/> and
-    /// <see cref="GetPositionCceFromEcl"/> come through here too and the engine converts at phases
-    /// the mod does not choose, so an answer that moves when the mod steps disagrees with itself
-    /// inside one frame. This one moves by the round's own flight, which is metres;
-    /// <c>round.PositionEcl</c> would move by a whole step of the ecliptic's ~29.8 km/s, about
-    /// 500 m, which puts the round out of the viewport entirely.</para>
+    /// <para>It must be the same answer all frame: the engine converts through
+    /// <see cref="GetPositionEclFromCce"/> at phases the mod does not choose. This moves by the round's
+    /// own flight; <c>round.PositionEcl</c> moves by a step of the ecliptic's ~29.8 km/s.</para>
     /// </summary>
     public double3 GetPositionEcl()
     {
-        // Inside the engine's own frame pass, where an exception is the game rather than a log
-        // line. The last good answer is always a better outcome than that.
+        // Inside the engine's own frame pass: the last good answer rather than an exception.
         try
         {
             if (_round is { } round && _source is { } source
@@ -180,7 +156,6 @@ internal sealed class RoundFollowable : IFollowable
         }
         catch
         {
-            // Held where it was.
         }
 
         return LastPositionEcl;

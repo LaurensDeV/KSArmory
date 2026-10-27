@@ -16,7 +16,7 @@ namespace KSArmory;
 public sealed class OpticConfig : ISensorPolicy
 {
     /// <summary>
-    /// Who this head considers what. It finds its own targets, so it needs its own answer.
+    /// Who this head considers what.
     ///
     /// <para>Its own rather than borrowed from a weapons system on the same craft: a director is
     /// an instrument, and pointing one at a friendly to look at it is a normal thing to do.</para>

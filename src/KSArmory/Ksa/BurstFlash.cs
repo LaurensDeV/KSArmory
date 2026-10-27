@@ -4,22 +4,9 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// The screen going white for a moment when a burst goes off in front of you.
-///
-/// <para>The fireball is drawn as a body in the world and lights what is near it, but a nuclear
-/// flash is not a bright object — it is more light than the eye or a camera can take, and what a
-/// viewer gets is a white field for about a second. Without it a burst two kilometres away is a
-/// small bright ball on an otherwise ordinary afternoon.</para>
-///
-/// <para><b>This is the model, not the drawing.</b> <see cref="CloudPass"/> writes it into the
-/// scene image, because a flash has to survive the UI being off: KSA wraps its whole UI pass in
-/// <c>if (DrawUI)</c>, and both F2 and <c>ScreenshotCapture</c> clear that. Painted as an ImGui
-/// overlay it vanished from every screenshot the harness took and would have vanished for any
-/// player who hid the HUD — which is the wrong answer for something that is not HUD.</para>
-///
-/// <para>Any body. It is read off the bursts still burning rather than off the standing clouds,
-/// because a fireball is incandescent gas and needs no air to be one — if anything a vacuum burst
-/// is the brighter, having no atmosphere in the way.</para>
+/// The view going white when a burst goes off in front of you, and the glare round the ball.
+/// <para>The model only: <see cref="CloudPass"/> writes it into the scene image, because KSA wraps its
+/// UI pass in <c>if (DrawUI)</c>, which F2 and <c>ScreenshotCapture</c> both clear.</para>
 /// </summary>
 internal static class BurstFlash
 {
@@ -55,9 +42,8 @@ internal static class BurstFlash
     public static float Whiteout { get; private set; }
 
     /// <summary>
-    /// The halo round the ball, in the whiteout's own units and held at its level rather than its
-    /// rise: the whiteout is an eye overwhelmed and recovers while the ball still burns, but light
-    /// scattering round a bright source lasts exactly as long as the source is bright.
+    /// The halo round the ball, in the whiteout's units and held at its level rather than its rise:
+    /// scattered light lasts as long as the source is bright.
     /// </summary>
     public static float Glare { get; private set; }
 
@@ -79,11 +65,7 @@ internal static class BurstFlash
     /// </summary>
     public static int SourceIndex { get; private set; } = -1;
 
-    /// <summary>
-    /// Advances it. On the simulated step, like everything else this mod advances: the whiteout
-    /// freezes with a pause and slows with the panel's slow motion, which is what somebody watching
-    /// a burst in slow motion is asking for.
-    /// </summary>
+    /// <summary>On the simulated step, so the whiteout freezes with a pause and slows with slow motion.</summary>
     public static void Update(double dt)
     {
         try
@@ -94,9 +76,7 @@ internal static class BurstFlash
                 return;
             }
 
-            // Half the field, so a burst in frame blinds and one outside it only glares. The
-            // view's own rather than a constant: at the sight's magnification the frame is three
-            // degrees wide, and a burst twenty degrees off it is genuinely not being looked at.
+            // The view's own field, which the sight's magnification narrows to a few degrees.
             double halfField = KsaWorld.MainViewFovDeg() * 0.5;
 
             double brightest = 0.0;
@@ -104,9 +84,7 @@ internal static class BurstFlash
             int source = -1;
             double3 colour = default;
 
-            // Over the BURSTS, not the clouds. A fireball does not need air, and reading the cloud
-            // list meant a burst on an airless body blinded nobody -- which is backwards: there is
-            // no atmosphere there to attenuate it.
+            // Over the bursts, not the clouds: a fireball needs no air, and an airless body has no cloud.
             for (int i = 0; i < NuclearClouds.BurningCount; i++)
             {
                 if (!NuclearClouds.TryBurning(i, out double3 burstEcl, out MushroomCloud.Flash flash,
@@ -117,18 +95,14 @@ internal static class BurstFlash
                 double range = Vec.Len(burstEcl - eyeEcl);
                 if (!(range > 1.0)) continue;
 
-                // The light it puts in the eye, in suns, against the light the eye is used to --
-                // on the scale an eye answers on, so a burst four times further off is a step
-                // dimmer rather than a sixteenth as bright. Linear in the light, it would be a
-                // whiteout at 2.4 km and next to nothing at 10.
+                // In suns, against what the eye is adapted to, on the eye's own scale: linear in the
+                // light it would be a whiteout at 2.4 km and next to nothing at 10.
                 double suns = FlashGlare.Suns(MushroomCloud.KilotonsFor(charge), range, flash.Glow,
                                               NuclearClouds.BurningAir(i));
                 double adapted = FlashGlare.AdaptedTo(
                     body is not null ? KsaWorld.SunElevationDeg(body, eyeEcl) : double.NaN);
 
-                // ...and how much of that reaches somebody facing where they are facing. Without
-                // it a burst directly BEHIND the camera whites the screen out exactly as one dead
-                // ahead does.
+                // How much of that reaches an eye facing where this one faces.
                 double offAxisDeg = double.RadiansToDegrees(
                     Vec.AngleBetween(burstEcl - eyeEcl, forwardEcl));
 
@@ -149,17 +123,13 @@ internal static class BurstFlash
                 _fadeSeconds = FlashGlare.RecoverySeconds(brightestAdapted);
             }
 
-            // How violet the ball's light is now, which the halo round it takes.
             double violetNow = SourceIndex >= 0
                                    ? FlashGlare.VioletShare(NuclearClouds.BurningAge(SourceIndex))
                                    : 0.0;
             HaloViolet = (float)violetNow;
 
-            // Driven by the RISE and recovering always, rather than held at whatever is burning.
-            // Held at the level, the ball keeps the view at full white for the whole of its 1.9 s
-            // burn and only then begins a two and a half second decay -- flown, and still near
-            // white at 3.8 s, which is a fault rather than a flash. An eye adapts while the source
-            // is still there, so what blinds is the change.
+            // Driven by the rise: an eye adapts while the source burns. Held at the level, the view
+            // stayed near white 3.8 s after a 1.9 s burn.
             double rise = Math.Max(0.0, brightest - _seen);
             _seen = brightest;
 
@@ -169,10 +139,8 @@ internal static class BurstFlash
             if (dt > 0.0) _held *= Math.Exp(-dt / _fadeSeconds);
             double added = Math.Min(_held + rise, 1.0) - _held;
 
-            // THE VEIL KEEPS THE COLOUR OF WHAT BLINDED IT. It is the eye's afterimage, so it is
-            // violet if the violet flash drove it, however far the ball has warmed since -- read
-            // off the ball's age instead, a night whiteout stayed clipped white while the violet
-            // passed and cleared peach. Mixed by how much of the whiteout each rise put there.
+            // The veil is an afterimage and keeps the colour of what blinded it, mixed by how much of
+            // the whiteout each rise put there, not by the ball's age.
             if (added > 0.0)
             {
                 _veilViolet = ((_held * _veilViolet) + (added * violetNow)) / (_held + added);

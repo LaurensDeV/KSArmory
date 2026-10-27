@@ -11,7 +11,7 @@ namespace KSArmory.Tests;
 /// <para>The search accepts the first step up to <see cref="ImpactPredictor.CrossingToleranceMetres"/>
 /// under the ground, so its answer is always long by that depth over the arc's descent — while a
 /// warhead stops on the surface. Flown, the landing sits 0.201 m short of the late re-flies on 80 of
-/// 80 traced warheads, against 0.199 m from the tolerance at 32°. <c>docs/ACCURACY-PLAN.md</c> 40b.</para>
+/// 80 traced warheads, against 0.199 m from the tolerance at 32°. <c>docs/ACCURACY-PLAN.md</c> 3dc, item 40b.</para>
 ///
 /// <para><b>One prediction says nothing about a bias.</b> The depth it reports is wherever its steps
 /// happened to fall against the crossing, so every case flies a sweep of arcs started a few tens of

@@ -23,7 +23,7 @@ public class AimAuthorityTests(ITestOutputHelper Out)
     private static double3 Downrange(double metres)
         => new(R * Math.Cos(metres / R), R * Math.Sin(metres / R), 0);
 
-    /// <summary>A cutoff state that reaches the aim, found by solving for it.</summary>
+    /// <summary>A cutoff 300 km up over the origin, the aim downrange, and the flight time handed in.</summary>
     private static (double3 From, double3 Aim, double Seconds) Shot(double metres, double flight)
         => (new double3(R + 300_000.0, 0, 0), Downrange(metres), flight);
 
@@ -184,8 +184,7 @@ public class AimReachTests
     }
 
     /// <summary>
-    /// The regression: unbounded, the same loop walks past what any bus could fly. This is what
-    /// fails against the shipped behaviour.
+    /// Unbounded, the same loop walks past what any bus could fly.
     /// </summary>
     [Fact]
     public void UnboundedItWalksPastWhatAnyBusCouldFly()

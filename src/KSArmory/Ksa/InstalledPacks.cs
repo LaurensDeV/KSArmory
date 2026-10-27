@@ -5,21 +5,12 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Finds weapon definitions in other mods' folders and registers them.
-///
-/// <para>This is what lets a pack be **assets only** — no assembly, no entry point, nothing to
-/// compile. <see cref="Armoury"/> stays for a pack that ships code and wants to build its
-/// definitions at runtime; a pack that merely declares weapons needs neither.</para>
-///
-/// <para>KSArmory still knows nothing about any particular pack. It reads the manifest KSA already
-/// keeps, looks in the same place inside every mod, and registers whatever it finds — the same
-/// relationship KSA has with its own mods folder.</para>
+/// Finds weapon definitions in other mods' folders, through KSA's own manifest, and registers them
+/// — what lets a pack be assets only. <see cref="Armoury"/> is for a pack that ships code.
 /// </summary>
 public static class InstalledPacks
 {
-    /// <summary>
-    /// Every enabled mod's definitions, registered. Call before the catalogue is frozen.
-    /// </summary>
+    /// <summary>Call before the catalogue is frozen.</summary>
     public static void RegisterAll()
     {
         foreach (ModEntry entry in Installed())
@@ -173,8 +164,7 @@ public static class InstalledPacks
         }
     }
 
-    // A disabled mod is not in the library at all, and it is the one this most needs to find -- so
-    // the manifest entry's own folder is the fallback rather than the answer of last resort.
+    // A disabled mod is not in the library, and it is the one this most needs to find, to warn.
     private static string FolderOf(ModEntry entry)
     {
         try

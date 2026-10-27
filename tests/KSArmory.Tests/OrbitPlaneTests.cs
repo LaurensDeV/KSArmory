@@ -105,14 +105,10 @@ public class OrbitPlaneTests
 
 
     /// <summary>
-    /// Where a plane change belongs, checked rather than assumed. Reaching a target off to the side
-    /// is cheapest from the node — a quarter of an orbit before the target — and the burn there is
-    /// almost entirely normal to the plane being flown in.
-    ///
-    /// <para>That is a textbook result and the search is not told it. It falls out of costing
-    /// departures and taking the cheapest, which is the only reason it is worth testing: if the
-    /// search ever stops finding it, the shots get expensive and nothing else says why.</para>
+    /// A target off to the side is cheapest from the node, a quarter of an orbit before it, with the burn
+    /// almost entirely normal to the plane. The search is not told this; it must find it by costing departures.
     /// </summary>
+
     [Theory]
     [InlineData(45.0)]
     [InlineData(90.0)]

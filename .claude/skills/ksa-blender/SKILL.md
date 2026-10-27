@@ -9,7 +9,7 @@ description: Build a 3D asset for Kitten Space Agency by authoring it in Blender
 Python script, not driven through the Blender CLI. If the MCP connection is down, the answer is to
 fix the connection — not to fall back to batch scripting.
 
-The headless generator under `tools/model/` still builds four existing parts and still has to keep
+The headless generator under `tools/model/` still builds three existing parts and still has to keep
 working — §8 says what to know if you touch it. It is **not** the path for anything new.
 
 > ## Stop before you bake
@@ -373,8 +373,9 @@ Writing a subpart's transform each frame moves it. Confirmed in game.
 
 **A shipped part's subpart list is append-only.** KSA pairs a saved part with its definition
 positionally, so removing a `<SubPart>` throws `IndexOutOfRangeException` from inside
-`Popup.DrawAll` and **terminates the game** on every save holding that part. Adding and renaming are
-free.
+`Popup.DrawAll` and **terminates the game** on every save holding that part. Adding is free. A save
+also names each subpart's template, so treat a rename as unsafe until one has been loaded (CLAUDE.md,
+*Adding a weapon system*).
 
 ### Three editor gates that fail silently
 
@@ -424,11 +425,9 @@ Three parts — the Pantsir, the LAU-7 rail and the EO director — are built by
 `tools/model/pantsir.py` and its modules into one atlas sharing one palette material.
 **Keep it working; do not extend it.**
 
-The nuclear rack is no longer one of them — all three of its bodies are authored. It stopped
-sharing the generated beam once the B61-12's lugs were measured at 30 inches against that beam's
-14. Worth knowing before reusing a generated body for a new store: the hook spacing is an
-interface, and nothing in the toolchain checks that a round's lugs line up with the rack it hangs
-from.
+Before reusing a generated body for a new store: the hook spacing is an interface — the generated
+beam's hooks are 14 inches apart, a B61-12's lugs 30 — and nothing in the toolchain checks that a
+round's lugs line up with the rack it hangs from.
 
 If you do have to touch it:
 

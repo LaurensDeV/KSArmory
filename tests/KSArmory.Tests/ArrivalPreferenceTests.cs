@@ -38,7 +38,6 @@ public class ArrivalPreferenceTests(ITestOutputHelper Out)
         return program;
     }
 
-    /// <summary>Zero leaves the operator's own number alone.</summary>
     [Fact]
     public void APreferenceOfZeroLeavesTheAskedForFloorAlone()
     {
@@ -67,7 +66,6 @@ public class ArrivalPreferenceTests(ITestOutputHelper Out)
         Assert.True(program.ArrivalFloorDeg <= ArrivalBudget.SteepestConsideredDeg);
     }
 
-    /// <summary>A preference never gives away an angle that was asked for outright.</summary>
     [Fact]
     public void APreferenceNeverLowersAFloorTheOperatorAskedFor()
     {
@@ -179,13 +177,9 @@ public class ArrivalPreferenceTests(ITestOutputHelper Out)
     /// no arc at all is affordable from where it is asked, which is the ordinary state of a vehicle
     /// on the pad with the whole burn still to fly.
     ///
-    /// <para>Flown 2026-09-02 on <c>SOLVER SCALE 8</c>: three of the four rockets carrying
-    /// <c>ArrivalPreference = 0.5</c> latched <c>a 0.0 deg floor, 50% of the 0.0 deg the tanks could
-    /// afford</c> straight off the pad and arrived at 17.7, 22.2 and 22.3 degrees — whatever the
-    /// unfloored arc gave them. The one that escaped was the only rocket whose pad reach read
-    /// Reachable rather than Unknown.</para>
-    ///
-    /// <para>This fails against a latch guarded on <c>double.IsFinite</c>, which is what it was.</para>
+    /// <para>Flown on <c>SOLVER SCALE 8</c> at <c>ArrivalPreference = 0.5</c>, every rocket whose pad
+    /// reach read Unknown latched a 0.0 deg floor and arrived at 17.7-22.3 degrees, the unfloored arc.
+    /// This fails against a latch guarded on <c>double.IsFinite</c> alone.</para>
     /// </summary>
     [Fact]
     public void ABudgetOfNothingIsNotLatchedAsAFloorOfNothing()

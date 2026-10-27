@@ -37,10 +37,8 @@ internal static class SkyDispatch
     public static int MostOf(float kind) => kind == Aurora ? 10 : kind == RedWave ? 2 : 3;
 
     /// <summary>
-    /// Which of the sky dispatches asked for are drawn: of each kind, up to <see cref="MostOf"/>, the
-    /// NEWEST first -- the order they were asked for in, which is the order the bursts went off in.
-    /// Newest rather than brightest, because brightness moves: two bursts' curtains cross as one fades
-    /// and the other arrives, and ranked by it the one drawn jumps between them from frame to frame.
+    /// Which dispatches are drawn: of each kind, up to <see cref="MostOf"/>, the newest. Not the
+    /// brightest, because ranked by brightness the one drawn jumps between two crossing bursts each frame.
     /// Fills <paramref name="keep"/> with indices into <paramref name="kinds"/>, in order.
     /// </summary>
     public static void Choose(IReadOnlyList<float> kinds, List<int> keep)

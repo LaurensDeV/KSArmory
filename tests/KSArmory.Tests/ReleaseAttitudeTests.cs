@@ -4,16 +4,8 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Which way a store points as it leaves is not which way it is pushed.
-///
-/// <para><see cref="MunitionProfile"/> has no say in this: the ejector bias belongs to the
-/// launcher, and it exists so a store clears the rack before gravity takes it. Feeding that bias
-/// to the round's <em>attitude</em> as well draws it leaving at an angle to the rack that is still
-/// holding it — 50 degrees at the bomb rack's own 1.2, because the bias is added to a unit axis
-/// and the boresight is square to the tube.</para>
-///
-/// <para>In air it is invisible, because the airflow straightens the store within a second. In
-/// vacuum nothing corrects it and it is permanent.</para>
+/// The launcher's ejector bias pushes a store clear of the rack but must not turn it: fed to the attitude
+/// it leaves 50 deg off the rack at the rack's 1.2 (a bias on a unit axis), which in vacuum nothing corrects.
 /// </summary>
 public class ReleaseAttitudeTests
 {
@@ -34,10 +26,8 @@ public class ReleaseAttitudeTests
         Assert.Equal(Math.Atan(1.2), Vec.AngleBetween(pushed, Tube), 6);
     }
 
-    /// <summary>
-    /// And the attitude does not follow it. This is the pairing the release code has to keep apart:
-    /// same launcher, same bias, two different answers.
-    /// </summary>
+    /// <summary>Same launcher, same bias: the push follows it and the attitude does not.</summary>
+
     [Fact]
     public void ButAStorePointsAlongItsRack()
     {

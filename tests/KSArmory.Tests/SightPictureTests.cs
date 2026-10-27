@@ -201,10 +201,8 @@ public class SightPictureTests
     }
 
     /// <summary>
-    /// The fault this exists for, and the only one that matters: a view creeping past its own up
-    /// must not have its roll jump. Anything that <em>switches rule</em> at the singularity flips
-    /// the picture through half a turn, which in game is the whole view inverting as the head's
-    /// elevation crosses zero looking straight down a rocket.
+    /// A view creeping past its own up must not have its roll jump. Anything that <em>switches
+    /// rule</em> at the singularity flips the picture through half a turn.
     /// </summary>
     [Fact]
     public void TheRollDoesNotJumpAsTheViewCreepsPastItsOwnUp()
@@ -231,9 +229,8 @@ public class SightPictureTests
                 double rolled = Vec.AngleBetween(previousUp, up);
                 worst = Math.Max(worst, rolled);
 
-                // The measured fault was amplification rather than a jump: a quarter degree of aim
-                // swinging the roll by tens. Pinning the ratio is what stops a future threshold
-                // being set back to where the answer exists but is worthless.
+                // A quarter degree of aim swinging the roll by tens is as bad as a jump, so the
+                // ratio is pinned as well as the step.
                 worstRatio = Math.Max(worstRatio, rolled / double.DegreesToRadians(0.25));
             }
 
@@ -314,13 +311,8 @@ public class SightPictureTests
     }
 
     /// <summary>
-    /// The invariant that forbids the whole class, rather than one geometry of it: the answer can
-    /// never move further in a frame than it was allowed to.
-    ///
-    /// <para>Three versions of this flipped the picture, each at a different view angle, because
-    /// each chose between two answers and the choice could change from one frame to the next. A
-    /// bound on the movement itself cannot be satisfied by a rule that switches — which is the
-    /// point of asserting it here rather than asserting the absence of the three faults.</para>
+    /// A bound on the movement itself cannot be satisfied by a rule that switches between two
+    /// answers, so it forbids the whole class of roll flip rather than one geometry of it.
     /// </summary>
     [Fact]
     public void TheAnswerNeverMovesFurtherInOneFrameThanItWasAllowed()
@@ -328,8 +320,7 @@ public class SightPictureTests
         double3 preferred = new(0, 0, 1);
         double worst = 0.0;
 
-        // Every view angle from along the up to across it, and every carried roll around each,
-        // including the ones that sat exactly on the thresholds the earlier versions used.
+        // Every view angle from along the up to across it, and every carried roll around each.
         for (double off = 0.0; off <= 180.0; off += 1.0)
         {
             double a = double.DegreesToRadians(off);

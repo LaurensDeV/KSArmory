@@ -3,32 +3,23 @@ namespace KSArmory;
 /// <summary>
 /// The places one bus is aimed at, and how many of its warheads each one gets.
 ///
-/// <para>A single designation is one site and one count. This is that generalised to at most
-/// <see cref="MaxTargets"/>, and it is deliberately only the <em>data</em>: nothing here flies a bus between targets, and a set of one behaves exactly as a
-/// lone designation does. <c>docs/ICBM-GUIDANCE.md</c>, "Several targets", is the whole account.</para>
+/// <para>Data only: nothing here flies a bus between targets, and a set of one behaves exactly as a
+/// lone designation does. <c>docs/ICBM-GUIDANCE.md</c>, "Several targets".</para>
 ///
-/// <para><b>Spare warheads stay aboard rather than being spread by default.</b> They can be given to
-/// a target by raising its count, and warheads sharing a target are released <em>together</em> —
-/// phase 0 measured that a bus's own warheads cannot destroy one another
-/// (<c>WeaponSystem.FillIncoming</c> takes a system's own rounds out of the list the blast sweep
-/// walks), so an arrival stagger buys nothing and costs 8.33 m/s of divert for half a second of
-/// separation, against 2.91 m/s for 2 km of ground.</para>
+/// <para>Spare warheads stay aboard. Warheads sharing a target are released together, because a bus's
+/// own warheads cannot destroy one another (<c>WeaponSystem.FillIncoming</c>) and a half-second
+/// stagger costs 8.33 m/s of divert at 6,179 km.</para>
 /// </summary>
 internal sealed class TargetSet
 {
     /// <summary>
-    /// How many places one bus may be sent to.
-    ///
-    /// <para>Seven because the post-boost bus carries seven warheads. A bus carrying fewer may hold a target
-    /// past its rack, which gets nothing: the release is bounded by what is loaded, not by this. It is not a
-    /// budget: reaching that many targets is bounded by divert and by the coast's length long before this
-    /// is, and at 2,000 km only about three fit.</para>
+    /// Seven because the Heavy MIRV Bus carries seven warheads. Not a budget: divert and the coast bound
+    /// a set long before this does, and a target past a smaller rack simply gets nothing.
     /// </summary>
     public const int MaxTargets = 7;
 
     private readonly List<Entry> _entries = [];
 
-    /// <summary>One place, and how many warheads are meant for it.</summary>
     internal readonly record struct Entry(AimSite Site, int Warheads);
 
     /// <summary>The targets in the order they were chosen, which is not the order they are flown.</summary>
@@ -36,7 +27,6 @@ internal sealed class TargetSet
 
     public int Count => _entries.Count;
 
-    /// <summary>How many warheads the set has spoken for.</summary>
     public int Assigned
     {
         get
@@ -50,19 +40,15 @@ internal sealed class TargetSet
     /// <summary>
     /// Which entry the flight is flown to: the booster's target, and the first warheads away.
     ///
-    /// <para><b>Not necessarily the first chosen.</b> The order places were picked in is the
-    /// player's; the order they are flown in belongs to the release schedule, which puts the
-    /// farthest reach first because the kick's leverage decays as the bus descends.
-    /// <see cref="ElectFarthestLead"/> is what moves it, and only while the aim is still free —
-    /// <see cref="TargetEdit.LeadMayMove"/>. For a set of one it is entry zero whatever happens,
-    /// which is what leaves a single-target flight exactly the shot it has always been.</para>
+    /// <para>Not necessarily the first chosen: the release schedule flies the farthest reach first.
+    /// <see cref="ElectFarthestLead"/> moves it, only while <see cref="TargetEdit.LeadMayMove"/>. For a
+    /// set of one it is entry zero, so a single-target flight is unchanged.</para>
     /// </summary>
     public int LeadIndex { get; private set; }
 
-    /// <summary>The lead's place, which is the one the whole flight is aimed at.</summary>
+    /// <summary>The place the whole flight is aimed at.</summary>
     public AimSite Primary => _entries.Count > 0 ? _entries[LeadIndex].Site : AimSite.None;
 
-    /// <summary>Fly to this one first, refusing an entry that is not there.</summary>
     public bool SetLead(int index)
     {
         if (index < 0 || index >= _entries.Count) return false;
@@ -76,16 +62,12 @@ internal sealed class TargetSet
     /// needs of it.
     /// </summary>
     /// <remarks>
-    /// <para><b>Farthest, because the bus walks inward from wherever the booster puts it.</b> The
-    /// reach a hop can buy falls as the bus descends — 1,076 down to 886 m of ground per m/s over a
-    /// six-stop schedule — so the dearest hop belongs in the earliest slot, and the first stop is
-    /// the one the bus arrives on for free. Aimed anywhere but an end of the set, the walk goes out
-    /// and back and costs about twice what the itinerary charges, which is what
-    /// <c>ReleaseWalkHold.NotWhereTheBusIsAimed</c> refuses.</para>
+    /// <para>Farthest, because the bus walks inward from where the booster puts it and the reach a hop
+    /// buys falls as it descends. Aimed anywhere but an end of the set, the walk goes out and back,
+    /// which <c>ReleaseWalkHold.NotWhereTheBusIsAimed</c> refuses.</para>
     ///
-    /// <para><b>Ties keep the lead where it is</b>, and an unresolvable range ranks nearest rather
-    /// than throwing the comparison: the aim is the one thing in the set that cannot be allowed to
-    /// move on a reading nobody can make.</para>
+    /// <para>Ties keep the lead where it is, and an unresolvable range ranks nearest, so the aim never
+    /// moves on a reading nobody can make.</para>
     /// </remarks>
     /// <param name="rangeMetres">
     /// How far each entry is from the launch site, in the order of <see cref="Entries"/>. A list
@@ -116,20 +98,15 @@ internal sealed class TargetSet
     private static double Ranged(double metres)
         => double.IsFinite(metres) ? metres : double.NegativeInfinity;
 
-    /// <summary>
-    /// Take a designation as the whole set, which is what clicking the world has always done.
-    /// </summary>
+    /// <summary>Take a designation as the whole set.</summary>
     public void SetOnly(AimSite site, int warheads)
     {
         Clear();
         if (site.IsSet) _entries.Add(new Entry(site, Math.Max(0, warheads)));
     }
 
-    /// <summary>
-    /// Put back a set as it was written down, counts and lead included.
-    /// </summary>
     /// <remarks>
-    /// Not through <see cref="SetWarheads"/>, which bounds a count by the warheads aboard: a computer
+    /// Restores counts and lead without <see cref="SetWarheads"/>, which bounds a count by the warheads aboard: a computer
     /// crewed from a save has not yet seen its magazine, and would read every count as zero.
     /// </remarks>
     public void Restore(IReadOnlyList<Entry> entries, int lead)
@@ -155,9 +132,8 @@ internal sealed class TargetSet
     /// Add a place, refusing one the world could not resolve and one past <see cref="MaxTargets"/>.
     /// </summary>
     /// <remarks>
-    /// The new target starts with <b>no warheads</b>. Giving it some would take them off a target the
-    /// player has already aimed at, silently, which is the one thing a click on the map must not do —
-    /// so the split is asked for rather than assumed (<see cref="Balance"/>).
+    /// The new target starts with no warheads: giving it some would silently take them off a target
+    /// the player already aimed at. The split is asked for (<see cref="Balance"/>).
     /// </remarks>
     public bool TryAdd(AimSite site)
     {
@@ -183,10 +159,7 @@ internal sealed class TargetSet
         return true;
     }
 
-    /// <summary>
-    /// Give one target a number of warheads, bounded by what the others have not taken.
-    /// </summary>
-    /// <returns>What it actually got, which is less than asked when the rest are spoken for.</returns>
+    /// <returns>What it actually got, bounded by what the others have not taken.</returns>
     public int SetWarheads(int index, int warheads, int available)
     {
         if (index < 0 || index >= _entries.Count) return 0;
@@ -202,11 +175,9 @@ internal sealed class TargetSet
     /// Move warheads onto one target, by one or by several — what a click on a map does.
     /// </summary>
     /// <remarks>
-    /// <para><b>It comes from whichever target holds the most</b>, after any unassigned remainder
-    /// is spent. Not from the lead: <c>Designate</c> puts everything aboard on the one target, but
-    /// adding another re-elects the lead to whichever is farthest, so by the time a warhead is
-    /// wanted the lead is often the empty new target and the full one is no longer it. Taking
-    /// "from the lead" then takes from a target holding nothing and refuses.</para>
+    /// <para>It comes from whichever target holds the most, after any unassigned remainder is spent.
+    /// Not from the lead: adding a target re-elects the lead to the farthest, which is often the empty
+    /// new one.</para>
     ///
     /// <para><b>Giving one back does not name a destination.</b> It simply stops being assigned,
     /// and an unassigned warhead already rides to the lead — crediting it explicitly would be the
@@ -285,10 +256,6 @@ internal sealed class TargetSet
     /// <summary>
     /// Which target each warhead is meant for, in release order, or <c>-1</c> for one kept aboard.
     /// </summary>
-    /// <remarks>
-    /// The flight reads this and nothing else about the set, so a set of one target holding every
-    /// warhead produces exactly the salvo that flies today.
-    /// </remarks>
     public int[] ReleasePlan(int available)
     {
         int[] plan = new int[Math.Max(0, available)];

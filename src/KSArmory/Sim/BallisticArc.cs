@@ -6,16 +6,9 @@ namespace KSArmory;
 /// The free-flight problem: what a vehicle must be doing at burnout for the fall afterwards to
 /// arrive at a place on a turning planet.
 ///
-/// <para>Parameterised by <em>flight time</em> rather than by energy or by launch angle, because
-/// that is the one parameter that makes the rotating target tractable. The aim point's position at
-/// arrival depends on how long the flight takes, and its position is what the transfer has to be
-/// solved against — so choosing the time first collapses what would be a fixed point into a single
-/// solve. Every flight time gives a valid arc; the search over them is what picks a shot.</para>
-///
-/// <para>The same call answers "how do I launch" and "how do I finish the burn I am in the middle
-/// of", because both are the same question asked from a different state. That is why there is no
-/// separate launch solver: the guidance loop calls this from wherever it currently is, every
-/// cycle, and the answer converges on the pad and at burnout alike.</para>
+/// <para>Parameterised by <em>flight time</em>: the aim point's position at arrival depends on it, so
+/// choosing the time first turns a fixed point into a single solve. The same call answers on the pad
+/// and mid-burn, so there is no separate launch solver.</para>
 /// </summary>
 internal static class BallisticArc
 {
@@ -35,11 +28,8 @@ internal static class BallisticArc
         /// <summary>
         /// How far below the local horizontal this arc comes in, in degrees.
         ///
-        /// <para>The arc's own angle, in vacuum and at the mean sphere, which is not quite the one
-        /// that lands: over 10 to 30 degrees the two agree to under half a degree, and drag only
-        /// bends the answer where the arrival is already a graze — a 3.6 degree arc arrives at 7.1
-        /// through the air. Flying the round instead would put a trajectory integration inside the
-        /// flight-time search. <c>docs/ARRIVAL-ANGLE.md</c> has both columns.</para>
+        /// <para>The arc's own angle, in vacuum at the mean sphere: within half a degree of what lands over
+        /// 10 to 30 degrees, and only a graze bends much (<c>docs/ARRIVAL-ANGLE.md</c>).</para>
         /// </summary>
         public double ArrivalAngleDeg => DescentAngleDeg(ImpactCciAtArrival, ArrivalVelocityCci);
     }
@@ -55,9 +45,8 @@ internal static class BallisticArc
     /// The transfer that departs <paramref name="fromCci"/> now and arrives at the aim point
     /// exactly <paramref name="flightSeconds"/> later.
     ///
-    /// <para><paramref name="aimNowCci"/> is where the target is <em>at this instant</em>. Carrying
-    /// it forward is this function's job and not the caller's — handing in an already-carried
-    /// point is how the rotation ends up applied twice.</para>
+    /// <para><paramref name="aimNowCci"/> is where the target is <em>at this instant</em>; this carries it,
+    /// so an already-carried point gets the rotation twice.</para>
     /// </summary>
     public static bool TrySolve(BallisticBody body, double3 fromCci, double3 aimNowCci,
                                 double flightSeconds, out Solution solution, bool longWay = false)
@@ -84,14 +73,9 @@ internal static class BallisticArc
     /// <summary>
     /// The cheapest arrival, searched over flight time.
     ///
-    /// <para>The objective is the length of <see cref="Solution.VelocityToGain"/> from the state
-    /// handed in, which is both the fuel this shot costs and, mid-boost, exactly what the steering
-    /// law is trying to drive to zero. So the same search serves the launch decision and the
-    /// closed loop, and neither needs a notion of "energy" at all.</para>
-    ///
-    /// <para>A coarse scan first, then a golden section inside the best bracket. The scan is not
-    /// timidity about the maths: the cost curve has a second minimum at the long-way-round arc, and
-    /// a search that starts by assuming one basin walks into it from some launch geometries.</para>
+    /// <para>The objective is the length of <see cref="Solution.VelocityToGain"/>, the fuel and, mid-boost,
+    /// what steering nulls. A coarse scan first, because the cost has a second minimum at the long way
+    /// round; then a golden section in the best bracket.</para>
     /// </summary>
     /// <param name="loft">
     /// Multiplies the flight time chosen by the search. One is the cheapest shot; above one lofts
@@ -99,23 +83,14 @@ internal static class BallisticArc
     /// through the planet is refused rather than returned.
     /// </param>
     /// <param name="seedFlightSeconds">
-    /// The flight time the previous cycle settled on. Buys two things: the coarse scan is skipped,
-    /// which is most of the cost of a cycle, and the search cannot cross into the other basin
-    /// halfway up the ascent. Pass NaN when there is nothing to go on.
+    /// The flight time the previous cycle settled on: skips the coarse scan and keeps the search out of the
+    /// other basin. NaN when there is nothing to go on.
     /// </param>
     /// <param name="minArrivalDeg">
-    /// The shallowest arrival this shot may have, in degrees below the local horizontal. Zero is
-    /// off and rejects nothing, which is what makes it free for every caller that says nothing
-    /// about it.
+    /// The shallowest arrival, in degrees below the local horizontal; zero is off.
     ///
-    /// <para><b>A bound rather than a nudge, and that is the whole difference from
-    /// <paramref name="loft"/>.</b> A multiplier on the flight time re-applies itself every cycle
-    /// unless the cheapest time is carried separately; a predicate does not, because the answer
-    /// that satisfied it last cycle satisfies it again. So seeding the next search with a
-    /// constrained answer is safe where seeding it with a lofted one is not.</para>
-    ///
-    /// <para>Measured on the arc rather than through the air, which costs under half a degree: see
-    /// <see cref="Solution.ArrivalAngleDeg"/>.</para>
+    /// <para><b>A bound rather than a nudge</b>, unlike <paramref name="loft"/>: a predicate is idempotent,
+    /// so seeding the next search with a constrained answer is safe where a lofted one is not.</para>
     /// </param>
     public static bool TryCheapest(BallisticBody body, double3 fromCci, double3 fromVelocityCci,
                                    double3 aimNowCci, out Solution solution,
@@ -135,11 +110,8 @@ internal static class BallisticArc
         double refined = Search(body, fromCci, fromVelocityCci, aimNowCci, longWay, floor,
                                 horizon, seedFlightSeconds);
 
-        // A seeded bracket is local to last cycle's answer, and the arrivals that satisfy a floor
-        // are not one interval: a short arc dives onto the target about as steeply as a long one
-        // lobs onto it, so the shallow ones sit in the middle and the steep ones are at both ends.
-        // A seed can therefore sit in a bracket with nothing feasible in it, and the full scan is
-        // the only thing that finds the other side.
+        // The arrivals that satisfy a floor are not one interval (steep at both ends of flight time,
+        // shallow in the middle), so a seeded bracket can hold nothing feasible.
         if (!double.IsFinite(refined) && floor > 0.0 && double.IsFinite(seedFlightSeconds))
         {
             refined = Search(body, fromCci, fromVelocityCci, aimNowCci, longWay, floor,
@@ -150,9 +122,7 @@ internal static class BallisticArc
 
         double chosen = Math.Clamp(refined * loft, MinFlightSeconds, horizon);
 
-        // Where the two disagree the bound wins. Loft below one depresses the shot, which is
-        // exactly the arrival the floor exists to refuse, and a nudge cannot be allowed to walk
-        // out of a constraint the operator set.
+        // Where the two disagree the bound wins: a depressing loft is what the floor refuses.
         if (floor > 0.0 && !(ArrivalAt(body, fromCci, aimNowCci, chosen, longWay) >= floor))
         {
             chosen = refined;
@@ -165,15 +135,11 @@ internal static class BallisticArc
 
         if (!TrySolve(body, fromCci, aimNowCci, chosen, out solution, longWay)) return false;
 
-        // The cheapest time is carried out separately from the one actually flown, and the caller
-        // seeds the next search with the cheapest. Seeding with the lofted time instead applies the
-        // loft factor again on every cycle, and a shot asked to fly 1.4 times the cheapest ends up
-        // flying it to a power of the number of guidance cycles.
+        // The cheapest time is carried out separately for the next seed; seeding with the lofted
+        // time compounds the loft every cycle.
         solution = solution with { CheapestFlightSeconds = refined };
 
-        // An arc whose lowest point is inside the planet is a line drawn through it. That is what a
-        // depressed shot becomes past a certain point, and it is the one failure here that looks
-        // entirely reasonable in every other number.
+        // A depressed arc through the planet looks reasonable in every other number.
         return solution.LowestRadius >= body.SurfaceRadius - 1.0;
     }
 
@@ -221,9 +187,7 @@ internal static class BallisticArc
     /// <summary>
     /// How long a shot may take before the search stops considering it.
     ///
-    /// <para>Three times the period of a circular orbit skimming the surface. Wide enough for any
-    /// lofted shot on any body, and bounded rather than arbitrary so the scan's resolution means
-    /// the same thing on the Moon as on Earth.</para>
+    /// <para>Three surface-skimming orbital periods, so the scan's resolution means the same on any body.</para>
     /// </summary>
     public static double FlightTimeHorizon(BallisticBody body)
     {
@@ -274,10 +238,8 @@ internal static class BallisticArc
 
         if (floorDeg <= 0.0) return refined;
 
-        // Golden section over a cost with unreachable regions in it can walk into one, and a floor
-        // puts a whole edge of unreachable inside every bracket that straddles it. The refinement
-        // is an improvement or it is nothing: the anchor is a real flight time that was already
-        // costed, so falling back to it is falling back to an answer rather than to a failure.
+        // Golden section can walk into the unreachable edge a floor puts in a bracket, so the refinement
+        // is kept only if it improves on the already-costed anchor.
         double refinedCost = CostAt(body, fromCci, fromVelocityCci, aimNowCci, refined, longWay, floorDeg);
         double anchorCost = CostAt(body, fromCci, fromVelocityCci, aimNowCci, anchor, longWay, floorDeg);
 
@@ -306,10 +268,8 @@ internal static class BallisticArc
         return Vec.Len(s.VelocityToGain(fromVelocityCci));
     }
 
-    // Highest and lowest radius reached between the two ends of the arc. Both come off the conic
-    // rather than out of an integration, because the question is about the whole arc rather than
-    // about any sampled point on it: a coarse sample walks straight past a perigee inside the
-    // planet, which is the case that matters.
+    // Highest and lowest radius between the arc's ends, off the conic: a coarse sample walks past a
+    // perigee inside the planet.
     private static void Extremes(double mu, double3 rCci, double3 vCci, double3 arrivalCci,
                                  out double apogeeRadius, out double lowestRadius)
     {

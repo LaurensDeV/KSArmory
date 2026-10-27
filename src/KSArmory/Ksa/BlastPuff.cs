@@ -5,14 +5,10 @@ using KSA.Rendering.Particles;
 namespace KSArmory;
 
 /// <summary>
-/// The dust and grit a blast front throws off a part as it strikes: a burst of it on the face
-/// toward the burst, streaming away along the blast, heavier the harder the part was hit.
-///
-/// <para>Billboards with the mod's own smoke sprite, the renderer the gun's smoke is drawn with and
-/// is seen to work; the volumetric one drew the condensation shell as a blocky puff a quarter its
-/// size. The stream is a force along the blast rather than a spawn velocity: a planet-anchored
-/// emitter inherits no velocity, and its directional spawn is about the body's own axes. The force
-/// is in the body-fixed frame the emitter works in, and the drag settles it to a drift.</para>
+/// The dust a blast front throws off the face of a part it strikes, streaming along the blast.
+/// <para>Billboards: the volumetric renderer drew it as a blocky puff a quarter its size. The stream is a
+/// body-fixed force, not a spawn velocity: a planet-anchored emitter inherits none, and its directional
+/// spawn is about the body's own axes.</para>
 /// </summary>
 internal static class BlastPuff
 {

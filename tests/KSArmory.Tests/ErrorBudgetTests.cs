@@ -34,9 +34,6 @@ public class ErrorBudgetTests(ITestOutputHelper Out)
 
     private static double GroundMetres(double3 a, double3 b) => DeorbitShot.GroundMetres(a, b);
 
-    /// <summary>
-    /// The shot: picked up at near-orbital speed 200 km up, aimed 3,459 km downrange.
-    /// </summary>
     private static BallisticArc.Solution Shot(out double3 from, out double3 target)
         => DeorbitShot.Shot(out from, out target);
 
@@ -112,7 +109,6 @@ public class ErrorBudgetTests(ITestOutputHelper Out)
                       + $"at the flown {FlownResidual} m/s");
     }
 
-    /// <summary>Where a warhead released from this state comes down, as a place on the ground.</summary>
     private static double3 Land(double3 fromCci, double3 velocityCci)
         => DeorbitShot.Land(fromCci, velocityCci);
 
@@ -153,14 +149,11 @@ public class ErrorBudgetTests(ITestOutputHelper Out)
         }
     }
 
-    /// <summary>
-    /// The round as the game flies it, which is now what asking for nothing gives.
-    ///
+    /// <summary>The round as the game flies it.</summary>
     /// <param name="beforeGravityPerSubStep">
-    /// Fly the pre-2026-08-24 round instead, for a budget that wants to show what that change was
-    /// worth. It also held the air's own motion, which the shipped round still does.
+    /// Hold gravity for the frame instead, to price per-sub-step gravity. The air's own motion is held
+    /// for the frame either way.
     /// </param>
-    /// </summary>
     private static (double3 GroundFixed, double Seconds) FlyTheRound(double3 fromCci, double3 velocityCci,
                                                                      double dt,
                                                                      bool beforeGravityPerSubStep = false)
@@ -215,7 +208,7 @@ public class ErrorBudgetTests(ITestOutputHelper Out)
                       + $"{groundPerHeight:F1} m of ground per m of height");
         Out.WriteLine($"so the crossing is worth {depth * groundPerHeight:F2} m downrange");
 
-        // And the round's own crossing, which is a linear walk-back inside one 5 ms sub-step
+        // And the round's own crossing, which is a linear walk-back inside one sub-step
         // against a sphere sampled once a frame, not a bisection on depth.
         BallisticBody body = Earth;
         Slug round = new(from, v, null, 1, from, Vec.Zero)
@@ -322,8 +315,8 @@ public class ErrorBudgetTests(ITestOutputHelper Out)
 
     /// <summary>
     /// Term 5. What the frame step costs the round, and which half of the round's own model it
-    /// comes out of: the gravity and the air's motion are frame-level inputs, held across every
-    /// sub-step, while the predictor evaluates gravity at every RK4 stage.
+    /// comes out of: the air's motion is a frame-level input held across every sub-step, gravity is
+    /// held or re-read per sub-step, and the predictor evaluates gravity at every RK4 stage.
     /// </summary>
     [Fact]
     public void WhereTheRoundsFrameStepErrorLives()
@@ -337,8 +330,6 @@ public class ErrorBudgetTests(ITestOutputHelper Out)
 
         foreach (double dt in new[] { 1.0 / 60.0, 0.05, 0.1, 8.0 / 60.0, 0.2, 0.32 })
         {
-            // Swapped rather than renamed: re-reading is now what asking for nothing gives, so it
-            // is the *held* round that has to be asked for by name.
             (double3 held, double heldSeconds) = FlyTheRound(from, v, dt, beforeGravityPerSubStep: true);
             (double3 fresh, double freshSeconds) = FlyTheRound(from, v, dt);
 
@@ -484,8 +475,8 @@ public class ErrorBudgetTests(ITestOutputHelper Out)
 
                 double3 landed = Land(program.CutoffPositionCci, arc.RequiredVelocityCci);
 
-                // What IcbmComputer.Predict reports: the impact in the planet's orientation at the
-                // cutoff instant, against the target's position now.
+                // The impact in the planet's orientation at the cutoff instant, against the target now.
+                // IcbmComputer.Predict carries the impact back over the rest of the burn instead.
                 double asReported = GroundMetres(landed, Earth.CarryCci(target, elapsed));
 
                 // The same two points brought to one epoch.

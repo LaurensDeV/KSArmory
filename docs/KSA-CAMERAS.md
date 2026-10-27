@@ -8,8 +8,9 @@ non-null `Following` is the working combination, and a crash in that state is an
 `CameraRotation` (§4.5, trap 1) rather than an illegal pairing. Neither this mod's code nor its
 docs are evidence about the engine — only the corpus is.
 
-Every citation was re-checked against the build named below, and the ones that had moved were
-moved with it. A citation is still a pointer rather than a proof: check before relying on one.
+The claims were re-checked against each build named below; the line numbers were not, and most
+cite 2026.8.22.5348 (against 2026.10.19.5638, `Program.cs` sits about 300 lines later and `Camera.cs`
+about 9 earlier). A citation is a pointer to grep near, not a proof.
 
 ---
 
@@ -60,7 +61,7 @@ and kills the process. `dtPlayer` is clamped to `1/GameSettings.Current.Simulati
 |---|---|---|
 | 1 | `PrepareFrame` — orbit/vehicle solvers applied, `Glfw.PollEvents()` | `Program.cs:2000-2064` |
 | 2 | `OnFrameViewports(dtPlayer)` — **every controller writes its camera here** | `Program.cs:2091`, `2414-2468` |
-| 3 | `OnDrawUiFrame` / `OnDrawUiViewports` (StarMap Gui hooks wrap these) | `Program.cs:2095-2096` |
+| 3 | `OnDrawUiFrame` / `OnDrawUiViewports`, only while `DrawUI` (F2 clears it; StarMap Gui hooks wrap these) | `Program.cs:2095-2096` |
 | 4 | `OnFrameController` (cursor mode), `Cursor.UpdateInputRay(GetCamera())` | `Program.cs:2143-2146` |
 | 5 | `OnPreRender` → `Render` → `PostRender` | `Program.cs:2151-2159` |
 | 6 | *(StarMap postfix)* `[StarMapAfterOnFrame]` mod hooks | `StarMap.Core/StarMap.Core.Patches/ProgramPatcher.cs:40-49` |
@@ -764,10 +765,11 @@ Non-crashing misbehaviour worth the same attention:
   and `Camera.LocalRotation` written directly is overwritten by the controller in the viewport pass
   before any mod hook runs.
 
-  The seam that does work: `Viewport.FixedController` is a **public, writable field**,
-  `FixedController` is public and unsealed with a public constructor, and `OnFrame` is virtual.
-  A subclass assigned into that field supplies its own up. `Ksa/LevelHorizonController.cs` is
-  that, and it is the only unclaimed extension point this mod stands on.
+  The seam that does work: `FixedController` is public and unsealed with a public constructor, and
+  `OnFrame` is virtual, so a subclass supplies its own up. Installing one is not promised:
+  `IGameViewport.FixedController` is get-only and `GameViewport`'s setter is protected
+  (`GameViewport.cs:48`), so `KsaWorld.MainView.cs` writes the backing field by reflection.
+  `Ksa/LevelHorizonController.cs` is that subclass.
 
 - **A viewport in `Fixed` mode cannot be recovered by the player from the keyboard or the mouse.**
   `FixedController` reads no input of any kind — no `Input.`, no key, no mouse — so a camera a mod
@@ -840,6 +842,15 @@ Not established from the source, and what would settle each:
 Source: `../ksa-game-assemblies/current/src`, KSA build in `current/KSA_BUILD`.
 All citations are `path/relative/to/src:line`. Nothing here comes from the KSArmory mod's own code or docs.
 
+> **Written against 2026.8.22.5348; three parts are superseded.** The `Viewport` class, `Viewports`
+> list and fixed count (§0's loop, §C, the viewport parts of §B and §D) became `IViewport` /
+> `GameViewport` / `ViewportRegistry` in 2026.9.4.5400 — `docs/KSA-MODDING-NOTES.md` has the current
+> shape. §A is superseded for terrain and sky (its own note). §B.3 and §B.5 say no mid-frame command
+> buffer is reachable: `SunbloomRenderer.Render(CommandBuffer, IViewport, int)` is public, and this
+> mod's passes — the cloud, the rings, a camera window's sensor look — record from a Harmony prefix on
+> it (`Ksa/CloudPassHook.cs`). The render-target, shader-asset and save sections still describe the
+> engine; their line numbers do not.
+
 ---
 
 ### 0. Shape of the frame
@@ -849,7 +860,7 @@ All citations are `path/relative/to/src:line`. Nothing here comes from the KSArm
 | Step | Line |
 | --- | --- |
 | `OnFrameViewports(dtPlayer)` — per-viewport controller + camera + audio | `Program.cs:2091` |
-| `OnDrawUiFrame` / `OnDrawUiViewports` (ImGui) | `Program.cs:2095`, `2096` |
+| `OnDrawUiFrame` / `OnDrawUiViewports` (ImGui), only while `DrawUI` | `Program.cs:2095`, `2096` |
 | `OnFrameController(dtPlayer)` | `Program.cs:2143` |
 | `LightSystem.OnFrame(FrameViewport, dtPlayer)` | `Program.cs:2145` |
 | `Cursor.UpdateInputRay(GetCamera())` | `Program.cs:2146` |

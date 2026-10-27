@@ -6,33 +6,23 @@ namespace KSArmory;
 /// <summary>
 /// Nudges the main view round until it is looking at a chosen craft, then lets go.
 ///
-/// <para>It drives KSA's own orbit camera by setting the azimuth and elevation its controller
-/// already reads, rather than taking the view. That matters three times over: the player keeps
-/// full control throughout and can drag out of it at any moment, no camera mode changes — so the
-/// interface stays up and <c>FixedController</c> is never handed a following camera to divide by
-/// zero on — and easing is a matter of moving two numbers, so the view swings round instead of
-/// cutting.</para>
-///
-/// <para>It stops of its own accord on arrival, and the moment the player moves the view
-/// themselves. Holding on would mean fighting them for a camera they never gave up: the stored
-/// angles are exactly what was last written unless something else moved them, so any difference
-/// is somebody else's and the turn is over.</para>
+/// <para>Sets the azimuth and elevation KSA's orbit camera already reads, rather than taking the
+/// view: the player keeps control, no camera mode changes, and the view eases round.</para>
+/// <para>Stops on arrival or when the stored angles differ from what it last wrote, which means
+/// the player moved the view.</para>
 /// </summary>
 internal sealed class WatchCamera
 {
-    // Fraction of the remaining angle covered per second. About a second to swing most of the way
-    // round, which reads as deliberate rather than either instant or sluggish.
+    // Fraction of the remaining angle covered per second.
     private const double Rate = 4.0;
 
     // Close enough that another frame of nudging would not be visible.
     private const double ArrivedRad = 0.004;
 
-    // Gives up rather than chasing forever if the angles will not converge -- a target directly
-    // overhead, or a craft moving faster than the view can follow.
+    // For a target directly overhead, or one moving faster than the view can follow.
     private const double Timeout = 4.0;
 
-    // How far the stored angles may differ from what was written before it counts as the player
-    // having taken the view. Tight: a write lands exactly, so anything else is a real input.
+    // Tight: a write lands exactly, so anything more is a real input.
     private const double HandoverRad = 1e-6;
 
     private Vehicle? _target;
@@ -61,7 +51,6 @@ internal sealed class WatchCamera
         _hasWritten = false;
     }
 
-    /// <summary>Moves the view one frame's worth towards the target.</summary>
     public void Apply(double dtPlayer)
     {
         if (_target is null) return;
@@ -79,8 +68,7 @@ internal sealed class WatchCamera
             return;
         }
 
-        // Where the view would have to look. Measured from the camera rather than from the craft
-        // being flown: it is the camera that is being turned, and the two are metres apart.
+        // From the camera, not the craft flown: the two are metres apart.
         double3 toTarget = KsaWorld.PositionEcl(_target) - KsaWorld.CameraPositionEcl();
         if (Vec.Len2(toTarget) < 1e-6)
         {
@@ -95,7 +83,7 @@ internal sealed class WatchCamera
             return;
         }
 
-        // The player moved the view. It is theirs; stand down rather than dragging it back.
+        // The player moved the view.
         if (_hasWritten
             && !OrbitAim.SameAim(view.StoredAzimuth, view.StoredElevation,
                                  _wroteAzimuth, _wroteElevation, HandoverRad))

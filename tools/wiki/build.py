@@ -7,13 +7,14 @@
 
 Nothing on the site is written for the site except wiki/pages/. The weapon pages are generated from
 the family files and the part XML, with each weapon's description taken from README.md's "What ships
-with it"; the pack-author pages are docs/WEAPON-PACKS.md and docs/PACK-API-SURFACE.md; the player
+with it"; the pack-author pages are docs/WEAPON-PACKS.md and docs/FROM-KSP-MODDING.md; the guide
 pages are README.md's own sections. A link into the repository is pointed at GitHub, at the branch
 the site describes.
 """
 
 import argparse
 import html
+import json
 import math
 import os
 import re
@@ -43,25 +44,44 @@ BRANCH = "main"
 # The order families appear in, and what each is called on the site.
 FAMILIES = {
     "Pantsir": "Air defence",
-    "Rails": "Missile rails",
+    "Rails": "Missiles",
+    "Rockets": "Rocket pods",
     "Guns": "Guns",
     "Sensors": "Sights and sensors",
     "Countermeasures": "Countermeasures",
     "DirectedEnergy": "Directed energy",
-    "Strategic": "Bombs and ballistic missiles",
+    "Strategic": "Nuclear weapons",
 }
+
+# A family's folder, where its file's name no longer says what it holds.
+FOLDERS = {"Rails": "missiles", "Strategic": "nuclear"}
+
+
+# What the stores hang from, a section of their own: (model, name, the CarriageMarker of the stores that
+# bring one, the line such a store's page says it with). They fire nothing, so no family file defines them;
+# the Launch Rail is not even a part, and tools/wiki/models.py draws it from a missile.
+MOUNTS_TITLE = "Racks and rails"
+MOUNTS_FOLDER = "weapons/racks-and-rails"
+MOUNTS = [
+    ("KSArmory_Prefab_WeaponsRail", "Ejector Rack", "Carriage",
+     "Hangs from the [Ejector Rack]({link}) it brings."),
+    ("KSArmory_Prefab_LaunchRail", "Launch Rail", "LaunchRail", "Slides off the [Launch Rail]({link}) it brings."),
+]
+
+
+def folder_of(family: str) -> str:
+    return f"weapons/{FOLDERS.get(family, family.lower())}"
 
 # Pages lifted whole from the repository: (source, page, title).
 DOC_PAGES = [
     ("docs/WEAPON-PACKS.md", "modding/weapon-packs.md", "Weapon pack reference"),
-    ("docs/PACK-API-SURFACE.md", "modding/pack-api.md", "Pack API surface"),
     ("docs/FROM-KSP-MODDING.md", "modding/from-ksp.md", "Coming from KSP modding"),
 ]
 
 # README.md sections that are the player's own pages: (heading, page, title).
 README_PAGES = [
-    ("Install", "players/install.md", "Installing"),
-    ("Use", "players/using.md", "Using it"),
+    ("Install", "guide/install.md", "Installing"),
+    ("Use", "guide/using.md", "Using it"),
 ]
 
 
@@ -84,6 +104,8 @@ def csharp_defaults(*files: str) -> dict[str, str]:
 MUNITION = csharp_defaults("MunitionProfile.cs")
 SENSOR = csharp_defaults("SensorProfile.cs")
 OPTIC = csharp_defaults("OpticProfile.cs")
+LAUNCHER = csharp_defaults("LauncherProfile.cs")
+DISPENSER = csharp_defaults("Dispenser.cs")
 
 
 def value(element: ET.Element, name: str, defaults: dict[str, str]) -> str | None:
@@ -116,8 +138,14 @@ def charge(kg: float | None) -> str:
     for scale, unit in ((1e9, "Mt"), (1e6, "kt"), (1e3, "t")):
         if kg >= scale:
             return f"{kg / scale:.3g} {unit}"
-    return f"{kg:.3g} kg"
+    return f"{kg:.3g} kg" if kg >= 1 else f"{kg * 1000:.3g} g"
 
+
+def hidden_parts() -> set[str]:
+    """Parts the editor does not offer, which a player cannot build with and so gets no page."""
+    root = ET.parse(MOD / "KSArmoryGameData.xml").getroot()
+    return {p.get("Id") for p in root.iter("PartGameData")
+            if any(t.get("Value") == "Hidden" for t in p.iter("EditorTag"))}
 
 
 def part_names() -> dict[str, str]:
@@ -145,7 +173,7 @@ def readme_blurbs() -> list[tuple[str, str]]:
     section = text.split("## What ships with it", 1)[1].split("\n## ", 1)[0]
     blurbs = []
     for paragraph in section.split("\n\n"):
-        if m := re.match(r"\*\*(.+?)\*\*\s*[—-]+\s*(.*)", paragraph.strip(), re.S):
+        if m := re.match(r"\*\*([^*]+?)\.\*\*\s+(.*)", paragraph.strip(), re.S):
             blurbs.append((m.group(1), " ".join(m.group(2).split())))
     return blurbs
 
@@ -162,10 +190,19 @@ def blurb_for(names: list[str], blurbs: list[tuple[str, str]]) -> str | None:
 
 
 
-def relink(text: str, source: Path, pages: dict[str, str]) -> str:
-    """Point every link that leaves the site at GitHub; one to a page the site carries stays on the site."""
+def relink(text: str, source: Path, page: str) -> str:
+    """Point every link that leaves the site at GitHub; one to a page or a README section the site carries
+    stays on the site."""
+    pages = site_links(page)
+
     def fix(m: re.Match) -> str:
         label, target = m.group(1), m.group(2)
+        if target.startswith("#") and source == ROOT / "README.md":
+            # A README heading is on whichever guide page took its section, or only on GitHub.
+            home = readme_anchors().get(target[1:])
+            if home is None:
+                return f"[{label}]({REPO}/blob/{BRANCH}/README.md{target})"
+            return f"[{label}]({'' if home == page else os.path.relpath(home, Path(page).parent)}{target})"
         if re.match(r"^(https?:|mailto:|#)", target):
             return m.group(0)
         path, _, anchor = target.partition("#")
@@ -176,6 +213,15 @@ def relink(text: str, source: Path, pages: dict[str, str]) -> str:
         return f"[{label}]({urljoin(f'{REPO}/blob/{BRANCH}/{source.relative_to(ROOT).as_posix()}', target)})"
 
     return re.sub(r"(?<!!)\[([^\]]+)\]\(([^)\s]+)\)", fix, text)
+
+
+def readme_anchors() -> dict[str, str]:
+    """Each heading inside a README section the guide carries, to the guide page it is on."""
+    found = {}
+    for heading, page, _ in README_PAGES:
+        for title in re.findall(r"^#{2,4} (.+)$", readme_section(heading), re.M):
+            found.setdefault(anchor(title), page)
+    return found
 
 
 def readme_section(heading: str) -> str:
@@ -203,31 +249,62 @@ def family_files() -> list[tuple[str, ET.Element, str]]:
 def round_row(m: ET.Element, shell: bool) -> str:
     # A gun's round is flown as a shell whatever its profile's guidance says, which is only the default.
     guidance = "shell" if shell else GUIDANCE.get(value(m, "Guidance", MUNITION) or "", value(m, "Guidance", MUNITION))
-    reach = f"{distance(number(value(m, 'MinRange', MUNITION)))} – {distance(number(value(m, 'MaxRange', MUNITION)))}"
+    low, high = number(value(m, "MinRange", MUNITION)), distance(number(value(m, "MaxRange", MUNITION)))
+    reach = f"{distance(low)} to {high}" if low else f"up to {high}"
     fuse = number(value(m, "FuseRadius", MUNITION))
     return (f"| {m.get('DisplayName')} | {guidance} | {reach} | {charge(number(value(m, 'ChargeKg', MUNITION)))} | "
-            f"{'contact' if not fuse else distance(fuse)} |")
+            f"{'contact' if not fuse else 'proximity, ' + distance(fuse)} |")
 
 
 def sensor_row(s: ET.Element) -> str:
-    kind = "cued only" if s.get("CuedOnly") == "true" else ("infrared" if s.get("Infrared") == "true" else
-                                                             ("radar" if s.get("Emits") == "true" else "passive"))
-    return (f"| {s.get('DisplayName')} | {kind} | {distance(number(value(s, 'Range', SENSOR)))} | "
-            f"{value(s, 'ConeDeg', SENSOR)}° |")
+    kind = ("tracks what it is given" if s.get("CuedOnly") == "true" else
+            "infrared" if s.get("Infrared") == "true" else "radar" if s.get("Emits") == "true" else "passive")
+    reach = distance(number(value(s, "Range", SENSOR)))
+    # An infrared set's range is a ceiling; what it sees depends on how hot the contact is.
+    if s.get("Infrared") == "true":
+        reach = f"up to {reach}"
+    # ConeDeg is a half-angle; the field of view is twice it.
+    return f"| {s.get('DisplayName')} | {kind} | {reach} | {2 * float(value(s, 'ConeDeg', SENSOR)):g}° |"
+
+
+def front_matter(title: str, description: str, image: str) -> list[str]:
+    """What a link preview reads: the title, a sentence or two, and the picture (wiki/overrides/main.html)."""
+    return ["---", f"title: {json.dumps(title)}", f"description: {json.dumps(description)}",
+            f"image: {json.dumps(image)}", "---", ""]
+
+
+def plain(markdown: str, limit: int = 220) -> str:
+    """Markdown as one line of plain text, cut at a sentence where it can be."""
+    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", markdown)
+    text = re.sub(r"[*_`]", "", text)
+    if len(text) <= limit:
+        return text
+    cut = text.rfind(". ", 0, limit)
+    return text[:cut + 1] if cut > 60 else text[:limit].rsplit(" ", 1)[0] + "..."
+
+
+VIEWER_SCRIPTS = ['<script src="/assets/3d/config.js"></script>',
+                  '<script type="module" src="/assets/3d/model-viewer.min.js"></script>']
 
 
 def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], list[str]]:
-    """The family pages, one entry per part for the gallery and the table, and every part no README
-    paragraph describes."""
+    """A page per weapon and an overview per family, one entry per part for the gallery and the table, and
+    every part no README paragraph describes."""
     blurbs = readme_blurbs()
     pages, weapons, undescribed = {}, [], []
+    carriage_page = {marker: (f"{MOUNTS_FOLDER}/{anchor(name)}.md", line)
+                     for _, name, marker, line in MOUNTS if marker}
+    carried_by: dict[str, list[str]] = {}
+    for _, root, _ in family_files():
+        for e in root.iter("Launcher"):
+            if (marker := e.get("CarriageMarker")) in carriage_page and e.get("PartId") not in hidden_parts():
+                carried_by.setdefault(marker, []).append(names.get(e.get("PartId"), e.get("PartId")))
     for family, root, file_name in family_files():
         munitions = {m.get("Name"): m for m in root.iter("Munition")}
         sensors = {s.get("Name"): s for s in root.iter("Sensor")}
         decoys = {d.get("Name"): d for d in root.iter("Decoy")}
-        out = [f"# {FAMILIES[family]}", "",
-               f"Generated from [`{file_name}`]({REPO}/blob/{BRANCH}/src/KSArmory/KSArmory/{file_name}), the "
-               f"family KSArmory files these under (*KSArmory → Built-in weapons → {family}*).", ""]
+        folder = folder_of(family)
+        family_weapons = []
 
         parts: dict[str, list[ET.Element]] = {}
         for element in root:
@@ -235,24 +312,34 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
                 parts.setdefault(element.get("PartId"), []).append(element)
 
         for part_id, elements in parts.items():
+            if part_id in hidden_parts():
+                continue
             name = names.get(part_id, part_id)
+            page = f"{folder}/{anchor(name)}.md"
             own_names = [name] + [e.get("DisplayName", "") for e in elements]
             blurb = blurb_for(own_names, blurbs)
             if blurb is None:
                 undescribed.append(name)
-            out += [f"## {name}", ""]
+            blurb = blurb[0].upper() + blurb[1:] if blurb else ""
+            out = [*front_matter(name, plain(blurb) or f"{name}, part of KSArmory's {FAMILIES[family].lower()}.",
+                                 f"models/{slug(part_id)}-card.png"),
+                   *VIEWER_SCRIPTS, "", f"# {name}", ""]
             if blurb:
-                blurb = blurb[0].upper() + blurb[1:]
-                out += [relink(blurb, ROOT / "README.md", site_links(f"weapons/{family.lower()}.md")), ""]
-            out += [viewer(part_id, name), "", f"Part `{part_id}`.", ""]
+                out += [relink(blurb, ROOT / "README.md", page), ""]
+            out += [viewer(part_id, name), "",
+                    f"Part Id `{part_id}`, in [{FAMILIES[family]}](index.md).", ""]
+            for e in elements:
+                if (hung := carriage_page.get(e.get("CarriageMarker", ""))) is not None:
+                    link = Path(os.path.relpath(hung[0], Path(page).parent)).as_posix()
+                    out += [hung[1].format(link=link), ""]
 
             fires, sees, kinds, shells = [], [], [], set()
             for e in elements:
                 if e.tag == "Launcher":
                     if e.get("FiresBeam") == "true":
-                        kinds.append("beam")
+                        kinds.append("laser")
                     if e.findall("Tube"):
-                        kinds.append("launcher")
+                        kinds.append(value(e, "TubeArmamentLabel", LAUNCHER).strip('"').lower())
                     if e.get("GunMunition"):
                         kinds.append("gun")
                         shells.add((e.get("GunMunition") or "").split(":")[-1])
@@ -262,49 +349,79 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
                     if (s := sensors.get((e.get("Sensor") or "").split(":")[-1])) is not None:
                         sees.append(s)
                     tubes = len(e.findall("Tube"))
-                    ammo = e.get("GunAmmo")
-                    rate = e.get("GunRoundsPerMinute")
-                    facts = [f"{tubes} tube{'s' if tubes != 1 else ''}" if tubes else None,
-                             f"{ammo} rounds" if ammo else None, f"{rate} a minute" if rate else None,
-                             f"traverses at {e.get('SlewRateDeg')}°/s" if e.get("TurretMarker") and e.get("SlewRateDeg") else None]
+                    gun = e.get("GunMunition")
+                    ammo = int(value(e, "GunAmmo", LAUNCHER)) if gun else 0
+                    rate = int(float(value(e, "GunRoundsPerMinute", LAUNCHER))) if gun else 0
+                    label = value(e, "TubeArmamentLabel", LAUNCHER).strip('"').lower()
+                    facts = [f"{tubes} {label}" if tubes > 1 else f"1 {label.rstrip('s')}" if tubes else None,
+                             f"{ammo:,} rounds of ammunition" if ammo else None,
+                             f"fires {rate:,} rounds a minute" if rate else None,
+                             f"turns at {value(e, 'SlewRateDeg', LAUNCHER)}°/s" if e.get("TurretMarker") else None]
                     if facts := [f for f in facts if f]:
                         out += [f"**{e.get('DisplayName')}**: {', '.join(facts)}.", ""]
                 elif e.tag in ("Optic", "SearchSet"):
-                    kinds.append("sight" if e.tag == "Optic" else "search set")
+                    kinds.append("sight" if e.tag == "Optic" else "sensor")
                     if (s := sensors.get((e.get("Sensor") or "").split(":")[-1])) is not None and s not in sees:
                         sees.append(s)
                     if e.tag == "Optic":
                         zoom = value(e, "MaxMagnification", OPTIC)
                         gimbal = value(e, "Gimbal", OPTIC)
-                        out += [f"**{e.get('DisplayName')}**: up to ×{zoom} magnification, "
-                                f"{'roll-nod' if gimbal == 'RollNod' else 'mast'} head"
-                                f"{', with a laser' if e.get('HasLaser') == 'true' else ''}.", ""]
+                        out += [f"**{e.get('DisplayName')}**: zooms to ×{zoom}, "
+                                f"{'rolling pod head' if gimbal == 'RollNod' else 'ball head on a mast'}"
+                                f"{', laser rangefinder and designator' if e.get('HasLaser') == 'true' else ''}.", ""]
                 elif e.tag == "Dispenser":
-                    kinds.append("dispenser")
+                    kinds.append("decoys")
                     d = decoys.get(e.get("Decoy", ""))
-                    out += [f"**{e.get('DisplayName')}**: {e.get('Count')} × "
+                    out += [f"**{e.get('DisplayName')}**: {value(e, 'Count', DISPENSER)} × "
                             f"{d.get('DisplayName') if d is not None else e.get('Decoy')}, "
-                            f"{e.get('SalvoSize')} a salvo.", ""]
+                            f"{value(e, 'SalvoSize', DISPENSER)} thrown per press.", ""]
 
             if fires:
-                out += ["| Round | Guidance | Reach | Warhead | Fuse |", "| --- | --- | --- | --- | --- |",
+                out += ["| Round | Guidance | Range | Warhead | Fuse |", "| --- | --- | --- | --- | --- |",
                         *[round_row(m, m.get("Name") in shells) for m in fires], ""]
             if sees:
-                out += ["| Sensor | Kind | Range | Cone |", "| --- | --- | --- | --- |", *[sensor_row(s) for s in sees], ""]
+                out += ["| Sensor | Type | Range | Field of view |", "| --- | --- | --- | --- |", *[sensor_row(s) for s in sees], ""]
 
+            pages[page] = "\n".join(out)
             first = fires[0] if fires else None
-            weapons.append({
-                "name": name, "part": part_id, "family": FAMILIES[family],
-                "href": f"/weapons/{family.lower()}/#{anchor(name)}",
+            family_weapons.append({
+                "name": name, "part": part_id, "family": FAMILIES[family], "page": page, "id": anchor(name),
+                "href": f"/{folder}/{anchor(name)}/",
                 "kinds": ", ".join(dict.fromkeys(kinds)),
                 "reach": distance(number(value(first, "MaxRange", MUNITION))) if first is not None else None,
                 "warhead": charge(number(value(first, "ChargeKg", MUNITION))) if first is not None else None,
             })
 
-        # The viewer is a megabyte, so it is loaded only by a page that shows a model.
-        out[1:1] = ["", '<script src="/assets/3d/config.js"></script>',
-                    '<script type="module" src="/assets/3d/model-viewer.min.js"></script>']
-        pages[f"weapons/{family.lower()}.md"] = "\n".join(out)
+        weapons += family_weapons
+        pages[f"{folder}/index.md"] = "\n".join([
+            *front_matter(FAMILIES[family], ", ".join(w["name"] for w in family_weapons) + ".",
+                          f"models/{slug(family_weapons[0]['part'])}-card.png"),
+            f"# {FAMILIES[family]}", "",
+            f"Defined in [`{file_name}`]({REPO}/blob/{BRANCH}/src/KSArmory/KSArmory/{file_name}). The whole family "
+            f"can be switched off in game under *KSArmory → Built-in weapons → {family}*.", "",
+            gallery(family_weapons), ""])
+
+    mounts = []
+    for model, name, marker, _ in MOUNTS:
+        page = f"{MOUNTS_FOLDER}/{anchor(name)}.md"
+        blurb = blurb_for([name], blurbs)
+        if blurb is None:
+            undescribed.append(name)
+        stores = carried_by.get(marker, []) if marker else []
+        pages[page] = "\n".join([
+            *front_matter(name, plain(blurb or name), f"models/{slug(model)}-card.png"),
+            *VIEWER_SCRIPTS, "", f"# {name}", "", relink(blurb or "", ROOT / "README.md", page), "",
+            viewer(model, name), "",
+            *([f"The stores that bring one: {', '.join(stores)}.", ""] if stores else [])])
+        mounts.append({"name": name, "part": model, "family": MOUNTS_TITLE, "page": page, "id": anchor(name),
+                       "href": f"/{MOUNTS_FOLDER}/{anchor(name)}/", "kinds": "mount", "reach": None, "warhead": None})
+    weapons += mounts
+    pages[f"{MOUNTS_FOLDER}/index.md"] = "\n".join([
+        *front_matter(MOUNTS_TITLE, ", ".join(m["name"] for m in mounts) + ".",
+                      f"models/{slug(mounts[0]['part'])}-card.png"),
+        f"# {MOUNTS_TITLE}", "",
+        "What the missiles, the bomb and the rocket pods hang from. They fire nothing themselves.", "",
+        gallery(mounts), ""])
     return pages, weapons, undescribed
 
 
@@ -318,7 +435,7 @@ def viewer(part_id: str, name: str) -> str:
             f'  loading="lazy" reveal="auto" touch-action="pan-y">\n'
             f'  <img slot="poster" src="/models/{slug(part_id)}.webp" alt="{label}">\n'
             f'</model-viewer>\n'
-            f'<figcaption>Drag to turn, scroll to zoom.</figcaption>\n'
+            f'<figcaption>Drag to rotate. Scroll or pinch to zoom.</figcaption>\n'
             f'</figure>')
 
 
@@ -327,7 +444,7 @@ def gallery(weapons: list[dict]) -> str:
     cards = []
     for w in weapons:
         stats = " · ".join(x for x in (w["reach"], w["warhead"]) if x and x != "none") or w["kinds"]
-        cards.append(f'<a class="ks-card" href="{w["href"]}">'
+        cards.append(f'<a class="ks-card" id="{w["id"]}" href="{w["href"]}">'
                      f'<img src="/models/{slug(w["part"])}.webp" alt="{html.escape(w["name"], quote=True)}" loading="lazy">'
                      f'<span class="ks-card__body"><span class="ks-card__family">{html.escape(w["family"])}</span>'
                      f'<span class="ks-card__name">{html.escape(w["name"])}</span>'
@@ -336,7 +453,7 @@ def gallery(weapons: list[dict]) -> str:
 
 
 def weapon_table(weapons: list[dict]) -> list[str]:
-    return ["| Part | Family | Kind | Reach | Warhead |", "| --- | --- | --- | --- | --- |",
+    return ["| Weapon | Family | Type | Range | Warhead |", "| --- | --- | --- | --- | --- |",
             *[f"| [{w['name']}]({w['href']}) | {w['family']} | {w['kinds']} | {w['reach'] or '-'} | "
               f"{w['warhead'] or '-'} |" for w in weapons]]
 
@@ -357,6 +474,9 @@ GALLERY_MARKER = "<!-- every weapon -->"
 PATCH_MARKER = "<!-- patch -->"
 
 # Models change only with a release and the viewer only with its pinned version.
+# The guide was at /players/ before it was renamed; links to it are already out there.
+REDIRECTS = "/players/* /guide/:splat 301\n"
+
 HEADERS = """/models/*
   Cache-Control: public, max-age=86400
 /assets/3d/*
@@ -404,24 +524,31 @@ def assemble(with_models: bool) -> None:
     shutil.copy(ROOT / "branding/favicon.svg", DOCS / "assets/favicon.svg")
     (DOCS / "assets/3d/config.js").write_text(VIEWER_CONFIG)
     (DOCS / "_headers").write_text(HEADERS)
+    (DOCS / "_redirects").write_text(REDIRECTS)
 
     config = (WIKI / "mkdocs.yml").read_text()
     marker = "      # generated: one entry per family\n"
     if marker not in config:
         sys.exit("wiki: wiki/mkdocs.yml has lost the marker the family pages are written at")
-    entries = "".join(f"      - {title}: weapons/{family.lower()}.md\n"
-                      for family, title in FAMILIES.items()
-                      if any(f == family for f, _, _ in family_files()))
-    (BUILD / "mkdocs.yml").write_text(config.replace(marker, entries))
-
     names = part_names()
     pages, weapons, undescribed = weapon_pages(names)
+    entries = ""
+    for folder, title in [*((folder_of(f), t) for f, t in FAMILIES.items()), (MOUNTS_FOLDER, MOUNTS_TITLE)]:
+        members = [w for w in weapons if w["page"].startswith(f"{folder}/")]
+        if members:
+            entries += f"      - {title}:\n          - {folder}/index.md\n"
+            entries += "".join(f"          - {json.dumps(w['name'])}: {w['page']}\n" for w in members)
+    (BUILD / "mkdocs.yml").write_text(config.replace(marker, entries))
+    # A link preview's picture for each weapon, drawn by stills.mjs beside its still.
+    (DOCS / "models").mkdir(exist_ok=True)
+    (DOCS / "models/cards.json").write_text(json.dumps(
+        {slug(w["part"]): {"name": w["name"], "family": w["family"]} for w in weapons}, indent=1))
     for page, text in pages.items():
         write(page, text)
     write("weapons/index.md", "\n".join([
         "# Weapons", "",
-        "Every weapon KSArmory ships, generated from its definition files at the release this site "
-        "describes. A family can be switched off in game under *KSArmory → Built-in weapons*.", "",
+        "Every weapon that comes with KSArmory. The numbers come from the same files as the current release. "
+        "You can switch off any family of weapons in game under *KSArmory → Built-in weapons*.",
         gallery(weapons), "", *weapon_table(weapons), ""]))
     home = DOCS / "index.md"
     if GALLERY_MARKER not in home.read_text():
@@ -431,14 +558,14 @@ def assemble(with_models: bool) -> None:
     home.write_text(home.read_text().replace(GALLERY_MARKER, gallery(weapons)).replace(PATCH_MARKER, patch))
 
     for src, page, _ in DOC_PAGES:
-        write(page, relink((ROOT / src).read_text(), ROOT / src, site_links(page)))
+        write(page, relink((ROOT / src).read_text(), ROOT / src, page))
     for heading, page, title in README_PAGES:
-        write(page, f"# {title}\n\n" + relink(readme_section(heading), ROOT / "README.md", site_links(page)))
+        write(page, f"# {title}\n\n" + relink(readme_section(heading), ROOT / "README.md", page))
 
     if with_models:
         models()
         # Strict mode does not follow a URL in raw HTML, so a page naming a model nobody built would pass it.
-        for page in (DOCS / "weapons").glob("*.md"):
+        for page in (DOCS / "weapons").rglob("*.md"):
             for model in re.findall(r'src="/models/([^"]+)"', page.read_text()):
                 if not (DOCS / "models" / model).is_file():
                     sys.exit(f"wiki: {page.name} shows models/{model}, which was not built")
@@ -474,15 +601,17 @@ def main() -> int:
         assemble(with_models=False)
         return 0
     assemble(with_models=True)
-    mkdocs = shutil.which("mkdocs")
-    if mkdocs is None:
-        print("wiki: mkdocs is not installed; pip install -r wiki/requirements.txt", file=sys.stderr)
+    zensical = shutil.which("zensical")
+    if zensical is None:
+        print("wiki: zensical is not installed; pip install -r wiki/requirements.txt", file=sys.stderr)
         return 2
-    command = [mkdocs, "serve" if args.serve else "build", "-f", str(BUILD / "mkdocs.yml")]
+    command = [zensical, "serve" if args.serve else "build", "-f", str(BUILD / "mkdocs.yml")]
     if args.serve:
         return subprocess.run(command).returncode
 
     command.append("--strict")
+    # Zensical writes into the site folder without emptying it, so a page that was renamed would linger.
+    shutil.rmtree(BUILD / "site", ignore_errors=True)
     if (code := subprocess.run(command).returncode) != 0:
         return code
     for page in (BUILD / "site").rglob("*.html"):

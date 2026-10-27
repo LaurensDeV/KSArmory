@@ -17,9 +17,7 @@ _ad_has_net10() {
     "$dotnet_bin" --list-sdks 2>/dev/null | grep -q '^10\.'
 }
 
-# .exe as well as the bare name: under Git Bash or MSYS on Windows the private SDK installs as
-# dotnet.exe, and testing only for `dotnet` silently skips it and falls through to whatever is on
-# PATH - which is exactly the distro-8 case this file exists to avoid.
+# .exe as well: under Git Bash or MSYS the private SDK installs as dotnet.exe.
 if _ad_has_net10 "$HOME/.dotnet/dotnet"; then
     export DOTNET_ROOT="$HOME/.dotnet"
     export PATH="$HOME/.dotnet:$HOME/.dotnet/tools:$PATH"

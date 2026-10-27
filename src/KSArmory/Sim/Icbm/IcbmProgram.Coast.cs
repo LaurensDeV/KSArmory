@@ -137,24 +137,19 @@ internal sealed partial class IcbmProgram
         // further than the bus can trim -- 58 m/s owed on the first 50 km shot flown.
         bool ready = !_fellShort && ((highEnough && closeEnough) || _releasesAtCutoff);
 
-        // A burn that ended because the tanks did is not the same as one that ended because the
-        // shot was complete, and the two are indistinguishable from every other number on the
-        // panel. The warheads are held back as well as the message changing: releasing them on a
-        // trajectory known to fall short spreads them across whatever is under the short fall.
+        // A burn the tanks ended holds the warheads: released on a trajectory known to fall short,
+        // they spread across whatever is under the short fall.
         string hold = _fellShort
             ? !_everLit ? NothingEverLit()
             : $"burn ended {shortBy:F0} m/s short of the solution"
             : ready ? "coasting, warheads may be released"
             : closeEnough ? "coasting to release altitude"
 
-            // Counted to the release rather than to the arrival. The arrival is already the
-            // headline above this line, and it is not the thing being waited for: a coast ends
-            // when the warheads go, minutes earlier.
+            // Counted to the release, not the arrival: a coast ends when the warheads go, minutes earlier.
             : $"holding the warheads, release in {Clock(toArrival - gate)}";
 
-        // The line it was cut off on, not the airflow. The warheads leave along it, and a bus that
-        // swings to prograde the moment the engines stop throws them off the solution it just spent
-        // the whole burn arriving at.
+        // The line the computer set (the RVs' entry line, or a hop's), else the line it was cut off on;
+        // never prograde at cutoff, which throws the warheads off the solution the burn arrived at.
         double3 held = !CoastLineCci.Equals(Vec.Zero) ? CoastLineCci
                      : _thrustDirCci.Equals(Vec.Zero) ? Vec.Unit(state.AirflowCci) : _thrustDirCci;
 

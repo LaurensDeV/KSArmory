@@ -23,8 +23,6 @@ public class MagazineTests
         return magazine;
     }
 
-    // ---- Counting ------------------------------------------------------
-
     [Theory]
     [InlineData(1)]
     [InlineData(2)]
@@ -78,8 +76,6 @@ public class MagazineTests
             magazine.TryTakeTube(empty, out _);
         }
     }
-
-    // ---- Tubes whose round is still in the air -------------------------
 
     /// <summary>
     /// A reload refills every tube, including ones whose round has not landed. Handing one out
@@ -154,8 +150,6 @@ public class MagazineTests
         Assert.False(Magazine.IsOccupied(inFlight, 1));
     }
 
-    // ---- Resizing ------------------------------------------------------
-
     [Fact]
     public void ResizingToADifferentLauncherRefillsToTheNewCount()
     {
@@ -203,8 +197,6 @@ public class MagazineTests
         Assert.False(magazine.IsLoaded(2));
         Assert.False(magazine.IsLoaded(int.MaxValue));
     }
-
-    // ---- The launch flash ----------------------------------------------
 
     /// <summary>
     /// Every tube that is not in the air must have its body seated, spent or not.
@@ -272,8 +264,6 @@ public class MagazineTests
 
         for (int i = 1; i < 4; i++) Assert.Equal(TubeVisual.Loaded, magazine.Plan(i, inFlight: false));
     }
-
-    // ---- Deep magazines: guns and rack-fed launchers ---------------------
 
     /// <summary>
     /// A tube is a place to fire from; the magazine is how much there is to fire. A gun has one

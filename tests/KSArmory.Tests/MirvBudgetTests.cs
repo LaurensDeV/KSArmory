@@ -38,8 +38,6 @@ public class MirvBudgetTests(ITestOutputHelper Out)
 
     private static MunitionProfile Warhead => DeorbitShot.Warhead;
 
-    // ---------------------------------------------------------------- the two trajectories
-
     /// <summary>
     /// Where a salvo leaves from, and along which line.
     ///
@@ -223,8 +221,6 @@ public class MirvBudgetTests(ITestOutputHelper Out)
         }
     }
 
-    // ---------------------------------------------------------------- the group
-
     /// <summary>The six tube axes in the frame a bus holding <paramref name="noseCci"/> is in.</summary>
     private static double3[] TubeAxes(double3 noseCci, double rollTurns = 0.0)
     {
@@ -281,8 +277,6 @@ public class MirvBudgetTests(ITestOutputHelper Out)
                       + $"spread {DeorbitShot.Spread(landed),6:F0} m "
                       + $"(misses {closest:F0}-{furthest:F0} m, mean {mean:F0} m)");
     }
-
-    // ---------------------------------------------------------------- the terms
 
     /// <summary>
     /// What the two trajectories are, and what a metre a second is worth on each.
@@ -537,8 +531,8 @@ public class MirvBudgetTests(ITestOutputHelper Out)
     ///
     /// <para>A 1 ms flight is the reference rather than the predictor, so the round's own
     /// integration error is separated from the two models genuinely differing. Whatever is left at
-    /// 1 ms is the model gap: fourth-order Runge-Kutta with gravity at every stage against
-    /// symplectic Euler on 5 ms sub-steps with gravity held for the frame.</para>
+    /// 1 ms is the model gap: fourth-order Runge-Kutta against the round's first-order symplectic
+    /// Euler on its own sub-step.</para>
     /// </summary>
     [Fact]
     public void ThePredictorAgainstTheRoundItPredicts()
@@ -594,13 +588,9 @@ public class MirvBudgetTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// Term: gravity and the air's motion are frame-level arguments to <see cref="Slug"/>, held
-    /// across every 5 ms sub-step, while <see cref="ImpactPredictor"/> re-evaluates gravity at each
-    /// Runge-Kutta stage.
-    ///
-    /// <para>Priced, not fixed. <c>Sim/BallisticBody.cs</c> already carries <c>Mu</c>, so an
-    /// analytic per-sub-step gravity needs no call into the game — but this is measurement and the
-    /// decision is somebody else's.</para>
+    /// Term: the air's motion is a frame-level argument to <see cref="Slug"/>, held across every
+    /// sub-step, while <see cref="ImpactPredictor"/> re-evaluates it at each Runge-Kutta stage.
+    /// Gravity is re-read per sub-step as flown; <see cref="DeorbitShot.Refresh.HoldGravity"/> prices holding it.
     /// </summary>
     [Fact]
     public void WhatHoldingGravityForAWholeFrameCosts()

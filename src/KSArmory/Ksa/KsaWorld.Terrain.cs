@@ -53,34 +53,14 @@ internal static partial class KsaWorld
         }
     }
 
-    /// <summary>
-    /// Whether the skyline of the body under the eye hides the target, against the real height
-    /// field.
-    ///
-    /// <para>Terrain only, and for one body. <see cref="IsOccluded"/> runs over every body in the
-    /// system and stays in front of this: a ridge on another world only matters when that world is
-    /// between the two points, which the sphere has already caught. So this is asked once the
-    /// cheap rejects have all passed, and never for a contact they threw out.</para>
-    /// </summary>
-    /// <param name="samples">Height lookups this look may cost. Zero asks none.</param>
     // Each modifier contributes its amplitude times a weight, a lookup and a noise value all in
     // [0, 1], so the sum of the declared amplitudes is a supremum rather than an estimate. Earth's
     // total 7,525 m.
     private const double TerrainModifierHeadroomMetres = 8_000.0;
 
-    // How high the terrain can possibly reach, as a bound the cheap reject may stand in front of
-    // the exact test with.
-    //
-    // Celestial.MaxTerrainHeightApprox is NOT such a bound, and using it gives false negatives. It
-    // is computed in the Celestial constructor, before Universe.SetupRenderData populates the
-    // modifiers, so erosion, dunes and detail contribute nothing -- and it samples a 16,384-point
-    // Fibonacci spiral, about 176 km apart on Earth. Measured against the shipped height texture it
-    // returns ~5,692 m where the base field alone reaches 8,011. A sightline six kilometres over the
-    // Himalayas is then declared unmasked without a single sample, which is the false negative
-    // CLAUDE.md's "a sphere containing the terrain cannot produce a false negative" forbids.
-    //
-    // Astronomical.MaxTerrainRadius is exact for the base field, straight off the template. Over-
-    // padding costs one thing: a contact high above the ground pays for samples it did not need.
+    // A bound the cheap reject may stand in front of the exact test with. Not MaxTerrainHeightApprox,
+    // computed before the modifiers exist: ~5,692 m where the base field reaches 8,011
+    // (docs/KSA-TERRAIN.md). MaxTerrainRadius is exact for the base field.
     private static double MaxTerrainHeightMetres(Celestial body)
     {
         try
@@ -97,6 +77,11 @@ internal static partial class KsaWorld
         }
     }
 
+    /// <summary>
+    /// Whether the skyline of the body under the eye hides the target, against the real height
+    /// field. Asked only after <see cref="IsOccluded"/> and the cheap rejects have passed.
+    /// </summary>
+    /// <param name="samples">Height lookups this look may cost. Zero asks none.</param>
     public static bool IsHiddenByTerrain(double3 eyeEcl, double3 targetEcl, int samples,
                                          double clearance, out string blockedBy)
     {
@@ -128,8 +113,7 @@ internal static partial class KsaWorld
     /// <summary>
     /// The mean sphere of the body under a point: its centre and its radius.
     ///
-    /// <para>A radius of zero means no body could be resolved, which every caller has to read as
-    /// "no ground here" rather than as ground at the origin.</para>
+    /// <para>A radius of zero means no body: "no ground here", not ground at the origin.</para>
     /// </summary>
     public static void MeanSphereUnder(double3 pointEcl, out double3 centreEcl, out double radius)
     {
@@ -176,9 +160,7 @@ internal static partial class KsaWorld
     /// <summary>
     /// Anchors an ecliptic position to the body under it, as an offset in that body's own frame.
     ///
-    /// <para>The only description of a place that does not move. An ecliptic coordinate is left
-    /// behind at the body's ~29.8 km/s the instant it is written down, and a round sent to one
-    /// reads that whole frame velocity as closing speed.</para>
+    /// <para>An ecliptic coordinate is left behind at ~29.8 km/s the instant it is written down.</para>
     /// </summary>
     public static bool TryAnchorToGround(double3 pointEcl, out object? body, out double3 anchor)
     {
@@ -218,13 +200,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// Turns a ground anchor back into a live position and the velocity of the ground there.
     ///
-    /// <para>The velocity carries the body's orbital motion <em>and</em> its spin. The spin term
-    /// is not decoration: 465 m/s at Earth's equator is 4.6 km of miss over a ten-second flight,
-    /// which would read as the round simply being inaccurate.</para>
-    ///
-    /// <para>Spin is about body-fixed <c>+Z</c>. Read out of the engine, not assumed:
-    /// <c>IParentBody.GetAngularVelocityCci</c> returns <c>(0, 0, GetAngularVelocity())</c> and
-    /// <c>Celestial.GetCcf2Cci</c> turns about <c>double3.UnitZ</c>.</para>
+    /// <para>Orbital motion and spin, 465 m/s at Earth's equator. Spin is about body-fixed <c>+Z</c>:
+    /// <c>GetAngularVelocityCci</c> returns <c>(0, 0, GetAngularVelocity())</c>.</para>
     /// </summary>
     public static bool TryGroundAnchorEcl(object? body, double3 anchor,
                                           out double3 positionEcl, out double3 velocityEcl)
@@ -241,8 +218,6 @@ internal static partial class KsaWorld
 
             positionEcl = celestial.GetPositionEcl() + offset;
 
-            // Orbital motion, plus the surface sweeping under it. omega x r, with omega taken
-            // about the spin axis the body's own frame defines.
             double3 axis = Vec.Unit(spin * new double3(0, 0, 1));
             velocityEcl = celestial.GetVelocityEcl()
                           + Vec.Cross(axis * celestial.GetAngularVelocity(), offset);
@@ -280,11 +255,8 @@ internal static partial class KsaWorld
                 // walked, and the walk stops at the first place it is under it.
                 double reach = Math.Min(maxRange, 2.0 * (Vec.Len(eye - centre) + body.MeanRadius + top));
 
-                // Terrain only. A launch pad is 8 m of pedestal 40 m across, and adding it here
-                // models it as an 8 m thicker planet: at 5 km the resolved point moves 2.8 km, and
-                // sweeping the cursor over the pad edge swings the bearing from the mount through
-                // 168 degrees between one pixel and the next. Where a structure's surface is has
-                // no answer in this engine -- see docs/BLOCKED-ON-KSA.md.
+                // Terrain only: a pad's 8 m pedestal added here is an 8 m thicker planet, moving the
+                // point 2.8 km at 5 km (docs/BLOCKED-ON-KSA.md).
                 if (!TerrainRay.TryFirstHit(eye, direction, reach, centre, body.MeanRadius, top,
                                             new TerrainHeights(body, accurate: true), out double range)
                     || range >= nearestRange)
@@ -308,10 +280,8 @@ internal static partial class KsaWorld
     /// Where the cursor's ray first meets a celestial's ground, as a place a craft can be put or a
     /// round can be sent.
     ///
-    /// <para>Nearest body hit, not the one being orbited: pointing at a moon on the horizon should
-    /// mean the moon. Walked out from the eye by <see cref="TerrainRay"/>, because the ray meets the
-    /// ground where it first goes under it — the mean sphere's hit refined by the height under that
-    /// answer lands behind a hill seen side-on, on the terrain beyond what the pointer is on.</para>
+    /// <para>The nearest body hit, walked out by <see cref="TerrainRay"/>: the mean sphere's hit
+    /// refined by height lands behind a hill seen side-on.</para>
     /// </summary>
     public static bool TryCursorGroundPoint(out double3 groundEcl,
                                             out double latitudeDeg, out double longitudeDeg,
@@ -377,10 +347,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// Sets a craft down at a latitude and longitude on the body it is nearest.
     ///
-    /// <para><c>Vehicle.TeleportToLocation</c> does the work, and doing it this way rather than by
-    /// writing a position is what makes the craft arrive upright and resting: it builds the
-    /// kinematic state from the craft's own bounding box, so the hull ends up on the ground rather
-    /// than the origin.</para>
+    /// <para>Through <c>Vehicle.TeleportToLocation</c>, which builds the resting state from the
+    /// craft's box so the hull, not the origin, ends on the ground.</para>
     /// </summary>
     public static bool TryPlaceOnSurface(Vehicle craft, string bodyName,
                                          double latitudeDeg, double longitudeDeg)
@@ -413,13 +381,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// How far a point is above the ground under it, rather than above the mean sphere.
     ///
-    /// <para>The two differ by the terrain, which on the Moon is kilometres — so a burst sitting on
-    /// lunar highland reads as a high airburst against the mean sphere and a surface burst against
-    /// the ground it is actually touching. Anything <em>deciding</em> something from a height has to
-    /// ask this; the mean sphere is only good enough for a line in a log.</para>
-    ///
-    /// <para>Accurate, because it is asked once per burst and wants the surface where it actually
-    /// is. A height field that will not answer falls back to the mean sphere.</para>
+    /// <para>On the Moon the two differ by kilometres. Accurate, once per burst; an unanswering
+    /// height field falls back to the mean sphere.</para>
     /// </summary>
     public static double HeightAboveTerrain(Celestial body, double3 positionEcl)
     {
@@ -442,10 +405,7 @@ internal static partial class KsaWorld
     /// <summary>
     /// Where a craft stands: the surface point under it, and its latitude and longitude.
     ///
-    /// <para>Placing something at a craft has to use the craft's own position rather than the
-    /// ground the cursor ray reaches. A ray through a vehicle's middle carries on and meets the
-    /// ground <em>behind</em> it, so aiming at a craft and using the ray puts the answer a
-    /// vehicle-height's worth of parallax past it.</para>
+    /// <para>From the craft's position: a cursor ray through it meets the ground behind it.</para>
     /// </summary>
     public static bool TryCraftSurfacePoint(Vehicle craft, out double3 groundEcl,
                                             out double latitudeDeg, out double longitudeDeg,
@@ -480,16 +440,11 @@ internal static partial class KsaWorld
     /// <summary>
     /// Puts a point on the ground beneath it: same direction from the body's centre, radius taken
     /// from the terrain there.
-    ///
     /// </summary>
     public static bool TrySnapToGround(double3 nearEcl, out double3 onGroundEcl) =>
         TrySnapToGround(nearEcl, out onGroundEcl, out _);
 
-    /// <summary>
-    /// As above, and hands back the centre of the body it draped onto -- which it had to find
-    /// anyway. A caller that needs the local up gets it for free instead of walking the system
-    /// again for a body this has already identified.
-    /// </summary>
+    /// <summary>As above, and hands back the centre of the body it draped onto.</summary>
     public static bool TrySnapToGround(double3 nearEcl, out double3 onGroundEcl, out double3 centreEcl)
     {
         centreEcl = Vec.Zero;

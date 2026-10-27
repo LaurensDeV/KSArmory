@@ -5,10 +5,8 @@ namespace KSArmory;
 /// <summary>
 /// The air a nuclear fireball ionised, which a radar cannot see through until it cools.
 ///
-/// <para>A fireball is gas hot enough to be a plasma, and the shock-heated air round it is not far
-/// behind: free electrons absorb radio energy, so a radar beam crossing the region is lost and a
-/// set inside it sees nothing at all. Glasstone calls it fireball blackout. It is a sphere that
-/// rides up with the ball, as the ball becomes the cap, and it shrinks away as the air cools.</para>
+/// <para>Free electrons in the ball and the shock-heated air round it absorb radio energy (Glasstone's
+/// fireball blackout): a sphere riding up with the ball, shrinking as the air cools.</para>
 ///
 /// <para>Radio only. An optical or infrared sensor is not blinded by electrons; what blinds one is
 /// the flash, which is a different effect.</para>

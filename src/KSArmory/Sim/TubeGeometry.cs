@@ -15,11 +15,7 @@ public readonly record struct DrivePose(double3 Position, doubleQuat Rotation);
 /// </summary>
 public static class TubeGeometry
 {
-    /// <summary>
-    /// The turret and search array traverse about the part's X axis; the pods elevate about its Z.
-    /// Named rather than repeated as literals so a differently-built launcher changes them in one
-    /// place.
-    /// </summary>
+    /// <summary>The turret and search array traverse about the part's X axis; the pods elevate about its Z.</summary>
     public static readonly double3 TraverseAxis = new(1, 0, 0);
 
     public static readonly double3 ElevationAxis = new(0, 0, 1);
@@ -89,10 +85,8 @@ public static class TubeGeometry
     /// <summary>
     /// Where one tube's mouth sits from the mean of all of them, in the launcher part's frame.
     ///
-    /// <para>The mean is what a release prediction flies, so this is the whole of what one round
-    /// starts from that the prediction does not. Built in the part frame on purpose: turning it
-    /// into the world is a rotation and carries none of the ecliptic's motion, where differencing
-    /// two world positions would.</para>
+    /// <para>The mean is what a release prediction flies. Built in the part frame: turning it into the
+    /// world carries none of the ecliptic's motion, where differencing two world positions would.</para>
     /// </summary>
     public static bool TryOffsetFromMeanPartFrame(LauncherProfile profile, int tubeIndex,
                                                   double3 podPosition, doubleQuat podRotation,
@@ -164,10 +158,8 @@ public static class TubeGeometry
     /// <summary>
     /// Where the pods sit and how they are turned, for a given aim.
     ///
-    /// <para>Subparts do not nest in KSA, so the pods are a sibling of the turret and the two
-    /// rotations are composed here rather than inherited. The trunnion is offset from the traverse
-    /// axis, so the pods' <em>position</em> moves as the turret swings; leaving it fixed would spin
-    /// them on the spot.</para>
+    /// <para>Subparts do not nest in KSA, so the two rotations are composed here, and the trunnion is
+    /// off the traverse axis, so the pods' <em>position</em> moves as the turret swings.</para>
     ///
     /// <para>Rotating about +Z by <c>a</c> takes elevation <c>e</c> to <c>e - a</c>, so reaching
     /// <paramref name="elevationRad"/> from the modelled pose is a rotation of
@@ -188,9 +180,8 @@ public static class TubeGeometry
     /// <summary>
     /// A barrel recoiling inside the cannon: the cannon's own pose, run back along the bore.
     ///
-    /// <para>It shares the cannon's trunnion, so traverse and elevation are the cannon's exactly and
-    /// the slide is all it adds. A barrel with a trunnion of its own would part company with the
-    /// breech at every elevation but the one it was modelled at.</para>
+    /// <para>It shares the cannon's trunnion: a barrel with its own would part from the breech at every
+    /// elevation but the modelled one.</para>
     /// </summary>
     public static DrivePose BarrelPose(LauncherProfile profile, double bearingRad, double elevationRad,
                                        double recoilMetres)
@@ -268,14 +259,8 @@ public static class TubeGeometry
     /// <summary>
     /// Groups muzzles that are close enough to share one flash, and returns how many groups.
     ///
-    /// <para><b>Averaging every muzzle into one point is wrong for anything but a single cluster.</b>
-    /// A rotary cannon's barrels sit within a hand's breadth, so their mean is on the gun. A mount
-    /// with a sponson either side has its mean <em>between</em> them — on the vehicle's centreline,
-    /// where there is no gun and nothing is firing.</para>
-    ///
-    /// <para>Single-link: a muzzle joins a group if it is within
-    /// <see cref="GunFlashClusterMetres"/> of any muzzle already in it, so a row of barrels stays
-    /// one group however long it is.</para>
+    /// <para>The mean of every muzzle is wrong past one cluster: a sponson either side puts it on the
+    /// centreline, where there is no gun. Single-link, so a row of barrels stays one group.</para>
     /// </summary>
     /// <param name="into">Filled with each muzzle's group index, in the muzzles' own order.</param>
     public static int ClusterMuzzles(ReadOnlySpan<double3> muzzles, double radius, Span<int> into)
@@ -292,7 +277,6 @@ public static class TubeGeometry
 
             into[i] = groups;
 
-            // Grow the group until nothing else is within reach of anything already in it.
             bool grew = true;
             while (grew)
             {
@@ -336,10 +320,8 @@ public static class TubeGeometry
     /// <summary>
     /// A carried director's base, riding the traverse and nothing else.
     ///
-    /// <para>The launcher's whole involvement with a director. The head above it is aimed by its
-    /// own drive against this pose, read back off the engine rather than passed along — so the
-    /// turret never learns it is carrying a sight, and the sight never learns it is on a
-    /// turret.</para>
+    /// <para>The launcher's whole involvement with a director: the head reads this pose back off the
+    /// engine rather than being handed it, so neither learns about the other.</para>
     /// </summary>
     public static DrivePose OpticBasePose(LauncherProfile profile, double bearingRad)
     {
@@ -413,12 +395,8 @@ public static class TubeGeometry
     /// <summary>
     /// The launch anchor as it stands now, after the craft has turned underneath it.
     ///
-    /// <para><b>The anchor is a point in the world, written down in the part's frame.</b> The
-    /// travel term is converted through the craft's <em>current</em> attitude every frame and so
-    /// stays put; an anchor left in the part frame rides the craft, and rolling the launcher then
-    /// swings every round already in flight about the craft's own centre — on a stack that lever arm
-    /// is the whole distance from the tube to the centre of mass, which is metres, not
-    /// millimetres.</para>
+    /// <para>The anchor is a point in the world written in the part's frame. Left in the part frame it rides
+    /// the craft, and a turning launcher swings every round in flight about its centre, metres on a stack.</para>
     ///
     /// <para><paramref name="sinceLaunchAsmb"/> is <c>Conjugate(attitude now) * attitude at
     /// launch</c>: identity while the craft holds still, so a launcher that never turns is
@@ -445,15 +423,8 @@ public static class TubeGeometry
     /// The attitude a round leaves at, body to ecliptic: as it sat in its tube, at the launcher's
     /// own roll.
     ///
-    /// <para><b>A nose direction does not decide a rotation, and the leftover is the roll.</b>
-    /// Swinging the mesh's nose onto the flight direction by the shortest arc leaves that roll to
-    /// whatever the arc happens to give, which changes as the round noses over: 51° of roll over a
-    /// 5 km drop, at 1–5°/s. Nothing aerodynamic is involved either way — <see cref="FinMixer"/> is
-    /// drawn only. So the attitude lives <em>in the ecliptic</em>, starts here, and
-    /// <see cref="BodyAttitude.Turn"/> carries it a frame's turn at a time, which adds no roll about
-    /// the nose. Building it in the part frame instead glues the roll to the launching craft:
-    /// measured at a degree of roll per degree the craft turns, on rounds that had already
-    /// gone.</para>
+    /// <para>A nose direction leaves the roll undecided: a shortest arc rolled 51° over a 5 km drop. So the
+    /// attitude lives in the ecliptic, starts here, and <see cref="BodyAttitude.Turn"/> carries it.</para>
     /// </summary>
     /// <param name="releaseHeadingEcl">What it left along, captured at launch.</param>
     /// <param name="launchAttitude">The platform's attitude when it left, as Asmb2Ecl. Unset falls

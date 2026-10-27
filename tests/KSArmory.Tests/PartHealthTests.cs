@@ -80,7 +80,8 @@ public class PartHealthTests
     /// <summary>
     /// The calibration guard: over a sweep of gaps and strengths, a share of one or more is exactly
     /// what <see cref="BlastDamage.FailureRadius"/> breaks, so a fresh part at scale one breaks
-    /// where it did before it had health.
+    /// exactly where the sweep alone breaks it.
+
     /// </summary>
     [Theory]
     [InlineData(0.02)]

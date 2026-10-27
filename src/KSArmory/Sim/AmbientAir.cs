@@ -22,7 +22,6 @@ internal readonly record struct AmbientAir(double DensityRatio, double PressureR
     /// <summary>Earth's sea-level air, which every law in this mod was written for.</summary>
     public static AmbientAir SeaLevel => new(1.0, 1.0);
 
-    /// <summary>No air at all.</summary>
     public static AmbientAir None => new(0.0, 0.0);
 
     /// <summary>Air that could not be read, standing in as sea level.</summary>

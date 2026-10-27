@@ -182,8 +182,7 @@ public class ChaseViewTests
     /// what it arrives at when the target is standing still: proportional navigation flies a
     /// collision course and holds its lead angle to impact by design, so handing back over the last
     /// stretch swings the view off the target by that whole angle at the one moment anybody is
-    /// watching it. This case is dead abeam — 100 m away, nothing ahead — which is the geometry
-    /// that handback treated as "the same answer".
+    /// watching it. This case is dead abeam: 100 m away, nothing ahead.
     /// </summary>
     [Fact]
     public void ClosingOnTheTargetKeepsTheAimOnIt()
@@ -342,7 +341,7 @@ public class ChaseViewTests
     [Fact]
     public void TheClosingAcceleratesIntoTheImpact()
     {
-        // tomservo's point: a symmetric ease is flat at both ends, so it is slowest exactly where
+        // A symmetric ease is flat at both ends, so it is slowest exactly where
         // the arrival happens. The last tenth of the flight must move the camera further than the
         // first tenth does.
         double atStart = ChaseView.StandOff(10.0, 10.0, 0.0, 26.0, 7.0)

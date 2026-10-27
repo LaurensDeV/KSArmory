@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Unguided rockets: the 5-inch Zuni in a LAU-10 and in a six-round pod. Nothing on either pod moves, so
+  each is aimed by pointing the craft. Part definitions are in ../KSArmory*.xml, which KSA reads and this
+  does not.
+-->
+<WeaponPack Schema="1" Family="Rockets">
+
+  <!--
+    The Zuni. Calibre, mass and its Mach 2 burnout are the real rocket's; the body is Mallikas's, 1.75 m
+    without the fins.
+
+    Guidance="None" makes it a Slug: it is released rather than launched at a lock, flies the ballistics
+    its motor gives it, and the pod draws a sight where it will land. The motor pushes for 1.1 s at
+    about 66 g, which reaches roughly 700 m/s through sea-level air.
+
+    The real rocket has a contact fuse; FuseRadius is ours. HitsTerrain stops it on the ground it meets. ChargeKg is a fragmentation warhead's explosive.
+    The fins are folded in the tube and open as it leaves (FinMarker, FinDeploySeconds).
+  -->
+  <Munition Name="ZUNI" DisplayName="Zuni 5-inch rocket"
+            BodyMarker="Zuni_Round" FinMarker="Zuni_Fins" BodyLength="1.75452"
+            Guidance="None"
+            MinRange="300" MaxRange="8000"
+            LaunchSpeed="10" BoostSeconds="1.1" BoostAccel="650" MaxFlightSeconds="60"
+            FinDeploySeconds="0.25"
+            MassKg="48.5" CalibreMm="127" DragCoefficient="0.3"
+            FuseRadius="3" FuseArmSeconds="0.3" ChargeKg="6.8"
+            HitsTerrain="true" />
+
+  <!--
+    The pod's sight. It searches nothing: it lets the pod draw where a rocket fired now would land and
+    name what is ahead. PartForward looks where the tubes point.
+  -->
+  <Sensor Name="ZUNISIGHT" DisplayName="Rocket sight"
+          Range="8000" ConeDeg="40" BoresightSource="PartForward"
+          ThreatRadius="3000" ThreatHorizonSeconds="20" LockSeconds="0.8" />
+
+  <!--
+    Each tube holds one rocket and never reloads. The Tubes are the seats in KSArmoryAssets.xml plus half
+    the body's length, which tools/validate-parts.py checks against the mesh. Fired one rocket a press,
+    each leaving along its tube with nothing pushing it off the pod.
+  -->
+  <Launcher PartId="KSArmory_Prefab_Lau10" DisplayName="LAU-10 Zuni pod"
+            FireControlLabel="LAU-10 fire control"
+            Munition="ZUNI" Sensor="ZUNISIGHT" StoreMassKg="48.5" TubeArmamentLabel="Rockets"
+            MuzzleForwardOffset="0.23041"
+            LaunchAlongTube="true" EjectAwayFromMount="0" LaunchLoft="0" MuzzleOffset="2"
+            CarriageMarker="Carriage" ReloadSeconds="0" SettleSeconds="0">
+    <Tube Position="0.29882, 1.21535, 0.06841" Direction="0, 1, 0" />
+    <Tube Position="0.16201, 1.21535, -0.06841" Direction="0, 1, 0" />
+    <Tube Position="0.29882, 1.21535, -0.06840" Direction="0, 1, 0" />
+    <Tube Position="0.16201, 1.21535, 0.06841" Direction="0, 1, 0" />
+  </Launcher>
+
+  <Launcher PartId="KSArmory_Prefab_ZuniPod6" DisplayName="Zuni six-round pod"
+            FireControlLabel="Zuni pod fire control"
+            Munition="ZUNI" Sensor="ZUNISIGHT" StoreMassKg="48.5" TubeArmamentLabel="Rockets"
+            MuzzleForwardOffset="0.26302"
+            LaunchAlongTube="true" EjectAwayFromMount="0" LaunchLoft="0" MuzzleOffset="2"
+            CarriageMarker="Carriage" ReloadSeconds="0" SettleSeconds="0">
+    <Tube Position="0.37281, 1.29037, 0.08002" Direction="0, 1, 0" />
+    <Tube Position="0.22061, 1.29037, -0.12947" Direction="0, 1, 0" />
+    <Tube Position="0.22061, 1.29037, 0.12947" Direction="0, 1, 0" />
+    <Tube Position="0.37281, 1.29037, -0.08002" Direction="0, 1, 0" />
+    <Tube Position="0.12666, 1.29037, 0.00000" Direction="0, 1, 0" />
+    <Tube Position="0.26462, 1.29037, 0.00000" Direction="0, 1, 0" />
+  </Launcher>
+
+</WeaponPack>

@@ -21,7 +21,7 @@ public sealed class TeamRules
          : Allies.Contains(team) ? Allegiance.Friendly
          : Allegiance.Hostile;
 
-    /// <summary>Sets what it makes of another team, which is one of the three and never two.</summary>
+    /// <summary>Exactly one of the three; never both an ally and a neutral.</summary>
     public void Set(string team, Allegiance allegiance)
     {
         Allies.Remove(team);
@@ -57,7 +57,6 @@ public sealed class TeamRules
         Neutrals.UnionWith(iff.NeutralTeams);
     }
 
-    /// <summary>Forgets a team no longer declared.</summary>
     public void Forget(string team)
     {
         Allies.Remove(team);

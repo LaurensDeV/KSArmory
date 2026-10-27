@@ -1,6 +1,6 @@
 # Porting weapons from KSP mods into a pack
 
-**A plan, not a record.** Tick each step as it lands. Phase 0 is built; nothing after it is.
+**A plan, not a record.** Tick each step as it lands. Phase 0 is built; after it, only the reading half of step 5.
 
 ## Why
 
@@ -30,7 +30,7 @@ What does not carry is listed below in order of what it unblocks for what it cos
 | one part both stacks and surface-attaches | `IsAllowedAsRootPart` forces one or the other | KSA; stays |
 | a Unity transform tree with implied pivots | flat sibling subparts, recentred, pivots typed in | step 12 |
 | gun spread | none | step 4 |
-| spool-up delaying the first round | `GunRotorSpinUpSeconds`, drawn only, not a pack attribute | step 5 |
+| spool-up delaying the first round | `GunRotorSpinUpSeconds`, a pack attribute, drawn only | step 5 |
 | heat and overheat | none | step 6 |
 | detection range against cross-section as a curve, a second curve for lock | the fourth-root law, one reference | step 7 |
 | several ammo types switched on one gun | one `GunMunition` | step 8 |
@@ -68,7 +68,8 @@ unchanged. Each needs a control (`check-tunables.py`), the pack surface regenera
   centre. Flown with `scenario.sh gunnery`: the hit rate should fall as the cone's area over the
   target's predicts. The one most ports will hit first, because a refused attribute takes the
   launcher with it.
-- [ ] **5** **Spool-up**: `GunRotorSpinUpSeconds` read from a pack, and `GunChannel` holding the
+- [ ] **5** **Spool-up**: `GunRotorSpinUpSeconds` is read from a pack now (it came with the M197's
+  move into `Guns.xml`) but only spins the drawn rotor; what is left is `GunChannel` holding the
   first round until the rotor is up. A rung in `FireLadder` if the hold is long enough to be read.
 - [ ] **6** **Heat**: `GunHeatPerShot`, `GunHeatLossPerSecond`, `GunMaxHeat` in `GunChannel` on
   simulated time, and a `FireLadder` rung "overheated" so the strip says why the gun stopped.
@@ -97,7 +98,7 @@ unchanged. Each needs a control (`check-tunables.py`), the pack surface regenera
 - [ ] **12** **A Unity-hierarchy importer**, generalising `tools/model/import-litening.py`: read the
   source with a Blender `.mu` import add-on, flatten the transform tree into sibling subparts
   recentred on their pivots, flip into KSA's axes, write the `_VM` and `_ColPrim_` nodes, and print
-  the pivots and muzzles as a block for `Weapons.xml`. `checkmesh.py` and `--mod-root` then gate it.
+  the pivots and muzzles as a block for the pack's definition file. `checkmesh.py` and `--mod-root` then gate it.
   The largest cost per part, so the one where tooling pays most.
 
 **Order:** 4–6, then 12, then 7–9 as packs show they need them; 10 and 11 wait for a pack that

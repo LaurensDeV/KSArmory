@@ -6,7 +6,7 @@ public enum Allegiance
     /// <summary>No team assigned, or none recognised.</summary>
     Unknown,
 
-    /// <summary>Same team as the system.</summary>
+    /// <summary>The system's own team, or one of its allies.</summary>
     Friendly,
 
     /// <summary>A team the system is at war with.</summary>
@@ -86,10 +86,8 @@ public sealed class IffPolicy
     /// <summary>This system's own team. Null or empty means it has not picked a side.</summary>
     public string? OwnTeam { get; set; }
 
-    /// <summary>Engage contacts with no recognised team. On by default.</summary>
     public bool EngageUnknown { get; set; } = true;
 
-    /// <summary>Engage contacts on a declared-neutral team. Off by default.</summary>
     public bool EngageNeutral { get; set; }
 
     /// <summary>
@@ -124,7 +122,6 @@ public sealed class IffPolicy
             : Allegiance.Hostile;
     }
 
-    /// <summary>Whether a contact of this allegiance may be fired on.</summary>
     public bool MayEngage(Allegiance allegiance) => allegiance switch
     {
         Allegiance.Friendly => !ProtectFriendly,
@@ -133,7 +130,6 @@ public sealed class IffPolicy
         _ => EngageUnknown,
     };
 
-    /// <summary>Classify and decide in one step.</summary>
     public bool MayEngageTeam(string? contactTeam) => MayEngage(Classify(contactTeam));
 
     /// <summary>

@@ -4,9 +4,6 @@ using Xunit.Abstractions;
 
 namespace KSArmory.Tests;
 
-/// <summary>
-/// Turning the bus so each tube in turn throws along one line.
-/// </summary>
 public class ReleasePointingTests(ITestOutputHelper Out)
 {
     private static double3[] BusTubes()
@@ -88,13 +85,10 @@ public class ReleasePointingTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// The trap, made a test so nobody simplifies the latch away.
-    ///
-    /// <para>The rotation has to be built from where the tube points at the bus's <em>nominal</em>
-    /// attitude, latched once. Re-measuring it live and rotating the nominal command by that
-    /// instead is a loop that never settles: the tube alternates between on the line and a full
-    /// cant off it, for ever, and half the time it looks perfect.</para>
+    /// The rotation is built from the tube at the bus's <em>nominal</em> attitude, latched once. Built from
+    /// the live tube it never settles: the tube alternates between on the line and a full cant off it.
     /// </summary>
+
     [Fact]
     public void TakingTheLiveAxisInsteadOfTheLatchedOneNeverSettles()
     {

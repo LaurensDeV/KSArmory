@@ -6,24 +6,17 @@ namespace KSArmory;
 /// What a scripted ballistic shot was asked for: where the warheads go, and the bar the group that
 /// arrives is judged against.
 ///
-/// <para><b>Text in, no file access</b>, the same rule <see cref="PackReader"/> follows and for the
-/// same reason: the harness's whole request is one line beside the log, so every refusal is
-/// testable without the game. A scenario that silently aims somewhere else because a coordinate
-/// would not parse is a seven-minute flight spent proving nothing.</para>
+/// <para>Text in, no file access, so every refusal is testable without the game.</para>
 /// </summary>
 /// <param name="BarMetres">
-/// How far the worst warhead of the group may land from the aim point and still be a pass. A bar
-/// rather than a mean, because a salvo is only as good as the round that went furthest astray.
+/// How far the worst warhead of the group may land from the aim point and still be a pass.
 /// </param>
 /// <param name="AimWasGiven">
-/// Whether the aim point came from the request rather than from the default. A scenario that finds
-/// a defended site in the scene should shoot at <em>it</em> — that is the engagement worth flying —
-/// but not over the top of somewhere the operator named explicitly.
+/// Whether the aim point came from the request rather than the default; only a default may be
+/// replaced by a defended site the scenario finds in the scene.
 /// </param>
 /// <param name="Extra">
-/// The places after the first, for a shot at several. Null and empty mean the same thing — one
-/// target — and <see cref="Targets"/> is what a caller reads so
-/// that the single-target case needs no special handling anywhere.
+/// The places after the first; null and empty both mean one target. Callers read <see cref="Targets"/>.
 /// </param>
 /// <param name="TrackTargets">
 /// How many more targets the scenario lays out from the first, <see cref="TrackSpacingMetres"/> apart: uprange along
@@ -36,17 +29,13 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
                                             int TrackTargets = 0, double TrackSpacingMetres = 0.0,
                                             bool TrackAcross = false)
 {
-    /// <summary>Every target this shot will have, the ones laid along the track included.</summary>
     public int TargetCount => Targets.Count + (Targets.Count > 0 ? Math.Max(0, TrackTargets) : 0);
 
-    /// <summary>One named place, as the request carries it.</summary>
     internal readonly record struct Aim(double LatitudeDeg, double LongitudeDeg);
 
     /// <summary>
-    /// Every place this shot names, the first one included.
-    ///
-    /// <para>A request that named no aim has none: the scenario shoots at whatever the scene defends,
-    /// and inventing a target here would move the site to a point nobody asked for.</para>
+    /// Every place this shot names, the first included; none where no aim was named, so the scenario
+    /// shoots at whatever the scene defends. Not the ones a track lays out in game.
     /// </summary>
     public IReadOnlyList<Aim> Targets
     {
@@ -68,18 +57,12 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
     /// </summary>
     public const double DefaultLatitudeDeg = -26.485;
 
-    /// <summary>The other half of that aim point.</summary>
     public const double DefaultLongitudeDeg = -68.148;
 
     /// <summary>
-    /// The default bar, in metres.
-    ///
-    /// <para>Deliberately loose. The flown group is best 371 m at a CEP of about 710 m, so five
-    /// kilometres is not a standard to aspire to — it is the line between a shot that worked and
-    /// one of the failures this harness exists to catch, every one of which was kilometres wide:
-    /// an untrimmed separation at 3.5 km, a tumbling bus at 7.4, a late release at 8.2–9.0, a
-    /// drag-free prediction at 59. It is stated in the verdict so it can be argued with, and the
-    /// request can name a tighter one.</para>
+    /// Loose on purpose: it separates a shot that worked from the failures this harness catches, each
+    /// kilometres wide — an untrimmed separation at 3.5 km, a tumbling bus at 7.4, a drag-free prediction
+    /// at 59. A request can name a tighter one.
     /// </summary>
     public const double DefaultBarMetres = 5_000.0;
 
@@ -95,7 +78,7 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
     }
 
     // track:6x100 is six more targets 100 km apart uprange of the first; across:6x100 lays them square to it.
-    // False with no trouble for a segment that is not one at all.
+    // False with empty trouble for a segment that is not a track.
     private static bool TryTrack(string segment, out int count, out double spacingMetres, out bool across,
                                  out string trouble)
     {
@@ -128,19 +111,11 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
     /// Reads the arguments a scenario name carries — everything after the colon in
     /// <c>mirv:26.485S,68.148W</c>, and the empty string for a bare <c>mirv</c>.
     ///
-    /// <para>Two fields are an aim point and three add the bar in kilometres. A hemisphere letter
-    /// may stand in for the sign, because that is how coordinates are written down everywhere else
-    /// and a request nobody can type from a map is a request nobody uses.</para>
-    ///
-    /// <para>One field is the bar alone, for a shot aimed at whatever the scene defends: a bar without an
-    /// aim is the only way to judge that shot, and it leaves <see cref="AimWasGiven"/> false so the
-    /// scenario does not move the site to a point nobody named.</para>
+    /// <para>One field is the bar in kilometres, for a shot at whatever the scene defends; two are an
+    /// aim point, a hemisphere letter allowed for the sign; three add the bar. Several places are joined
+    /// by ';', and <c>track:</c>/<c>across:</c> as the second segment lays out the rest.</para>
     /// </summary>
-    /// <param name="trouble">
-    /// What an operator has to change, or empty. Naming the field is the whole point: a scenario
-    /// that refuses a request has to say which half of it was wrong, or the next attempt is a
-    /// guess.
-    /// </param>
+    /// <param name="trouble">What an operator has to change, naming the field, or empty.</param>
     public static bool TryParse(string? arguments, out ShotRequest shot, out string trouble)
     {
         shot = Default;
@@ -148,9 +123,7 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
 
         if (string.IsNullOrWhiteSpace(arguments)) return true;
 
-        // Several places are separated by ';', and everything inside one of them is a single-target
-        // request's form -- so one segment parses down the single-target path and cannot behave
-        // differently.
+        // Each segment parses down the single-target path, so it cannot behave differently.
         string[] segments = arguments.Split(';', StringSplitOptions.RemoveEmptyEntries);
 
         string trackTrouble = "";
@@ -215,8 +188,7 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
                 if (i == 0) first = one;
                 else extra.Add(new Aim(one.LatitudeDeg, one.LongitudeDeg));
 
-                // The bar belongs to the shot rather than to a target, so the last one to name it wins
-                // and naming it twice is not an error worth refusing a night over.
+                // The bar belongs to the shot, so the last segment to name one wins.
                 if (one.BarMetres != DefaultBarMetres) first = first with { BarMetres = one.BarMetres };
             }
 
@@ -264,7 +236,6 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
         return true;
     }
 
-    // The pass bar, in kilometres on the way in and metres on the way out.
     private static bool TryBar(string field, out double metres, out string trouble)
     {
         metres = DefaultBarMetres;
@@ -281,9 +252,7 @@ internal readonly record struct ShotRequest(double LatitudeDeg, double Longitude
         return true;
     }
 
-    // A signed decimal, or the same number with the hemisphere spelled out. The wrong hemisphere
-    // letter is refused rather than ignored: a longitude written 68.148S is somebody's mistake, and
-    // silently dropping the letter aims a quarter of the way round the planet from where they meant.
+    // The wrong hemisphere letter is refused rather than ignored: a longitude written 68.148S is a mistake.
     private static bool TryAngle(string field, char positive, char negative, double limit,
                                  out double degrees, out string trouble)
     {

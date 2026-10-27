@@ -141,7 +141,6 @@ public class AirBurstTests(ITestOutputHelper output)
         Assert.True(high.CapCentre > over);
     }
 
-    /// <summary>The ring of dust is where the front meets the ground, and nothing before it gets there.</summary>
     [Fact]
     public void TheDustFrontIsWhereTheBlastMeetsTheGround()
     {
@@ -261,10 +260,6 @@ public class AirBurstTests(ITestOutputHelper output)
         }
     }
 
-    /// <summary>
-    /// Too high for a column: no stem, nothing on the ground, a bigger fireball, and its debris
-    /// climbing and swelling as one ball.
-    /// </summary>
     [Fact]
     public void InThinAirTheDebrisIsABallAndTheGroundIsUntouched()
     {
@@ -333,8 +328,6 @@ public class AirBurstTests(ITestOutputHelper output)
         Assert.Equal(0.0, BurstSettings.HeightOver(-10.0, 0.0, 0.0, hasSea: true));
         Assert.Equal(4000.0, BurstSettings.HeightOver(4000.0, double.NaN, 0.0, hasSea: false));
     }
-
-    // ---- The fuse and the chute -------------------------------------------------------------
 
     private const double PlanetRadius = 6_371_000.0;
 
@@ -473,10 +466,8 @@ public class AirBurstTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// A probe flown from a store already under its canopy starts at the store's age, so the canopy is
-    /// open from its first step. Started at zero it flies the first seconds of a fresh release -- the
-    /// canopy shut and then filling -- and the store arrives early. Falling straight down under a
-    /// canopy it arrives in the same place either way, so it is the time that tells.
+    /// Started at zero, the probe flies a fresh release's shut-then-filling canopy and arrives early.
+    /// Under a canopy it lands in the same place either way, so the time is what tells.
     /// </summary>
     [Fact]
     public void AProbeFromAStoreInFlightKeepsItsCanopyOpen()

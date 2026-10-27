@@ -11,11 +11,8 @@ namespace KSArmory;
 internal static partial class KsaWorld
 {
     /// <summary>
-    /// The sea's level against the mean sphere, on a body that has one.
-    ///
-    /// <para>The same discriminator <see cref="MediumDensityRatioAt"/> uses: a body with no ocean
-    /// hands back null, and one with an ocean has a density. Never its <c>IsValid()</c>, which
-    /// tests a level of 0 m against an astronomical bar and is false wherever there is water.</para>
+    /// The sea's level against the mean sphere, on a body that has one: an ocean reference with a
+    /// density. Never its <c>IsValid()</c>, which is false wherever the level is 0 m.
     /// </summary>
     public static bool TrySeaLevel(Celestial body, out double level)
     {
@@ -65,9 +62,7 @@ internal static partial class KsaWorld
         }
     }
 
-    // How far over the ground, in the charge's own blast radius, a burst's reflection is still worth
-    // asking about. A stem loads the ground to eight times the incident front, which reaches twice
-    // as far, so the blast radius alone would miss the edge of it.
+    // A stem loads the ground to eight times the incident front, which reaches twice as far.
     private const double ReflectionReachInBlastRadii = 2.0;
 
     /// <summary>
@@ -97,9 +92,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// What a burst at a place went off on or in: land, the sea's surface, or under it.
     ///
-    /// <para>Terrain and sea both against the mean sphere, and the terrain read accurately,
-    /// because it is asked once per burst and the difference between a beach and the water beside
-    /// it is a few metres. An unreadable height field is land.</para>
+    /// <para>Read accurately: once per burst, and a beach and the water beside it are metres apart.
+    /// An unreadable height field is land.</para>
     /// </summary>
     public static BurstSetting SettingOf(Celestial body, double3 positionEcl, double fireballRadius)
     {
@@ -128,11 +122,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// How high the star stands over the horizon at a place, in degrees. Negative is below it.
     ///
-    /// <para>What this answers is why something is dark. Every LUT the atmosphere is sampled
-    /// through is parameterised on the sun's zenith angle, so a cloud at civil twilight is lit by
-    /// the sky and barely by the sun however bright the ground looks — terrain at that hour is lit
-    /// by skylight and reads as daylight in a tonemapped picture, which is exactly how a correct
-    /// dark cloud gets mistaken for a broken one.</para>
+    /// <para>Answers why something is dark: at civil twilight a cloud is lit by the sky however
+    /// bright the tonemapped ground looks.</para>
     /// </summary>
     public static double SunElevationDeg(Celestial body, double3 positionEcl)
     {
@@ -152,13 +143,7 @@ internal static partial class KsaWorld
         }
     }
 
-    /// <summary>
-    /// Where the star is, for anything that has to know which way the light comes from.
-    ///
-    /// <para>The system's <c>StellarBody</c> rather than a name: <c>Celestial.Class</c> already
-    /// separates a planet from a moon by asking whether its parent is one, so the type is the
-    /// system's own answer to "which of these is the sun".</para>
-    /// </summary>
+    /// <summary>The system's <c>StellarBody</c>, found by type rather than by name.</summary>
     public static bool TryStarPositionEcl(out double3 positionEcl)
     {
         positionEcl = default;
@@ -185,15 +170,8 @@ internal static partial class KsaWorld
     }
 
     /// <summary>
-    /// The bodies of the current system, by the Id <see cref="TryPlaceOnSurface"/> matches on.
-    ///
-    /// <para>For putting a craft somewhere the cursor cannot reach. <c>CraftMover</c> resolves its
-    /// target off the pointer, so it can only ever set a craft down on the body already being
-    /// looked at — which leaves anything airless untestable when no save has a craft there, and
-    /// none does.</para>
-    ///
-    /// <para>Whether a body has an atmosphere comes back beside the name, because that is the one
-    /// thing that decides which burst effect a test will get.</para>
+    /// The bodies of the current system, by the Id <see cref="TryPlaceOnSurface"/> matches on, for
+    /// setting a craft down where the cursor cannot reach. Air decides which burst effect a test gets.
     /// </summary>
     public static void SystemBodies(List<(string Id, bool HasAir)> into)
     {
@@ -237,12 +215,8 @@ internal static partial class KsaWorld
     /// How fast the ground under a point is moving, in the ecliptic frame: the parent body's own
     /// motion plus its spin at that radius.
     ///
-    /// <para>This is the frame a round flies in — its airspeed, what its drag acts against, and
-    /// what it points along. It equals the launching craft's velocity only while that craft sits
-    /// still on the ground; a store released from something <em>moving</em> is what separates
-    /// them. Taking the craft instead leaves a bomb with no airspeed at all at release: the only
-    /// motion it then has relative to its launcher is gravity, so it points straight down the
-    /// instant it lets go and the aircraft flies out from under it.</para>
+    /// <para>The frame a round flies in: airspeed, drag and pointing. It equals the launcher's
+    /// velocity only while the launcher sits still on the ground.</para>
     /// </summary>
     public static double3 GroundVelocityAt(Vehicle platform, double3 positionEcl)
     {
@@ -256,8 +230,7 @@ internal static partial class KsaWorld
         }
         catch
         {
-            // The craft's own velocity, which is exactly right for a launcher standing on the
-            // ground and the closest available answer for any other.
+            // Exact for a launcher on the ground, the closest answer for any other.
             return SafeVelocityEcl(platform);
         }
     }
@@ -287,26 +260,17 @@ internal static partial class KsaWorld
         }
     }
 
-    /// <summary>
-    /// The same ground frame, asked of the body directly.
-    ///
-    /// <para>Which is what it always was: the platform above is consulted only to reach its parent
-    /// and as a fallback answer. A round outliving the craft that fired it keeps flying in this
-    /// frame, and has to ask for it without one.</para>
-    /// </summary>
+    /// <summary>The same ground frame asked of the body, for a round outliving its craft.</summary>
     public static double3 GroundVelocityAt(Celestial body, double3 positionEcl)
     {
         try
         {
-            // Cce, not the Cci that GetBodyRates answers with: the separation below is a Cce
-            // vector, and the two frames differ by the body's axial tilt -- 23.4 degrees on Earth,
-            // which at 465 m/s of surface speed invents up to 190 m/s of velocity out of nothing.
+            // Cce, not GetBodyRates' Cci: the separation is Cce, and Earth's 23.4 deg tilt at
+            // 465 m/s of surface speed would invent up to 190 m/s.
             double3 spin = ((IParentBody)body).GetAngularVelocityCce();
             double3 fromCentre = positionEcl - body.GetPositionEcl();
 
-            // The body's own motion without the spin term, which is the honest answer when the
-            // spin cannot be read: wrong by at most the surface speed, where guessing zero would
-            // be wrong by the whole orbital velocity.
+            // Without the spin: wrong by the surface speed, not the orbital velocity.
             if (!Vec.IsFinite(spin) || !Vec.IsFinite(fromCentre)) return body.GetVelocityEcl();
 
             return body.GetVelocityEcl() + Vec.Cross(spin, fromCentre);
@@ -337,9 +301,7 @@ internal static partial class KsaWorld
         }
     }
 
-    // Inside another method's catch block, so it may not throw itself. VelocityEcl is a bare
-    // property read with no guard of its own, and the case this exists for is a platform that has
-    // just been disposed -- which is exactly when it throws.
+    // Called from catch blocks, for a platform just disposed, which is when VelocityEcl throws.
     private static double3 SafeVelocityEcl(Vehicle platform)
     {
         try
@@ -352,10 +314,7 @@ internal static partial class KsaWorld
         }
     }
 
-    /// <summary>
-    /// Gravitational acceleration at <paramref name="positionEcl"/> from the platform's parent body,
-    /// in Ecl. Returns zero if the parent or its gravity parameter is unavailable.
-    /// </summary>
+    /// <summary>From the platform's parent body, in Ecl; zero if unavailable.</summary>
     public static double3 GravityAt(Vehicle platform, double3 positionEcl)
     {
         try
@@ -369,13 +328,8 @@ internal static partial class KsaWorld
     }
 
     /// <summary>
-    /// Everything accelerating a craft, in Ecl: the engine's measured acceleration with gravity put
-    /// back.
-    ///
-    /// <para><c>AccelerationBody</c> is what an accelerometer aboard would read — thrust, drag and
-    /// lift, with gravity integrated separately and left out — and on the ground it is the reaction
-    /// holding the craft up. Adding the pull back is what makes a coasting drone read as falling and
-    /// a parked craft read as still. Zero if any of it cannot be read.</para>
+    /// Everything accelerating a craft, in Ecl: <c>AccelerationBody</c>, an accelerometer's reading,
+    /// with gravity put back, so a parked craft reads as still. Zero if unreadable.
     /// </summary>
     public static double3 AccelerationEcl(Vehicle vehicle)
     {
@@ -445,35 +399,19 @@ internal static partial class KsaWorld
     }
 
     /// <summary>
-    /// What the parent body itself is doing — its own fall toward whatever it orbits, in the
-    /// ecliptic frame. Zero for a body with no primary, and zero when anything cannot be read.
+    /// The parent body's own fall toward its primary, in Ecl; zero for no primary or unreadable.
+    /// Without it a round integrated in Ecl is left behind: Earth falls at 6.096 mm/s², 428 m over a
+    /// 375 s coast (<c>docs/MIRV-NEXT.md</c> item 2).
     ///
-    /// <para><b>A round would not have this and the ground under it does.</b> A round is integrated
-    /// against its parent body's gravity in <c>Ecl</c>, so without this it is left behind by exactly
-    /// this — where a real warhead and a real planet fall toward the Sun together and the term
-    /// cancels. KSA's Earth falls at 6.096 mm/s², measured: 428 m over a 375 s coast, and a shallow
-    /// arrival multiplies whatever share of that lies along local up by <c>cot γ</c> — eight at 7°.
-    /// <see cref="WeaponSystem"/> applies it; <c>docs/MIRV-NEXT.md</c> item 2 is the flown
-    /// measurement, 2.88 km of miss to 0.72.</para>
-    ///
-    /// <para><b>Exact rather than approximate</b>, because KSA moves celestials on analytic Kepler
-    /// rails whose conic is generated with the primary's own <c>Mu</c> — so a body's acceleration
-    /// <em>is</em> <c>mu/r²</c> toward its primary rather than being modelled by it. Read
-    /// <c>Orbit.StateVectors.AccelerationCci</c> instead and you get a hardcoded zero.</para>
-    ///
-    /// <para><b>One link only, which is a limit on other bodies.</b> A body's true ecliptic
-    /// acceleration is the sum over every link up to the star, and this supplies the nearest. Earth's
-    /// parent is Sol, so Earth is exact. Luna's parent is Earth, so a lunar shot gets
-    /// <c>mu_earth/r²</c> and loses Earth's own 5.9 mm/s² toward Sol — more than twice the term it
-    /// keeps, and worth some 417 m of drift over the same coast.</para>
+    /// <para>Exact, since KSA moves celestials on Kepler rails built with the primary's <c>Mu</c>
+    /// (<c>Orbit.StateVectors.AccelerationCci</c> is a hardcoded zero). One link only: Luna loses
+    /// Earth's 5.9 mm/s² toward Sol, some 417 m over the same coast.</para>
     /// </summary>
     public static double3 BodyFallEcl(Celestial body)
     {
         try
         {
-            // IParentBody, not Celestial: Celestial.Parent is declared as the interface, and a
-            // planet's primary need not be one of the concrete type. Testing for Celestial compiles,
-            // reads as a null check, and silently answers zero for every body in the game.
+            // IParentBody, not Celestial: a test for Celestial compiles and answers zero for every body.
             if (body.Parent is not { } primary) return Vec.Zero;
 
             return PointGravity.Toward(primary.GetPositionEcl(), primary.Mu, body.GetPositionEcl());
@@ -485,17 +423,8 @@ internal static partial class KsaWorld
     }
 
     /// <summary>
-    /// The parent body's own travel through the ecliptic, which is a different question from
-    /// <see cref="BodyFallEcl"/> and roughly square to it on a near-circular orbit.
-    ///
-    /// <para><b>It is the lever on a force sample taken a frame out of step.</b> A round's gravity is
-    /// read at its pre-step position against a celestial sample from the frame's end, so the pull
-    /// centre is displaced by this times the step — 516 m at 29.8 km/s on a 17 ms frame, which is a
-    /// spurious transverse acceleration of <c>g·v·dt/r</c>, around 1 mm/s². That is larger than the
-    /// body's fall. <c>docs/KSA-FRAME-ORDER.md</c> §5 and <c>docs/MIRV-NEXT.md</c> item 2.</para>
-    ///
-    /// <para>Reported only. What it is worth depends on where it lies against the arrival, and no
-    /// shot has written that down.</para>
+    /// The parent body's travel through the ecliptic, reported only: the lever on a force sample a
+    /// frame out of step, 516 m at 29.8 km/s on a 17 ms frame (<c>docs/KSA-FRAME-ORDER.md</c> §5).
     /// </summary>
     public static double3 BodyTravelEcl(Celestial body)
     {
@@ -529,13 +458,8 @@ internal static partial class KsaWorld
     }
 
     /// <summary>
-    /// The radius at which arriving begins on this body: the top of its atmosphere, or its highest
-    /// ground where it has none. Zero when neither can be read, which callers take as "do not
-    /// judge".
-    ///
-    /// <para>Deliberately not the mean radius. A trajectory that clears the mean sphere can still
-    /// meet a mountain, and this is asked in order to <em>destroy</em> a round — so it errs high,
-    /// where erring low reaps something that would have arrived.</para>
+    /// The top of the atmosphere, or the highest ground where there is none; zero, "do not judge",
+    /// when neither reads. Not the mean radius: this decides whether to destroy a round.
     /// </summary>
     public static double ArrivalCeilingRadius(Celestial body)
     {
@@ -551,10 +475,8 @@ internal static partial class KsaWorld
                 above = air.Height;
             }
 
-            // On an airless body the ground itself is the ceiling. This omits erosion and detail -
-            // it is computed before the render data populates the modifiers - so it is a floor
-            // under the real terrain rather than a bound on it, which is the wrong way round for a
-            // test that destroys things. A body with neither is left unjudged.
+            // MaxTerrainHeightApprox omits erosion and detail, so it is under the real terrain:
+            // the wrong way round for a test that destroys things (docs/KSA-TERRAIN.md).
             above = Math.Max(above, body.MaxTerrainHeightApprox);
 
             return above > 0.0 ? radius + above : 0.0;
@@ -565,10 +487,7 @@ internal static partial class KsaWorld
         }
     }
 
-    /// <summary>
-    /// The body's gravitational parameter, or zero when it cannot be read. What a round needs to
-    /// re-aim its own gravity at a centre that moves rather than being handed a fixed vector.
-    /// </summary>
+    /// <summary>Zero when it cannot be read.</summary>
     public static double BodyMu(Celestial body)
     {
         try
@@ -586,21 +505,8 @@ internal static partial class KsaWorld
     /// Density of whatever the round is flying through, as a multiple of
     /// <see cref="Medium.ReferenceDensityKgPerM3"/> — Earth's sea-level air, whatever body this is.
     ///
-    /// <para>1.0 at Earth's sea level, 0.0 in vacuum and above the atmosphere, and roughly 840 below
-    /// Earth's waterline. One reference for every body, because a round's drag belongs to the round and
-    /// the air: divided by each body's own sea level, a round would be dragged through thin air as hard
-    /// as through Earth's. One scale covers air and water, so a torpedo simply carries a much smaller
-    /// drag.</para>
-    ///
-    /// <para><b>A body with no atmosphere reads 0.0, and that is an answer rather than a
-    /// failure.</b> Every airless body in the game hands back no reference, so reading that as the
-    /// fallback would put Earth's sea-level air on the Moon.</para>
-    ///
-    /// <para>The fallback when the atmosphere genuinely <em>cannot be read</em> — a throw, or a
-    /// craft with no body under it — is still 1.0: a round that keeps its tuned drag is a far less
-    /// confusing failure than one that silently loses all of it and flies several times further.
-    /// The two are distinguished because they are different things, and only one of them is a
-    /// fault.</para>
+    /// <para>1.0 at Earth's sea level, 0.0 in vacuum, roughly 840 below the waterline. A body with no
+    /// atmosphere reads 0.0, an answer; one that cannot be read reads 1.0, so a round keeps its drag.</para>
     /// </summary>
     public static double MediumDensityRatioAt(Vehicle platform, double3 positionEcl)
     {
@@ -614,16 +520,15 @@ internal static partial class KsaWorld
         }
     }
 
-    /// <summary>The same medium, asked of the body directly — for a round with no craft left.</summary>
+    /// <summary>For a round with no craft left.</summary>
     public static double MediumDensityRatioAt(Celestial body, double3 positionEcl)
         => MediumDensityRatioAt(body, positionEcl, withOcean: true);
 
     /// <summary>
     /// The air alone, with no ocean under it: what a gun's lead flies a shell through on its way to a target.
     ///
-    /// <para>A place designated on the sea sits on the waterline, and a lay that reads the round where it truly is
-    /// reads its last step a hair under it — the ocean, 840x the air, which stops the shell dead in the lay and
-    /// leaves it unable to converge on a target in reach. A shell never flies through water to get somewhere.</para>
+    /// <para>A place on the sea sits on the waterline, and a lay's last step a hair under it would read
+    /// the ocean and stop the shell dead.</para>
     /// </summary>
     public static double AirDensityRatioAt(Vehicle platform, double3 positionEcl)
     {
@@ -637,17 +542,11 @@ internal static partial class KsaWorld
         }
     }
 
-    /// <summary>The air alone, asked of the body directly — for a warhead's flight predicted from a bus.</summary>
+    /// <summary>For a warhead's flight predicted from a bus.</summary>
     public static double AirDensityRatioAt(Celestial body, double3 positionEcl)
         => MediumDensityRatioAt(body, positionEcl, withOcean: false);
 
-    /// <summary>
-    /// Whether a body has an atmosphere at all.
-    ///
-    /// <para>Asked where a density at a point is the wrong question: what is wanted is whether the
-    /// <em>body</em> has air for a buoyant cloud to rise through, which no altitude over one this
-    /// answers false for can supply.</para>
-    /// </summary>
+    /// <summary>Whether the body has any air, where a density at one point is the wrong question.</summary>
     public static bool HasAtmosphere(Celestial body)
     {
         try
@@ -656,8 +555,7 @@ internal static partial class KsaWorld
         }
         catch
         {
-            // Unreadable reads as having one, so a burst falls back to the cloud rather than to the
-            // airless effect: a cloud that does not draw is a smaller fault than dust on Earth.
+            // A cloud that does not draw is a smaller fault than airless dust on Earth.
             return true;
         }
     }
@@ -773,17 +671,12 @@ internal static partial class KsaWorld
     {
         try
         {
-            // Altitude above the mean surface, the same measure KSA's own physics uses. Asked
-            // before the air is, because whether a point is under water is its own question: a
-            // body can have an ocean and no atmosphere, and resolving the air first returned
-            // vacuum for a point at the bottom of one.
+            // Over the mean surface, as KSA's physics measures it. The ocean is asked first: a body can
+            // have an ocean and no atmosphere.
             double altitude = Vec.Len(positionEcl - body.GetPositionEcl()) - body.MeanRadius;
 
-            // Below the waterline the medium is the ocean, which is ~840x sea-level air. The
-            // ratio is therefore not bounded above by 1.
-            // The ocean's IsValid() tests its level (0 m) and transparency depth (100 m) against
-            // an astronomical 100 km bar, so it is false wherever there is water. A body with no
-            // ocean hands back null, which is the discriminator that means it.
+            // ~840x sea-level air, so the ratio is not bounded by 1. Not the ocean's IsValid(), which
+            // tests its level against a 100 km bar; a body with no ocean hands back null.
             OceanReference? ocean = body.GetOceanReference();
             if (withOcean && ocean is { } sea && sea.Density > 0.0 && altitude < sea.Level)
             {
@@ -791,17 +684,8 @@ internal static partial class KsaWorld
                 return double.IsFinite(water) && water > 0.0 ? water : 1.0;
             }
 
-            // Never gate on KSA's own IsValid(). DistanceReference.IsValid requires a distance
-            // over 100 km — an astronomical-scale sanity check — and the atmosphere's applies it
-            // to the scale height, 8 km on Earth. So air.IsValid() is false for every realistic
-            // atmosphere, and trusting it reports vacuum at ground level. Check the terms this
-            // actually divides by instead.
-            //
-            // No reference, or one with nothing physical in it, is the model saying there is no
-            // air — which is KNOWLEDGE, not a failed read, and every airless body in the game
-            // answers this way. Read as the reference density it puts Earth's sea-level air on the
-            // Moon: a bomb released 7 m over lunar ground reaches a terminal 113 m/s, and every gun
-            // lay on an airless body is solved through drag that is not there.
+            // Not IsValid(), which requires a scale height over 100 km and is false for every real
+            // atmosphere. No physical reference is the model saying no air, so 0.0, never 1.0.
             AtmosphereReference? atmosphere = body.GetAtmosphereReference();
             if (atmosphere?.Physical is not { } air) return 0.0;
 
@@ -844,9 +728,7 @@ internal static partial class KsaWorld
     }
 
     /// <summary>
-    /// Why <see cref="MediumDensityRatioAt(Celestial, double3)"/> answered what it did, for the
-    /// log. Every early return there is silent, and from outside a vacuum reading and an
-    /// unreadable atmosphere are the same 0.0.
+    /// Why <see cref="MediumDensityRatioAt(Celestial, double3)"/> answered what it did, for the log.
     /// </summary>
     public static string MediumDiagnosis(Celestial body, double3 positionEcl)
     {

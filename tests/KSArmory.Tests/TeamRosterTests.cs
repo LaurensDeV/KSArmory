@@ -6,13 +6,10 @@ namespace KSArmory.Tests;
 /// Which side a craft is on when it has been <em>told</em>, which is the half a display name
 /// cannot carry.
 ///
-/// <para>The flag on a switcher row wrote <c>IffPolicy.OwnTeam</c> — the side an installation
-/// fights for — and nothing read it back, so a contact's side came off its craft name alone. Two
-/// sites whose flags both said Blue therefore classified each other as <see cref="Allegiance.Unknown"/>,
-/// which <see cref="IffPolicy.EngageUnknown"/> engages by default. It showed on the rounds rather
-/// than the mounts because two craft standing on the same ground are below
-/// <c>SensorProfile.MinTargetSpeed</c> and never enter each other's track lists at all, while
-/// their shells at a kilometre a second do.</para>
+/// <para>Without the roster, two sites whose flags both say Blue classify each other as
+/// <see cref="Allegiance.Unknown"/>, which <see cref="IffPolicy.EngageUnknown"/> engages by default.
+/// It shows on the rounds rather than the mounts: two craft standing on the same ground are below
+/// <c>SensorProfile.MinTargetSpeed</c>, while their shells at a kilometre a second are not.</para>
 /// </summary>
 public class TeamRosterTests
 {
@@ -31,8 +28,8 @@ public class TeamRosterTests
     }
 
     /// <summary>
-    /// The bug, in one assertion. Two craft named after what they are rather than whose they are,
-    /// both put on Blue: each has to read the other as friendly.
+    /// Two craft named after what they are rather than whose they are, both put on Blue: each has
+    /// to read the other as friendly.
     /// </summary>
     [Fact]
     public void TwoCraftOnOneTeamReadAsFriendlyWhateverTheyAreCalled()
@@ -51,8 +48,8 @@ public class TeamRosterTests
     }
 
     /// <summary>
-    /// And the state it was in before, which is what that assertion has to fail against: without
-    /// the declaration the same pair is Unknown, and Unknown is engaged by default.
+    /// Without the declaration the same pair is Unknown, and Unknown is engaged by default — the
+    /// state the assertion above has to fail against.
     /// </summary>
     [Fact]
     public void WithoutTheDeclarationThatPairIsEngageable()

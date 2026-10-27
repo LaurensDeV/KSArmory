@@ -75,22 +75,12 @@ internal readonly record struct TankShape(double Straight, double RadiusBase, do
 /// <summary>
 /// Where the liquid in a holed tank stands, and how fast it runs out of a hole below it.
 ///
-/// <para><b>The liquid settles against the acceleration the craft feels</b> — the ground's push on
-/// the pad, the thrust in a burn — so its surface is square to that and a craft on its side drains from
-/// its lower holes; a hole above the surface vents only the gas over it, which KSA does not count as
-/// mass. <b>In a coast it floats</b>, wetting the walls, and a hole is under it about as often as the
-/// tank is full.</para>
+/// <para>The surface is square to the acceleration the craft feels; in a coast the liquid floats and
+/// a hole is under it as often as the tank is full. <see cref="UllagePascals"/> is the mod's own,
+/// because KSA models no pressure and without one a coasting craft could not leak.</para>
 ///
-/// <para><b>Driven by the weight above the hole and by a low tank pressure</b>,
-/// <see cref="UllagePascals"/>. KSA models no pressure, and without one a coasting craft could not leak
-/// at all; a real flight tank's couple of bar would make where the hole is almost irrelevant, so this
-/// is low enough that depth and pull still double or halve a leak. Held constant, as a regulated tank
-/// holds it, rather than falling as the tank vents.</para>
-///
-/// <para><b>The surface is found by counting points, not by solving the shape.</b> A tank is taken as
-/// the cylinder filling its box, and points spread evenly through that volume put the surface of any
-/// fill at any tilt where that share of them lies below it — end caps and all, which no closed form
-/// for a tilted cylinder gets right.</para>
+/// <para>The surface is found by counting points spread through the tank's shape (or the cylinder
+/// filling its box), the fill's share of them below it: no closed form handles a tilted tank's caps.</para>
 /// </summary>
 internal static class TankLeak
 {
@@ -203,9 +193,8 @@ internal static class TankLeak
     }
 
     /// <summary>
-    /// How long the liquid takes to follow a change in what the craft feels, in seconds. Liquid moving
-    /// across a tank under a small push takes seconds to get there, so an attitude thruster's pulse in a
-    /// coast barely stirs it, where read raw it settled and floated the liquid several times a second.
+    /// How long the liquid takes to follow a change in what the craft feels, in seconds, so an attitude
+    /// pulse in a coast barely stirs it.
     /// </summary>
     public const double SettleSeconds = 1.5;
 

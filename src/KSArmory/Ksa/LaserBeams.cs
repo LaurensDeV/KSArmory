@@ -50,11 +50,7 @@ internal static class LaserBeams
 
     public static void MarkPainted() => _sincePainted.Restart();
 
-    /// <summary>
-    /// One beam's ends, relative to the camera drawing this frame, the air density ratio at each, whether
-    /// it is burning what it lands on, whether it lands on nothing at all, whether it ends in cloud, and
-    /// which way is up where it ends -- zero where there is no body to say.
-    /// </summary>
+    /// <summary>Ends relative to the camera drawing this frame; <paramref name="up"/> is zero where there is no body to say.</summary>
     public static bool TryAt(int index, out double3 fromEgo, out double3 toEgo, out double airAtStart,
                              out double airAtEnd, out bool burning, out bool openEnded, out bool inCloud,
                              out double3 up)

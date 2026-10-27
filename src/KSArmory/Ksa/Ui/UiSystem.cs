@@ -4,25 +4,17 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
-/// The panes that describe one weapons system: what it is made of, what it can see, and what its
-/// drives and weapons are doing.
-///
-/// <para>Every method here reads <c>_system</c> and <c>_policy</c>, which are <b>not</b> fixed —
-/// <see cref="Ui.Focus"/> points them at whichever system is being drawn, and the shell calls it
-/// before any of this runs. A pane added here that is reached another way will quietly describe
-/// the wrong installation.</para>
+/// The panes that describe one weapons system. Every method reads <c>_system</c> and
+/// <c>_policy</c>, which <see cref="Ui.Focus"/> sets before any of this runs.
 /// </summary>
 internal sealed partial class Ui
 {
-    // What this system is made of, read off the craft rather than from a table -- which is the
-    // whole point of surveying, and why it belongs to a system rather than to the mod's menu.
     private void DrawComponents(KSA.Vehicle craft)
     {
         KsaWorld.SurveyParts(craft, _surveyed);
         WeaponInventory inv = WeaponSurvey.Survey(_surveyed, Catalogue.Components);
 
-        // IsInstallation, not IsWeaponSystem: a craft carrying one director and no armament is
-        // something this mod recognises, and it is the case this pane most needs to describe.
+        // IsInstallation, not IsWeaponSystem: one director and no armament still counts.
         if (!inv.IsInstallation)
         {
             ImGui.TextColored(Grey, "  Nothing this mod recognises.");
@@ -31,9 +23,7 @@ internal sealed partial class Ui
             return;
         }
 
-        // One section per kind of part, holding every role it plays: a rack is a launcher, a
-        // release and a sight, and listing it under three headings shows one weapon three times.
-        // Several of one kind are the stations of one weapon, so they share a section too.
+        // One section per kind of part, holding every role it plays and every station of it.
         _kinds.Clear();
         foreach (FoundComponent c in inv.Components)
         {
@@ -51,26 +41,22 @@ internal sealed partial class Ui
             ImGui.SeparatorText(stations > 1 ? $"{kind.DisplayName}  x{stations}" : kind.DisplayName);
             ImGui.PushID(kind.PartId);
 
-            // A part with a single row under it needs no fold of its own: it would only repeat
-            // the heading above it.
+            // A part with a single row needs no fold: it would repeat the heading.
             int rows = 0;
             foreach (FoundComponent c in inv.Components)
             {
                 if (ReferenceEquals(c.Profile, kind)) rows++;
             }
 
-            // Every row of a weapon prints the selected one's numbers and edits its settings, so a
-            // weapon that is not selected says so once and draws none of them. A director it
-            // carries is its own instrument and still gets its row.
+            // Rows print the selected weapon's numbers, so another weapon says so once and draws
+            // none; a director it carries still gets its row.
             bool otherWeapon = _crewed && kind.Role == WeaponRole.Launcher && !IsSelectedWeapon(kind);
             if (otherWeapon) NotSelected();
 
-            // Role order read off the enum rather than listed here: a hand-written list silently
-            // omits a role added later, which reads as the survey not finding one.
+            // Off the enum: a hand-written list silently omits a role added later.
             foreach (WeaponRole role in Enum.GetValues<WeaponRole>())
             {
-                // Search parts count among their own kind: a director's set is a sensor too, and
-                // counting it numbers four IRSTs "2 of 5" to "5 of 5".
+                // Numbered among their own kind: a director's set is a sensor role too.
                 bool ownCount = IsSearchPart(kind);
                 int of = ownCount ? stations : inv.CountOf(role);
                 int nth = 0;
@@ -84,9 +70,8 @@ internal sealed partial class Ui
                     if (ReferenceEquals(c.Profile, kind) && !(drawn && StacksStations(kind, role))
                         && !(otherWeapon && StacksStations(kind, role)))
                     {
-                        // Per component, not per label. ImGui keys a widget on its label within
-                        // the current id scope, so without this the second director's tick boxes
-                        // are the first's.
+                        // ImGui keys a widget on its label within the id scope; two directors
+                        // would share tick boxes.
                         ImGui.PushID(i);
                         DrawComponentRow(craft, c, kind, role, nth, stations, of, alone: rows == 1);
                         ImGui.PopID();
@@ -105,12 +90,9 @@ internal sealed partial class Ui
 
     private readonly List<ComponentProfile> _kinds = [];
 
-    // A director has its own controls per head and one computer flies the craft, so neither is a
-    // station of anything.
     private static bool StacksStations(WeaponRole role)
         => role is not (WeaponRole.Camera or WeaponRole.Guidance or WeaponRole.Countermeasures);
 
-    // Nor is a search part: each looks its own way and holds its own contacts.
     private static bool StacksStations(ComponentProfile kind, WeaponRole role)
         => StacksStations(role) && !IsSearchPart(kind);
 
@@ -124,9 +106,7 @@ internal sealed partial class Ui
 
     private const int SearchRowsShown = 6;
 
-    // A search part is its own set and needs no weapons system: a hull carrying an IRST and nothing
-    // else has every line here. Paired by where the part sits, because the sets are keyed on parts
-    // and the survey lists positions.
+    // Paired by position: the sets are keyed on parts and the survey lists positions.
     private void DrawSearchSetComponent(KSA.Vehicle craft, FoundComponent c)
     {
         _searchSets.On(craft, _searchScratch);
@@ -180,7 +160,6 @@ internal sealed partial class Ui
             + $"{set.Sensor.ConeDeg:F0} deg cone wherever the head points; the head only shows where it is looking.");
     }
 
-    // The boresight as a compass bearing and an angle above the horizon, off the body's own axis.
     private static string LooksToward(KSA.Vehicle craft, double3 boresightEcl)
     {
         if (KsaWorld.ParentBody(craft) is not { } body
@@ -197,8 +176,6 @@ internal sealed partial class Ui
                    : up > 0 ? "looks straight up" : "looks straight down";
     }
 
-    // What every searching set aboard adds up to: the IRSTs and any launcher's own radar, each
-    // contact once. Only drawn where a search part is fitted; elsewhere the Radar tab says it all.
     private void DrawPictureSummary(KSA.Vehicle craft)
     {
         ImGui.SeparatorText("Picture");
@@ -224,25 +201,18 @@ internal sealed partial class Ui
             + "specific tells them where to look.");
     }
 
-    // One role of one kind of part -- once for all its stations, or once per head for a director --
-    // and whatever it is that the panel can drive.
     private void DrawComponentRow(KSA.Vehicle craft, FoundComponent c, ComponentProfile kind, WeaponRole role,
                                   int nth, int stations, int of, bool alone)
     {
         string label = !StacksStations(kind, role) && of > 1 ? $"{c.DisplayName}  {nth + 1} of {of}" : c.DisplayName;
         bool folded = !(alone && label == kind.DisplayName);
 
-        // Open unless folded away. A craft carries a handful of components and their controls are
-        // the reason to be on this tab at all, so a closed fold costs a click on every visit and
-        // buys back one line of screen.
+        // Open by default: the controls are the reason to be on this tab.
         if (folded && !ImGui.TreeNodeEx(label, ImGuiTreeNodeFlags.DefaultOpen)) return;
 
         if (stations > 1 && role == WeaponRole.Launcher) DrawStationsLoaded(craft, kind);
 
-        // A director is its own instrument and needs no weapons system. Everything else here
-        // describes one, and reads `_system` -- which Focus leaves unassigned on a craft that
-        // carries no armament. A craft with one director and a provided sensor row reaches this
-        // with nothing crewed, so the guard is on the path rather than in each handler.
+        // Only the last branch reads `_system`, which Focus leaves unassigned on an unarmed craft.
         if (role == WeaponRole.Camera)
         {
             DrawCameraComponent(nth);
@@ -277,10 +247,8 @@ internal sealed partial class Ui
         if (folded) ImGui.TreePop();
     }
 
-    // A dispenser needs no weapons system either: a transport with nothing but flares aboard has every
-    // control here. The nth dispenser component is the nth dispenser, by the same part-order pairing
-    // the cameras rely on. The controls are the craft's and drawn once, under the first: a press is
-    // answered by every dispenser holding that load.
+    // The nth component is the nth dispenser, paired by part order as the cameras are. The controls
+    // are the craft's and drawn once: a press reaches every dispenser of that load.
     private void DrawDispenserComponent(KSA.Vehicle craft, int nth)
     {
         _countermeasures.On(craft, _dispenserScratch);
@@ -339,11 +307,8 @@ internal sealed partial class Ui
         else if (flares == 0 && chaff == 0) ImGui.TextColored(Amber, "empty");
     }
 
-    // Whether the computer is flying, not how: it flies the whole vehicle, so its settings are a tab
-    // of their own rather than this row.
     private void DrawGuidanceComponent(KSA.Vehicle craft, int nth)
     {
-        // One trajectory per craft, so one computer however many parts could carry it.
         if (nth > 0)
         {
             ImGui.TextDisabled("redundant - the first one flies this craft");
@@ -361,12 +326,9 @@ internal sealed partial class Ui
         ImGui.TextDisabled("  target, arming and settings on the Ballistic tab");
     }
 
-    // Whether a row belongs to the weapon the panel is pointed at. The rows print the *selected*
-    // system's numbers, so a row of another kind of launcher has to say it is not that one rather
-    // than show numbers belonging to a different weapon. Every station of a kind is one weapon.
+    // Every station of a kind is one weapon.
     private bool IsSelectedWeapon(ComponentProfile kind) => _system.Profile.PartId == kind.PartId;
 
-    // A row standing for several stations, and how many of them still hold a round.
     private void DrawStationsLoaded(KSA.Vehicle craft, ComponentProfile kind)
     {
         _roster.AllOn(craft, _stationRows);
@@ -394,15 +356,12 @@ internal sealed partial class Ui
         foreach (WeaponSystems.Entry e in _stationRows) act(e.Weapon);
     }
 
-    // Said on a row that is a real weapon but not the one being shown, rather than leaving it to
-    // be inferred from numbers belonging to a different rack.
     private void NotSelected()
     {
         ImGui.TextColored(Amber, "not the selected weapon");
         ImGui.TextDisabled("  it has its own magazine and auto-engage - pick it in Weapons");
     }
 
-    // The launcher: what it holds, how it is laid, and the switches that belong to it.
     private void DrawLauncherComponent(ComponentProfile kind)
     {
         if (!IsSelectedWeapon(kind)) return;
@@ -427,12 +386,11 @@ internal sealed partial class Ui
         DrawTurretLine();
         DrawTurretControls();
 
-        // Every station of the weapon, since the row stands for all of them.
         if (ImGui.Button("Reload")) ForEachStation(b => b.Reload());
         ImGui.SameLine();
         if (ImGui.Button("Safe all")) ForEachStation(b => b.SafeAll());
 
-        // A view control, so it sits with the weapon whose rounds it would ride. A beam throws none.
+        // A beam throws no rounds to ride.
         if (_fit.FirstOf(ArmamentKind.Tubes) is null && _fit.FirstOf(ArmamentKind.Belt) is null) return;
 
         ImGui.Checkbox("Chase this launcher's rounds", ref _policy.ChaseRounds);
@@ -441,8 +399,7 @@ internal sealed partial class Ui
             + "Right-drag looks around the round and the wheel moves in or out; let go and the view "
             + "eases back behind it.");
 
-        // Only where it answers the right question. A guided round goes where it is steered, so a
-        // ballistic pipper over one is a ring in the wrong place with nothing to say so.
+        // A guided round goes where it is steered, so a ballistic pipper over one would lie.
         if (_fit.Drops)
         {
             ImGui.Checkbox("Bomb sight", ref _policy.DrawBombSight);
@@ -450,7 +407,6 @@ internal sealed partial class Ui
         }
     }
 
-    // The cannon: its belt, and whether it is live.
     private void DrawGunComponent(ComponentProfile kind)
     {
         if (!IsSelectedWeapon(kind)) return;
@@ -459,10 +415,7 @@ internal sealed partial class Ui
         ImGui.TextDisabled(_system.GunsAreLaid ? "  laid" : "  not laid");
     }
 
-    // The set: what it is holding right now, and the one switch that belongs to this set rather
-    // than to every set of its type. Its numbers are on the Tuning tab, because they belong to the
-    // profile and every system running that loadout shares them; the full scope is its own tab,
-    // where it has one, because a track list is a list and a component row is not the place for one.
+    // The set's numbers are on the Tuning tab: they belong to the shared profile.
     private void DrawSensorComponent(ComponentProfile kind)
     {
         if (!IsSelectedWeapon(kind))
@@ -473,16 +426,12 @@ internal sealed partial class Ui
 
         DrawRadarState();
 
-        // `_policy`, not the profile: whether this one set is turning is this installation's own
-        // business, while the rpm it turns at is what a set of this type is. Only the second is a
-        // Tuning control.
+        // `_policy`: whether this set turns is the installation's; its rpm is the profile's.
         if (_fit.SweepsASearchArray)
         {
             ImGui.Checkbox("Stop the search array", ref _policy.SearchRadarStopped);
         }
 
-        // Only offered on a set that actually transmits: silencing a passive seeker is a switch
-        // that would do nothing, and one that does nothing is worse than one that is absent.
         if (_system.Sensor.Emits)
         {
             ImGui.Checkbox("Radar silent", ref _policy.RadarSilent);
@@ -495,9 +444,7 @@ internal sealed partial class Ui
 
         if (ScopeTab(_sensor) is not { } tab) return;
 
-        // A button rather than a tick box: it opens a window, and a checkmark reads as "this
-        // setting is on" while the window arrives somewhere else unannounced. Tinted while open.
-        // The local matters -- TakeScope flips the flag the pop reads.
+        // A local: TakeScope flips the flag the pop reads.
         bool scopeTinted = _policy.ScopeOpen;
         if (scopeTinted) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
         if (ImGui.Button("Scope")) TakeScope(_policy);
@@ -506,20 +453,13 @@ internal sealed partial class Ui
             + "has the same scope above the full track list.");
     }
 
-    // Everything about releasing a weapon, on the part that decides it.
-    //
-    // Auto-engage and FIRE are deliberately *not* here: they belong to the whole
-    // installation rather than to one part of it, so they sit in the header where they are on
-    // screen whichever tab is open. See DrawSystemHeader.
+    // Auto-engage and FIRE belong to the installation, so they are in DrawSystemHeader, not here.
     private void DrawFireControlComponent()
     {
-        // Hidden, not disabled, when they describe nothing this system does. A control greyed
-        // out still says "this is a thing a bomb rack has"; one that is absent says the truth.
+        // Hidden, not disabled: a greyed control still claims the system has it.
         if (_fit.AutoEngages)
         {
-            // How much is committed per engagement: fire control's decision, and this
-            // installation's own rather than anything about the round. Not on Tuning, where every
-            // control is shared. Only worth a slider when there is more than one round to commit.
+            // The installation's own, so not on Tuning, where every control is shared.
             if (_fit.SalvoCapacity > 1)
                 ImGui.SliderInt("Rounds per target", ref _policy.RoundsPerTarget,
                                 1, _fit.SalvoCapacity);
@@ -527,8 +467,6 @@ internal sealed partial class Ui
             ImGui.Checkbox("Never target the vehicle I'm flying", ref _policy.ProtectControlledVehicle);
         }
 
-        // Mouse aim drives the traverse and elevation, so a launcher with neither has nothing for
-        // the cursor to move -- its row already says it shoots where the craft points.
         if (_fit.Aims)
         {
             ImGui.Checkbox("Aim with the mouse", ref _policy.MouseAim);
@@ -542,8 +480,7 @@ internal sealed partial class Ui
             + "shows where, and turns red when the weapon is empty or not laid, the point is out of "
             + "reach, or the round could not be guided there.");
 
-        // Last, and alone below a rule. It discards the installation's stored settings, so it is
-        // kept clear of anything anyone reaches for in a hurry.
+        // Alone below a rule: it discards the stored settings.
         ImGui.Separator();
         if (ImGui.Button("Reset settings") && _system.Platform is { } craft)
         {
@@ -556,7 +493,6 @@ internal sealed partial class Ui
             + "installation, not this component.");
     }
 
-    // One armament's reading, or nothing when the system carries none of that kind.
     private void DrawArmamentTally(ArmamentKind kind)
     {
         if (_fit.FirstOf(kind) is not { } arm) return;
@@ -566,18 +502,12 @@ internal sealed partial class Ui
         if (firing) ImGui.TextColored(Red, arm.Describe(remaining, firing));
         else ImGui.Text(arm.Describe(remaining, firing));
 
-        // Beside its own reading rather than on the header strip. Whether this weapon is live is a
-        // fact about this weapon; what fire control decides is whether anything shoots on its own.
         ImGui.SameLine();
         ImGui.Checkbox($"live##{kind}", ref Armament.EnabledIn(_policy, kind));
     }
 
-    // The nth director's own controls, under the nth camera row.
-    //
-    // Bound by position: KsaWorld.SurveyParts and OpticParts.FindAll both walk the craft's part
-    // span in index order, so the nth camera component is the nth head. A survey that ever
-    // stopped agreeing would silently pair a row with the wrong instrument, so a shortfall is
-    // reported rather than assumed away.
+    // By position: KsaWorld.SurveyParts and OpticParts.FindAll both walk the part span in index
+    // order, so the nth camera component is the nth head.
     private void DrawCameraComponent(int nth)
     {
         if (nth >= _headScratch.Count)
@@ -589,16 +519,8 @@ internal sealed partial class Ui
         DrawOpticView(_headScratch[nth]);
     }
 
-    // The two facts that belong to the installation rather than to any part of it, plus a word
-    // about the clock when it is stopping the thing working.
-    //
-    // Above the tab bar rather than inside a tab. Every gate in fire control returns quietly, so
-    // an empty launcher, one with no lock, one still settling and one whose drives the engine
-    // refused all look identical from outside: this line is the only thing that separates them,
-    // and it is no use on a tab nobody is looking at.
-    //
-    // Not inside the fire-control component row either, for the same reason. A row folds, and a
-    // headline behind a disclosure triangle is worse than one behind a tab.
+    // Above the tab bar: every fire-control gate returns quietly, and the hold line is all that
+    // tells them apart. CLAUDE.md, "Adding a weapon system", on the header strip.
     private void DrawSystemHeader()
     {
         if (_system.Platform is null)
@@ -608,17 +530,13 @@ internal sealed partial class Ui
             return;
         }
 
-        // The weapon and its trigger on one line, so what FIRE releases is never in doubt: several
-        // kinds of weapon on one craft share one trigger, and a picker somewhere else leaves the
-        // operator guessing which of them it reaches.
+        // The picker beside FIRE: several weapons share one trigger.
         WeaponFit fit = _fit;
         if (DrawWeaponPicker(Focused)) ImGui.SameLine();
 
-        // Through the group, not straight at the selected station. Two rails carrying the same
-        // store are one weapon with two stations, and firing the selected one reaches the same
-        // rail every time -- so the second is never fired at all, however often this is pressed.
+        // Through the group: firing the selected station reaches the same rail every time.
         if (ImGui.Button("FIRE")) FireSelectedGroup();
-        // The same three cases WeaponSystem.FireAtLock branches on, in its order.
+        // The cases WeaponSystem.FireAtLock branches on, in its order.
         Tip(_system.TriggerArmament == ArmamentKind.Belt
                 ? "Fire one burst now, wherever the guns are pointing."
             : _system.TriggerArmament == ArmamentKind.Beam
@@ -629,11 +547,7 @@ internal sealed partial class Ui
                   + "unguided one, or a guided one with nothing designated, simply falls."
                 : "Fire one round now, at the craft you shift-clicked or else at the radar's lock.");
 
-        // Auto-engage off is a mode, not a hold: FIRE still works, so saying "holding fire" about
-        // it sends the operator looking for a fault that is not there.
-        //
-        // Read off the station the trigger would reach rather than the one selected. Both FIRE
-        // buttons go through the group, so both lines beside them have to as well.
+        // The station the trigger would reach, not the one selected, as FIRE goes through the group.
         ImGui.SameLine();
         DrawHoldLine(_system, _policy.AutoEngage);
 
@@ -643,9 +557,7 @@ internal sealed partial class Ui
             ImGui.Text($"   In flight: {_system.Rounds.Count}");
         }
 
-        // Whether it shoots on its own, about the whole system and no part of it -- which is what
-        // this strip is for. Absent on a rack of stores rather than disabled: nothing it carries
-        // engages on its own, and a tick box that cannot change anything looks like the reason.
+        // Absent, not disabled, on a rack of stores: nothing it carries engages on its own.
         bool anotherLine = false;
         if (fit.AutoEngages)
         {
@@ -655,16 +567,12 @@ internal sealed partial class Ui
             anotherLine = true;
         }
 
-        // The window with every weapon's arm and guard state and a trigger of its own: a pop-out
-        // of the panel's trigger for one weapon as much as a switcher for several.
         _roster.AllOn(Focused, _weaponScratch);
         if (_weaponScratch.Count > 0)
         {
             if (anotherLine) ImGui.SameLine(0f, ImGui.GetFrameHeight());
 
-            // Held in a local because the button toggles the very flag that guards the pop.
-            // Read twice, a click pops a style it never pushed -- or pushes one it never pops and
-            // leaks the tint into everything drawn after it.
+            // A local: the button toggles the flag that guards the pop.
             bool weaponsTinted = _weaponsOpen;
             if (weaponsTinted) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.42f, 0.30f, 1f));
             if (ImGui.Button("Weapons")) _weaponsOpen = !_weaponsOpen;
@@ -675,13 +583,10 @@ internal sealed partial class Ui
         ImGui.Separator();
     }
 
-    // Only when the clock is a problem. Fire control runs on simulated time, so a heavily warped
-    // world explains a silent system -- and unsaid, that is indistinguishable from
-    // tracking being broken. The ordinary cases say nothing: the game has its own speed readout,
-    // and repeating it here is a line that is always present and never news.
+    // Only when the clock is the problem: fire control runs on simulated time, so heavy warp
+    // explains a silent system.
     private void DrawClockWarning()
     {
-        // The game already shows that it is paused.
         if (KsaWorld.IsPaused) return;
 
         if (_warp.Yielded)
@@ -706,18 +611,13 @@ internal sealed partial class Ui
         }
     }
 
-    // What the set is holding. Two lines rather than four: the name, the range and the closing
-    // speed are one fact about one contact, and CPA is the separate one -- it is what decides
-    // engageability, so it earns its own line and nothing else does.
     private void DrawRadarState()
     {
-        // A designation is not a lock, deliberately: auto-engage fires at the lock, and a craft
-        // shift-clicked only to be watched must not be shot at. So the two are reported apart.
+        // Reported apart: auto-engage fires at the lock, never at a designation.
         bool designated = _system.Designation.Kind != AimpointKind.None;
         if (designated) ImGui.Text($"designated: {_system.DesignationName}");
 
-        // A store is released onto a designation and never onto a lock, so for one the lock is
-        // not worth a line.
+        // A store is released onto a designation, never onto a lock.
         if (_fit.Drops)
         {
             if (!designated) ImGui.TextColored(Grey, "nothing designated - shift-click the ground");
@@ -740,12 +640,7 @@ internal sealed partial class Ui
                            + $"{locked.TimeToClosestApproach:F1}s");
     }
 
-    // How this installation's mount is being driven, under the launcher that owns it.
-    //
-    // These are `_policy` -- one installation's own choices, so two Pantsirs can disagree about
-    // them. That is what keeps them off the Tuning tab, where every control edits the shared
-    // profile and reaches every system in the world running it. A slew rate belongs there; which
-    // way this one mount is pointed does not.
+    // `_policy`, so off the Tuning tab: two mounts can disagree about how each is driven.
     private void DrawTurretControls()
     {
         if (_system.Launcher is null || !_fit.Aims) return;
@@ -777,8 +672,7 @@ internal sealed partial class Ui
     {
         if (_system.Launcher is null) return;
 
-        // Nothing to lay, so nothing to say: and not "subpart not found", which reads as a fault on
-        // a system that is working.
+        // Not "subpart not found", which would read as a fault.
         if (!_fit.Aims) return;
 
         if (_fit.Traverses && _system.TurretPart is null)
@@ -834,8 +728,6 @@ internal sealed partial class Ui
             return;
         }
 
-        // The lock heads its own track list, because it is one of the tracks. The sensor's
-        // component row carries the same state in a line; this is the view with room for it.
         DrawRadarState();
         ImGui.Separator();
 
@@ -844,8 +736,7 @@ internal sealed partial class Ui
             ImGui.TextDisabled("scope clear");
         }
 
-        // An empty scope with craft in the world reads as a broken radar. Saying how many the
-        // planet is hiding is the difference between that and a working one with nothing in view.
+        // Or an empty scope with craft in the world reads as a broken radar.
         if (_system.Radar.MaskedByTerrain > 0)
         {
             ImGui.TextDisabled($"  {_system.Radar.MaskedByTerrain} behind the horizon");

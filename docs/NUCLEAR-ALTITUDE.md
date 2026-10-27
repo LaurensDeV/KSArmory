@@ -113,8 +113,8 @@ The first draft's 1 ms for the whole sky is not met from orbit -- the aurora alo
 tighter one would need a half-resolution aurora, which is not planned. **The sky cap** (landed, and changed
 since): at most four full-screen sky dispatches, each kind's brightest in turn, drew one of each kind for
 several bursts and let the one aurora drawn jump between them as their brightnesses crossed. It is now a
-limit per kind, the newest first (`SkyDispatch.MostOf`): three glows, three shells, two red waves and four
-curtains. Three bursts at 400 km then draw 9 of their 10 for 2.9 ms from orbit and 2.0 on the limb.
+limit per kind, the newest first (`SkyDispatch.MostOf`): three glows, three shells, two red waves and ten
+curtains (four when this was flown). Three bursts at 400 km then draw 9 of their 10 for 2.9 ms from orbit and 2.0 on the limb.
 
 ### 2. Blast by altitude
 Efficiency by burst air, Sachs by target air, damage by `W·η` through every verdict path, the front in
@@ -162,7 +162,7 @@ its shell; the shake by `GainAt`; the northern-aurora fix; stale doc lines.
 ### Deliberately not planned (yet)
 **X-ray and heat fluence as damage** -- heat scorching the ground under a 37 km burst (~175 cal/cm² at
 50 Mt) while the blast is a gust, and X-rays killing craft far out from an exo burst; today's law stands
-in, as above. Radiation belts, EMP, the beta patch, lithium twilight glow, Kingfish's green patch, crater
+in, as above. Radiation belts (built since, on KSA's own gauge: `docs/NUCLEAR-RADIATION.md`), EMP, the beta patch, lithium twilight glow, Kingfish's green patch, crater
 formation, precursor dust waves: invisible from a KSA camera, a gameplay system of their own, or a march
 the frame cannot pay for.
 
@@ -229,7 +229,7 @@ into one changelog line.
 not to be merged to `main` until 14 was flown; it has been.
 
 **Still open.** The pass does not yet shed sky dispatches when `CloudPassCost` reads over budget -- the
-four-dispatch cap is the only bound, and a weak GPU loses frames rather than an effect. Only the red
+cap per kind (`SkyDispatch.MostOf`) is the only bound, and a weak GPU loses frames rather than an effect. Only the red
 wave, the one new sky kind, has a Display switch; the glow and the aurora ride on the clouds' own. The
 dust ring times itself at sea level's sound on every body (`tools/check-bodies.sh` names it), because a
 cloud dispatch has no float free to carry the body's. The column under an air burst at five fallout-safe
@@ -268,12 +268,14 @@ body.** Every quantity comes from what KSA declares, or from `Bodies.xml` where 
 | Mushroom or not | fireball radius against H, not air density alone |
 | Ground | terrain and ocean as the body has them; whether it has a surface at all comes from `Bodies.xml`, since KSA clamps density below the mean radius rather than declaring none |
 
-**`Bodies.xml` fields**: `MagneticField` (strength, tilt, azimuth; none by default: no aurora, no
-stretch, ballistic debris), `Airglow` (`OxygenNitrogen`, `CarbonDioxide`, `Hydrogen`, or explicit
-colours; a dim neutral glow by default, logged once), `Condensation` (default: has weather layers or an
-ocean), `Gamma` (1.4), `Surface` (default: yes), `XRayOpacity` (1 for N₂/O₂; hydrogen air absorbs far
-less per kilogram). Entries for KSA's current bodies ship as data; a custom system without entries still
-works, with no aurora and neutral glows. If KSA ever declares a field or a composition, its value wins.
+**`Bodies.xml` fields**: `FieldTesla`, `FieldTiltDeg`, `FieldAzimuthDeg` (a centred dipole; none by
+default: no aurora, no stretch, ballistic debris), `Airglow` (`OxygenNitrogen`, `CarbonDioxide`,
+`Hydrogen` or `Neutral`, the default, a dim uncoloured glow), `Condensation` (default: has weather layers
+or an ocean), `Gamma` (1.4), `Surface` (default: yes), `XRayOpacity` (1 for N₂/O₂; hydrogen air absorbs
+far less per kilogram), and `ThinCloud` for the beam. Entries for KSA's current bodies ship as data; a
+custom system without entries still works, with no aurora and neutral glows. KSA now declares a field of
+its own (`MagnetosphereReference`), and where it does that one wins, tilted and off centre
+(`KsaWorld.DipoleOf`).
 A body renamed by a KSA update is caught by the audit, and the upgrade-ksa skill says to check it.
 
 **Held to it by**: Sim tests over synthetic bodies -- Earth-like, thin and cold (0.006 atm at
@@ -287,4 +289,5 @@ keeps the easy mistakes out.
 **Known limits.** G&D's laws are Earth's, measured in N₂/O₂ air near 288 K. Blast, fireball growth and
 X-ray absorption transfer by pressure, density and column; cloud rise and colour are modelled. A body
 far denser than Earth's sea level (53× on KSA's Venus) is outside every calibration -- modelled, not
-validated -- and `ThinAirGrowth`'s clamp at 1 becomes `cbrt(1/air)` both ways so its fireball shrinks.
+validated -- and `MushroomCloud.ThinAirGrowth` still clamps `cbrt(1/air)` at 1 below, so a fireball in air
+denser than sea level's is drawn at its sea-level size rather than shrinking.

@@ -13,15 +13,9 @@ internal static partial class KsaWorld
     /// <summary>
     /// Where the cursor sits relative to the middle of the main view, in screen pixels.
     ///
-    /// <para>The middle rather than the viewport's origin, because this is what a head being
-    /// dragged is measured against: it is at rest when the cursor is in the middle of the picture
-    /// it is producing.</para>
+    /// <para>The middle, where a dragged head is at rest.</para>
     /// </summary>
-    /// <param name="halfHeightPx">
-    /// Half the view's height, which is how far the cursor can travel before it runs out of
-    /// screen. What a command is measured against, so the same drag means the same thing whatever
-    /// the window size.
-    /// </param>
+    /// <param name="halfHeightPx">What a command is measured against, so a drag is window-size independent.</param>
     public static bool TryCursorFromViewCentre(float deadZonePx, out float2 fromCentre,
                                                out bool commands, out float halfHeightPx)
     {
@@ -46,9 +40,8 @@ internal static partial class KsaWorld
     }
 
     /// <summary>
-    /// Reports how the cursor is being turned into a ray, and how far the answer lands from the
-    /// pointer once projected back. The round trip is the measurement that matters: it is the
-    /// error actually on screen, whatever the intermediate conventions turn out to be.
+    /// How the cursor becomes a ray, and how far the ray lands from the pointer projected back: the
+    /// error actually on screen.
     /// </summary>
     public static string DescribeCursorRay(double3 solvedEcl)
     {
@@ -134,14 +127,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// Where the cursor points, as a bearing from <paramref name="mountEcl"/>.
     ///
-    /// <para>Takes a mount because a bearing without an origin is not an aim. The camera stands
-    /// well away from any launcher on screen, so its direction and the launcher's coincide only
-    /// for something at infinity: against sky they agree, and against ground a few tens of metres
-    /// off they disagree by tens of degrees. There is deliberately no direction-only form of this
-    /// next to it — the two are indistinguishable wherever anyone tests them first.</para>
-    ///
-    /// <para>The ray and the range are solved once a frame and shared, so several systems on
-    /// mouse aim cost one terrain query between them rather than one each.</para>
+    /// <para>From a mount, deliberately with no direction-only form: the camera's direction and
+    /// the mount's agree only at infinity. Solved once a frame and shared.</para>
     /// </summary>
     public static bool TryCursorAimEcl(double3 mountEcl, out double3 directionEcl)
     {
@@ -172,20 +159,13 @@ internal static partial class KsaWorld
     {
         _cursorAimSolved = false;
 
-        // And the draw anchor, which every Draw*Ecl call converts through. Left standing from an
-        // earlier frame it is the platform's position then, not now, and the overlay lands beside
-        // the craft by whatever the world has moved since: about 500 m per frame near Earth, and
-        // unbounded once a frame passes without any pass establishing one. Cleared here so a
-        // caller that forgets BeginDraw draws nothing, which is visible, rather than drawing in
-        // the wrong place, which is not.
+        // And the draw anchor: left from an earlier frame the overlay lands ~500 m per frame beside
+        // the craft. Cleared, a caller that forgets BeginDraw draws nothing, which is visible.
         _anchored = false;
     }
 
-    // Taken as the range when the ray meets no body. Only one thing reads it -- the parallax
-    // between the camera and the mount, which is the standoff over this -- and that error is
-    // systematic, always toward the camera's side, and shrinks as the view zooms in. At 100 m of
-    // standoff, 20 km gives 0.29 degrees and 200 km gives 0.03, under a third of a pixel at
-    // 1080p. Nothing else consumes it: the designator resolves its own ground point.
+    // The range over sky, read only for the camera-to-mount parallax: at 100 m of standoff 200 km
+    // is 0.03 degrees, under a third of a pixel at 1080p.
     private const double CursorSkyRange = 200_000.0;
 
     private static bool _cursorAimSolved;
@@ -202,18 +182,8 @@ internal static partial class KsaWorld
 
     private static double3 _cursorAimGround;
 
-    // How far along the ray the nearest craft is, if it meets one.
-    //
-    // The bounding sphere only rejects; the mesh decides. A craft's sphere is far wider than the
-    // craft, so close up it covers a large part of the screen and the aim snaps to it long before
-    // the cursor is over anything. Part.RayCastEgo is watertight and per-triangle against the real
-    // mesh -- it is what KSA highlights parts with -- so it answers the question the player is
-    // actually asking. It is also a walk over every part, which is why the sphere runs first: one
-    // dot product skips a craft the ray is nowhere near.
-    //
-    // The ray is Ego, and the distance it reports is along it from the camera, so it is the range
-    // wanted here with no conversion. Ego is a pure translation of Ecl, so the direction is the
-    // same in both -- only an origin would need care.
+    // The sphere only rejects; Part.RayCastEgo, per triangle, decides. The ray is Ego, so the
+    // distance is the range from the camera and the direction is the same in Ecl.
     private static bool TryCursorCraftHit(double3 eye, double3 direction, Vehicle? exclude,
                                           out Vehicle? hitCraft, out double range)
     {
@@ -265,12 +235,8 @@ internal static partial class KsaWorld
                     }
                 }
 
-                // A kitten has no mesh to hit: its only part is Core's KittenBackPackPart, whose
-                // subpart is declared empty, and the body itself is drawn by the character
-                // renderer rather than by a part. The engine picks one by its bounding sphere for
-                // exactly that reason. Craft that do carry geometry are still held to the
-                // triangle, because their sphere stands metres clear of the hull and snapping to
-                // it puts the aim beside everything it is pointed at.
+                // A kitten has no mesh (the character renderer draws it), so its sphere, as the
+                // engine picks it; craft with geometry are held to the triangle.
                 if (!onMesh && !HasPickableMesh(parts))
                 {
                     double toSphere = Vec.Len(onSphere - eye);
@@ -390,9 +356,7 @@ internal static partial class KsaWorld
         }
     }
 
-    // The craft being flown is usually the one carrying the launcher, and it sits under the cursor
-    // for most of an orbit view. Snapping the aim onto it would whip the turret round to point at
-    // its own hull every time the pointer crossed it.
+    // Excluding the craft being flown, which usually carries the launcher and sits under the cursor.
     private static bool TryCursorCraftRange(double3 eye, double3 direction, out double range)
         => TryCursorCraftHit(eye, direction, ControlledVehicle, out _, out range);
 
@@ -400,10 +364,8 @@ internal static partial class KsaWorld
     /// The craft the cursor is over, judged by its hull rather than by where its centre lands on
     /// screen, or null.
     ///
-    /// <para>A craft close enough to fill a patch of the screen is under the pointer wherever on it
-    /// the click lands, while its centre can be far outside any fixed grace. The cast is
-    /// <c>Part.RayCastEgo</c>, the one KSA highlights parts with, so a craft wearing the engine's
-    /// hover outline is the craft this answers. Ground nearer along the ray hides it.</para>
+    /// <para>Cast with <c>Part.RayCastEgo</c>, so it answers the craft wearing KSA's hover outline.
+    /// Ground nearer along the ray hides it.</para>
     /// </summary>
     public static Vehicle? CraftUnderCursor(Vehicle? exclude)
     {
@@ -453,10 +415,7 @@ internal static partial class KsaWorld
         bool onGround = TryCursorGroundPoint(out double3 ground, out _, out _, out _);
         double range = onGround ? Vec.Len(ground - eye) : CursorSkyRange;
 
-        // Whatever the ray meets first, which need not be the planet. Tested only against
-        // celestials, a cursor held on a craft resolves to the ground *behind* it and the aim goes
-        // through it -- by however far the craft stands off the terrain, which for anything flying
-        // is the whole point of aiming at it.
+        // Whatever the ray meets first, which need not be the planet, or a craft's aim goes through it.
         if (TryCursorCraftRange(eye, direction, out double onCraft) && onCraft < range)
         {
             range = onCraft;

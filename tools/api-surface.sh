@@ -5,16 +5,10 @@
 #   ./tools/api-surface.sh            # regenerate docs/KSA-API-SURFACE.md
 #   ./tools/api-surface.sh --check    # fail if the committed file is stale (for CI)
 #
-# The surface is read out of the compiled KSArmory.dll's TypeRef and MemberRef tables, not out
-# of the source, so it is exactly what the compiler bound and it cannot drift from the code.
-#
-# What it is for: KSA is pre-release and its API moves between builds. After an update the
-# decompiled corpus is enormous and diffing it wholesale tells you nothing. This is the list of
-# the few dozen members the mod actually touches - anything here that changed is a breaking
-# change, anything not here cannot be. The upgrade-ksa skill drives off it.
-#
-# Safe to commit: names and signatures of this mod's own dependencies, saying nothing about how
-# KSA implements them, exactly like the hashes in ksa-assemblies.lock.
+# Read out of the compiled KSArmory.dll's TypeRef and MemberRef tables, not the source, so it is
+# exactly what the compiler bound. A KSA change to a member listed here can break the mod; one to a
+# member not listed cannot. The upgrade-ksa skill drives off it. Names and signatures only, so it is
+# safe to commit.
 #
 set -euo pipefail
 
@@ -28,9 +22,8 @@ CHECK=0
 
 MOD_DLL="$REPO_ROOT/src/KSArmory/bin/Release/net10.0/KSArmory.dll"
 
-# Always, not only when the assembly is missing. The surface is read from the compiled DLL, so
-# checking against a stale one reports a match that says nothing about the code as it stands --
-# and an incremental build costs about as long as the check itself.
+# Always, not only when the DLL is missing: a stale one reports a match that says nothing about the
+# code, and an incremental build costs about as long as the check.
 echo "building the mod first (the surface is read from the compiled assembly)..."
 "$REPO_ROOT/tools/build.sh" >/dev/null
 [[ -f "$MOD_DLL" ]] || { echo "error: $MOD_DLL not found; run ./tools/build.sh" >&2; exit 1; }

@@ -117,19 +117,17 @@ internal sealed class IcbmFlightRig
     /// <summary>
     /// Frames between a command being issued and the vehicle acting on it.
     ///
-    /// <para>Zero is the rig's original behaviour and is a lie the real game does not tell: KSA
-    /// copies control inputs into its worker in <c>PrepareWorker</c>, which runs before this mod's
-    /// hook, so a write lands on the <em>next</em> frame. A cutoff therefore arrives late and the
-    /// stack burns on past it. With this at zero the rig cannot see any error in the cutoff at all.
-    /// </para>
+    /// <para>Zero is not what the game does: KSA copies control inputs into its worker in
+    /// <c>PrepareWorker</c>, before this mod's hook, so a write lands on the <em>next</em> frame and a
+    /// cutoff arrives late. At zero the rig cannot see any error in the cutoff at all.</para>
     /// </summary>
     public int CommandLatencyFrames;
 
     /// <summary>
     /// How fast the throttle can actually move, in fraction per second.
     ///
-    /// <para>Infinite is the rig's original behaviour — a servo that arrives instantly, which is
-    /// what hid the cost of the throttle-down ramp. <b>Zero or less means the stack cannot throttle
+    /// <para>Infinite is a servo that arrives instantly, which hides the cost of the throttle-down
+    /// ramp. <b>Zero or less means the stack cannot throttle
     /// at all</b> and stays at full until the engine is shut off, which is the case the cutoff has
     /// to survive: it is what a solid motor does, and what any engine does if the mod's throttle
     /// write does not reach it.</para>
@@ -139,7 +137,7 @@ internal sealed class IcbmFlightRig
     /// <summary>
     /// The least throttle the engine will hold, whatever it is asked for.
     ///
-    /// <para>Zero is the rig's original behaviour and is another thing the game does not do:
+    /// <para>Zero is not what the game does:
     /// KSA clamps a throttle command to the craft's own <c>GetMinThrottle</c>, so the ramp bottoms
     /// out an order of magnitude above <see cref="IcbmProgram.MinCommandedThrottle"/> and the burn
     /// creeps at that for the last couple of seconds.</para>
@@ -175,20 +173,16 @@ internal sealed class IcbmFlightRig
     /// <summary>
     /// Whether the stack starts with nothing lit, which is what a rocket on a pad is.
     ///
-    /// <para>False is the rig's original behaviour and is a lie the game does not tell: KSA reports
-    /// no thrust and no propellant for an engine the sequence list has not activated, so a rig
-    /// whose first stage is already pushing on frame zero cannot see whether the program ever
-    /// <em>lights</em> one. It flew every shot in this suite while the computer had no ignition at
-    /// all.</para>
+    /// <para>False is not what the game does: KSA reports no thrust and no propellant for an engine
+    /// the sequence list has not activated, so a rig whose first stage is already pushing on frame
+    /// zero cannot see whether the program ever <em>lights</em> one.</para>
     /// </summary>
     public bool StartsUnlit;
 
     /// <summary>
     /// How big the stack is, which is the only thing KSA's structural failure depends on.
     ///
-    /// <para>Zero is the rig's original behaviour — a stack nothing can tear apart, which no vehicle
-    /// in the game is. It is what let the guidance fly a stack at nine gravities and still pass.
-    /// </para>
+    /// <para>Zero is a stack nothing can tear apart, which no vehicle in the game is.</para>
     ///
     /// <para>Both numbers below come off it, which is why it is one field rather than two: the
     /// engine's limit falls as the vehicle gets longer, and the lag it is tested through gets
@@ -237,8 +231,7 @@ internal sealed class IcbmFlightRig
 
     public int StageIndex;
 
-    /// <summary>Whether an engine is running. A stage request lights the first one rather than
-    /// discarding it, exactly as KSA's sequence list does.</summary>
+    // A stage request lights the first engine rather than discarding a stage, as KSA's sequence list does.
     private bool _lit = true;
 
     private double _peakThrustGee;

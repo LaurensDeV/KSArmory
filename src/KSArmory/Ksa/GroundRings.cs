@@ -4,17 +4,11 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// The rings to paint on the ground this frame, for <see cref="CloudPass"/> to draw as
-/// <c>Shaders/KSArmoryRing.comp</c>.
-///
-/// <para>Held anchored to the body they lie on and put back into the ecliptic only when the pass
-/// records, as the scorch marks are: the pass runs inside KSA's render against the camera of that
-/// instant, and a point stored in the ecliptic would be left behind by the planet's motion.</para>
-///
-/// <para>Cleared at the start of each frame's draw, so a ring is painted only while the code that
-/// asked for it is still asking. KSA skips the whole UI pass while the UI is hidden, so rings not
-/// renewed for <see cref="StaleSeconds"/> are not painted: long enough to stand through the few
-/// frames a screenshot hides the UI for, short enough that F2 takes them away.</para>
+/// The rings <see cref="CloudPass"/> paints on the ground this frame with <c>Shaders/KSArmoryRing.comp</c>.
+/// <para>Anchored to the body and put into the ecliptic only when the pass records, since a point
+/// stored in the ecliptic is left behind by the planet's motion.</para>
+/// <para>Rebuilt each UI pass, which KSA skips while the UI is hidden: <see cref="StaleSeconds"/> is
+/// long enough to stand through a screenshot's hidden frames and short enough that F2 clears them.</para>
 /// </summary>
 internal static class GroundRings
 {
@@ -33,7 +27,6 @@ internal static class GroundRings
     private const double StaleSeconds = 0.5;
     private static readonly System.Diagnostics.Stopwatch _sinceRenewed = new();
 
-    /// <summary>Whether the rings were handed over recently enough to still be what is wanted.</summary>
     public static bool Fresh => _sinceRenewed.IsRunning && _sinceRenewed.Elapsed.TotalSeconds < StaleSeconds;
 
     public static void BeginFrame()

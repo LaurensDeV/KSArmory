@@ -1,30 +1,20 @@
 namespace KSArmory;
 
 /// <summary>
-/// Decides what to do with the simulation step KSA has just applied.
+/// Decides what to do with the simulation step KSA has just applied — never player time, which runs
+/// through a pause and ignores timewarp.
 ///
-/// <para><b>Never player time.</b> That is wall-clock: it keeps running while the game is paused,
-/// so the radar would mature a firing solution and launch into a frozen world, and it ignores
-/// timewarp, so the world outruns the rounds.</para>
-///
-/// <para><b>And it must be the step KSA applied, not one the mod measures.</b> Differencing a
-/// clock from a postfix hook can land a step out of phase, and the round then integrates over a
-/// different span than the world moved by — multiplied by ~29.8 km/s, a sub-millisecond wobble is
-/// tens of metres of alternating lateral error. <c>Universe.GetLastSimStep().DeltaTime</c> is the
-/// applied step and cannot be out of phase with itself.</para>
-///
-/// <para>Stateless on purpose: with no differencing there is no previous sample to hold, and
-/// therefore no priming, no reset, and no way to be wrong across a scene change.</para>
+/// <para>The step comes from the engine's own step boundaries (<c>KsaWorld.ConsumeSimStep</c>), never
+/// a clock the mod reads from its hook: out of phase by a sub-millisecond, ~29.8 km/s makes it tens
+/// of metres of alternating lateral error. Stateless, so nothing here can be wrong across a scene change.</para>
 /// </summary>
 internal static class SimClock
 {
-    /// <summary>What the caller should do with this frame.</summary>
     internal enum State
     {
         /// <summary>Paused, or no simulated time passed. Do nothing at all.</summary>
         Idle,
 
-        /// <summary>Step the simulation by the reported delta.</summary>
         Run,
 
         /// <summary>
@@ -35,36 +25,24 @@ internal static class SimClock
     }
 
     /// <summary>
-    /// Largest step a round with no opinion can be integrated across. Derived from the
-    /// interceptor's own sub-step budget rather than picked, so tightening one tightens both.
-    ///
-    /// <para>A default, not a limit: <see cref="MunitionProfile.MaxFaithfulStepSeconds"/> is what
-    /// actually decides, and a round that does not manoeuvre can take far longer steps. Passing it
-    /// in is what lets a weapon fly for minutes without holding the world down for all of them.</para>
+    /// Largest step a round with no opinion can be integrated across, from the interceptor's sub-step
+    /// budget. A default: <see cref="MunitionProfile.MaxFaithfulStepSeconds"/> decides per round.
     /// </summary>
     public const double MaxStep = Interceptor.MaxFaithfulStep;
 
-    /// <summary>
-    /// Classifies the step KSA has just applied.
-    /// </summary>
-    /// <param name="stepSeconds">Simulated seconds the world just advanced by.</param>
-    /// <param name="paused">Whether the game is paused.</param>
     /// <param name="dt">Seconds to advance by; zero unless the result is <see cref="State.Run"/>.</param>
     public static State Classify(double stepSeconds, bool paused, out double dt,
                                  double maxStep = MaxStep)
     {
         dt = 0.0;
 
-        // Pause is checked as well as the step, not instead of it: a paused game reports no
-        // step anyway; saying so explicitly keeps firing-while-paused unreachable.
+        // A paused game reports no step anyway; checked as well so firing while paused stays unreachable.
         if (paused) return State.Idle;
 
-        // A non-finite or negative step is not something to reason about. Neither is zero.
         if (!double.IsFinite(stepSeconds) || stepSeconds <= 0.0) return State.Idle;
 
-        // Past the step this round can take, the interceptor's sub-step clamp starts stretching
-        // each one and the curvature dropped from the fuse solve grows as the square. Refusing is
-        // the honest answer.
+        // Past it the sub-step clamp stretches each sub-step, and the curvature the fuse solve drops
+        // grows as the square.
         if (stepSeconds > maxStep) return State.Skipped;
 
         dt = stepSeconds;
@@ -72,13 +50,8 @@ internal static class SimClock
     }
 
     /// <summary>
-    /// Player time while the world runs, and none while it is paused: the clock for how long
-    /// something is <em>watched</em>, and the one place player time is the right answer.
-    ///
-    /// <para>Not the simulated step, because a view eased back or held on a burst answers the person
-    /// looking, and through slow motion it would take ten times as long. Not raw player time either,
-    /// because a pause is for looking: a view swung back behind the round, or handed back, while
-    /// nothing moves takes away what the player stopped the world to see.</para>
+    /// Player time while the world runs and none while it is paused: the clock for how long something
+    /// is watched, so slow motion does not stretch it and a pause holds it.
     /// </summary>
     /// <param name="playerSeconds">The wall-clock frame time.</param>
     /// <param name="stepSeconds">Simulated seconds the world just advanced by; zero while paused.</param>

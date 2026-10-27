@@ -5,14 +5,6 @@ namespace KSArmory;
 
 internal sealed partial class IcbmComputer
 {
-    // What the prediction says about the state the warhead is actually leaving on, beside where the
-    // round then lands. The phase line cannot answer this: it is printed before the frame's Predict
-    // and while the engines are still lit, so it carries a prediction of the *solved* cutoff arc.
-    // Only these two numbers isolate what the prediction and the round still disagree about, which
-    // is the difference every remaining metre of the miss lives in.
-    //
-    // At INFO, and it earns it: this fires once per warhead released rather than per frame, and a
-    // diagnostic nobody has switched on is one that is never there in the salvo that needed it.
     // The arrival frame's three components, in the order that says what to look at next: up is a
     // height-reference error, downrange is energy or timing, cross is the plane or the clock.
     // docs/FRAMES-AND-EPOCHS.md, "Measure vectors, not magnitudes".
@@ -20,10 +12,8 @@ internal sealed partial class IcbmComputer
         => $" ({parts.X:+0.000;-0.000;0.000} up, {parts.Y:+0.000;-0.000;0.000} downrange,"
            + $" {parts.Z:+0.000;-0.000;0.000} cross)";
 
-    // What the bus's rotation threw this warhead with, and where that and its tube's ring put it on the
-    // ground beside the probe's own impact. Printed whether or not anything is kicked, so a night
-    // flying no kick can regress each landing on it: slope one if the term is real. Every vector is
-    // resolved in the probe's arrival frame, the one its landing line is. ACCURACY-PLAN.md 3db.
+    // Printed whether or not anything is kicked, so a night flying no kick can regress each landing
+    // on it, in the probe's arrival frame (docs/ACCURACY-PLAN.md 3db).
     private void SayTheSpin(IManualFire weapon, Slug released, ReleaseProbe? probe)
     {
         string who = KsaWorld.DisplayName(Craft);
@@ -248,9 +238,6 @@ internal sealed partial class IcbmComputer
         }
     }
 
-    // The salvo's columns flown once and carried to each release, or re-flown when this release is too far along the
-    // coast or over other ground for the ones held. Said on every warhead, so a flight can confirm the arm engaged
-    // and read what it cost in the frame; null, said, solves that warhead in vacuum as the switch off would.
     // The bus slows in the air between one release and the next, so each later warhead leaves on a
     // slower bus: flown at 150-300 km, about 50 mm/s a frame and a group walking 28-104 m.
     private bool ReleasesTogether =>
@@ -264,6 +251,8 @@ internal sealed partial class IcbmComputer
                 ? Config.LongShotMissKickMetresPerSecond
                 : ReleaseFocus.MaxMissKickMetresPerSecond;
 
+    // Flown once per salvo and carried to each release, re-flown when one is too far along the coast or
+    // over other ground. Null solves the warhead in vacuum, as the switch off would.
     private ReleaseFocus.FlownSensitivity? KickColumnsThroughTheAir(in ReleaseProbe from, string who, string what)
     {
         if (_warhead is not { } warhead) return null;
@@ -326,6 +315,8 @@ internal sealed partial class IcbmComputer
         return run > 0.0 ? $" over ground rising {rise / run:+0.000;-0.000;0.000} from the aim to the impact" : "";
     }
 
+    // Once per warhead, at INFO: the state the warhead actually leaves on. The phase line predicts the
+    // solved cutoff arc, printed before the frame's Predict with the engines lit.
     private ReleaseProbe? ProbeRelease()
     {
         if (Parent is not { } parent) return null;
@@ -361,10 +352,8 @@ internal sealed partial class IcbmComputer
             double3 cce = hit.GroundFixedPointCci.Transform(parent.GetCci2Cce());
             double miss = Body.SurfaceRadius * Vec.AngleBetween(hit.GroundFixedPointCci, _trueAimCci);
 
-            // The angle this reports has to match the one the release line reports for the tube.
-            // The prediction throws the warhead along the direction the vehicle was commanded to
-            // hold; the round actually leaves along its tube. If those disagree, two metres a
-            // second is being applied in the wrong direction, and radially that is 3.4 km per m/s.
+            // Must match the release line's angle for the tube: the prediction throws along the
+            // commanded hold, the round along its tube, and radially 1 m/s is 3.4 km.
             double3 impulse = ReleaseImpulseCci();
             string thrown = impulse.Equals(Vec.Zero)
                 ? ""
@@ -372,22 +361,13 @@ internal sealed partial class IcbmComputer
                   + $"{Vec.AngleBetween(impulse, velocityCci) * 180.0 / Math.PI:F0} deg from the "
                   + $"platform's track, {Vec.Len(ReleaseOffsetCci()):F1} m off the orbit position";
 
-            // The warheads' own ETA, latched here and never rewritten. This probe is flown from the
-            // state a warhead actually left in, so it is the one honest arrival time there is --
-            // and after this instant Predict is flying the *bus*, which coasts on to its own impact
-            // about half a minute later. Letting that overwrite the readout makes a correct
-            // countdown reach zero as the warheads land and then jump back to twenty seconds.
+            // Latched and never rewritten: after this Predict flies the bus, which lands about half
+            // a minute after its warheads.
             _arrivalLeft = hit.Seconds;
             _salvoAway = true;
 
-            // Resolved, not just measured. A magnitude cannot say whether the residual is one-signed,
-            // and the whole question about the pre-release term is its SIGN: 301 of 375 flights at a
-            // 32 deg arrival land short, which is a bias and removable, where scatter is neither.
-            // Without this it has to be reconstructed by fitting each seat's aim point from its own
-            // landings; this makes it a direct read. ACCURACY-PLAN.md 3co.
-            // Carried like ProbeMissSaid's, and for the reason its comment gives: a ground-fixed
-            // separation resolved against axes taken at the arrival is turned by the planet's spin
-            // over the flight. ACCURACY-PLAN.md 3dw.
+            // Resolved, because the residual's sign is the question (ACCURACY-PLAN.md 3co), and carried
+            // to the arrival as ProbeMissSaid's is (3dw).
             string resolved = ArrivalFrame.TryAt(hit.PointCci, hit.VelocityCci, out ArrivalFrame frame)
                 ? Said(frame.Resolve(Body.CarryCci(hit.GroundFixedPointCci - _trueAimCci, hit.Seconds)))
                 : "";
@@ -401,7 +381,6 @@ internal sealed partial class IcbmComputer
         }
         catch (Exception e)
         {
-            // A probe that throws inside the frame hook is worse than one that says nothing.
             Log.Warn($"release probe: not flown -- {e.Message}");
             return null;
         }

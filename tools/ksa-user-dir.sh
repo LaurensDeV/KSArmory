@@ -5,11 +5,8 @@
 #   ./tools/ksa-user-dir.sh                     # print it, or fail saying so
 #   tail -F "$(./tools/ksa-user-dir.sh)/Logs/KSArmory.log"
 #
-# KSA runs on Linux as well as Windows and keeps its user data in a different place on each, and
-# under WSL the Windows username need not match the Linux one -- so this searches rather than
-# assuming, and no path in this repository has to name anybody's home directory.
-#
-# KSA_USER_DIR overrides the search.
+# Searched rather than assumed: the folder differs between Windows and Linux, and under WSL the
+# Windows username need not match the Linux one. KSA_USER_DIR overrides the search.
 set -euo pipefail
 
 ksa_user_dir() {
@@ -20,8 +17,7 @@ ksa_user_dir() {
 
     local candidates=()
 
-    # Windows, reached from WSL. The guess by username first, because searching /mnt/c/Users is
-    # slow and hits permission-denied on other profiles.
+    # The guess by username first: searching /mnt/c/Users is slow and hits other profiles.
     if [[ -d /mnt/c/Users ]]; then
         candidates+=("/mnt/c/Users/$(whoami)/Documents/My Games/Kitten Space Agency")
         while IFS= read -r dir; do
@@ -29,8 +25,7 @@ ksa_user_dir() {
         done < <(find /mnt/c/Users -maxdepth 4 -type d -path '*My Games/Kitten Space Agency' 2>/dev/null)
     fi
 
-    # Native Linux. Matches the order Log.cs tries, so the tools and the mod agree on which of
-    # several existing folders is the one in use.
+    # Native Linux: the folders Log.cs tries, though Log.cs tries Documents/My Games first.
     candidates+=(
         "${XDG_DATA_HOME:-$HOME/.local/share}/Kitten Space Agency"
         "$HOME/.config/Kitten Space Agency"

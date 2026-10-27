@@ -3,13 +3,10 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// What the cursor says before a click is made.
-///
-/// <para>The one that matters is a designation over a set already placed. A click adds only while
-/// the reach is known, and the reach comes and goes — so the same gesture over the same ground
-/// becomes destructive with nothing on screen changing, which is exactly the case an operator
-/// cannot be expected to infer.</para>
+/// Over a placed set a click adds only while the reach is known, and the reach comes and goes, so
+/// the same gesture turns destructive with nothing on screen changing unless the cursor says so.
 /// </summary>
+
 public class ReachCursorTests
 {
     [Fact]

@@ -3,14 +3,8 @@ namespace KSArmory;
 /// <summary>
 /// What picture, if any, a set puts in front of the operator.
 ///
-/// <para>Not every sensor is one somebody reads. A seeker head is aboard the round and cues the
-/// shooter with a growl and a reticle; a designation set has no array to sweep. Presenting either
-/// as a scope of tracks shows a search picture for something that never searched.</para>
-///
-/// <para>The exception is real and is why this is not a flag: an anti-radiation seeker's whole
-/// output <em>is</em> a list of who is radiating and roughly where, and displaying it to the crew
-/// is what a HARM does. That is a different picture from a search scope, not the same one under
-/// another name.</para>
+/// <para>Not a flag, because an emitter list is a picture too, and a different one from a search
+/// scope.</para>
 /// </summary>
 public enum ScopePresentation
 {
@@ -30,9 +24,7 @@ public enum BoresightMode
     /// <summary>
     /// Radially outward from the parent body — the sky, for anything sitting on the ground.
     ///
-    /// <para>Independent of vehicle attitude, so a truck on a slope still searches the sky rather
-    /// than the hillside — and wrong the moment the platform is not level-ish, since on a
-    /// pitched-over booster or in orbit "up" is not where the threats are.</para>
+    /// <para>Independent of vehicle attitude, so it suits a platform that is roughly level.</para>
     /// </summary>
     LocalUp,
 
@@ -40,30 +32,22 @@ public enum BoresightMode
     /// The launcher part's own <c>+Y</c> — along the host's long axis, which is where a rail
     /// points and which way a round leaves it.
     ///
-    /// <para>Follows the platform's attitude, so a seeker on an aircraft searches ahead of the
-    /// aircraft however it is oriented. This is the one to pair with a tube, because a tube's
-    /// declared direction is <c>+Y</c> too: any other choice searches a volume the launcher
-    /// cannot shoot into.</para>
+    /// <para>The one to pair with a tube, whose declared direction is <c>+Y</c> too.</para>
     /// </summary>
     PartForward,
 
     /// <summary>
     /// Wherever the tubes are actually pointing.
     ///
-    /// <para>A set slaved to the launcher rather than searching independently. Pair it with a
-    /// small <see cref="SensorProfile.ConeDeg"/>: a hemisphere that follows the turret is
-    /// <see cref="LocalUp"/> with extra steps.</para>
+    /// <para>Pair it with a small <see cref="SensorProfile.ConeDeg"/>.</para>
     /// </summary>
     TurretAxis,
 
     /// <summary>
     /// The part's own <c>+X</c> — the outward normal of the face it is bolted to.
     ///
-    /// <para>What an instrument looking <em>away from its mount</em> wants: a bomb sight under a
-    /// pylon looks down, and a pod stows looking out of its mounting face. Perpendicular to
-    /// <see cref="PartForward"/> by construction at every attitude, so choosing it for a seeker
-    /// gives a set that searches square to the rail it is bolted to and never sees what the
-    /// launcher is pointed at.</para>
+    /// <para>For an instrument looking away from its mount. Perpendicular to
+    /// <see cref="PartForward"/>, so wrong for anything on a rail.</para>
     /// </summary>
     MountNormal,
 }
@@ -78,10 +62,7 @@ public enum BoresightMode
 public sealed class SensorProfile
 {
     /// <summary>
-    /// No sensor — what a weapons system sees with before it knows what it is.
-    ///
-    /// <para>Zero range, so it detects nothing rather than inheriting the reach of whichever
-    /// set happens to be registered first.</para>
+    /// Zero range, so a system not yet resolved sees nothing rather than the first registered set's.
     /// </summary>
     public static readonly SensorProfile None = new()
     {
@@ -97,31 +78,23 @@ public sealed class SensorProfile
     public float Range = 36000f;
 
     /// <summary>
-    /// Half-angle of the search cone about the boresight (degrees). With the default
-    /// <see cref="BoresightMode.LocalUp"/>, 90 is a full hemisphere down to the horizon — the right
-    /// default for a site that has to cover the whole sky. Narrow it to model a directional radar.
+    /// Half-angle of the search cone about the boresight (degrees). With
+    /// <see cref="BoresightMode.LocalUp"/>, 90 is a hemisphere down to the horizon.
     /// </summary>
     public float ConeDeg = 90f;
 
-    /// <summary>
-    /// Where the cone points. Defaults to local "up", which is what a ground site wants.
-    /// </summary>
     public BoresightMode BoresightSource = BoresightMode.LocalUp;
 
     /// <summary>
-    /// What this set puts in front of the operator, if anything. <b>Off by default</b>: a profile
-    /// that says nothing about it gets no scope, which is right for every seeker head and every
-    /// sight in the arsenal and wrong only for a set that genuinely searches.
+    /// None by default; only a set that genuinely searches declares one.
     ///
-    /// <para>EXEMPT: what kind of instrument this is, not something an operator tunes. Editing it
-    /// on a live system would claim a set has an array it does not have.</para>
+    /// <para>EXEMPT: what kind of instrument this is, not something an operator tunes.</para>
     /// </summary>
     public ScopePresentation Scope = ScopePresentation.None;
 
     /// <summary>
     /// A track counts as a threat if its closest point of approach to the system falls inside
-    /// this radius (m). This is what makes "passing by" targets engageable rather than only
-    /// head-on ones.
+    /// this radius (m), so a crossing track counts as well as a head-on one.
     /// </summary>
     public float ThreatRadius = 8000f;
 
@@ -138,20 +111,15 @@ public sealed class SensorProfile
     /// Whether the set finds its targets by transmitting. A radar does; an infrared seeker, an
     /// optical head and a bomb sight do not, and none of them can be homed on.
     ///
-    /// <para>This is what the set <em>is</em>, not what it is doing — whether it is transmitting
-    /// right now is <c>SystemConfig.RadarSilent</c>, which is the operator's switch and the only
-    /// defence against <see cref="GuidanceMode.AntiRadiation"/> that does not involve moving.</para>
-    ///
-    /// <para>Defaults to false, so a profile that says nothing about emission is invisible to an
-    /// anti-radiation round rather than accidentally becoming a target for one.</para>
+    /// <para>What the set <em>is</em>; whether it is transmitting now is
+    /// <c>SystemConfig.RadarSilent</c>. False by default, so a profile that says nothing is not a
+    /// <see cref="GuidanceMode.AntiRadiation"/> target.</para>
     /// </summary>
     public bool Emits;
 
     /// <summary>
-    /// Holds only the contact it was handed and searches for nothing: a telescope, whose view is a
-    /// straw and whose picture says nothing about which dot matters. Something else finds the target
-    /// and points it there, and that contact is engageable whether or not it is closing, because
-    /// somebody chose it.
+    /// Holds only the contact it was handed and searches for nothing. That contact counts whether or
+    /// not it is closing, because somebody chose it.
     /// </summary>
     public bool CuedOnly;
 
@@ -172,35 +140,22 @@ public sealed class SensorProfile
     /// </summary>
     public float LookDownPenalty = 1f;
 
-    // ---- What the set can tell targets apart by ------------------------------
-    //
-    // Each is off at its default, so a set that says nothing about them does not tell targets apart
-    // at all. They are the substrate for chaff and decoys, which need detection to depend on what a
-    // target *is* before either can mean anything -- see docs/AUDIT-2026-08.md.
+    // Each discrimination field below is off at zero, so a set that says nothing tells no contacts apart.
 
     /// <summary>
     /// The cross-section <see cref="Range"/> is quoted against (m²). Zero means the set reaches
     /// the same distance whatever it is looking at.
     ///
-    /// <para>Once set, a contact's own size scales the range by the **fourth** root of the ratio,
-    /// which is <see cref="RadarSignature.DetectionRange"/>. A missile is then seen at a fraction
-    /// of the range its launching aircraft is, and a set can be given a reference that makes it
-    /// good against aircraft and poor against rounds — which is what separates a search radar from
-    /// a fire-control one.</para>
+    /// <para>Once set, a contact's own size scales the range by the fourth root of the ratio
+    /// (<see cref="RadarSignature.DetectionRange"/>).</para>
     /// </summary>
     public float ReferenceCrossSectionM2;
 
     /// <summary>
     /// Returns whose line-of-sight speed is below this are rejected (m/s). Zero means no notch.
     ///
-    /// <para>A pulse-Doppler set rejects what is not moving towards or away from it, because that
-    /// is what ground clutter does. The cost is real and is the point: a target crossing exactly
-    /// abeam has no radial motion and is lost, which is the one geometry
-    /// <see cref="ThreatRadius"/> exists to keep engageable. A set with a notch and a set without
-    /// are a genuine choice rather than an upgrade.</para>
-    ///
-    /// <para>Not the same rule as <see cref="MinTargetSpeed"/>, which tests the whole relative
-    /// speed and exists to ignore things drifting alongside.</para>
+    /// <para>A trade, not an upgrade: a contact crossing exactly abeam has no radial speed and is lost.
+    /// <see cref="MinTargetSpeed"/> tests the whole relative speed instead.</para>
     /// </summary>
     public float NotchSpeed;
 
@@ -226,30 +181,22 @@ public sealed class SensorProfile
     /// <summary>
     /// Contacts less than this above the surface are lost in ground return (m). Zero means none.
     ///
-    /// <para>Against the mean sphere, not the height field: a clutter floor is a soft number, and
-    /// spending a terrain sample per contact on it would double what
-    /// <see cref="TerrainSamples"/> costs to sharpen a figure that is a guess either way.</para>
-    ///
-    /// <para>A floor of any size makes a short-range air-defence set useless at the job it exists
-    /// for, which is why it defaults to none: the Pantsir is built to kill things down in the
-    /// clutter.</para>
+    /// <para>Against the mean sphere, not the height field: a terrain sample per contact would double
+    /// what <see cref="TerrainSamples"/> costs, for a number that is a guess either way.</para>
     /// </summary>
     public float ClutterFloorMetres;
 
     /// <summary>
     /// Whether the planet blocks this sensor.
     ///
-    /// <para>On, because a radar that sees through a world engages things it could never detect,
-    /// and every range figure below is meaningless against a target on the far side. Off lets it
-    /// see straight through the body, which is only useful for comparing the two.</para>
+    /// <para>Off sees straight through the body, which is only useful for comparing the two.</para>
     /// </summary>
     public bool HorizonMasking = true;
 
     /// <summary>
     /// Metres of terrain to assume above the mean sphere, for masking only.
     ///
-    /// <para>Inflating the sphere is the cheap approximation to a skyline: it costs nothing per
-    /// contact and cannot produce a false negative, so it stays in front of
+    /// <para>Costs nothing per contact and cannot produce a false negative, so it stays in front of
     /// <see cref="TerrainSamples"/> whether or not that is on. Zero is the geometric limb.</para>
     /// </summary>
     public float TerrainMarginMetres;
@@ -257,23 +204,17 @@ public sealed class SensorProfile
     /// <summary>
     /// Height-map lookups this set may spend deciding whether a ridge hides one contact.
     ///
-    /// <para>Zero is the mean sphere alone, and is the default because <em>the cost has not been
-    /// measured in game</em>. Each lookup is a texture fetch with a block decode, and this runs
-    /// once per contact per scan — so the honest way to raise it is to raise it and watch the
-    /// frame time, which is why it is a number and not a switch.</para>
-    ///
-    /// <para>The samples are spread across the part of the line that passes below the body's
-    /// highest terrain, not across its whole length, so a contact well above the ground costs
-    /// nothing whatever this says.</para>
+    /// <para>Zero, the mean sphere alone, by default because the per-contact, per-scan cost has not
+    /// been measured in game. The samples cover only the part of the line below the body's highest
+    /// terrain, so a contact well above the ground costs nothing.</para>
     /// </summary>
     public int TerrainSamples;
 
     /// <summary>
     /// How far terrain must stand above the line of sight before it counts as blocking (m).
     ///
-    /// <para>Both ends of that line routinely sit on the ground, and a coarse height map read a few
-    /// hundred metres from a launcher that is standing on a hill will find the hill. Without a
-    /// margin a site on any slope is blind along its own ground.</para>
+    /// <para>Both ends of the line routinely sit on the ground, so without a margin a site on a slope
+    /// is blind along its own ground.</para>
     /// </summary>
     public float TerrainClearanceMetres = 30f;
 

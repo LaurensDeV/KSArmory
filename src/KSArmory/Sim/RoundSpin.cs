@@ -40,7 +40,6 @@ public sealed class RoundSpin
                    : rate * (age - (0.5 * SpinUpSeconds));
     }
 
-    /// <summary>Whether the motors are burning at this age.</summary>
     public bool Burning(double sinceRelease)
     {
         double age = sinceRelease - Math.Max(0.0, IgnitionSeconds);

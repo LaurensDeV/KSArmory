@@ -9,31 +9,22 @@ internal readonly record struct Clearance(bool IsClear, bool OnTheClock, string 
 /// <summary>
 /// Whether a vehicle has coasted far enough from the stage it just dropped to start manoeuvring.
 ///
-/// <para><b>The decoupler's shove is the separation velocity.</b> It is the only thing carrying the
-/// two halves apart, so anything that nulls it — a post-boost vehicle trimming itself back onto its
-/// solution, which is what <see cref="BusTrim"/> is for — stops the separation as well. Do that
-/// immediately and the pair co-move a stack length apart for the whole coast, with whatever is
-/// released afterwards let go into the same few metres.</para>
+/// <para><b>The decoupler's shove is the separation velocity</b>, so a <see cref="BusTrim"/> that nulls
+/// it at once leaves the pair co-moving a stack length apart for the whole coast.</para>
 ///
-/// <para>So the manoeuvre waits, and this is the whole of the decision. Measured rather than timed
-/// wherever the discarded stage can still be read: how fast two halves part depends on the
-/// decoupler's impulse and on what each half weighs, and nothing in this mod knows either.</para>
+/// <para>Measured rather than timed wherever the stage can be read: how fast two halves part depends
+/// on the decoupler's impulse and the halves' masses, which nothing in this mod knows.</para>
 ///
-/// <para><b>Clearance is never latched.</b> "Separation only ever opens, so a gap once measured
-/// cannot close" is false, and circularly so: it holds only while the gate is <em>shut</em>. Once
-/// this answers clear the trim runs, and the trim's whole job is to null the velocity difference —
-/// which is the separation. So the pair can and do come back together, and every pass has to ask
-/// again: a latch drives a bus into its own spent stack.</para>
+/// <para><b>Clearance is never latched.</b> Once this answers clear the trim runs and nulls the
+/// separation, so the pair can close again and every pass has to ask.</para>
 /// </summary>
 internal static class SeparationClearance
 {
     /// <summary>
     /// How much further than the discarded stage's own bounding sphere counts as clear.
     ///
-    /// <para>Sized against the thing it is protecting against rather than picked: that sphere is
-    /// what the coarse contact test uses, so a store released inside it can be scored against the
-    /// stage. Beyond it, and the stores are leaving their tubes at a couple of metres a second and
-    /// fly for minutes, so they open the gap themselves.</para>
+    /// <para>That sphere is what the coarse contact test uses, so a store released inside it can be
+    /// scored against the stage; beyond it the stores open the gap themselves.</para>
     /// </summary>
     public const double ClearOfTheSphereMetres = 10.0;
 
@@ -41,17 +32,9 @@ internal static class SeparationClearance
     public const double FallbackMetres = 25.0;
 
     /// <summary>
-    /// The most it will wait for that, and it is deliberately short.
-    ///
-    /// <para>Waiting is not free. The aim correction absorbs what the fall loses to drag and to real
-    /// terrain, and that changes as the release point descends — so a salvo held back arrives on a
-    /// correction tuned for a release it no longer is. Measured in flight: a ninety-second hold on
-    /// a shot whose cutoff prediction was 0.1 km put the release probe 6.8 km out.</para>
-    ///
-    /// <para>A stage that barely moved therefore gets a short grace and then the salvo goes anyway.
-    /// A decoupler with little in it separates at a quarter of a metre a second, which is metres in
-    /// this window — going ahead that close is a worse shot than going ahead clear, and both beat
-    /// arriving late on a stale correction.</para>
+    /// The most it will wait for that, deliberately short: a held salvo arrives on an aim correction
+    /// tuned for an earlier release point. Flown, a 90 s hold on a shot whose cutoff prediction was
+    /// 0.1 km put the release probe 6.8 km out.
     /// </summary>
     public const double TimeoutSeconds = 20.0;
 
@@ -64,20 +47,6 @@ internal static class SeparationClearance
     /// </summary>
     public const double PastTheReleaseSeconds = 20.0;
 
-    /// <param name="metresApart">
-    /// How far apart the two are, or NaN when the discarded stage cannot be read.
-    ///
-    /// <para><b>Unreadable falls back to the clock, never to "clear".</b> A part tree mid-rebuild
-    /// answers with nothing, which is indistinguishable from a stage that has genuinely gone — and
-    /// reading that as clearance is the one case this exists to prevent, because it fires the
-    /// manoeuvre at the instant the two are closest rather than at the moment they are furthest.
-    /// </para>
-    /// </param>
-    /// <param name="stageRadiusMetres">
-    /// The discarded stage's own bounding sphere, or NaN when that cannot be read either. It is
-    /// what the coarse contact test uses, so it is the distance that has to be beaten rather than
-    /// any number somebody picked.
-    /// </param>
     /// <summary>
     /// How far a bus must have coasted from its stack before it pays what the trim owes, when paying it closes the
     /// pair: far enough that, closing at the speed the trim leaves, they reach the keep-out no sooner than the release.
@@ -108,6 +77,13 @@ internal static class SeparationClearance
         return ForTheTrimMetres(keepOutMetres, closing, secondsToRelease);
     }
 
+    /// <param name="metresApart">
+    /// How far apart the two are, or NaN when the stage cannot be read. Unreadable falls back to the
+    /// clock, never to clear: a part tree mid-rebuild reads like a stage that has gone.
+    /// </param>
+    /// <param name="stageRadiusMetres">
+    /// The stage's bounding sphere, the one the coarse contact test uses, or NaN when unreadable.
+    /// </param>
     public static Clearance Check(double metresApart, double stageRadiusMetres, double secondsSinceSplit,
                                   double forTheTrimMetres = 0.0)
     {
@@ -132,17 +108,12 @@ internal static class SeparationClearance
                                  + $"after {secondsSinceSplit:F0} s");
         }
 
-        // Out of patience and still visibly too close: give up the manoeuvre, not the distance.
-        // Thrusting here nulls the shove that is the only thing carrying the two apart, and the
-        // stack is a few metres away -- so the trim drives the bus back into what it just dropped.
-        // Releasing untrimmed costs the kilometres the trim would have removed; hitting the stack
-        // costs the shot. Only the *readable* case can make that trade, which is why the reading
-        // being absent still goes ahead below.
+        // Out of patience and still too close: give up the trim, not the distance. Trimming here
+        // nulls the shove and drives the bus back into the stack; releasing untrimmed costs kilometres,
+        // hitting the stack costs the shot. Only a readable gap can make that trade.
         if (late && known && metresApart < wanted)
         {
-            // One decimal, because the interesting failures are the near ones, and at F0 they read
-            // "still 15 m ... inside the 15 m it needs" -- a contradiction that hides a miss of the
-            // gate by centimetres.
+            // One decimal: at F0 a near miss of the gate reads "still 15 m ... inside the 15 m".
             return new Clearance(false, OnTheClock: true,
                                  $"still {metresApart:F1} m from the spent stack after "
                                  + $"{secondsSinceSplit:F0} s, which is inside the {wanted:F1} m it "

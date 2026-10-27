@@ -5,23 +5,14 @@ namespace KSArmory;
 /// <summary>
 /// Which way a round in flight is pointing, carried from one drawn frame to the next.
 ///
-/// <para>Onto the airflow, at a rate the airflow sets. A round released rather than fired has none
-/// at the moment it lets go, so it keeps the attitude it was seated at: a real store leaves its rack
-/// pointing where the rack pointed and noses over as its fins gain authority, which is a second or
-/// two rather than an instant. Every other round leaves its tube at 25 m/s or more and is on its
-/// airflow within a frame.</para>
+/// <para>Onto the airflow, at a rate the airflow sets, so a released store leaves at its seated attitude
+/// and noses over as its fins gain authority.</para>
 ///
-/// <para><b>Carried, not derived.</b> A heading worked out afresh each frame has to get from the
-/// release direction to the airflow in one step, and a store thrown upwards comes down pointing
-/// the opposite way from its rack. There is no single turn between opposite directions, so a derived
-/// heading flips over the top of the climb and rolls about its nose on the way down, wherever the
-/// tail kit moves the flight. Turning what was drawn last frame never asks for more than a frame's
-/// turn.</para>
+/// <para><b>Carried, not derived</b>: a store thrown upwards comes down facing the other way, there is no
+/// one turn between opposite directions, and a derived heading flips over the top of the climb.</para>
 ///
-/// <para><b>What turns a body is dynamic pressure, not speed.</b> Speed alone is the same number
-/// in a hurricane and in orbit, and a body released in vacuum keeps the attitude it was let go
-/// with — there is nothing to weathervane against. Keying on speed snaps a store onto its orbital
-/// velocity the instant it separates, which is 7 km/s pointing across the launcher.</para>
+/// <para><b>Keyed on dynamic pressure, not speed</b>, so a store released in vacuum keeps its attitude
+/// rather than snapping onto its 7 km/s orbital velocity.</para>
 /// </summary>
 internal static class BodyAttitude
 {
@@ -38,8 +29,7 @@ internal static class BodyAttitude
     /// </summary>
     public const double FullAuthorityTurnRateDegPerSecond = 720.0;
 
-    // The band as dynamic pressure — density ratio times speed squared. Calibrated so that at sea
-    // level, where the ratio is 1, the two speeds above are exactly the band edges.
+    // Density ratio times speed squared, so at sea level the two speeds above are the band edges.
     private const double NoAuthorityPressure = NoAuthoritySpeed * NoAuthoritySpeed;
     private const double FullAuthorityPressure = FullAuthoritySpeed * FullAuthoritySpeed;
 
@@ -88,6 +78,15 @@ internal static class BodyAttitude
         doubleQuat turned = doubleQuat.CreateFromAxisAngle(Vec.Unit(axis), turn) * attitudeEcl;
         return Vec.IsFinite(turned * FireGeometry.NoseAxis) ? turned : attitudeEcl;
     }
+
+    /// <summary>
+    /// Whether a round is still beside its launcher, so the airflow may not turn it yet: until it has
+    /// travelled half its length from its seat. Slid off a rail that is about where its aft hanger leaves
+    /// the front; thrown off an ejector, turned about its middle any sooner, its tail swings into the hull.
+    /// </summary>
+    public static bool StillBesideLauncher(double3 travelSinceLaunch, double bodyLength)
+        => Vec.IsFinite(travelSinceLaunch) && bodyLength > 0.0
+           && Vec.Len(travelSinceLaunch) < 0.5 * bodyLength;
 
     /// <summary>A body's attitude rolled about its own nose by <paramref name="rollRad"/>; the nose stays where it was.</summary>
     public static doubleQuat Roll(doubleQuat attitudeEcl, double rollRad)

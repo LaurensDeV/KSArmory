@@ -122,8 +122,8 @@ public class PostBoostFlownReadingTests
     }
 
     /// <summary>
-    /// Off, the same frames leave the reading waiting, which is what ships until the switch has
-    /// flown. A switch that changes the default path is not off.
+    /// Off, the same frames leave the reading waiting. A switch that changes the off path is not off.
+
     /// </summary>
     [Fact]
     public void OffTheFrameWithNoReadingStillSpendsTheFlight()

@@ -42,7 +42,7 @@ public class WalkFromCutoffTests
         Assert.Equal(Gate, Chain(1, fromCutoff: false).FirstBeforeArrivalSeconds, 9);
     }
 
-    /// <summary>Before cutoff the coast is not known, and the walk is planned as it always was.</summary>
+    /// <summary>Before cutoff the coast is not known, and the walk's last release is planned on the gate.</summary>
     [Fact]
     public void AnUnknownCoastLeavesTheGate()
     {

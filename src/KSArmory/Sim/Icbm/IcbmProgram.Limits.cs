@@ -4,17 +4,14 @@ namespace KSArmory;
 
 internal sealed partial class IcbmProgram
 {
-    // Two things bound what may be commanded, and both exist to stop guidance flying the stack
-    // into something. The airflow limit protects the vehicle; the horizon floor protects against a
-    // handover on an airless body, where there is no dynamic pressure to wait for and the closed
-    // loop would otherwise take over at treetop height already pointing downhill.
+    // The airflow limit protects the vehicle; the horizon floor stops an airless handover, which has no
+    // dynamic pressure to wait for, steering downhill at treetop height.
     private double3 Limit(double3 wanted, in IcbmState state)
     {
         double3 held = AscentProfile.HoldIntoTheAirflow(wanted, state.AirflowCci, state.DynamicPressurePa,
                                                         AllowedAngleOfAttackDeg(state));
 
-        // A short shot braking at the top of a low arc has to point down; the floor is for a handover
-        // on an airless body, which would otherwise go downhill at treetop height.
+        // A short shot braking at the top of a low arc has to point down.
         if (state.Altitude >= Config.TurnEndMetres || _shortShot) return held;
 
         double3 up = state.UpCci;

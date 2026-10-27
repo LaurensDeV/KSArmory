@@ -135,7 +135,6 @@ public sealed class MunitionProfile
     /// </summary>
     public string? FinMarker { get; init; }
 
-    // ---- Boost ----------------------------------------------------------
     /// <summary>
     /// Length of the round's body mesh (m). The mesh is modelled about its centre — see
     /// build_missile in tools/model/pantsir.py — so a round placed at a tube mouth sits half
@@ -178,7 +177,7 @@ public sealed class MunitionProfile
 
     /// <summary>
     /// How many blades one round carries. Zero means the fin subparts are a single set per round
-    /// scaled for deployment, which is the older arrangement and the one the 57E6 uses.
+    /// scaled for deployment, as on the 57E6.
     /// </summary>
     public int FinsPerRound;
 
@@ -199,15 +198,8 @@ public sealed class MunitionProfile
     /// </summary>
     ///
     /// <remarks>
-    /// Empty for a single-stage round; the AGM-88's sustainer is the one entry any shipped round
-    /// carries. Two <i>powered</i>
-    /// stages are genuinely different accelerations for different durations, and averaging them
-    /// into one gets the burnout speed roughly right and the trajectory wrong. The 57E6 is not
-    /// that case: its second stage carries no motor, so a hard burn and then a coast is the round
-    /// it actually is.
-    ///
-    /// Kept separate from <see cref="BoostSeconds"/> rather than folding the first stage in, so
-    /// every profile that does not care reads exactly as it did.
+    /// Two powered stages averaged into one get the burnout speed roughly right and the trajectory
+    /// wrong. The 57E6's second stage carries no motor, so it is one burn and a coast.
     /// </remarks>
     public BoostStage[] Stages = [];
 
@@ -250,26 +242,13 @@ public sealed class MunitionProfile
     /// </summary>
     ///
     /// <remarks>
-    /// Per round, because the limit is a property of how hard it manoeuvres rather than of how
-    /// fast it goes. The fuse is an analytic closest-approach solve over each sub-step, so a round
-    /// cannot tunnel through its own fuse radius at any speed; what a long step drops is the
-    /// curvature, and that error is about half the lateral acceleration times the step squared.
-    /// A 35 g endgame round at 0.32 s loses roughly its own fuse radius, which is why 0.32 is the
-    /// default.
+    /// Per round, because what a long step drops is the curvature, about half the lateral
+    /// acceleration times the step squared: a 35 g round at 0.32 s loses roughly its own fuse radius.
+    /// The world is slowed to keep this step, so too small holds timewarp down for a whole flight.
     ///
-    /// It matters because the world is slowed to keep this step, so a weapon that flies for
-    /// minutes holds the player's timewarp down for all of them and eventually trips the policy's
-    /// own abandon guard.
-    ///
-    /// <b>A ballistic coast is not exempt, and the manoeuvre argument above is not the whole
-    /// story.</b> Gravity is a frame-level argument to <see cref="Slug"/>, held across every
-    /// sub-step, so a coarse frame integrates the fall on a stale one however gently the round is
-    /// flying: measured at <b>4.2 m of downrange per millisecond of frame</b> on the 3,459 km
-    /// deorbit, which is 560 m at the 133 ms an eight-times coast hands out.
-    /// <c>ProbeGapTests</c> has the table and <c>docs/MIRV-NEXT.md</c> item 2 what it is worth.
-    ///
-    /// The step at which a real intercept starts to degrade is unmeasured. 0.32 s is the value the
-    /// shipped rounds fly at, so treat it as a default to keep rather than a licence to raise it.
+    /// A ballistic coast is not exempt: gravity is a frame-level argument to <see cref="Slug"/>, so
+    /// a coarse frame costs 4.2 m downrange per millisecond on the 3,459 km deorbit
+    /// (<c>ProbeGapTests</c>, <c>docs/MIRV-NEXT.md</c> item 2).
     /// </remarks>
     public float MaxFaithfulStepSeconds = (float)Interceptor.MaxFaithfulStep;
 
@@ -299,7 +278,7 @@ public sealed class MunitionProfile
     /// <see cref="Interceptor.SubStep"/>.
     ///
     /// <para><b>It buys accuracy linearly and costs work linearly</b>, which is why it is per round
-    /// rather than one constant. The integrator is symplectic Euler, so the impact moves
+    /// rather than one constant. Measured with the first-order step (symplectic Euler), the impact moves
     /// <b>30.6 m per millisecond</b> of step on a shallow arrival — 145.3 / 68.8 / 22.9 / 7.6 m at
     /// 5.00 / 2.50 / 1.00 / 0.50 ms against a quarter-millisecond reference. Nine tenths of that is
     /// a genuinely different trajectory rather than an arrival-time error.</para>
@@ -309,10 +288,9 @@ public sealed class MunitionProfile
     /// that cost has never been measured. So the default stays where the shipped rounds already
     /// fly and only a round that needs the precision asks for more.</para>
     ///
-    /// <para><b>The count scales with it so the faithful step does not move.</b> A finer step with
-    /// the same sub-step cap would shorten <see cref="MaxFaithfulStepSeconds"/> for this round and
-    /// hold the whole world's timewarp down with it — which is the trap that cost 164 km when the
-    /// integration clamp and the warp target were confused for each other.</para>
+    /// <para><b>The count scales with it so the faithful step does not move</b>
+    /// (<see cref="MaxSubSteps"/>): a finer step with the same cap would shorten
+    /// <see cref="MaxFaithfulStepSeconds"/> and hold the whole world's timewarp down with it.</para>
     /// </summary>
     public float SubStepSeconds;
 
@@ -351,11 +329,10 @@ public sealed class MunitionProfile
     /// <inheritdoc cref="MinRange"/>
     public float MaxRange = 20000f;
 
-    // ---- Guidance -------------------------------------------------------
     /// <summary>Proportional-navigation constant. 3-5 is the classic range.</summary>
     public float NavConstant = 4f;
 
-    /// <summary>Lateral acceleration limit (g). Airframes cap out; ours does too.</summary>
+    /// <summary>Lateral acceleration limit (g).</summary>
     public float MaxLateralG = 35f;
 
     /// <summary>
@@ -474,7 +451,6 @@ public sealed class MunitionProfile
     /// <summary>The same round as a profile of its own, which edits to this one do not reach.</summary>
     internal MunitionProfile Copy() => (MunitionProfile)MemberwiseClone();
 
-    // ---- Warhead --------------------------------------------------------
     /// <summary>Proximity fuse trigger radius (m).</summary>
     public float FuseRadius = 15f;
 
@@ -512,15 +488,12 @@ public sealed class MunitionProfile
     public float MaxChargeKg;
 
     /// <summary>
-    /// Whether the ground stops this round.
+    /// Whether the ground stops this round, and so whether it ends by landing
+    /// (<see cref="RoundReach"/>). A missile meets the ground through <see cref="Interceptor.Ground"/>
+    /// whatever this says.
     ///
-    /// <para>Off for everything that flies at aircraft, which is why a shell passes through a hill
-    /// and a missile that misses carries on into space. That is cheap and, for a weapon aimed
-    /// upwards, invisible. A bomb has nothing else to arrive at, so it is the one round for which
-    /// the terrain is the whole point.</para>
-    ///
-    /// <para>It costs a terrain sample per round per frame, which is why it is opt-in rather than
-    /// how every round behaves: a CIWS burst is 150 shells in the air and a rack holds one bomb.</para>
+    /// <para>It costs a terrain sample per round per frame, which is why it is opt-in: a CIWS burst is
+    /// 150 shells in the air, so a 20 mm shell passes through a hill.</para>
     /// </summary>
     public bool HitsTerrain;
 
@@ -561,9 +534,9 @@ public sealed class MunitionProfile
     public double MaxLateralAccel => MaxLateralG * 9.80665;
 
     /// <summary>
-    /// Whether the round leaves under its own power. False for a store that is released and then
-    /// falls — a dumb bomb, or one with a guided tail kit, which steers a ballistic path rather
-    /// than flying one.
+    /// Whether the round is a missile, launched at a target. False for one that is released and left
+    /// to its ballistics — a dumb bomb, one with a guided tail kit, which steers a ballistic path
+    /// rather than flying one, and an unguided rocket, whose motor <see cref="Slug"/> burns.
     ///
     /// <para>It picks <see cref="Slug"/> over <see cref="Interceptor"/>, and separately it is why
     /// a rack's sight looks where its store lands instead of down its own tubes. Both ask this

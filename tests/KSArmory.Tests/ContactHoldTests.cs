@@ -4,7 +4,8 @@ namespace KSArmory.Tests;
 
 public class ContactHoldTests
 {
-    // Contact as flown on a rocket sitting on a slope: four flips a second.
+    // Contact on a rocket sitting on a slope flips 2-6 times a second, flown; this flips every
+    // 7 frames, about 8.6 times a second.
     [Fact]
     public void ABouncingCraftStaysResting()
     {

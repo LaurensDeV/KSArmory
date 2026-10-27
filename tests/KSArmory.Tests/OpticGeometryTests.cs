@@ -4,12 +4,10 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// A standalone optical head's geometry. The clamp is the part worth pinning: it is not a
-/// preference but a fact about the model — a ball on a mast cannot see past what holds it up —
-/// and the way it clamps matters as much as that it does. A head told to look below the floor has
-/// to keep pointing the right way and stop at the lowest thing it can see, not swing somewhere
-/// else on the way.
+/// A ball on a mast cannot see past what holds it up, and a head told to look below the floor
+/// keeps its bearing and stops at the floor rather than swinging somewhere else on the way.
 /// </summary>
+
 public class OpticGeometryTests
 {
     private static OpticProfile Director() => new()

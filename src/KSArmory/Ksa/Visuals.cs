@@ -18,21 +18,13 @@ internal static class Visuals
     private static readonly float4 RoundColour = new(1.0f, 0.95f, 0.6f, 1.0f);
     private static readonly float4 TrailColour = new(0.8f, 0.8f, 0.85f, 0.45f);
 
-    // Shells in the diagnostic overlay. What a player sees is the tracer; this is the line that
-    // says where the simulation thinks the round actually is, which is not the same claim and is
-    // worth being able to check separately.
+    // Where the simulation thinks a shell is, a separate claim from where the tracer is drawn.
     private static readonly float4 TracerColour = new(1.0f, 0.72f, 0.18f, 1.0f);
     private const int TracerSegments = 4;
 
-    // Every shell in the air, when the shader pass is not drawing tracers.
     private static readonly float4 ShellColour = new(0.95f, 0.78f, 0.45f, 0.75f);
 
-    // How long a shell is drawn, along its own flight.
-    //
-    // A round is not a point and drawing it as one is what makes it a ball: at 1100 m/s it crosses
-    // 18 m in a single frame, so what a camera records is a streak and what a sphere shows is a
-    // marble hanging in the air. Roughly one frame of travel, which is the length the blur would
-    // actually have.
+    // Roughly one frame of travel at 1100 m/s, the length a camera's blur would have.
     private const double ShellStreakMetres = 14.0;
     private static readonly float4 LoadedTubeColour = new(0.45f, 1.0f, 0.5f, 0.9f);
     private static readonly float4 SpentTubeColour = new(0.3f, 0.3f, 0.32f, 0.6f);
@@ -44,10 +36,6 @@ internal static class Visuals
     private static readonly float4 FlareColour = new(1.0f, 0.95f, 0.8f, 1.0f);
     private static readonly float4 ChaffColour = new(0.7f, 0.75f, 0.85f, 0.8f);
 
-    /// <summary>
-    /// Every decoy in the air as a sphere sized by its signature. Placed off the craft that threw it,
-    /// because both are end-of-step samples and so their difference carries none of the frame's motion.
-    /// </summary>
     // The COIL's 1.315 um is invisible; drawn so the operator can see what is being lased.
     private static readonly float4 BeamColour = new(1.0f, 0.35f, 0.15f, 0.9f);
     private static readonly float4 BurnColour = new(1.0f, 0.85f, 0.5f, 1.0f);
@@ -63,6 +51,10 @@ internal static class Visuals
         KsaWorld.DrawSphereEgo(to, head.Burning is null ? 0.4f : 0.8f, BurnColour);
     }
 
+    /// <summary>
+    /// Placed off the craft that threw it: both are end-of-step samples, so their difference
+    /// carries none of the frame's motion.
+    /// </summary>
     public static void DrawDecoys(IReadOnlyList<Decoy> decoys)
     {
         for (int i = 0; i < decoys.Count; i++)
@@ -83,9 +75,8 @@ internal static class Visuals
     {
         if (system.Platform is null) return;
 
-        // Anchor to the platform's render position; everything else is drawn as an offset from
-        // it. Converting absolute Ecl positions instead lands the overlay on the craft's
-        // analytic orbit position, which for a landed craft is visibly beside the craft itself.
+        // Everything is an offset from the platform's render position: absolute Ecl lands on the
+        // analytic orbit position, visibly beside a landed craft.
         if (!KsaWorld.BeginDraw(system.Platform, system.PlatformEcl)) return;
 
         double3 origin = system.MountEcl;
@@ -108,13 +99,7 @@ internal static class Visuals
     }
 
     /// <summary>
-    /// The shells as lines, for when the shader pass is not drawing their tracers
-    /// (<see cref="ShellTracers"/>): switched off, or its shader would not build.
-    ///
-    /// <para>A short segment along each shell's own flight, not a point and not a trail. A point
-    /// reads as a ball because a round moves further between frames than any believable radius; a
-    /// trail back to the muzzle reads as a laser. One frame of travel is what a camera would have
-    /// caught.</para>
+    /// The shells as lines, when <see cref="ShellTracers"/>' pass is off or would not build.
     /// </summary>
     public static void DrawShellStream(WeaponSystem system)
     {
@@ -124,22 +109,18 @@ internal static class Visuals
 
         foreach (IProjectile round in system.Rounds)
         {
-            // Negative tube numbers mark the cannon; the magazine owns zero and up, and a missile
-            // has a real subpart body of its own. So may a shell, and then the body is the round.
+            // A shell drawn as a body needs no streak.
             if (!RoundLabel.IsGunRound(round.Tube) || round.State != RoundState.Flying
                 || system.ShellDrawnAsBody(round))
             {
                 continue;
             }
 
-            // Local, never VelocityEcl: the latter carries 29.8 km/s of ecliptic motion and would
-            // lay every streak along the same direction whatever the gun did.
+            // Never VelocityEcl, which carries 29.8 km/s of ecliptic motion.
             double3 along = Vec.Unit(round.VelocityLocal);
             if (!Vec.IsFinite(along)) continue;
 
-            // Never longer than the round has actually flown. The streak is drawn backwards from
-            // the shell, so a full-length one on a round that has just left the barrel starts 14 m
-            // behind the muzzle, which is inside the mount and out the other side of it.
+            // Drawn backwards, so never longer than the round has flown, or it starts inside the mount.
             double streak = Math.Min(ShellStreakMetres, Vec.Len(round.TravelSinceLaunch));
             if (streak < 0.1) continue;
 
@@ -148,16 +129,12 @@ internal static class Visuals
         }
     }
 
-    // Wireframe cone: boresight, a rim, and ribs out to the rim.
     private static void DrawSearchVolume(double3 origin, double3 boresight, double3 clockRef,
                                          SensorProfile sensor, Config config)
     {
         const int ribs = 12;
 
-        // Drawing the cone at its true range makes it useless to look at: 20 km of thin lines
-        // all radiating from one point, converging at the horizon. Draw a scaled-down shape
-        // near the craft instead - it shows the *direction and angle* the radar covers, which
-        // is what the overlay is for. The range readout lives in the panel.
+        // Scaled down near the craft: at true range the cone is lines converging at the horizon.
         double range = Math.Min(sensor.Range, config.ConeDisplayMetres);
         double half = sensor.ConeHalfAngleRad;
 
@@ -193,22 +170,17 @@ internal static class Visuals
 
             float marker = (float)Math.Clamp(track.Range * 0.02, 12.0, 220.0);
 
-            // Ask the engine where this vehicle is being drawn rather than deriving it, so the
-            // marker sits on the craft and not on its analytic position.
+            // The engine's drawn position, not the analytic one.
             if (config.DrawTrackMarkers && track.Contact.TryDrawEgo(out double3 trackEgo))
                 KsaWorld.DrawSphereEgo(trackEgo, marker, colour);
 
             if (!track.IsThreat && !isLock) continue;
 
-            // End the line on the engine's position for the contact, not its analytic one, so
-            // it touches the craft rather than pointing near it.
             if (KsaWorld.TryAnchoredEgo(origin, out double3 originEgo) && track.Contact.TryDrawEgo(out double3 endEgo))
             {
                 KsaWorld.DrawLineEgo(originEgo, endEgo, colour);
             }
 
-            // Where this contact passes the launcher, if it holds course. Opt-in: the prediction
-            // can land kilometres from anything on screen, where it just looks like a stray dot.
             if (config.DrawClosestApproach)
             {
                 double3 cpa = track.PositionEcl + (track.VelocityEcl - KsaWorld.VelocityEcl(system.Platform!))
@@ -218,20 +190,13 @@ internal static class Visuals
         }
     }
 
-    // Marks which tubes still hold a round. Rounds are fired in tube order, so the first TubeCount
-    // - Ammo tubes are the spent ones.
     private static void DrawLoadedTubes(IWeaponSystemView system, Config config, double3 origin)
     {
         LauncherProfile profile = system.Profile;
         int spent = profile.TubeCount - system.Ammo;
 
-        // Prefer the part's own transform so the markers sit on the actual tubes rather than on
-        // a correctly-sized ring at an arbitrary rotation.
-        //
-        // It has to be the *pods* subpart, not the turret: the offsets are measured from the
-        // trunnion, and only the pods carry the elevation. Passing the turret here looks right
-        // and very nearly is - the markers still follow the traverse, so they track left and
-        // right correctly and simply refuse to go up and down.
+        // Through the pods subpart, not the turret: the offsets are from the trunnion, and only the
+        // pods elevate. Through the turret the markers follow the traverse and not the elevation.
         Span<double3> muzzles = stackalloc double3[profile.TubeCount];
         bool exact = system.Platform is { } platform
                      && system.TubesResolved
@@ -254,10 +219,8 @@ internal static class Visuals
         }
     }
 
-    // A line along where the turret drive *thinks* it is pointing. Worth having beyond the
-    // cosmetics: it separates "the slew maths is wrong" from "the engine ignored the transform
-    // write". If the line sweeps onto the target and the mesh does not follow it, the maths is fine
-    // and Asmb2ParentAsmb is not being honoured.
+    // Where the drive thinks it points: a line on target with the mesh elsewhere means the engine
+    // ignored the transform write, not that the maths is wrong.
     private static void DrawTurretFacing(IWeaponSystemView system)
     {
         if (system.Platform is not { } platform) return;
@@ -269,10 +232,8 @@ internal static class Visuals
                                  horizontal * Math.Cos(bearing),
                                  horizontal * Math.Sin(bearing));
 
-        // Through the launcher's own mounting, not the vehicle's alone. The barrels are drawn in
-        // the part frame; a line converted from the vehicle frame is out by the part's rotation,
-        // which on a stack mount is a half turn, pointing the line the opposite way to the gun it
-        // reports.
+        // Through the launcher's mounting: from the vehicle frame alone it is out by the part's
+        // rotation, a half turn on a stack mount.
         if (system.Launcher is not { } launcher) return;
         if (!LauncherPart.TryLauncherDirectionEcl(platform, launcher, facingPart, out double3 facingEcl)) return;
 
@@ -280,13 +241,8 @@ internal static class Visuals
         KsaWorld.DrawLineEcl(from, from + facingEcl * 45.0, TurretColour);
     }
 
-    // North, and where the scope believes each face of the array is looking.
-    //
-    // The one thing that settles whether the scope agrees with the vehicle. Every step from the
-    // array's angle to a compass bearing is somewhere a sign or a handedness can invert, and the
-    // wrong one draws a sweep that turns the opposite way to the dish while agreeing with it twice
-    // a revolution -- which reads as an offset rather than a reversal. Drawn beside the dish, that
-    // stops being a matter of watching carefully.
+    // Where the scope believes each array face looks, beside the dish: an inverted sign agrees
+    // with it twice a revolution, which reads as an offset rather than a reversal.
     private static void DrawBearingReference(IWeaponSystemView system)
     {
         if (system.Platform is not { } platform) return;
@@ -306,7 +262,6 @@ internal static class Visuals
 
         double3 from = system.MountEcl + system.Boresight * 3.2;
 
-        // North itself, long and white, so everything else is read against it.
         KsaWorld.DrawLineEcl(from, from + (frame.North * 60.0), NorthColour);
 
         int faces = system.Profile.SearchRadarFaces;
@@ -321,8 +276,7 @@ internal static class Visuals
         Span<double> bearings = stackalloc double[ScopeGeometry.MaxSweepFaces];
         int count = ScopeGeometry.SweepBearings(heading, array, faces, bearings);
 
-        // Back out of a compass bearing into the world, which is the same conversion the scope
-        // makes on its face -- so a line that disagrees with the dish is the scope disagreeing.
+        // The scope's own conversion, so a line that disagrees with the dish is the scope disagreeing.
         for (int i = 0; i < count; i++)
         {
             double3 along = (frame.North * Math.Cos(bearings[i])) + (frame.East * Math.Sin(bearings[i]));
@@ -332,23 +286,15 @@ internal static class Visuals
 
     private static void DrawRounds(IWeaponSystemView system, Config config)
     {
-        // A 6 m tracer sphere swallows the real 3 m round bodies, so it is only drawn when there
-        // is nothing better to show, or when asked for.
+        // The marker sphere swallows the real round bodies, so it is drawn only without them or when asked.
         bool haveBodies = system.RoundBodiesWork && system.RoundBodyCount > 0;
 
         foreach (IProjectile round in system.Rounds)
         {
-            // Rounds are stored as platform-relative offsets, so they draw straight off the
-            // anchor with no absolute-position arithmetic to go stale.
             double3 roundEgo = KsaWorld.AnchorEgo + round.OffsetFromPlatform;
 
-            // What is actually on screen, measured where it is actually drawn.
-            //
-            // The same comparison made in Detonate is a frame stale: that runs in the frame
-            // hook, while the draw anchor is established here in the GUI hook, so it carries a
-            // whole step of ecliptic motion, ~660 m, and reads as a rendering error. Here the
-            // anchor and the target's draw position come from the same pass, so a difference is
-            // real. It should be the miss distance, not hundreds of metres.
+            // Here the anchor and the target's draw position share a pass, so the separation is real;
+            // made in the frame hook it carries a step of ecliptic motion.
             if (Log.Threshold <= Log.Level.Debug && ++_drawTrace % 30 == 0
                 && round.TargetRef is Vehicle drawn && KsaWorld.IsAlive(drawn)
                 && KsaWorld.TryVehicleEgo(drawn, out double3 targetEgo))
@@ -364,9 +310,7 @@ internal static class Visuals
                 KsaWorld.DrawSphereEgo(roundEgo, haveBodies ? 1.2f : 6f, RoundColour);
             }
 
-            // A shell gets only the last few segments. Its trail holds 32 points, which at
-            // 1100 m/s is close to 600 m of line, and drawn back to the muzzle it reads as a beam
-            // rather than as a round.
+            // A shell gets the last few segments: 32 points 0.05 s apart is ~1.8 km at 1100 m/s.
             int from = RoundLabel.IsGunRound(round.Tube)
                            ? Math.Max(1, round.TrailOffsets.Count - TracerSegments)
                            : 1;
@@ -382,7 +326,6 @@ internal static class Visuals
             if (round.TrailOffsets.Count > 0)
                 KsaWorld.DrawLineEgo(KsaWorld.AnchorEgo + round.TrailOffsets[^1], roundEgo, TrailColour);
 
-            // Seeker line to whatever it is chasing.
             if (round.TargetRef is KSA.Vehicle target && KsaWorld.TryVehicleEgo(target, out double3 tgtEgo))
                 KsaWorld.DrawLineEgo(roundEgo, tgtEgo, LockColour);
         }

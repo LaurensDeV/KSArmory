@@ -8,9 +8,8 @@ namespace KSArmory;
 internal readonly record struct SystemEvent(double AtSeconds, string Message);
 
 /// <summary>
-/// One weapons system: its launcher, its sensor, and the fire-control logic that decides when
-/// to commit rounds. Mounted on a platform vehicle, normally the craft carrying the launcher
-/// part, and pinned there so the site keeps defending itself after the player switches away.
+/// One weapons system: its launcher, its sensor and its fire control. Pinned to the craft carrying
+/// the launcher part, so the site keeps defending itself after the player switches away.
 /// </summary>
 internal sealed class WeaponSystem(Config config, SystemConfig policy, int launcherOrdinal = 0,
                                    Func<Vehicle, bool>? craftIsEmitting = null)
@@ -18,28 +17,21 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 {
     private readonly Config _config = config;
 
-    // Whether a given craft is transmitting. Supplied by the roster rather than reached for
-    // statically: only the roster knows every system in the world, and only an anti-radiation
-    // round asks. Null leaves every contact silent, which makes such a round blind rather than
-    // letting it home on something nobody said was radiating.
+    // From the roster, which knows every system. Null leaves every contact silent, so an
+    // anti-radiation round is blind rather than homing on something nobody said was radiating.
     private readonly Func<Vehicle, bool>? _craftIsEmitting = craftIsEmitting;
 
-    // This installation's own settings. Shared Config stays for the session-wide ones.
     private readonly SystemConfig _policy = policy;
     private bool _loadoutSized;
 
     private readonly List<IProjectile> _rounds = [];
 
-    // The same rounds as a set. The airborne list is every round in the world and this system has
-    // to reject its own from it once per contact per frame, which is a linear scan of a salvo
-    // inside a walk of every round flying anywhere -- 2.25 million reference comparisons a frame
-    // with ten systems and fifteen hundred rounds up. Kept in step with _rounds by AddRound and
-    // DropRound, which are the only two ways in or out.
+    // A set, because own rounds are rejected from the whole airborne list per contact per frame.
+    // Kept in step with _rounds by AddRound and DropRound, the only ways in or out.
     private readonly HashSet<IProjectile> _roundSet = new(ReferenceEqualityComparer.Instance);
 
-    // What each round's body was last drawn at, and at what age. Turned on from there rather than
-    // re-derived from the release, because a store thrown upwards comes down facing the other way
-    // and there is no one turn between opposite directions.
+    // Turned on from the last drawn attitude, not re-derived: there is no one turn between the
+    // opposite directions a store thrown upwards goes up and comes down.
     private readonly Dictionary<IProjectile, DrawnAttitude> _drawnAttitudes = new(ReferenceEqualityComparer.Instance);
 
     // Rounds drawn with no air to turn them, until the frame the air first does.
@@ -53,10 +45,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private readonly Dictionary<IProjectile, LooseBody> _farBodies = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>
-    /// How far from its launcher a round's body stops being placed as the launcher's subpart and is drawn as an
-    /// instance placed off the camera. A subpart's placement is packed to <c>float</c> against its craft, a step of
-    /// 0.6 mm here and about half a metre at the 4,000 km a MIRV warhead flies, which a chase camera 15 m behind
-    /// sees as the round shaking.
+    /// Past this a round is drawn as an instance off the camera, not its launcher's subpart, whose
+    /// placement is packed to <c>float</c>: 0.6 mm here, about half a metre at 4,000 km.
     /// </summary>
     public const double FarBodyMetres = 10_000.0;
 
@@ -66,24 +56,19 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private readonly List<TargetState> _contactScratch = [];
     private bool _contactsFresh;
 
-    // Rounds in the air that are somebody else's, rebuilt every frame. A field rather than a
-    // local, so filtering costs no allocation on a path every system runs every frame.
+    // Somebody else's rounds in the air, rebuilt every frame.
     private readonly List<IContact> _incoming = [];
 
-    // The same list keyed by the round itself, because a round chasing another round has only its
-    // opaque TargetRef to find it by, and a burst is dozens of shells all asking.
+    // Keyed by the round: a round chasing another has only its opaque TargetRef to find it by.
     private readonly Dictionary<object, IContact> _incomingByHandle = new(ReferenceEqualityComparer.Instance);
 
     private readonly List<Vehicle> _pendingKills = [];
 
-    // Parts to break off craft that survive, drained beside the whole-craft kills so the engine's
-    // vehicle collection is mutated once, behind one solver barrier. Keyed on the craft because
-    // two rounds of one salvo can reach the same craft in one frame and a part must not be handed
-    // to PartFailureEvent twice.
+    // Drained beside the whole-craft kills, behind one solver barrier. Keyed on the craft so a part
+    // two rounds reach in one frame is not handed to PartFailureEvent twice.
     private readonly Dictionary<Vehicle, List<Part>> _pendingPartKills =
         new(ReferenceEqualityComparer.Instance);
 
-    // Scratch for one craft's part sweep, reused across every craft and every burst in a frame.
     private readonly List<DamageablePart> _partScratch = [];
 
     // What the ground under the burst being applied adds to its blast, measured once per burst.
@@ -102,17 +87,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     private Vehicle? _lastPlatform;
 
-    // Set when the craft carrying this launcher is destroyed with rounds still in the air. The
-    // system then does one thing only -- see them down -- and the body they are flying over
-    // becomes what their offsets are measured from, because a destroyed Vehicle is not something
-    // to go on holding.
+    // Set when the craft dies with rounds up: the body becomes what their offsets are measured from.
     private Celestial? _looseBody;
     private string _looseName = "";
     private double _salvoTimer;
     private double _reloadTimer;
     private double _clock;
 
-    /// <summary>The vehicle the launcher is mounted on.</summary>
     public Vehicle? Platform { get; private set; }
 
     /// <inheritdoc cref="IEffectSource.EffectBody"/>
@@ -121,10 +102,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <inheritdoc cref="IEffectSource.TryRoundEffectEcl"/>
     public bool TryRoundEffectEcl(IProjectile round, out double3 ecl)
     {
-        // Anchored to where the craft or body is now rather than to the sample this system last
-        // stepped against. Once it has stepped this frame those are one number. Before that -- the
-        // engine's viewport pass, where it clamps a camera following a round to the ground -- the
-        // sample is a step behind the planet, which at 1x reads a chase camera 150 m up as underground.
+        // Where the craft or body is now, not the last stepped sample: in the viewport pass, where the
+        // engine clamps a following camera to the ground, the sample is a step behind the planet.
         if (_looseBody is { } body)
         {
             ecl = KsaWorld.PositionEcl(body) + round.OffsetFromPlatform;
@@ -139,16 +118,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                           round.LaunchAttitude, out ecl);
     }
 
-    /// <summary>Rounds still in the air. What decides whether a loose system is worth keeping.</summary>
+    /// <summary>What decides whether a loose system is worth keeping.</summary>
     public int RoundsInFlight => _rounds.Count;
 
-    /// <summary>What to call the craft that fired them, captured before it went.</summary>
+    /// <summary>Captured before the craft went.</summary>
     public string LooseName => _looseName;
 
-    /// <summary>
-    /// The side this installation fights for, which is also the side its rounds are on. Survives
-    /// the craft: a loose system's policy is still here when the launcher is not.
-    /// </summary>
+    /// <summary>Also its rounds' side; outlives the craft with a loose system's policy.</summary>
     public string? Team => _policy.Iff.OwnTeam;
 
     /// <summary>True when the operator pinned the platform rather than following control.</summary>
@@ -156,81 +132,55 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     public Radar Radar { get; } = new(config, policy);
 
-    /// <summary>What the set is holding, for a reader that has no business with the set.</summary>
     public Track? LockedTrack => Radar.Locked;
 
-    /// <summary>Rounds left in the launcher.</summary>
     public int Ammo => _magazine.Ammo;
 
-    /// <summary>Rounds the magazine holds when full.</summary>
     public int MagazineFull => _magazine.Full;
 
     public IReadOnlyList<IProjectile> Rounds => _rounds;
 
     /// <summary>
-    /// Told about every round the instant it stops flying, before it is reaped.
-    ///
-    /// <para>The rounds list is the only handle on one, and a round that ended has left it by the
-    /// time anything outside this class runs — so an observer sampling per frame sees the state one
-    /// step short of the impact, which at a reentry vehicle's speed is kilometres. Nothing on this
-    /// path may throw: it runs inside the round loop, which runs inside the engine's frame
-    /// hook.</para>
+    /// The instant a round stops flying, before it is reaped: a per-frame observer sees it a step
+    /// short of the impact. Must not throw: it runs inside the engine's frame hook.
     /// </summary>
     public Action<IProjectile>? RoundEnded;
 
     public IReadOnlyList<SystemEvent> Events => _events;
 
-    /// <summary>Seconds left on the reload cycle, or zero when not reloading.</summary>
+    /// <summary>Zero when not reloading.</summary>
     public double ReloadRemaining => _reloadTimer;
 
-    /// <summary>Current radar boresight in Ecl. Local "up" at the platform.</summary>
+    /// <summary>Local "up" at the platform.</summary>
     public double3 Boresight { get; private set; } = new(0, 0, 1);
 
-    /// <summary>The launcher part on the platform, or null if none is fitted.</summary>
     public Part? Launcher { get; private set; }
 
     /// <summary>
-    /// The launcher part this system is crewed on, kept while it is lost so it can be followed by
-    /// identity. KSA moves a part whole through a split, so the reference outlives its place in the
-    /// part list: two racks of one kind renumber when one drops, and following the place swaps their
-    /// magazines.
+    /// Kept while lost, to follow by identity: KSA moves a part whole through a split, and two racks
+    /// of one kind renumber when one drops.
     /// </summary>
     public Part? HeldPart { get; private set; }
 
-    /// <summary>The launcher's turret subpart, which the mod slews onto the track.</summary>
     public Part? TurretPart { get; private set; }
 
-    /// <summary>The missile pods, which elevate on the turret's trunnions.</summary>
     public Part? PodsPart { get; private set; }
 
     /// <summary>
-    /// True when the tubes are where the profile says they are: pods found if the profile declares
-    /// them, and legitimately absent if it does not.
-    ///
-    /// <para>The distinction is the whole difference between a rail and a broken launcher. A fixed
-    /// launcher has to seat its rounds and fire them off its tubes with no pods in sight; one whose
-    /// declared pods the engine did not hand over must do neither, because every tube coordinate
-    /// would then be read against an identity that is not where the tubes are.</para>
+    /// Pods found if declared, legitimately absent if not: a rail has none, and a launcher whose
+    /// declared pods were not found must not read tube coordinates against an identity.
     /// </summary>
     public bool TubesResolved => Profile.PodsMarker is null || PodsPart is not null;
 
     /// <summary>
-    /// What the operator told this installation to track, or <c>Aimpoint.Nothing</c>.
-    ///
-    /// <para>Beats the set's own pick while it lives. An aimpoint rather than a contact handle so
-    /// a place on the ground can be named at all — <see cref="Radar.ManualDesignation"/> takes an
-    /// <c>IContact.Handle</c>, and nothing ever reports a hillside. That is the whole difference
-    /// between designating a craft and designating a spot a structure will one day stand on.</para>
-    ///
-    /// <para>Lives on the system, which is pinned to its craft, so it outlives the player taking
-    /// another seat.</para>
+    /// Beats the set's own pick while it lives. An aimpoint, not a contact handle, so a place on the
+    /// ground can be named.
     /// </summary>
     public Aimpoint Designation { get; private set; } = Aimpoint.Nothing;
 
     /// <summary>What is designated, for the panel to name.</summary>
     public string DesignationName { get; private set; } = "nothing";
 
-    /// <summary>Points the installation at something, until told otherwise.</summary>
     public void Designate(Aimpoint aim, string what, bool asInstrument = false)
     {
         Point(aim, what, log: true);
@@ -247,10 +197,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         DesignationName = what;
         _whyNotDesignated = "";
 
-        // "Follow this" and "follow my cursor" are contradictory orders, and the cursor wins the
-        // branch order -- so leaving both on is a designation that silently never drives. Switched
-        // off rather than out-ranked: the operator has just replaced one instruction with the
-        // other, and the tick boxes going out is what says so.
+        // The cursor wins the branch order, so a designation with mouse aim on would never drive.
+        // Switched off, so the tick boxes say the order was replaced.
         bool wasOnCursor = _policy.MouseAim || _policy.MouseFire;
         _policy.MouseAim = false;
         _policy.MouseFire = false;
@@ -262,22 +210,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
     }
 
-    // Pushed once, never read live: the round carries its own aimpoint, which is what lets it
-    // outlive its launcher and what stops ClearDesignation turning a bomb halfway down back into
-    // a dumb one. An operator looking somewhere else is not an operator recalling a weapon.
-    //
-    // Only a store still steering its own fall. A missile left on a target somebody chose, and
-    // swapping that under it is what Fire(Track) already declines to do; a tail kit has no seeker
-    // and nothing to be loyal to, which is the reason one is fitted.
-    //
-    // Only the store released last takes the mark, until the weapon releases again, and only onto a
-    // place its fins can still reach: a click past that is aiming the next store, not this one. The
-    // designation stands for the next release either way. asInstrument is the drop scenario's, which re-aims a
-    // store already sent somewhere, even past its reach, to measure the ring against the flight.
+    // Pushed once, never read live: the round carries its own aimpoint, so it outlives its launcher.
+    // Only a store steering its fall, only the one released last, and only inside its reach
+    // (CLAUDE.md, "Design decisions worth not re-litigating"). asInstrument is the drop scenario's.
     public void SendStoresInTheAir(string what, IProjectile? steerable, bool asInstrument = false)
     {
-        // Nothing to send them at. Designating nothing is not how a store is recalled -- see
-        // ClearDesignation, which deliberately leaves one already steering alone.
+        // Designating nothing does not recall a store.
         if (Designation.Kind == AimpointKind.None) return;
 
         foreach (IProjectile round in _rounds)
@@ -285,8 +223,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             if (round.State != RoundState.Flying || !round.Munition.SteersItsFall) continue;
             if (!asInstrument && !ReferenceEquals(round, steerable)) continue;
 
-            // Flown before the write, because the region is measured around where the store comes
-            // down untouched and the aimpoint it is about to carry says nothing about that.
+            // Before the write: the region is around where the store comes down untouched.
             TailKitReach reach = StoreReach.SolveNow(this, round);
 
             if (!asInstrument && !StoreRetarget.Reaches(reach, Designation.PositionEcl))
@@ -312,10 +249,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         DesignationName = "nothing";
     }
 
-    /// <summary>The search array, which turns continuously on its own turntable.</summary>
     public Part? RadarPart { get; private set; }
 
-    /// <summary>The cannon, which pitch with the launcher. Null if this system carries none.</summary>
     public Part? GunsPart { get; private set; }
 
     /// <summary>The barrel that recoils inside the cannon, when the profile declares one.</summary>
@@ -332,11 +267,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private readonly GunRotor _rotor = new();
 
     /// <summary>
-    /// A carried director's base, which rides the traverse. Null if this launcher carries none.
-    ///
-    /// <para>The whole of a launcher's involvement with a sight. What sits on top of it is an
-    /// <c>OpticalHead</c>, crewed separately and aiming itself; this system neither drives it nor
-    /// knows it is there.</para>
+    /// Rides the traverse; the whole of a launcher's involvement with a sight. The head on it is an
+    /// <c>OpticalHead</c>, crewed separately, which this system neither drives nor knows of.
     /// </summary>
     public Part? OpticBasePart { get; private set; }
 
@@ -351,51 +283,33 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // advancing on it turns the array three times as far on alternate frames. See Sim/SmoothedStep.
     private readonly SmoothedStep _spinStep = new();
 
-    // The drives' clock. A traverse is a rate-limited slew, so its angle advances by rate x step
-    // -- and the engine's step carries the display's frame pacing, which moves the turret three
-    // times as far on alternate frames while the hull it sits on does not. That reads as a
-    // stuttering turret. Total time is preserved, so it still arrives and settles when it would
-    // have, and IsLaid is unaffected in aggregate.
+    // The drives' clock: the raw step carries the display's frame pacing, which moves a rate-limited
+    // traverse three times as far on alternate frames. Total time is preserved.
     private readonly SmoothedStep _driveStep = new();
 
-    /// <summary>Azimuth drive state. Pure maths, no KSA types — see <see cref="Turret"/>.</summary>
     public Turret Turret { get; } = new();
 
-    // Which drives the engine is still accepting writes for, latched per assembly.
     private DriveStatus _drives;
 
-    /// <summary>True while the engine still accepts writes for this assembly.</summary>
     public bool DriveWorks(DriveChannel channel) => _drives.Works(channel);
 
-    /// <summary>True once the engine has refused any drive on this launcher.</summary>
     public bool AnyDriveRefused => _drives.AnyRefused;
 
     /// <summary>
-    /// The launcher this system runs, and what it fires and sees with.
-    ///
-    /// <para>Its own, not the session's: two sites in one world can carry different launchers,
-    /// and anything reading the config's selection instead gets whichever system updated last.
-    /// They are the shared <see cref="Catalogue"/> instances, so retuning one from the panel still
-    /// reaches every system running that launcher, which is the point.</para>
-    ///
-    /// <para>Resolved when the launcher part is found rather than at construction — until then
-    /// the system does not know what it is.</para>
+    /// This system's own, not the session's, and the shared <see cref="Catalogue"/> instance, so
+    /// panel tuning reaches every system running it. Resolved when the launcher part is found.
     /// </summary>
     public LauncherProfile Profile { get; private set; } = LauncherProfile.Unfitted;
 
     /// <inheritdoc cref="Profile"/>
     public MunitionProfile Munition { get; private set; } = MunitionProfile.None;
 
-    /// <summary>
-    /// Flies this system's rounds as another profile of the same round from here on. Refused for a different
-    /// round, whose magazine, bodies and reach this system was not built for.
-    /// </summary>
+    /// <summary>Refused for a different round, whose magazine, bodies and reach this system was not built for.</summary>
     public void FlyRoundsAs(MunitionProfile munition)
     {
         if (munition.Name != Munition.Name) return;
 
-        // Kept, because the loadout is re-paired from the catalogue every frame the launcher is found: without
-        // this the swap is undone and re-applied for ever, which is a log line per rocket per frame.
+        // Kept: the loadout is re-paired from the catalogue every frame the launcher is found.
         _roundsAs = munition;
         Munition = munition;
     }
@@ -403,8 +317,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // What FlyRoundsAs asked for, re-applied after each re-pairing while it is still the same round.
     private MunitionProfile? _roundsAs;
 
-    // The cannon's round, which is a different profile from the missile above and carries its own
-    // reach. Falls back to the missile so a launcher with no cannon still answers.
+    // Falls back to the missile so a launcher with no cannon still answers.
     private MunitionProfile Shell => Profile.GunMunition is { } named
                                          ? Catalogue.MunitionNamed(named)
                                          : Munition;
@@ -412,26 +325,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <inheritdoc cref="Profile"/>
     public SensorProfile Sensor { get; private set; } = SensorProfile.None;
 
-    /// <summary>Whether this system's rounds may draw a motor plume.</summary>
     public bool PlumesEnabled => _config.MotorPlume && _config.DrawExplosions;
 
     /// <summary>How far the platform moved between the last two frames (m, Ecl).</summary>
     public double3 PlatformStepEcl { get; private set; }
 
     /// <summary>
-    /// Which launcher on the platform this system runs, by part order.
-    ///
-    /// <para>A part <em>order</em> rather than a <see cref="Part"/> reference, because KSA rebuilds
-    /// the part tree during staging and docking and the ordinal survives that where a reference
-    /// does not.</para>
-    ///
-    /// <para>Fixed for the system's life on one craft. A craft carrying several launchers is crewed
-    /// once per launcher, so switching weapons selects a different <em>system</em> rather than
-    /// re-pointing this one — which is what keeps each launcher's magazine, drives and rounds its
-    /// own. Moving this instead would refill the magazine on every switch.</para>
-    ///
-    /// <para>It moves for exactly one reason: <see cref="Rehome"/>, when a decoupler carries this
-    /// launcher onto another craft where it may sit at a different ordinal.</para>
+    /// Where <see cref="HeldPart"/> sits in the craft's launcher order, and what finds it until a part
+    /// is held. It follows the part: the ordinal renumbers when a neighbour drops.
     /// </summary>
     public int LauncherOrdinal { get; private set; } = launcherOrdinal;
     private readonly List<(Part, LauncherProfile)> _launcherScratch = [];
@@ -444,55 +345,45 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private PartModel? _shellModel;
     private int _gunShotsFired;
     private double _lastGunShotClock = double.NegativeInfinity;
+    private double _lastReleaseClock = double.NegativeInfinity;
+
+    // Taken before anything moves the arm: a later read sees the pose it was last written with.
+    private readonly List<Part> _ejectorArms = [];
+    private readonly Dictionary<Part, DrivePose> _ejectorArmRest = new(ReferenceEqualityComparer.Instance);
     private readonly List<Part> _finBodies = [];
 
-    // Which tubes still hold a round, and which fires next. See Magazine — the bookkeeping is pure
-    // and lives in Sim/ so it is testable, because getting it wrong produces a salvo that looks
-    // like it never left rather than an error.
     private readonly Magazine _magazine = new();
 
-    // The cannon's belt and burst timing. A second weapon on the same mount, sharing the
-    // platform, the sensor and the aim, and differing in what it throws and how far.
     private readonly GunChannel _guns = new();
     private int _nextBarrel;
 
-    // Rounds each barrel has fired, which is what picks its tracers.
+    // Picks each barrel's tracers.
     private long[] _barrelRounds = [];
     private double _gunTrace;
     private double _gunReloadTimer;
 
-    // What the current burst was started against. A burst outlives its trigger by design, so
-    // Radar.Locked is routinely null while the tail of one is still leaving the barrel.
+    // A burst outlives its trigger, so Radar.Locked is often null while its tail is still leaving.
     private Track? _burstTrack;
 
     // Whether the burst in progress is one the operator fired, which sweeping the gun does not cut.
     private bool _operatorBurst;
     private bool _manualTrigger;
 
-    // Whether the turret is laid on the cannon's ballistic lead rather than on the target. Solved by
-    // AimPointEcl, and kept only while the ring is tracking (TurretMode.Claims).
+    // Solved by AimPointEcl, kept only while the ring is tracking (TurretMode.Claims).
     private bool _ringIsOnGunLead;
 
-    // Whether the ring is laid on the operator's cursor. The same problem as _ringIsOnGunLead and
-    // the same answer: rounds leave along the tube, so a missile that auto-engage commits to the
-    // radar's lock while the tube follows the cursor departs at whatever angle those two differ
-    // by -- which is unbounded, and up to 180 degrees.
+    // As _ringIsOnGunLead: rounds leave along the tube, so a missile committed to the lock while the
+    // tube follows the cursor departs up to 180 degrees off.
     private bool _ringIsOnCursor;
 
-    // Time of flight from the gun's last lead solve, for a timed fuse. Zero when there is no
-    // solution, which is also what stops a shell being fused for a flight nobody computed.
+    // For a timed fuse; zero with no solution, so no shell is fused for a flight nobody computed.
     private double _gunFlightTime;
 
-    // Where the ring was actually sent this frame, kept so the sight can draw it. Reported rather
-    // than re-solved at draw time: a second solve would take the target's position from a later
-    // instant and put the pipper somewhere the turret was never sent.
+    // Kept for the sight: a second solve at draw time reads the target at a later instant.
     private double3 _ringAimEcl;
     private bool _ringAimValid;
 
-    /// <summary>
-    /// Where the launcher is laid, and whether that is the cannon's ballistic lead rather than the
-    /// target itself. False when it is stowed, driven by hand or following the cursor.
-    /// </summary>
+    /// <summary>False when stowed, driven by hand or following the cursor.</summary>
     public bool TryRingAimEcl(out double3 aimEcl, out bool isGunLead)
     {
         aimEcl = _ringAimEcl;
@@ -504,13 +395,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     /// <summary>The claim the fire ladder reads, valid aim or not.</summary>
     public bool RingClaimsGunLead => _ringIsOnGunLead;
 
-    /// <summary>Time of flight the gun's lead solved for, or zero if it did not solve.</summary>
     public double GunFlightSeconds => _gunFlightTime;
 
-    /// <summary>Rounds left in the cannon belt.</summary>
     public int GunAmmo => _guns.Ammo;
 
-    /// <summary>True while the cannon are mid-burst, so the panel can say so.</summary>
     public bool GunsFiring => _guns.Firing;
 
     public int GunShotsFired => _gunShotsFired;
@@ -521,17 +409,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         => RoundLabel.IsGunRound(round.Tube)
            && _shellModel is not null && _config.UseRoundBodies && LooseBodyDrawHook.Installed;
 
-    // Simulated, not player, seconds -- so the sweep holds still with a paused world and slows
-    // with the panel's slow-motion, which is the whole point of watching it.
+    // Simulated seconds, so the sweep holds in a pause and slows with slow motion.
     private double _finTestSeconds;
 
     // The fin set belonging to a tube, or null if the launcher carries none.
     private Part? FinsFor(int index) => index >= 0 && index < _finBodies.Count ? _finBodies[index] : null;
 
-    // Puts a loaded round's blades on their hinges. Undeflected, because a round on the rack is
-    // not steering -- unless Config.FinTestSweep is exercising them, which moves the drawn blades
-    // and nothing else. Needed because TrySeatMissile only knows about the older single fin set:
-    // without this the blades sit wherever the XML left them, which is inside the bomb.
+    // Undeflected unless Config.FinTestSweep moves the drawn blades. TrySeatMissile places only a
+    // single fin set; without this the blades sit where the XML left them, inside the bomb.
     private void SeatFinsFor(int tube)
     {
         if (Munition.FinsPerRound <= 0) return;
@@ -545,8 +430,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             if (FinsFor(tube * Munition.FinsPerRound + blade) is not { } part) continue;
 
             double roll = FinMixer.FinRollRad(blade, Munition.FinsPerRound, Math.PI / 4.0);
-            // Through the flight mixer, so a seated round's blades can only take a pose some
-            // real steering demand would produce.
+            // Through the mixer, so only a pose real steering would produce.
             double deflect = _config.FinTestSweep
                                  ? FinMixer.DeflectionRad(
                                        FinTest.CommandBodyFrame(_finTestSeconds,
@@ -557,9 +441,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
     }
 
-    // Hides every blade belonging to one tube's round: four on a hinged set, one on a set that
-    // scales. Hiding only the first leaves the rest frozen where they were last written, which
-    // reads as a stray blade hanging in the air beside an empty rack.
+    // Every blade, not the first: the rest would hang where they were last written.
     private void HideFinsFor(int tube)
     {
         int per = Math.Max(1, Munition.FinsPerRound);
@@ -569,55 +451,38 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
     }
 
-    /// <summary>
-    /// False once KSA has refused to place a round body. Unlike the turret, these travel
-    /// kilometres from the vehicle they belong to, so the engine may well decline — hence the
-    /// gizmo tracers stay on as a fallback rather than being replaced.
-    /// </summary>
+    /// <summary>False once KSA has refused to place a round body; the gizmo tracers stay as the fallback.</summary>
     public bool RoundBodiesWork { get; private set; } = true;
 
-    /// <summary>How many round bodies the launcher actually carries. Zero means tracers only.</summary>
+    /// <summary>Zero means tracers only.</summary>
     public int RoundBodyCount => _missileBodies.Count;
 
     /// <summary>
-    /// Frames rendered, while unpaused, that advanced no simulated time.
-    ///
-    /// <para>Diagnostic for round bodies appearing to stutter or teleport. If this climbs, the
-    /// render rate is outrunning the simulation clock, and anything positioned only on a
-    /// simulation step will visibly lag the world. Expected to stay at zero: KSA derives its
-    /// step from the frame delta, so every frame should advance the clock.</para>
+    /// Unpaused frames that advanced no simulated time. Expected to stay at zero, since KSA derives
+    /// its step from the frame delta; climbing, it explains round bodies stuttering.
     /// </summary>
     public int FramesWithoutSimStep { get; set; }
 
-    // Trace one frame in this many, so a debug log stays readable at 60 fps.
     private const int BodyTraceEveryFrames = 15;
 
     private int _bodyFrame;
     private bool _warnedDuplicateTube;
     private bool _bodyGatesReported;
 
-    /// <summary>Where rounds actually leave from: the launcher part, or the hull without one.</summary>
+    /// <summary>The launcher part, or the hull without one.</summary>
     public double3 MountEcl { get; private set; }
 
     /// <summary>
-    /// The platform's Ecl position at the moment this update ran. Everything else the system
-    /// records — mount, tracks, rounds — is from the same instant, so this is the reference the
-    /// overlay must difference against. Re-reading the platform's position at draw time instead
-    /// mixes instants a frame apart, which at ~29.8 km/s of ecliptic motion is ~500 m of error.
+    /// At the instant this update ran, as is everything else the system records, so the overlay
+    /// differences against it. Re-read at draw time it is a frame apart: ~500 m.
     /// </summary>
     public double3 PlatformEcl { get; private set; }
 
-    /// <summary>True when the system has everything it needs to shoot.</summary>
     public bool IsOperational => Platform is not null && Launcher is not null;
 
     /// <summary>
-    /// True when the launcher is actually pointing where it is about to shoot, so rounds do not
-    /// leave tubes aimed somewhere else.
-    ///
-    /// <para>Always true when nothing is being laid — tracking off, driven from the panel, or a
-    /// launcher whose profile declares no training gear — so it cannot deadlock fire control on
-    /// a launcher that will never move. A launcher that <em>should</em> move and cannot is a
-    /// different case, and holds fire. See <see cref="FireGate"/>.</para>
+    /// Always true when nothing is being laid, so a launcher that never moves cannot deadlock fire
+    /// control; one that should move and cannot holds fire. See <see cref="FireGate"/>.
     /// </summary>
     public bool IsLaid => FireGate.IsLaid(
         aiming: Aiming,
@@ -627,11 +492,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         settled: Turret.IsLaid(Profile.SettleSeconds));
 
     /// <summary>
-    /// The same question for the cannon, which share only the traverse with the pods.
-    ///
-    /// <para>Asking <see cref="IsLaid"/> instead reads the missiles' drive latch and the missiles'
-    /// subpart, so a refused pod elevation — or a pods marker that resolved to nothing — would
-    /// silence a cannon that was working perfectly.</para>
+    /// For the cannon, which share only the traverse with the pods: <see cref="IsLaid"/> reads the
+    /// pods' latch and subpart.
     /// </summary>
     public bool GunsAreLaid => FireGate.IsLaid(
         aiming: Aiming,
@@ -640,18 +502,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         assembliesResolved: Profile.GunsMarker is null || GunsPart is not null,
         settled: Turret.IsLaid(Profile.SettleSeconds));
 
-    // Slewing onto something, rather than stowed or driven from the panel. Mouse aim counts:
-    // the drives are chasing a cursor, so fire control must still wait for them to settle or
-    // rounds leave along a tube that is still swinging.
-    // Designating counts as aiming. Firing at the cursor without it leaves the launcher wherever
-    // it was already pointing -- stowed, on a radar track, or on the gun's lead -- and the round
-    // departs along that and is hauled round by guidance over kilometres of arc. On a launcher
-    // that cannot train, that off-axis start is a limit on the seeker and is expected; on one with
-    // a turret it is simply a turret nobody told.
+    // Mouse aim and mouse fire count, so the drives settle before a round leaves along the tube.
     private bool Aiming => (_policy.TurretTracking || _policy.MouseAim || _policy.MouseFire)
                            && !_policy.TurretManual && !_policy.TurretSpin;
 
-    // Whether the lost pinned platform has been said, so it is said once rather than every frame.
     private bool _announcedLoss;
 
     public void PinPlatform(Vehicle? v)
@@ -663,16 +517,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     /// <summary>
-    /// Re-reads where the world is. <b>Must run every rendered frame, not every simulation
-    /// step.</b>
-    ///
-    /// <para>Sets <see cref="PlatformEcl"/>, <see cref="Boresight"/> and <see cref="MountEcl"/> —
-    /// the frame of reference the whole overlay is drawn against. <see cref="DrawAnchor"/> pairs
-    /// <see cref="PlatformEcl"/> with an Ego position sampled fresh every frame; if this half goes
-    /// stale while that one does not, the pair no longer describes one instant and the overlay
-    /// slides off the craft.</para>
-    ///
-    /// <para>Sampling only: reads the world, resolves parts, advances nothing.</para>
+    /// <b>Every rendered frame, not every simulation step:</b> <see cref="DrawAnchor"/> pairs
+    /// <see cref="PlatformEcl"/> with an Ego position sampled every frame. Reads; advances nothing.
     /// </summary>
     public void SampleWorld()
     {
@@ -684,12 +530,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return;
         }
 
-        // Its craft is gone and the roster has not retired it yet: the last sample stands, which is
-        // what its rounds' offsets are measured from when they are handed to the body.
+        // Craft gone, not yet retired: the last sample stands, which the hand-over is anchored at.
         if (!KsaWorld.IsAlive(Platform)) return;
 
-        // Rounds store position relative to the platform, so a change of platform has to be
-        // announced: their offsets are now measured from somewhere else.
         if (!ReferenceEquals(Platform, _lastPlatform))
         {
             if (_lastPlatform is not null && _rounds.Count > 0)
@@ -700,8 +543,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             _lastPlatform = Platform;
         }
 
-        // The platform's movement since the last frame, measured rather than derived. This is
-        // what advances it to the round's instant when offsets are taken - see Interceptor.
+        // Measured rather than derived; Interceptor advances it to the round's instant.
         double3 sampled = KsaWorld.PositionEcl(Platform);
         PlatformStepEcl = _hasPlatformSample ? sampled - PlatformEcl : Vec.Zero;
         _hasPlatformSample = true;
@@ -710,16 +552,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _sampledBody = KsaWorld.ParentBody(Platform);
         _bodyAtSampleEcl = _sampledBody is { } under ? KsaWorld.PositionEcl(under) : Vec.Zero;
 
-        // Whichever registered weapon system is fitted, if any. Adopting it points this system's
-        // profiles at that system, so everything downstream - drives, guidance, the panel -
-        // follows without knowing which launcher this is.
         if (ResolveLauncher(Platform) is var (part, profile))
         {
-            // One-shot, not "the launcher was missing last frame". A part tree is rebuilt during
-            // staging and docking, so a read can fail for a frame and come back - and a
-            // Launcher-is-null test would silently refill the magazine behind the operator. A
-            // launcher that leaves its craft entirely and is followed onto another does the same
-            // thing, which would hand a half-empty bus six warheads back.
+            // One-shot, not "missing last frame": a tree rebuilt during staging fails a read for a
+            // frame, and a followed launcher would be refilled.
             bool changed = !ReferenceEquals(profile, Profile) || !_loadoutSized;
             Launcher = part;
             Profile = profile;
@@ -727,12 +563,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             if (_roundsAs is { } flown && flown.Name == Munition.Name) Munition = flown;
             profile.ConfigureTurret(Turret);
 
-            // The set is fitted to this launcher, so it filters on that system's sensor rather
-            // than on whichever one the panel is showing.
             Radar.Sensor = Sensor;
 
-            // A different weapon system carries a different number of rounds, so the magazine
-            // is sized when one is first recognised rather than at construction.
             if (changed)
             {
                 _magazine.Resize(profile.TubeCount, profile.MagazineDepth);
@@ -756,19 +588,27 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         GunRodPart = Launcher is null ? null : LauncherPart.FindGunRod(Launcher, Profile);
         GunFeedPart = Launcher is null ? null : LauncherPart.FindGunFeed(Launcher, Profile);
         GunRotorPart = Launcher is null ? null : LauncherPart.FindGunRotor(Launcher, Profile);
+        if (Launcher is null) _ejectorArms.Clear();
+        else LauncherPart.FindEjectorArms(Launcher, Profile, _ejectorArms);
+        foreach (Part arm in _ejectorArms)
+        {
+            if (!_ejectorArmRest.ContainsKey(arm))
+            {
+                _ejectorArmRest[arm] = new DrivePose(arm.PositionParentAsmb, arm.Asmb2ParentAsmb);
+            }
+        }
         OpticBasePart = Launcher is null ? null : LauncherPart.FindOpticBase(Launcher, Profile);
         MountEcl = LauncherPart.ResolveOriginEcl(Platform, Launcher);
 
         // After the launcher is resolved: the part-relative modes read the part's own mounting.
         Boresight = ResolveBoresight();
 
-        // Say what the launcher is actually made of, once. If the turret is never found, this
-        // is the line that says whether the subpart Ids survived into the runtime unchanged.
+        // Once: says whether the subpart Ids survived into the runtime.
         if (Launcher is not null && !_loggedSubParts)
         {
             _loggedSubParts = true;
-            // Tube bodies only where there are tubes. A gun's round and a launcher's missile can be
-            // one profile, and a missile search would then take the shell bodies for its own.
+            // Only with tubes: a gun's round can be the missile's profile, and the search would
+            // take the shell bodies.
             if (Profile.TubeCount > 0)
             {
                 LauncherPart.FindMissiles(Launcher, Munition, _missileBodies);
@@ -789,21 +629,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             {
                 Log.Warn($"no subpart template '{shellModel}' - shells will draw as streaks only");
             }
-            // Only where one was declared. A rack and a rail have no turret by design, so an
-            // unguarded warning opens every session with a fault report about a launcher that is
-            // working exactly as its profile says. The panel already draws this distinction --
-            // see DrawTurretLine -- and the log is the half that reaches somebody reading a bug
-            // report, where a spurious WARN is worth more confusion than it saves.
+            // Only where declared: a rack or a rail has no turret by design.
             if (Profile.TurretMarker is not null && TurretPart is null)
             {
                 Log.Warn("turret subpart not found - the turret will not slew");
             }
             if (Profile.TubeCount > 0 && _missileBodies.Count == 0) Log.Warn("no round bodies - rounds will draw as tracers only");
 
-            // The art declares the bodies and the profile declares the tubes, in two files that
-            // validate-parts.py is what normally keeps equal. A WARN rather than the DEBUG line
-            // above because every consumer of the pair has to guard both counts, and a mismatch
-            // nobody can see is how one of them ends up guarding only one.
+            // The art declares the bodies and the profile the tubes; validate-parts.py keeps them equal.
             else if (_missileBodies.Count != Profile.TubeCount)
             {
                 Log.Warn($"{_missileBodies.Count} round bodies for {Profile.TubeCount} tube(s) on "
@@ -815,17 +648,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     /// <summary>
-    /// Advances the system by <paramref name="dt"/> simulated seconds.
-    ///
-    /// <para>Separate from <see cref="SampleWorld"/> on purpose: this is gated on the simulation
-    /// clock, so it does not run while paused or on a frame that advanced no time, whereas the
-    /// world sample must run regardless.</para>
+    /// Gated on the simulation clock, unlike <see cref="SampleWorld"/>, which runs regardless.
     /// </summary>
-    /// <param name="airborne">
-    /// Every round in the world, so this system can see the ones that are not its own. Filtered
-    /// here rather than in the radar: which rounds are mine is the system's business, and a
-    /// sensor that had to know would be a sensor that knows what a weapon is.
-    /// </param>
+    /// <param name="airborne">Every round in the world; filtered here, so the radar knows no weapon.</param>
     public void Update(double dt, IReadOnlyList<IContact>? airborne = null)
     {
         if (Platform is null || !KsaWorld.IsAlive(Platform)) return;
@@ -843,15 +668,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         AttributeRoundsToTracks();
         UpdateTurret(dt);
 
-        // Rounds before fire control, so a round fired this frame is not integrated until the
-        // next one. TravelSinceLaunch differences two platform-relative offsets, which cancels the
-        // platform's ~29.8 km/s only while the sample advances alongside the round. Integrating a
-        // new round in its own launch frame leaves the sample still for one step, so a frame of
-        // ecliptic motion lands in travel permanently: 658.78 m of travel at an age of 0.04 s on
-        // a round doing 124 m/s.
-        //
-        // The cost is one frame before a new round moves, which is correct anyway: it is still in
-        // the tube on the frame the trigger is pulled.
+        // Rounds before fire control, so a new round waits a frame: integrated in its launch frame,
+        // the sample stands still for a step and a frame of ecliptic motion lands in its travel.
         UpdateRounds(dt);
         UpdateFireControl(dt);
         UpdateGunFireControl(dt);
@@ -864,45 +682,22 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     /// <summary>
-    /// Why the missiles are not launching, or null when nothing is stopping them.
-    ///
-    /// <para>Every gate returns quietly and looks identical from outside: an empty magazine, one
-    /// with no lock and one whose drives have not settled all sit there doing nothing. Naming the
-    /// first gate that says no is the difference between reading the panel and reading the
-    /// source.</para>
-    ///
-    /// <para><em>Auto-engage is deliberately not one of these gates.</em> It decides whether fire
-    /// control shoots on its own, not whether a round can leave the rail, and no manual fire path
-    /// consults it. Reporting it here would stop the ladder at the one switch that blocks nothing
-    /// the operator asked for, hiding every gate below it from the panel beside the trigger.</para>
+    /// The first gate stopping the missiles, or null. Auto-engage is not one: no manual fire path
+    /// consults it, and stopping there would hide every gate below.
     /// </summary>
     public string? Hold { get; private set; } = "not started";
 
     /// <summary>
-    /// The same ladder asked of the armament the trigger fires, and whether its first rung stops the
-    /// operator as well as fire control.
-    ///
-    /// <para>Not <see cref="Hold"/> on a launcher carrying tubes and a belt with the belt selected:
-    /// the missiles wait for a lock and a burst does not, so the missiles' reason beside the
-    /// cannon's trigger names a refusal the burst never makes.</para>
-    ///
-    /// <para>A rung that does not bind is automatic fire's economy rather than the round's
-    /// capability — a target out of reach, a salvo already committed. The trigger does not consult
-    /// those, so a panel that says <c>Holding fire</c> about them describes a refusal that does not
-    /// happen: the button works and the round flies.</para>
+    /// The ladder asked of the armament the trigger fires, and whether its first rung binds the
+    /// trigger: reach and salvo count are automatic fire's economy, which the trigger ignores.
     /// </summary>
     public FireHold? TriggerHold { get; private set; } = new("not started", BindsTrigger: true);
 
-    // Whether a contact is radiating, which is the only thing an anti-radiation round can steer
-    // at. Asked of the handle rather than of the track, because only a craft can carry a set: a
-    // shell in the air has none, and neither has a designated coordinate. Both answer false and
-    // are refused rather than shot at by a weapon with no way to see them.
+    // Of the handle: only a craft carries a set, so a shell or a coordinate answers false.
     private bool TargetIsEmitting(Track track)
         => track.Contact.Handle is Vehicle craft && (_craftIsEmitting?.Invoke(craft) ?? false);
 
-    // The ladder itself is Sim/FireLadder.cs; this is only where its inputs are read off the
-    // world. Sampled into one value rather than passed as a dozen arguments so no rung can be
-    // answered from a later instant than the one above it.
+    // Sim/FireLadder.cs's inputs, sampled into one value so no rung reads a later instant.
     private FireHold? Holding(bool tubes, MunitionProfile munition, Track? locked, string? designated,
                               BeamConditions? beam = null)
     {
@@ -945,16 +740,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             munition);
     }
 
-    // Decides which craft the system is mounted on. The launcher is a physical part, so the
-    // system belongs to the craft carrying it and stays there rather than following control.
-    // Preference order: an explicit pin, then the controlled craft if it has a launcher, then
-    // whatever the system is already on, then any loaded craft with one. Falls back to the
-    // controlled vehicle only when the part requirement is switched off.
-    //
-    // A pinned system stays on its craft after the craft dies. The roster retires it and hands its
-    // rounds to the body; adopting any other craft with a launcher in the meantime would take that
-    // craft's launcher over with a freshly filled magazine, and finding none would clear the rounds
-    // before they could be handed on.
+    // A pin, then the controlled craft if it has a launcher, then the current one, then any craft
+    // with one, else none. A pinned system stays on its dead craft until the roster retires it.
     private void ResolvePlatform()
     {
         if (PlatformPinned)
@@ -968,7 +755,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return;
         }
 
-        // A controlled craft that carries a launcher is the one meant.
         Vehicle? controlled = KsaWorld.ControlledVehicle;
         if (KsaWorld.IsAlive(controlled) && LauncherPart.IsMounted(controlled))
         {
@@ -976,10 +762,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return;
         }
 
-        // Otherwise stay put, so switching away to watch does not move the system.
         if (KsaWorld.IsAlive(Platform) && LauncherPart.IsMounted(Platform)) return;
 
-        // The current platform is gone or lost its launcher; adopt any craft that has one.
         IReadOnlyList<Vehicle> world = KsaWorld.Vehicles;
         for (int i = 0; i < world.Count; i++)
         {
@@ -992,9 +776,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             }
         }
 
-        // No launcher anywhere. Mounting on the controlled craft instead is what PinPlatform
-        // exists to prevent: the kill path refuses to destroy its own platform, so a system that
-        // followed the player would make whatever they fly both unkillable and unable to shoot.
+        // Not the controlled craft: the kill path refuses its own platform.
         SetPlatform(null);
     }
 
@@ -1009,10 +791,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         Platform = v;
     }
 
-    // Where the search cone points this frame. Local "up" unless the sensor says otherwise, which
-    // is what a ground site wants; the part-relative modes are for a launcher on something that
-    // manoeuvres. Every failure falls back to local up rather than a zero vector, because a cone
-    // with no direction detects nothing at all.
+    // Every failure falls back to local up: a cone with no direction detects nothing.
     private double3 ResolveBoresight()
     {
         if (Platform is not { } platform) return Boresight;
@@ -1029,9 +808,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return KsaWorld.LocalUp(platform);
     }
 
-    // What this craft's weapons have in the air, shared between all of them. Assigned by
-    // Armaments.Refresh before any system is stepped, and null for a system that is not crewed on
-    // a craft -- a loose one flying the last of its rounds after its launcher died.
+    // Assigned by Armaments.Refresh before any system steps; null for a loose system.
     public TargetAllocation? CraftRounds { get; set; }
 
     // Tells each track how many rounds are already committed to it.
@@ -1039,8 +816,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     {
         foreach (Track t in Radar.Tracks) t.RoundsAssigned = 0;
 
-        // The craft's whole commitment, not this weapon's share of it. Two rails each counting
-        // their own each find capacity under the same limit and each fire a full salvo.
+        // The craft's whole commitment, or two rails each fire a full salvo.
         if (_config.ShareTargetsAcrossWeapons && CraftRounds is { } craft)
         {
             foreach (Track t in Radar.Tracks) t.RoundsAssigned = craft.CommittedTo(t.Contact.Handle);
@@ -1049,10 +825,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         foreach (IProjectile round in _rounds)
         {
-            // The handle, whatever it is. A track can be a round as readily as a craft, and
-            // matching only craft means every missile committed to an incoming one is invisible
-            // here -- so the rounds-per-target limit does not apply to exactly the target a
-            // launcher is most likely to over-commit against.
+            // Any handle: a track can be a round, or rounds committed to one go uncounted.
             if (round.TargetRef is null) continue;
 
             if (Radar.TrackFor(round.TargetRef) is { } t) t.RoundsAssigned++;
@@ -1067,15 +840,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return;
         }
 
-        // A launcher with no tubes takes the belt's rungs. Read off the fit rather than tested
-        // here, so the panel and the ladder agree on what this system is.
+        // Off the fit, so the panel and the ladder agree on what this system is.
         bool tubes = WeaponFit.Of(Profile, Sensor).FirstOf(ArmamentKind.Tubes) is not null;
 
         FireHold? held = Holding(tubes, Munition, Radar.Locked, designated: null);
         string? hold = held?.Reason;
 
-        // Logged on change, not every frame: a panel line answers "why is it not shooting" only
-        // for whoever is looking at the panel.
+        // Logged on change, for whoever is not looking at the panel.
         if (hold != Hold)
         {
             Announce(hold is null ? "clear to fire"
@@ -1088,9 +859,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                               Designation.Kind == AimpointKind.Vehicle ? DesignationName : null);
         if (_salvoTimer > 0.0) _salvoTimer = Math.Max(0.0, _salvoTimer - dt);
 
-        // Reload cycle.
-        // TubeCount, not just IsEmpty: a launcher with no tubes is empty by definition and
-        // would otherwise cycle a reload forever, announcing one every few seconds.
+        // TubeCount too: a launcher with no tubes is always empty and would reload forever.
         if (Profile.TubeCount > 0 && _magazine.IsEmpty && Profile.ReloadSeconds > 0f)
         {
             if (_reloadTimer <= 0.0) _reloadTimer = Profile.ReloadSeconds;
@@ -1106,31 +875,24 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         if (Hold is not null) return;
 
-        // The switch that separates shooting on its own from shooting when told. Gated here rather
-        // than in the ladder above so that "clear to fire" still means the trigger will work.
+        // Here, not in the ladder, so "clear to fire" still means the trigger will work.
         if (!_policy.AutoEngage) return;
 
         Track target = Radar.Locked!;
         if (!ThreatModel.MayEngage(target, _policy.Iff)) return;
         if (!ThreatModel.HasSalvoCapacity(target, _policy.RoundsPerTarget)) return;
 
-        // Detection reaches 36 km; the round reaches 20 km. Without this the system empties
-        // itself at contacts it cannot possibly catch: an 8.7 km crossing shot expires at 22 s
-        // having never closed.
+        // The set sees further than the round reaches; outside the envelope the magazine is spent on
+        // contacts it cannot catch.
         if (!ThreatModel.InEngagementEnvelope(target, Munition)) return;
 
-        // A released store has no business being launched at a track: it leaves the rack and
-        // falls, and the log would record a shot at something it was never going to reach. A tail
-        // kit does not change that -- it steers onto a fixed point, and cannot chase anything.
+        // A store, tail kit or not, only falls onto a fixed point and cannot chase a track.
         if (!Munition.Powered) return;
 
         Fire(target);
     }
 
-    /// <summary>
-    /// Finds the optical director on a part: the one this launcher cues, and fires the beam of if it
-    /// has one. Supplied by the roster, which is the only thing that knows which heads are crewed.
-    /// </summary>
+    /// <summary>The director on a part, from the roster, which knows which heads are crewed.</summary>
     public Func<Part, OpticalHead?>? DirectorFor { get; set; }
 
     /// <summary>The contact this craft's picture hands out, taken by a beam on auto-engage.</summary>
@@ -1139,19 +901,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private OpticalHead? _beamHead;
     private readonly BeamTrigger _beam = new();
 
-    /// <summary>The director firing this launcher's beam, once found.</summary>
     public OpticalHead? BeamHead => _beamHead;
 
-    /// <summary>Whole seconds of lasing left, which is what a beam's tally counts.</summary>
+    /// <summary>Whole seconds, as a beam's tally counts.</summary>
     public int BeamSecondsLeft
         => _beamHead is { } head && double.IsFinite(head.ChemicalSecondsLeft)
                ? (int)Math.Ceiling(Math.Max(0.0, head.ChemicalSecondsLeft))
                : 0;
 
-    /// <summary>Whether the beam is commanded on this step.</summary>
     public bool BeamLasing => _beam.Lasing;
 
-    /// <summary>What is left of one armament: rounds, belt, or seconds of lasing.</summary>
     public int Remaining(ArmamentKind kind) => kind switch
     {
         ArmamentKind.Belt => _guns.Ammo,
@@ -1159,16 +918,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _ => Ammo,
     };
 
-    // A beam weapon has nothing of its own to lay: it picks the target, cues the director on its
-    // part at it, and fires the director's beam while the ladder allows. The operator's designation
-    // comes ahead of the set's pick, as the trigger's does for every other weapon.
+    // A beam weapon lays nothing: it cues the director on its part and fires its beam while the
+    // ladder allows. A designation comes ahead of the set's pick.
     private void UpdateBeamFireControl(double dt)
     {
         _beamHead = Launcher is { } part ? DirectorFor?.Invoke(part) : null;
 
-        // A shift-click reaches every director on the craft but only the weapon selected, so a
-        // designation the director holds and this weapon does not is still the one it aims at. A
-        // place on the ground is lased by hand: auto-engage has no craft there to burn.
+        // A shift-click reaches every director but only the selected weapon, so the director's
+        // designation counts too.
         bool own = Designation.Kind != AimpointKind.None;
         Aimpoint designation = own ? Designation : _beamHead?.Designation ?? Aimpoint.Nothing;
         string designatedName = own ? DesignationName : _beamHead?.DesignationName ?? "";
@@ -1214,8 +971,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _beamHead?.CommandBeam(_beam.Step(dt, autoWants, mayLase));
     }
 
-    // A designated contact, the weapon's own or else its director's, for a set that can only hold
-    // what it is handed.
     private object? CuedHandle()
     {
         if (Designation.Kind == AimpointKind.Vehicle) return Designation.Handle;
@@ -1256,22 +1011,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return true;
     }
 
-    // Where a bearing to something should be measured from: the trunnion the tubes swing on, not
-    // the launcher part's origin.
-    //
-    // The drive lays the bore *parallel* to (target - origin), and that bore passes through the
-    // trunnion. Measured from the part origin the tube bundle sits 2.5 to 3.3 m off that line at
-    // every bearing and elevation; measured from the trunnion it is on it exactly, because that is
-    // how the model is built. Parallel but displaced misses by the perpendicular part of the
-    // displacement -- a fixed distance, so a shrinking angle: 1.7 degrees at 100 m, 0.17 at 1 km,
-    // nothing at 20. Which is why it reads as slightly off up close and fine far away.
+    // From the trunnion, not the part origin: the drive lays the bore parallel to (target - origin),
+    // and from the origin the tubes sit 2.5-3.3 m off that line, a fixed miss and so a shrinking
+    // angle: 1.7 degrees at 100 m, 0.17 at 1 km.
     private double3 AimOriginEcl
     {
         get
         {
             if (Platform is null || Launcher is null || !Profile.Trains) return MountEcl;
 
-            // Whichever assembly is doing the aiming. A gun-only mount has no pods to swing.
+            // A gun-only mount has no pods.
             double3 pivot = PodsPart is not null ? Profile.PodPivotFromTurret
                                                  : Profile.GunPivotFromTurret;
 
@@ -1289,22 +1038,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     {
         partFrame = default;
 
-        // The designator too, not only the aim switch: a tool that sends a round at the cursor
-        // has to point the launcher at it first, or the round leaves along a stale bearing.
+        // Mouse fire too, or the round leaves along a stale bearing.
         return (_policy.MouseAim || _policy.MouseFire)
                && Platform is not null
                && KsaWorld.TryCursorAimEcl(AimOriginEcl, out double3 dirEcl)
                && LauncherPart.TryDirectionToPartFrame(Platform, Launcher, dirEcl, out partFrame);
     }
 
-    // A gun-only mount laid so its shell arrives where it is sent, rather than along the line to it. A
-    // shell only arrives where it was thrown: on flat ground the line of sight leaves the barrel level and
-    // the shell in the dirt a few hundred metres out, and at a craft 9.7 km off it comes down about
-    // halfway. Flown as a tracked target's lead is. False for a launcher with tubes, whose rounds steer.
-    //
-    // From the muzzle, with the bore laid parallel to the solution: the drive lays the bore parallel to
-    // what it is given, and the shell leaves the muzzle along it. The landing is shallow enough that a
-    // metre of launch height is over ten metres of range, so a solve from the mount lands long.
+    // Laid so the shell lands where it is sent, flown as a tracked lead is: along the line of sight a
+    // craft 9.7 km off drew a shell that came down halfway. False with tubes, whose rounds steer.
+    // From the muzzle: a metre of launch height is over ten metres of range on this landing.
     private bool TryGunLay(double3 targetEcl, double3 targetVelocityEcl, double3 targetAccelerationEcl,
                            bool onTheGround, out double3 partFrame)
     {
@@ -1321,10 +1064,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         double3 fromMount = targetEcl - PlatformEcl;
 
-
-        // Out of reach last time, and the target has barely moved against the mount since: a fresh search
-        // lands on the same answer, and each one flies shells for most of their life. Reused for half a
-        // second, or until the target moves a fifth of a percent of the range -- 48 m at 24 km.
+        // Out of reach last time and barely moved since: reused for half a second, or until the target
+        // moves a fifth of a percent of the range. Each search flies shells for most of their life.
         if (_gunLayReach < 1.0 && Vec.Len2(_groundLayDirection) > 0.0
             && _clock - _gunLaySearchedAt < ReachReuseSeconds
             && Vec.Len(fromMount - _gunLayFromMount) < ReachReuseFraction * Vec.Len(fromMount))
@@ -1334,8 +1075,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return LauncherPart.TryDirectionToPartFrame(platform, Launcher, _groundLayDirection, out partFrame);
         }
 
-        // Beyond reach it is thrown as far as it goes on the way to the target -- over the ground, where the
-        // target is on it -- not laid along the line to it: see BallisticLead.TrySolveFlownOrReach.
+        // Beyond reach, as far as it goes on the way, over the ground for a target on it
+        // (BallisticLead.TrySolveFlownOrReach).
         Func<double, BallisticLead.Place?>? along = onTheGround
             ? BallisticLead.AlongTheGround(GroundTest.Shared, muzzle, targetEcl,
                                            at => KsaWorld.GroundVelocityAt(platform, at),
@@ -1359,7 +1100,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return false;
         }
 
-
         double3 reached = _gunLayReach >= 1.0 ? targetEcl
                           : along?.Invoke(_gunLayReach) is { } place ? place.Position
                           : muzzle + ((targetEcl - muzzle) * _gunLayReach);
@@ -1373,9 +1113,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return LauncherPart.TryDirectionToPartFrame(platform, Launcher, _groundLayDirection, out partFrame);
     }
 
-    // How far along the way to its target the last gun lay reaches, one when all the way, how far from the
-    // muzzle the place it reaches is, and when and against where that was searched for. Kept between frames;
-    // the other two distances are this frame's, cleared in UpdateTurret.
+    // Kept between frames, except the range and the shortfall, which are this frame's (cleared in UpdateTurret).
     private double _gunLayReach = 1.0;
     private double _gunLayReachMetres;
     private double _gunLaySearchedAt = double.NegativeInfinity;
@@ -1386,13 +1124,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private const double ReachReuseSeconds = 0.5;
     private const double ReachReuseFraction = 0.002;
 
-    /// <summary>
-    /// How far short of what the gun is laid on this frame its shell is thrown, because that is beyond
-    /// the gun's reach: zero within reach, and zero when no gun lay is driving the turret.
-    /// </summary>
+    /// <summary>Zero within reach, and when no gun lay is driving the turret.</summary>
     public double GunLayShortMetres => _gunLayShortMetres;
 
-    /// <summary>How far away what the gun is laid on this frame is, or zero when no gun lay is driving.</summary>
+    /// <summary>Zero when no gun lay is driving.</summary>
     public double GunLayRangeMetres => _gunLayRangeMetres;
 
     private double _frameSimStep;
@@ -1413,8 +1148,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private int _touchFlips, _restFlips;
     private double _contactSince;
 
-    // How often a designated craft's ground contact flips, raw and held, once a second under a verbose log: it decides
-    // both the acceleration the lay leads with and how the reach is searched.
+    // Once a second under a verbose log: the flips decide the lay's acceleration and its reach search.
     private bool SayContact(Vehicle designated, bool touching, bool rests)
     {
         if (touching != _lastTouching) _touchFlips++;
@@ -1436,7 +1170,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return rests;
     }
 
-    // A place on the ground, which keeps its place as the ground turns.
     private bool TryGunGroundLay(double3 groundEcl, double3 groundVelocityEcl, out double3 partFrame)
     {
         partFrame = default;
@@ -1449,14 +1182,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // Where the last ground lay pointed, so the next solve starts beside it.
     private double3 _groundLayDirection;
 
-    // Where the turret points: the target itself while the missiles have the engagement, and a
-    // ballistic solution once the cannon do.
-    //
-    // One traverse ring serves both weapons, so it can only solve for one at a time — the same
-    // choice a real fire-control computer makes. A missile steers and needs only to be pointed;
-    // a shell arrives where it was thrown, and at 4 km it flies for 4.5 s, during which a 300 m/s
-    // target crosses 1.4 km and the round falls 100 m. Laying on the target itself misses by
-    // both of those together.
+    // The target while the missiles have the engagement, the ballistic lead once the cannon do: one
+    // ring serves both. At 4 km a shell flies 4.5 s, in which a 300 m/s target crosses 1.4 km.
     private double3 AimPointEcl(Track aim)
     {
         _ringIsOnGunLead = false;
@@ -1468,16 +1195,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         MunitionProfile shell = Catalogue.MunitionNamed(Profile.GunMunition!);
 
-        // The flight time comes back from the same solve that produced the aim point, which is
-        // what a timed fuse needs: a burst time derived separately would go off somewhere the gun
-        // is not pointing. Without it FuseSeconds stays zero and Slug falls back to proximity, so
-        // the panel's timed-airburst switch has nothing to act on.
-        //
-        // Flown through the air the shell will meet, against the same ground frame FireGun launches
-        // it into: a fuse timed as if the shell kept its muzzle speed bursts short by what drag took.
-        // Once more from nothing before giving up, as TrySolveFlownOrReach does: a lead that solved last
-        // frame and not this one lays the gun on the target instead, and a solve that alternates between
-        // the two swings the barrels through the whole lead angle every other frame.
+        // The flight time from the same solve as the aim, so a timed fuse bursts where the gun points.
+        // Re-solved from nothing before giving up: a solve alternating with a failure swings the
+        // barrels through the whole lead every other frame.
         if (!SolveGunLead(aim, shell, _gunLeadDirection, out double3 lead, out double flightTime)
             && (Vec.Len2(_gunLeadDirection) == 0.0
                 || !SolveGunLead(aim, shell, Vec.Zero, out lead, out flightTime)))
@@ -1489,9 +1209,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _gunFlightTime = flightTime;
         _gunLeadDirection = lead - MountEcl;
 
-        // Recorded rather than recomputed at the missile gate: a solve that fails leaves the ring
-        // on the target, which the missiles can use, so only the write that actually happened
-        // decides whether they are held.
+        // Recorded, not recomputed at the missile gate: a failed solve leaves the ring on the target.
         _ringIsOnGunLead = true;
         _ringAimEcl = lead;
 
@@ -1509,11 +1227,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                        hint, out lead, out flightTime,
                                        _leadGroundVelocityAt ??= LeadGroundVelocityAt);
 
-    // Where the last lead pointed, so a solve starts next to its answer and a frame costs a pass or
-    // two rather than the whole search.
+    // A solve starts next to its last answer, a pass or two rather than the whole search.
     private double3 _gunLeadDirection;
 
-    // Whichever body the platform is on, so a lead on the Moon flies in its pull and its lack of air.
     private double3 LeadGravityAt(double3 positionEcl)
         => Platform is null ? Vec.Zero : KsaWorld.GravityAt(Platform, positionEcl);
 
@@ -1521,7 +1237,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private double LeadDensityAt(double3 positionEcl)
         => Platform is null ? 1.0 : KsaWorld.AirDensityRatioAt(Platform, positionEcl);
 
-    // The air where the shell is, which on a world that turns is not the air at the mount.
+    // On a turning world the air where the shell is does not move with the air at the mount.
     private double3 LeadGroundVelocityAt(double3 positionEcl)
         => Platform is null ? Vec.Zero : KsaWorld.GroundVelocityAt(Platform, positionEcl);
 
@@ -1529,8 +1245,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private Func<double3, double>? _leadDensityAt;
     private Func<double3, double3>? _leadGroundVelocityAt;
 
-    // Whether the cannon are the weapon this engagement belongs to: inside their envelope, and
-    // with the missiles either switched off or unable to reach.
     private bool GunsHaveTheEngagement(Track aim)
         => FireGate.GunsHaveTheEngagement(Profile.HasCannon, _policy.GunsEnabled, !_guns.IsEmpty,
                                           aim.Range, Shell.MinRange, Shell.MaxRange);
@@ -1555,27 +1269,20 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         MunitionProfile shell = Catalogue.MunitionNamed(Profile.GunMunition!);
 
-        // A round leaves with the craft's motion; it flies in the ground's. The two differ only
-        // once a launcher is moving, and then the second is what airspeed and heading mean.
+        // A round leaves with the craft's motion and flies in the ground's.
         double3 platformVel = KsaWorld.VelocityEcl(Platform);
         double3 frameVel = KsaWorld.GroundVelocityAt(Platform, PlatformEcl);
 
-        // Negative tube numbers mark the cannon: the magazine owns 0..TubeCount-1, and a shell
-        // must never be mistaken for a missile that could claim a tube back. It is a sentinel
-        // rather than an index, so nothing may print it -- RoundLabel is what reads it back.
-        //
-        // A null track is a craft designated by hand, or the tail of a burst whose target died. The
-        // shell is unguided and aimed by the turret either way; a designated craft still gives it
-        // something to fuse against and to be scored on.
-        // The muzzle in the launcher's own frame. Anything drawn against the round -- the tracer,
-        // and the shell's body -- is placed from this plus the travel since launch,
-        // never from the platform's analytic position, which sits metres off a landed craft.
+        // In the launcher's frame: the tracer and body are placed from this plus the travel, never
+        // from the analytic position, metres off a landed craft.
         TubeGeometry.TryGunMuzzlePartFrame(Profile, barrel, guns.PositionParentAsmb,
                                            guns.Asmb2ParentAsmb, out double3 muzzlePart);
 
         bool designatedCraft = track is null && Designation.Kind == AimpointKind.Vehicle
                                && Designation.Handle is Vehicle designated && KsaWorld.IsAlive(designated);
 
+        // A null track is a craft designated by hand, or a burst's tail. -(barrel + 1) is the tube
+        // sentinel for a shell, which only RoundLabel decodes.
         Slug slug = new(muzzle, platformVel + axis * shell.LaunchSpeed,
                         track?.Contact.Handle ?? (designatedCraft ? Designation.Handle : null),
                         -(barrel + 1), PlatformEcl, frameVel)
@@ -1585,13 +1292,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             ReleaseHeadingEcl = axis,
             LaunchAttitude = Platform?.Asmb2Ego ?? doubleQuat.Identity,
 
-            // As the lead flies it. A first-order step moves on the velocity a frame ends with, which
-            // against a heavy shell's drag leaves it metres off the path the lead was solved on: 3.8 m at
-            // 15.7 km at 60 fps against 1.3 m second order, and worse as the frame rate falls.
+            // As the lead flies it: first order is 3.8 m off at 15.7 km at 60 fps, against 1.3 m.
             SecondOrder = true,
 
-            // And drag at the sub-step's midpoint speed. At the speed a sub-step starts with it is always
-            // too large, so always short: 2.8 m at 23 km at the 5 ms sub-step, 0.08 m this way.
+            // At the starting speed drag is always too large: 2.8 m short at 23 km, 0.08 m this way.
             DragAtMidpointVelocity = true,
 
             Tracer = TracerLook.IsTracer(fedThrough, barrel, shell.TracerEvery),
@@ -1603,12 +1307,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             slug.Aimpoint = Aimpoint.OnVehicle(track.Contact.Handle, track.PositionEcl, track.VelocityEcl,
                                                track.Contact.MeanRadius);
 
-            // Flak: burst at the intercept the ring was laid on. Without a solve there is no time
-            // to burn, and the shell falls back to its proximity fuse.
+            // Without a solve it is zero, and the shell falls back to its proximity fuse.
             if (shell.TimedFuse) slug.FuseSeconds = _gunFlightTime;
 
-            // How far the barrel is off the lead as the round leaves. A gun still laying misses by that
-            // angle times the range, which from the burst alone reads exactly like a lead error.
+            // A gun still laying misses by this angle times the range, which reads like a lead error.
             if (_ringIsOnGunLead && Vec.Len2(_gunLeadDirection) > 0.0)
             {
                 double off = Vec.AngleBetween(axis, _gunLeadDirection);
@@ -1622,11 +1324,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _lastGunShotClock = _clock;
     }
 
-    // The cannon, which run on their own belt and their own envelope.
-    //
-    // Deliberately not gated on the missile channel's state. The two cover each other: the
-    // missiles need 1.2 km to arm and steer, so anything closer is the cannon's problem and stays
-    // untouchable if the guns wait for the launcher to run dry.
+    // Not gated on the missiles: inside their 1.2 km minimum the cannon are all there is.
     private void UpdateGunFireControl(double dt)
     {
         if (!Profile.HasCannon)
@@ -1642,8 +1340,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return;
         }
 
-        // Rechecked rather than trusted from FireBurst: a frame passes between the click and this
-        // step, and the switch, the belt and the lay can all move in it.
+        // Rechecked: a frame passes between FireBurst's click and this step.
         bool manual = _manualTrigger && _policy.GunsEnabled
                       && IsOperational && GunsAreLaid;
 
@@ -1655,8 +1352,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                           && locked.Range >= Shell.MinRange
                           && locked.Range <= Shell.MaxRange;
 
-        // Say why the cannon are silent. Every gate below is invisible from outside, and "no
-        // shooting" is the same symptom for all of them.
         _gunTrace += dt;
         if (_gunTrace >= 1.0)
         {
@@ -1672,9 +1367,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             });
         }
 
-        // Belt resupply, on its own timer: the launcher's reload gate returns early when the
-        // tubes are empty, so a shared one would leave the cannon dry for as long as the
-        // missiles took to come back.
+        // Its own timer: the launcher's reload gate returns early while the tubes are empty.
         if (_guns.IsEmpty && Profile.GunReloadSeconds > 0f)
         {
             _gunReloadTimer += dt;
@@ -1689,24 +1382,20 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
         _gunReloadTimer = 0.0;
 
-        // Latch the track while the trigger is down. GunChannel deliberately runs a started burst
-        // to its end after wantToFire goes false, and losing the lock is one of the ways it does
-        // — so reading Radar.Locked per round hands the tail of every such burst a null.
+        // Latched: GunChannel runs a burst to its end after the lock is lost.
         if (wantToFire) _burstTrack = Radar.Locked;
 
         // Whose the burst is, decided as it starts: a step that finds none in progress may begin one.
         if (_guns.BurstRemaining <= 0) _operatorBurst = manual;
 
-        // A lock that flickers moves neither the lay nor the target, so it still does not cut a
-        // burst short.
+        // A flickering lock does not cut a burst short.
         bool mayContinue = FireGate.BurstMayContinue(_operatorBurst, GunsAreLaid,
                                                      _burstTrack is { Contact.IsAlive: false });
 
         int fired = _guns.Step(dt, wantToFire, Profile, mayContinue);
         _manualTrigger = false;
 
-        // A flickering track keeps its vehicle; a destroyed one does not, and a shell must not
-        // carry a reference to it.
+        // A shell must not carry a destroyed vehicle.
         if (_burstTrack is { } held && !held.Contact.IsAlive) _burstTrack = null;
         if (fired <= 0) return;
 
@@ -1716,11 +1405,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (_guns.BurstRemaining <= 0) _burstTrack = null;
     }
 
-    // Where the designation is now, in the launcher part's frame. False once it is gone.
-    //
-    // Ground is re-read every frame rather than kept as the coordinate it was named at: held in
-    // the ecliptic it is left behind by ~29.8 km/s of orbital motion plus the site's own spin, and
-    // a turret told to follow it would swing off within a second. See Aimpoint.NeedsResampling.
+    // Ground is re-read every frame: held in the ecliptic it is left behind at ~29.8 km/s plus the
+    // site's spin. See Aimpoint.NeedsResampling.
     private bool TryDesignatedAim(out double3 partFrame)
     {
         partFrame = Vec.Zero;
@@ -1753,10 +1439,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             Designation = Designation.Resampled(groundEcl, groundVel);
         }
 
-        // From the trunnion the drive swings on, not the part's origin. Measured from the origin
-        // the bore is laid parallel to the right bearing and displaced off it, which is a fixed
-        // distance and so a shrinking angle -- fine at 20 km and visibly wrong on anything close.
-        // See AimOriginEcl.
+        // From the trunnion: see AimOriginEcl.
         double3 origin = AimOriginEcl;
 
         // Keyed apart when the shell is thrown short, so moving out of reach and back is said again.
@@ -1785,8 +1468,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return true;
         }
 
-        // So is a craft. Resting on something it moves with the ground under it; flying, it carries its
-        // own acceleration, which the lead flies it along.
+        // So is a craft: resting, with the ground's acceleration; flying, with its own.
         if (Designation.Kind == AimpointKind.Vehicle && Designation.Handle is Vehicle designated
             && KsaWorld.RestsOnSurface(designated) is var touching
             && SayContact(designated, touching, HeldContact(designated, touching)) is var rests
@@ -1815,18 +1497,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return false;
         }
 
-        // Said once, so the log distinguishes "driving" from "silently fell through" -- an absent
-        // warning alone cannot.
         WhyNotDesignated("driving", $"at {Vec.Len(Designation.PositionEcl - origin) / 1000.0:F1} km");
 
         return true;
     }
 
-    // Says why a designation is or is not driving the turret, once per state. A drive that
-    // silently falls through to the radar is indistinguishable from a click that never landed.
-    //
-    // Keyed on the *state*, never on the message: a key carrying the range changes every frame, so
-    // "say it once" becomes a line per frame, each a synchronous file write on the frame thread.
+    // Once per state, keyed on the state, never the message: one carrying the range changes every
+    // frame, a synchronous file write each.
     private string _whyNotDesignated = "";
 
     private void WhyNotDesignated(string state, string detail = "")
@@ -1837,8 +1514,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         string tail = detail.Length > 0 ? $" {detail}" : "";
 
-        // Every driving state is said as driving. They are keyed apart only so a change between them,
-        // such as going out of reach, is said again.
+        // Keyed apart only so a change between driving states is said again.
         if (state.StartsWith("driving", StringComparison.Ordinal))
         {
             Log.Info($"{Profile.DisplayName}: turret on {DesignationName} -- driving{tail}");
@@ -1849,16 +1525,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                  + $"turret -- {state}{tail}");
     }
 
-    // Slews the turret onto whatever the radar is holding, and writes the result to the part.
-    // Priority is the lock, then the most urgent threat, then rest. Following a threat before the
-    // lock has settled is what makes the vehicle look like it is *watching* the sky rather than
-    // reacting a second late. The bearing has to be computed in the part's own frame, not in Ecl:
-    // the turret rotates about the part's X axis, and the platform's own attitude is what relates
-    // the two.
+    // In the part's own frame, not Ecl: the platform's attitude relates the two. Tracking takes the
+    // lock, then the most urgent threat, so the mount watches the sky before the lock settles.
     private void UpdateTurret(double dt)
     {
-        // Evened out for the drives only. Everything that integrates the world -- rounds, fuses,
-        // the belt -- takes the step as the engine reports it.
+        // Evened out for the drives only; anything integrating the world takes the raw step.
         dt = _driveStep.Next(dt);
 
         // Cleared so the lead claim read after the chain is the one AimPointEcl made this frame.
@@ -1872,11 +1543,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (_policy.TurretSpin)
         {
             rung = TurretRung.Spin;
-            // Command a bearing that runs away at the slew rate, so the turret chases it
-            // forever. Nothing depends on this - it exists so "does the mesh move at all" can
-            // be answered from across the launchpad.
-            // Elevation still comes from the manual slider, so the two can be driven together:
-            // spinning while pitching is the quickest way to see both axes composing properly.
+            // A bearing running away at the slew rate, with the manual elevation: both axes at once.
             _spinPhase = Turret.WrapPi(_spinPhase + Profile.SlewRateRad * dt);
             Turret.Point(_spinPhase, double.DegreesToRadians(_policy.TurretManualElevationDeg));
         }
@@ -1888,13 +1555,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
         else if (TryCursorAimPartFrame(out double3 cursorFrame))
         {
-            // Ahead of the radar, and ahead of the tracking switch: with mouse aim on the operator
-            // *is* the sensor, so needing to enable radar tracking first would be surprising. The
-            // drives stay rate-limited, so this points towards the cursor rather than snapping.
+            // Ahead of the radar and the tracking switch: the operator is the sensor.
             rung = TurretRung.Cursor;
 
-            // Over ground a gun is laid to land where the cursor is. Over sky or a craft the operator
-            // is the solution, as FireBurst says.
+            // Over ground a gun is laid to land there; over sky or a craft the operator is the solution.
             if (KsaWorld.TryCursorGroundEcl(out double3 ground)
                 && TryGunGroundLay(ground, KsaWorld.GroundVelocityAt(Platform!, ground), out double3 layFrame))
             {
@@ -1907,9 +1571,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
         else if (Designation.Kind != AimpointKind.None && TryDesignatedAim(out double3 designated))
         {
-            // The operator's choice, ahead of the radar and ahead of the tracking switch: naming
-            // something is itself the instruction to follow it, so requiring tracking as well
-            // would be a click that silently does nothing.
+            // Ahead of the tracking switch: naming something is the instruction to follow it.
             rung = TurretRung.Designated;
             Turret.Track(designated);
         }
@@ -1943,9 +1605,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         Turret.Update(dt, Profile.SlewRateRad, Profile.ElevationRateRad);
 
-        // Each assembly latches on its own refusal. The drive keeps integrating either way, so the
-        // drawn facing line goes on showing where the system believes it is pointing — which is
-        // the only thing that distinguishes a refused write from a wrong solution.
+        // Each assembly latches its own refusal, and the drive keeps integrating, so the facing line
+        // still tells a refused write from a wrong solution.
         if (TurretPart is not null && _drives.Works(DriveChannel.Turret)
             && !LauncherPart.TryApplyTurretBearing(TurretPart, Turret.BearingRad))
         {
@@ -1958,7 +1619,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             Refuse(DriveChannel.Pods, "pod elevation");
         }
 
-        // The cannon follow the same aim as the pods: one turret, one solution.
         if (GunsPart is not null && _drives.Works(DriveChannel.Guns)
             && !LauncherPart.TryApplyGunAim(GunsPart, Profile, Turret.BearingRad, Turret.ElevationRad))
         {
@@ -1977,6 +1637,23 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             Refuse(DriveChannel.Recoil, "barrel recoil");
         }
 
+        // Drawn only: EjectSpeed has already thrown the round, and the arms show it.
+        if (_ejectorArms.Count > 0 && _drives.Works(DriveChannel.Ejector))
+        {
+            double reach = Ejector.ArmOffset(_clock - _lastReleaseClock, Profile.EjectSpeed,
+                                             Profile.EjectorStrokeMetres, Profile.EjectorReturnSeconds);
+            foreach (Part arm in _ejectorArms)
+            {
+                DrivePose rest = _ejectorArmRest[arm];
+                if (!LauncherPart.TryApplyPose(arm, rest with { Position = rest.Position + new double3(reach, 0.0, 0.0) },
+                                               "ejector arm"))
+                {
+                    Refuse(DriveChannel.Ejector, "ejector arm");
+                    break;
+                }
+            }
+        }
+
         if ((GunCylinderPart ?? GunRodPart ?? GunFeedPart) is not null
             && _drives.Works(DriveChannel.Linkage) && _drives.Works(DriveChannel.Guns))
         {
@@ -1990,7 +1667,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         if (GunRotorPart is not null && _drives.Works(DriveChannel.Linkage) && _drives.Works(DriveChannel.Guns))
         {
-            // Firing while the next round is due within two intervals of the last.
             bool firing = _clock - _lastGunShotClock <= 2.0 * Profile.GunRoundInterval;
             _rotor.Update(dt, firing, GunRotor.FiringRateRadPerSec(Profile),
                           Profile.GunRotorSpinUpSeconds, Profile.GunRotorSpinDownSeconds);
@@ -2002,19 +1678,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             }
         }
 
-        // A carried director's base, taken round by the traverse and given no aim of its own. The
-        // head above it reads this transform back rather than being handed the bearing, so it must
-        // be written before any head is updated — which is the order KSArmoryMod runs them in.
+        // Before any head updates, as KSArmoryMod orders them: the head reads this transform back.
         if (OpticBasePart is not null && _drives.Works(DriveChannel.Optic)
             && !LauncherPart.TryApplyOpticBase(OpticBasePart, Profile, Turret.BearingRad))
         {
             Refuse(DriveChannel.Optic, "director base");
         }
 
-        // The search array turns regardless of what the system is doing - it is looking, not
-        // aiming - so it is driven off the clock rather than off the track. A set with no array
-        // modelled still turns one, because the scope's sweep reads this angle; one the engine
-        // has frozen does not, so the sweep stops with the mesh.
+        // Off the clock, not the track. Turned with no array modelled, since the scope reads it; not
+        // when the engine froze the mesh, so the sweep stops with it.
         bool frozen = RadarPart is not null && !_drives.Works(DriveChannel.Radar);
 
         if (Profile.SearchRadarFaces > 0 && !frozen && !_policy.SearchRadarStopped)
@@ -2030,10 +1702,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
     }
 
-    // What the tracking lay was last frame, so a jump in it can be explained. The lay moving further
-    // in one frame than the settle tolerance restarts the settle clock, and from outside that is the
-    // mount bobbing while the gun holds fire. One jump as a target comes into the gun's reach is the
-    // lay moving onto the lead, and is expected.
+    // A jump past the settle tolerance restarts the settle clock, which looks like the mount bobbing
+    // while the gun holds fire. One jump onto the lead as a target comes into reach is expected.
     private object? _layHandle;
     private double3 _layAimEcl;
     private double3 _layAimPart;
@@ -2043,9 +1713,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private double _layJumpLoggedAt = double.NegativeInfinity;
     private int _layJumpsUnlogged;
 
-    // Splits a jump into the aim moving in the world and the mount turning under it, and names what
-    // fed the lead either side of it -- so one engagement says whether the lead, the target's
-    // acceleration or the craft itself is jumping. Only on the same contact: a new one is a new lay.
+    // Splits a jump into the aim moving and the mount turning under it, with what fed the lead.
     private void WatchLay(Track aim, double3 aimEcl, double3 partFrame)
     {
         object handle = aim.Contact.Handle;
@@ -2100,29 +1768,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     /// <summary>
-    /// Moves the round bodies to match the rounds the mod is simulating.
-    ///
-    /// <para>Each tube has a subpart of its own, hidden until that round is in the air. It is
-    /// the same trick the turret uses — write the transform, reset the cache — applied to
-    /// something that travels kilometres rather than turning on the spot, which is why the
-    /// gizmo tracers stay available as a fallback.</para>
-    ///
-    /// <para>A gun's shells have no tube and no subpart: only their attitude is turned here, and
-    /// <see cref="DrawShellBodies"/> draws them.</para>
-    ///
-    /// <para>Rounds are indexed from one, so tube N is body N-1.</para>
+    /// Each tube's subpart, hidden until its round is in the air; tube N is body N-1. A shell's
+    /// attitude only is turned here, and <see cref="DrawShellBodies"/> draws it.
+    /// <para><b>Every rendered frame, not every simulation step</b>, or a frame with no step leaves
+    /// the bodies behind. It reads state and changes none.</para>
     /// </summary>
-    /// <para><b>Called every rendered frame, not every simulation step.</b> Writing a subpart
-    /// transform is a drawing job: the system only steps when simulated time advances, so a frame
-    /// rendered without a step would leave the bodies behind while the world moved on. Placement
-    /// reads state and changes none, so running it more often than the simulation is free.</para>
     public void SyncRoundBodies()
     {
         if (Platform is not { } platform || Launcher is not { } launcher || !KsaWorld.IsAlive(platform)) return;
         if ((_missileBodies.Count == 0 && _shellModel is null) || !RoundBodiesWork) return;
 
-        // Switched off by the operator: hide every body so the tracers are what is seen, rather
-        // than leaving twelve missiles frozen wherever they were last written.
+        // Hidden, or the bodies stay frozen where last written.
         if (!_config.UseRoundBodies)
         {
             for (int i = 0; i < _missileBodies.Count; i++) LauncherPart.HideMissile(_missileBodies[i]);
@@ -2132,16 +1788,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         TurnShellBodies(platform, launcher);
 
-        // Both counts, because they come from different files and can disagree: the bodies are
-        // what the art declares, TubeCount is what the profile does. Sizing this by one and
-        // bounds-checking the loop against the other is an IndexOutOfRangeException the moment
-        // there is one more body than tube -- thrown from inside the frame hook, ten times in a
-        // fifth of a second, which trips the fault limit and disables the mod for the session.
+        // Both counts, from two files that can disagree: one more body than tube would throw from
+        // inside the frame hook.
         int slots = Math.Min(_missileBodies.Count, Profile.TubeCount);
         if (slots <= 0) return;
 
-        // A body that is not drawn looks identical whichever gate stopped it, and none of them
-        // says so. One line, once per system, naming every gate at once.
+        // Once per system, every gate at once: an undrawn body looks the same whichever stopped it.
         if (!_bodyGatesReported)
         {
             _bodyGatesReported = true;
@@ -2160,8 +1812,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             int index = round.Tube - 1;
             if (index < 0 || index >= slots) continue;
 
-            // Tube numbers are unique among rounds in the air. Two sharing one body would write
-            // it twice a frame and it would flip between their positions.
             if (flying[index])
             {
                 if (!_warnedDuplicateTube)
@@ -2173,19 +1823,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 continue;
             }
 
-            // Leaves at the attitude it sat in its tube at, and turns onto the airflow as that gains
-            // authority. A store released rather than fired has no airspeed at the moment it lets
-            // go, so the tube is the only thing that says which way it points.
-            //
-            // The tube, emphatically not Boresight. A bomb sight boresights MountNormal -- its
-            // mounting face's outward normal -- while a tube points along +Y, so the two are
-            // perpendicular by construction at every attitude and the boresight would draw a
-            // released store across its own axis. Falling back to it is still right when the tube
-            // cannot be resolved: some direction beats none.
-            // What it left along, captured at launch. NOT the tube axis now: a released round has
-            // gone, and re-reading the launcher every frame rolls the rounds in flight with the
-            // craft that dropped them. The live tube is only the fallback for a round with no
-            // recorded release, which nothing that launches through Fire() produces.
+            // What it left along, captured at launch, not the live tube, which rolls rounds in flight
+            // with the craft. Boresight is the last resort only: a bomb sight's is square to the tube.
             double3 release = Vec.IsFinite(round.ReleaseHeadingEcl)
                               && Vec.Len2(round.ReleaseHeadingEcl) > 1e-9
                                   ? round.ReleaseHeadingEcl
@@ -2194,9 +1833,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                       ? tubeEcl
                                       : Boresight;
 
-            // Density where the round actually is: in vacuum nothing weathervanes, so a store keeps
-            // the attitude it left the tube with however fast it is travelling. Turned across the
-            // round's own age since the last draw, so a paused world turns nothing.
+            // In vacuum nothing weathervanes. Turned over the round's own age, so a pause turns nothing.
             double density = KsaWorld.MediumDensityRatioAt(platform, round.PositionEcl);
             DrawnAttitude drawn = _drawnAttitudes.TryGetValue(round, out DrawnAttitude was)
                                       ? was
@@ -2225,16 +1862,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             }
             flying[index] = true;
 
-
-
-
-            // Hinged blades, or the older single set that opens by scaling. Which one a round has
-            // is the model's business, declared by FinsPerRound.
+            // Hinged blades, or the single set that opens by scaling, as FinsPerRound declares.
             if (Munition.FinsPerRound > 0)
             {
-                // The command is ecliptic and the blades are in the body's frame, so it is carried
-                // in through the launcher the same way every other world direction is: Asmb2Ego's
-                // conjugate for world-to-vehicle, then the body's own rotation off.
+                // Ecliptic to the body's frame: Asmb2Ego's conjugate, then the body's rotation off.
                 double3 commandBody = Vec.Zero;
                 if (!round.SteeringCommandEcl.Equals(Vec.Zero))
                 {
@@ -2261,16 +1892,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                           round.FinDeployment(Munition), Munition);
             }
 
-            // Everything the placement depends on, so a zigzag can be attributed rather than
-            // guessed at: if travel is smooth but the drawn position is not, the fault is in the
-            // frame conversion or in the engine; if travel itself jumps, it is the simulation.
+            // Smooth travel with a jumping drawn position is the frame conversion or the engine; jumping
+            // travel is the simulation.
             if (trace)
             {
                 IProjectile r = round;
 
-                // Range to the target and whether the seeker can still see it. Without these a
-                // miss in the log is just a number at the end; with them the flight shows where
-                // it stopped converging, and whether the seeker had dropped it by then.
                 double tgtRange = -1.0;
                 if (r.TargetRef is Vehicle tv && KsaWorld.IsAlive(tv))
                     tgtRange = Vec.Len(KsaWorld.PositionEcl(tv) - r.PositionEcl);
@@ -2278,11 +1905,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                          && _incomingByHandle.TryGetValue(r.TargetRef, out IContact? tc) && tc.IsAlive)
                     tgtRange = Vec.Len(tc.PositionEcl - r.PositionEcl);
 
-                // The drawn offset against the true one. OffsetFromPlatform is accumulated from
-                // local velocity; PositionEcl - PlatformEcl is the same quantity taken directly.
-                // They should agree. 800 m apart at detonation while the fuse and the blast agree
-                // to the decimal means the round is killing the target and being rendered
-                // somewhere else entirely. This shows where that opens up.
+                // The drawn offset against PositionEcl - PlatformEcl, which should agree.
                 double drift = Vec.Len(r.OffsetFromPlatform - (r.PositionEcl - PlatformEcl));
 
                 Log.Debug(() =>
@@ -2297,10 +1920,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                     $"link {(r.SeekerInView ? "on" : "OFF")} " +
                     $"drift {drift:F1} m");
 
-                // Which way it is drawn, and why. A store keeps its release attitude until the
-                // airflow has authority, so "wrong way up" is three different faults that look the
-                // same: no air to weathervane in, no speed to weathervane with, or a release
-                // heading that was wrong to begin with. Print all three rather than guess.
+                // "Wrong way up" is no air, no speed, or a wrong release heading; all three printed.
                 double rho = KsaWorld.MediumDensityRatioAt(platform, r.PositionEcl);
                 double spd = Vec.Len(r.VelocityLocal);
                 double3 drawnNose = drawn.Ecl * FireGeometry.NoseAxis;
@@ -2317,8 +1937,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             }
         }
 
-        // Every tube not in the air is seated first, spent or not, and only then hidden. See
-        // TubeVisual for why "hide without seating" is not one of the options.
+        // Seated first, spent or not, then hidden: see TubeVisual.
         for (int i = 0; i < _missileBodies.Count && i < Profile.TubeCount; i++)
         {
             TubeVisual plan = _magazine.Plan(i, flying[i]);
@@ -2339,8 +1958,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
     }
 
-    // Which way each shell is drawn, on from where it was last drawn as a missile's body is. Only the
-    // attitude: DrawShellBodies places it, in the render pass.
+    // Only the attitude: DrawShellBodies places it, in the render pass.
     private void TurnShellBodies(Vehicle platform, Part launcher)
     {
         if (_shellModel is null) return;
@@ -2353,8 +1971,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                   ? round.ReleaseHeadingEcl
                                   : Boresight;
 
-            // A missile's attitude rule, keyed by the round rather than by a tube: it leaves at the
-            // launcher's roll and swings onto the airflow without adding any.
+            // A missile's rule, keyed by the round rather than a tube.
             double density = KsaWorld.MediumDensityRatioAt(platform, round.PositionEcl);
             DrawnAttitude drawn = _drawnAttitudes.TryGetValue(round, out DrawnAttitude was)
                                       ? was
@@ -2368,13 +1985,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     /// <summary>
-    /// Queues every shell in the air for one viewport, as an instance of the shell's model: one draw
-    /// for all of them, and no subpart for any, so there is no limit on how many are seen.
-    ///
-    /// <para>Placed as the engine places the launcher's own parts, off the camera's view of the craft
-    /// (<c>Vehicle.GetMatrixAsmb2Ego</c>), with the round's offset from it taken from
-    /// <see cref="TryRoundEffectEcl"/> less the craft's position -- both read now, so the ecliptic
-    /// motion cancels, and it is where a shell subpart was drawn to the metre.</para>
+    /// Every shell for one viewport as one instanced draw, no subpart each. Off the camera's view of
+    /// the craft plus <see cref="TryRoundEffectEcl"/> less its position, both read now, so the
+    /// ecliptic motion cancels.
     /// </summary>
     public void DrawShellBodies(IViewport viewport, int frameIndex)
     {
@@ -2395,10 +2008,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
     }
 
-    /// <summary>
-    /// Queues the bodies of this system's rounds that are beyond <see cref="FarBodyMetres"/> of their launcher for one
-    /// viewport, placed as <see cref="DrawShellBodies"/> places a shell.
-    /// </summary>
+    /// <summary>Rounds past <see cref="FarBodyMetres"/>, placed as <see cref="DrawShellBodies"/> places a shell.</summary>
     public void DrawFarBodies(IViewport viewport, int frameIndex)
     {
         if (_farBodies.Count == 0 || !_config.UseRoundBodies || Platform is not { } platform
@@ -2418,17 +2028,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
     }
 
-    // The threat the turret should be watching when there is no firing solution yet.
     private Track? MostUrgentThreat()
     {
         int i = ThreatModel.IndexOfMostUrgent(Radar.Tracks);
         return i >= 0 ? Radar.Tracks[i] : null;
     }
 
-    /// <summary>
-    /// Commits one round to <paramref name="track"/>. Returns false when the shot is refused,
-    /// which the panel reports rather than failing silently.
-    /// </summary>
+    /// <summary>False when refused, which is announced.</summary>
     public bool Fire(Track track)
     {
         if (!track.Contact.IsAlive) { Announce("refused: target gone"); return false; }
@@ -2438,9 +2044,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return false;
         }
 
-        // The same gate the ladder reports, so the trigger cannot spend a round on a contact the
-        // seeker has no way to see. Refused rather than re-targeted: what to shoot at is the
-        // operator's decision, and silently swapping the target is worse than declining.
+        // The ladder's gate, refused rather than re-targeted: what to shoot at is the operator's.
         if (Munition.Guidance == GuidanceMode.AntiRadiation && !TargetIsEmitting(track))
         {
             Announce($"refused: {track.Contact.DisplayName} is not radiating");
@@ -2451,9 +2055,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                               track.VelocityEcl, track.Contact.MeanRadius),
                            $"{track.Contact.DisplayName} ({track.Range / 1000.0:F1} km)");
 
-        // Counted the moment it leaves, not on the next rebuild. The systems on a craft are
-        // stepped one after another within a frame, so a tally that only caught up next frame
-        // would let every one of them fire before any of them saw the first round go.
+        // Counted as it leaves, or every system on the craft fires before the tally catches up.
         if (away)
         {
             CraftRounds?.Commit(track.Contact.Handle);
@@ -2464,16 +2066,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     /// <summary>
-    /// Lets one round go with nothing to aim it at.
-    ///
-    /// <para>An unguided bomb carries no seeker and no uplink, so where it lands was decided by
-    /// where the aircraft was and what it was doing at the moment the operator let it go. Passing
-    /// that one an aimpoint would be a lie the flight model then ignores.</para>
-    ///
-    /// <para>A guided tail kit is the exception, and it is why this takes the designation rather
-    /// than always dropping blind: it steers a fall instead of flying one, so it is still
-    /// <em>released</em> — but onto whatever the operator designated. With nothing designated it
-    /// is a dumb bomb, which is exactly what the real one is when released ballistically.</para>
+    /// Lets one store go. An unguided one gets no aimpoint; a tail kit is released onto the
+    /// designation, and with none it falls as a dumb bomb.
     /// </summary>
     public bool Release()
     {
@@ -2492,9 +2086,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     /// <summary>
-    /// The store this launcher released last, which the marks inside its reach steer until the
-    /// weapon releases again; null otherwise. <c>WeaponSystems.ReconcileSteerables</c> clears it
-    /// when another station of the weapon has released since.
+    /// The store released last, which marks inside its reach steer until the weapon releases again.
+    /// <c>WeaponSystems.ReconcileSteerables</c> clears it when another station has released since.
     /// </summary>
     public IProjectile? Steerable
     {
@@ -2504,21 +2097,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     private IProjectile? _steerable;
 
-    /// <summary>When this launcher last fired anything, as a count of rounds across every launcher.</summary>
+    /// <summary>A count of rounds across every launcher, not a time.</summary>
     public long ReleasedAt { get; private set; }
 
     private static long _releases;
 
     public void LockSteerable() => _steerable = null;
 
-    /// <summary>
-    /// Commits one round to a position in the world rather than to a craft.
-    ///
-    /// <para>The gates a track brings with it — alive, and on a side that may be engaged — have no
-    /// meaning for a coordinate, and there is deliberately no substitute: an operator pointing at
-    /// a place has said what they want. Everything after the aimpoint is identical, which is why
-    /// this and <see cref="Fire(Track)"/> share <c>Commit</c> rather than being written twice.</para>
-    /// </summary>
     /// <inheritdoc cref="IManualFire.NextTube"/>
     public int NextTube
         => _magazine.TryPeekTube(_rounds, out int tube) ? tube : -1;
@@ -2592,10 +2177,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 continue;
             }
 
-            // The steady terms Commit builds a round's launch state from - where the tube is and
-            // which way it throws. The spin is reported beside them rather than added: it is what
-            // the vehicle happens to be doing this instant, and a prediction that carries it hands
-            // a moving target to the loop that corrects the aim.
+            // The steady terms Commit builds from; the spin is reported beside them, not added.
             double3 spin = FireGeometry.SpinVelocity(angular, mouth, centreOfMass);
 
             sumPos += mouth;
@@ -2638,17 +2220,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                               out spinEcl, out armEcl);
     }
 
+    /// <summary>
+    /// Commits a round to a place rather than a craft: a track's gates have no meaning there, and
+    /// the operator pointing at a place has said what they want.
+    /// </summary>
     public bool FireAt(double3 pointEcl)
     {
         if (!Vec.IsFinite(pointEcl)) { Announce("refused: designation is not a position"); return false; }
 
         double range = Platform is null ? 0.0 : Vec.Len(pointEcl - PlatformEcl);
 
-        // A gun shoots where it is pointing, so a designation aims it rather than naming a place a
-        // round is flown to. The reach gate below is about the latter, and running it here refuses
-        // the shot outright rather than letting it fall short -- which leaves the cannon silent on
-        // ground past the shell's reach while the sky fires, because only the sky path reaches the
-        // trigger. Say the range, because the belt does not come back.
         if (TriggerArmament == ArmamentKind.Beam)
         {
             Aimpoint point = KsaWorld.TryAnchorToGround(pointEcl, out object? ground, out double3 at)
@@ -2658,6 +2239,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return PressBeam();
         }
 
+        // A gun shoots where it points, so the reach gate below does not apply: it would refuse the
+        // shot rather than let it fall short. Said, because the belt does not come back.
         if (TriggerArmament == ArmamentKind.Belt)
         {
             if (Profile.HasCannon && range > Shell.MaxRange)
@@ -2669,17 +2252,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return FireBurst();
         }
 
-        // The round's own reach. Without this gate a designation the cursor solve puts beyond the
-        // horizon is committed, and the round is spent flying at somewhere it can never arrive.
-        // Said out loud, because a designation that is simply too far is an ordinary thing for an
-        // operator to do and worth being told about.
+        // Or a designation past the horizon spends a round on somewhere it can never arrive.
         if (range > Munition.MaxRange)
         {
             Announce($"refused: {range / 1000.0:F1} km is beyond the round's {Munition.MaxRange / 1000.0:F0} km reach");
             return false;
         }
 
-        // Anchored to the body it sits on, never held as the coordinate it was when it was named.
         Aimpoint aim = KsaWorld.TryAnchorToGround(pointEcl, out object? body, out double3 anchor)
                            ? Aimpoint.OnGround(body!, anchor, pointEcl, Vec.Zero)
                            : Aimpoint.AtPoint(pointEcl);
@@ -2687,23 +2266,18 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return Commit(aim, $"a designated point ({range / 1000.0:F1} km)");
     }
 
-    // Everything a shot needs once it is known what is being shot at: the gates that belong to the
-    // launcher rather than to the target, a tube, the launch geometry, and the round.
+    // The launcher's own gates, a tube, the launch geometry and the round.
     private bool Commit(Aimpoint aim, string what)
     {
         if (TriggerArmament == ArmamentKind.Beam) return PressBeam();
 
-        // A launcher with no tubes has exactly one weapon, and every gate below is about the
-        // magazine it does not own. Sending it down this path refuses every manual shot on an
-        // empty magazine, which leaves a working cannon with no trigger at all.
+        // Every gate below is about a magazine a tubeless launcher does not own.
         if (Profile.TubeCount == 0) return FireBurst();
 
         if (Platform is null) { Announce("refused: no platform"); return false; }
         if (!IsOperational) { Announce("refused: no launcher part fitted"); return false; }
 
-        // Named, because a craft can carry several and "launcher empty" is true of one of them
-        // while another is loaded. The weapon that refused is the one the operator has to switch
-        // away from, and without saying which it reads as the whole craft being out.
+        // Named: another launcher on the craft may be loaded.
         if (Ammo <= 0)
         {
             Announce($"refused: {Profile.DisplayName} ({LauncherOrdinal + 1}) is empty");
@@ -2711,13 +2285,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
         if (!IsLaid) { Announce("refused: launcher still slewing"); return false; }
 
-        // Takes the round as it picks the tube. Nothing between here and the round being added
-        // can fail, so a tube is never claimed without a round.
+        // Nothing between here and AddRound can fail without returning the tube.
         if (!_magazine.TryTakeTube(_rounds, out int tube))
         {
-            // A launcher with no tubes has none to be free. Saying so is the difference between
-            // "this weapon carries no missiles" and "wait a moment", which is what the generic
-            // message reads as.
             Announce(Profile.TubeCount == 0
                          ? $"refused: {Profile.DisplayName} carries no missiles"
                          : "refused: no free tube");
@@ -2726,13 +2296,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         Launch launch = LaunchFrom(tube, aim);
 
-        // A seeker round released outside its own gimbal limit never steers and never recovers, so
-        // this is the last point at which that is still a refusal rather than a round flying away
-        // for its whole life. The tube goes back: the shot was never taken.
-        // Operator-held waives the gimbal limit, because a launcher that cannot be pointed has no
-        // way to bring a designated place inside it -- the rail's 92 to 116 degrees off is that,
-        // and is a limit on the seeker rather than a fault. A launcher that *trains* has no
-        // such excuse: waiving it there lets a round leave along a stale tube and says nothing.
+        // A seeker released outside its gimbal never recovers, so refused here and the tube returned.
+        // Waived for a ground designation on a launcher that cannot train, which has no way to bring
+        // it inside; a trained one has no such excuse.
         double3 toAim = aim.PositionEcl - launch.Position;
         if (!FireGate.CanGuideOntoAimpoint(Munition.Guidance,
                                            aim.Kind == AimpointKind.Ground && !Profile.Trains,
@@ -2745,27 +2311,31 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return false;
         }
 
-        // Motorless rounds are slugs: no seeker, lock, boost or command link, so an Interceptor
-        // with its steering switched off would be that whole flight model behind guards. Which
-        // implementation a munition gets is decided here and only here.
-        //
-        // Inertial is on this side of the split rather than the missile side: a guided tail kit
-        // steers a fall, it does not fly one. It is the same ballistics, the same drag and the
-        // same ground the bomb sight flies - with a few g of fin authority added inside Slug.
-        //
-        // platformVel is the frame the round launches into. Passing it here is what makes the body
-        // orientable on its very first drawn frame - see the Interceptor constructor.
+        // The only place a munition's implementation is chosen: unpowered rounds, a tail kit
+        // included, are slugs, flown as the bomb sight flies them. An ejector's push is laid along
+        // its stroke; a sight reading it at once lands a store 0.1 m further from its rack.
+        double strokeSeconds = Ejector.StrokeSeconds(Profile.EjectSpeed, Profile.EjectorStrokeMetres);
+        bool stroked = strokeSeconds > 0.0 && !launch.Eject.Equals(Vec.Zero);
+        double3 leaving = stroked ? launch.Velocity - launch.Eject : launch.Velocity;
+        double3 ejectAccel = stroked
+            ? Vec.Unit(launch.Eject) * Ejector.Acceleration(Profile.EjectSpeed, Profile.EjectorStrokeMetres)
+            : Vec.Zero;
+
         AddRound(!Munition.Powered
-            ? new Slug(launch.Position, launch.Velocity, aim.Handle, tube + 1, PlatformEcl, launch.FrameVelocity)
+            ? new Slug(launch.Position, leaving, aim.Handle, tube + 1, PlatformEcl, launch.FrameVelocity)
             {
                 Munition = Munition,
                 LaunchAnchorPartFrame = launch.AnchorPartFrame,
                 ReleaseHeadingEcl = launch.Heading,
                 LaunchAttitude = Platform?.Asmb2Ego ?? doubleQuat.Identity,
                 SpinVelocityEcl = launch.Spin,
+                LaunchFrameVelocityLocal = launch.PlatformVelocity + launch.Eject - launch.FrameVelocity,
+                MotorDelaySeconds = Profile.MotorDelaySeconds,
+                EjectAccelerationEcl = ejectAccel,
+                EjectSeconds = stroked ? strokeSeconds : 0.0,
                 Aimpoint = aim,
             }
-            : new Interceptor(launch.Position, launch.Velocity, aim.Handle, tube + 1, PlatformEcl,
+            : new Interceptor(launch.Position, leaving, aim.Handle, tube + 1, PlatformEcl,
                               launch.FrameVelocity)
             {
                 Munition = Munition,
@@ -2773,19 +2343,22 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 ReleaseHeadingEcl = launch.Heading,
                 LaunchAttitude = Platform?.Asmb2Ego ?? doubleQuat.Identity,
 
-                // What the round inherited rather than earned, so the motor can push along the
-                // round instead of along the craft's track. Differenced here from the two terms
-                // rather than passed as one: both are this frame's samples and the ecliptic's
-                // ~29.8 km/s cancels in the subtraction. Zero for a launcher standing still.
-                LaunchFrameVelocityLocal = launch.PlatformVelocity - launch.FrameVelocity,
+                // Inherited rather than earned, so the motor pushes along the round. Differenced here
+                // from this frame's samples, so the ~29.8 km/s cancels.
+                LaunchFrameVelocityLocal = launch.PlatformVelocity + launch.Eject - launch.FrameVelocity,
+                MotorDelaySeconds = Profile.MotorDelaySeconds,
+                EjectAccelerationEcl = ejectAccel,
+                EjectSeconds = stroked ? strokeSeconds : 0.0,
                 Aimpoint = aim,
             });
         _salvoTimer = Profile.SalvoSpacing;
+        _lastReleaseClock = _clock;
 
         Announce(aim.Kind == AimpointKind.None
                      ? $"round {tube + 1} released - {what}"
                      : $"round {tube + 1} away at {what}"
-                       + Ejection(launch.Direction, launch.PlatformVelocity, launch.Position, launch.Spin));
+                       + Ejection(launch.Direction, launch.PlatformVelocity, launch.Position, launch.Spin,
+                                  launch.Eject));
         return true;
     }
 
@@ -2811,14 +2384,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return launch.FromTube && Vec.IsFinite(positionEcl) && Vec.IsFinite(velocityEcl);
     }
 
-    // Where a round from one tube leaves, which way it is pushed and pointed, and what it leaves
-    // with. One expression for the release and for anything predicting it: a sight solved from a
-    // tidier launch than the round gets puts its ring where the round does not go -- 94 m, flown,
-    // off a climbing rack whose ejector throws a store 50 degrees off its axis.
+    // One expression for the release and anything predicting it: a sight solved from a tidier launch
+    // put its ring 94 m off, flown, off a climbing rack whose ejector throws 50 degrees off axis.
     private readonly record struct Launch(bool FromTube, double3 Position, double3 AnchorPartFrame,
                                           double3 Direction, double3 Heading, double3 Spin,
                                           double3 Velocity, double3 PlatformVelocity,
-                                          double3 FrameVelocity);
+                                          double3 FrameVelocity, double3 Eject);
 
     private Launch LaunchFrom(int tube, Aimpoint aim)
     {
@@ -2826,17 +2397,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         double3 platformVel = KsaWorld.VelocityEcl(platform);
         double3 frameVel = KsaWorld.GroundVelocityAt(platform, PlatformEcl);
 
-        // From the tube itself, using where the pods are aimed. The ring about the boresight
-        // below is a fallback for a launcher with no pods: it ignores traverse and elevation.
+        // From the tube as the pods are aimed; the boresight ring below ignores traverse and elevation.
         double3 launchAnchorPartFrame = Vec.Zero;
         double3 tubeMouth = Vec.Zero;
         bool fromTube = Launcher is not null && TubesResolved
                         && LauncherPart.TryGetTubeMuzzleEcl(platform, Launcher, PodsPart, Profile, tube,
                                                             PlatformEcl, out tubeMouth)
-                        // Seated, not at the mouth: the body mesh is modelled about its centre,
-                        // so anchoring at the mouth starts the round half out of the tube. From
-                        // the seated point it emerges as it accelerates, which is what a tube
-                        // launch looks like.
+                        // Seated, not at the mouth: the mesh is modelled about its centre.
                         && LauncherPart.TryGetSeatedPartFrame(PodsPart, Profile, tube,
                                                               Munition.BodyLength,
                                                               out launchAnchorPartFrame);
@@ -2847,16 +2414,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 ? LauncherPart.MuzzleEcl(Profile, MountEcl, Boresight, tube)
                 : MountEcl + Boresight * Profile.MuzzleOffset;
 
-        // Along the tube, so the round emerges pointing where the launcher points. The fallback
-        // slews to the target and adds loft instead, which is what a launcher with fixed tubes
-        // needs and what a laid one must not do.
+        // Along the tube; the fallback slews to the target with loft, which a laid launcher must not.
         double3 tubeAxis = Vec.Zero;
         bool alongTube = fromTube && Profile.LaunchAlongTube
                          && LauncherPart.TryGetTubeAxisEcl(platform, Launcher!, PodsPart, Profile, tube, out tubeAxis);
 
-        // Nothing to point at is not the origin of the ecliptic. A released round takes the tube's
-        // own direction, and the no-tube fallback takes the boresight -- reading aim.PositionEcl
-        // through an empty aimpoint sends it at the Sun.
+        // An empty aimpoint's position is the ecliptic origin, the Sun.
         double3 aimForGeometry = aim.Kind == AimpointKind.None
                                      ? launchPos + Boresight
                                      : aim.PositionEcl;
@@ -2865,48 +2428,42 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             alongTube, tubeAxis, launchPos, aimForGeometry, Boresight, Profile.LaunchLoft,
             Profile.EjectAwayFromMount);
 
-        // Which way it POINTS as it leaves, which is not which way it is pushed. EjectAwayFromMount
-        // biases launchDir toward the boresight to model the ejector shoving a store off its rack --
-        // at 1.2 against a unit tube axis that is 50 degrees, and feeding it to the attitude draws
-        // the round leaving at 50 degrees to the rack still holding it.
-        //
-        // A store points along its rack until the airflow says otherwise. In air that is invisible,
-        // because it weathervanes within a second; released in vacuum it is permanent.
+        // Which way it points, not which way it is pushed: EjectAwayFromMount biases launchDir 50
+        // degrees off the tube. In vacuum nothing turns it back.
         double3 releaseHeading = alongTube && !Vec.Unit(tubeAxis).Equals(Vec.Zero)
                                      ? Vec.Unit(tubeAxis)
                                      : launchDir;
 
-        // The tube is already moving if the platform is turning, and a released store keeps that.
-        // Measured from the centre of mass, which is what the craft actually pivots about.
+        // A turning platform's tube is already moving; from the centre of mass it pivots about.
         double3 spinVel = FireGeometry.SpinVelocity(KsaWorld.AngularVelocityEcl(platform), launchPos,
                                                     KsaWorld.CentreOfMassEcl(platform));
 
+        // Out of the mounting face; the direction stays the tube's, which the gimbal is measured off.
+        double3 eject = Vec.Zero;
+        if (Profile.EjectSpeed > 0f && Launcher is { } launcher
+            && LauncherPart.TryLauncherDirectionEcl(platform, launcher, TubeGeometry.TraverseAxis, out double3 mountNormal))
+        {
+            eject = FireGeometry.Ejection(mountNormal, Profile.EjectSpeed);
+        }
+        double slide = eject.Equals(Vec.Zero) ? Munition.LaunchSpeed : 0.0;
+
         return new Launch(fromTube, launchPos, launchAnchorPartFrame, launchDir, releaseHeading, spinVel,
-                          platformVel + spinVel + (launchDir * Munition.LaunchSpeed), platformVel, frameVel);
+                          platformVel + spinVel + eject + (launchDir * slide), platformVel, frameVel, eject);
     }
 
     /// <summary>
-    /// Whether a round fired now could steer onto <paramref name="pointEcl"/>, so the designation
-    /// ring can answer before a round is spent rather than after.
-    ///
-    /// <para>Measured from tube zero and the mount rather than from the tube the shot would
-    /// actually use — metres apart on a launcher, against kilometres of range, so the angle is the
-    /// same to well within the gimbal limit being tested. True when there is nothing to measure
-    /// against: a preview should not report a refusal the shot itself would not make.</para>
+    /// For the designation ring, before a round is spent. From tube zero and the mount, metres off
+    /// the tube used against kilometres of range; true with nothing to measure against.
     /// </summary>
     public bool CanGuideOnto(double3 pointEcl)
     {
         // A shell is not guided at all, and the trigger on the cannon never asks.
         if (TriggerArmament == ArmamentKind.Belt) return true;
 
-        // Held true regardless it would read green however far off the tube the click is, which is
-        // the one thing this preview exists to say.
         return SeekerCanTake(Munition, pointEcl, operatorHeld: !Profile.Trains, out _);
     }
 
-    // The rule the shot itself is held to, measured from tube zero and the mount, so the ring, the
-    // fire ladder and the trigger all answer the same question. True when there is nothing to
-    // measure against, with the angle left NaN.
+    // One rule for the ring, the ladder and the trigger. The angle is NaN when true for want of a tube.
     private bool SeekerCanTake(MunitionProfile munition, double3 pointEcl, bool operatorHeld, out double offTubeDeg)
     {
         offTubeDeg = double.NaN;
@@ -2922,18 +2479,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     /// <summary>
-    /// Opens a cannon burst along wherever the mount is already laid.
-    ///
-    /// <para>The operator is the fire-control solution here: mouse aim lays the barrels and this
-    /// pulls the trigger. Over the sky it solves no lead — one applied on top of a shot the operator
-    /// is eyeballing walks the shells off the point aimed at, and the automatic path already computes
-    /// one for the target it chose. Over the ground the lay is already the solution, because the drop
-    /// onto a point on flat ground cannot be eyeballed: the cursor cannot be put above it.</para>
-    ///
-    /// <para>Every refusal is announced. "Nothing happened" is the same symptom for a switched-off
-    /// cannon, an empty belt and a mount still slewing.</para>
-    ///
-    /// <para><paramref name="rounds"/> above zero fires that many rather than the profile's burst.</para>
+    /// Along wherever the mount is laid, solving no lead: over the sky the operator is the solution,
+    /// and over the ground the lay already is. Every refusal is announced.
+    /// <paramref name="rounds"/> above zero fires that many rather than the profile's burst.
     /// </summary>
     public bool FireBurst(int rounds = 0)
     {
@@ -2949,10 +2497,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return true;
     }
 
-    /// <summary>
-    /// Whether a manual shot would be taken right now, asked of the armament the trigger fires. A
-    /// gun reads zero from the magazine forever.
-    /// </summary>
+    /// <summary>Of the armament the trigger fires: a gun reads zero from the magazine forever.</summary>
     public bool ReadyToFire => TriggerArmament switch
     {
         ArmamentKind.Tubes => Ammo > 0 && IsLaid,
@@ -2961,14 +2506,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     };
 
     /// <summary>
-    /// Where the cannon's flashes belong, in Ecl: one point per barrel cluster.
-    ///
-    /// <para><b>Per cluster, not one average.</b> A rotary cannon's barrels sit within a hand's
-    /// breadth and their mean is on the gun; a mount with a sponson either side has its mean
-    /// <em>between</em> them, on the centreline, where there is no gun and nothing is firing.
-    /// <see cref="TubeGeometry.ClusterMuzzles"/> decides which share one.</para>
+    /// One point per barrel cluster (<see cref="TubeGeometry.ClusterMuzzles"/>): a sponson either side
+    /// averages to the centreline, where nothing is firing.
     /// </summary>
-    /// <param name="into">Filled with one position per cluster; the count returned says how many.</param>
     public int GunFlashPointsEcl(Span<double3> into)
     {
         if (!Profile.HasCannon || Platform is null || Launcher is null) return 0;
@@ -3001,8 +2541,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             counts[g]++;
         }
 
-        // Only the clusters that actually resolved, packed to the front so the caller's count is
-        // the number of real points rather than the number of groups the profile declares.
+        // Resolved clusters only, packed to the front.
         int found = 0;
         for (int g = 0; g < sums.Length; g++)
         {
@@ -3017,7 +2556,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return found;
     }
 
-    /// <summary>Whether the cannon have a flash to draw at all.</summary>
     public bool HasGunFlash()
     {
         Span<double3> one = stackalloc double3[1];
@@ -3025,12 +2563,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     /// <summary>
-    /// Which of this system's armaments the manual trigger fires.
-    ///
-    /// <para>A launcher carrying tubes and a belt is two weapons to whoever is pulling the trigger,
-    /// and the switcher lists them as two: a trigger that reached only the tubes would leave the
-    /// cannon to auto-engage alone. A launcher with no tubes answers the belt whatever was asked,
-    /// and one with no cannon the tubes.</para>
+    /// Tubes and a belt are two weapons to the trigger. A launcher without one answers the other
+    /// whatever was asked.
     /// </summary>
     public ArmamentKind TriggerArmament
     {
@@ -3052,7 +2586,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     private ArmamentKind _triggerArmament = ArmamentKind.Tubes;
 
-    /// <summary>The round the trigger throws: the shell when it is on the cannon.</summary>
     public MunitionProfile TriggerMunition => TriggerArmament switch
     {
         ArmamentKind.Belt => Shell,
@@ -3060,33 +2593,23 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _ => Munition,
     };
 
-    // What the trigger shoots at. A craft the operator shift-clicked comes ahead of the set's own
-    // pick, because the turret follows the designation and a round sent at the lock would leave
-    // along a bearing the two do not share. Its track rather than the craft, so the IFF and the
-    // allegiance a round is fired under are the set's; null while the set cannot see it.
+    // A designated craft ahead of the lock, as the turret follows it. Its track, so the IFF is the
+    // set's; null while the set cannot see it.
     private Track? TriggerTarget => Designation.Kind == AimpointKind.Vehicle
                                         ? Radar.TrackFor(Designation.Handle)
                                         : Radar.Locked;
 
     /// <summary>
-    /// Manual trigger: fires the <see cref="TriggerArmament"/> — a burst along the guns, or a round
-    /// at the craft designated or, failing that, at whatever the radar holds.
+    /// A burst along the guns, the beam, a store released, or a round at the designated craft or else
+    /// the lock.
     /// </summary>
     public bool FireAtLock()
     {
-        // A gun is aimed rather than locked on to, so its trigger is a trigger. Making it demand a
-        // lock first would leave the one weapon that is meant to be hand-aimed as the only one that
-        // cannot be.
+        // A gun is aimed, not locked on.
         if (TriggerArmament == ArmamentKind.Belt) return FireBurst();
         if (TriggerArmament == ArmamentKind.Beam) return PressBeam();
 
-        // A store is released, not launched at something: nothing on the rack has a seeker for a
-        // lock to feed, so demanding one leaves the trigger dead. Same reasoning as the gun above --
-        // what is being hand-aimed here is the aircraft.
-        //
-        // Asks Powered rather than "is it unguided". A guided tail kit steers after release and is
-        // still released, so keying this on guidance would leave the B61's trigger refusing "no
-        // lock" on a rack that has no radar at all.
+        // A store is released with no lock. Powered, not guidance: a tail kit is still released.
         if (!Munition.Powered) return Release();
 
         if (TriggerTarget is { } target) return Fire(target);
@@ -3109,10 +2632,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _magazine.Resize(Profile.TubeCount, Profile.MagazineDepth);
         _reloadTimer = 0.0;
 
-        // The belt is ammunition too. Refilling only the tubes leaves a launcher whose whole
-        // armament is a cannon permanently dry, with the button appearing to do nothing -- and
-        // the automatic resupply cannot cover it, since a mount that reloads by hand sets
-        // GunReloadSeconds to zero precisely to switch that off.
+        // The belt too: a mount that reloads by hand has GunReloadSeconds zero, so no resupply.
         if (Profile.HasCannon)
         {
             _guns.Fill(Profile.GunAmmo);
@@ -3120,9 +2640,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             _gunReloadTimer = 0.0;
         }
 
-        // A tube whose last round is still flying keeps its body, so the reload is real but nothing
-        // reappears on the launcher and it looks like the button did nothing. On a single-rail
-        // launcher that is every reload made before the previous round lands.
+        // A tube whose round is still flying keeps its body, so nothing reappears: said.
         int held = 0;
         for (int i = 0; i < Profile.TubeCount; i++)
         {
@@ -3141,12 +2659,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     /// <summary>
-    /// Makes the system safe: rounds in flight are removed without detonating, and auto-engage goes
-    /// off.
-    ///
-    /// <para>Stopping auto-engage is the point. Clearing the air while it is on simply fires again on
-    /// the next lock, which is the opposite of what anyone reaching for a button called "safe" wants
-    /// at the moment they reach for it.</para>
+    /// Removes rounds in flight without detonating, and turns auto-engage off, or it fires again on
+    /// the next lock.
     /// </summary>
     public void SafeAll()
     {
@@ -3163,10 +2677,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
     }
 
-
-
-    // The only ways in and out, so _roundSet cannot drift from _rounds. A stale entry there is a
-    // system refusing to see a live round, or seeing one that has landed -- both silent.
+    // The only ways in and out, so _roundSet cannot drift from _rounds.
     private void AddRound(IProjectile round)
     {
         ReleasedAt = ++_releases;
@@ -3196,14 +2707,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _farBodies.Clear();
     }
 
-    /// <summary>
-    /// Hands this system's rounds over to the body they are flying over, because the craft that
-    /// fired them has been destroyed.
-    /// </summary>
-    // Every offset a round holds, moved onto a new anchor at once. OffsetFromPlatform would sort
-    // itself out on the next step, which is exactly what makes a partial re-anchor look right --
-    // and the launch offset and the trail would go on being measured from where the old anchor
-    // was. See IProjectile.Reanchor.
+    // Every offset at once: OffsetFromPlatform alone sorts itself out next step, which makes a
+    // partial re-anchor look right. See IProjectile.Reanchor.
     private void ReanchorRounds(double3 toEcl)
     {
         if (!Vec.IsFinite(toEcl)) return;
@@ -3212,19 +2717,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         for (int i = 0; i < _rounds.Count; i++) _rounds[i].Reanchor(shift);
     }
 
-    /// <summary>
-    /// Follow this launcher onto the craft that now carries it, after a decoupler split it off the
-    /// one it was on.
-    ///
-    /// <para>The magazine, the rounds in flight, the settings and the teams come across by being
-    /// this same object — which is why the roster moves the entry rather than crewing a new
-    /// system. A new one would arrive with a full magazine, default settings and no teams.</para>
-    ///
-    /// <para><b>Not <see cref="GoLoose"/>.</b> That is for a launcher that <em>died</em>: no craft
-    /// is left, the rounds are handed to the body they are flying over, fire control stops for good
-    /// and the system is dropped when the last one lands. Here the launcher is alive on a live
-    /// craft with rounds still in its tubes, and all of it has to keep running.</para>
-    /// </summary>
     // The part it holds, wherever it now sits on this craft; its ordinal only until it holds one.
     private (Part Part, LauncherProfile Profile)? ResolveLauncher(Vehicle platform)
     {
@@ -3247,6 +2739,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return null;
     }
 
+    /// <summary>
+    /// Follows the launcher onto the craft a decoupler carried it to, as this same object, so the
+    /// magazine, rounds, settings and teams come along. Not <see cref="GoLoose"/>, which is for one that died.
+    /// </summary>
     /// <param name="held">The exact part it was followed onto, or null to take whatever sits at the ordinal.</param>
     public void Rehome(Vehicle craft, int ordinal, Part? held = null)
     {
@@ -3266,15 +2762,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         LauncherOrdinal = ordinal;
         HeldPart = held;
 
-        // The subpart references are this craft's part tree, and the tree the launcher now lives in
-        // is a different one. Cleared so they are found again rather than written to parts that
-        // belong to the craft it left.
+        // Found again in the new part tree rather than written to the old craft's.
         _loggedSubParts = false;
         _missileBodies.Clear();
         _finBodies.Clear();
 
-        // A different platform deserves a fresh assessment: a latch left set from the stack it came
-        // off means IsLaid never goes true and the launcher holds fire without saying why.
+        // Or a latch from the old stack keeps IsLaid false for good.
         _drives.Clear();
         RoundBodiesWork = true;
 
@@ -3289,14 +2782,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private Celestial? _sampledBody;
     private double3 _bodyAtSampleEcl;
 
-    /// <returns>False if there was nothing in the air, in which case there is nothing to keep.</returns>
+    /// <summary>Hands the rounds to the body they fly over, the craft that fired them destroyed.</summary>
+    /// <returns>False with nothing in the air to keep.</returns>
     public bool GoLoose(Celestial? body, string firedBy)
     {
         if (_rounds.Count == 0 || body is null) return false;
 
-        // At the instant the platform was last sampled, which is the instant the rounds' offsets are
-        // measured at. A craft that died in the engine's own step was last sampled a frame ago, and
-        // the body's position now would put a frame of its ~30 km/s into every offset.
+        // At the platform's last sample, the instant the offsets are measured at: a craft that died
+        // in the engine's step was sampled a frame ago, a frame of ~30 km/s.
         double3 bodyEcl = ReferenceEquals(body, _sampledBody) && Vec.IsFinite(_bodyAtSampleEcl)
                               ? _bodyAtSampleEcl
                               : KsaWorld.PositionEcl(body);
@@ -3308,8 +2801,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _looseBody = body;
         _looseName = firedBy;
 
-        // Everything that needs a craft is over. The radar in particular: a set with no platform
-        // has no origin and no boresight, and a loose system is not looking for anything anyway.
         Platform = null;
         _lastPlatform = null;
         Launcher = null;
@@ -3324,24 +2815,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     /// <summary>
-    /// One frame for a system that has lost its launcher: its rounds and nothing else.
+    /// Its rounds and nothing else: no fire control, whose own-round filter would walk every round
+    /// in the world against every round it has up.
     /// </summary>
-    /// <remarks>
-    /// Deliberately not <see cref="Update"/>. There is no fire control left to run — no scan, no
-    /// lay, no trigger — and running one would be both wrong and expensive: a loose system's own
-    /// salvo is the only thing it could reject from the airborne list, so the filter that keeps
-    /// a system from shooting itself would be walking every round in the world against every round
-    /// it has up.
-    /// </remarks>
     public void UpdateLoose(double dt, IReadOnlyList<IContact>? airborne = null)
     {
         if (_looseBody is not { } body || _rounds.Count == 0) return;
 
         _clock += dt;
 
-        // The body's own sample this frame, paired with the rounds the same way a platform's was:
-        // both advance together, so the difference between them is the round's own flight and
-        // nothing else. See docs/FRAMES-AND-EPOCHS.md.
+        // Paired with the rounds as a platform's was. See docs/FRAMES-AND-EPOCHS.md.
         double3 sampled = KsaWorld.PositionEcl(body);
         if (Vec.IsFinite(sampled))
         {
@@ -3354,8 +2837,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         TurnLooseBodies(body);
     }
 
-    // Before the launcher's parts are released: a model is the template's, and the subpart is the only
-    // thing that says which template a round's body is.
+    // Before the parts are released: only the subpart says which template a round's body is.
     private void CaptureLooseBodies()
     {
         if (!RoundBodiesWork || !_config.UseRoundBodies) return;
@@ -3376,13 +2858,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             }
         }
 
-        // The engine sheds part of a destroyed craft as debris, and a launcher shed that way carries
-        // its round bodies at their last placement -- a second copy of every round now drawn loose.
+        // A launcher shed as debris would carry a second copy of every round.
         for (int i = 0; i < _missileBodies.Count; i++) LauncherPart.HideMissile(_missileBodies[i]);
         for (int i = 0; i < _finBodies.Count; i++) LauncherPart.HideMissile(_finBodies[i]);
     }
 
-    // The models a tube's round is drawn with, off the subparts that say which template each is.
     private LooseBody BodiesOf(IProjectile round, int index)
     {
         var blades = new PartModel?[Math.Max(0, round.Munition.FinsPerRound)];
@@ -3392,7 +2872,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                              blades.Length == 0 ? LauncherPart.ModelOf(FinsFor(index)) : null);
     }
 
-    // On from where each was last drawn, as SyncRoundBodies turns a body that still has its launcher.
     private void TurnLooseBodies(Celestial body)
     {
         foreach (IProjectile round in _rounds)
@@ -3404,11 +2883,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
     }
 
-    // A tube round's attitude, from where it was last drawn to its age now: onto the airflow, and rolled
-    // by whatever its spin motors have added in between. The turn adds no roll, so the two compose.
+    // Onto the airflow and rolled by its spin motors; the turn adds no roll, so the two compose.
     private DrawnAttitude Carry(DrawnAttitude was, IProjectile round, double density)
     {
-        // The nose the air first finds, which is what a bus turned onto the entry airflow is for: docs/RV-POINTING.md.
+        // The nose the air first finds: docs/RV-POINTING.md.
         if (BodyAttitude.Authority(round.VelocityLocal, density) <= 0.0)
         {
             _inVacuum.Add(round);
@@ -3419,7 +2897,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             Log.Info($"{RoundLabel.For(round.Tube)} meets the air {round.Age:F0} s after release, nose {off:F1} deg off its airflow");
         }
 
-        doubleQuat turned = BodyAttitude.Turn(was.Ecl, round.VelocityLocal, density, round.Age - was.Age);
+        doubleQuat turned = BodyAttitude.StillBesideLauncher(round.TravelSinceLaunch, round.Munition.BodyLength)
+                                ? was.Ecl
+                                : BodyAttitude.Turn(was.Ecl, round.VelocityLocal, density, round.Age - was.Age);
         if (Profile.ReleaseSpin is { } spin)
         {
             turned = BodyAttitude.Roll(turned, spin.RollRadAt(round.Age) - spin.RollRadAt(was.Age));
@@ -3436,9 +2916,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     /// <summary>
-    /// Queues the bodies of this loose system's rounds for one viewport, as instances of the meshes their
-    /// subparts were drawn with. Placed off the camera's view of the body plus the round's offset from it,
-    /// which is the pairing the plume and the tracer hang on, so the planet's motion cancels in it.
+    /// Off the camera's view of the body plus the round's offset, the plume's pairing, so the planet's
+    /// motion cancels.
     /// </summary>
     public void DrawLooseBodies(IViewport viewport, int frameIndex)
     {
@@ -3469,7 +2948,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     private bool _looseBodiesReported;
 
-    // A round's body, its blades and its fin set, at ego.
     private static void AddRoundInstances(LooseBody looks, DrawnAttitude drawn, double3 ego, IProjectile round,
                                           IViewport viewport, int frameIndex)
     {
@@ -3499,8 +2977,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                           viewport, frameIndex);
     }
 
-    // Every round in the world except this system's own. Shared with Update so a loose system
-    // splashes and is splashed by exactly what a crewed one would.
+    // Shared with UpdateLoose, so a loose system splashes and is splashed as a crewed one.
     private void FillIncoming(IReadOnlyList<IContact>? airborne)
     {
         _incoming.Clear();
@@ -3509,9 +2986,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         for (int i = 0; i < airborne.Count; i++)
         {
-            // Never this system's own salvo. Teams would usually cover this, but one with no team
-            // set reads every contact as Unknown, which is engageable -- and a launcher must
-            // not shoot down its own missiles as they leave the tubes.
+            // Never its own salvo: with no team every round is Unknown, which is engageable.
             if (airborne[i].Handle is IProjectile r && _roundSet.Contains(r)) continue;
 
             _incoming.Add(airborne[i]);
@@ -3519,16 +2994,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
     }
 
-    // Which way a round is actually thrown, against the direction the platform is travelling.
-    //
-    // A ballistic computer predicts the arc a *released* warhead flies, and to do that it has to
-    // assume something about this. The assumption is the whole of the difference between where the
-    // prediction lands and where the round does, and on a deorbit a metre a second is kilometres -
-    // so it is worth stating rather than inferring.
+    // Which way a round is thrown against the platform's track: on a deorbit a metre a second is
+    // kilometres, so it is stated rather than inferred.
     private string Ejection(double3 launchDirEcl, double3 platformVelEcl, double3 launchPosEcl,
-                           double3 spinVelEcl)
+                           double3 spinVelEcl, double3 ejectEcl)
     {
-        if (Munition.LaunchSpeed <= 0f) return "";
+        bool ejected = !ejectEcl.Equals(Vec.Zero);
+        if (Munition.LaunchSpeed <= 0f && !ejected) return "";
 
         double3 heading = Vec.Unit(platformVelEcl);
         double3 thrown = Vec.Unit(launchDirEcl);
@@ -3536,51 +3008,38 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         double degrees = Vec.AngleBetween(thrown, heading) * 180.0 / Math.PI;
 
-        // Radially, because that is the axis a ballistic arc is most sensitive to - about thirteen
-        // metres of ground per metre of height on a shallow arrival. The tube's own offset up the
-        // stack is part of this and is metres; anything much larger is the analytic orbit position
-        // and the physics one disagreeing, which is a gap a prediction taken from the former cannot
-        // see.
+        // Radial is the sensitive axis. Metres is the tube's offset; much more is the analytic and
+        // physics positions disagreeing.
         if (Platform?.Parent is not Celestial parent) return "";
 
         double3 up = Vec.Unit(launchPosEcl - KsaWorld.PositionEcl(parent));
         double radial = Vec.Dot(launchPosEcl - PlatformEcl, up);
 
-        // The spin term is the one a prediction taken from the craft's own state cannot have: the
-        // tube is metres from the centre of mass, so a bus holding attitude on its thrusters throws
-        // the round with however fast that lever arm is sweeping. A third of a metre a second of it
-        // is a kilometre of miss on this arc, and it is invisible from the orbit state.
-        return $" ({Munition.LaunchSpeed:F1} m/s off the tube, {degrees:F0} deg from the platform's"
+        // The spin is invisible from the craft's orbit state: the tube's lever arm sweeping.
+        string push = ejected
+            ? $"ejected {Vec.Len(ejectEcl):F1} m/s off the mount"
+              + (Munition.TotalBoostSeconds > 0f ? $", motor at {Profile.MotorDelaySeconds:F2} s" : "")
+            : $"{Munition.LaunchSpeed:F1} m/s off the tube";
+        return $" ({push}, {degrees:F0} deg from the platform's"
                + $" track, launched {radial:+0.0;-0.0;0.0} m radially off the orbit position,"
                + $" {Vec.Len(spinVelEcl):F3} m/s of spin at the tube)";
     }
 
-    // The frame a round flies in, asked of whatever this system still has: its craft's parent
-    // body while it has a craft, and the body it handed its rounds to once it has not.
     private double3 GroundVelocityAtRound(double3 positionEcl)
         => _looseBody is { } body
                ? KsaWorld.GroundVelocityAt(body, positionEcl)
                : KsaWorld.GroundVelocityAt(Platform!, positionEcl);
 
-    // A round falls with the ground under it, and this is the term that makes it. It is integrated
-    // in Ecl against its parent body's pull alone while KSA carries that body along its own orbit,
-    // so without the body's own fall the round is left behind by half of it times the square of the
-    // coast -- 431 m over six minutes, measured -- and a shallow arrival multiplies the share along
-    // local up by cot(gamma) again. docs/MIRV-NEXT.md item 2 has the flown measurement.
+    // With the body's own fall toward its primary, or the round is left behind by half of it times
+    // the coast squared: 431 m over six minutes. docs/MIRV-NEXT.md item 2.
     private double3 GravityAtRound(double3 positionEcl, double simStep)
     {
         Celestial? body = _looseBody ?? (Platform is null ? null : KsaWorld.ParentBody(Platform));
 
         if (body is null) return KsaWorld.GravityAt(Platform!, positionEcl);
 
-        // Aimed at where the body was half-way through the frame, not at the sample.
-        //
-        // The celestial sample arrives at the frame's end while this is read at the round's
-        // pre-step position, so a vector aimed at it is a whole frame of the body's own travel out
-        // -- 513 m at 30 km/s and 17 ms -- for the whole frame. Aimed at the middle it is half a
-        // frame out at each end and right on average, which costs one subtraction and leaves the
-        // held-for-the-frame convention alone. Measured in game: the travel lies 0.73 radial of the
-        // arrival, and only the radial share costs anything. docs/MIRV-NEXT.md item 2.
+        // At the body half-way through the frame: the sample is at the frame's end, a frame of the
+        // body's travel (513 m at 30 km/s and 17 ms) from the pre-step round. docs/MIRV-NEXT.md item 2.
         return KsaWorld.PullOnRound(body, positionEcl, _bodyVelocityEcl, -0.5 * simStep);
     }
 
@@ -3589,12 +3048,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     private Func<double3, double3, Approach>? _approachAt;
 
-    // Whether a round the ground stops can still get to it. The maths is RoundReach's; what is
-    // here is reading the body it is asked about.
-    //
-    // Body-centred inertial, so the body's own velocity comes off and its spin does not: a conic
-    // is flown in the frame the body orbits in, not the one its surface turns in. Both terms are
-    // this frame's samples, so the ~29.8 km/s they share cancels in the subtraction.
+    // RoundReach's maths, body-centred inertial: the body's velocity comes off and its spin does not.
+    // Both terms are this frame's samples, so the ~29.8 km/s cancels.
     private Approach ApproachAt(double3 positionEcl, double3 velocityEcl)
     {
         Celestial? body = _looseBody ?? (Platform is null ? null : KsaWorld.ParentBody(Platform));
@@ -3603,28 +3058,20 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         double ceiling = KsaWorld.ArrivalCeilingRadius(body);
         if (!(ceiling > 0.0)) return Approach.Unknown;
 
-        // _bodyVelocityEcl rather than a fresh read: it is this frame's sample of the same thing,
-        // taken beside the one the round was stepped against, so the two belong to one instant.
+        // _bodyVelocityEcl, not a fresh read: the instant the round was stepped against.
         return RoundReach.Classify(KsaWorld.BodyMu(body),
                                          positionEcl - KsaWorld.PositionEcl(body),
                                          velocityEcl - _bodyVelocityEcl,
                                          ceiling, KsaWorld.LowestGroundRadius(body));
     }
 
-    // The round moves through a frame; the body it is measured against does not, because KSA
-    // samples celestials once a frame. Both carry the planet's ~30 km/s of ecliptic travel, so
-    // differencing a moving round against a frozen body reads an altitude that ramps by kilometres
-    // across a long frame - and density falls off on an 8 km scale height, so that is most of the
-    // drag. Putting the body's own travel back is what makes a per-sub-step lookup an improvement
-    // rather than a much larger error than a once-a-frame lookup.
+    // KSA samples celestials once a frame, so a round crossing the frame against a frozen body reads
+    // an altitude ramping by kilometres. The body's travel is put back per sub-step.
     private double AirDensityIntoFrame(double3 positionEcl, double secondsIntoFrame)
         => MediumAtRound(positionEcl - (_bodyVelocityEcl * secondsIntoFrame));
 
-    // Gravity at a stated time into the frame, composed the way GravityAtRound composes it -- so the
-    // body's own fall travels with it and cannot be lost by a caller re-deriving the pull.
-    //
-    // Aimed per sub-step rather than once at the frame's middle: the celestial sample arrives at the
-    // frame's end and the round crosses the frame, so the honest centre moves within it.
+    // Composed as GravityAtRound, so the body's fall travels with it, but per sub-step: the centre
+    // moves within the frame.
     private double3 GravityIntoFrame(double3 positionEcl, double secondsIntoFrame)
     {
         Celestial? body = _looseBody ?? (Platform is null ? null : KsaWorld.ParentBody(Platform));
@@ -3636,37 +3083,24 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     private Func<double3, double, double3>? _gravityAt;
 
-    // Where the body was, relative to the sample the ground was read against. Same back-dating as
-    // the gravity and density callbacks and for the same reason: the celestial sample is at the
-    // frame's end and the round crosses the frame, so secondsIntoFrame arrives negative and this
-    // walks the centre BACK to the sub-step's own instant.
+    // secondsIntoFrame is negative: this walks the centre back to the sub-step's own instant.
     private double3 GroundCentreDriftIntoFrame(double secondsIntoFrame)
         => _bodyVelocityEcl * secondsIntoFrame;
 
     private Func<double, double3>? _groundDriftAt;
 
-    // The same back-dating for a terrain QUERY, which needs more than the centre does. GroundTest
-    // resolves a direction and the engine answers it through the frame's END rotation, so the
-    // body's spin between the sub-step and that instant is part of what has to come off -- ~400 m/s
-    // at mid latitudes, which is metres of ground within one frame. The centre is exempt because it
-    // sits on the spin axis, where rotation moves nothing.
-    //
-    // Read at the point being asked about rather than once per frame: the spin term is a cross
-    // product with the radius, so it belongs to the place, not to the body.
+    // A terrain query also needs the spin off: the engine answers through the frame's end rotation,
+    // ~400 m/s at mid latitudes. Read at the point, since the spin is a cross product with its radius.
     private double3 GroundQueryDriftIntoFrame(double3 positionEcl, double secondsIntoFrame)
         => GroundVelocityIntoFrame(positionEcl, secondsIntoFrame) * secondsIntoFrame;
 
-    // The air's own motion where the round is, rather than where it was when the frame began. The
-    // same reason the density lookup beside it exists: a re-entering round crosses ~150 m of ground
-    // in a frame and the air moves with the ground, so a held sample measures the drag against air
-    // the round has left. ImpactPredictor recomputes this at every RK stage.
+    // Where the round is: a re-entering round crosses ~150 m of ground a frame. ImpactPredictor
+    // recomputes this at every RK stage.
     private double3 AirVelocityIntoFrame(double3 positionEcl, double secondsIntoFrame)
         => GroundVelocityIntoFrame(positionEcl, secondsIntoFrame);
 
-    // The ground's velocity where a point is at a stated time into the frame. Back-dated exactly as
-    // AirDensityIntoFrame is: the spin is a cross product with the radius, and the radius is measured
-    // to the body's end-of-frame sample, so an undated read carries up to a frame of the body's travel
-    // into it -- 750 m at 25 ms, 0.055 m/s of wind always in one direction (docs/ACCURACY-PLAN.md 3el).
+    // Back-dated as AirDensityIntoFrame: undated, the radius carries a frame of the body's travel,
+    // 0.055 m/s of wind always one way at 25 ms (docs/ACCURACY-PLAN.md 3el).
     private double3 GroundVelocityIntoFrame(double3 positionEcl, double secondsIntoFrame)
         => GroundVelocityAtRound(positionEcl - (_bodyVelocityEcl * secondsIntoFrame));
 
@@ -3697,9 +3131,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     {
         if (_rounds.Count == 0) return;
 
-
-        // A burst is dozens of shells and the world does not move between them, so the candidate
-        // list is built at most once here rather than once per round.
+        // The candidate list is built at most once for a burst of dozens of shells.
         _contactsFresh = false;
         _bodyVelocityEcl = BodyVelocityEcl();
 
@@ -3707,76 +3139,37 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         {
             IProjectile round = _rounds[i];
 
-            // Shot down by somebody else. The kill happens inside *their* system's update, which
-            // may run after this one, so it is collected here on the following frame rather than
-            // where it happened.
+            // Shot down inside another system's update, so collected here a frame later.
             if (round.State == RoundState.ShotDown)
             {
                 Announce($"{RoundLabel.For(round.Tube)} was shot down after {round.Age:F1}s, " +
                          $"{round.DistanceFlown / 1000.0:F1} km out");
 
-                // Raised here rather than beside Detonated and Expired below, and it has to be:
-                // this is the one frame a shot-down round is reaped on, where the state test down
-                // there would fire every frame until it was. A consumer counting rounds that have
-                // finished must see this one -- BallisticScenario waits for every released warhead
-                // to end, so an interception it never hears about is a flight that never resolves
-                // and a whole shot that scores nothing. Measured 2026-08-28: 7 warheads intercepted
-                // by the site the shot was aimed at, and the run timed out with 42 of 48 down.
+                // Here, on the one frame it is reaped: BallisticScenario waits for every warhead to end.
                 RoundEnded?.Invoke(round);
                 DropRound(i);
                 continue;
             }
 
-            // At the round's position as it stands, with no carry forward. Carrying it by
-            // VelocityEcl to meet the celestial sample - KSArmoryMod.AddAirborne's carry, which is
-            // for a different consumer at a different phase - costs 2 km of divergence from the
-            // round's own prediction.
-            //
-            // The sample is still one applied step ahead of the pre-step round, and the correction
-            // for that is to put the *body* back by bodyVelocityEcl*dt rather than the round
-            // forward, which is what AirDensityIntoFrame does below and this does not. Flown, and
-            // it lost: shifting where a *field* is read translates the whole field, so the round is
-            // pulled toward a centre the ground test does not use. docs/KSA-FRAME-ORDER.md
-            // section 5.
+            // Read at the round as it stands, with the body aimed at half a step back (GravityAtRound).
+            // Moving the sample point instead flew and lost. docs/KSA-FRAME-ORDER.md section 5.
             double3 gravity = GravityAtRound(round.PositionEcl, dt);
 
-            // Read at the round's own position, not the platform's. A round climbing out of the
-            // atmosphere leaves the air behind long before the launcher does, and that is the
-            // whole point of scaling drag rather than fixing it per profile.
+            // At the round, not the platform: a climbing round leaves the air behind.
             double mediumDensity = MediumAtRound(round.PositionEcl);
 
-            // The ground under the round, not under the launcher. Identical while the two are
-            // metres apart, which is every shell this mod fires; a warhead 2,700 km downrange is
-            // over ground moving in a measurably different direction, and its drag is measured
-            // against that. See KsaWorld.GroundVelocityAt.
-            //
-            // Back-dated to the frame's start, which is where the round is: the radius the spin acts
-            // on is measured to the body's end-of-frame sample, a whole frame of its 29.8 km/s away,
-            // and that is 0.055 m/s of wind at 25 ms that tilts the drag one way on every frame.
+            // The ground under the round, not the launcher, back-dated to the frame's start: see
+            // GroundVelocityIntoFrame.
             double3 airVelocity = GroundVelocityAtRound(round.PositionEcl + _bodyVelocityEcl * dt);
 
-            // Everything it could run into, which is not the same list as what it was aimed at,
-            // and the geometry that decides whether it truly met any of them.
+            // What it could run into, not what it was aimed at.
             if (round is Slug slug)
             {
                 slug.Contacts = ContactCandidates();
                 slug.Hull = HullTest.Shared;
-
-                // One centre for every sample this round is differenced against. The celestial
-                // sample arrives at the frame's end and the round flies across the frame, so
-                // without the body's own travel the pull centre sits a frame ahead of the round --
-                // 513 m at 30 km/s and 17 ms, and only its radial share costs anything, which on
-                // the flown shot is 0.73 of it. docs/MIRV-NEXT.md item 2.
-                //
-                // Both, or neither: correcting where the round falls toward without correcting
-                // where it measures its height from pins the two to different instants.
-
             }
 
-            // Through the one driver both this and the headless rig go through, so the two cannot
-            // hold different opinions about which fields a round re-reads within a frame. The
-            // lookups are cached rather than fresh method groups per round per frame: a cannon
-            // burst is 150 shells and these are assigned to every one of them.
+            // The driver the headless rig uses too. Lookups cached: a burst is 150 shells.
             RoundDriver.Fly(round, dt, Seek(round, SampleTarget(round), dt), gravity, airVelocity, PlatformEcl,
                             round.Munition, mediumDensity,
                             new RoundFields(_gravityAt ??= GravityIntoFrame,
@@ -3787,10 +3180,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                             _approachAt ??= ApproachAt,
                                             _airVelocityAt ??= AirVelocityIntoFrame));
 
-
-            // Paired with the switch below rather than with "no longer flying": a round shot down
-            // is reaped somewhere else, so a test on the state alone would report it once per frame
-            // for as long as it took to be swept up.
+            // Not "no longer flying": a shot-down round is reaped above, a frame later.
             if (round.State is RoundState.Detonated or RoundState.Expired) RoundEnded?.Invoke(round);
 
             switch (round.State)
@@ -3800,8 +3190,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                     DropRound(i);
                     break;
                 case RoundState.Expired:
-                    // Report how it failed: converged-but-short reads very differently from
-                    // never-converged, and the numbers say which.
                     Announce(
                         $"{RoundLabel.For(round.Tube)} expired after {round.Age:F1}s - " +
                         $"closest {(round.ClosestApproach == double.MaxValue ? "n/a" : $"{round.ClosestApproach:F0} m")}, " +
@@ -3815,17 +3203,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         ApplyPendingKills();
     }
 
-    // Reads the round's target out of the world once per frame. Returns null when the target is
-    // gone, which breaks the round's lock and leaves it coasting.
-    // How far a round that arrived landed from the place it was aimed at. Not MissDistance, which
-    // is the range at the fuse trigger and is bounded by the fuse radius - a proximity round
-    // reports its own envelope every time. This is the only number that answers "did it hit", and
-    // without it a shot's outcome is a visual impression: six warheads land, the log says they
-    // landed, and whether that was on the target or a hundred kilometres away is unrecorded.
-    //
-    // Re-sampled rather than read off the stored aimpoint, because a place on a body moves: held as
-    // the coordinate it was designated at, it is left behind by the planet over a half-hour flight
-    // and the miss would come out as the planet's own travel.
+    // Not MissDistance, which is bounded by the fuse radius. Re-sampled, since a place on a body moves.
     private string MissFromAimpoint(IProjectile round)
     {
         if (round.Aimpoint.Kind is AimpointKind.None) return string.Empty;
@@ -3834,11 +3212,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         double3 burst = round.PositionEcl;
         if (!Vec.IsFinite(burst) || !Vec.IsFinite(target.PositionEcl)) return string.Empty;
 
-        // Advanced to the instant the round burst, which is somewhere inside this frame while the
-        // world sample is at its edge. The gap is nothing but the target's ecliptic velocity times
-        // that offset - up to 507 m at 60 fps near Earth, and in a fixed inertial direction, so it
-        // reads as a common bias on every round of a salvo rather than as scatter. The blast sweep
-        // and the diagnostic below do the same, so the three numbers agree.
+        // To the burst's instant inside the frame: up to 507 m at 60 fps, a common bias. The blast
+        // sweep and the diagnostic do the same, so the three agree.
         double3 aimAtBurst = InFrame.AtBurst(target.PositionEcl, target.VelocityEcl, round.DetonationElapsedInFrame);
         if (!Vec.IsFinite(aimAtBurst)) aimAtBurst = target.PositionEcl;
 
@@ -3850,11 +3225,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return $", {Distance.Say(miss)} from the aim point{where}";
     }
 
-    // A timed shell's burst against the craft it was fired at, split along that craft's track, up and
-    // right, beside what a lead assuming the craft held its velocity would have missed by. The two
-    // agreeing is an unled acceleration; the first near zero while the second is large is the lead
-    // accounting for it. The track is taken against the ground, because the craft's ecliptic velocity
-    // points along the planet's orbit rather than along anything it is doing.
+    // Beside a steady-target lead's miss: the two agreeing is an unled acceleration. The track is
+    // against the ground; the ecliptic velocity points along the planet's orbit.
     private void LogLeadCheck(IProjectile round)
     {
         if (round is not Slug { BurstOnTime: true } shell || round.Aimpoint.Kind != AimpointKind.Vehicle) return;
@@ -3874,9 +3246,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                  + $"would have missed by {steady}");
     }
 
-    // Both places as latitude and longitude. A distance says a shot missed; only the direction says
-    // what kind of miss it was - short or long is energy, left or right is the plane or the clock,
-    // and the two want completely different things looked at.
+    // Short or long is energy, left or right the plane or the clock.
     private string WhereOnTheGround(double3 burstEcl, double3 aimEcl)
     {
         Celestial? body = Platform is { } craft ? KsaWorld.ParentBody(craft) : _looseBody;
@@ -3898,11 +3268,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
     }
 
+    // Once per frame. Null when the target is gone, which breaks the lock and leaves it coasting.
     private TargetState? SampleTarget(IProjectile round)
     {
-        // A place on a body has to be re-read every frame. Held as the coordinate it was when it
-        // was designated, it is left behind by the planet at ~29.8 km/s - and the round then reads
-        // that whole frame velocity as closing speed and turns hard across it.
+        // Re-read every frame, or left behind at ~29.8 km/s and read as closing speed.
         if (round.Aimpoint.Kind == AimpointKind.Ground)
         {
             if (KsaWorld.TryGroundAnchorEcl(round.Aimpoint.Handle, round.Aimpoint.Anchor,
@@ -3914,8 +3283,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return round.Aimpoint.ToTargetState();
         }
 
-        // A fixed position needs nothing from the world and can never be lost, so a round aimed
-        // at a coordinate keeps its aimpoint until it arrives or expires.
         if (round.Aimpoint.Kind == AimpointKind.Point) return round.Aimpoint.ToTargetState();
 
         double3 positionEcl;
@@ -3924,11 +3291,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         object handle;
         bool emitting;
 
-        // A round in the air is a target like any other; it is simply not a Vehicle, so KSA holds
-        // no state for it and the world cannot be asked where it is. It comes off the airborne
-        // list instead, which is sampled for every system at one instant before any of them steps
-        // -- so two launchers engaging the same missile read it identically whatever order the
-        // roster iterates in. See RoundContact.
+        // KSA holds no state for a round: it comes off the airborne list, sampled for every system
+        // before any steps, so roster order cannot matter. See RoundContact.
         if (round.TargetRef is IProjectile)
         {
             if (!_incomingByHandle.TryGetValue(round.TargetRef, out IContact? hostile)
@@ -3942,9 +3306,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             radius = hostile.MeanRadius;
             handle = hostile.Handle;
 
-            // A round carries no set of its own, so an anti-radiation seeker has nothing to home
-            // on and falls back to the emission it remembers. Which is correct: that weapon is for
-            // the launcher, not for what it threw.
+            // A round carries no set; an anti-radiation seeker falls back to the emission it remembers.
             emitting = false;
         }
         else if (round.TargetRef is Vehicle target && KsaWorld.IsAlive(target))
@@ -3954,27 +3316,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             radius = KsaWorld.MeanRadius(target);
             handle = target;
 
-            // Read every frame rather than latched at launch: a set that shuts down mid-flight is
-            // the whole counter to an anti-radiation round, and the round has to notice.
+            // Every frame: a set shutting down mid-flight is the counter to an anti-radiation round.
             emitting = _craftIsEmitting?.Invoke(target) ?? false;
         }
         else return null;
 
-        // A command-linked round is steered from here, so it is only guided while the launcher
-        // can still *see* what it is shooting at. Losing sight breaks the uplink and the round
-        // coasts - the realistic failure mode for this weapon, and the one that replaces a
-        // seeker being blinded. The fuse still works; see Interceptor.Step.
-        //
-        // Sight, not the track list. The track list has the operator's policy applied to it -
-        // notably ProtectControlledVehicle - so testing against it would mean that taking the
-        // target's seat cuts the uplink to every round already flying at it, turning a
-        // deliberate safety rule into a guaranteed miss. The policy belongs at the kill, where
-        // Detonate already declines and says why.
+        // A command-linked round is guided only while the set can see the target; the fuse still
+        // works. Sight, not the track list, which carries ProtectControlledVehicle: that belongs at
+        // the kill, in Detonate.
         if (round.Munition.NeedsUplink)
         {
-            // No set left to command it, which is the end of the uplink rather than an exemption
-            // from it. Testing `Platform is not null` the other way round is the trap: the guard
-            // then skips on a destroyed launcher and the round steers on with nothing behind it.
+            // No set left is the end of the uplink, not an exemption from it.
             if (Platform is null) return null;
 
             double3 toTarget = positionEcl - PlatformEcl;
@@ -3993,13 +3345,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return new TargetState(positionEcl, velocityEcl, radius, handle, emitting);
     }
 
-    // Each seeker's choice between its target and the decoys around it, held for its whole flight.
+    // Held for each round's whole flight.
     private readonly Dictionary<IProjectile, SeekerLock> _seekers = [];
     private static readonly Random _seduction = new();
 
-    // What a seeker actually steers on: its target, a decoy that has taken it, or nothing once a spent
-    // decoy has left it blind. Only here, on the round's own step, and never where SampleTarget is
-    // asked for a measurement -- a choice made there would roll a decoy's chance a second time.
+    // Only on the round's own step, never from SampleTarget, which would roll a decoy's chance twice.
     private TargetState? Seek(IProjectile round, TargetState? target, double dt)
     {
         if (target is not { } t || !round.Munition.Seducible) return target;
@@ -4038,17 +3388,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         SeekerBand.Infrared => target.Handle switch
         {
             Vehicle v => KsaWorld.HeatOf(v),
-            IProjectile p => Signature.HeatOfRound(p.Age <= p.Munition.TotalBoostSeconds),
+            IProjectile p => Signature.HeatOfRound(p.MotorBurning),
             _ => Signature.AirframeKwPerSr,
         },
         _ => RadarSignature.CrossSectionFor(target.Radius),
     };
 
-    // Every craft a round could run into this frame, the platform excepted: a mount does not
-    // shoot the craft it is bolted to.
-    //
-    // Built at most once a frame rather than once per round -- a burst is dozens of shells and the
-    // world does not move between them.
+    // The platform excepted, and built at most once a frame.
     private List<TargetState> ContactCandidates()
     {
         if (_contactsFresh) return _contactScratch;
@@ -4069,17 +3415,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return _contactScratch;
     }
 
-    // Applies a warhead burst: the fuse's verdict on what the round struck, then the splash over
-    // every craft and round in the air. What breaks is decided part by part in Damage.
+    // The fuse's verdict on what it struck, then the splash; what breaks is decided in Damage.
     private void Detonate(IProjectile round)
     {
-        // KSA exposes no component damage, so a round aimed at a *part* arrives, reports and
-        // destroys nothing. Every other kind falls through to the blast sweep below, which is what
-        // makes an airburst over a position do anything at all.
-        //
-        // The kind, not the handle. Ground carries the body it sits on, so a handle being present
-        // does not mean the aimpoint is a part, and testing the handle makes every designated shot
-        // arrive, announce, and do nothing whatsoever.
+        // A part aimpoint arrives and destroys nothing. The kind, not the handle: Ground carries one too.
         if (round.Aimpoint.Kind == AimpointKind.Part)
         {
             Announce($"{RoundLabel.For(round.Tube)} arrived at its {round.Aimpoint.Kind} aimpoint");
@@ -4094,17 +3433,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _front = FrontFor(burst, round.DetonationElapsedInFrame, round.Munition.ChargeKg);
         MunitionProfile judged = JudgedAs(round.Munition, burst, round.DetonationElapsedInFrame);
 
-        // Which fuse fired, because a burst looks the same either way and the flak setting is
-        // otherwise unanswerable from a log or a bug report.
         string fuse = round is Slug { BurstOnTime: true } timed
                           ? $" (timed, {timed.FuseSeconds:F2} s)"
                           : string.Empty;
 
-        // What ended it, in words that are true of it. MissDistance is the range at the fuse
-        // trigger and is bounded by the fuse radius, so it is never how far the round missed by:
-        // a proximity burst reports its own envelope every time, and calling that a miss reads a
-        // weapon working exactly as specified as a weapon that failed. A HARM bursting 16 m off a
-        // radar it then destroys is the case that misleads.
+        // MissDistance is the range at the fuse trigger, bounded by the fuse radius, never a miss.
         string how = round switch
         {
             Slug { HitGround: true } or Interceptor { HitGround: true } => "on the ground",
@@ -4118,27 +3451,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         Announce($"{RoundLabel.For(round.Tube)} detonated{fuse} {how}{MissFromAimpoint(round)}");
         LogLeadCheck(round);
 
-        // Craft this burst has already reached, so the splash sweep does not judge the one the
-        // round struck a second time. Per burst rather than per frame: two rounds of a salvo
-        // bursting at opposite ends of one booster must each break their own parts, where a craft
-        // already queued dead is dead whoever else reaches it.
+        // Per burst, not per frame: two rounds at opposite ends of one booster each break their own parts.
         _burstDamaged.Clear();
 
-        // Three measurements of the same event, because "the burst went off beside the target"
-        // needs a number to be actionable.
-        //
-        //   fuse    - what the fuse decided, between sub-steps. The kill is judged on this.
-        //   atBurst - the same separation recomputed with the target advanced to the burst
-        //             instant, exactly as the splash path below does it. Should match the fuse.
-        //   drawn   - what the player sees: both positions as they are rendered, relative to the
-        //             platform. The round from its accumulated local travel, the target from its
-        //             frame-sampled position. If this is the one that disagrees, the simulation
-        //             is right and the drawing is wrong.
-        //
-        // Both sides of each of these must be taken at one instant. A round advanced into the
-        // frame differenced against a target sampled at the frame start reports a gap that is
-        // nothing but ecliptic velocity times the step: 73 m across 2.8 ms. Comparing across
-        // instants is the mistake this whole file exists to avoid.
+        // fuse is what the kill is judged on; atBurst should match it; drawn disagreeing alone means
+        // the drawing is wrong. Each pairs one instant: across 2.8 ms of ecliptic motion is 73 m.
         if (round.TargetRef is Vehicle logTarget && KsaWorld.IsAlive(logTarget))
         {
             double intoFrame = round.DetonationElapsedInFrame;
@@ -4147,19 +3464,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
             double atBurst = Vec.Len(targetEcl + targetVel * intoFrame - burst);
 
-            // The round's offset at its own instant, not at the frame's end; both sides back-dated.
-            // A loose system has no platform to back-date against. Throwing here leaves the round
-            // unreaped, so it bursts again every frame until the fault limit disables the mod.
+            // Both sides back-dated. A loose system has no platform, and a throw here leaves the round
+            // unreaped to burst every frame.
             double3 anchorVelocity = Platform is { } host ? KsaWorld.VelocityEcl(host) : Vec.Zero;
             double3 offsetAtBurst = DrawAnchor.OffsetAtBurst(round.OffsetFromPlatform, anchorVelocity, intoFrame);
             double drawn = Vec.Len(offsetAtBurst - (targetEcl + (targetVel * intoFrame) - PlatformEcl
                                                     - (anchorVelocity * intoFrame)));
 
-            // The separation as *rendered*. Everything above is the analytic frame the simulation
-            // works in; KSA draws a vehicle at its physics position, which is not the same place.
-            // KsaWorld.TryVehicleEgo says so outright: deriving a draw position from
-            // GetPositionEcl "visibly misses the craft". If this number is large while fuse and
-            // atBurst agree, the round is killing the target and being painted somewhere else.
+            // As rendered: KSA draws a vehicle at its physics position, not the analytic one.
             double onScreen = -1.0;
             if (KsaWorld.HasAnchor && KsaWorld.TryVehicleEgo(logTarget, out double3 targetEgo))
                 onScreen = Vec.Len(KsaWorld.AnchorEgo + offsetAtBurst - targetEgo);
@@ -4171,30 +3483,20 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 $"sim {KsaWorld.SimulationSpeed:F2}x step {KsaWorld.SimStepSeconds * 1000.0:F1}ms");
         }
 
-        // The round advanced through this frame's sub-steps; every vehicle's cached position is
-        // from the frame start. Comparing the two directly puts the target kilometres away in
-        // the ecliptic frame, so the blast finds nothing. Advance the world to match the burst.
+        // The burst's offset into the frame, which every sweep advances the world to.
         double elapsed = round.DetonationElapsedInFrame;
 
-        // What the round actually met, falling back to what it was aimed at. A kinetic round names
-        // its victim: fire control decides what to shoot at, it does not decide what a shell in
-        // the air passes through, and scoring a strike on a bystander against the target's lethal
-        // range destroys something the round never reached.
-        //
-        // The separation itself is settled by the fuse, which did the extrapolation properly.
-        // Trust that number rather than re-deriving it.
-        // Not for a round a decoy took: its miss distance is to the decoy. The splash below still
-        // judges what it actually burst beside.
-        // A shell that touched a hull leaves its hole there, whoever's hull it was: it is paint.
+        // A hole on whatever hull it touched, whoever's: it is paint.
         if (round.StruckBody is Vehicle holed) BulletHoles.Strike(holed, round);
 
+        // What it met, else what it was aimed at, on the fuse's separation. Not for a round a decoy
+        // took, whose miss distance is to the decoy; the splash still judges what it burst beside.
         if (!seduced && (round.StruckBody ?? round.TargetRef) is Vehicle intended && KsaWorld.IsAlive(intended))
         {
             double lethalRange = judged.LethalRadius + KsaWorld.MeanRadius(intended);
             if (round.MissDistance <= lethalRange)
             {
-                // Say why a lethal hit did not kill. Taking control of the target makes it
-                // immune, which looks exactly like the round missing unless it is announced.
+                // Said, or an immune target looks like a miss.
                 if (ReferenceEquals(intended, Platform))
                 {
                     Announce($"hit on {KsaWorld.DisplayName(intended)} ignored - it is now the system's own platform");
@@ -4205,21 +3507,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 }
                 else
                 {
-                    // The fuse has already ruled this a lethal hit, so the part sweep may only
-                    // decide *what* breaks -- never whether anything does. An empty sweep here
-                    // falls back to destroying the craft, the same rule the hull test obeys: a
-                    // test that cannot answer never answers "no hit".
+                    // The fuse ruled it lethal: the sweep decides what breaks, never whether.
                     Damage(intended, burst, elapsed, judged, confirmed: true);
                 }
             }
         }
 
-        // The same rule for a round in the air, which neither the strike above nor the sweep below
-        // can reach: it is not a Vehicle, and KSA holds no state for it at all. Its size and
-        // position come off the airborne list, which is where its TargetState came from too.
-        //
-        // No ProtectControlledVehicle case and no platform case: nobody flies a round, and this
-        // system's own salvo was filtered out of the list before the radar ever saw it.
+        // The same for a round in the air, off the airborne list: KSA holds no state for it. Nobody
+        // flies a round, and the own salvo was filtered out.
         if (!seduced
             && (round.StruckBody ?? round.TargetRef) is IProjectile hit
             && hit.State == RoundState.Flying
@@ -4232,9 +3527,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             }
         }
 
-        // And the splash, over everything else in the air. A warhead is not required to touch what
-        // it kills, which is the whole of how one missile intercepts another; the block above is
-        // the case where a shell did touch, and it has already taken that one out of flight.
+        // The splash over every other round: a warhead need not touch what it kills.
         for (int i = 0; i < _incoming.Count; i++)
         {
             IContact contact = _incoming[i];
@@ -4251,14 +3544,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         Splash(burst, elapsed, judged);
 
-        // Sized off the charge, which is also what the damage radii come from, so a 30 mm shell
-        // cannot set off a missile's explosion. Whatever the burst killed gets KSA's own on top.
+        // Sized off the charge, as the damage radii are.
         if (_config.DrawExplosions)
         {
             ReportBurstPlacement(round, burst);
 
-            // EffectBody as well as the nearest craft: a system whose launcher has been destroyed
-            // has no platform to ask, and a store aimed at the ground has no target craft either.
+            // EffectBody too: a loose system has no platform and a ground store no target craft.
             Detonation.Explode(DrawnBurstEcl(round, burst), round.Munition.ChargeKg,
                                round.TargetRef as Vehicle ?? Platform, EffectBody, round.Munition.BurstEffect);
 
@@ -4270,11 +3561,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                round.TargetRef as Vehicle ?? Platform, EffectBody);
             }
 
-            // And a cloud, for a charge large enough to have made one. It outlives this system --
-            // NuclearClouds keeps it, because a mushroom stands there long after the launcher has
-            // moved on or been destroyed.
-            // With its height over the ground as fire control measured it, off the burst carried to
-            // the sample: the drawn point is carried with the platform, which a loose round has none of.
+            // NuclearClouds keeps it past this system. Its height is fire control's, off the burst
+            // carried with the ground: a loose round has no platform to carry the drawn point.
             NuclearClouds.Begin(DrawnBurstEcl(round, burst),
                                 round.TargetRef as Vehicle ?? Platform,
                                 round.Munition.ChargeKg, EffectBody,
@@ -4282,15 +3570,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
     }
 
-    // How far the burst is drawn from the place on the ground the round actually reached.
-    //
-    // Measurement only. The effects are anchored to the body, so what matters is the separation in
-    // the body's own frame -- which is what a player compares against the designation mark. Both
-    // terms are the same burst carried to the step's end two different ways: the effects by the
-    // PLATFORM's velocity, which is what puts them where the mesh is, and the reference by the
-    // GROUND's at the burst, which is what the chase camera and the drop scenario's scoring use.
-    // The two differ by the craft's motion over the ground, so the gap is a fraction of a frame of
-    // it: metres at 60 fps and kilometres once a store's own step lets frames grow.
+    // Measurement only: the burst carried by the platform's velocity (the effects) against the
+    // ground's (the chase camera and scoring), apart by the craft's motion over a fraction of a frame.
     private void ReportBurstPlacement(IProjectile round, double3 burst)
     {
         if (Log.Threshold > Log.Level.Debug || EffectBody is not { } body) return;
@@ -4306,15 +3587,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                         + $"({round.DetonationElapsedInFrame:F3} s into the step)");
     }
 
-    // Where the burst has to be put so it appears where the round was *drawn*, at the end of the step the
-    // explosion is anchored in.
-    //
-    // round.PositionEcl is where the round struck, part-way through the step, while the explosion is fixed
-    // to the body as it is at the step's end -- so the burst is carried to that instant with the platform,
-    // which near Earth is up to a step of 29.8 km/s: hundreds of metres, and correct. The camera round
-    // trip also carries a vehicle's physics-against-analytic gap where the camera follows one in the
-    // platform's bubble. What is left after the carry is the only part that would be the drawing and the
-    // simulation disagreeing.
+    // Where the round was drawn, at the step's end the explosion is anchored in: carried with the
+    // platform, up to a step of 29.8 km/s, and through the camera's physics-against-analytic gap.
     private double3 DrawnBurstEcl(IProjectile round, double3 analyticEcl)
     {
         if (Platform is not { } platform) return analyticEcl;
@@ -4338,9 +3612,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return drawn;
     }
 
-    // The burst against every craft in the world: what it breaks, what it destroys, and what it only
-    // dents. Shared by a round's detonation and SplashAt, so a burst from the bridge is judged by the
-    // same code a warhead is.
+    // Shared by a round's detonation and SplashAt, so a bridge burst is judged as a warhead is.
     private void Splash(double3 burst, double elapsed, MunitionProfile munition, bool spareOwn = true)
     {
         IReadOnlyList<Vehicle> caught = KsaWorld.Vehicles;
@@ -4349,9 +3621,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         {
             Vehicle v = caught[i];
 
-            // The craft that fired and the one being flown, while it is protected, are never
-            // broken -- but a dent breaks nothing, and a bomb dropped near its own carrier leaves
-            // its mark on it as on anything else.
+            // Never broken, but dented: a dent breaks nothing.
             if (spareOwn && (ReferenceEquals(v, Platform)
                              || (_policy.ProtectControlledVehicle && ReferenceEquals(v, KsaWorld.ControlledVehicle))))
             {
@@ -4372,10 +3642,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                     break;
 
                 case BlastEffect.NearMiss:
-                    // Outside the lethal radius of the craft's own bounding sphere, and still
-                    // possibly against the skin of something on it: the sphere is a half-diagonal,
-                    // so a burst beside a long booster reads as a hundred metres from a craft it
-                    // is touching. The part sweep is the exact test and it runs here too.
+                    // The sphere is a half-diagonal, so a burst beside a long booster can touch it from
+                    // "a hundred metres"; the part sweep is the exact test.
                     if (!Damage(v, burst, elapsed, munition, confirmed: false))
                     {
                         Announce($"near miss on {KsaWorld.DisplayName(v)} at {gap:F0} m");
@@ -4390,13 +3658,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     /// <summary>
-    /// A burst of <paramref name="munition"/> where there is no round: every craft judged exactly
-    /// as a warhead going off there judges it, and what breaks is applied. For the bridge, so a
-    /// burst that damages can be flown without flying a drop. <paramref name="spareOwn"/> false
-    /// judges this system's own craft and the one being flown like any other, so what breaks a
-    /// craft can be watched on the craft in front of the camera. <paramref name="inFrame"/> is when
-    /// in the step it went off, against the sample, as a round's <c>DetonationElapsedInFrame</c> is:
-    /// between minus one step and zero, with <paramref name="burstEcl"/> where it was then.
+    /// A burst with no round, judged as a warhead's, for the bridge. <paramref name="spareOwn"/>
+    /// false judges this craft and the one flown like any other. <paramref name="inFrame"/> is a
+    /// round's <c>DetonationElapsedInFrame</c>: between minus one step and zero, <paramref name="burstEcl"/> then.
     /// </summary>
     public void SplashAt(double3 burstEcl, MunitionProfile munition, bool spareOwn = true, double inFrame = 0.0)
     {
@@ -4409,10 +3673,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         ApplyPendingKills();
     }
 
-    // What the ground under a burst adds, measured with the burst carried to the sample instant: the
-    // round burst part-way through the step and the body and the parts are at its end, so uncarried the
-    // height reads up to a step of the planet's 30 km/s wrong -- hundreds of metres, which turns a
-    // contact burst into an air burst on some frames and not others.
+    // With the burst carried to the sample: uncarried, its height is up to a step of 30 km/s wrong.
     private GroundReflection GroundFor(double3 burst, double elapsed, double chargeKg)
     {
         if ((EffectBody ?? Detonation.BodyFor(Platform)) is not { } body) return GroundReflection.FreeAir;
@@ -4421,22 +3682,18 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return KsaWorld.GroundReflectionAt(body, atSample, chargeKg);
     }
 
-    // The burst's own front: its whole charge, in the air at it carried to the sample, at its body's speed
-    // of sound, doubled as far as the ground under it is there to reflect it.
     private BlastFront FrontFor(double3 burst, double elapsed, double chargeKg)
     {
         if ((EffectBody ?? Detonation.BodyFor(Platform)) is not { } body) return BlastFront.SeaLevel(chargeKg);
 
         double3 atSample = BlastSweep.GroundAtSample(burst, KsaWorld.GroundVelocityAt(body, burst), elapsed);
-        // Free air has no ground near enough to reflect anything.
         double height = double.IsFinite(_ground.Height) ? Math.Max(_ground.Height, 0.0) : double.PositiveInfinity;
         return BlastFront.For(chargeKg, KsaWorld.AirAt(body, atSample), KsaWorld.BodyAirOf(body).SoundMetresPerSecond,
                               height);
     }
 
-    // The profile a burst's damage is judged on: its charge as the air it went off in leaves it
-    // (BlastAltitude.EquivalentChargeKg), read at the burst carried to the sample. The same profile
-    // wherever that is the whole charge, so a burst low in the air is judged exactly as it was.
+    // BlastAltitude.EquivalentChargeKg at the burst carried to the sample; the same profile where that
+    // is the whole charge.
     private MunitionProfile JudgedAs(MunitionProfile munition, double3 burst, double elapsed)
     {
         if (munition.ChargeKg < MushroomCloud.ThresholdKg) return munition;
@@ -4458,12 +3715,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return judged;
     }
 
-    // A craft's gap as the free-air law sees it: the ground's reflection there is a multiple of the
-    // charge, so of the distance by its cube root.
+    // The ground's reflection multiplies the charge, so the distance by its cube root.
     private double ReflectedGap(Vehicle v, double gap, MunitionProfile munition)
         => gap / Math.Cbrt(_ground.GainAt(KsaWorld.PositionEcl(v), munition.ChargeKg));
 
-    // Each collected part's own share of the ground's reflection.
     private void Reflect(MunitionProfile munition)
     {
         for (int i = 0; i < _partScratch.Count; i++)
@@ -4473,7 +3728,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
     }
 
-    // Dents a craft the burst reaches and nothing else, for one that must not be broken.
     private void DentOnly(Vehicle v, double3 burst, double elapsed, MunitionProfile munition)
     {
         if (!KsaWorld.IsAlive(v)) return;
@@ -4488,8 +3742,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         Dent(v, burst, elapsed, munition, failed: null, mayBreak: false);
     }
 
-    // Every load this burst puts on the craft's parts short of breaking them, held until the front
-    // reaches each part. With no air there is no front, and nothing to wait for.
+    // Held until the front reaches each part; with no air there is no front to wait for.
     private void Dent(Vehicle v, double3 burst, double elapsed, MunitionProfile munition,
                       IReadOnlyCollection<int>? failed, bool mayBreak)
     {
@@ -4500,9 +3753,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         double airRatio = KsaWorld.AirDensityRatioAt(v, burst);
         bool air = airRatio > Medium.NoticeableDensity;
-        // The fronts are followed against the body as it is at the sample, which the burst is up to a
-        // step of the planet's motion behind: anchored as it stands it sits hundreds of metres off
-        // the ground it went off on, and every push points along that error.
+        // At the sample, which the burst is up to a step of the planet's motion behind.
         double3 groundAtSample = BlastSweep.GroundAtSample(burst, KsaWorld.GroundVelocityAt(v, burst), elapsed);
 
         double first = double.MaxValue;
@@ -4522,20 +3773,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                  + $"the front would arrive in {Math.Max(first, 0.0):F2}-{Math.Max(last, 0.0):F2} s were it to stay put");
     }
 
-    // Applies one burst to one craft: breaks the parts near enough to break, or destroys the
-    // whole craft where that is what the burst amounts to.
-    //
-    // Nothing is applied here. Both outcomes are queued and drained by ApplyPendingKills, because
-    // splitting a vehicle mutates the same collection destroying one does and this runs while the
-    // engine's solvers are live.
-    //
-    // `confirmed` says a lethal verdict has already been reached -- the fuse's, on a round that
-    // struck. An empty part sweep then falls back to destroying the craft, because a test that
-    // cannot name what broke must not turn a confirmed hit into nothing. On the splash path there
-    // is no prior verdict and the sweep is the verdict, so finding nothing near enough means
-    // nothing happened.
-    //
-    // Answers whether the burst queued anything against this craft.
+    // Queued, never applied: ApplyPendingKills drains it, as the engine's solvers are live here.
+    // `confirmed` is the fuse's lethal verdict, which an empty sweep cannot overturn. True when
+    // anything was queued.
     private bool Damage(Vehicle v, double3 burst, double elapsed, MunitionProfile munition,
                         bool confirmed)
     {
@@ -4544,9 +3784,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         _burstDamaged.Add(v);
 
-        // The engine's own event slot is the only safe way to split a vehicle from a mod hook --
-        // see KsaWorld.TryQueuePartFailure. Without it the feature is off, whatever the setting
-        // says, and a warhead destroys whole craft as it did before KSA had a failure model.
+        // Without the engine's event slot (KsaWorld.TryQueuePartFailure) whole craft are destroyed.
         if (!_config.DamageIndividualParts || !KsaWorld.CanQueuePartFailures)
         {
             if (!confirmed && BlastSweep.Effect(
@@ -4560,9 +3798,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return QueueWholeCraft(v);
         }
 
-        // An unreadable part tree is not a bulletproof craft. A craft mid-rebuild, or one the
-        // engine will not answer for, falls back to the rule that shipped before parts could
-        // break -- the same way the hull test falls back to the bounding sphere.
+        // An unreadable part tree is not a bulletproof craft: the whole-craft rule.
         if (!KsaWorld.TryCollectDamageableParts(v, KsaWorld.PositionEcl(v), _partScratch, _partHandles))
         {
             return confirmed
@@ -4572,8 +3808,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         Reflect(munition);
 
-        // Each part pays what the burst puts on it out of what earlier bursts left, and breaks when
-        // that runs out -- at a scale of one, a fresh part exactly where the sweep alone broke it.
+        // At a scale of one a fresh part breaks exactly where the sweep alone broke it.
         _failedParts.Clear();
         _partShares.Clear();
         BlastDamage.Shares(burst, elapsed, KsaWorld.VelocityEcl(v),
@@ -4583,8 +3818,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             if (PartHealth.World.Hit(_partHandles[index], share, _config.DamageScale)) _failedParts.Add(index);
         }
 
-        // And what it loads short of breaking, dented, before anything decides the craft's fate:
-        // a craft that survives is the one the dents are for.
+        // Before the craft's fate is decided: the dents are for a craft that survives.
         Dent(v, burst, elapsed, munition, _failedParts, mayBreak: true);
 
         // KSA logs no part's crash tolerance, and it is what sets a warhead's reach against that part.
@@ -4605,10 +3839,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         if (_failedParts.Count == 0)
         {
-            // The sweep answered, and the answer was that nothing was near enough. Only a verdict
-            // reached elsewhere overrides that: the round struck, so the part nearest it pays a whole
-            // share and breaks off like any other when that runs out -- the fragment guard below then
-            // says whether losing it is the craft.
+            // Only the fuse's verdict overrides the sweep: the struck part pays a whole share.
             if (!confirmed) return false;
             if (StruckPart(v, burst, elapsed) is not { } struck) return QueueWholeCraft(v);
             if (!StrikeBreaks(v, struck)) return true;
@@ -4616,9 +3847,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             _failedParts.Add(struck);
         }
 
-        // KSA's own judgement about what its fragment machinery can survive, asked rather than
-        // reproduced: losing this share of a craft's parts at once destroys it outright. That is
-        // what keeps a warhead that engulfs a drone a kill rather than a shower of fragments.
+        // KSA's own fragment guard, asked rather than reproduced.
         if (KsaWorld.LosingThatManyPartsIsFatal(_failedParts.Count, _partHandles.Count))
         {
             return QueueWholeCraft(v);
@@ -4635,9 +3864,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         {
             Part part = _partHandles[_failedParts[i]];
 
-            // A second burst on the same craft in the same frame can reach a part the first one
-            // already took. Handing one part to PartFailureEvent twice isolates a part that is no
-            // longer on the vehicle, which the engine logs as a split it could not make.
+            // Twice to PartFailureEvent is a split the engine cannot make.
             if (queued.Contains(part)) continue;
 
             queued.Add(part);
@@ -4665,8 +3892,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return nearest;
     }
 
-    // Tops the struck part's charge for this burst up to a whole share -- its blast has already paid
-    // part of it -- and says whether that leaves it nothing.
+    // Tops this burst's charge on the struck part up to a whole share; true when it breaks.
     private bool StrikeBreaks(Vehicle v, int struck)
     {
         double paid = 0.0;
@@ -4699,19 +3925,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return BlastSweep.Effect(gap, munition) == BlastEffect.Lethal && QueueWholeCraft(v);
     }
 
-    // Destroys queued targets after the blast sweep, so the engine's vehicle collection is never
-    // mutated while it is being walked.
     private void ApplyPendingKills()
     {
         if (_pendingKills.Count == 0 && _pendingPartKills.Count == 0) return;
 
-        // Join the engine's vehicle solvers before disposing anything. Destroying a vehicle removes
-        // it from the list those worker jobs are enumerating, and this hook runs while they are
-        // live - see KsaWorld.WaitForVehicleSolvers for the frame order that makes that unavoidable
-        // without the barrier.
-        //
-        // Taken once for the whole batch rather than per kill, which is most of why kills are
-        // deferred into this list in the first place.
+        // The workers enumerate the vehicle list while this hook runs (KsaWorld.WaitForVehicleSolvers);
+        // joined once for the whole batch, which is why kills are deferred.
         KsaWorld.WaitForVehicleSolvers();
 
         foreach (Vehicle v in _pendingKills)
@@ -4721,17 +3940,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             KsaWorld.Destroy(v, blastSeverity: 50f);
         }
 
-        // Whole-craft kills first: a craft queued dead may also have parts queued from an earlier
-        // burst in the same frame, and isolating a part out of a corpse is a split with nothing
-        // to split. IsAlive filters those out here rather than the two lists having to agree.
-        //
-        // These are handed to the engine rather than applied, and land on the next frame.
+        // After the whole-craft kills, which IsAlive then filters out. Land on the next frame.
         foreach ((Vehicle v, List<Part> parts) in _pendingPartKills)
         {
             if (KsaWorld.IsAlive(v)) KsaWorld.TryQueuePartFailure(v, parts);
         }
 
-        // Any round still chasing a corpse loses its lock rather than flying at a dangling ref.
         _pendingKills.Clear();
         _pendingPartKills.Clear();
     }
@@ -4749,21 +3963,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     /// <summary>
-    /// Drops everything in flight and forgets what the radar was holding, without touching the
-    /// platform, the magazine or the player's settings.
-    ///
-    /// <para>Called when more simulated time passed than can be integrated — heavy timewarp, or
-    /// a load that replaced the clock. Rounds mid-flight relate to a world that no longer
-    /// exists, and stepping them by a huge delta would fly them through their targets. Tracking
-    /// is cleared too so dwell restarts rather than granting an instant firing solution off
-    /// time that was never simulated.</para>
-    ///
-    /// <para><b>Except a round the ground stops, which is kept.</b> "Flown through its target" is
-    /// the whole reason for dropping one, and a store falling at a place on the ground has no
-    /// target to be flown through — the ground is still under it, still reaps it, and a long step
-    /// costs it accuracy rather than correctness. Deleting it is not recoverable and lagging is,
-    /// so the balance goes the other way: a player who raises timewarp over a falling store has
-    /// asked for a coarser fall, not for the store to be taken away.</para>
+    /// For more simulated time than can be integrated: a huge step would fly rounds through their
+    /// targets, and dwell restarts. <b>A round the ground stops is kept</b>: it has no target to fly
+    /// through, and deleting it is not recoverable where lagging is.
     /// </summary>
     public void AbandonFlight(string why)
     {
@@ -4776,11 +3978,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _salvoTimer = 0.0;
         _warnedDuplicateTube = false;
 
-        // Hide the round bodies that were riding those interceptors, or they freeze mid-air.
-        //
-        // Only when nothing was kept. This is every body on the launcher, not the dropped ones, so
-        // over a store that survived it hides the store, which then looks despawned. The per-frame pass already seats or hides a body whose tube has no round
-        // flying, so the ones just dropped are covered there.
+        // Only when nothing was kept: this hides every body, a survivor's too. The per-frame pass
+        // hides the dropped ones anyway.
         if (kept == 0)
         {
             for (int i = 0; i < _missileBodies.Count; i++) LauncherPart.HideMissile(_missileBodies[i]);
@@ -4796,9 +3995,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         else Log.Debug(() => $"tracking reset: {why}");
     }
 
-    // Everything but the stores the ground will stop. Returns how many were kept, so the line says
-    // which of the two things happened -- "abandoned" over a store still on its way reads as a
-    // despawn.
+    // Returns how many were kept, so the line does not read as a despawn.
     private int DropRoundsWithATargetToLose()
     {
         for (int i = _rounds.Count - 1; i >= 0; i--)
@@ -4824,8 +4021,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         PlatformPinned = false;
         Platform = null;
 
-        // The latches record what one vehicle's part tree refused. A different platform gets a
-        // fresh assessment rather than inheriting the last one's failures.
         _drives.Clear();
         RoundBodiesWork = true;
         _guns.Fill(Profile.GunAmmo);

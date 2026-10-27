@@ -68,7 +68,6 @@ internal static class PartHealthBars
         float l = at.X - (Width * 0.5f), t = at.Y - Height - 6f;
         float fill = (float)Math.Clamp(health, 0.0, 1.0) * Width;
 
-        // Green whole through yellow to red at nothing.
         byte red = (byte)(255 * Math.Clamp(2.0 * (1.0 - health), 0.0, 1.0));
         byte green = (byte)(255 * Math.Clamp(2.0 * health, 0.0, 1.0));
 

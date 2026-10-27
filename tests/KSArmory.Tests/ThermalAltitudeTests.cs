@@ -83,8 +83,8 @@ public class ThermalAltitudeTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// A burst with no air round it flashes and is gone within a second, where it had been drawn as a
-    /// thin-air fireball eight times its size glowing for seconds.
+    /// A burst with no air round it flashes and is gone within a second, not drawn as a thin-air
+    /// fireball eight times its size glowing for seconds.
     /// </summary>
     [Fact]
     public void AVacuumBurstIsAFlash()

@@ -7,7 +7,7 @@ namespace KSArmory.Tests;
 /// <summary>
 /// The sky dispatches' kinds as the shader tests them, against the names CloudPass sends. A threshold
 /// out of step sends one kind down another's branch, and a mark offset that runs on a sky dispatch
-/// draws it off the screen -- which is what every northern aurora was.
+/// draws it off the screen.
 /// </summary>
 public class SkyDispatchShaderTests
 {

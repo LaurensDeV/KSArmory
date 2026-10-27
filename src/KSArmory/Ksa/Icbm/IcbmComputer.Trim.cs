@@ -5,23 +5,14 @@ namespace KSArmory;
 
 internal sealed partial class IcbmComputer
 {
-    // One line per change of state, which is all any of this is worth while nothing is happening
-    // on screen. The detail rides along with it rather than driving it.
-    //
-    // Compared with its numbers collapsed, because the sentence carries them and a reading is not a
-    // state: "trimming 3.71 m/s on the tail" against "trimming 3.70 m/s on the tail" is the same
-    // thing happening. Comparing whole sentences wrote a line every frame -- 21,000 from one coast,
-    // which is the log's own weight on the frame the coast step is measured in. What still separates
-    // is the words, so a direction change, a stall or a hand-back all still say so.
+    // One line per change of state, compared with its numbers collapsed: whole sentences wrote a line
+    // every frame, 21,000 from one coast. The words still separate a direction change or a stall.
     private void Say(string what, string detail = "")
     {
         string shape = WithoutNumbers(what);
         if (shape == _trimShape) return;
 
-        // Two fields, because they are two different things: the shape is what decides whether this
-        // is a new state, and the sentence is what anybody reads. Keeping only the shape puts
-        // "trimming # m/s on the back" on the panel, which is the comparison key with its numbers
-        // already thrown away.
+        // The shape decides a new state; the sentence, with its numbers, is what the panel shows.
         _trimShape = shape;
         _saidTrim = what;
         Log.Info($"trimming the bus on {KsaWorld.DisplayName(Craft)}: {what}{detail}");
@@ -56,19 +47,12 @@ internal sealed partial class IcbmComputer
         return new string(shape[..n]);
     }
 
-    // Put the bus back on its solution with its own thrusters, before anything leaves it. All the
-    // deciding is in BusTrim; what is here is the same two conversions as everywhere else in this
-    // class - the world into a situation and the answer into writes on somebody else's vehicle -
-    // plus the one thing only this side can know, which is whether the split has actually landed.
+    // BusTrim decides; this converts the world into its situation and its answer into writes, and
+    // knows the one thing it cannot: whether the split has actually landed.
     private void DriveTrim(double simStep, in IcbmState state, IManualFire? weapon)
     {
-        // Nothing left to put on a solution. ReadyToDeploy stays true after the last warhead goes,
-        // so without this the trim goes on solving and firing at an empty bus: measured at 12,902 km
-        // as 8.24 m/s nulled and 19.26 more asked for after `0 left`, a fifth of the whole budget
-        // spent on nobody -- and spent manoeuvring six metres from the spent stack, which is the
-        // manoeuvre the clearance had just refused on safety grounds.
-        // A vacuum trim has nothing to null onto in the air, and the warheads of a shot that releases
-        // at cutoff are already away by the time one could settle.
+        // ReadyToDeploy stays true after the last warhead goes, so SalvoFinished stops a trim firing at
+        // an empty bus. A shot releasing at cutoff is away before a vacuum trim could settle.
         if (!Config.TrimBeforeRelease || !Command.ReadyToDeploy || SalvoFinished || Program.ReleasesAtCutoff)
         {
             if (_trim.Firing != TrimAxes.None)
@@ -79,28 +63,20 @@ internal sealed partial class IcbmComputer
             return;
         }
 
-        // The error this exists to remove arrives *with* the split, and the split is deferred
-        // through the engine's input buffer. Asking the joint again is the split itself rather than
-        // a timer: the decoupler that was there is the one that just came apart, so the question
-        // stops answering yes the moment it has. A launcher that never had one is past this
-        // already, because SeparateOnce never set the flag.
+        // The split is deferred through the engine's input buffer; asking the joint again, rather than
+        // a timer, says when it has landed.
         if (_awaitingSplit)
         {
             if (weapon is { CanSeparate: true }) return;
             _awaitingSplit = false;
 
-            // Not `??=`. Rehome captures the vehicle the computer came *from*, and a decoupler
-            // disposes the pre-split vehicle to make two new ones -- so that capture is a corpse,
-            // IsAlive says so, and the clearance test reads no distance at all. Prefer whichever
-            // half is actually alive.
+            // Not `??=`: Rehome may have captured the pre-split vehicle, which the decoupler disposes.
             // Read before WhatWasDropped, which clears the census it counts.
             int before = _wasBeforeSplit.Count;
 
             if (!KsaWorld.IsAlive(_separatedFrom)) _separatedFrom = WhatWasDropped();
 
-            // Said once, because two guesses at why the distance reads as unknown have both been
-            // wrong and the next step is a measurement rather than a third. Everything the
-            // clearance test depends on, at the one instant it is decided.
+            // Everything the clearance test depends on, at the one instant it is decided.
             _afterSplit.Clear();
             KsaWorld.CollectVehicles(_afterSplit);
 
@@ -110,20 +86,13 @@ internal sealed partial class IcbmComputer
                      + $"{before} vehicles before and {_afterSplit.Count} after");
         }
 
-        // Armed at the split rather than at clearance, and held rather than skipped. It keeps
-        // solving through the whole wait, so what the bus owes its solution is on record from the
-        // moment the decoupler fired — which is the only thing that separates an error the
-        // separation caused from one that grew while the vehicle coasted clear of it.
+        // Armed at the split, not at clearance, so the debt is on record from the decoupler on: what
+        // separates an error the separation caused from one that grew while coasting clear.
         Clearance clearance = _didSplit ? Clear(simStep) : new Clearance(true, false, "");
 
-        // Given up on rather than waited out: the stack is readable and still too close, so there
-        // is no manoeuvre to make here that does not fly into it. Release proceeds untrimmed.
-        //
-        // It also caps the correction loop, which is not what it is for and is load-bearing anyway:
-        // the requirement balloons between passes -- 0.02 m/s trimmed, 12.63 asked next -- and this
-        // is what stops the bus flying that number. Handing the safety question to the keep-out
-        // interlock lifts the cap and flies it: 5.39 km median against 3.04. `docs/MIRV-NEXT.md`
-        // item 8h.
+        // Abandoned when the stack is readable and still too close. It also caps the correction loop,
+        // which is load-bearing: handing safety to the keep-out interlock flew 5.39 km median against
+        // 3.04 (docs/MIRV-NEXT.md 8h).
         PostCutoffSequence.Plan plan = PostCutoffSequence.Decide(
             clearance.IsClear, clearance.Abandoned, _postBoost.Cycles,
             TrimBudgetMetresPerSecond, _trim.SpentMetresPerSecond,
@@ -141,15 +110,8 @@ internal sealed partial class IcbmComputer
             return;
         }
 
-        // Bounded across the flight, not just per run. Each release re-arms the trim, and with the
-        // warheads held until the arrival is close there is a long coast for it to keep finding
-        // small corrections in -- which spends the tanks before the corrections that matter.
-        //
-        // Handed to the trim rather than enforced here, and for two reasons. The figure it keeps is
-        // cumulative across every null, so a second total kept out here counts each finished run
-        // again for every run that follows. And the stop has to *end* the trim: expressed as
-        // withholding fire it never lifts, because only firing spends the tank -- and the warheads
-        // do not leave until the trim is done.
+        // Bounded across the flight, and enforced by the trim: its figure is cumulative, and the stop
+        // must end the trim, since withheld fire never lifts and the warheads wait for the trim.
         double budget = TrimBudgetMetresPerSecond;
 
         if (!_saidBudget && !_trim.WithinBudget(budget))
@@ -158,11 +120,8 @@ internal sealed partial class IcbmComputer
             Log.Info($"trim: budget of {budget:F0} m/s spent; the warheads go on the aim as it is");
         }
 
-        // Said here rather than left to the trim's own line, which is the only other thing that
-        // reads this sentence and drops it: Say prints `trim.Said` alone once _mayTrim is true, so
-        // the success branch's text is produced on exactly the frame it can no longer be logged on,
-        // and its absence reads as the gate never opening -- `docs/MIRV-NEXT.md` item 8w. A gate
-        // whose only observable is its failures is not an instrument.
+        // Said here: once _mayTrim is true Say prints trim.Said alone, so the cleared sentence would
+        // never reach the log (docs/MIRV-NEXT.md 8w).
         if (!_saidCleared && clearance.IsClear && _didSplit && clearance.Said.Length > 0)
         {
             _saidCleared = true;
@@ -178,16 +137,13 @@ internal sealed partial class IcbmComputer
         double3 right = Vec.Zero;
         double3 down = Vec.Zero;
 
-        // A frame that will not resolve is handed in as zeroes rather than skipped, because the
-        // trim's own budget is what has to bound a part tree that never comes back - and it can
-        // only run that budget down if it is being stepped.
+        // Zeroes rather than a skip: only a stepped trim runs down the budget that bounds a part
+        // tree that never comes back.
         if (Parent is { } parent)
         {
             KsaWorld.TryControlFrameCci(Craft, parent, out nose, out right, out down);
         }
 
-        // The trajectory the guidance flew to, which is the pair the arc and the cutoff position
-        // make, and how far along it the vehicle should be by now.
         double3 referenceVelocity = Program.Arc?.RequiredVelocityCci ?? Vec.Zero;
 
         TrimCommand trim = _trim.Update(simStep, new TrimSituation(
@@ -200,9 +156,8 @@ internal sealed partial class IcbmComputer
             Config.TrimCountsTheCommandInFlight,
             MaxSeconds: Config.HopsSizeTheirOwnSlots ? BusTrim.MaxSeconds + _hopBurnSeconds : double.NaN));
 
-        // The mode goes through the attitude window for the same reason the aim does: applying a
-        // worker's results copies the whole flight computer over anything written outside it. The
-        // directions are commanded the same way either way.
+        // Through the attitude window: applying a worker's results copies the flight computer over
+        // anything written outside it.
         AttitudeHook.PulseMode(Craft, trim.Pulse);
         AttitudeHook.KeepJetsThroughTheClear(Craft, Config.JetsThroughTheKeyboardClear);
         VehicleCommand.DriveTranslation(Craft, trim.Fire);
@@ -211,14 +166,8 @@ internal sealed partial class IcbmComputer
         // Stepped through a turn, the passes count it as the bus not holding still and end the correction.
         if (Turning) return;
 
-        // The post-boost passes. With the thrusters quiet and the nose steady the correction gets a
-        // clean look at where the bus is actually going; moving the aim and re-solving the arc from
-        // here gives the trim something new to null onto, and the trim is the only thing left
-        // aboard that can still move the impact. A trim that has given up ends it, because further
-        // passes have no actuator.
-        //
-        // The same call ReleaseImpulseCci() feeds the prediction, so what the sequencer watches for
-        // steadiness is the term that actually moves the reading rather than a proxy for it.
+        // The post-boost passes: the trim is the only actuator left, so one that gave up ends them.
+        // ReleaseImpulseCci() is what the prediction is fed, so steadiness is watched on that term.
         ReleaseAnArrivalTheTrimCannotFly(trim, state);
 
         if (ResolvedTheHopAgain()) return;
@@ -250,36 +199,23 @@ internal sealed partial class IcbmComputer
 
         if (_postBoost.Cycles > passesBefore)
         {
-            // Consumed, so the next decision waits for a reading taken after this correction has
-            // actually been flown rather than re-reading the one that prompted it.
+            // Consumed, so the next decision waits for a reading taken after this correction flew.
             _freshMiss = double.NaN;
             Program.CorrectCoastArc();
             _trim.Resume();
             Say($"post-boost: {pass.Said}", "");
         }
 
-        // The reason it stopped, which Say above cannot report: that fires on a cycle being taken,
-        // and finishing is precisely the decision that takes none. It is the line that says how
-        // much of the miss was still on the table and why it was left there -- the largest term in
-        // where the warheads land, and written down nowhere else.
+        // Which rule ended the correction, named per craft: the largest term in where the warheads
+        // land (docs/MIRV-NEXT.md 8z). Not Say, which fires only when a cycle is taken.
         if (pass.MayRelease && !_postBoostSaid)
         {
             _postBoostSaid = true;
 
-            // Named, because this is the line that says which rule ended the correction and that
-            // is the largest single term in where the warheads land -- a loop that finished landed
-            // at 140 m and every other ending at 5 to 45 km. Unattributed it can only be read once
-            // per shot and then spread across every rocket in the world, which reports eight
-            // flights of one craft's outcome: `docs/MIRV-NEXT.md` 8z's n=40 was six shots.
-            //
-            // Log.Info rather than Say: Say dedupes on the sentence's shape and drives the panel's
-            // trim line, and this is neither a trim state nor one that repeats.
             Log.Info($"post-boost on {KsaWorld.DisplayName(Craft)}: {pass.Said}");
 
-            // Stops the loop and reverts its bias to the best it scored, which moves no warhead: they
-            // leave in this same frame on the trajectory the last trim pass flew, so "shipping" below
-            // is the loop's bookkeeping, not the aim flown. Over 536 flights the size of the revert
-            // predicts the release probe at +0.10. docs/ACCURACY-PLAN.md 3cp.
+            // The revert moves no warhead: they leave this frame on the trajectory the last trim pass
+            // flew, so "shipping" is bookkeeping, not the aim flown (docs/ACCURACY-PLAN.md 3cp).
             double3 walkedTo = _aim.BiasCci;
             _aim.Freeze();
             double reverted = Vec.Len(_aim.BiasCci - walkedTo);
@@ -299,18 +235,10 @@ internal sealed partial class IcbmComputer
             SayTheSplitDebt(trim, referenceVelocity, state, nose, right, down);
         }
 
-        // Deliberately NOT dropped when the trim reports done. A post-boost pass calls
-        // _trim.Resume(), so passes keep arriving afterwards -- and those are the large ones. With
-        // the reference gone they read "waiting to clear the spent stack, which cannot be read" and
-        // fall through to SeparationClearance's 20 s clock, so the dangerous passes would be exactly
-        // the ones flying blind. This caches no ANSWER; it keeps the QUESTION askable.
-
-        // Said once per change. A trim that stalls looks exactly like one that has finished, and
-        // the difference between them is kilometres on the ground.
+        // A trim that stalls looks exactly like one that has finished, kilometres apart on the ground.
         if (trim.Said.Length == 0) return;
 
-        // Two audiences, one state. The panel gets a sentence it can fit; the log gets the numbers
-        // that diagnose it, which are long enough to run off the edge of a narrow window.
+        // The panel gets the sentence; the log gets the numbers too.
         Say(_mayTrim ? trim.Said : clearance.Said + "; " + trim.Said,
             (trim.Acceleration > 0.0 ? $" (thrusters measured at {trim.Acceleration:F3} m/s2)" : "")
             + Grew()
@@ -341,19 +269,8 @@ internal sealed partial class IcbmComputer
         return true;
     }
 
-    // The one state the latch cannot get itself out of. The arrival is pinned during the burn and
-    // both branches that unpin it live there, so after cutoff it stands whatever the trajectory
-    // does -- and what the trim is asked for is RequiredVelocity(arrival) - v, worth about 2.35 m/s
-    // per second the arrival is out. BusTrim's ceiling is crossed at 4.3 s, and past it the trim
-    // refuses before its first pulse and the warheads go out untrimmed: flown once in twelve shots,
-    // all eight rockets 75-99 km out on burns nothing was wrong with.
-    //
-    // Asked only of a state that is ALREADY LOST -- the trim over its ceiling, having spent nothing
-    // -- rather than on a threshold of its own. A guard that fires on a number has to be right about
-    // the number; this one fires where the alternative is a certain 90 km, so being wrong about it
-    // costs a re-solve.
-    //
-    // Once a flight, so a re-committed arrival the trim also refuses cannot become a loop.
+    // After cutoff nothing unpins the arrival, and each second it is out asks the trim ~2.35 m/s, so
+    // past 4.3 s the trim refuses outright. Asked only of that already-lost state, once a flight.
     private void ReleaseAnArrivalTheTrimCannotFly(in TrimCommand trim, in IcbmState state)
     {
         if (_releasedTheArrival || !_trim.GaveUp) return;
@@ -395,30 +312,16 @@ internal sealed partial class IcbmComputer
                  + "opens the release gate on the arc the trim refused.");
     }
 
-    // The trim's debt at the split, decomposed into the four things that make it. `ACCURACY-PLAN.md`
-    // 5h: the debt is 6.2x larger at a 54 degree arrival than at 44, and eight candidates have been
-    // measured headlessly without finding it -- the arc amplifying a kick (flat), the clearance wait
-    // (wrong direction), the cutoff residual (1.6x), the lighter bus (1.7x), the reference position
-    // and arrival-time sensitivities (both FALL with steepness), the arrival-time error itself
-    // (measured at 0 s) and the cutoff prediction (1 m at every angle).
-    //
-    // What that rules out is the geometry. What it leaves is a term the headless rig has no way to
-    // produce, because it has no decoupler event and does not run the trim at all -- so the next
-    // reading has to come from a flight, and this is it.
-    //
-    // BusTrim nulls `Kepler.TryCoast(reference, since).velocity - v`, so exactly four inputs decide
-    // it. Printing all four beside the answer turns "the demand is large" into "this term is large",
-    // which is the difference between another night of candidates and one reading.
+    // BusTrim nulls `Kepler.TryCoast(reference, since).velocity - v`, so these four inputs decide the
+    // debt at the split (docs/ACCURACY-PLAN.md 3bu).
     private void SayTheSplitDebt(in TrimCommand trim, double3 referenceVelocity, in IcbmState state,
                                  double3 nose, double3 right, double3 down)
     {
         double3 offPosition = state.PositionCci - Program.ReferencePositionCci;
         double3 offVelocity = state.VelocityCci - referenceVelocity;
 
-        // Which way the debt points, in the frame the trim fires in. The scalar cannot tell a
-        // decoupler pushing along the joint from a lateral term, and one rocket in eight draws three
-        // to five times what the rest do with nothing -- seat, world or split order -- explaining it.
-        // docs/ACCURACY-PLAN.md 3fe.
+        // In the frame the trim fires in: a scalar cannot tell a push along the joint from a lateral
+        // term (docs/ACCURACY-PLAN.md 3fe).
         double3 owed = _trim.ToGainCci;
 
         Log.Info($"split debt on {KsaWorld.DisplayName(Craft)}: "
@@ -434,19 +337,9 @@ internal sealed partial class IcbmComputer
 
     private bool _releasedTheArrival;
 
-    // Which arrival the trim is solving to, beside when the flown prediction says the warheads
-    // actually get there. What the trim nulls is RequiredVelocity(arrival) - v, and that required
-    // velocity moves about 2.35 m/s for every second the arrival is out at 12,902 km -- so
-    // BusTrim.MaxMetresPerSecond is crossed at 4.3 s of disagreement, and a trim asking for tens is
-    // a handful of seconds long before it is anything wrong with the vehicle.
-    //
-    // Printed unconditionally, and that is the point. Printed only once the demand is over the
-    // ceiling, it reports the disagreement's tail and never its distribution -- the logger
-    // describing its own trigger rather than the fault.
-    //
-    // The two are not the same quantity and need not match: the arrival is when a vacuum transfer
-    // reaches the aim point, the prediction is when a warhead with drag reaches the ground. Their
-    // gap is the measurement, not an error on its face.
+    // Printed always, so the log has the distribution and not only the tail. The two need not
+    // match: a vacuum transfer to the aim against a warhead with drag to the ground. At 12,902 km
+    // each second apart asks the trim ~2.35 m/s.
     private string Arrivals()
     {
         double committed = Program.CommittedArrivalFromNow;
@@ -459,10 +352,7 @@ internal sealed partial class IcbmComputer
             : $" [solving to an arrival {committed:F0} s away; nothing predicted]";
     }
 
-    // What coasting clear cost, said only when it cost something. The same number at the split and
-    // at the release means the wait was free and the error came off the decoupler; a number that
-    // has grown means something moved the vehicle or the aim while it waited, which is a different
-    // fault with a different fix.
+    // Said only when the debt grew while coasting clear, a different fault from the decoupler's.
     private string Grew()
     {
         double atRelease = _trim.AtReleaseMetresPerSecond;
@@ -474,9 +364,6 @@ internal sealed partial class IcbmComputer
                + $"{_sinceSplit:F0} s of clearing]";
     }
 
-    // The fallback when the tubes cannot be resolved: the munition's ejection speed along the
-    // direction the vehicle was told to hold. Wrong by however far the vehicle settled off that
-    // command, which is why it is second choice rather than the rule.
     // What the trim can resolve, carried to the ground: its stop band over what a metre of aim costs
     // it on this arc. Once a pass, like the holding cost, and NaN when the arc will not price, which
     // releases nothing on it. docs/ACCURACY-PLAN.md 3cu.
@@ -502,9 +389,8 @@ internal sealed partial class IcbmComputer
                          : "the arc would not price"));
     }
 
-    // Once a pass rather than once a solve: it is four impact predictions, the solve runs several
-    // times a second, and the answer is a property of the trajectory, which moves over minutes.
-    // A refusal leaves the previous measurement standing.
+    // Once a pass: four impact predictions, for a property of the trajectory that moves over
+    // minutes. A refusal leaves the previous measurement standing.
     private void MeasureHoldingCost()
     {
         if (!Config.DeriveHoldingCost) { _holdingCost = double.NaN; return; }

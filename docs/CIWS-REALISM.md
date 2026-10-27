@@ -64,7 +64,9 @@ would correct an error that is not there.
 2. **Spot the rounds.** Measure where each shell passed the target, in the target's own directions,
    filter it across a burst, and move the aim point by the opposite. The measurement already exists:
    `Sim/LeadError.cs` splits a shell's miss along the target's track, up and right, and
-   `GunneryScenario` scores every shell with it. What is missing is feeding it back into the aim.
+   `WeaponSystem.LogLeadCheck` logs that split for every time-fuzed shell fired at a craft, while
+   `GunneryScenario` scores every shell's miss distance. What is missing is feeding it back into the
+   aim.
 
 **Why it waits:** step 1 costs accuracy that step 2 has to win back, and that takes paired gunnery
 nights under `docs/SHOT-PROTOCOL.md`. It is only worth it if the CIWS should *behave* like a real

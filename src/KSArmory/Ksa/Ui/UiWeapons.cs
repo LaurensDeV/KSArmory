@@ -5,16 +5,8 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
-/// The weapon switcher: which of a craft's weapons the panel and the trigger are pointed at.
-///
-/// <para>Its own window rather than a row on the header strip, because switching weapons is done
-/// <em>while flying</em> and the manage window is not somewhere to be during an attack run. Small,
-/// movable, and it stays where it is put.</para>
-///
-/// <para>Every weapon shows its ammo and whether it is guarding. The ammo is not decoration: a craft
-/// carrying two racks has two magazines, so "nothing happened when I pressed FIRE" is nearly always
-/// one of them being empty, and a switcher that showed only names would leave the operator to guess
-/// which.</para>
+/// The weapon switcher: which of a craft's weapons the panel and the trigger are pointed at. Its own
+/// window, because weapons are switched while flying, away from the manage window.
 /// </summary>
 internal partial class Ui
 {
@@ -27,8 +19,6 @@ internal partial class Ui
     {
         if (!_weaponsOpen) return;
 
-        // The craft the panel is showing, whose button opened it: every craft with a weapon has one,
-        // and the panel's own trigger already fires that craft's.
         KSA.Vehicle? craft = Focused ?? KsaWorld.ControlledVehicle;
 
         _roster.AllOn(craft, _weaponScratch);
@@ -55,8 +45,6 @@ internal partial class Ui
         _weaponsOpen = open;
     }
 
-    // The stations of one group, gathered fresh each frame. A field rather than a local so drawing
-    // a switcher does not allocate on every frame it is open.
     private readonly List<WeaponSystems.Entry> _stations = [];
     private readonly List<int> _stationAmmo = [];
 
@@ -64,35 +52,26 @@ internal partial class Ui
     // draining. Keyed by the group's part Id, which is what makes two rails one weapon.
     private readonly Dictionary<string, int> _lastFired = [];
 
-    // The trigger, wherever it is pressed. Both buttons reach the same stations in the same order,
-    // which is the whole of what makes a symmetric pair fire as a pair -- and FireGroup below is
-    // the only thing in the panel that reaches FireAtLock, so a third button cannot quietly go
-    // straight at one station.
+    // FireGroup is the only thing in the panel that reaches FireAtLock, so every button steps
+    // through the group's stations alike.
     private void FireSelectedGroup()
     {
         if (_roster.For(Focused) is { } selected) FireGroup(selected);
     }
 
-    // Fires the next station of the selected weapon's group. The trigger is the group's, so it
-    // steps between stations rather than always reaching the one whose row happens to be selected.
     private void FireGroup(WeaponSystems.Entry selected)
     {
         int at = NextStationIndex(selected);
 
-        // Every station dry. Fire the selected one anyway so its own refusal is announced: the
-        // operator gets "launcher empty" from fire control rather than a button that does nothing.
+        // Every station dry: fire the selected one anyway so fire control announces its refusal.
         if (at < 0) { selected.Weapon.FireAtLock(); return; }
 
         _lastFired[selected.Weapon.Profile.PartId] = at;
         _stations[at].Weapon.FireAtLock();
     }
 
-    // Which station of the selected weapon's group the trigger would reach if it were pressed now,
-    // or -1 when every one of them is dry. Leaves the group itself in _stations.
-    //
-    // Asked by the trigger and by the line beside it, because they have to be about the same
-    // station: a pair whose first rail has just fired reads "out of rounds" off that rail while the
-    // second is loaded and clear to go.
+    // -1 when every station is dry. Leaves the group in _stations. The trigger and the line beside
+    // it both ask this, so they describe the same station.
     private int NextStationIndex(WeaponSystems.Entry selected)
     {
         string partId = selected.Weapon.Profile.PartId;
@@ -103,8 +82,7 @@ internal partial class Ui
         _stationAmmo.Clear();
         foreach (WeaponSystems.Entry s in _stations)
         {
-            // Whatever the trigger fires. A gun's belt is not its magazine, so asking a gun for
-            // rounds would report every station of it empty and the trigger would never reach one.
+            // Whatever the trigger fires: a gun's belt is not its magazine.
             _stationAmmo.Add(s.Weapon.Remaining(s.Weapon.TriggerArmament));
         }
 
@@ -112,9 +90,7 @@ internal partial class Ui
                                            _lastFired.GetValueOrDefault(partId, -1));
     }
 
-    // The station a line beside the trigger has to describe. Falls back to the selected one only
-    // when the whole group is empty, which is the one case where its refusal is the right thing to
-    // read.
+    // The selected one only when the whole group is empty, where its refusal is the one to read.
     private WeaponSystems.Entry TriggerStation(WeaponSystems.Entry selected)
     {
         int at = NextStationIndex(selected);
@@ -122,27 +98,19 @@ internal partial class Ui
         return at < 0 ? selected : _stations[at];
     }
 
-    // The system a line beside the trigger has to speak for. An unresolvable selection falls back
-    // to the one in hand rather than to nothing, which would paint a green "clear to fire" over a
-    // launcher that is holding.
+    // Never null: nothing would paint a green "clear to fire" over a launcher that is holding.
     private WeaponSystem TriggerSystem(WeaponSystem inHand)
         => _roster.For(Focused) is { } selected ? TriggerStation(selected).Weapon : inHand;
 
     /// <summary>
-    /// The weapon a cue drawn over the world has to speak for, which is the station the trigger
-    /// would reach rather than the one selected.
-    ///
-    /// <para>Two rails carrying the same store are one weapon with two stations, so a cue read off
-    /// the selection paints a refusal over a target the loaded rail is clear to shoot at. Both
-    /// triggers and the line beside them already go through the group; this is the same question
-    /// from the glass, answered in the same place so the two cannot drift.</para>
+    /// The weapon a cue drawn over the world speaks for: the station the trigger would reach, not
+    /// the one selected, answered where the trigger's own line is.
     /// </summary>
     public WeaponSystem? TriggerWeaponOn(KSA.Vehicle? craft)
     {
         if (craft is null || _roster.For(craft) is not { } selected) return null;
 
-        // Every consumer of _weaponScratch refills it before reading it, so filling it here for a
-        // craft the panel is not showing cannot disturb what the panel does with it.
+        // Safe for another craft: every consumer of _weaponScratch refills it before reading.
         _roster.AllOn(craft, _weaponScratch);
         return TriggerStation(selected).Weapon;
     }
@@ -159,8 +127,7 @@ internal partial class Ui
         return ReferenceEquals(at < 0 ? _stations[0] : _stations[at], station);
     }
 
-    // One line for both triggers, so the two cannot drift: the reason, and whether it binds, come
-    // from the same station either button would fire.
+    // One line for both triggers, from the station either would fire.
     private void DrawHoldLine(WeaponSystem inHand, bool autoEngage)
     {
         WeaponSystem speaking = TriggerSystem(inHand);
@@ -170,8 +137,7 @@ internal partial class Ui
         DrawStoreReach(StationSteering() ?? speaking);
     }
 
-    // Not a hold: the trigger still fires, and the shell is thrown as far as it goes. Said under the
-    // trigger because an aim point out of reach looks exactly like one in reach until the shell lands.
+    // Not a hold: the shell is thrown as far as it goes, which looks like a shot in reach until it lands.
     private static void DrawBeyondReach(WeaponSystem speaking)
     {
         double shortBy = speaking.GunLayShortMetres;
@@ -182,8 +148,7 @@ internal partial class Ui
                                  + $"{(range - shortBy) / 1000.0:F1} km -- shells land {shortBy / 1000.0:F1} km short");
     }
 
-    // The falling bomb the marks still steer, and how far it can still move: the number that says
-    // whether marking now is worth doing. Not a hold, since it is about a round already gone.
+    // The falling bomb the marks still steer. Not a hold: it is about a round already gone.
     private WeaponSystem? StationSteering()
     {
         if (_roster.For(Focused) is not { } selected) return null;
@@ -209,9 +174,7 @@ internal partial class Ui
         Tip("Shift-click inside the blue ring to steer it there. Releasing the next bomb locks it.");
     }
 
-    // What the trigger will do, in a word: Ready, or Holding and the reason. A reason that only
-    // holds automatic fire does not stop the trigger, so it is Ready with the reason after it in
-    // grey, and only while auto-engage is on, since otherwise nothing is waiting on it.
+    // A reason that holds only automatic fire reads Ready, with the reason in grey while auto-engage is on.
     private void DrawHoldReason(WeaponSystem speaking, bool autoEngage)
     {
         if (speaking.TriggerHold is { BindsTrigger: true } held)
@@ -232,7 +195,6 @@ internal partial class Ui
         }
     }
 
-    // Every station carrying the same store, in ordinal order.
     private void GatherGroup(string partId, List<WeaponSystems.Entry> into)
     {
         into.Clear();
@@ -242,18 +204,13 @@ internal partial class Ui
         }
     }
 
-    // One weapon as the operator picks it: a store type with however many stations carry it, and
-    // one armament of it where a launcher carries two.
     private readonly record struct WeaponChoice(WeaponSystems.Entry First, Armament Arm, int Stations,
                                                 int Left, bool Guarding, bool Named);
 
     private readonly List<WeaponChoice> _choices = [];
 
-    // Every weapon on a craft, in part order: one per store carried rather than per station, and
-    // one per armament. Two LAU-118s under one aircraft are one weapon to whoever is flying it --
-    // the stations take turns -- and a launcher with tubes and a belt is two, because the trigger
-    // fires one of them. The systems stay separate underneath; see WeaponSelection.NextStation for
-    // why pooling the magazines instead would let a store come back.
+    // One per store carried rather than per station, and one per armament. The systems stay separate
+    // underneath; pooled magazines would let a store come back (WeaponSelection.NextStation).
     private void CollectWeapons(KSA.Vehicle? craft, List<WeaponChoice> into)
     {
         into.Clear();
@@ -263,8 +220,7 @@ internal partial class Ui
         {
             string partId = _weaponScratch[i].Weapon.Profile.PartId;
 
-            // Ordinal order, so the first station of a group stands for it and every later one
-            // folds into it.
+            // The first station of a group stands for it.
             bool seen = false;
             for (int j = 0; j < i; j++)
             {
@@ -315,14 +271,13 @@ internal partial class Ui
     {
         _roster.Select(craft, c.First.Ordinal);
 
-        // Every station, because the trigger steps between them and each fires its own.
+        // Every station: the trigger steps between them.
         _roster.StationsOf(c.First, _stations);
         foreach (WeaponSystems.Entry s in _stations) s.Weapon.TriggerArmament = c.Arm.Kind;
         Focus(Focused);
     }
 
-    // The weapon the trigger beside it fires, picked where it is fired. Nothing is drawn for a craft
-    // with one weapon: there is nothing to choose, and FIRE says what it does on its own.
+    // Nothing is drawn for a craft with one weapon.
     private bool DrawWeaponPicker(KSA.Vehicle? craft)
     {
         CollectWeapons(craft, _choices);
@@ -375,12 +330,8 @@ internal partial class Ui
 
         GatherGroup(selected.Weapon.Profile.PartId, _stations);
 
-        // The trigger, on the selected weapon, so the switcher is usable without the manage window
-        // open at all -- which is the whole point of it being a window of its own.
         if (ImGui.Button("FIRE")) FireGroup(selected);
 
-        // This window is the trigger, so its line has to be about the trigger. Auto-engage off
-        // blocks nothing FIRE does, and reporting it here makes a working button look broken.
         ImGui.SameLine();
         DrawHoldLine(selected.Weapon, selected.Policy.AutoEngage);
     }
@@ -391,8 +342,6 @@ internal partial class Ui
 
         ImGui.PushID(row);
 
-        // The whole row selects, rather than a button beside a label: the row *is* the choice,
-        // and a target the width of the window is one that can be hit without looking.
         if (ImGui.Selectable($"##row{row}", isSelected, ImGuiSelectableFlags.None,
                              new float2(0f, ImGui.GetTextLineHeight() * 1.4f)))
         {
@@ -401,9 +350,7 @@ internal partial class Ui
 
         ImGui.SameLine(0f, 0f);
 
-        // Empty is the state worth colouring, because it is the one that makes FIRE do
-        // nothing -- and it is what "the second bomb did not detach" turns out to mean when
-        // the operator is still on the weapon that just fired.
+        // Empty is coloured: it is the state that makes FIRE do nothing.
         float4 tint = c.Left <= 0 ? Grey : isSelected ? Green : Amber;
 
         ImGui.TextColored(tint, $"{row + 1}. {ChoiceName(c)}");

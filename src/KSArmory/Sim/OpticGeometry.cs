@@ -176,9 +176,8 @@ public static class OpticGeometry
             return Vec.Unit(mount.Forward * Math.Cos(nod) + across * Math.Sin(nod));
         }
 
-        // A mast head, in the part's own axes rather than the mount's. Unchanged: the two are the
-        // same for a director bolted to a hull, and differ only on the one that rides a traverse —
-        // where this would swing the hand controls by the turret's bearing.
+        // A mast head, in the part's own axes rather than the mount's: on a traverse the mount's
+        // would swing the hand controls by the turret's bearing.
         double bearing = double.DegreesToRadians(firstDeg);
         double elevation = double.DegreesToRadians(secondDeg);
 

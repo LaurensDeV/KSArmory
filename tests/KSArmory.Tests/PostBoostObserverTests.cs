@@ -5,19 +5,9 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// What actually moves the number the post-boost correction reads, apportioned between the two
-/// things that can.
-///
-/// <para>The correction's only observer is a prediction flown from the bus's own state with the
-/// ejection kick already added, and two things move that prediction without the shot having
-/// changed: the <b>thrusters</b>, which move the vehicle it is flown from, and the <b>nose</b>,
-/// which is the direction the kick is added along. Both look identical from the miss alone — a
-/// number that walks while the aim is frozen.</para>
-///
-/// <para>Measurement, like <c>MirvBudgetTests</c>, on the same shot through
-/// <see cref="DeorbitShot"/>. What it asserts is the <em>ordering</em> of the two terms, because
-/// that is what decides where the gate goes: a gate on the smaller one is a gate that changes
-/// nothing.</para>
+/// The post-boost prediction is flown from the bus's state with the kick added along the nose, so the
+/// thrusters and the nose both move it without the shot changing. Measurement on <see cref="DeorbitShot"/>;
+/// it asserts the <em>ordering</em> of the two, since a gate on the smaller changes nothing.
 /// </summary>
 public class PostBoostObserverTests(ITestOutputHelper Out)
 {
@@ -200,7 +190,7 @@ public class PostBoostObserverTests(ITestOutputHelper Out)
             Math.Abs(MissWithKickTurned(at, FlownLowDegrees, true) - onTheNose));
 
         // At a reading the gate admits. Anything larger and the trim is still firing, which the
-        // sequencer has always refused to read across.
+        // sequencer never reads across.
         double trimSwing =
             Math.Abs(MissWithBusOffItsArc(at, BusTrim.SettledMetresPerSecond) - onTheNose);
 
@@ -209,10 +199,8 @@ public class PostBoostObserverTests(ITestOutputHelper Out)
         Out.WriteLine($"trim, at a reading the gate admits:     {trimSwing / 1000.0:F2} km");
         Out.WriteLine($"ratio: {noseSwing / trimSwing:F0}x");
 
-        // Two kilometres, not the eight this read when the round left its tube at 2 m/s. The term
-        // is exactly linear in the kick and the shipped one is a quarter of that, so the bar moved
-        // with it. What is being asserted is the ratio below; this only keeps the test honest about
-        // the term still being large in absolute terms.
+        // The ratio below is the assertion; this only keeps the term large in absolute terms. It is
+        // linear in the kick, so it scales with Warhead.LaunchSpeed.
         Assert.True(noseSwing > 2_000.0,
                     $"the nose only moved the reading {noseSwing / 1000.0:F2} km across the flown band");
         Assert.True(trimSwing < AimCorrection.ImprovedByMetres,
@@ -224,18 +212,9 @@ public class PostBoostObserverTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// Quietening the round's ejection kick took the nose out of first place.
-    ///
-    /// <para>At 2 m/s off the tube the nose dominated everything, including a separation shove that
-    /// nothing had taken out — which is why the observer gates on it. At the shipped quarter of that
-    /// the two have crossed over, because the nose term is linear in the kick and the shove is not
-    /// affected by it at all.</para>
-    ///
-    /// <para><b>It does not make the gate pointless.</b> A wholly un-nulled shove is a state no
-    /// reading is ever taken in — the sequencer waits for the trim to finish first — so the nose is
-    /// still the largest thing present when a reading is actually taken, which
-    /// <see cref="TheNoseMovesTheReadingFarFurtherThanTheTrimCan"/> holds. What the crossover does
-    /// change is which term is worth attacking next.</para>
+    /// At the shipped kick a wholly un-nulled shove outweighs the nose, since the nose term is linear in
+    /// the kick and the shove is not. No reading is taken before the trim finishes, so at a reading the
+    /// nose is still the largest term (<see cref="TheNoseMovesTheReadingFarFurtherThanTheTrimCan"/>).
     /// </summary>
     [Fact]
     public void TheQuieterKickTookTheNoseOutOfFirstPlace()

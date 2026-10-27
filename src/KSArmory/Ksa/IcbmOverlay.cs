@@ -7,15 +7,8 @@ namespace KSArmory;
 /// The shot, drawn in the world: where the warheads are going, where they were told to go, and
 /// when they arrive.
 ///
-/// <para>Two marks rather than one, and the gap between them is the whole point. The line is the
-/// trajectory <see cref="ImpactPredictor"/> flew from the vehicle's actual state; the ring on the
-/// ground is the place it was aimed at, sized to what the warhead reaches. While they disagree the burn is not finished — which is a thing to look
-/// at rather than a number to read, and the reason this is drawn at all.</para>
-///
-/// <para>The aim point keeps its mark whatever the vehicle is doing, and carries the time to
-/// impact beside it. A designation that is only visible on the tab that set it is a designation
-/// nobody can check while flying, and "when does this land" is the one question a countdown answers
-/// better than any amount of prose.</para>
+/// <para>The line is the trajectory <see cref="ImpactPredictor"/> flew from the vehicle's actual
+/// state; the ring is the place it was aimed at. While they disagree the burn is not finished.</para>
 /// </summary>
 internal static class IcbmOverlay
 {
@@ -50,10 +43,8 @@ internal static class IcbmOverlay
     private const float Tick = 5f;
 
     /// <param name="focused">
-    /// The computer the panel is showing, which is the only one whose reach is drawn: a region exists
-    /// to place a target in, only one computer is being clicked at, and six ellipses over six rockets
-    /// is not six times as useful. Every computer's targets are drawn, because where a salvo is going
-    /// is worth seeing whichever rocket the panel is on.
+    /// The computer the panel is showing, the only one whose reach is drawn, since only one is
+    /// being clicked at. Every computer's targets are drawn.
     /// </param>
     public static void Draw(IcbmComputers computers, IcbmComputer? focused, List<double3> scratch)
     {
@@ -65,16 +56,11 @@ internal static class IcbmOverlay
     {
         foreach (IcbmComputer computer in computers.All)
         {
-            // The ring marks where the WARHEADS are going, so it outlives the craft that sent them:
-            // a bus has no heat shield and they do, and it breaks up on reentry five to twenty
-            // seconds before they arrive. Gated on the craft alone, the mark would go out with
-            // the warheads still falling toward it. The aim point needs nothing from the vehicle --
-            // Target and Parent are both latched -- so this costs only the check.
+            // The ring outlives the craft: a bus breaks up on reentry five to twenty seconds before
+            // its warheads arrive. Target and Parent are latched, so it needs nothing from the craft.
             bool alive = KsaWorld.IsAlive(computer.Craft);
             if (!alive && !computer.SalvoStillArriving) continue;
 
-            // Marked while the shot is still going to happen, and while it is on its way -- but not
-            // once it has landed, when the ring has nothing left to mark.
             if (computer.Config.MarkTarget && !computer.SalvoHasLanded
                 && computer.TargetEcl() is { } target)
             {
@@ -83,7 +69,6 @@ internal static class IcbmOverlay
                 if (ReferenceEquals(computer, focused)) DrawReach(computer);
             }
 
-            // The trajectory is the vehicle's own and goes with it.
             if (!alive || !computer.Config.DrawTrajectory) continue;
 
             computer.PathEcl(scratch);
@@ -100,25 +85,19 @@ internal static class IcbmOverlay
         }
     }
 
-    // A ring on the terrain rather than a solid at the aim point: anything large enough to see from
-    // orbit is large enough to sit over the target and hide it, and a shape with no radius says
-    // nothing about how far the warhead reaches. Painted by the ring pass on whatever the depth buffer
-    // holds, so it is an exact circle at any size with no terrain to sample.
+    // A ring rather than a solid, which large enough to see from orbit would hide the target.
+    // Painted by the ring pass, so it is exact at any size with no terrain to sample.
     private static void DrawAimRing(IcbmComputer computer, double3 target)
     {
         double radius = RingRadius(computer);
         GroundRings.Add(target, radius, radius * 0.15, PaintedAim);
     }
 
-    // The warhead's own lethal radius, so what a ring circles is what arriving there does -- and so
-    // two rings touching is the floor on how close two targets may be. A vehicle carrying nothing
-    // that lets go still gets a mark, because the aim point is a designation rather than a property
-    // of the payload.
+    // The lethal radius, so two rings touching is the floor on how close two targets may be.
     private static double RingRadius(IcbmComputer computer)
         => computer.Munition is { } warhead ? Warhead.LethalRadius(warhead.ChargeKg) : UnarmedRingMetres;
 
-    // The places past the lead, each in its own ring, a paler ink than the aim ring: the flight is
-    // aimed at the lead and these are where the bus is meant to go afterwards.
+    // Paler than the aim ring: the flight is aimed at the lead.
     private static void DrawOtherTargets(IcbmComputer computer)
     {
         if (computer.Targets.Count < 2) return;
@@ -132,9 +111,8 @@ internal static class IcbmOverlay
         }
     }
 
-    // The ground the bus can still divert to, at the trim budget the set has not spent. An ellipse
-    // rather than a circle because the reach is one: pinned the two axes agree to within 3%, and a
-    // shape drawn from the axes cannot go wrong on the geometry where they do not.
+    // An ellipse: pinned, the two axes agree to within 3%, and drawn from the axes it cannot go
+    // wrong where they do not.
     private static void DrawReach(IcbmComputer computer)
     {
         if (!computer.Reach.HasRegion) return;
@@ -144,9 +122,8 @@ internal static class IcbmOverlay
         GroundRings.AddEllipse(centre, major, Vec.Len(minor), PaintedReach);
     }
 
-    // The screen-space half: a mark on the aim point wherever it is, with the countdown beside it.
-    // Clamped to the edge when it is off screen rather than dropped, because a target behind the
-    // camera is exactly when knowing which way it lies is worth something.
+    // Clamped to the screen edge rather than dropped, so a target behind the camera still says
+    // which way it lies.
     private static void DrawMarks(IcbmComputers computers, IcbmComputer? focused)
     {
         bool anything = false;
@@ -177,8 +154,8 @@ internal static class IcbmOverlay
             if (computer.TargetEcl() is not { } targetEcl) continue;
             if (!KsaWorld.TryProjectOrClamp(targetEcl, out float2 at, out bool inView)) continue;
 
-            // Several rockets' sets lie side by side, so each is one colour and one chain, and only the rocket the panel
-            // is on says everything: identical labels on eight sets read as columns of stops rather than as eight walks.
+            // One colour and chain per rocket, and full labels only on the focused one: eight identical
+            // label sets read as columns of stops rather than eight walks.
             bool full = rockets <= 1 || ReferenceEquals(computer, focused);
             ImColor8 own = rockets <= 1 ? MarkOther : Chain[seat % Chain.Length];
             string craft = KsaWorld.DisplayName(computer.Craft);
@@ -202,9 +179,8 @@ internal static class IcbmOverlay
                          full ? Numbered(computer, computer.LeadTarget) + (rockets > 1 ? $"{craft}  " : "") + Caption(computer)
                               : $"{Numbered(computer, computer.LeadTarget)}{craft}");
 
-            // The rest of the set, numbered because the panel lists them by number and a ring on the
-            // ground with no number is a place nobody can pair with a row. Each carries the same
-            // countdown: every warhead of a walk is solved onto the one pinned arrival.
+            // Numbered as the panel lists them, each with the lead's countdown: a walk is solved onto
+            // one pinned arrival.
             string impact = ImpactIn(computer);
 
             for (int i = 0; i < count; i++)
@@ -236,19 +212,14 @@ internal static class IcbmOverlay
         ImGui.End();
     }
 
-    // The number the panel's list uses, and only once there is a list: on a single-target shot a
-    // "1" in front of the aim point is noise about a distinction that does not exist yet.
     private static string Numbered(IcbmComputer computer, int index)
         => computer.Targets.Count > 1 ? $"{index + 1}  " : "";
 
-    // What the mark says: what it is, and when it lands.
     private static string Caption(IcbmComputer computer)
     {
         string name = computer.Target.Describe();
         IcbmCommand command = computer.Command;
 
-        // The failures come first, because a countdown on a shot that cannot be made is worse than
-        // no countdown at all.
         if (command.Reach == IcbmReach.NoTrajectory) return $"{name}  UNREACHABLE";
 
         if (command.Reach == IcbmReach.ShortOfPropellant)
@@ -280,8 +251,7 @@ internal static class IcbmOverlay
         draw.AddLine(new float2(at.X, at.Y - Half), new float2(at.X, at.Y - Half + Tick), colour);
         draw.AddLine(new float2(at.X, at.Y + Half), new float2(at.X, at.Y + Half - Tick), colour);
 
-        // A ring only while it is genuinely on screen. Clamped to the edge it would read as a place
-        // out there rather than as a direction to look in.
+        // Clamped to the edge, a ring would read as a place rather than a direction.
         if (inView) draw.AddCircle(at, Half, colour, 16);
     }
 }

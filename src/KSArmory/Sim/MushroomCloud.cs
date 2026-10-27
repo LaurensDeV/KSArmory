@@ -455,41 +455,48 @@ public static class MushroomCloud
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<double, double> _held = new();
 
     /// <summary>
-    /// The yield KSA's own big bang is heard unaltered at.
-    ///
-    /// <para><b>An anchor, and a choice.</b> Nothing says what yield Core's <c>ExplosionBig</c> was
-    /// authored for, so it is pinned to the one burst anybody has listened to it on — the B61's
-    /// third of a kilotonne. The <em>ratio</em> between two yields is the law's; where the scale
-    /// sits is this.</para>
+    /// The yield the bang is heard unaltered at: ANNIE's 16 kt, which the recording is of
+    /// (<c>tools/annie-sounds.py</c>).
     /// </summary>
-    public const double BangAnchorKt = 0.3;
+    public const double BangAnchorKt = 16.0;
 
     /// <summary>
-    /// The lowest a bang is pitched, which is where a sample stops being a sound.
-    ///
-    /// <para>At this the ten-second echo KSA's bang carries runs thirty, which is the rumble
-    /// observers report from tens of kilometres; below it the crack turns to mud before the tail
-    /// gets any longer worth hearing. The law reaches it at about seven kilotonnes, so the Mk 21's
-    /// twenty sits on it.</para>
+    /// The lowest a bang is pitched, which is where a sample stops being a sound: the recording's
+    /// three seconds run eight and a half, and below it the boom turns to mud. The law reaches it at
+    /// about 370 kt.
     /// </summary>
     public const double BangPitchFloor = 0.35;
 
     /// <summary>
-    /// How a burst is heard against the bang KSA ships: slower and deeper by the same factor.
+    /// How a burst is heard against the recorded bang: slower and deeper by the same factor.
     ///
     /// <para><b>The cube root, like everything else about a burst.</b> A blast wave's duration
     /// scales with the linear size of the source, which is Hopkinson–Cranz again, so every time in
-    /// the sound goes as <c>W^(1/3)</c> and playing it back at <c>W^(-1/3)</c> lengthens the crack,
-    /// the report and the echo together. Eight times the yield is twice the rumble and an octave
-    /// down — which is what makes a twenty-kilotonne warhead sound unlike a rocket going off.</para>
+    /// the sound goes as <c>W^(1/3)</c> and playing it back at <c>W^(-1/3)</c> lengthens the crack
+    /// and the rumble together. Eight times the yield is twice the rumble and an octave down.</para>
     ///
-    /// <para>Never above one: the sample is already a big explosion, and a smaller burst than the
-    /// anchor played faster is a firework rather than a smaller bang.</para>
+    /// <para><b>Only down, never up.</b> What the recording sounds like is mostly the 10.7 km it crossed --
+    /// the air taking the top off and the ground's echoes rolling it -- which no yield changes; played
+    /// faster it is a thinner, higher recording rather than a smaller bang. A small burst's crispness is
+    /// the crack close in instead (<see cref="CrackDistance"/>).</para>
     /// </summary>
     public static double BangPitch(double yieldKt)
         => yieldKt <= 0.0 || !double.IsFinite(yieldKt)
                ? 1.0
                : Math.Clamp(Math.Cbrt(BangAnchorKt / yieldKt), BangPitchFloor, 1.0);
+
+    /// <summary>
+    /// The yield KSA's own close crack is heard at as Core mixes it: full within 100 m, gone by a
+    /// kilometre. The B61's, which is what it was first heard on.
+    /// </summary>
+    public const double CrackAnchorKt = 0.3;
+
+    /// <summary>
+    /// The distance Core's crack is told it is heard from, so its own fade carries further for a bigger
+    /// burst: the range scaled by the cube root, as every blast distance is.
+    /// </summary>
+    public static double CrackDistance(double rangeMetres, double yieldKt)
+        => yieldKt <= 0.0 || !double.IsFinite(yieldKt) ? rangeMetres : rangeMetres * Math.Cbrt(CrackAnchorKt / yieldKt);
 
     /// <summary>Kilotons of TNT equivalent for a charge in kg, which is what a profile carries.</summary>
     public static double KilotonsFor(double chargeKg) => chargeKg / Charge.KgPerKiloton;

@@ -5,22 +5,9 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// What the angle a round arrives at is worth, measured rather than argued about.
-///
-/// <para>Every ballistic shot this mod flies arrives at about twelve degrees, because the
-/// guidance picks the cheapest transfer and the cheapest transfer from orbit is a graze. That is
-/// the worst arrival there is for precision on four separate counts, and each of them has a number
-/// here. <c>docs/ARRIVAL-ANGLE.md</c> is the account; this file is where the figures in it come
-/// from.</para>
-///
-/// <para><b>Measurement only.</b> Nothing asserts an improvement and nothing changes what the
-/// guidance does — the assertions pin facts that were measured, so the whole sweep can be re-run
-/// after a change and compared.</para>
-///
-/// <para><b>The planet sits at the origin and does not move</b>, which <see cref="DeorbitShot"/>
-/// says why of. So nothing here can see an epoch fault, and the ground a round meets
-/// (<c>docs/ACCURACY-PLAN.md</c>, "Moved from ICBM-GUIDANCE") is out of reach of this rig — what
-/// is measured is the geometry that would multiply such a fault, not the fault.</para>
+/// The figures behind <c>docs/ARRIVAL-ANGLE.md</c>, for a deorbit; the assertions pin measured facts.
+/// The planet sits at the origin and does not move (<see cref="DeorbitShot"/>), so no epoch fault is
+/// visible here — only the geometry that would multiply one.
 /// </summary>
 public class ArrivalAngleTests(ITestOutputHelper Out)
 {
@@ -74,10 +61,8 @@ public class ArrivalAngleTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// The shallowest arrival the air permits, and the brake that reaches it.
-    ///
-    /// <para>Below it the vacuum arc is shallower still and drag bends it back, so the two branches
-    /// meet at a floor rather than the angle carrying on down.</para>
+    /// Below this brake the vacuum arc is shallower still and drag bends it back, so the two
+    /// branches meet at a floor rather than the angle carrying on down.
     /// </summary>
     private static (double Degrees, double Brake) DragFloor(double altitude)
     {
@@ -128,12 +113,8 @@ public class ArrivalAngleTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// Twelve degrees is the air's answer, not the guidance's.
-    ///
-    /// <para>A cheap deorbit leaves on a vacuum arc of a few degrees and arrives at about 12.2,
-    /// because entry bends a graze back up to whatever the round's own sectional density can hold. So
-    /// the arrival angle of a cheap deorbit is a property of the warhead, and the five degrees this
-    /// budget was asked about is not reachable with a Mk 21 at all.</para>
+    /// A cheap deorbit leaves on a vacuum arc of a few degrees and arrives at about 12.2, because
+    /// entry bends a graze up to what the round's sectional density can hold.
     /// </summary>
     [Fact]
     public void TheShallowestArrivalBelongsToTheRoundNotTheGuidance()
@@ -176,11 +157,8 @@ public class ArrivalAngleTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// The table. Arrival angle against everything that decides where a rod lands.
-    ///
-    /// <para>The family is a circular platform braking retrograde, which is the one degree of
-    /// freedom a deorbit has: how hard it brakes sets the arrival angle, the downrange, the flight
-    /// time and the speed left, all at once. They cannot be traded against each other.</para>
+    /// The brake is a deorbit's one degree of freedom: it sets the arrival angle, the downrange, the
+    /// flight time and the speed left together, so they cannot be traded against each other.
     /// </summary>
     [Theory]
     [InlineData(300_000.0)]
@@ -243,13 +221,8 @@ public class ArrivalAngleTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// The other way to steepen: hold the range and fly a longer arc, which is what
-    /// <c>IcbmConfig.Loft</c> does.
-    ///
-    /// <para>It works, and it stops paying. Range sets the floor under the sensitivity — a shot
-    /// that has to cover 3,459 km has a long lever whatever angle it comes in at — so the gain is
-    /// nearly all spent by fifteen degrees and everything past that is kilometres a second for a
-    /// few per cent.</para>
+    /// Steepening by a longer arc at fixed range, as <c>IcbmConfig.Loft</c> does: range sets the
+    /// floor under the sensitivity, so past fifteen degrees it is km/s for a few per cent.
     /// </summary>
     [Fact]
     public void WhatSteepeningCostsAtAFixedRange()
@@ -298,12 +271,8 @@ public class ArrivalAngleTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// What a ten per cent error in the drag model is worth, per arrival angle.
-    ///
-    /// <para>The number that matters most and is easiest to miss: a correction loop can only remove
-    /// what its observer can see, and the observer shares the flight model. So whatever the model
-    /// has wrong survives the loop — and on a graze it is worth more than the whole flown
-    /// miss.</para>
+    /// The observer shares the flight model, so whatever the model has wrong survives the correction
+    /// loop — and on a graze it is worth more than the whole flown miss.
     /// </summary>
     [Fact]
     public void WhatAnErrorInTheDragModelCosts()
@@ -353,11 +322,8 @@ public class ArrivalAngleTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// Impact speed against arrival angle, which is the other half of what a rod wants.
-    ///
-    /// <para>The energy is the platform's orbital velocity, so braking to arrive steeply is
-    /// spending the thing that does the damage. Total speed peaks well short of vertical; the
-    /// component square to the ground does not.</para>
+    /// The energy is the platform's orbital velocity, so braking to arrive steeply spends it: total
+    /// speed peaks well short of vertical; the component square to the ground does not.
     /// </summary>
     [Fact]
     public void ImpactSpeedAgainstArrivalAngle()
@@ -386,14 +352,9 @@ public class ArrivalAngleTests(ITestOutputHelper Out)
 
         Out.WriteLine($"fastest arrival {bestSpeed:F0} m/s at {atAngle:F2} deg");
 
-        // The energy comes from the orbit, so the steep arrivals are the slow ones.
         Assert.InRange(atAngle, 25.0, 35.0);
     }
 
-    /// <summary>
-    /// What the two routes to a steep arrival cost in propellant, as the mass ratio each asks of a
-    /// stage with the exhaust velocity <c>DeorbitTests</c> flies.
-    /// </summary>
     [Fact]
     public void WhatSteepeningCostsInPropellant()
     {
@@ -414,13 +375,8 @@ public class ArrivalAngleTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// What the window search picks when the target is fixed, and what <c>Loft</c> does to it.
-    ///
-    /// <para><see cref="BurnWindow"/> costs every departure across a day and takes the cheapest,
-    /// which for anything more than a few hundred kilometres downrange is the graze. Loft does not
-    /// override that: it raises the cost of leaving now as well as the cost of waiting, so a shot
-    /// that would have been taken steeply from close in is deferred to a cheap flat one instead.
-    /// The operator asks for steeper and gets shallower.</para>
+    /// <see cref="BurnWindow"/> takes the cheapest departure across a day, and loft raises the cost
+    /// of leaving now as well as of waiting, so a steep close-in shot is deferred to a flat one.
     /// </summary>
     [Fact]
     public void TheWindowSearchPrefersTheGrazeAndLoftCanMakeItWorse()

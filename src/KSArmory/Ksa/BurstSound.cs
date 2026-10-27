@@ -4,51 +4,36 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// The bang, arriving when it actually would.
-///
-/// <para>KSA plays an explosion's sound at the instant of the explosion, which is right for
-/// everything it ships: a conventional burst is heard from inside its own blast radius or not at
-/// all. A nuclear burst is watched from kilometres away, and the flash and the sound are separated
-/// by the whole of the time sound takes to get there — seven seconds from the two and a half
-/// kilometres the cloud is watched from. That gap is one of the most recognisable things about a
-/// burst, and playing the two together throws it away.</para>
-///
-/// <para><b>And a burst with no air makes no sound at all.</b> That falls out of the same rule
-/// rather than needing one of its own: there is nothing to carry it.</para>
-///
-/// <para><b>The bang is the front arriving, followed live.</b> Each burst's <see cref="BlastFront"/> is
-/// run out against where the camera is now, and when it reaches it the bang and the view's shake go
-/// together, as loud and as hard as <see cref="BlastAltitude.PeakPascals"/> puts the pressure there, and
-/// nothing under <see cref="BurstHearing.FeltPascals"/>. So a burst 37 km up is heard minutes later, and
-/// one at 77 km is not heard at all.</para>
+/// A nuclear burst's two sounds, both from the ANNIE film: the observer's equipment picking up the flash
+/// at the instant of the burst, and the bang, arriving when the front does.
+/// <para>Each burst's <see cref="BlastFront"/> is followed live against where the camera is now; when it
+/// arrives the bang and the shake go together, as loud as <see cref="BlastAltitude.PeakPascals"/> puts the
+/// pressure there and nothing under <see cref="BurstHearing.FeltPascals"/>. No air carries no front.</para>
 /// </summary>
 internal static class BurstSound
 {
-    // What Core's own nuclear-scale explosion uses. Taken out of the preset so the engine no
-    // longer plays it on contact; this plays it when it arrives instead.
-    private const string BangId = "ExplosionBig";
+    private const string BangId = "KSArmoryNuclearBang";
 
-    // How long the echo layer of that bang runs at its own pitch: Core ships four, at 10.6 to
-    // 10.8 s. Said in the log beside the pitch, because the length is the part a reader can check
-    // by ear and the pitch is not.
-    private const double EchoSeconds = 10.7;
+    // Core's own bang, of which only the close crack is played: the recording was made 10.7 km out and
+    // the air took its crack off. Found by the spatial data Core gives that layer alone, and told the
+    // distance on Core's own "Distance" parameter, which fades it out by a kilometre.
+    private const string CoreBangId = "ExplosionBig";
+    private const string CrackSpatialId = "ExplosionSpatialSoundData";
+    private static readonly KeyHash DistanceHash = KeyHash.Make("Distance".AsSpan());
+    private static bool _crackMissing;
+    private const string PickupId = "KSArmoryNuclearPickup";
 
-    // Bangs due within this long of each other from within this far of each other are one bang:
-    // six warheads of a bus land 9 mm apart in the same frame, and six copies of one sound played
-    // on top of each other is a louder bang, not six.
+    // The recorded bang's length at its own pitch, logged because a length can be checked by ear and a
+    // pitch cannot.
+    private const double BangSeconds = 2.95;
+
+    // Bangs this close in time and place are one: six warheads of a bus land in the same frame.
     private const double SameBangSeconds = 0.5;
     private const double SameBangMetres = 1000.0;
 
     // A front still short of the camera after this long is let go: KSA's front law is bisected to an
     // hour, and nothing heard at all is worth following further.
     private const double FollowSeconds = 1800.0;
-
-    // The parameters Core's explosion sounds are mixed on, set exactly as ExplosionSoundSystem sets
-    // them. Left unset they read zero: the far report -- the rumble -- is silent at every range, the
-    // close crack is at full at every range, and the echo sits at its floor.
-    private static readonly KeyHash DistanceHash = KeyHash.Make("Distance".AsSpan());
-    private static readonly KeyHash PressureHash = KeyHash.Make("Pressure".AsSpan());
-    private static readonly KeyHash IntensityHash = KeyHash.Make("Intensity".AsSpan());
 
     // One burst's front on its way out, anchored to the ground it went off over, and whether it has yet
     // reached the camera straight from the burst and as the ground's reflection.
@@ -71,8 +56,7 @@ internal static class BurstSound
     private static readonly List<Front> _fronts = [];
     private static int _seeds;
 
-    // Bangs playing, re-placed every frame as ExplosionSoundSystem does, because a sound lasting
-    // thirty seconds is heard from wherever the camera has got to since.
+    // Re-placed every frame, as ExplosionSoundSystem does: a long sound is heard from where the camera now is.
     private static readonly List<(IChannel Channel, double3 Anchor, object? Body)> _playing = [];
 
     private static bool _warned;
@@ -81,6 +65,7 @@ internal static class BurstSound
     public static void Clear()
     {
         _fronts.Clear();
+        _probes.Clear();
 
         foreach ((IChannel channel, _, _) in _playing)
         {
@@ -91,12 +76,11 @@ internal static class BurstSound
         _playing.Clear();
     }
 
-    /// <summary>
-    /// Starts following a burst's front out to the camera. Nothing where the air at the burst carries no
-    /// front, which is the whole of what makes a burst over the air silent.
-    /// </summary>
+    /// <summary>Starts following a burst's front out to the camera; nothing where the air carries none.</summary>
     public static void Begin(Celestial body, double3 burstEcl, double chargeKg, double burstHeight = 0.0)
     {
+        Pickup(burstEcl, chargeKg);
+
         try
         {
             if (!KsaWorld.HasAtmosphere(body)) return;
@@ -140,6 +124,41 @@ internal static class BurstSound
         }
     }
 
+    // The pickups of bursts this close together in wall time are one: a bus's warheads land in a frame.
+    private static long? _lastPickupMs;
+
+    // The equipment reacting to the flash, at the instant of the burst whatever the air: it is the
+    // radiation the recorder picked up, not the front.
+    private static void Pickup(double3 burstEcl, double chargeKg)
+    {
+        try
+        {
+            long now = Environment.TickCount64;
+            if (now - _lastPickupMs < (long)(SameBangSeconds * 1000.0)) return;
+            if (GameAudio.GetAudioCamera() is not { } camera) return;
+
+            double3 posEgo = burstEcl - camera.PositionEcl;
+            double loudness = BurstHearing.PickupLoudness(MushroomCloud.KilotonsFor(chargeKg), Vec.Len(posEgo));
+            if (loudness <= 0.0 || !Vec.IsFinite(posEgo)) return;
+            if (ModLibrary.Get<SoundBehavior>(PickupId) is not { } sound) return;
+
+            SpatialAudio spatial = new(posEgo, new double3(0.0, 0.0, 0.0),
+                                       PhysicalAtmosphereReference.GetAtmosphericPressure(camera));
+            sound.Play(spatial, (float)loudness, out IChannel? channel, startPaused: false);
+            _lastPickupMs = now;
+            if (channel is not null) _probes.Add((channel, now, "pickup"));
+
+            Log.Info($"pickup: the equipment heard the flash {Distance.Say(Vec.Len(posEgo))} away at {loudness:F2}");
+        }
+        catch (Exception e)
+        {
+            if (_warned) return;
+
+            _warned = true;
+            Log.Warn($"the pickup could not be played: {e.Message}");
+        }
+    }
+
     // The two reports of an air burst closer than this are heard as one.
     private const double SecondBangSeconds = 0.15;
 
@@ -147,13 +166,80 @@ internal static class BurstSound
     // what reaches it, and it has come further.
     private const double ReflectedShare = 0.6;
 
-    /// <summary>
-    /// Follows every front on the simulated step, and as one reaches the camera plays the bang and shakes
-    /// the view together, as loud and as hard as the pressure there: a thing in the world, so it waits
-    /// through a pause and hurries under timewarp. Then re-places what is playing against the camera.
-    /// </summary>
+    // Channels to report on once they have been playing a moment: what FMOD made of them, because a
+    // sound KSA accepted and nobody hears is otherwise indistinguishable from one that played.
+    private static readonly List<(IChannel Channel, long StartedMs, string What)> _probes = [];
+    private const long ProbeAfterMs = 250;
+
+    private static void Probe()
+    {
+        long now = Environment.TickCount64;
+
+        for (int i = _probes.Count - 1; i >= 0; i--)
+        {
+            (IChannel channel, long started, string what) = _probes[i];
+            if (now - started < ProbeAfterMs) continue;
+
+            _probes.RemoveAt(i);
+
+            try
+            {
+                string line = $"{what} after {now - started} ms: playing {channel.IsPlaying()}, virtual {channel.IsVirtual()}";
+
+                if (channel is ChannelWrapper cw)
+                {
+                    line += $", volume {cw.SoundVolumeMultiplier:F2} x {cw.VolumeMultiplier:F2} x fade {cw.FadeVolumeMultiplier:F2}"
+                            + $", pitch {cw.PitchMultiplier:F2} x sim {cw.SimPitchMultiplier:F2}, lpf {cw.LpfValue:F0} Hz"
+                            + $", hpf {cw.HpfValue:F0} Hz, {cw.SpatialAudio.Distance():F0} m"
+                            + FmodReport(cw);
+                }
+
+                Log.Info(line);
+            }
+            catch (Exception e)
+            {
+                Log.Info($"{what}: could not be probed: {e.Message}");
+            }
+        }
+    }
+
+    // Brutal.Fmod is not referenced by the build, so its extension methods are reached by name.
+    private static string FmodReport(ChannelWrapper cw)
+    {
+        try
+        {
+            object fmod = typeof(ChannelWrapper).GetField("Channel")!.GetValue(cw)!;
+            Type? ext = fmod.GetType().Assembly.GetType("Brutal.FmodApi.Fmod");
+            if (ext is null) return ", fmod unreadable";
+
+            string Ask(string name, int outs)
+            {
+                var method = ext.GetMethods().FirstOrDefault(
+                    m => m.Name == name && m.GetParameters().Length == outs + 1
+                         && m.GetParameters()[0].ParameterType == fmod.GetType());
+                if (method is null) return "?";
+
+                object?[] args = new object?[outs + 1];
+                args[0] = fmod;
+                object? result = method.Invoke(null, args);
+                return $"{string.Join("/", args.Skip(1))} ({result})";
+            }
+
+            return $", fmod volume {Ask("TryGetVolume", 1)}, audibility {Ask("TryGetAudibility", 1)}"
+                   + $", min/max {Ask("TryGet3dMinMaxDistance", 2)}, 3d level {Ask("TryGet3dLevel", 1)}"
+                   + $", paused {Ask("TryGetPaused", 1)}";
+        }
+        catch (Exception e)
+        {
+            return $", fmod unreadable: {e.Message}";
+        }
+    }
+
+    /// <summary>On the simulated step, so a front waits through a pause and hurries under timewarp.</summary>
     public static void Update(double dt)
     {
+        Probe();
+
         if (double.IsFinite(dt) && dt >= 0.0)
         {
             bool eye = KsaWorld.TryMainCameraPose(out double3 eyeEcl, out _);
@@ -237,8 +323,7 @@ internal static class BurstSound
         if (BurstHearing.Heard(pascals)) Play(front.Anchored, front.Anchor, front.ChargeKg, ReflectedShare * BurstHearing.Loudness(pascals));
     }
 
-    // The front has reached the camera straight from the burst: the pressure there by G&D's rule, with
-    // the ground's own gain where the eye is, and the bang and the shake together if it is felt at all.
+    // The pressure at the eye by G&D's rule, with the ground's gain there.
     private static void Arrive(Front front, double3 burstEcl, double3 eyeEcl, double range)
     {
         AmbientAir earAir = KsaWorld.AirAt(front.Body, eyeEcl);
@@ -270,24 +355,25 @@ internal static class BurstSound
         if (!KsaWorld.TryGroundAnchorEcl(body, anchor, out double3 atEcl, out double3 velEcl)) return false;
         if (GameAudio.GetAudioCamera() is not { } camera) return false;
 
-        // Ego is a pure translation of Ecl, so a separation is the same vector in both. The ground's
-        // own motion is the source velocity: a Doppler shift on a bang that has already travelled
-        // for seconds is far below what anyone could place.
+        // Ego is a pure translation of Ecl, so a separation is the same vector in both.
         double3 posEgo = atEcl - camera.PositionEcl;
         if (!Vec.IsFinite(posEgo) || !Vec.IsFinite(velEcl)) return false;
 
+        // FMOD hears the velocity against a listener at rest, so it has to be the camera's Ego velocity,
+        // as ExplosionSoundSystem gives it: in Ecl a burst passes at the planet's 30 km/s and is Dopplered
+        // to nothing wherever it is not mixed as 2D. The camera reports Ego velocity only of a body, so the
+        // point's is that plus its own against the body; without a body, no Doppler at all.
+        double3 velEgo = body is IVelocity on
+                             ? velEcl - on.GetVelocityEcl() + camera.GetVelocityEgo(on)
+                             : new double3(0.0, 0.0, 0.0);
+        if (!Vec.IsFinite(velEgo)) velEgo = new double3(0.0, 0.0, 0.0);
+
         // The pressure at the listener, in atmospheres, which is what the channel's low-pass reads.
-        spatial = new SpatialAudio(posEgo, velEcl, PhysicalAtmosphereReference.GetAtmosphericPressure(camera));
+        spatial = new SpatialAudio(posEgo, velEgo, PhysicalAtmosphereReference.GetAtmosphericPressure(camera));
         return true;
     }
 
-    private static void Apply(IChannel channel, SpatialAudio spatial)
-    {
-        channel.SetSpatialAudio(spatial);
-        channel.SetParameter(DistanceHash, (float)spatial.Distance());
-        channel.SetParameter(PressureHash, (float)spatial.AtmosphericPressure);
-        channel.SetParameter(IntensityHash, 1f);
-    }
+    private static void Apply(IChannel channel, SpatialAudio spatial) => channel.SetSpatialAudio(spatial);
 
     private static void Play(object? body, double3 anchor, double chargeKg, double loudness)
     {
@@ -296,10 +382,7 @@ internal static class BurstSound
             if (!TrySpatial(body, anchor, out SpatialAudio spatial)) return;
             if (ModLibrary.Get<SoundBehavior>(BangId) is not { } sound) return;
 
-            // Started paused, pitched and placed before it is let go, so no part of it is heard at
-            // the pitch of a rocket going off or mixed as though it were at the listener. The
-            // multiplier reaches every layer KSA's bang is made of -- the crack, the far report and
-            // the ten-second echo -- through the multi-channel wrapper.
+            // Started paused so no part of it is heard before it is pitched and placed.
             double kt = MushroomCloud.KilotonsFor(chargeKg);
             float pitch = (float)MushroomCloud.BangPitch(kt);
 
@@ -310,12 +393,15 @@ internal static class BurstSound
             Apply(channel, spatial);
             channel.SetPaused(false);
 
-            if (channel.SubscribedClusterSound is { } cluster && cluster.IsPaused()) cluster.SetPaused(false);
-
             _playing.Add((channel, anchor, body));
+            _probes.Add((channel, Environment.TickCount64, "bang"));
+
+            double crackAt = MushroomCloud.CrackDistance(spatial.Distance(), kt);
+            bool cracked = PlayCrack(body, anchor, spatial, loudness, crackAt);
 
             Log.Info($"bang: {kt:F2} kt heard {spatial.Distance() / 1000.0:F1} km away at {pitch:F2} pitch "
-                     + $"-- KSA's ten-second echo runs about {EchoSeconds / pitch:F0} s");
+                     + $"-- the recording runs {BangSeconds / pitch:F1} s"
+                     + (cracked ? $", Core's crack as from {crackAt:F0} m" : ", no crack"));
         }
         catch (Exception e)
         {
@@ -323,6 +409,37 @@ internal static class BurstSound
 
             _warned = true;
             Log.Warn($"the bang could not be played: {e.Message}");
+        }
+    }
+
+    private static bool PlayCrack(object? body, double3 anchor, SpatialAudio spatial, double loudness, double crackAt)
+    {
+        try
+        {
+            SoundReference? crack = ModLibrary.Get<SoundBehavior>(CoreBangId) is MultiSound core
+                                        ? core.Sounds.OfType<SoundReference>()
+                                              .FirstOrDefault(l => l.SpatialSoundData?.Id == CrackSpatialId)
+                                        : null;
+            if (crack is null)
+            {
+                if (!_crackMissing) Log.Warn($"Core's {CoreBangId} has no close crack layer any more: the bang plays without one");
+                _crackMissing = true;
+                return false;
+            }
+
+            crack.Play(spatial, (float)Math.Clamp(loudness, 0.0, 1.0), out IChannel? channel, startPaused: true);
+            if (channel is null) return false;
+
+            channel.SetParameter(DistanceHash, (float)crackAt);
+            Apply(channel, spatial);
+            channel.SetPaused(false);
+
+            _playing.Add((channel, anchor, body));
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 }

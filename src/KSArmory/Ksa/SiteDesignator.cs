@@ -7,15 +7,10 @@ namespace KSArmory;
 /// Point at the world and put the warheads there — the ballistic computer's aim point, picked off
 /// the ground rather than typed in.
 ///
-/// <para>A tool that is armed and then used, not a button that is pressed. That distinction is the
-/// whole reason this exists: a button samples the cursor at the moment it is clicked, and at that
-/// moment the cursor is over the button — so it designates whatever happens to lie behind the
-/// panel, silently and plausibly. A place on a map cannot be named by a control that is in the
-/// way of it.</para>
+/// <para>A tool that is armed and then used, not a button: a button samples the cursor while it is
+/// over the button, and so designates whatever lies behind the panel.</para>
 ///
-/// <para>Per computer rather than per session, like every other tool that acts on one
-/// installation: two missiles in the same world are aimed by different people at different
-/// things.</para>
+/// <para>Per computer rather than per session: two missiles in one world aim at different things.</para>
 /// </summary>
 internal sealed class SiteDesignator
 {
@@ -42,9 +37,7 @@ internal sealed class SiteDesignator
 
         if (!ImGui.IsMouseClicked(ImGuiMouseButton.Left, repeat: false)) return;
 
-        // Nothing under the cursor is a click on the sky, and there is no sensible place to put a
-        // warhead there. Silent on purpose: the marker below is already saying there is nowhere to
-        // aim, which is a better answer than a line in a log.
+        // Silent on purpose: the cursor marker already says there is nowhere to aim.
         if (!KsaWorld.TryCursorGroundPoint(out double3 groundEcl, out double latitude,
                                            out double longitude, out string body))
         {
@@ -55,8 +48,7 @@ internal sealed class SiteDesignator
 
         ReachVerdict verdict = Verdict(computer, groundEcl, body);
 
-        // Silent, for the reason the sky case above is: the cursor ring has been saying why for as
-        // long as it has been over this spot, which beats a line in a log the player is not reading.
+        // Silent: the cursor ring already says why.
         if (!ReachDisplay.Takes(verdict)) return;
 
         // With a place already named and a reach that can refuse the click, it is another target
@@ -99,10 +91,8 @@ internal sealed class SiteDesignator
         if (!KsaWorld.TryCursorGroundPoint(out double3 groundEcl, out _, out _, out string body)) return;
         if (!KsaWorld.BeginDraw(anchor, KsaWorld.PositionEcl(anchor))) return;
 
-        // Greyed on another world, because a ballistic arc is a two-body problem about one planet
-        // and a designation there is one the computer will refuse to fly -- and greyed outside the
-        // bus's divert reach, which is the same kind of refusal one phase later. Better said here,
-        // while the cursor is still over it, than as a line of red text after the click.
+        // Greyed where the click would be refused -- another world, or outside the bus's divert
+        // reach -- so the refusal shows before the click rather than after it.
         ReachVerdict verdict = Verdict(computer, groundEcl, body);
 
         double range = Vec.Len(groundEcl - KsaWorld.PositionEcl(anchor));
@@ -115,9 +105,8 @@ internal sealed class SiteDesignator
         Say(ReachDisplay.CursorSays(verdict, computer.Targets.Count));
     }
 
-    // Beside the cursor rather than on the panel: a refusal an operator has to look away to read is
-    // one they find out about by clicking and watching nothing happen. On the foreground list, so
-    // it is over the scene without a window of its own to swallow the click underneath it.
+    // Beside the cursor, on the foreground list: over the scene with no window of its own to swallow
+    // the click underneath it.
     private static void Say(string what)
     {
         if (what.Length == 0) return;

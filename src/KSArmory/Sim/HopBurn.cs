@@ -14,7 +14,7 @@ namespace KSArmory;
 /// </remarks>
 internal sealed class HopBurn
 {
-    /// <summary>A hop asking no more than this is the nozzles', as every hop was before.</summary>
+    /// <summary>A hop asking no more than this is the nozzles'.</summary>
     public const double EngineAboveMetresPerSecond = BusTrim.MaxMetresPerSecond;
 
     /// <summary>What the burn leaves for the nozzles, which null it on the way into the passes.</summary>
@@ -137,7 +137,6 @@ internal sealed class HopBurn
         return closest;
     }
 
-    /// <summary>One frame.</summary>
     /// <param name="toGainCci">The velocity the arc asks for less the bus's own, now.</param>
     /// <param name="noseCci">The nose the engine reports; zero is a frame that would not resolve.</param>
     /// <param name="accelerationMetresPerSecond2">What the engine pushes the bus at now.</param>

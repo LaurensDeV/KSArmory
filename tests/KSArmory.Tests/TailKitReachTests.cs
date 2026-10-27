@@ -13,11 +13,8 @@ namespace KSArmory.Tests;
 /// larger than the kit can fly is a ring promising a shot it cannot take, which is the one way this
 /// instrument is worse than not having it.</para>
 ///
-/// <para>It is also the test that killed the closed form. <c>½·a·t²</c> is not a bound at any
-/// constant fraction: lateral push does not accumulate against drag, it settles at the drift where
-/// fin authority and lateral drag balance, so displacement stops growing as <c>t²</c>. Flown here,
-/// the share of <c>a·t²</c> the shipped kit delivers runs 0.46 at a 21 s fall and 0.18 at 95 s, so
-/// a constant that looks right at two kilometres promises three times the truth from twenty.</para>
+/// <para><c>½·a·t²</c> is not a bound at any constant fraction: the share of <c>a·t²</c> the
+/// shipped kit delivers runs 0.46 at a 21 s fall and 0.18 at 95 s, flown here.</para>
 /// </summary>
 public class TailKitReachTests(ITestOutputHelper Out)
 {
@@ -203,14 +200,9 @@ public class TailKitReachTests(ITestOutputHelper Out)
     ///
     /// <para>The probe is flown, so it is bounded by <see cref="BombSight.MaxSteps"/> exactly as
     /// the pipper is — and a steered flight is longer than the ballistic one it is measured
-    /// against, so the probes run out of horizon before the drop does. From 20 km at 300 m/s the
-    /// fall is 95 s of a 102 s horizon and there is no room for the excursion, which is the real
-    /// ceiling on this instrument and is the same one that leaves a reentry vehicle with no pipper.
-    /// </para>
-    ///
-    /// <para>The failure that matters is the one this shape avoids: reading a probe that never
-    /// landed as a region of zero, which reported a store with a perfectly good landing as having
-    /// nothing to move it with.</para>
+    /// against, so the probes run out of horizon before the drop does: from 20 km at 300 m/s the
+    /// fall is 95 s of a 102 s horizon. Read as a region of zero, that would tell a store with a
+    /// good landing it has nothing to move it with.</para>
     /// </summary>
     [Fact]
     public void AReleaseAboveTheSightsHorizonReportsNoRegionRatherThanAWrongOne()
@@ -240,7 +232,7 @@ public class TailKitReachTests(ITestOutputHelper Out)
 
         // Over the body's +Z, square to the line out to the origin. Straight out along +X instead
         // and the two centres give the same local up, so the wrong sphere is locally the right one
-        // and the bug hides completely -- which is what the first version of this test did.
+        // and the bug hides completely.
         double atOrigin = ReachAbout(Vec.Zero, kit, new double3(0, 0, PlanetRadius + 5000.0),
                                      new double3(250.0, 0, 0)).RadiusMetres;
 
@@ -270,7 +262,6 @@ public class TailKitReachTests(ITestOutputHelper Out)
                     + $"against {low:F0} m at 1 km");
     }
 
-    /// <summary>A store with no kit has no region — and is not given a small one.</summary>
     [Fact]
     public void AnUnguidedStoreHasNoRegionRatherThanASmallOne()
     {
@@ -284,8 +275,7 @@ public class TailKitReachTests(ITestOutputHelper Out)
 
     /// <summary>
     /// A store that has no landing inside the sight's horizon reports that rather than a region.
-    /// Released in orbit a bomb keeps the craft's velocity and flies alongside it, which is the
-    /// case <c>MaxFlightSeconds</c> was never the answer to either.
+    /// Released in orbit a bomb keeps the craft's velocity and flies alongside it.
     /// </summary>
     [Fact]
     public void AStoreWithNoLandingSaysSoRatherThanGuessing()

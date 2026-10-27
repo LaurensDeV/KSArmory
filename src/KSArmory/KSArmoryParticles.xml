@@ -1,14 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The effects the mod still draws itself: the motor plume, the muzzle flash and the tracers. A
-  warhead's burst is KSA's own explosion, from Ksa/Detonation.cs. Modelled on Core's
-  ParticleEmitterAssets.xml, which is the only documentation this format has.
+  The particle effects the mod draws itself, the nuclear burst's explosion preset, and the mod's
+  compute shaders. A conventional warhead's burst is KSA's own explosion, from Ksa/Detonation.cs.
+  Modelled on Core's ParticleEmitterAssets.xml, which is the only documentation this format has.
 
-  The stages are written out in full in each emitter rather than composed by Id. Core does compose
-  that way - Debug_SphericalBurst pulls in Billboard and ThrusterSparks - but doing the same here
-  threw "Invalid renderer type" out of ParticleSystem, which is what it says when an emitter in the
-  tree has no renderer: the by-Id child did not resolve back to its definition. Inline nesting is
-  the form every emitter Core actually uses in play, and it works. The duplication is deliberate.
+  The stages are written out in full in each emitter rather than composed by Id, as Core's
+  Debug_SphericalBurst does: a by-Id child here does not resolve back to its definition, and
+  ParticleSystem throws "Invalid renderer type". The duplication is deliberate.
 
   The muzzle smoke is Billboard, an alpha-blended camera-facing quad sampling a material. A soft
   sprite does not read as a ball because it has no edge, and tools/model/smokepuff.py makes it.
@@ -35,9 +33,7 @@
 
   InheritVelocity is off on the muzzle flash and ON for the motor plume, and the difference is not
   the parent. Muzzle gas is left in the air where it was fired; a plume hangs off something doing
-  840 m/s, and without it the particles are left standing in the world while
-  the round leaves them 14 m apart. It works from a celestial parent - the flame staying with the
-  round rather than streaking behind it is what proved that.
+  840 m/s, and without it the particles are left standing 14 m apart. It works from a celestial parent.
 -->
 <Assets>
     <!--
@@ -274,16 +270,6 @@
     </ParticleEmitter>
 
     <!--
-      Dust and grit a blast front throws off a part as it strikes. One burst, fired from code at the
-      struck face; the code sets the spawn radius, the sizes, the scatter and a force along the
-      blast per strike, so what is here is only what every strike shares.
-
-      The same billboard as the gun's smoke, which is seen to draw, with a sprite the colour of dirt.
-      Drag settles the push
-      into a drift along the blast rather than a streak; KSA scales it by the local air, so it is
-      stronger low down. Density a little over air's, so the dust sinks slowly as it clears.
-    -->
-    <!--
       The smoke a shell leaves where it burst in the air: black, growing as it spreads, and hanging
       where it went off long after the shell. Ksa/FlakPuff.cs sizes it and sets how long it lasts
       from the charge, so these numbers are the 5"/54's. Density is air's, so it neither rises nor
@@ -315,6 +301,15 @@
         <ParticleExtra X="0.8" Y="0" Z="0" W="0"/>
     </ParticleEmitter>
 
+    <!--
+      Dust and grit a blast front throws off a part as it strikes. One burst, fired from code at the
+      struck face; Ksa/BlastPuff.cs sets the spawn radius, the sizes, the scatter and a force along
+      the blast per strike, so what is here is only what every strike shares.
+
+      The same billboard as the gun's smoke, with a sprite the colour of dirt. Drag settles the push
+      into a drift along the blast rather than a streak; KSA scales it by the local air, so it is
+      stronger low down. Density a little over air's, so the dust sinks slowly as it clears.
+    -->
     <ParticleEmitter Id="KSArmoryBlastPuff" Drag="1.5" Density="1.35">
         <MaxParticles Value="28" />
         <Mesh Id="Plane"/>
@@ -345,7 +340,7 @@
       The airless nuclear burst, which is two emitters because there is nothing to draw a mushroom
       cloud with and nothing for one to rise through. Both are Burst: they fire once and hand
       themselves back when their particles die, so nothing has to hold or release them. An Endless
-      emitter never completes and must be killed by hand - see Ksa/MuzzleFlash.cs.
+      emitter never completes and must be killed by hand - see Ksa/EmitterPool.cs.
 
       Both are Volumetric, which is the renderer worth using and is NOT gated on an atmosphere:
       ParticleSystem.WriteCommandsColorTranslucent dispatches it beside Billboard behind the
@@ -371,9 +366,8 @@
       The throw is therefore a full sphere whose lower half is under the ground, where the depth test
       hides it - which is what leaves a dome standing over the crater.
 
-      128 rather than the 256 a billboard version used. Volumetric compositing takes 16 spheres per
-      ray, so past that depth the far side of the dome is simply dropped; fewer and larger particles
-      read as more dust here, not less.
+      Only 128: volumetric compositing takes 16 spheres per ray, so past that depth the far side of the
+      dome is dropped, and fewer, larger particles read as more dust here, not less.
     -->
     <ParticleEmitter Id="KSArmoryNuclearEjecta" Drag="0" Density="2500">
         <MaxParticles Value="128" />
@@ -397,33 +391,17 @@
         <ParticleSize X="1" Y="2"/>
         <ParticleVelocity X="1" Y="1" Z="1"/>
         <!--
-          Ragged, but not so wide that the curtain stops being one. At 0.5 the fast quarter left at
-          1.5x the speed, which is 2.25x the reach and 2.25x the apex: the dome came apart into a
-          few clumps, some of them over the horizon from a camera standing at 98 m on a burst whose
-          own apex is 52. AirlessBurst.SpeedSpread carries the same number to the lifespans, which
-          have to match it, because a grain's flight is set by the speed it left at: a spread in one
-          and not the other strands fast grains in mid-air and buries slow ones.
+          Ragged, but not so wide that the curtain stops being one: at 0.5 the fast quarter reaches
+          2.25x as far and the dome comes apart into clumps. AirlessBurst.SpeedSpread carries the same
+          number to the lifespans, which must match it or fast grains strand in mid-air and slow ones bury.
         -->
         <ParticleVelocityShift Value="0.25"/>
         <!--
-          A sprite here is a PACKET of grains, not a grain, and that is what sets the growth. A
-          grain in vacuum does not swell - there is no air to entrain, and growing one 3.4x read
-          correctly as smoke on an airless body. But a packet of grains leaving with a spread of
-          speeds separates LINEARLY with time, and in vacuum nothing ever slows that spread, so the
-          packet's own width grows for the whole flight.
-
-          Flat, it came apart: the dome was one mass at 1.6 s and about thirty countable blobs with
-          clear ground between them by 4.6 s, because the packets flew apart while each stayed the
-          size it left at. Roughly doubling over the flight is what keeps the sheet continuous, and
-          it is the same 'no drag' fact that argues against swelling a single grain.
-
-          The alpha holds until the dust lands. Fading it in mid-air is dissipation, the same
-          atmospheric mistake in the other channel: vacuum ejecta does not thin out, it arrives.
-          At 0.82 a third of the dome had gone before it came down and the last capture of a 16 s
-          flight, taken at 12.7 s, was empty ground.
-
-          The colour barely moves for the same reason. Regolith is the same colour at the top of the
-          arc as it was leaving the crater, where smoke pales as it dilutes.
+          A sprite is a packet of grains, and a packet leaving with a spread of speeds widens linearly
+          with time, which nothing slows in vacuum: roughly doubling keeps the sheet continuous, where
+          a constant size breaks into separate blobs by 4.6 s. Growth is not the swelling of smoke,
+          which no air entrains here. The alpha and the colour hold until the dust lands: vacuum ejecta does not
+          thin or pale, it arrives.
         -->
         <ScaleEnvelope Start="1" Peak="2.05" PeakAt="0.5" End="2.90"/>
         <AlphaEnvelope Start="0.95" Peak="0.95" PeakAt="0.94" End="0"/>
@@ -434,36 +412,6 @@
         </ColorStops>
     </ParticleEmitter>
 
-    <!--
-      The base surge: the dust a surface burst throws along the ground, standing around the foot of
-      the column while it climbs.
-
-      MushroomCloud has modelled this since the pens drew it and nothing has drawn it since they
-      were retired, because the raymarch is handed four shape floats and a push constant with no
-      room for a fifth pair. It is the particle system's job anyway: it is ground dust rather than
-      buoyant cloud, which is the same reason the airless ejecta above is particles.
-
-      Spawned ACROSS the skirt rather than thrown out to it. MoveAwayFromCenter multiplies one unit
-      direction componentwise, so a spread that is wide and low needs axes this emitter does not
-      know how to find; starting the dust already spread and letting it billow needs no direction
-      at all. The sphere puts half of them under the ground, where the terrain hides them, and what
-      is left reads as a skirt from any camera near the surface.
-    -->
-
-
-    <!--
-      The debris shell: the bomb's own vaporised mass, which in vacuum keeps going instead of
-      settling into a fireball.
-
-      ONE particle, spawned at a Point with no velocity, expanded entirely by its ScaleEnvelope.
-      That is Core's ShockWave design and its reasoning holds here: any spawn velocity on a single
-      volumetric reads as a flying blob rather than a front, and a spray of them reads as sparks.
-      EmitterExtra Y is the Volumetric renderer's emissive term, which is what makes it a glowing
-      shell rather than a grey ball.
-
-      Volumetric.comp erodes the boundary by sqrt(1 - t^2), so the visible front peaks near 74% of
-      the authored radius and then contracts - hence the End overshoot, so growth outruns erosion.
-    -->
     <!--
       The condensation cloud. The shock's rarefaction cools the air it has just expanded below its
       own dew point, and a white shell of droplets appears around the burst, engulfs the fireball
@@ -514,6 +462,19 @@
         </ColorStops>
     </ParticleEmitter>
 
+    <!--
+      The debris shell: the bomb's own vaporised mass, which in vacuum keeps going instead of
+      settling into a fireball.
+
+      ONE particle, spawned at a Point with no velocity, expanded entirely by its ScaleEnvelope.
+      That is Core's ShockWave design and its reasoning holds here: any spawn velocity on a single
+      volumetric reads as a flying blob rather than a front, and a spray of them reads as sparks.
+      EmitterExtra Y is the Volumetric renderer's emissive term, which is what makes it a glowing
+      shell rather than a grey ball.
+
+      Volumetric.comp erodes the boundary by sqrt(1 - t^2), so the visible front peaks near 74% of
+      the authored radius and then contracts - hence the End overshoot, so growth outruns erosion.
+    -->
     <ParticleEmitter Id="KSArmoryNuclearShell" Drag="0" Density="1.225">
         <MaxParticles Value="1" />
         <Mesh Id="ParticleSphere"/>
@@ -551,21 +512,11 @@
     </ParticleEmitter>
 
     <!--
-      The burst a nuclear charge goes off as. Core's Explosion_Conflagration with its SmokeVolume
-      left out, and nothing else changed.
-
-      That volume is the reason a mushroom cloud stood over a bright pale-blue lump: it is sized for
-      a conventional blast, it is drawn at the burst point, and its own ColorStops end on 0.6/0.6/0.65
-      - so it sits under a 1.3 km column of dirty smoke looking like a different weather system.
-      Tinting and thinning this mod's own pens could never reach it, because it is not this mod's.
-
-      Everything a nuclear burst does want is kept: the flash, the fireball volume, the shockwave and
-      the bang. What replaces the smoke is Sim/MushroomCloud.cs, which is drawing the same air at a
-      thousand times the size.
-
-      The debris emitters go with it. They throw metal, which is right for a vehicle coming apart and
-      wrong for a device going off over ground; Ksa/BurstEjecta.cs throws what a surface burst throws,
-      on the bodies where it can be seen.
+      The burst a nuclear charge goes off as: Core's Explosion_Conflagration reduced to its flash. Its
+      SmokeVolume is sized for a conventional blast and ends pale blue-grey (0.6/0.6/0.65), a separate
+      lump under the mushroom cloud (Sim/MushroomCloud.cs). Its debris emitters throw metal, which is
+      right for a vehicle coming apart and wrong for a device going off over ground; Ksa/BurstEjecta.cs
+      throws what a surface burst throws, on the bodies where it can be seen.
     -->
     <Explosion Id="KSArmoryNuclearBurst">
         <Flash PeakIntensity="5000" Range="200" DecaySeconds="0.2" LifeSeconds="0.55" ColorMidAt="0.3">
@@ -587,9 +538,8 @@
     </Explosion>
 
     <!--
-      The mod's own compute shader, declared exactly as Core declares its own: KSA compiles a
+      The mod's own compute shaders, declared exactly as Core declares its own: KSA compiles a
       Shader asset from any mod's folder, so nothing has to be ported to get one onto the GPU.
-      Ksa/CloudPass.cs dispatches it, and the resolve after it.
     -->
     <Shader Id="KSArmoryCloudCompute" Path="Shaders/KSArmoryCloud.comp" />
     <Shader Id="KSArmoryCloudResolveCompute" Path="Shaders/KSArmoryCloudResolve.comp" />

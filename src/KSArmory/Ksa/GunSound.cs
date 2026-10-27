@@ -4,24 +4,14 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// The cannon you can hear: one looping spatialised channel per system, held while the gun fires,
-/// and a gunshot for every round from a gun slow enough to be heard shot by shot.
+/// The cannon you can hear: one looping spatialised channel per system while the gun fires, and a
+/// gunshot per round from a gun slow enough to be heard shot by shot.
 ///
-/// <para>Per system rather than per round for the loop, and that is not an optimisation. A Phalanx
-/// cycles at 4500 rounds a minute; the shots arrive at 75 Hz, which is inside the range the ear
-/// reads as <em>pitch</em> rather than as rhythm, so what a listener hears is one buzz and not
-/// seventy-five bangs. Playing a one-shot per round would model the wrong thing and ask FMOD for 75
-/// voices a second to do it. A five-inch gun at forty rounds a minute is the opposite case, which is
-/// why the gunshot is a sound of its own and only a profile naming one gets it.</para>
+/// <para>The loop is per system because 4500 rounds a minute is 75 Hz, which the ear hears as
+/// pitch, not rhythm. The engine loops the sample itself (<c>KSArmorySounds.xml</c>): restarted
+/// from here, once a frame, a 60 fps frame is a whole round missing from the cycle.</para>
 ///
-/// <para>The engine loops the sample itself, declared in <c>KSArmorySounds.xml</c>. Restarting it
-/// from here would be checked once a frame, and one frame at 60 fps is a whole round missing from
-/// the cycle.</para>
-///
-/// <para>The shared recording is retuned toward each gun's rate, within limits: pitch moves cycle and
-/// timbre together, and past about a quarter either way the result is not a slower gun, it is the
-/// same gun played wrong. A gun that names its own recording is played as recorded, and a gun with a
-/// gunshot and no loop of its own has no loop at all: it is heard shot by shot, not as a buzz.</para>
+/// <para>A gun that names a gunshot and no loop has no loop at all.</para>
 /// </summary>
 internal sealed class GunSound(Config config)
 {
@@ -34,7 +24,6 @@ internal sealed class GunSound(Config config)
     private readonly List<IEffectSource> _stopped = [];
     private readonly HashSet<string> _warned = [];
 
-    /// <summary>Starts, moves and stops the gun of every system that is firing, and plays each round's gunshot.</summary>
     public void Update(IEffectSource system)
     {
         // Ahead of the firing gate: the last round of a burst is fired on the frame the cannon stop.
@@ -151,10 +140,8 @@ internal sealed class GunSound(Config config)
             if (channel is not null && system.Profile.GunSoundId is null
                 && _config.CannonReferenceRpm > 0f && system.Profile.GunRoundsPerMinute > 0f)
             {
-                // Clamped, because the sample is a recording of one real gun rather than a
-                // synthesised pulse train. Pitch moves the cycle and the timbre together, so a
-                // large shift does not give a slower gun, it gives the same gun played wrong.
-                // Within a quarter either way it still reads as a cannon of a different rate.
+                // Pitch moves the cycle and the timbre together; past a quarter either way the
+                // recording reads as the same gun played wrong rather than a different rate.
                 channel.PitchMultiplier = Math.Clamp(
                     system.Profile.GunRoundsPerMinute / _config.CannonReferenceRpm, 0.8f, 1.25f);
                 channel.ApplyParameters();
@@ -176,9 +163,8 @@ internal sealed class GunSound(Config config)
         Camera? camera = SoundChannels.Listener();
         if (camera is null) return false;
 
-        // The craft's own position, not the muzzle's. They differ by the couple of metres from the
-        // mount to the barrel tips, which is far inside what a listener could place, and taking it
-        // from the camera keeps this on the same footing the engine spatialises everything else on.
+        // The craft's position, not the muzzle's: metres apart, which no listener can place, and
+        // read off the camera as the engine spatialises everything else.
         double3 posEgo = camera.GetPositionEgo(platform);
         double3 velEgo = camera.GetVelocityEgo(platform);
         if (!Vec.IsFinite(posEgo) || !Vec.IsFinite(velEgo)) return false;

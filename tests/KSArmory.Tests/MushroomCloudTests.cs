@@ -61,14 +61,9 @@ public class MushroomCloudTests
     }
 
     /// <summary>
-    /// The cap is several times the width of the column under it, which is the strongest shape cue
-    /// the drawing has. A photographed mushroom runs about five or six to one; at the half this
-    /// used to hold it was barely two, and the silhouette stopped reading as a mushroom at all.
-    ///
-    /// <para>That half was a pen-era compromise rather than a measurement: a stem drawn as a bundle
-    /// of capsules needs width to read as anything, and a raymarched one does not. Still bounded at
-    /// the far end, because the concern it was guarding against is real — a stem thin enough to be a
-    /// stick gives a lollipop, a cap with nothing under it.</para>
+    /// The cap is several times the width of the column under it, the strongest shape cue the drawing
+    /// has: a photographed mushroom runs about five or six to one. Bounded at the far end, because a
+    /// stem thin enough to be a stick gives a lollipop.
     /// </summary>
     [Fact]
     public void TheCapIsSeveralTimesTheWidthOfItsStem()
@@ -189,8 +184,8 @@ public class MushroomCloudTests
 
     /// <summary>
     /// It grows as t^0.4 over about a second and a half at 340 kt, reaching 90% of its largest by
-    /// about three times its second maximum (Glasstone 1962, Fig 2.51) -- not in a tenth of a
-    /// second, which read as a ball popping in rather than a burst expanding.
+    /// about three times its second maximum (Glasstone 1962, Fig 2.51); grown in a tenth of a second
+    /// it reads as a ball popping in rather than a burst expanding.
     /// </summary>
     [Fact]
     public void TheFireballGrowsOverItsOwnPulseRatherThanAppearing()
@@ -365,7 +360,7 @@ public class MushroomCloudTests
 
     /// <summary>
     /// The ball glows as long as the law says up to 20 kt, and longer still past it: a 340 kt ball
-    /// that went dark at 3.4 s, as a leftover ceiling had it, is the burst reading as weak.
+    /// dark at 3.4 s reads as a weak burst.
     /// </summary>
     [Fact]
     public void TheGlowRunsItsRealLengthAndLengthensWithYield()
@@ -425,18 +420,9 @@ public class MushroomCloudTests
     /// <summary>
     /// A lit ball that has climbed is inside the cloud it became, not out in the open.
     ///
-    /// <para><b>This replaces a height limit whose premise is gone.</b> The ball used to lift on a
-    /// law of its own and stop, because it was an emissive sphere drawn <em>over</em> the smoke:
-    /// for as long as it was lit it was the brightest thing in frame, and a lit ball climbing
-    /// hundreds of metres read as a flare ascending rather than as a burst dying. It is drawn as a
-    /// mesh now and the cloud is a raymarch that clips itself against the scene depth and
-    /// multiplies what is behind it by its own transmittance — so the ball is <em>inside</em> the
-    /// smoke, and a height limit that held it under its own cloud was keeping the two apart for a
-    /// reason that had expired.</para>
-    ///
-    /// <para>What has to hold instead is that the cloud is actually around it by the time it is up
-    /// there. Stated in the ball's own radii so it holds at every yield: the absolute height varies
-    /// fifteen-fold across the range and the proportion does not.</para>
+    /// <para>A lit ball out in the open reads as a flare ascending rather than a burst dying, so the cap
+    /// must be around it by the time it is up there. Stated in the ball's own radii, because the
+    /// absolute height varies fifteen-fold across the range and the proportion does not.</para>
     /// </summary>
     [Theory]
     [InlineData(0.3)]
@@ -504,8 +490,7 @@ public class MushroomCloudTests
 
     /// <summary>
     /// The climb is Teapot Wasp's tracked cloud top, not a curve that merely looks like one. The
-    /// old step response had done a twelfth of its rise where the real cloud had done a third —
-    /// and the start is the part that matters, because the fireball rides it through the handover.
+    /// start matters most, because the fireball rides it through the handover.
     /// </summary>
     [Theory]
     [InlineData(0.10, 0.308)]
@@ -631,7 +616,7 @@ public class MushroomCloudTests
     }
 
     [Fact]
-    public void TheBangNeverRisesAboveTheSampleAndNeverFallsThroughTheFloor()
+    public void TheBangIsNeverPlayedFasterThanRecordedAndNeverFallsThroughTheFloor()
     {
         double last = double.MaxValue;
 
@@ -647,10 +632,16 @@ public class MushroomCloudTests
     }
 
     [Fact]
-    public void TheWarheadSoundsBiggerThanTheBomb()
+    public void TheBombPlaysTheRecordingAsItWasMade()
     {
-        // The two nuclear charges the arsenal ships, which were the same file before this.
-        Assert.True(MushroomCloud.BangPitch(20.0) < MushroomCloud.BangPitch(0.3) * 0.5);
+        Assert.Equal(1.0, MushroomCloud.BangPitch(0.3), 9);
+    }
+
+    [Fact]
+    public void TheCrackCarriesFurtherForABiggerBurstByTheCubeRoot()
+    {
+        Assert.Equal(500.0, MushroomCloud.CrackDistance(500.0, MushroomCloud.CrackAnchorKt), 9);
+        Assert.Equal(250.0, MushroomCloud.CrackDistance(500.0, MushroomCloud.CrackAnchorKt * 8.0), 9);
     }
 
     /// <summary>

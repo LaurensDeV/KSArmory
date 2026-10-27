@@ -4,8 +4,8 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Whether a round the ground stops can still get to it. The rule that replaces "has it been
-/// flying a while" for a store that ends by arriving.
+/// Whether a round the ground stops can still get to it, which for a store that ends by arriving
+/// is the question "has it been flying a while" gets wrong.
 /// </summary>
 public class RoundReachTests
 {
@@ -32,7 +32,7 @@ public class RoundReachTests
     public void AStoreOnASuborbitalArcDoes()
     {
         // Released at 250 km with a fraction of circular speed: the arc comes down, and it takes
-        // 246 s to do it - twice what the old two-minute self-destruct allowed.
+        // 246 s to do it.
         double3 slow = Circular(250_000) * 0.5;
 
         Assert.Equal(Approach.Coasting, RoundReach.Classify(Mu, At(250_000), slow, Ceiling));

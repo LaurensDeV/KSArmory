@@ -10,17 +10,14 @@ namespace KSArmory;
 /// <para>A shell is drawn this way even with its launcher alive: an instance needs no subpart, so the
 /// number in the air is not bounded by how many the part declares.</para>
 ///
-/// <para>A round's body is a subpart of its launcher, and a destroyed craft's parts are released with it.
-/// The mesh a part is drawn with is not: <c>PartModel</c> is shared by every part of its template and
-/// outlives any craft, and <c>PartModel.AddInstance</c> draws it at any matrix with the part shader,
-/// lighting and shadows — which is how the editor's part thumbnails are drawn with no craft at all. So a
-/// loose round keeps its model and is added as an instance of it each frame.</para>
+/// <para>A destroyed craft's parts are released with it, but <c>PartModel</c> is shared by every part of
+/// its template and outlives any craft, and <c>PartModel.AddInstance</c> draws it at any matrix with the
+/// part shader, lighting and shadows. So a loose round keeps its model and is added as an instance.</para>
 ///
 /// <para>A prefix on <c>PartModelRenderer.UpdateRenderData</c>, which runs once per visible viewport after
-/// every craft has queued its parts and before the queue is uploaded. <c>public static</c>, so
-/// <see cref="PinTheSignature"/> puts it in <c>docs/KSA-API-SURFACE.md</c>; a patch that does not apply
-/// leaves loose rounds without bodies, which is what they had before. <b>Nothing here may throw</b>: it
-/// runs inside the engine's render preparation.</para>
+/// every craft has queued its parts and before the queue is uploaded. A patch that does not apply leaves
+/// loose rounds without bodies. <b>Nothing here may throw</b>: it runs inside the engine's render
+/// preparation.</para>
 /// </summary>
 internal static class LooseBodyDrawHook
 {

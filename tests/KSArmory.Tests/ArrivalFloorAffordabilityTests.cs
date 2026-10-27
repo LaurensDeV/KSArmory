@@ -5,16 +5,8 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Which arrival floors the tanks can pay for, and what angle the shot then actually arrives at.
-///
-/// <para><b>Sub-fifty-metre accuracy is an arrival-angle question and this is its gate.</b>
-/// <c>docs/METRE-LEVEL.md</c>'s envelope puts 15° at 79 m and 20° at 31 m, so 20 is the rung where
-/// the miss goes under fifty — and <c>docs/METRE-LEVEL.md</c> B1 records a steep floor being flown
-/// and the coast half refusing to pay for it. Whether the <em>ascent</em> can pay was never the
-/// question in doubt, and this says so rather than leaving it assumed.</para>
-///
-/// <para>The misses here are large and mean nothing: no aim correction is wired, so every shot
-/// flies its raw arc. What is being read is the reach and the angle.</para>
+/// The misses here are large and mean nothing: no aim correction is wired, so every shot flies its
+/// raw arc. What is read is the reach and the arrival angle.
 /// </summary>
 public class ArrivalFloorAffordabilityTests(ITestOutputHelper Out)
 {
@@ -69,8 +61,6 @@ public class ArrivalFloorAffordabilityTests(ITestOutputHelper Out)
             // The gate. A floor the tanks cannot pay for reports TooShallow rather than grazing.
             Assert.Equal(IcbmReach.Reachable, program.Reach);
 
-            // And it arrives at the angle asked for, not merely somewhere steeper -- which is what
-            // makes the envelope's row the row this shot is actually on.
             if (floor > 0.0 && flight.Reached && program.Arc is { } arc)
             {
                 Assert.True(arc.ArrivalAngleDeg >= floor - 0.5,

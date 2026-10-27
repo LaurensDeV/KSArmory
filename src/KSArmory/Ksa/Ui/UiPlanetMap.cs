@@ -6,17 +6,10 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// This installation's own map window: a planet to put the warheads on, with the list of them
-/// beside it.
-///
-/// <para>Its picture is <see cref="PlanetMap"/> — the mod's own exporter rather than the one
-/// KSA's ground-track window owns, so there is no chrome, no menu and no flags belonging to
-/// somebody else, and it follows this panel's craft rather than whichever one is being flown.</para>
-///
-/// <para>The pan and zoom are KSA's <see cref="GenericImGuiViewport"/>, which is public and
-/// constructible. Calling it ourselves is the point: it hands back the crop as an out-parameter,
-/// so nothing here has to work out what the engine is showing — the fault that arithmetic caused
-/// twice cannot happen to a window that owns its own viewport.</para>
+/// This installation's own map window: <see cref="PlanetMap"/>'s picture, following this panel's
+/// craft rather than the one flown, with the target list beside it.
+/// <para>The pan and zoom are KSA's <see cref="GenericImGuiViewport"/>, called directly: it hands
+/// back the crop, so nothing here has to work out what the engine is showing.</para>
 /// </summary>
 internal sealed partial class Ui
 {
@@ -38,8 +31,7 @@ internal sealed partial class Ui
     {
         if (_icbms?.For(Focused) is not { } computer || !computer.Config.MapOpen)
         {
-            // Nothing is looking at it, so give the textures back rather than render a planet
-            // every frame for a window that is shut.
+            // Shut: give the textures back rather than render a planet every frame.
             _planetMap.Close();
             return;
         }
@@ -74,22 +66,20 @@ internal sealed partial class Ui
         // Flat, not the real terminator: half a planet in darkness is no use for picking a place.
         _planetMap.SetLit(false);
 
-        // This window open is somebody editing the list, which is what prices the divert reach --
-        // and without a reach a click can only ever replace the set, never add to it.
+        // Open means the list is being edited, which is what prices the divert reach; without
+        // a reach a click can only replace the set.
         computer.NoteBeingEdited();
 
         DrawPlanetMapHeader(computer);
 
-        // Fitted, not filled. Filling the width squashes the picture whenever the window is
-        // shorter than half its width, and by an amount that changes as it is dragged.
+        // Fitted, not filled: filling the width squashes the picture.
         float2 avail = ImGui.GetContentRegionAvail();
         float2 size = MapViewport.Fit(new float2(avail.X, avail.Y - RowsBelow), MapAspect,
                                       LeastPx, out float inset);
 
         if (inset > 0f) ImGui.SetCursorPosX(ImGui.GetCursorPosX() + inset);
 
-        // Taken here because the pan is in pixels of the image, and only the draw knows how big
-        // that is. Before the viewport call, so this frame already shows the fitted view.
+        // Here, because the pan is in image pixels; before the viewport call, so this frame shows it.
         if (_fitWanted)
         {
             _fitWanted = false;
@@ -98,8 +88,7 @@ internal sealed partial class Ui
                                            _fitTo.Y * size.Y * _fitZoom));
         }
 
-        // Ours, so it may be called outright -- it consumes the drag and the wheel notch, which is
-        // exactly why nothing may call it twice in a frame.
+        // Consumes the drag and the wheel notch, so never twice in a frame.
         _planetView.CreateDraggableZoomableViewport(size, out float2 min, out float2 max);
         _planetMap.SetCrop(min, max);
 
@@ -111,9 +100,8 @@ internal sealed partial class Ui
         GroundTrackMarks.Draw(computer, at, size, min, max, _config.DrawGroundTrackCalibration);
         GroundTrackDesignator.Update(computer, at, size, min, max);
 
-        // The first target placed is the one moment the reach is worth looking at and cannot be
-        // seen: it is kilometres across on a map forty thousand wide. Fitted once, on the click
-        // that creates the set, and never again -- the view is the operator's after that.
+        // Fitted once, on the click that creates the set: the reach is kilometres across on a map
+        // forty thousand wide. The view is the operator's after that.
         if (computer.Targets.Count == 1 && _hadTargets == 0) FitToReach(computer);
 
         _hadTargets = computer.Targets.Count;
@@ -150,8 +138,7 @@ internal sealed partial class Ui
         if (ImGui.SmallButton("Whole world")) _planetView.ResetView();
         Tip("Back to the whole planet. Drag to pan, wheel to zoom, middle-click to reset.");
 
-        // The number, always, because the circle itself is invisible at most zooms and a refused
-        // click is otherwise unexplainable.
+        // Always: the circle is invisible at most zooms.
         if (computer.Reach.HasRegion)
         {
             ImGui.TextDisabled($"  another target must land within "
@@ -165,9 +152,7 @@ internal sealed partial class Ui
         ImGui.Separator();
     }
 
-    // Zoom so the divert reach is a quarter of the picture, centred on the target it is measured
-    // around. The crop is one over the zoom across and down, so a ring of this many degrees wants
-    // a zoom of a quarter of the view divided by its diameter in the same units.
+    // The crop is one over the zoom, so a ring wants ShareOfView of the view over its diameter.
     private void FitToReach(IcbmComputer computer)
     {
         if (computer.Parent is not { } body) return;
@@ -189,7 +174,6 @@ internal sealed partial class Ui
         _fitWanted = true;
     }
 
-    // What share of the window the reach should fill when fitted.
     private const double ShareOfView = 0.25;
 
     private float2 _fitTo;
@@ -211,8 +195,7 @@ internal sealed partial class Ui
         int assigned = 0;
         for (int i = 0; i < entries.Count; i++) assigned += entries[i].Warheads;
 
-        // The ledger, because an unassigned warhead is not idle -- it rides to the lead. Without
-        // this line a half-assigned set reads as broken when it is doing exactly what it says.
+        // An unassigned warhead is not idle: it rides to the lead.
         ImGui.TextDisabled($"{assigned} of {aboard} warhead(s) placed");
 
         if (assigned < aboard)

@@ -4,18 +4,12 @@ namespace KSArmory;
 /// Which craft is on which side, as <em>declared</em> rather than as named — the half of IFF the
 /// panel's flag writes.
 ///
-/// <para><b>An installation's <see cref="IffPolicy.OwnTeam"/> is both halves of its allegiance</b>:
-/// the side it fights for, and the side everything else reads it and its rounds on. Without the
-/// second half two sites whose flags both say Blue each classify the other as
-/// <see cref="Allegiance.Unknown"/>, which <see cref="IffPolicy.EngageUnknown"/> engages by
-/// default. A craft with no flag -- one nothing of this mod's is fitted to -- is on no team, and
-/// never placed by what it is called.</para>
+/// <para>An installation's <see cref="IffPolicy.OwnTeam"/> is both the side it fights for and the
+/// side everything else reads it and its rounds on; without this, two Blue sites read each other as
+/// <see cref="Allegiance.Unknown"/>. A craft with no flag is on no team.</para>
 ///
-/// <para>Keyed on the craft by <b>reference</b>, never by name: craft built from one blueprint
-/// share a display name, which <c>WeaponSystems.WarnIfNameIsTaken</c> already warns about.</para>
-///
-/// <para>Rebuilt once a frame from the live policies, in the same pass as the airborne census and
-/// for the same reason: nothing about the answer is per system.</para>
+/// <para>Keyed on the craft by reference, never by name: craft built from one blueprint share a
+/// display name. Rebuilt once a frame from the live policies.</para>
 /// </summary>
 public sealed class TeamRoster
 {
@@ -33,11 +27,8 @@ public sealed class TeamRoster
     /// Records that <paramref name="craft"/> fights for <paramref name="team"/>. A null or blank
     /// team declares nothing, which leaves the craft on no team.
     ///
-    /// <para><paramref name="rank"/> settles a craft whose installations disagree — the panel's
-    /// flag sets every one of them together, so that is a split carrying a part across, or settings
-    /// saved before. Lowest rank wins, which is the first launcher, because the roster
-    /// enumerates in a dictionary's order and an allegiance decided by that is an unreproducible
-    /// bug report.</para>
+    /// <para><paramref name="rank"/> settles a craft whose installations disagree, as after a split.
+    /// Lowest wins, the first launcher, because the roster enumerates in a dictionary's order.</para>
     /// </summary>
     public void Declare(object? craft, string? team, int rank = 0)
     {

@@ -20,16 +20,18 @@ single-craft ascent has been flown in game from that tree, so its numbers below 
 | 3 | A turn-rate feedforward on the attitude command | The attitude lags its command; a bus asked for an offset hunted | medium, needs a private patch | read |
 | 4 | Staging that knows what the next sequence is | A stage that lights hot is lost; the next sequence may not be an engine | medium | read |
 | 5 | Stop when the player takes the attitude | The command is rewritten every frame whatever the player does | small | read |
-| 6 | A drag table against Mach for the ascent and the rounds | Six rounds still carry hand-typed drag; KSA's aerodynamics are about to change | medium | read |
+| 6 | A drag table against Mach for the ascent and the rounds | Five rounds still carry hand-typed drag; KSA's aerodynamics are about to change | medium | read |
 | 7 | Steering over the whole burn, not along velocity-to-gain | Propellant, on a shot near the edge of reach | large | read; no measurement of what ours loses |
 | 8 | Exact sensitivities through the predictor | Ours are flown differences; fine today, slower and noisier at the quantum | large | read |
 | 9 | Reference fixtures for the solvers | Lambert and Kepler are checked against flights, not an independent implementation | small | read |
 
 ## 1. Refresh the stage model ourselves
 
-**What is true in the engine.** `SequencePerformanceList.RecomputeForFlight` has one caller in the game,
-`PhysicsBubble.cs:795`, behind `vehicleState.IsControlled && (ResourceGroups.IsOpen ||
-Program.EngineControlGaugeOpen)`. So the figures `IcbmComputer.StackDeltaV` and `RunningStageDeltaV` read are
+**What is true in the engine.** `SequencePerformanceList.RecomputeForFlight` is called from
+`PhysicsBubble.cs:813` (KSA `2026.10.19.5638`), behind `vehicleState.IsControlled && (ResourceGroups.IsOpen ||
+Program.EngineControlGaugeOpen)`. Since 5638 `UpdateStagedBurn` (`:833`) also calls it, for a craft that is
+controlled or has a burn plan, when it is replanning with an engine thrusting; a computer-flown rocket has no
+burn plan, so this was not re-checked against the conclusion below. So the figures `IcbmComputer.StackDeltaV` and `RunningStageDeltaV` read are
 refreshed only for the controlled craft, and only while the staging list or the engine-control gauge is open. The
 method is public, and its body reads the part tree alone: the sequence list, the live tank masses, each engine
 controller's `IsActive`. Nothing in it names the controlled craft.
@@ -77,7 +79,7 @@ the `AttitudeHook` kind: no signature to pin. Their rule that a stale rate must 
 a rate left behind is a standing instruction to keep turning.
 
 **Measure first.** Log the angle between the commanded and held direction through a pitch programme and through a
-bus re-point. If the lag is a degree or two the patch is not worth an eighth hook.
+bus re-point. If the lag is a degree or two the patch is not worth another hook.
 
 ## 4. Staging that knows what the next sequence is
 
@@ -105,7 +107,7 @@ who grabs the attitude mid-ascent today fights the computer without being told w
 ## 6. A drag table against Mach
 
 They sample the game's own aerodynamics once onto a Mach and angle-of-attack grid and fit a spline, spaced finely
-through 0.85–1.30 for the day the game's drag stops being flat in Mach. Ours is one coefficient per round, six
+through 0.85–1.30 for the day the game's drag stops being flat in Mach. Ours is one coefficient per round, five
 rounds are still typed by hand (`ArsenalTests.EveryRoundsDragComesFromWhatItIsUnlessNamedHere`), and
 `Sim/DragShape.cs` is a copy of today's `PhysicsStates.ComputeDrag` that nothing fails on when the engine's changes.
 Sampling the engine instead of copying it is the part worth taking; `Adapters/KsaAeroSweep.cs` is how they do it.

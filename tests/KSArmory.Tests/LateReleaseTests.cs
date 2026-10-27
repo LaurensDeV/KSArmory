@@ -143,9 +143,8 @@ public class LateReleaseTests(ITestOutputHelper Out)
 
             if (tau > 0.0)
             {
-                // A quarter of the old bar, because the whole term is linear in the kick and the
-                // shipped one is a quarter of what it was. Testing the *shape* -- leverage running
-                // down as the arc does -- rather than a magnitude that moves with the profile.
+                // Testing the *shape* -- leverage running down as the arc does -- rather than a
+                // magnitude that moves with the kick.
                 Assert.True(leverage < previous - 125.0,
                             $"the kick's leverage at t+{tau:F0} was {leverage / 1000.0:F3} km against "
                             + $"{previous / 1000.0:F3} km before it, which is not it running down");

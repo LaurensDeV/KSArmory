@@ -4,13 +4,9 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// The craft a weapons system is bolted to, and where that craft was when the system last
-/// sampled the world.
-///
-/// <para>The pair travels together because it is one instant: everything a system measures is
-/// differenced against <see cref="PlatformEcl"/> and drawn against <see cref="Platform"/>, and
-/// pairing one of them with a sample from another frame is ~500 m of ecliptic motion. See
-/// <c>docs/FRAMES-AND-EPOCHS.md</c>.</para>
+/// The craft a weapons system is bolted to, and where it was when the system last sampled the world.
+/// One instant: paired with a sample from another frame it is ~500 m of ecliptic motion
+/// (<c>docs/FRAMES-AND-EPOCHS.md</c>).
 /// </summary>
 internal interface IWeaponPlatform
 {
@@ -20,10 +16,8 @@ internal interface IWeaponPlatform
 }
 
 /// <summary>
-/// Which weapon system this is: the launcher, the round it throws and the set it sees with.
-///
-/// <para>The three are paired by <see cref="Catalogue.LoadoutFor"/> and belong to the installation
-/// running them, so a reader handed this cannot pick up whichever system resolved last.</para>
+/// Paired by <see cref="Catalogue.LoadoutFor"/> and owned by the installation, so a reader cannot
+/// pick up whichever system resolved last.
 /// </summary>
 internal interface IWeaponLoadout
 {
@@ -35,9 +29,7 @@ internal interface IWeaponLoadout
 }
 
 /// <summary>
-/// What a weapons system has in the air. Motor sound, plumes and the chase camera need this and
-/// nothing else, and each round carries its own munition, so none of them has to ask what kind of
-/// launcher threw it.
+/// Each round carries its own munition, so a consumer never asks what kind of launcher threw it.
 /// </summary>
 internal interface IRoundsInFlight : IWeaponPlatform
 {
@@ -45,36 +37,21 @@ internal interface IRoundsInFlight : IWeaponPlatform
 }
 
 /// <summary>
-/// What an effect anchored to a weapon needs: the rounds, the platform they are measured from,
-/// the launcher part they are placed against, and whether effects are wanted at all.
-///
-/// <para>The plume, the tracers and the muzzle flash between them read five members of a class
-/// with fifty-two. Narrowing the surface to those five is what keeps the emitter release contract
-/// visible to whoever writes the next effect.</para>
+/// What an effect anchored to a weapon needs, narrowed so the emitter release contract stays visible.
 /// </summary>
 internal interface IEffectSource : IRoundsInFlight
 {
-    /// <summary>The launcher part, which everything drawn on the weapon is placed against.</summary>
     Part? Launcher { get; }
 
     /// <summary>
-    /// The body an effect's emitter hangs on, or null if there is none to hang it on.
-    ///
-    /// <para>A celestial rather than the craft, which is what the particle system wants anyway:
-    /// every emitter here sets <c>Context.Astronomical</c> and leaves <c>Context.Vehicle</c> null,
-    /// so nothing an effect does has ever needed the launcher to exist. That is what lets a round
-    /// keep its plume after the craft that fired it is destroyed.</para>
+    /// A celestial, not the craft: every emitter sets <c>Context.Astronomical</c> and leaves
+    /// <c>Context.Vehicle</c> null, so a round keeps its plume after its launcher dies.
     /// </summary>
     Celestial? EffectBody { get; }
 
     /// <summary>
-    /// Where to hang an effect on a round in flight.
-    ///
-    /// <para>The drawn body while there is one, because a flame has to sit on the mesh rather than
-    /// near it. Once the launcher is gone there is no mesh and no part tree to ask, so it is the
-    /// round's own position against whatever it is anchored to now — which is exact, the objection
-    /// to that form being about a <em>craft's</em> analytic position differing from where its parts
-    /// are drawn.</para>
+    /// The drawn body while there is one, so a flame sits on the mesh; once the launcher is gone, the
+    /// round's own position against its anchor, which is exact with no part to disagree with.
     /// </summary>
     bool TryRoundEffectEcl(IProjectile round, out double3 ecl);
 
@@ -84,10 +61,8 @@ internal interface IEffectSource : IRoundsInFlight
     /// </summary>
     bool TryRoundAttitudeEcl(IProjectile round, out doubleQuat attitudeEcl);
 
-    /// <summary>The profile, for the rates and geometry an effect is sized from.</summary>
     LauncherProfile Profile { get; }
 
-    /// <summary>Whether the player wants effects at all.</summary>
     bool PlumesEnabled { get; }
 
     /// <summary>
@@ -96,16 +71,14 @@ internal interface IEffectSource : IRoundsInFlight
     /// </summary>
     int GunFlashPointsEcl(Span<double3> into);
 
-    /// <summary>Whether the cannon have a flash to draw at all.</summary>
     bool HasGunFlash();
 
-    /// <summary>True while the cannon are firing, which is what holds a flash and a sound open.</summary>
+    /// <summary>What holds a flash and a sound open.</summary>
     bool GunsFiring { get; }
 
-    /// <summary>Rounds the cannon have fired so far, so a consumer can tell each new one from the last.</summary>
     int GunShotsFired { get; }
 
-    /// <summary>Simulated seconds since the cannon last fired; infinite before the first round.</summary>
+    /// <summary>Simulated seconds; infinite before the first round.</summary>
     double GunSecondsSinceShot { get; }
 
     /// <summary>
@@ -119,20 +92,14 @@ internal interface IEffectSource : IRoundsInFlight
 /// The optical head, the contact it brackets, and where it is looking: enough to paint a sight
 /// over the camera the head drives and to point that camera, with no way to move the head itself.
 ///
-/// <para>Carries <see cref="IWeaponPlatform"/> because a camera on the head has to be measured
-/// from the craft the head is bolted to. KSA's <c>FixedController</c> places a camera at
-/// <c>following.GetPositionEcl() + CameraOffset</c> during its own frame pass, so the offset must
-/// be a pure separation from the followed craft and never a position sampled here.</para>
-///
-/// <para>Implemented by <see cref="OpticalHead"/> alone. It was written when a launcher carried
-/// the head, and it is why moving the head onto a part of its own changed nothing in the sight,
-/// the chase camera or the claim ladder.</para>
+/// <para>Carries <see cref="IWeaponPlatform"/>: <c>FixedController</c> places a camera at
+/// <c>following.GetPositionEcl() + CameraOffset</c> in its own pass, so the offset must be a pure
+/// separation from the followed craft.</para>
 /// </summary>
 internal interface IOpticalHead : IWeaponPlatform
 {
     Part? OpticPart { get; }
 
-    /// <summary>True once the head has caught up with what it was told to look at.</summary>
     bool OpticOnTarget { get; }
 
     /// <summary>Aimed at what the weapon on its part cued it with.</summary>
@@ -141,30 +108,21 @@ internal interface IOpticalHead : IWeaponPlatform
     /// <summary>True while its own craft stands across its line of sight.</summary>
     bool Masked { get; }
 
-    /// <summary>Whether its gimbal is at a limit and will go no further.</summary>
     bool AtGimbalLimit { get; }
 
-    /// <summary>Whether it carries a laser at all.</summary>
     bool HasLaser { get; }
 
     /// <summary>Its laser is wanted and held off by <see cref="Masked"/>.</summary>
     bool LaserInhibited { get; }
 
-    /// <summary>Where its laser is landing, or null.</summary>
     LaserSpot? Spot { get; }
 
-    /// <summary>The contact the sensor is holding, or null.</summary>
     Track? LockedTrack { get; }
 
     /// <summary>
-    /// What the operator told this head to watch, or <c>Aimpoint.Nothing</c>.
-    ///
-    /// <para>Read-only here on purpose. Designating is a command and belongs to whoever issues it;
-    /// this interface is what the sight and the chase camera <em>read</em>, and neither may point a
-    /// head anywhere.</para>
+    /// Read-only on purpose: designating is a command, and the sight and chase camera only read.
     /// </summary>
     Aimpoint Designation { get; }
-
 
     /// <summary>
     /// Local "up", which is what the sight's horizontal reference is drawn against. Always the
@@ -173,18 +131,14 @@ internal interface IOpticalHead : IWeaponPlatform
     double3 Boresight { get; }
 
     /// <summary>
-    /// What the camera should take its roll from, which is <em>not</em> the same question.
-    ///
-    /// <para>Rigid with the head unless the operator asks for a levelled picture: a camera bolted
-    /// to a craft rolls with it, so looking sideways stays sideways. Levelling is the opinionated
-    /// choice and is the one behind a switch.</para>
+    /// Not the same question as <see cref="Boresight"/>: rigid with the head unless the operator
+    /// asks for a levelled picture.
     /// </summary>
     double3 RollReferenceEcl { get; }
 
     /// <summary>
-    /// Where the head is looking from and along what, both in Ecl. False when the launcher, the
-    /// head or the pose cannot be resolved — the caller then draws and drives nothing rather than
-    /// pointing a camera at the origin.
+    /// False when the launcher, head or pose cannot be resolved; the caller then drives nothing
+    /// rather than pointing a camera at the origin.
     /// </summary>
     bool TryOpticViewEcl(out double3 eyeEcl, out double3 forwardEcl);
 
@@ -193,45 +147,31 @@ internal interface IOpticalHead : IWeaponPlatform
 }
 
 /// <summary>
-/// Everything the gunner's sight paints: the head and its contact, plus the weapons that could
-/// take the shot and where each is pointing.
-///
-/// <para>Not an optical head. A sight is painted <em>through</em> a director, which is its own
-/// part on the craft, so this is only what a weapon beside it contributes to the picture — and a
-/// craft with no weapon contributes none of it, which is why <c>Sight.Draw</c> takes it as
-/// optional.</para>
-///
-/// <para>Deliberately narrower than the system. A sight reports; it has no way to arm, fire, slew
-/// or re-platform anything it is drawn over, which is what makes it safe to paint every frame from
-/// the draw hook.</para>
+/// What a weapon beside a director contributes to the sight it paints; optional in
+/// <c>Sight.Draw</c>. No commands, so painting it every frame from the draw hook is safe.
 /// </summary>
 internal interface ISightPicture : IWeaponPlatform, IWeaponLoadout
 {
-    /// <summary>Rounds in the tubes.</summary>
     int Ammo { get; }
 
-    /// <summary>Rounds left in the cannon belt.</summary>
     int GunAmmo { get; }
 
-    /// <summary>Seconds of lasing left, for a launcher that fires a beam.</summary>
     int BeamSecondsLeft { get; }
 
-    /// <summary>Whether its beam is on this step.</summary>
     bool BeamLasing { get; }
 
-    /// <summary>Where rounds leave from, which is what every lead is measured from.</summary>
+    /// <summary>What every lead is measured from.</summary>
     double3 MountEcl { get; }
 
-    /// <summary>True when the tubes have settled on what they are pointing at.</summary>
     bool IsLaid { get; }
 
-    /// <summary>True when the cannon have. Asked separately because they share only the traverse.</summary>
+    /// <summary>Apart from <see cref="IsLaid"/>: the cannon share only the traverse with the tubes.</summary>
     bool GunsAreLaid { get; }
 
     /// <inheritdoc cref="WeaponSystem.TryRingAimEcl"/>
     bool TryRingAimEcl(out double3 aimEcl, out bool isGunLead);
 
-    /// <summary>Time of flight the gun's lead solved for, or zero if it did not solve.</summary>
+    /// <summary>Zero if the lead did not solve.</summary>
     double GunFlightSeconds { get; }
 }
 
@@ -243,7 +183,6 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
 {
     int Ammo { get; }
 
-    /// <summary>True when the launcher is pointing where it is about to shoot.</summary>
     bool IsLaid { get; }
 
     bool FireAt(double3 pointEcl);
@@ -255,78 +194,38 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
     void FlyRoundsAs(MunitionProfile munition);
 
     /// <summary>
-    /// The state a released round would actually leave with, averaged over the tubes.
-    ///
-    /// <para>A ballistic computer predicts from the craft's own orbit state, and a round does not
-    /// start there. It starts at a tube mouth metres away, carrying the spin that lever arm is
-    /// sweeping at, and thrown along the tube rather than along whatever attitude was commanded —
-    /// a vehicle settles a few degrees off a command and the tubes go with the airframe. Measured
-    /// on a coasting bus: ten degrees of direction error, ten metres of radial offset, and up to
-    /// four hundredths of a metre a second of spin.</para>
-    ///
-    /// <para>Averaged over the tubes because there is one aim for all of them and the cants cancel
-    /// in the mean by construction. What each tube does <em>differently</em> is dispersion, and no
-    /// single aim can remove it — a velocity per round can, which is <see cref="ReleaseFocus"/>.</para>
+    /// The state a released round would leave with, averaged over the tubes: a tube mouth metres
+    /// from the orbit state, thrown along the tube. Measured on a coasting bus: ten degrees, ten
+    /// metres and 0.04 m/s off the craft's own state. Per-tube differences are <see cref="ReleaseFocus"/>'s.
     /// </summary>
     /// <param name="spinSpeed">
-    /// How fast the tubes are being swept by the vehicle's own rotation, which is deliberately
-    /// <em>not</em> in <paramref name="velocityEcl"/>. It is a transient, and a guidance loop fed a
-    /// transient chases it rather than converging — measured as a cutoff residual going from 0.15
-    /// to 4.31 m/s the moment it was included. It belongs to the decision of whether to release at
-    /// all, not to the prediction of where the round goes once released.
+    /// Not in <paramref name="velocityEcl"/>: a transient the guidance chases rather than converges
+    /// on, a cutoff residual of 4.31 m/s against 0.15. It decides whether to release, not where.
     /// </param>
     bool TryMeanReleaseStateEcl(out double3 positionEcl, out double3 velocityEcl, out double spinSpeed);
 
     /// <summary>
-    /// Where one tube's mouth sits from the mean <see cref="TryMeanReleaseStateEcl"/> predicts from,
-    /// as a length in a direction.
-    ///
-    /// <para>Off the part frame and turned rather than differenced from world positions, so it carries
-    /// none of the ecliptic's ~29.8 km/s: 30 m of fictitious offset per millisecond of mismatch, which a
-    /// kick solved against it would fire faithfully into the ground.</para>
+    /// One tube's mouth from the mean <see cref="TryMeanReleaseStateEcl"/> predicts from. Turned off
+    /// the part frame, not differenced from world positions: 30 m per millisecond of mismatch.
     /// </summary>
     /// <param name="tube">Counted from zero, in the order the profile lists them.</param>
     bool TryTubeOffsetFromMeanEcl(int tube, out double3 offsetEcl);
 
-    /// <summary>
-    /// How many tubes those offsets are counted among — the ring's size, not how many are loaded.
-    /// </summary>
-    /// <remarks>
-    /// Beside the offsets rather than anywhere else, because a caller placing a warhead on a
-    /// pattern needs to know which of how many it is holding, and the two answers have to come from
-    /// one launcher or the pattern is drawn against a ring that is not there.
-    /// </remarks>
+    /// <summary>The ring's size, not how many are loaded; from the same launcher as the offsets.</summary>
     int TubeCount { get; }
 
     /// <summary>
-    /// How fast one tube's mouth is moving because the craft is turning, from the centre of mass in
-    /// the craft's own assembly frame — the velocity KSA itself gives a part it splits off a turning
-    /// vehicle.
-    ///
-    /// <para>No position enters it, so it carries no frame's motion. It is what the spin
-    /// <em>should</em> be, which is not necessarily what a round was thrown with:
-    /// <see cref="Slug.SpinVelocityEcl"/> says that.</para>
+    /// A tube mouth's velocity from the craft's turning, as KSA gives a part it splits off. No position
+    /// enters it. What a round was actually thrown with is <see cref="Slug.SpinVelocityEcl"/>.
     /// </summary>
     /// <param name="tube">Counted from zero, in the order the profile lists them.</param>
-    /// <param name="armEcl">The mouth from the centre of mass. A couple of metres on a bus, which is
-    /// the check that the rest means anything.</param>
+    /// <param name="armEcl">The mouth from the centre of mass; a couple of metres on a bus.</param>
     bool TryTubeSpinEcl(int tube, out double3 spinEcl, out double3 armEcl, out double3 angularVelocityEcl);
 
-    /// <summary>
-    /// Whether a decoupler holds this launcher on, so it could be let off the stack it rode up.
-    ///
-    /// <para>A property of the part rather than of the craft, and knowable before the shot rather
-    /// than at the moment of deployment.</para>
-    /// </summary>
+    /// <summary>Whether a decoupler holds this launcher on: a property of the part, known before the shot.</summary>
     bool CanSeparate { get; }
 
-    /// <summary>
-    /// Whether the next stage the player has queued is the one that lets this launcher off.
-    ///
-    /// <para>Distinct from <see cref="CanSeparate"/>, which says only that a joint exists. A
-    /// computer that will not stage past its own launcher has to ask this one: a stack whose
-    /// launcher can separate <em>eventually</em> still needs every stage before that.</para>
-    /// </summary>
+    /// <summary>Unlike <see cref="CanSeparate"/>, asks whether the next queued stage is the one.</summary>
     bool NextStageSeparatesIt { get; }
 
     /// <summary>How many stages still fire after the one that lets the launcher off; zero when it is last.</summary>
@@ -335,11 +234,7 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
     /// <summary>Move the launcher's release to the end of the staging list. Only from <c>AttitudeHook</c>'s window.</summary>
     bool MoveReleaseLast(out string why);
 
-    /// <summary>
-    /// Let the launcher off that stack. False when there is no joint to let go of.
-    ///
-    /// <para>The split lands on the following frame, and it cannot be undone.</para>
-    /// </summary>
+    /// <summary>False with no joint. The split lands on the following frame and cannot be undone.</summary>
     bool Separate();
 
     /// <summary>Which tube fires next, or -1 when nothing more will be handed out.</summary>
@@ -349,16 +244,12 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
     int TubesReadyToFire { get; }
 
     /// <summary>
-    /// Where every tube points now, in tube order.
-    ///
-    /// <para>All or nothing: a partial set averages to a direction that is not the one the aim
-    /// correction assumed, which is worse than not turning at all.</para>
+    /// All or nothing: a partial set averages to a direction the aim correction did not assume.
     /// </summary>
     int TubeAxesEcl(Span<double3> into);
 
     bool CanGuideOnto(double3 pointEcl);
 
-    /// <summary>Opens a cannon burst along wherever the mount is laid.</summary>
     bool FireBurst(int rounds = 0);
 
     /// <summary>Which armament the manual trigger fires, and so which one a click on the world does.</summary>
@@ -367,23 +258,15 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
     /// <summary>The round that armament throws, whose reach a designation is judged against.</summary>
     MunitionProfile TriggerMunition { get; }
 
-    /// <summary>
-    /// Whether a manual shot would be taken now, asked of whichever weapon this system carries.
-    /// A gun-only system reads zero from the magazine forever, so the magazine cannot answer it.
-    /// </summary>
+    /// <summary>Of whichever weapon it carries: a gun-only system's magazine reads zero forever.</summary>
     bool ReadyToFire { get; }
 }
 
 /// <summary>
-/// A weapons system as a reader sees it: what the overlay draws and what the diagnostic dump
-/// prints.
-///
-/// <para>None of the commands are here, so neither of those can fire, reload or re-platform the
-/// system it is describing. That is the whole reason this is not the class.</para>
+/// A weapons system as the overlay and the diagnostic dump read it, with none of the commands.
 /// </summary>
 internal interface IWeaponSystemView : IRoundsInFlight, IWeaponLoadout
 {
-    /// <summary>The launcher part on the platform, or null if none is fitted.</summary>
     Part? Launcher { get; }
 
     /// <summary>The missile pods, which the tube offsets are measured from.</summary>
@@ -392,33 +275,23 @@ internal interface IWeaponSystemView : IRoundsInFlight, IWeaponLoadout
     /// <summary>Where rounds actually leave from: the launcher part, or the hull without one.</summary>
     double3 MountEcl { get; }
 
-    /// <summary>Current radar boresight in Ecl.</summary>
     double3 Boresight { get; }
 
     /// <summary>
-    /// Where the next store would leave and the velocity it would leave with, in Ecl — the launch
-    /// a release makes, ejector and spin included, so a sight flown from it predicts the release.
-    ///
-    /// <para>False when there is no next release: an empty rack, or one whose every tube is still
-    /// holding the round it fired. There is no answer to give then, and giving one leaves a pipper
-    /// on the ground under a rack that has nothing left to drop.</para>
+    /// The launch a release makes, ejector and spin included. False with no next release, including
+    /// every tube still holding the round it fired.
     /// </summary>
     bool TryNextReleaseEcl(out double3 positionEcl, out double3 velocityEcl);
 
     int Ammo { get; }
 
-    /// <summary>True when the tubes are where the profile says they are.</summary>
     bool TubesResolved { get; }
 
-    /// <summary>True when the system has everything it needs to shoot.</summary>
     bool IsOperational { get; }
 
     Turret Turret { get; }
 
-    /// <summary>
-    /// The search array's angle, so a diagnostic can draw where the scope believes it is looking
-    /// beside where the mesh actually is. Read-only and cosmetic, like the array itself.
-    /// </summary>
+    /// <summary>Cosmetic, like the array itself.</summary>
     double RadarSpinRad { get; }
 
     Radar Radar { get; }
@@ -426,6 +299,6 @@ internal interface IWeaponSystemView : IRoundsInFlight, IWeaponLoadout
     /// <summary>False once the engine has refused to place a round body; tracers then stand in.</summary>
     bool RoundBodiesWork { get; }
 
-    /// <summary>How many round bodies the launcher carries. Zero means tracers only.</summary>
+    /// <summary>Zero means tracers only.</summary>
     int RoundBodyCount { get; }
 }

@@ -4,9 +4,7 @@
 #
 #   ./tools/install-hooks.sh
 #
-# Git will not use a repository's hooks without being told to - they live in .git/hooks, which
-# is not version controlled. core.hooksPath moves that to a tracked directory, so a hook added
-# later arrives with a pull instead of needing everyone to reinstall it.
+# core.hooksPath points at a tracked directory, so a hook added later arrives with a pull.
 #
 set -euo pipefail
 

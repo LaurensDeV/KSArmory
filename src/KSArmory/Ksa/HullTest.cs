@@ -4,28 +4,18 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Whether a round's step meets a craft's actual geometry, per triangle.
+/// Whether a round's step meets a craft's actual geometry, per triangle, through
+/// <c>Part.RayCastEgo</c> — the cast KSA picks parts with.
 ///
-/// <para><c>Part.RayCastEgo</c> is watertight and is what KSA highlights parts with, the same
-/// call the cursor picks craft through. The alternative, a craft's bounding sphere, is the
-/// half-diagonal of its bounding box, a number built for orbital clearance margins: on a rocket it
-/// stands ten metres clear of the skin, so a contact fuse tested against it fires that far off the
-/// hull.</para>
-///
-/// <para>No camera. <c>GetMatrixAsmb2Ego</c> takes the frame origin as an argument rather than
-/// reading one off a viewport, so passing the round-relative separation puts the whole cast in a
-/// metres-scale frame centred on the round — available in a paused world, a second viewport or no
-/// viewport at all, and never evaluating geometry at ecliptic magnitudes.</para>
+/// <para>No camera: <c>GetMatrixAsmb2Ego</c> takes the frame origin as an argument, so passing the
+/// round-relative separation casts in a metres-scale frame centred on the round.</para>
 /// </summary>
 internal sealed class HullTest : IHullTest
 {
-    /// <summary>Stateless, so every round in the air shares one.</summary>
     public static readonly HullTest Shared = new();
 
-    // What a body the engine will not size is taken to be, in metres. Core's kitten is the only
-    // craft with no part geometry at all, and its collider is a 0.4 m capsule 0.59 m from its
-    // origin, so a metre covers it. KsaWorld.MeanRadius floors an unsized craft at 5 m, which is a
-    // safety net for a blast volume and ten times the cat: as a contact radius nothing can miss it.
+    // Covers Core's kitten, a 0.4 m capsule 0.59 m from its origin. Not KsaWorld.MeanRadius's 5 m
+    // floor, which as a contact radius nothing could miss.
     private const double UnsizedBodyRadius = 1.0;
 
     public HullVerdict Judge(object? body, double3 separation, double3 travel, out double fraction)
@@ -76,16 +66,13 @@ internal sealed class HullTest : IHullTest
         }
         catch
         {
-            // A craft the engine will not answer for keeps the sphere. Answering Missed instead
-            // would make it quietly bulletproof, which is worse than firing early and much harder
-            // to notice.
+            // Unknown keeps the sphere: Missed would make the craft silently bulletproof.
             return HullVerdict.Unknown;
         }
     }
 
-    // A craft with no mesh can still be missed. Nothing can be cast against a kitten: it is drawn
-    // by the character renderer and its one part is declared empty, so its own sphere is the
-    // answer, which is also what the engine picks one by.
+    // A kitten has no mesh to cast against (the character renderer draws it), so its sphere is
+    // the answer, as it is for the engine's picking.
     private static HullVerdict AgainstSphere(Vehicle craft, double3 separation, double3 travel,
                                              out double fraction)
     {

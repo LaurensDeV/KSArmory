@@ -16,7 +16,6 @@ internal sealed class FrameLatch
 {
     private bool _taken;
 
-    /// <summary>Whether the frame's work has already been claimed.</summary>
     public bool Claimed => _taken;
 
     /// <summary>

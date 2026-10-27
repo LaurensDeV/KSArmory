@@ -7,35 +7,21 @@ namespace KSArmory;
 /// The lock, on the glass: brackets that close over the acquisition and a mark when there is
 /// nothing left in the way.
 ///
-/// <para>Separate from <see cref="Markers"/>, which brackets every weapons system in the world.
-/// This brackets the one contact the selected weapon is engaging, which is a different question
-/// and usually a different object — the target is rarely a weapons system at all.</para>
-///
-/// <para>An ImGui overlay for the same reason the markers are: a cue belongs on the glass at a
-/// constant size, not in the scene where it would shrink with range and be hidden by the terrain
-/// it exists to find something behind.</para>
-///
-/// <para>Not part of <c>DrawOverlays</c>. That is the diagnostic gizmo layer and it is off by
-/// default; knowing whether you have a lock is playing the game rather than debugging it.</para>
+/// <para><see cref="Markers"/> brackets every weapons system; this brackets the one contact the
+/// selected weapon is engaging. Not part of <c>DrawOverlays</c>, which is the diagnostic layer.</para>
 /// </summary>
 internal static class LockCueOverlay
 {
-    // Dwell building. Deliberately not green: the whole point is that this state is not yet the
-    // one worth firing from.
+    // Dwell building: not green, because this is not yet the state worth firing from.
     private static readonly ImColor8 Acquiring = new(255, 210, 120, 170);
 
     private static readonly ImColor8 Ready = new(90, 255, 120, 230);
 
-    // Locked and refused. The reason is written beside it, because a cue that says "no" without
-    // saying why sends the operator back to the panel, which is where this started.
-    //
-    // Red, and it has to be a different hue family from Acquiring rather than a deeper orange:
-    // the two mean opposite things, and this is the one that stays on screen -- dwell is under a
-    // second and a hold lasts as long as its reason does. Same red as the switcher's GUARDING.
+    // Locked and refused: a different hue family from Acquiring, since the two mean opposite things.
+    // Same red as the switcher's GUARDING.
     private static readonly ImColor8 Refused = new(255, 89, 77, 210);
 
-    // Larger than Markers' icon so the two read as different marks when both are on one contact:
-    // the system bracket says "there is a weapon there", this says "it is being shot at".
+    // Larger than Markers' icon so the two read as different marks on one contact.
     private const float Half = Reticle.IconHalfSize * 1.5f;
 
     private const float CaretLength = 16f;
@@ -62,16 +48,10 @@ internal static class LockCueOverlay
 
         if (phase == LockPhase.None) return;
 
-        // The drawn position, never the simulated one. Track.PositionEcl is sampled after the mod
-        // steps, while the camera's matrices were built in the viewport pass before it -- so the
-        // two belong to instants one step apart, and the step is what changes with warp. Drawing
-        // the raw position makes the bracket jump every time the speed changes.
-        //
-        // TryDrawEgo is the same pairing round bodies and the gunner's sight already use: the
-        // anchor's drawn position plus the round's own flight since launch.
+        // The drawn position, never Track.PositionEcl: that is sampled after the mod steps, a step
+        // after the camera's matrices, so the bracket would jump whenever the speed changes.
         if (!track.Contact.TryDrawEgo(out double3 targetEgo)) return;
-        // The view the player flies from: this is the trigger's own cue rather than a sight's
-        // picture, and it belongs where the trigger is being pressed.
+        // The view the player flies from: this is the trigger's cue, not a sight's picture.
         if (!KsaWorld.TryProjectEgoOrClamp(KsaWorld.MainViewportIndex, targetEgo, out float2 at,
                                            out bool inView))
         {
@@ -110,8 +90,6 @@ internal static class LockCueOverlay
 
         for (int i = 0; i < n; i++) draw.AddLine(strokes[i].A, strokes[i].B, colour);
 
-        // The one rung that earns a mark of its own: nothing is in the way. Small and central, so
-        // it reads as the brackets having arrived rather than as another thing to look at.
         if (phase == LockPhase.ClearToFire)
         {
             float d = 4f;
@@ -121,9 +99,6 @@ internal static class LockCueOverlay
             draw.AddLine(new float2(at.X, at.Y + d), new float2(at.X - d, at.Y), colour);
         }
 
-        // Answered where the operator is looking rather than on a tab. This is the whole reason
-        // fire control names its first refusal instead of returning quietly.
-        //
         // Under the bracket, not beside it: the chase HUD's range and a designation's readout are
         // both written to the right of the same target.
         if (phase == LockPhase.Held && system.Hold is { } why)

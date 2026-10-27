@@ -5,15 +5,9 @@ using KSA.Rendering.Particles;
 namespace KSArmory;
 
 /// <summary>
-/// KSA's own explosion where a warhead went off.
-///
-/// <para>Fired through <c>ExplosionSystem.SpawnPreset</c>, which brings the flash, the sound, the
-/// volumetric fireball and smoke and their pressure gating with it. <see cref="WarheadExplosion"/>
-/// picks the preset, because KSA's size floor swallows every conventional charge.</para>
-///
-/// <para>Anchored on the <em>celestial</em>, with no vehicle. A proximity burst happens in mid-air,
-/// and the obvious host — the target — is the thing about to be destroyed. KSA sets off its own
-/// explosion on whatever the burst kills, so this one is the warhead's alone.</para>
+/// KSA's own explosion where a warhead went off, through <c>ExplosionSystem.SpawnPreset</c>.
+/// <para>Anchored on the celestial with no vehicle: the obvious host, the target, is about to be
+/// destroyed, and KSA sets off its own explosion on whatever the burst kills.</para>
 /// </summary>
 internal static class Detonation
 {
@@ -47,16 +41,11 @@ internal static class Detonation
     }
 
     /// <summary>
-    /// Sets off the explosion a charge makes, at a point in Ecl. Silently does nothing if it cannot
-    /// be placed: this is decoration, and a warhead that killed its target has already done its job.
+    /// Sets off the explosion a charge makes, at a point in Ecl. A refusal is logged once per reason
+    /// and never thrown: this is decoration.
     /// </summary>
-    /// <param name="near">
-    /// Any craft close to the burst, used only to find which body it is over. The round's own
-    /// target or the firing platform both do.
-    /// </param>
-    /// <param name="body">
-    /// The body the firing system is over, for when no craft near the burst is left to ask.
-    /// </param>
+    /// <param name="near">Any craft close to the burst, used only to find which body it is over.</param>
+    /// <param name="body">The body the firing system is over, for when no craft near the burst is left.</param>
     /// <param name="named">The munition's own <see cref="MunitionProfile.BurstEffect"/>, if it names one.</param>
     public static void Explode(double3 burstEcl, double chargeKg, Vehicle? near, Celestial? body = null,
                                string? named = null)
@@ -66,8 +55,7 @@ internal static class Detonation
         string why = TryExplode(preset, burstEcl, chargeKg, near, body);
         if (why.Length == 0) return;
 
-        // A refusal is indistinguishable from a wrong frame and a warhead that never went off: all
-        // three are "no explosion". Say which, once per reason.
+        // In game a refusal looks the same as a wrong frame or no detonation, so say which.
         if (_reported.Add(why)) Log.Warn($"no explosion ({preset}): {why}");
     }
 
@@ -135,11 +123,10 @@ internal static class Detonation
         }
     }
 
-    // The body to hang the effect on: whatever the craft nearest the burst is bound to, then the
-    // body the firing system knows it is over, then the craft being flown's. All are within a
-    // physics bubble of the burst, which is the only accuracy this needs. The middle one is a
-    // round whose launcher has been destroyed, where the nearest craft is often the one flown.
-    /// <summary>Which body to hang an effect on, given something near it.</summary>
+    /// <summary>
+    /// The near craft's body, else the firing system's, else the flown craft's: all within a physics
+    /// bubble of the burst, which is the only accuracy an effect needs.
+    /// </summary>
     internal static Celestial? BodyFor(Vehicle? near, Celestial? known = null)
     {
         if (KsaWorld.IsAlive(near) && near!.Parent is Celestial body) return body;

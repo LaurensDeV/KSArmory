@@ -111,17 +111,10 @@ public class FrameRegressionTests
 
         var round = Round(new double3(500, 0, 0) + SolarFrame);
 
-        // Target close enough ahead that the fuse trips during this step — expressed the way KSA
-        // actually hands it over.
-        //
-        // Vehicle Ecl state is refreshed once per frame at the top of OnFrame, to the state at the
-        // END of the step the round is about to be integrated across, so a sample means "where the
-        // target will be at the end of this step", not "where it is now". Interceptor back-dates
-        // it by the step to line it up with the round's own epoch.
-        //
-        // The + SolarFrame * dt is the convention, not padding to make a test pass. Writing the
-        // sample as a start-of-step position leaves every line of sight carrying a whole frame of
-        // the planet's 29.8 km/s, and re-creates that inside the test.
+        // Close enough that the fuse trips this step, sampled as KSA hands it over: vehicle Ecl state is
+        // refreshed at the top of OnFrame to the END of the step the round is about to cross, and
+        // Interceptor back-dates it by the step. The + SolarFrame * dt is that convention, not padding:
+        // a start-of-step sample leaves every line of sight carrying a frame of the planet's 29.8 km/s.
         var target = new TargetState(new double3(20, 0, 0) + SolarFrame * dt, SolarFrame, 1.0);
         munition.FuseArmSeconds = 0f;
 
@@ -129,12 +122,8 @@ public class FrameRegressionTests
 
         Assert.Equal(RoundState.Detonated, round.State);
 
-        // Negative, and that is the point: the value is measured against the world sample, which
-        // is the END of the step - Universe refreshes vehicle Ecl state at the top of OnFrame to
-        // GetLastSimStep().NextTime. A burst can only happen at or before that instant, so the
-        // caller advances the world BACKWARD by this much.
-        //
-        // What must hold is that it names an instant inside the step just integrated.
+        // Negative: measured against the world sample at the step's END (GetLastSimStep().NextTime),
+        // so the caller moves the world backward by this much, to an instant inside the step.
         Assert.InRange(round.DetonationElapsedInFrame, -dt, 0.0);
     }
 

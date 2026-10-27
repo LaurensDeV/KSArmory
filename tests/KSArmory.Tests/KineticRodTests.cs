@@ -25,8 +25,6 @@ public class KineticRodTests(ITestOutputHelper Out)
     /// <summary>Where the air starts mattering to a body of this ballistic coefficient.</summary>
     private const double EntryAltitude = 100_000.0;
 
-    // ------------------------------------------------------------------ the rod itself
-
     /// <summary>
     /// Every number about the rod follows from its dimensions and what it is made of, so this
     /// reports them rather than a profile block somebody chose.
@@ -49,8 +47,6 @@ public class KineticRodTests(ITestOutputHelper Out)
         Out.WriteLine($"  kinetic energy at 3 km/s  {kinetic / 1e9:F1} GJ"
                       + $" = {kinetic / 4.184e9:F1} t of TNT");
     }
-
-    // ------------------------------------------------------------------ what the air will give it
 
     /// <summary>
     /// Fin authority is bought with dynamic pressure, and a rod is above the air until seconds
@@ -173,8 +169,6 @@ public class KineticRodTests(ITestOutputHelper Out)
 
         return (seconds, impulse, displacement, peakQ, peakG);
     }
-
-    // ------------------------------------------------------------------ the correction envelope
 
     /// <summary>
     /// <b>What the mod does today.</b> <see cref="Slug"/> applies the commanded lateral
@@ -301,8 +295,6 @@ public class KineticRodTests(ITestOutputHelper Out)
             Out.WriteLine($"  {step * 1000.0,6:F0} ms {drift,14:F1} m {residual,14:F1} m");
         }
     }
-
-    // ------------------------------------------------------------------ the shot as it is flown
 
     /// <summary>
     /// The 3,459 km shot end to end, with a rod on it and the ballistic solution deliberately
@@ -434,8 +426,7 @@ public class KineticRodTests(ITestOutputHelper Out)
 
     /// <summary>
     /// The same steering, the same rod, the same air, released a hundred kilometres apart on one
-    /// trajectory — because the constructed entries close a 600 m error at three degrees and the
-    /// flown arc, which reaches the air at 3.4 degrees, does not.
+    /// trajectory, and against that entry rebuilt on the +x axis the constructed entries use.
     /// </summary>
     [Fact]
     public void WhetherWhereItWasReleasedChangesWhatTheKitCanDo()
@@ -508,8 +499,7 @@ public class KineticRodTests(ITestOutputHelper Out)
 
     /// <summary>
     /// What links the two framings above: the shot the mod actually flies is <em>shallower</em> at
-    /// the top of the air than any of the constructed entries, which is why it lands in the one
-    /// place the shipped law falls over.
+    /// the top of the air than any of the constructed entries.
     /// </summary>
     [Fact]
     public void HowSteeplyTheFlownShotReachesTheAir()
@@ -572,8 +562,6 @@ public class KineticRodTests(ITestOutputHelper Out)
 
     private static string Kilometres(double metres)
         => double.IsPositiveInfinity(metres) ? "none in the ladder" : $"{metres / 1000.0:F2} km";
-
-    // ------------------------------------------------------------------ what a rod does to the arc
 
     /// <summary>
     /// The 3,459 km shot flown with a rod instead of a Mk 21. Drag is what the aim correction
@@ -657,8 +645,6 @@ public class KineticRodTests(ITestOutputHelper Out)
 
     /// <summary>Close enough that nothing else in this file is what decided it.</summary>
     private const double Arrived = 25.0;
-
-    // ------------------------------------------------------------------ killing without a charge
 
     /// <summary>
     /// <b>The mod can already express "kills by impact alone", and only just.</b> A zero charge

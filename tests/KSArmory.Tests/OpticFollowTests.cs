@@ -3,13 +3,8 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Why a head is not looking at what its sight is bracketing.
-///
-/// <para>The ordering is the whole of it. Every one of these states can be true at once — a head
-/// can be on the mouse, hand-aimed, designated, and have tracking on — and the reason drawn has to
-/// be the rung the head actually stopped at, which is the precedence
-/// <c>OpticalHead.AimPartFrame</c> applies. A classifier that reads the same flags in any other
-/// order names a rung that was never reached.</para>
+/// Every one of these states can be true at once, so the reason must be read in
+/// <c>OpticalHead.AimPartFrame</c>'s precedence or it names a rung the head never reached.
 /// </summary>
 public class OpticFollowTests
 {
@@ -27,8 +22,8 @@ public class OpticFollowTests
     [Fact]
     public void ARestingHeadSaysWhyRatherThanNothing()
     {
-        // The state in the screenshot that prompted this: a contact tracked and bracketed, and a
-        // head sitting at rest because nothing told it to follow anything.
+        // A contact tracked and bracketed, and a head at rest because nothing told it to follow anything.
+
         OpticHold hold = OpticFollow.Why(onAxis: false, mouseAim: false, manual: false,
                                          designated: false, tracking: false, settled: true);
 

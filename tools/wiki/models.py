@@ -29,6 +29,10 @@ from checkmesh import euler_quaternion, read_glb  # noqa: E402
 # A round the mod parks before it is fired is <Scale 0.001>; nothing a player sees is that small.
 PARKED_SCALE = 0.01
 
+# Models of hardware that is not a part of its own: (the part carrying it, the subpart Id marker that
+# selects it). A missile's launch rail is declared parked on each missile part and shown only when attached.
+VIEWS = {"KSArmory_Prefab_LaunchRail": ("KSArmory_Prefab_Aim9J", "LaunchRail")}
+
 # KSA's part frame has +X out of the mounting face and +Y forward; a web viewer is Y-up. A 120 degree
 # turn about (1, 1, 1) takes X to Y, Y to Z and Z to X, and keeps the handedness.
 KSA_TO_Y_UP = [0.5, 0.5, 0.5, 0.5]
@@ -78,8 +82,11 @@ class Assets:
 
     def placements(self, part_id: str) -> list[tuple[str, str, str, bool, list, list, list]]:
         """(subpart id, mesh, material, glass, position, rotation, scale) for every subpart shown."""
+        base, marker = VIEWS.get(part_id, (part_id, None))
         shown = []
-        for sub in self.parts[part_id].findall("SubPart"):
+        for sub in self.parts[base].findall("SubPart"):
+            if marker is not None and marker not in sub.get("Id", ""):
+                continue
             template = sub.get("InstanceOf")
             if template not in self.templates:
                 raise SystemExit(f"models: {part_id} subpart {sub.get('Id')} names template '{template}', "
@@ -89,7 +96,9 @@ class Assets:
             find = (lambda tag: transform.find(tag)) if transform is not None else (lambda tag: None)
             scale = vector(find("Scale"), (1, 1, 1))
             if max(abs(s) for s in scale) < PARKED_SCALE:
-                continue
+                if marker is None:
+                    continue
+                scale = [1.0, 1.0, 1.0]
             if mesh not in self.mesh_atlas:
                 raise SystemExit(f"models: {part_id} needs mesh '{mesh}', which no <MeshAtlas> holds")
             if material not in self.materials:
@@ -223,7 +232,7 @@ def assemble(assets: Assets, part_id: str) -> bytes:
 def check(assets: Assets) -> list[str]:
     """Every part resolves, and stands on its mounting face rather than lying on its side or hanging."""
     faults = []
-    for part_id in assets.parts:
+    for part_id in [*assets.parts, *VIEWS]:
         if not assets.placements(part_id):
             faults.append(f"{part_id}: no subpart would be shown")
             continue
@@ -247,15 +256,15 @@ def main() -> int:
             print(f"models: {fault}", file=sys.stderr)
         return 1
     if args.check:
-        print(f"models: {len(assets.parts)} parts assemble and stand on their mounting faces")
+        print(f"models: {len(assets.parts)} parts and {len(VIEWS)} view(s) assemble and stand on their mounting faces")
         return 0
     if args.out is None:
         parser.error("an output directory, or --check")
 
     args.out.mkdir(parents=True, exist_ok=True)
-    for part_id in assets.parts:
+    for part_id in [*assets.parts, *VIEWS]:
         (args.out / f"{slug(part_id)}.glb").write_bytes(assemble(assets, part_id))
-    print(f"models: {len(assets.parts)} parts written to {args.out}")
+    print(f"models: {len(assets.parts) + len(VIEWS)} models written to {args.out}")
     return 0
 
 

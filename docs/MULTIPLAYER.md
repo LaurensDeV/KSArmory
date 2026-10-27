@@ -1,9 +1,9 @@
 # Multiplayer
 
 **A plan, not a record.** Nothing here is built, and nothing here has been run across two machines.
-It is what KSA's networking does as of build `2026.10.13.5602`, read from the decompiled source,
-what syncing this mod's rounds over it would take, and the little that is worth doing before KSA's
-side exists.
+It is what KSA's networking does as of build `2026.10.13.5602`, read from the decompiled source and
+unchanged in `2026.10.19.5638`, what syncing this mod's rounds over it would take, and the little
+that is worth doing before KSA's side exists.
 
 Recheck the first section on every KSA update. It is the only part a build can falsify.
 
@@ -108,8 +108,8 @@ Ranked. Only the first two are work; the rest are things to hold to in review.
 4. **Every command through one surface.** `Ui.FireGroup` is the only path from the panel to
    `FireAtLock`, and `Sim/BridgeCommand.cs` takes commands as text. A remote player's trigger is
    then one more caller. No new control writes to a system directly.
-5. **Randomness seeded per round.** `SeekerLock` is the one place the mod rolls, and each
-   `WeaponSystem` hands all its seekers one shared generator. Seeded from the round's id instead,
+5. **Randomness seeded per round.** `SeekerLock` is the one place the mod rolls, and every
+   seeker in every `WeaponSystem` draws from one static generator (`WeaponSystem._seduction`). Seeded from the round's id instead,
    two machines agree on a decoy without a message. Needs item 1.
 
 ## Not worth doing
@@ -127,4 +127,4 @@ shows how it handles time and control.
 - `Sim/WarpPolicy.cs` holding the world's speed down while rounds fly.
 - The panel's slow-motion controls.
 - The craft being flown and the craft that fired being dented and never broken by a burst.
-- `Program.ControlledVehicle` read as "the player", named in 22 files under `src/KSArmory/`.
+- `Program.ControlledVehicle` read as "the player", named in 28 files under `src/KSArmory/`.

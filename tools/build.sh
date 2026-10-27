@@ -11,17 +11,14 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=env.sh
 source "$REPO_ROOT/tools/env.sh"
 
-# Notice a KSA update at the earliest possible moment - the first build after it happened.
-# Silent unless the installed game has moved away from ksa-assemblies.lock, in which case
-# everything downstream (Import/, the private repo CI builds against) is now stale.
+# Silent unless the installed game has moved off ksa-assemblies.lock, which makes Import/ and the
+# private repo CI builds against stale.
 "$REPO_ROOT/tools/check-assemblies.sh" --game --quiet || true
 
 CONFIG="${1:-Release}"
 
-# The argument is a build configuration, and MSBuild accepts any string as one -- so a mistyped
-# `./tools/build.sh ./tools/run.sh` builds a configuration called "./tools/run.sh", drops the
-# assembly under bin/tools/run.sh/, deploys nothing, and reports success. Refusing is the only
-# thing that separates that from a real build.
+# MSBuild accepts any string as a configuration, so `./tools/build.sh ./tools/run.sh` would build
+# one called "./tools/run.sh" and report success.
 case "$CONFIG" in
     Debug|Release) ;;
     *)

@@ -9,17 +9,11 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Commands from outside the game, read from a folder beside the log and answered in another:
-/// what lets an agent in a terminal pause, move the camera, set off a burst, photograph it and
-/// reload the shaders in a game that stays running. <c>tools/ksa-mcp/server.py</c> is the other
-/// end, and <c>docs/VISUAL-TESTING.md</c> is why.
-///
-/// <para><b>Files, not a socket.</b> The mod reaches the network exactly once, when a player clicks
-/// Send, and <c>tools/check-network.sh</c> holds it to that; a folder needs no port and works across
-/// the WSL boundary as it is.</para>
-///
-/// <para>One command at a time, oldest first. A command that takes frames — a step, a capture —
-/// holds the queue until it answers, so a sequence of them is a script that runs in order.</para>
+/// Commands from outside the game, read from a folder beside the log and answered in another.
+/// <c>tools/ksa-mcp/server.py</c> is the other end; <c>docs/VISUAL-TESTING.md</c> is why.
+/// <para>Files, not a socket: the mod reaches the network only when a player clicks Send
+/// (<c>tools/check-network.sh</c>). One command at a time, oldest first; one that takes frames holds
+/// the queue until it answers.</para>
 /// </summary>
 internal sealed class Bridge : IViewPose
 {
@@ -314,7 +308,6 @@ internal sealed class Bridge : IViewPose
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
-    // ---- commands that answer at once -------------------------------------------------------
 
     private Reply Status()
     {
@@ -365,8 +358,6 @@ internal sealed class Bridge : IViewPose
         return Done(new() { [field] = BridgeCommand.FieldText(_config, field) });
     }
 
-    // One craft's selected weapon fired at a point east, north and up of the craft, through the same
-    // FireAt the designation tool uses -- a bomb released at a place, a missile at a spot in the sky.
     // Player seconds a gun is given to lay onto a bridge point before the shot is given up.
     private const double LayBudgetSeconds = 30.0;
 
@@ -384,6 +375,8 @@ internal sealed class Bridge : IViewPose
         return null;
     }
 
+    // One craft's selected weapon fired at a point east, north and up of the craft, through the same
+    // FireAt the designation tool uses.
     private Reply? Fire(BridgeCommand command)
     {
         if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
@@ -399,10 +392,8 @@ internal sealed class Bridge : IViewPose
         double3 at = PointEcl();
         int before = weapon.Rounds.Count;
 
-        // In play the mouse points the launcher before a click fires it. Here nothing does, so the
-        // point is designated as a shift-click would and the shot waits for the lay -- without it a
-        // shell leaves along the barrel's rest line, and a missile along the pods' and misses by
-        // kilometres, since a 57E6 at speed cannot turn onto a point beside or behind it.
+        // Designated as a shift-click would, and the shot waits for the lay: nothing points the
+        // launcher here, and a round would leave along the rest line.
         bool belt = weapon.TriggerArmament == ArmamentKind.Belt;
         if (command.String("at_craft") is { Length: > 0 } wanted && CraftNamed(wanted) is null)
         {
@@ -715,7 +706,6 @@ internal sealed class Bridge : IViewPose
         return Done(new() { ["sea_level_m"] = Math.Round(sea, 1), ["points"] = line });
     }
 
-    // Fly the named craft: the camera follows it and the controls drive it.
     // This mod's own map window, opened on a craft -- the one a test drives, since the window is
     // the mod's and the panel is the only other way in.
     private Reply IcbmMap(BridgeCommand command)
@@ -810,6 +800,7 @@ internal sealed class Bridge : IViewPose
         });
     }
 
+    // Fly the named craft: the camera follows it and the controls drive it.
     private static Reply Control(BridgeCommand command)
         => CraftNamed(command.String("craft")) is { } craft && KsaWorld.GoTo(craft)
                ? Done(new() { ["craft"] = KsaWorld.DisplayName(craft) })
@@ -995,8 +986,6 @@ internal sealed class Bridge : IViewPose
         return changed.Count > 0 ? Done(new() { ["systems"] = changed }) : Failed("no weapons system on that craft");
     }
 
-    // A craft's directors, as their rows would set them. view is "new" for a spare camera window,
-    // "main", "off" or a window's index; the reply reads each window's camera back.
     // The coverage maps the beam is stopped by, round a craft, as the CPU reads them.
     private Reply Clouds(BridgeCommand command)
     {
@@ -1060,6 +1049,8 @@ internal sealed class Bridge : IViewPose
         return Done(new() { ["sets"] = sets, ["picture_best"] = bestName });
     }
 
+    // A craft's directors, as their rows would set them. view is "new" for a spare camera window,
+    // "main", "off" or a window's index; the reply reads each window's camera back.
     private Reply Optic(BridgeCommand command)
     {
         if (CraftNamed(command.String("craft")) is not { } craft) return Failed("no such craft");
@@ -1341,8 +1332,7 @@ internal sealed class Bridge : IViewPose
     }
 
     // A burst where the panel's burst tool would put one, but placed by numbers: metres east and
-    // north of the craft being flown, on the ground there. The explosion and the cloud, and no
-    // damage -- that is fire control's, and a test shot should not break the scene it is testing.
+    // north of the craft being flown, on the ground there. It damages only with damage=1.
     private Reply Burst(BridgeCommand command)
     {
         if (KsaWorld.ControlledVehicle is not { } craft) return Failed("no craft is being flown");
@@ -1371,18 +1361,14 @@ internal sealed class Bridge : IViewPose
 
         double charge = kt * 1.0e6;
 
-        // up_m sets it off that far above the ground: an air burst, and the one way to put a burst
-        // over a craft that is sitting on it. Below zero it is under the ground, which is no burst
-        // anybody sets off and the only way to put one under a craft resting on it.
+        // up_m sets it off that far above the ground; below zero it is under it.
         double up = command.Number("up_m", 0.0);
         ground += frame.Up * up;
 
         // Lifted by the fireball, as the burst tool lifts it, so the ball is not drawn half-buried.
         double3 lifted = ground + (frame.Up * (up != 0.0 ? 0.0 : Math.Max(MushroomCloud.PeakFireballRadius(kt), 2.0)));
-        // KSA's own explosion as well unless told not to, which is how a warhead goes off; without it
-        // the burst is this mod's drawing alone, which is what separates the two when one misdraws.
-        // count sets off that many in the same frame, spacing_m apart eastward: a bus's salvo, which a
-        // burst a call can never be, since calls are further apart than one burst stays one event.
+        // explode=0 leaves KSA's own explosion out, to tell the two apart when one misdraws. count sets
+        // off that many in one frame, spacing_m apart eastward, as a bus's salvo lands.
         int count = Math.Clamp((int)command.Number("count", 1.0), 1, 12);
         // effect names an explosion as a munition's BurstEffect would, through the same fallback.
         string effect = command.String("effect");
@@ -1403,9 +1389,8 @@ internal sealed class Bridge : IViewPose
             if (_systemFor(craft) is not { } system) return Failed("the craft carries no weapons system to judge the burst by");
 
             MunitionProfile warhead = new() { Name = "bridge burst", DisplayName = "bridge burst", ChargeKg = (float)charge };
-            // in_frame_s sets it off that long before the end of the step, from where the ground was
-            // then, as a round that detonates part-way through a step reports it: the case a burst on
-            // the step boundary never exercises.
+            // in_frame_s sets it off that long before the end of the step, as a round bursting
+            // part-way through a step reports it.
             double inFrame = Math.Min(command.Number("in_frame_s", 0.0), 0.0);
             double3 atBurst = ground + (KsaWorld.GroundVelocityAt(craft, ground) * inFrame);
             system.SplashAt(atBurst, warhead, command.Flag("spare_own", true), inFrame);
@@ -1582,7 +1567,7 @@ internal sealed class Bridge : IViewPose
     }
 
     // KSA's own reloader cannot reach a mod's shader: it maps a path by finding "Content" in it.
-    // What it does is ShaderReference.DoLoad, which is internal, and the pass's pipelines are then
+    // What it does is FileReference.DoLoad, which is internal, and the pass's pipelines are then
     // dropped so they rebuild against the new module. A file that is missing makes DoLoad destroy
     // the old module and keep nothing, so that is checked first.
     private static Reply ReloadShaders()
@@ -1630,7 +1615,6 @@ internal sealed class Bridge : IViewPose
         return Done(new() { ["reloaded"] = reloaded, ["modules"] = seen });
     }
 
-    // ---- commands that take frames ----------------------------------------------------------
 
     // Runs the world for so many simulated seconds and stops it again, so what is photographed next
     // is at an age that was asked for rather than one that happened.
@@ -1758,11 +1742,8 @@ internal sealed class Bridge : IViewPose
 
                 askedAt = DateTime.UtcNow.AddSeconds(-0.5);
 
-                // WITH THE UI HIDDEN FOR A MOMENT FIRST. The cloud's history is blended over frames,
-                // and under the game's windows it holds no cloud -- so a screenshot, which hides the
-                // UI for the one frame it takes, showed each window as a dark grainy rectangle on the
-                // cloud. KSA's own warm-up hides it for these frames first; the manifest is written on
-                // the frame the picture is actually taken, so it still describes that instant.
+                // The UI hidden for WarmFrames first: the cloud's history holds no cloud under the
+                // game's windows, so a one-frame hide shows each as a dark rectangle on it.
                 if (!KsaWorld.TryRequestScreenshot(flags: $"warm={WarmFrames}"))
                 {
                     return Failed("KSA would not take a screenshot");

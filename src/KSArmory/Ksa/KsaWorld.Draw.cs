@@ -14,10 +14,7 @@ internal static partial class KsaWorld
     /// A point in the world as the render camera sees it, differenced in double -- what the cloud
     /// pass places the burst with, so anything drawn in the cloud lands where the cloud is.
     ///
-    /// <para><b>Not <see cref="TryAnchoredEgo"/></b>, which converts through the overlay's draw anchor:
-    /// that is set only on a frame some overlay draws and cleared at the start of every frame, so a
-    /// caller with no overlay of its own gets nothing on most frames -- and the fireball would go
-    /// undrawn, and unlit, whenever no weapon overlay happened to be on screen.</para>
+    /// <para>Not <see cref="TryAnchoredEgo"/>, whose anchor exists only on a frame some overlay draws.</para>
     /// </summary>
     public static bool TryEclToCameraEgo(double3 ecl, out double3 ego)
     {
@@ -38,10 +35,7 @@ internal static partial class KsaWorld
     /// <summary>
     /// The Ecl position that renders at a given Ego position.
     ///
-    /// <para>The inverse of the conversion everything else does, and it exists for one case:
-    /// handing a point to a system that takes Ecl — the particle emitters — when what is known is
-    /// where something is <em>drawn</em>. A vehicle's drawn position and its
-    /// <c>GetPositionEcl</c> are not the same place.</para>
+    /// <para>For handing the particle emitters, which take Ecl, a point known by where it is drawn.</para>
     /// </summary>
     public static bool TryEgoToEcl(double3 ego, out double3 ecl)
     {
@@ -59,8 +53,6 @@ internal static partial class KsaWorld
         }
     }
 
-    // The overlay is drawn relative to an anchor vehicle rather than by converting absolute
-    // positions. See BeginDraw for why.
     private static DrawAnchor _anchor;
 
     private static bool _anchored;
@@ -68,23 +60,13 @@ internal static partial class KsaWorld
     /// <summary>
     /// Establishes the frame for this draw pass. Call once before any Draw*Ecl call.
     ///
-    /// <para>Naive conversion — <c>camera.EclToEgo(v.GetPositionEcl())</c> — puts the overlay in
-    /// the wrong place. <see cref="Vehicle.GetPositionEcl"/> returns a value computed in
-    /// <c>UpdatePerFrameData</c> from <c>Orbit.StateVectors</c>, i.e. the analytic on-rails
-    /// position. A landed craft is held where physics puts it, not where its degenerate Kepler
-    /// orbit says, and the two differ by enough to be obvious on screen.</para>
-    ///
-    /// <para>KSA renders vehicles via <c>camera.GetPositionEgo(vehicle)</c>, which returns
-    /// <c>-PositionCce</c> for the followed craft and uses <c>KinematicStates.PositionPhys</c>
-    /// for others in the same bubble — the physics position in both cases. Anchoring to that and
-    /// adding Ecl offsets (exact, since Ego is a pure translation of Ecl) puts the overlay
-    /// exactly where the game draws the craft.</para>
+    /// <para><see cref="Vehicle.GetPositionEcl"/> is the analytic on-rails position, metres off where
+    /// a landed craft is drawn. KSA draws through <c>camera.GetPositionEgo(vehicle)</c>, the physics
+    /// position; anchoring there and adding Ecl offsets puts the overlay on the craft.</para>
     /// </summary>
     /// <param name="anchorEcl">
-    /// The anchor's Ecl position **captured at the same instant as everything else being
-    /// drawn** — not re-read here. Ecliptic positions near Earth sweep past at ~29.8 km/s, so
-    /// a reference taken one frame later than the geometry it is differenced against is about
-    /// 500 m stale at 60 fps, and the whole overlay lands that far from the craft.
+    /// Captured at the same instant as the geometry drawn, not re-read here: a frame later is about
+    /// 500 m at 29.8 km/s and 60 fps.
     /// </param>
     public static bool BeginDraw(Vehicle anchor, double3 anchorEcl)
     {
@@ -97,16 +79,8 @@ internal static partial class KsaWorld
             Camera camera = Program.GetRenderCamera() ?? Program.GetMainCamera();
             if (camera is null) return false;
 
-            // See DrawAnchor for why these are sampled at different instants, and why
-            // collapsing them into one puts the whole overlay beside the craft.
-            //
-            // GetPositionEgo, not EclToEgo. Its branching on what the camera follows is the
-            // engine answering correctly per case — exact for the followed craft, physics-based
-            // for others in its bubble — and it is the same call KSA renders vehicles with.
-            // EclToEgo instead measures against camera.PositionEcl, which only agrees with the
-            // rendered scene when the followed craft's analytic and physics positions coincide.
-            // That holds for a landed launcher and fails once the camera follows something in
-            // flight, which is when anything drawn to a vehicle stops lining up.
+            // Two instants on purpose: see DrawAnchor. GetPositionEgo, not EclToEgo, which agrees with
+            // the render only while the followed craft's analytic and physics positions coincide.
             _anchor = new DrawAnchor(camera.GetPositionEgo(anchor), anchorEcl);
 
             if (!_anchor.IsValid) return false;
@@ -170,9 +144,7 @@ internal static partial class KsaWorld
         posEgo = Vec.Zero;
         if (!IsAlive(v)) return false;
 
-        // Ask the engine, for the same reason BeginDraw does: this is where the vehicle is
-        // actually being drawn. Deriving it from GetPositionEcl gives the analytic on-rails
-        // position instead, and lines drawn to it visibly miss the craft.
+        // From the engine, as BeginDraw: GetPositionEcl is the analytic on-rails position.
         try
         {
             Camera camera = Program.GetRenderCamera() ?? Program.GetMainCamera();
@@ -273,10 +245,7 @@ internal static partial class KsaWorld
     /// <summary>
     /// A torus: a ring of solid spheres, draped onto the terrain.
     ///
-    /// <para>Spheres because they are the only solid thing the gizmo renderer draws — <c>Render</c>
-    /// is <c>RenderSpheres</c> then <c>RenderLines</c>, with no filled polygon anywhere. Enough of
-    /// them around the ring, each wider than the gap to the next, and the result reads as a tube
-    /// rather than as beads.</para>
+    /// <para>Spheres, the only solid the gizmo renderer draws.</para>
     /// </summary>
     /// <param name="tubeRadius">Thickness of the ring itself.</param>
     public static void DrawTorusEcl(double3 centreEcl, double3 normalEcl, double ringRadius,

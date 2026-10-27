@@ -24,7 +24,7 @@ internal sealed class TrimBus
     /// <summary>What the axial pair can do. Every thruster set has one.</summary>
     public double AxialAcceleration = 3.0;
 
-    /// <summary>What the lateral jets can do. Zero is the layout the shipped bus has.</summary>
+    /// <summary>What the lateral jets can do. Zero is not the shipped bus; see the class remarks.</summary>
     public double LateralAcceleration;
 
     /// <summary>

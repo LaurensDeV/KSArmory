@@ -6,26 +6,20 @@ namespace KSArmory;
 internal enum TailKitHold
 {
     /// <summary>
-    /// Nothing could be read where the store is. First so that it is what a default
-    /// <see cref="TailKitReach"/> carries: a zero-valued <c>Known</c> would report a store with no
-    /// authority left as covering a designation sitting right on top of it, which is the one wrong
-    /// answer that reads as a working instrument.
+    /// Nothing could be read where the store is. First so a default <see cref="TailKitReach"/> carries it:
+    /// a zero-valued <c>Known</c> would read as covering a designation right on top of the store.
     /// </summary>
     Unreadable,
 
     /// <summary>There is a region, and it is <see cref="TailKitReach.RadiusMetres"/> across.</summary>
     Known,
 
-    /// <summary>
-    /// The store has no kit. It lands where it was thrown, so there is no region to move a landing
-    /// inside — not a small one.
-    /// </summary>
+    /// <summary>The store has no kit: no region at all, not a small one.</summary>
     Unguided,
 
     /// <summary>
-    /// There is no landing to move. The store is still going up off a climbing rack, or it is
-    /// falling for longer than <see cref="BombSight.MaxSteps"/> can follow — the same horizon that
-    /// leaves a reentry vehicle released minutes above its target with no pipper.
+    /// There is no landing to move: the store is still climbing, or falls for longer than
+    /// <see cref="BombSight.MaxSteps"/> can follow.
     /// </summary>
     NoLanding,
 }
@@ -33,28 +27,11 @@ internal enum TailKitHold
 /// <summary>
 /// How far a store already falling can still move its landing, and where that landing is.
 ///
-/// <para><b>This exists to be shown.</b> A kit's authority collapses as the ground comes up, so
-/// designating after release works, works partly, or does nothing — with nothing on screen to say
-/// which. A player who cannot see the region reads all three as the weapon being broken, and clicks
-/// at the ground over and over. Same argument <see cref="ReachDisplay"/>
-/// makes for the bus, and the same answer: one region, drawn, reported and read off the panel, so
-/// the three cannot disagree.</para>
+/// <para>Flown, not solved: <c>½·a·t²</c> is no bound at any constant fraction, since a lateral push
+/// settles against drag; the shipped kit delivers 0.46 of <c>a·t²</c> at a 21 s fall and 0.18 at 95 s.</para>
 ///
-/// <para><b>Flown, not solved</b> — and here that is a finding rather than a preference. The
-/// obvious closed form is the kinematic <c>½·a·t²</c>, and it is not a bound at any constant
-/// fraction: a lateral push does not accumulate against drag, it settles at the drift where fin
-/// authority and lateral drag balance, so displacement stops growing as <c>t²</c> and grows as
-/// <c>t</c>. Flown against the shipped kit the share of <c>a·t²</c> actually delivered runs 0.46 at
-/// a 21 s fall, 0.27 at 54 s and 0.18 at 95 s, so a constant tuned to look right at a few kilometres
-/// promises three times what the kit can fly from twenty. <see cref="Fly"/> steps the same
-/// <see cref="Slug"/> through the same <see cref="TailKit"/> law the store is obeying, which is
-/// what <see cref="BombSight"/> does for the pipper and for the same reason.</para>
-///
-/// <para><b>It decides as well as reports.</b> A store already falling is sent only somewhere inside
-/// the region (<see cref="StoreRetarget.Reaches"/>): steered at a place it cannot reach it lands in
-/// between and hits nothing, where it would have hit what it was already sent at. So the region has
-/// to be a floor -- one that over-promises sends a store where it cannot arrive, and one that
-/// under-promises refuses a place it could have reached.</para>
+/// <para>It decides as well as reports (<see cref="StoreRetarget.Reaches"/>), so it has to stay a floor.
+/// CLAUDE.md, "Design decisions worth not re-litigating", has the rest.</para>
 /// </summary>
 /// <param name="Hold">Whether there is a region, and why there is not.</param>
 /// <param name="SecondsToGo">The fall still to come, flown.</param>
@@ -63,23 +40,12 @@ internal enum TailKitHold
 internal readonly record struct TailKitReach(
     TailKitHold Hold, double SecondsToGo, double3 ImpactEcl, double RadiusMetres)
 {
-    // How far past the region a probe is aimed, as a multiple of the kinematic ceiling. The probe
-    // saturates the guidance law rather than being arrived at: a kit sent somewhere it cannot
-    // reach pushes at full lateral authority all the way down, and where that puts it is the edge
-    // of the region. The law saturates above a·t²/N, so two is three times what it takes.
-    //
-    // And not more, because the aim is flown to: at four, a store released from 20 km is sent at
-    // a point 70 km away, which stretches the fall past BombSight.MaxSteps — the probe never lands
-    // and a store with a perfectly good landing reports no region at all.
+    // A multiple of the kinematic ceiling, enough to saturate the law (above a·t²/N). Not more: at four a
+    // 20 km release was sent 70 km away, the fall outran BombSight.MaxSteps and no region was reported.
     private const double ProbeSaturation = 2.0;
 
-    // The share of the swept extreme a designation can be settled on. The probe measures where a
-    // saturated kit puts the landing, and arriving somewhere is not stopping there: a kit sent
-    // near the edge is still pushing when the ground arrives, so it sweeps past what it could
-    // have reached. Flown across ten release geometries the extreme ran up to 1.24 times what the
-    // kit could settle within 25 m of, all of the overshoot on the cross-track probe of a moving
-    // release; three quarters clears the worst with room, and TailKitReachTests fails if a
-    // geometry ever comes in under it.
+    // A saturated kit sweeps past what it could settle on: across ten release geometries the extreme ran
+    // up to 1.24x what settled within 25 m. TailKitReachTests fails if a geometry comes in under this.
     private const double SettlingMargin = 0.75;
 
     /// <summary>Whether there is a region at all.</summary>
@@ -98,11 +64,7 @@ internal readonly record struct TailKitReach(
     /// <summary>
     /// One of the three flights, so a caller can spread them over as many frames.
     ///
-    /// <para>They are independent — the probes need only the landing and the time to it, which the
-    /// ballistic flight hands over — so doing all three in one frame buys nothing and spends the
-    /// lot at once. Measured in flight, one solve is about 7 ms: amortised that is 0.33 ms a frame
-    /// and invisible, but as a single lump every <c>StoreReach.SolveIntervalSeconds</c> it lands on
-    /// top of whatever the game's own frame costs.</para>
+    /// <para>One solve measured about 7 ms in flight, which as a single lump lands on one frame.</para>
     /// </summary>
     /// <param name="stage">0 for the landing, 1 along the ground track, 2 across it.</param>
     /// <param name="carried">
@@ -138,8 +100,7 @@ internal readonly record struct TailKitReach(
 
         if (stage == 0)
         {
-            // The landing, and with it the clock the probes are sized from. A failure here is the
-            // whole answer gone rather than one axis of it.
+            // The clock the probes are sized from, so a failure here loses the whole answer.
             if (!Drop(null, out impact, out seconds))
             {
                 alongMetres = 0.0;
@@ -163,10 +124,8 @@ internal readonly record struct TailKitReach(
         if (stage == 1) alongMetres = Probe(track);
         else if (stage == 2) acrossMetres = Probe(Vec.Unit(Vec.Cross(up, track)));
 
-        // A probe that did not land measures nothing, and nothing is not zero: there is a landing to
-        // move, and what is missing is one of the two axes the circle is inscribed in. The remaining
-        // one cannot stand in for it — the narrower axis is the whole point, and which of the two it
-        // is swaps with release speed — so the region is unknown rather than absent.
+        // A probe that did not land is unknown, not zero, and the other axis cannot stand in for it:
+        // which one is narrower swaps with release speed.
         double radius = alongMetres > 0.0 && acrossMetres > 0.0
                             ? SettlingMargin * Math.Min(alongMetres, acrossMetres)
                             : 0.0;
@@ -174,11 +133,8 @@ internal readonly record struct TailKitReach(
                    ? new(TailKitHold.Known, seconds, impact, radius)
                    : new(TailKitHold.Unreadable, seconds, impact, 0.0);
 
-        // How far full authority along one direction moves the landing. The probe is put back onto
-        // the surface rather than left out in space: the law solves the fall to the aim's own
-        // level, so an aim kilometres up shortens the flight it is steering. Around the body's
-        // centre, which the ground test is asked for: built about the ecliptic origin it is a
-        // sphere centred on the Sun, invisible in any rig that puts its planet at the origin.
+        // Aimed on the surface, since the law solves the fall to the aim's own level, and about the
+        // body's centre from the ground test: about the ecliptic origin it is a sphere round the Sun.
         double Probe(double3 direction)
         {
             if (ground is null
@@ -195,8 +151,7 @@ internal readonly record struct TailKitReach(
 
         bool Drop(double3? steerAt, out double3 impactEcl, out double fallSeconds)
         {
-            // Per flight: the cache skips lookups down one trajectory, and the three flights end
-            // up in different places.
+            // The cache follows one trajectory, and the three flights end in different places.
             (ground as CoarseGroundTest)?.Reset();
 
             bool landed = BombSight.TryPredict(roundPositionEcl, velocityOverGround, groundVelocityEcl,
@@ -209,9 +164,7 @@ internal readonly record struct TailKitReach(
         }
     }
 
-    // Up at the landing, and the ground track the probes are measured along and across. A store
-    // released with no horizontal motion has no track, and any horizontal direction is then as good
-    // as any other.
+    // A store with no horizontal motion has no track, and any horizontal direction will do.
     private static bool Axes(double3 impact, double3 velocityOverGround,
                              Func<double3, double3> gravityAt, out double3 up, out double3 track)
     {
@@ -230,15 +183,8 @@ internal readonly record struct TailKitReach(
     /// Flies the store to the ground three times: once untouched, and once at full authority along
     /// each of the ground track and across it.
     ///
-    /// <para><b>Three flights, and the two probes are why it is not one.</b> The footprint is not a
-    /// circle: moving the landing across the track is a direct sideways push, while moving it along
-    /// the track is had by lengthening or shortening the fall, and which of the two is larger
-    /// depends on how fast the store was released — flown, along-track beats cross-track at a
-    /// 2 km release at 250 m/s and loses at 9 km. The narrower of the two is taken, so the circle
-    /// drawn is inscribed in the real footprint rather than circumscribing it.</para>
-    ///
-    /// <para>Rate-limited by the caller, exactly as the pipper is: this is a readout, and a store's
-    /// fall does not change fast enough to need one per frame.</para>
+    /// <para>The footprint is an ellipse, and which axis is narrower swaps with release (along-track wins at
+    /// 2 km and 250 m/s, loses at 9 km), so the narrower is taken. Rate-limited by the caller.</para>
     /// </summary>
     /// <param name="roundPositionEcl">Where the store is now.</param>
     /// <param name="velocityOverGround">What it is doing, against the ground beneath it.</param>

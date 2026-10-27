@@ -9,11 +9,8 @@ using KSA.Rendering.Water.Data;
 namespace KSArmory;
 
 /// <summary>
-/// Every direct touch of KSA's internals lives in this class. KSA is pre-release and its API
-/// moves, so keeping the surface in one class means a game update breaks one place, not ten. Its
-/// partial files are split by concern; this one holds the scene, the clock and the save.
-///
-/// All positions and velocities are in the ecliptic frame (Ecl): inertial, metres, and the
+/// Most of the mod's contact with KSA, so a game update breaks one place; split by concern across
+/// partial files. All positions and velocities are in the ecliptic frame (Ecl): inertial, metres, and the
 /// frame both <see cref="Vehicle.GetPositionEcl"/> and gizmo rendering agree on.
 /// </summary>
 internal static partial class KsaWorld
@@ -24,22 +21,16 @@ internal static partial class KsaWorld
     /// <summary>
     /// The player has a craft to fly.
     ///
-    /// <para><b>This is not "the flight scene is up", and using it as one strands the camera.</b>
-    /// <c>Universe.DestroyVehicle</c> clears <c>ControlledVehicle</c> when the craft being flown is
-    /// destroyed, and the scene carries straight on — the engine points the view at the wreckage
-    /// and keeps rendering. Anything handing the player's view back must ask
-    /// <see cref="InFlightScene"/>, or losing a craft is mistaken for leaving flight and the
-    /// hand-back is skipped in the one case that most needs it.</para>
+    /// <para><b>This is not "the flight scene is up".</b> <c>Universe.DestroyVehicle</c> clears
+    /// <c>ControlledVehicle</c> and the scene carries on, so anything handing the player's view back
+    /// must ask <see cref="InFlightScene"/>.</para>
     /// </summary>
     public static bool InFlight => Program.ControlledVehicle is { IsDisposed: false };
 
     /// <summary>
     /// The flight scene is up, whether or not the player has a craft in it.
     ///
-    /// <para>What separates a destroyed craft — still in flight, still one live camera, and
-    /// everything the mod borrowed still worth handing back — from actually leaving, which is the
-    /// editor or the menus. The new scene brings its own camera, so there the recording describes
-    /// something that has gone.</para>
+    /// <para>False in the editor or the menus, which bring their own camera.</para>
     /// </summary>
     public static bool InFlightScene
     {
@@ -59,21 +50,16 @@ internal static partial class KsaWorld
     /// <summary>
     /// The simulated seconds KSA's last step actually advanced the world by.
     ///
-    /// <para>This — not the player-time delta StarMap hands the frame hook, and not a
-    /// difference of clock samples — is what the system steps on. A paused game reports zero
-    /// and a warped one reports the real span, and because it is the step the engine applied
-    /// rather than one measured around it, it cannot be a step out of phase with the world.
-    /// See <see cref="SimClock"/> for why that distinction is worth tens of metres.</para>
+    /// <para>Not the player-time delta StarMap hands the frame hook: a paused game reports zero and
+    /// a warped one the real span. See <see cref="SimClock"/>.</para>
     /// </summary>
     public static double SimStepSeconds => Universe.GetLastSimStep().DeltaTime;
 
     /// <summary>
     /// The simulated clock, as an absolute number of seconds.
     ///
-    /// <para>Nothing integrates against this — <see cref="ConsumeSimStep"/> is the clock the mod
-    /// runs on, because a span is what can be integrated and an absolute universe time is far too
-    /// large to subtract as a double. This is for comparing epochs, where the question is which
-    /// instant a reading belongs to rather than how far anything moved.</para>
+    /// <para>For comparing epochs, never for integrating: <see cref="ConsumeSimStep"/> is the clock the
+    /// mod runs on, since an absolute universe time is too large to subtract as a double.</para>
     /// </summary>
     public static double SimClockSeconds
     {
@@ -91,10 +77,8 @@ internal static partial class KsaWorld
     /// The simulated seconds to integrate now, or zero if the engine has applied no new step
     /// since the last call. <b>Consuming</b> — call once per update and use the result.
     ///
-    /// <para><see cref="SimStepSeconds"/> reports the <em>last</em> step, not one since the
-    /// previous call, so asking twice without the engine stepping returns it twice. Integrating
-    /// it twice adds motion the world never made, and it compounds because it lands in
-    /// <c>PositionEcl</c>.</para>
+    /// <para><see cref="SimStepSeconds"/> reports the <em>last</em> step, so asking twice without the
+    /// engine stepping returns it twice, and integrating it twice adds motion the world never made.</para>
     /// </summary>
     public static double ConsumeSimStep()
     {
@@ -108,10 +92,8 @@ internal static partial class KsaWorld
         _consumedThrough = step.NextTime;
 
         // The span, not just the step: a frame in which this mod's hook never ran still advanced
-        // the world, and GetLastSimStep reports only the most recent one. Taking a screenshot is
-        // exactly that case -- ScreenshotCapture sets Program.DrawUI false and KSA guards the call
-        // this mod postfixes with it, so the hook is not called at all. Differenced in Int128
-        // nanoseconds because absolute universe time is far too large to subtract as double.
+        // the world, and GetLastSimStep reports only the most recent one. Differenced in Int128
+        // nanoseconds because absolute universe time is too large to subtract as double.
         return _stepGate.Consume(step.NextTime, step.DeltaTime, Span);
     }
 
@@ -155,12 +137,8 @@ internal static partial class KsaWorld
     public static double SimulationSpeed => Universe.SimulationSpeed;
 
     /// <summary>
-    /// Slowest speed worth offering. Below this KSA names the speed "paused" — its SimSpeed
-    /// constructor calls anything under 1e-4 paused — and a world that runs while every label
-    /// says it is stopped is worse than one that will not go slower.
-    ///
-    /// <para>It is only the *name*: Universe.IsPaused() tests the speed against exactly zero, so
-    /// the world really would keep running. That mismatch is the trap, not a limit.</para>
+    /// Slowest speed worth offering: KSA's SimSpeed names anything under 1e-4 "paused", while
+    /// <c>Universe.IsPaused()</c> tests against exactly zero, so the world would keep running.
     /// </summary>
     public const double SlowestSimSpeed = 0.001;
 
@@ -187,10 +165,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// Ask KSA to warp forward to a moment, stopping a margin short of it.
     ///
-    /// <para>The game's own mechanism rather than this mod's. <see cref="WarpPolicy"/> holds the
-    /// speed <em>down</em>, which is a different job and one KSA refuses to co-operate with while
-    /// an auto-warp is running — so the margin matters: it must be wide enough that the auto-warp
-    /// has finished before anything needs the world slow.</para>
+    /// <para>KSA refuses <see cref="WarpPolicy"/>'s speed changes while an auto-warp runs, so the
+    /// margin must let it finish before anything needs the world slow.</para>
     /// </summary>
     public static bool TryAutoWarpTo(double secondsFromNow, double marginSeconds)
     {
@@ -226,17 +202,10 @@ internal static partial class KsaWorld
     }
 
     /// <summary>
-    /// Sets the world's simulation speed, including values slower than the in-game controls
-    /// reach. KSA's own roller works in tenths, so 0.1x is as slow as it will go; nothing in
-    /// the engine enforces that.
+    /// Sets the world's simulation speed, including values below the in-game roller's 0.1x.
     ///
-    /// <para><c>SetSimulationSpeed</c> only rejects speeds above <c>SimSpeed.MaxSpeed</c> — there
-    /// is no floor — and it assigns the field directly rather than queuing an input event, so a
-    /// value set here holds until something else changes it.</para>
-    ///
-    /// <para>Everything this mod does is already keyed to simulated time, so a slow world needs
-    /// no special handling: the step simply comes back smaller and the system,
-    /// the drives and the rounds all scale with it.</para>
+    /// <para><c>SetSimulationSpeed</c> only rejects speeds above <c>SimSpeed.MaxSpeed</c>, and
+    /// assigns the field directly rather than queuing an input event.</para>
     /// </summary>
     /// <returns>False if the value was not finite or not positive; the speed is left alone.</returns>
     public static bool SetSimulationSpeed(double speed)
@@ -250,14 +219,9 @@ internal static partial class KsaWorld
     /// <summary>
     /// Stops the world, or starts it again at real time.
     ///
-    /// <para>Separate from <see cref="SetSimulationSpeed"/>, which refuses anything at or below
-    /// zero and clamps to <see cref="SlowestSimSpeed"/>: a caller asking for a slow world and a
-    /// caller asking for a stopped one want different things, and a speed argument that silently
-    /// becomes a pause is the trap that guard exists to close.</para>
-    ///
-    /// <para><c>Universe.IsPaused()</c> tests the speed against exactly zero, so this is what makes
-    /// that property true — and with it <c>SimClock.Classify</c>'s paused verdict, which is how
-    /// everything in this mod stops.</para>
+    /// <para>Separate from <see cref="SetSimulationSpeed"/>, which refuses zero and clamps to
+    /// <see cref="SlowestSimSpeed"/>. <c>Universe.IsPaused()</c> tests the speed against exactly
+    /// zero, and <c>SimClock.Classify</c> reads it.</para>
     /// </summary>
     /// <returns>False only if the call threw.</returns>
     public static bool SetPaused(bool paused)
@@ -296,11 +260,8 @@ internal static partial class KsaWorld
     /// <summary>
     /// When the open save was last written, as ticks, or 0 if there is none.
     ///
-    /// <para>The only way to notice the player saving without patching the engine: StarMap has no
-    /// save hook, so the file's own timestamp is the event. Watching it is what lets the mod write
-    /// its settings <em>when the game writes</em> rather than continuously — and a continuous
-    /// write is what makes reloading a save unable to restore anything, because the file has
-    /// already been brought up to date with the session.</para>
+    /// <para>The fallback for noticing a save when <see cref="SaveHook"/> is not installed. Settings
+    /// are written when the game writes, never continuously, or a reload has nothing older to restore.</para>
     /// </summary>
     public static long CurrentSaveStamp()
     {
@@ -323,14 +284,9 @@ internal static partial class KsaWorld
     /// <summary>
     /// Which save the player is in, for scoping anything the mod writes down.
     ///
-    /// <para>KSA's own save format cannot be extended — <c>UniverseData</c> is a fixed
-    /// XML-mapped class with no room for a mod — and StarMap has no save or load hook. So this is
-    /// the next best thing: the save's Id, used to key the mod's own file.</para>
-    ///
-    /// <para><c>GameSaves.Selected</c> is set when a save is picked in the browser, which is what
-    /// happens immediately before loading one. It is not a guaranteed "currently loaded" pointer,
-    /// and it is empty on a sandbox that was never loaded from a save — hence the caller's
-    /// fallback bucket rather than an assumption.</para>
+    /// <para><see cref="SaveHook"/>'s record where it is installed. Otherwise
+    /// <c>GameSaves.Selected</c>, which is only the row highlighted in the save list, and empty on a
+    /// sandbox never loaded from a save.</para>
     /// </summary>
     public static string CurrentSaveId()
     {

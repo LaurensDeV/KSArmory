@@ -10,9 +10,6 @@ namespace KSArmory;
 /// <para>KSA's window around the same viewport is taken off with
 /// <see cref="KsaWorld.TryHideViewportWindow"/>, and where that cannot be done this draws nothing
 /// and KSA's window stays, which is the picture without the controls rather than two of it.</para>
-///
-/// <para>The picture's place is written back to the viewport each frame, because the sight and the
-/// projections read it there (<see cref="SightSurface"/>).</para>
 /// </summary>
 internal static class DirectorWindow
 {

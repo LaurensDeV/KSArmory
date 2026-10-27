@@ -4,19 +4,9 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// What the improvement ratchet can still do once the shot is good.
-///
-/// <para><see cref="AimCorrection"/> banks its best aim only when a reading beats the best by more
-/// than the band, and <see cref="AimCorrection.Freeze"/> — which every release runs — reverts to
-/// that banked aim. <b>With the shipped flat band the bank is arithmetically unreachable below
-/// 250 m</b>: improving on a best of 250 m or less would take a negative miss. So the aim that
-/// ships is whichever one happened to be current when the miss first fell under 250 m, and every
-/// correction made afterwards is discarded at release — measured in flight as reverts of 2.4, 27.4,
-/// 104.2 and <b>153.3 m</b> against 2.0 to 4.8 m for a band that follows the miss.
-/// <c>docs/ACCURACY-PLAN.md</c> 3ca.</para>
-///
-/// <para>This pins the arithmetic, not a preference. The flag that changes it is off and unflown at
-/// 0.88x [0.84, 1.10].</para>
+/// <see cref="AimCorrection.Freeze"/>, run at every release, reverts to the banked aim, and with the
+/// flat 250 m band nothing banks below 250 m: flown reverts up to 153.3 m against 2.0–4.8 m for a
+/// band that follows the miss. <c>docs/ACCURACY-PLAN.md</c> 3ca.
 /// </summary>
 public class AimRatchetTests
 {
@@ -49,7 +39,6 @@ public class AimRatchetTests
         Assert.Equal(settled, aim.BestMissMetres, 6);
     }
 
-    /// <summary>A band that follows the miss keeps banking all the way down to its floor.</summary>
     [Theory]
     [InlineData(250.0)]
     [InlineData(12.0)]

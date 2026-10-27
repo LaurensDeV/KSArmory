@@ -80,8 +80,8 @@ public class GroundSampleEpochTests
     }
 
     /// <summary>
-    /// And a rig that models no body motion is unaffected, which is what keeps every existing
-    /// fixture meaning what it did: a null drift leaves the question exactly where it was.
+    /// And a rig that models no body motion is unaffected: a null drift leaves the question exactly
+    /// where it was.
     /// </summary>
     [Fact]
     public void ARigWithNoBodyMotionAsksExactlyWhereItAlwaysDid()

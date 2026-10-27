@@ -40,7 +40,8 @@ public class ReleaseFocusTests(ITestOutputHelper Out)
 
     private const double RingRadius = 0.86;
 
-    // What the fix is for: the six on one point to within what nobody could see.
+    // The six on one point to within what nobody could see.
+
     private const double FocusedAcross = 0.05;
 
     private enum Kick { None, Solved, Reversed, OffsetOverFlight }

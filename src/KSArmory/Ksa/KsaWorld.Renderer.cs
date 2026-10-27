@@ -19,19 +19,11 @@ internal static partial class KsaWorld
     /// <summary>
     /// Asks the game to save a screenshot of its own framebuffer.
     ///
-    /// <para>The alternative is <c>tools/screenshot.sh</c>, which grabs the whole primary display
-    /// and so refuses unless the game is in front — which it is not, during an unattended run on a
-    /// machine somebody is using. This needs no focus, cannot photograph somebody's desktop, and
-    /// writes a clean frame: <c>ui</c> and <c>hud</c> are opt-in, so the default is the scene with
-    /// no panel over it, which is what anybody judging an effect wants.</para>
+    /// <para>Needs no focus, unlike <c>tools/screenshot.sh</c>; <c>ui</c> and <c>hud</c> are opt-in.
+    /// Files land in <c>Documents/exports/screenshots/ksa_&lt;stamp&gt;_&lt;w&gt;x&lt;h&gt;.png</c>.</para>
     ///
-    /// <para>Files land in <c>Documents/exports/screenshots/ksa_&lt;stamp&gt;_&lt;w&gt;x&lt;h&gt;.png</c>.</para>
-    ///
-    /// <para><b>One private field is the whole obstacle</b>, the same shape as
-    /// <see cref="PlumeSmoke"/>: <c>ScreenshotCapture.Request</c> is public and
-    /// <c>Program._screenshotCapture</c> is not exposed. The game's own <c>screenshot</c> terminal
-    /// command reaches it the same way. Reflected once, and a KSA rename turns this off rather than
-    /// breaking anything — nothing but a picture is lost.</para>
+    /// <para><c>Program._screenshotCapture</c> is private, reflected once as the game's own
+    /// <c>screenshot</c> command reaches it; a rename turns this off.</para>
     /// </summary>
     public static bool TryRequestScreenshot(int scale = 1, string flags = "")
     {
@@ -54,8 +46,7 @@ internal static partial class KsaWorld
 
             if (_shots is null) return false;
 
-            // A capture already running is dropped by the engine with its own warning, so asking
-            // again while one is in flight costs nothing and loses only that frame.
+            // A request during a capture is dropped by the engine with its own warning.
             _shots.Request(scale, flags);
             return true;
         }
@@ -93,20 +84,9 @@ internal static partial class KsaWorld
     /// alpha, and how far each pixel's cloud is from the camera. False when the player has clouds
     /// switched off, which is the one case with no renderer at all.
     ///
-    /// <para><b>Needed because the clouds write no depth.</b> They are raymarched into images of
-    /// their own and composited into the scene colour, so the depth buffer under a cloud still says
-    /// "ground" — and anything drawn afterwards off that depth is drawn in front of every cloud,
-    /// whatever is actually between it and the camera.</para>
-    ///
-    /// <para>One private field away: <c>Program._planetTransparenciesRenderer</c> is the only owner
-    /// of the renderer and <c>GetCloudRenderer()</c> is public on it. Reflected once and verified,
-    /// and a KSA rename turns this off rather than breaking anything — the burst is then drawn in
-    /// front of the clouds. The accumulated images it prefers are
-    /// four more private fields and a flag, with the public low-resolution pair behind them.</para>
-    ///
-    /// <para>Asked every frame rather than held: the renderer is rebuilt when the settings change
-    /// and both images when the window is resized, and the accumulated pair it prefers swaps images
-    /// every frame.</para>
+    /// <para>Needed because the clouds write no depth. Reached through the private
+    /// <c>Program._planetTransparenciesRenderer</c>, reflected and verified; a rename draws the burst
+    /// in front of the clouds. Asked every frame: the renderer and its images are rebuilt and swapped.</para>
     /// </summary>
     public static bool TryWeatherClouds(out KSA.Rendering.RenderImage? colour,
                                         out KSA.Rendering.RenderImage? distance)
@@ -154,10 +134,8 @@ internal static partial class KsaWorld
         }
     }
 
-    // The pair the renderer wrote this frame. Its low-resolution images are sampled at a different
-    // sub-pixel every frame and accumulated into these, so an edge cut from the low-resolution pair
-    // crawls while the world is paused, and one cut from these holds still. PerformUpscaling flips
-    // the flag after writing, so the image just written is the one the flag no longer names.
+    // The accumulated pair, which holds still where the jittered low-resolution pair crawls.
+    // PerformUpscaling flips the flag after writing, so this frame's is the one it no longer names.
     private static bool TrySettledWeather(object clouds, out KSA.Rendering.RenderImage? colour,
                                           out KSA.Rendering.RenderImage? distance)
     {
@@ -197,11 +175,8 @@ internal static partial class KsaWorld
     /// their per-frame placement, and the object holding them, which changes only when the renderer
     /// rebuilds its planets.
     ///
-    /// <para><b>The buffers, not KSA's descriptor set.</b> That set's layout is declared for fragment
-    /// shaders alone, and bound to a compute pass it reads garbage -- every float a NaN, flown. So the
-    /// cloud pass takes the two buffers into its own set, which the pipeline builder declares for
-    /// compute. Both are private, hence the reflection; the stand-in KSA uses for a body with no
-    /// weather, or with clouds off, stands in here too, and carries no layers.</para>
+    /// <para>The buffers, not KSA's descriptor set, which is declared for fragment shaders and reads
+    /// NaN bound to compute. Both private, reflected; KSA's no-weather stand-in carries no layers.</para>
     /// </summary>
     public static bool TryWeatherShadowBuffers(Celestial body, out Brutal.VulkanApi.VkBuffer staticBuffer,
                                                out Brutal.VulkanApi.VkBuffer frameBuffer, out object? source)

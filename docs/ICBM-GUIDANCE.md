@@ -221,7 +221,7 @@ costs in precision, impact speed and propellant to leave it is `docs/ARRIVAL-ANG
 `ImpactPredictor.Drag` carries the density lookup and the munition, and the acceleration goes
 through `Medium.Drag` — the same call the round makes, deliberately, because a prediction that
 models drag its own way is a second flight model to keep in step with the first. Airspeed is
-measured against the turning air via `BallisticBody.GroundVelocityCci`. Two consequences worth
+measured against the turning air via `BallisticBody.GroundVelocityCci`. Three consequences worth
 keeping:
 
 - **The step has to come down in the air.** The coarse step is sized for a vacuum arc where the
@@ -253,7 +253,7 @@ short. Flown. The instrument, not the loop, was the fault.
 ## The prediction is of the warhead's state, not the bus's
 
 A warhead does not leave on the bus's velocity. Each is ejected along its own tube at
-`MunitionProfile.LaunchSpeed`, and a bus's tube cants cancel in the mean — the MIRV bus's six now
+`MunitionProfile.LaunchSpeed`, and a bus's tube cants cancel in the mean — the MIRV bus's seven
 point along part `+X` with no cant at all — so what survives is the **whole** of that speed along
 the nose.
 
@@ -373,6 +373,17 @@ which ships (`docs/ACCURACY-PLAN.md` 3cu). The aim loop keeps the flat band: a s
 one flew 0.88x [0.84, 1.10] on the miss and 0.78x [0.51, 1.11] on the release probe, unresolved, and was
 removed (3cp, 3cq).
 
+**The pass budget is sixty, because forty was below what a converged correction spends**
+(`PostBoostAim.MaxTrimMetresPerSecond`). Every pass re-arms the trim onto a moved arc, so passes are what the
+correction costs: measured in flight, 1,943 frames with thrusters firing against 24 settled, about 36 m/s on a bus
+carrying 70-90. Flown twenty-five a side against 40, the loop converged on 24 of 25 shots against 13, and 1 of 25
+missed by more than 500 m against 12 -- a step rather than a distribution: a converged shot lands at 0.01-0.14 km
+and a cut-off one at 0.83-3.92, nothing between across fifty shots. The twelve that forty stopped were owed
+1.01-9.36 m/s mid-run, and eleven landed inside 140 m once it did not fire. `MaxSeconds` is the backstop against a
+loop that will not stop, and no shot on either arm reached it. Sixty is also the ceiling: a 1.1 m/s decoupler shove
+moves the predicted impact from 0.7 km to 4.5 km on the 3,459 km arc, and sixty leaves 10 m/s on the smallest bus,
+one null at `BusTrim.MaxMetresPerSecond` (`PostBoostAimTests.TheBudgetLeavesEnoughToNullASeparation`).
+
 ## The ascent
 
 Closed-loop guidance cannot fly the first minute: its answer near the pad is roughly "point
@@ -441,7 +452,7 @@ one without watching it](#flying-one-without-watching-it).
 **A shot that never lit says so**, rather than reading as one that ran out of propellant. The whole
 velocity is still to gain either way, and the two want completely different things done about them.
 
-`Ksa/Icbm/IcbmComputer.StagingWouldDropTheLauncher` still catches any sequence that would separate the
+`IcbmComputer.StagingWouldDropTheLauncher` (`Ksa/Icbm/IcbmComputer.Separation.cs`) still catches any sequence that would separate the
 launcher. With `IcbmConfig.MovesAnEarlyRelease` (on) that stage is moved to the end of the staging
 list and the burn goes on; with it off, or where the list refuses the move, the stage is not fired and
 the log says so once, because the refusal is otherwise silent.
@@ -514,8 +525,8 @@ it is one the game already makes for itself:
 | staging | `SequenceList.ActivateNextSequence` | the keyboard |
 
 Nothing private is reached for, which is what turns a KSA update into a build error rather than
-into a rocket that flies sideways. One thing *is* patched for it, one of the seven patches in the
-mod: an attitude command written from a StarMap hook is overwritten before anything reads it,
+into a rocket that flies sideways. One thing *is* patched for it, one of the mod's Harmony patches
+(`CLAUDE.md` lists them): an attitude command written from a StarMap hook is overwritten before anything reads it,
 so `Ksa/AttitudeHook.cs` prefixes `Vehicle.PrepareWorker` — a `public virtual` method, pinned into
 `docs/KSA-API-SURFACE.md` so a signature change is a build error too.
 
@@ -776,8 +787,8 @@ the wrong ocean silently.
 The coast afterwards is not held. Once the warheads are away they are rounds, and the existing
 round machinery holds the world for them.
 
-**A coast here is not un-integrated, though, and the cause is this mod.** `PhysicsBubble.cs:1085`
-puts a vehicle off rails whenever an actuator is commanded or active, and attitude is driven for
+**A coast here is not un-integrated, though, and the cause is this mod.** `PhysicsBubble`'s rails test
+(`AnyActuatorCommanded`, `AnyActuatorActive`) puts a vehicle off rails whenever an actuator is commanded or active, and attitude is driven for
 the whole coast to hold the line the warheads leave along — so the bus leaves exact Kepler
 propagation and is integrated with velocity Verlet at whatever step the warp hands out. Measured at
 **17–20% of all coast probes**. That does not by itself justify holding the coast: the divergence it
@@ -1161,7 +1172,7 @@ canted bus: ACCURACY-PLAN, "Moved from ICBM-GUIDANCE".
 so the rotation is the identity, the cant spends none of the release budget, and
 `Sim/ReleaseSequence.cs` reduces to releasing when the vehicle is steady. No flag and no branch.
 
-**The MIRV bus's six tubes are straight**, so every tube is the mean and the rotation is the identity for it
+**The MIRV bus's seven tubes are straight**, so every tube is the mean and the rotation is the identity for it
 too (`docs/MIRV-NEXT.md` item 5).
 
 The code stays because it is general: a weapon pack may register a canted launcher on a vehicle that
@@ -1223,8 +1234,8 @@ That is the intent rather than an oversight. Warheads off one release state shar
 so their errors are one common offset plus each tube's own cant; a paced salvo gives each of them a
 different flight time on a bus that is falling toward its release altitude, and that differential is
 a larger error than anything the pause would buy. Nothing in this simulation is bought by the pause
-either — rounds do not collide with each other, and the bus's six tubes sit parallel on an 0.86 m
-bolt circle, so the 0.5 m/s kick only has to unseat them: 5 m clear after ten seconds, never
+either — rounds do not collide with each other, and the bus's seven tubes sit parallel, six on an
+0.86 m bolt circle and one on the axis, so the 0.5 m/s kick only has to unseat them: 5 m clear after ten seconds, never
 approaching again, whether they leave together or not.
 
 `ReleaseSequenceTests.TheWarheadsGoTogetherWhenThereIsNothingToTurnFor` is that decision written
@@ -1316,7 +1327,7 @@ From the player's side:
 1. Turn on **Designate by clicking the world**.
 2. The ground shows the area this rocket can reach. Hovering outside it greys the cursor ring and says
    **outside reach**; a click there does nothing.
-3. The first click places target 1. **Targets 2–6 can be placed before launch as well as during the
+3. The first click places target 1. **Targets 2–7 can be placed before launch as well as during the
    coast**, because pinned the footprint is the release epoch and not the arc — see *The pad can draw
    the pinned reach* below. The region shrinks with each one added, and the ring sits around the walk's last
    stop rather than around the landing, because that is where the next hop starts.
@@ -1366,7 +1377,7 @@ fits a burn window. The computer already answers this question for one point —
 `ShortOfPropellant`, `NoTrajectory` or `TooShallow` — so the region is that answer asked along bearings
 from the launch site until it changes.
 
-**Targets 2–6 are the bus's divert footprint.** After separation the only engine left is the bus's attitude
+**Targets 2–7 are the bus's divert footprint.** After separation the only engine left is the bus's attitude
 and translation thrusters (`BusTrim`), so every later target is a place the bus can move its own trajectory
 to with the propellant it has left. That is small and lopsided, and **how small depends on when the loop
 runs rather than on how far the shot goes**.
@@ -1573,10 +1584,10 @@ Options:
 **Recommended: A, with the counts editable** — and A' is the fallback if the blast sweep ever stops
 filtering a system's own rounds, since the whole cost of A is that one line in `FillIncoming`.
 
-* **Default split**: all six spread evenly over the chosen targets, the remainder to the earliest-chosen
+* **Default split** (as planned, priced on a six-warhead bus): all six spread evenly over the chosen targets, the remainder to the earliest-chosen
   (2 targets: 3 and 3; 4 targets: 2, 2, 1, 1). *Built otherwise: a target is added with no warheads
   (`TargetSet.TryAdd`), so spares stay aboard until the panel's **Split evenly** (`TargetSet.Balance`).*
-* **Per-target count** in the panel, 1–6, total at most six. Warheads not assigned anywhere are **kept aboard**
+* **Per-target count** in the panel, totalling at most the warheads aboard (`TargetSet.SetWarheads`). Warheads not assigned anywhere are **kept aboard**
   (option B) and the panel says so, so B stays available to a player who wants it.
 * **No stagger.** It was this plan's mechanism for "two on one" and phase 0 retired it: the warheads
   cannot hurt each other, and a stagger is the dearest way to buy a separation that is not needed — 8.33 m/s
@@ -1588,7 +1599,7 @@ filtering a system's own rounds, since the whole cost of A is that one line in `
 ### How it flies
 
 With one target, after the burn: separate the spent stack, clear it, trim the bus onto the target's trajectory, run the
-aim correction, release all six ~22 ms apart (`ReleaseSequence`), each with its separation kick (`ReleaseFocus`).
+aim correction, release all seven ~22 ms apart (`ReleaseSequence`), each with its separation kick (`ReleaseFocus`).
 
 With several targets, the release step becomes a loop:
 
@@ -1815,8 +1826,8 @@ so rather than flying a stop it cannot pay for. The tank is not the binding cons
 ## Short shots
 
 **Every range from 25 to 2,000 km is flown on whatever stack is flying it**, with `IcbmConfig.FlyAnyRange` and
-the short-shot settings on by default; at 1,000 km RealSRB4 and RealLiquid2 do not yet complete
-(`docs/ICBM-OUTSTANDING.md` 1.17, 1.18). The in-air settings apply only where the arc stays under
+the short-shot settings on by default; RealSRB4 and RealLiquid2 complete at 1,000 km too since
+`HandsOverWhenBurningAddsToTheShot` and `StagesIntoTheAirflow` (`docs/ICBM-OUTSTANDING.md` 1.17, 1.18). The in-air settings apply only where the arc stays under
 `DeployAltitudeMetres`; an arc that climbs above it cuts off above the air and gets the long-shot release. The
 flights, range by range and stack by stack, are `docs/SHORT-RANGE.md`; what else is open is ICBM-OUTSTANDING 3.2.
 
@@ -2006,7 +2017,7 @@ way past 33 ms. ICBM-OUTSTANDING 2.2.
 `AtmosphericStepSeconds` 0.25 · `IcbmComputer.PredictStepSeconds` 2.0 ·
 `ReleaseFocus.VelocityStepMetresPerSecond`, `PositionStepMetres`, `LeastAuthority` ·
 `AimAuthority.ProbeMetres` 1000 · `HoldingCost.ProbeSeconds` 106 · `BombSight.MaxSteps` 2048 ·
-`BallisticLead.MaxPasses` 32, `StallPasses` 4, `ReachHalvings` 12.
+`BallisticLead.MaxPasses` 32, `StallPasses` 4, `MostReachHalvings` 24.
 
 **And the pass counts that span frames belong here too**, because what they count is seconds-gated
 rather than frame-gated: `PostBoostAim.MaxCycles` 20 and `PassesWithoutImprovement` 3, and
@@ -2134,13 +2145,14 @@ ballistic arc is a two-body problem about one planet. A target on another world 
 transfer — escape, a heliocentric leg, capture — which is a different manoeuvre rather than a longer
 one. The panel says so when the designated body is not the parent.
 
-**The arrival-angle floor flies its search half and not its coast half.** Two shots at a 15° floor
+**The arrival-angle floor once flew its search half and not its coast half.** Two shots at a 15° floor
 flew the constrained arc, reported `reach Reachable` and cut off 0.01 m/s short, with the tightest
 group ever measured here — and then landed 2.28 and 2.68 km out, because the aim correction opens
 on the trajectory search rather than on the drag shortfall a steep arrival abolishes.
-`docs/ARRIVAL-ANGLE.md` has the per-cycle trace. `IcbmConfig.AimWaitsForCutoffUnderAFloor` is built and
-off: flown neutral on a solid deorbit stage, its case is a liquid one picked up in orbit
-(`docs/ICBM-OUTSTANDING.md` 1.3). One
+`docs/ARRIVAL-ANGLE.md` has the per-cycle trace. Flown since on current code (2026-10-14), the floor
+lands: a Real Liquid2 picked up in a 300 km orbit at a 15° floor put its worst warhead 4.3-8.6 mm out,
+the trim paying 25.5-29.3 m/s for it. `IcbmConfig.AimWaitsForCutoffUnderAFloor` is built and off,
+neutral on both a solid deorbit stage and that liquid one (`docs/ICBM-OUTSTANDING.md` 1.3). One
 known bound on the search half: the floor is applied to the *vacuum* arc, which agrees with the
 flown arrival to under half a degree over 10–30° and diverges only for a graze.
 

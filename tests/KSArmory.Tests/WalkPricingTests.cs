@@ -5,7 +5,7 @@ namespace KSArmory.Tests;
 
 /// <summary>
 /// The two levers on what a walk may be sent to: <see cref="IcbmConfig.PriceEachHopAtItsSlot"/> and
-/// <see cref="IcbmConfig.SpendTheSplitReserveAfterTheFirstStop"/>. Both off is the planner as it was.
+/// <see cref="IcbmConfig.SpendTheSplitReserveAfterTheFirstStop"/>, both on by default.
 /// </summary>
 public class WalkPricingTests
 {
@@ -271,8 +271,8 @@ public class WalkPricingTests
     }
 
     /// <summary>
-    /// Both off, every number the planner and the ring hand back is the old arithmetic exactly: the
-    /// reach as given per slot, the hop its distance over that, the budget the one set.
+    /// Both off, every number the planner and the ring hand back is the plain arithmetic: the reach
+    /// as given per slot, the hop its distance over that, the budget the one set.
     /// </summary>
     [Fact]
     public void BothOffThePlanIsTheReachAsGivenAndTheBudgetAsSet()

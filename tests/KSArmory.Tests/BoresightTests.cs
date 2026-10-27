@@ -6,7 +6,6 @@ namespace KSArmory.Tests;
 /// <summary>
 /// A launcher has to be able to see what it can shoot at.
 ///
-/// That sounds too obvious to test, and it is exactly the invariant nothing else here covers.
 /// <see cref="BoresightMode.PartForward"/> resolving to the part's +X — its mounting face's
 /// normal — while every tube is declared along +Y leaves an air-launched seeker searching a
 /// volume square to the rail carrying it: perpendicular at every attitude, so flying straight at
@@ -55,9 +54,7 @@ public class BoresightTests
     ///
     /// <para>Detection cone and gimbal travel answer different questions — how sensitive the set
     /// is, and what the mount can reach — and bounding the second by the first leaves a band the
-    /// head physically covers and is forbidden to look at. On the EO director that band was
-    /// everything within 15 degrees of the horizon while the mount reached 20 degrees below it,
-    /// so an incoming round sat 35 degrees inside the travel and was never detected.</para>
+    /// head physically covers and is forbidden to look at.</para>
     ///
     /// <para>Az-el heads only. A roll-nod head's real aperture is bounded by its shell rather than
     /// by its travel, and is measured off the mesh by <c>tools/model/import-litening.py</c>, so
@@ -87,8 +84,7 @@ public class BoresightTests
     /// <summary>
     /// The launcher's form of <see cref="EveryMastDirectorCanSeeEverywhereItCanPoint"/>: a set
     /// searching about local up has to reach as low as its mount can depress, or a target skimming
-    /// in under the cone is one the gun could hit and never learns of. The Phalanx searched 85
-    /// degrees and depressed to -25, so a missile on a flat path appeared 275 m out.
+    /// in under the cone is one the gun could hit and never learns of.
     /// </summary>
     [Fact]
     public void EveryTrainedLauncherSearchingAboutLocalUpSeesAsLowAsItPoints()

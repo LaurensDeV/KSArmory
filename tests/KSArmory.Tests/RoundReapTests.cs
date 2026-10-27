@@ -7,8 +7,8 @@ namespace KSArmory.Tests;
 /// What ends a round nothing has stopped.
 ///
 /// <para>A store the ground stops ends by arriving, so its <em>age</em> is the wrong reaper — a
-/// long fall is long, not stuck. The clock counts only where there is air to arrive through, and
-/// what catches the store that can never arrive at all is <see cref="RoundReach"/>.</para>
+/// long fall is long, not stuck. The clock counts only where arriving happens, and what catches
+/// the store that can never arrive at all is <see cref="RoundReach"/>.</para>
 /// </summary>
 public class RoundReapTests
 {
@@ -33,9 +33,8 @@ public class RoundReapTests
     }
 
     /// <summary>
-    /// The fault this replaces. A B61 released at 100 km takes 152 s to reach the ground and one
-    /// at 250 km takes 246, nearly all of it above the air — so a clock counting the coast killed
-    /// the bomb in flight with the fall still to come.
+    /// A B61 released at 100 km takes 152 s to reach the ground and one at 250 km takes 246,
+    /// nearly all of it above the air — so a clock counting the coast would kill the bomb in flight.
     /// </summary>
     [Fact]
     public void ACoastAboveTheAirDoesNotSpendTheBudget()
@@ -92,10 +91,9 @@ public class RoundReapTests
     }
 
     /// <summary>
-    /// The hole three states exist to close. A body with no atmosphere never starts an air clock,
-    /// so a store falling towards the Moon had nothing but the ground to end it — and nothing at
-    /// all where the ground could not be read, which is a round that lives for the session holding
-    /// timewarp down. <c>Arriving</c> is geometric rather than atmospheric for this reason.
+    /// A body with no atmosphere never starts an air clock, so a store falling towards the Moon
+    /// would have nothing but the ground to end it, and nothing where the ground cannot be read.
+    /// <c>Arriving</c> is geometric rather than atmospheric for this reason.
     /// </summary>
     [Fact]
     public void OnAnAirlessBodyTheClockStillRuns()
@@ -109,9 +107,8 @@ public class RoundReapTests
     }
 
     /// <summary>
-    /// And with nothing able to classify it at all — no body, no ceiling, a trajectory the conic
-    /// does not answer — the clock runs on every step, which is its age and the behaviour of every
-    /// round before any of this.
+    /// With nothing able to classify it at all — no body, no ceiling, a trajectory the conic does
+    /// not answer — the clock runs on every step, so it is the round's age.
     /// </summary>
     [Fact]
     public void AnUnclassifiableRoundIsStillReaped()
@@ -158,7 +155,7 @@ public class RoundReapTests
 
     /// <summary>
     /// A path that can only end on the ground runs no clock, however long the fall: a 5"/54 lobbed under
-    /// Mars's pull stays up past its two minutes, and ending it on those was what ended the gun's reach.
+    /// Mars's pull stays up past its two minutes, and ending it on those would end the gun's reach.
     /// </summary>
     [Fact]
     public void APathThatCanOnlyLandRunsNoClock()

@@ -3,11 +3,8 @@ namespace KSArmory;
 /// <summary>
 /// What the stack can still do, as the four numbers guidance needs from it.
 ///
-/// <para>Deliberately not a description of the rocket. Nothing here knows about stages, engines or
-/// tanks — a stack that has just staged is simply a lighter one with a different thrust, and the
-/// guidance loop reads these again every cycle rather than being told an event happened. That is
-/// what lets it fly a vehicle it has never seen: whatever the player bolted together, the answer to
-/// "how hard can you push and for how long" is the same four numbers.</para>
+/// <para>Nothing here knows about stages, engines or tanks: a stack that has just staged is a lighter one
+/// with a different thrust, read again every cycle, which is what lets guidance fly any vehicle.</para>
 /// </summary>
 internal readonly record struct BoosterPerformance(
     double ThrustNewtons,
@@ -21,9 +18,8 @@ internal readonly record struct BoosterPerformance(
     public double AccelerationNow => TotalMassKg > 0.0 ? ThrustNewtons / TotalMassKg : 0.0;
 
     /// <summary>
-    /// The mass-flow time constant: how long this stack would burn if it could consume its whole
-    /// self. Not a burn time — it is the denominator every closed-form burn integral is written
-    /// over, and it exceeds the real burn time by exactly the dry mass.
+    /// The mass-flow time constant: how long the stack would burn if it could consume its whole self.
+    /// Not a burn time; it exceeds the real one by the dry mass over the mass flow.
     /// </summary>
     public double Tau => MassFlowKgPerSec > 0.0 ? TotalMassKg / MassFlowKgPerSec : double.PositiveInfinity;
 
@@ -45,13 +41,8 @@ internal readonly record struct BoosterPerformance(
     public bool CanThrust => ThrustNewtons > 0.0 && TotalMassKg > 0.0;
 
     /// <summary>
-    /// How long thrusting at full throttle takes to gain a stated velocity, allowing for the stack
-    /// getting lighter as it does.
-    ///
-    /// <para>Treating the acceleration as constant is what makes a cutoff late: an ICBM's final
-    /// stage roughly triples its acceleration over the burn, so a linear estimate of the last
-    /// second is out by most of it — and the last second is the one that decides where the warheads
-    /// land.</para>
+    /// How long full throttle takes to gain a stated velocity, allowing for the stack getting lighter:
+    /// a final stage roughly triples its acceleration over the burn, so a constant one makes cutoff late.
     /// </summary>
     public double SecondsToGain(double deltaV)
     {
@@ -67,12 +58,8 @@ internal readonly record struct BoosterPerformance(
     }
 
     /// <summary>
-    /// How far the stack travels along the thrust line while gaining that velocity, over and above
-    /// what it would have coasted.
-    ///
-    /// <para>The guidance loop needs this to know where it will <em>be</em> at cutoff, which is
-    /// where the trajectory has to be solved from. Solving from where it is now instead aims the
-    /// arc from a point several hundred kilometres short of the real burnout.</para>
+    /// How far the stack travels along the thrust line while gaining that velocity, over what it would
+    /// have coasted: where it will be at cutoff, which is where the arc is solved from.
     /// </summary>
     public double ThrustDisplacement(double seconds)
     {

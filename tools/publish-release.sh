@@ -6,9 +6,8 @@
 #   ./tools/publish-release.sh v0.1.0       # ...or a specific tag
 #   ./tools/publish-release.sh v0.1.0 --create   # create the release too, if it does not exist
 #
-# semantic-release cuts releases from a hosted runner, which cannot build this mod: that needs
-# KSA's assemblies, and they are not redistributable. Until a self-hosted runner exists, this is
-# the other half of a release - run it from a machine with KSA installed.
+# The release workflow normally builds and attaches the archive itself, from the private assemblies
+# mirror. This is the fallback when that secret is unavailable: run it from a machine with KSA.
 #
 # Needs the gh CLI, authenticated (`gh auth login`).
 #

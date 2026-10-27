@@ -11,6 +11,7 @@ public class TimedFuseTests
     private static MunitionProfile Shell(bool timed) => new()
     {
         Name = "TestShell",
+        BoostSeconds = 0f,
         DisplayName = "test shell",
         LaunchSpeed = 1_000f,
         FuseRadius = 5f,

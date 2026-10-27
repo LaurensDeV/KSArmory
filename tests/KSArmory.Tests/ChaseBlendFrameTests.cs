@@ -159,7 +159,7 @@ public class ChaseBlendFrameTests
 
         // And it has to be shown leaking through the cross-instant form on the same scene. Without
         // this the assertion above also passes for a calculation that never had a carrier in it to
-        // cancel, which is what it was doing when this test was written.
+        // cancel.
         double3 stillAcross =
             BlendedAcrossInstants(still.PlatformBefore, fromOffset, still.RoundAfter, eye, 0.4);
         double3 carriedAcross =

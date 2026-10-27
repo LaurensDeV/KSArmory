@@ -16,6 +16,7 @@ else in the toolchain would notice a rename.
 
     ./tools/validate-parts.py
     KSA_DIR=/path/to/KSA ./tools/validate-parts.py
+    ./tools/validate-parts.py --offline       # without KSA's Core assets, as CI runs it
     ./tools/validate-parts.py --mod-root ../MyWeaponPack
 
 --mod-root checks a weapon pack instead: its mod.toml, the same four checks on its asset XML, and its
@@ -524,9 +525,6 @@ def check_subpart_positions():
             if here:
                 by_part[part.get("Id")] = here
 
-    # The profile this check is about. It reads one launcher's numbers, and with several
-    # registered it has to be told which -- otherwise it silently reads whichever appears first
-    # and compares one launcher's markers against another's geometry.
     problems = checked = 0
 
     for profile_name, body in profiles:
@@ -537,8 +535,7 @@ def check_subpart_positions():
         part_id = field("PartId")
         placed = by_part.get(part_id, {})
         if not placed:
-            # A launcher whose part places no subparts has nothing to check. The rail is one:
-            # its only moving thing is a round, which the mod positions rather than the XML.
+            # A launcher whose part places no subparts has nothing to check.
             continue
 
         problems_here, checked_here = _check_markers(profile_name, body, placed, assemblies)
@@ -905,9 +902,15 @@ LAUNCHER_GEOMETRY = {
     "AmraamRail": (None, "AMRAAM rail"),      # authored -- see AUTHORED_LAUNCHERS below
     "HarmRail": (None, "HARM rail"),          # authored, as above
     "MirvBus": (None, "Heavy MIRV Bus"),      # authored, clustered -- CLUSTER_LAUNCHERS
+    "Lau10": (None, "LAU-10 Zuni pod"),       # authored, clustered, as above
+    "ZuniPod6": (None, "Zuni six-round pod"), # authored, clustered, as above
     "Mk42": (None, "Mk 42 mount"),            # authored gun -- AUTHORED_GUNS below
     "M197": (None, "M197 chin turret"),       # authored gun -- AUTHORED_GUNS below
     "Yal1Beam": (None, "YAL-1 laser"),        # fires the director on its part; nothing of its own
+    "Aim9J": (None, "AIM-9J on the ejector"),   # authored carriage -- AUTHORED_LAUNCHERS
+    "Aim120C": (None, "AIM-120C on the ejector"),
+    "Agm88": (None, "AGM-88 on the ejector"),
+    "B61": (None, "B61 on the ejector"),
 }
 
 # Launchers whose art was authored AND whose weapon is a gun, so there is no tube and no seat to
@@ -947,6 +950,12 @@ AUTHORED_LAUNCHERS = {
                    "KSArmory_Subpart_Amraam", "Missile120C", "AMRAAM rail"),
     "HarmRail": ("KSArmory_Prefab_HarmRail", "KSArmory_Harm_Round00",
                  "KSArmory_Subpart_Harm", "MissileAgm88", "HARM rail"),
+    "Aim120C": ("KSArmory_Prefab_Aim120C", "KSArmory_Amraam_Amraam_Round00",
+                "KSArmory_Subpart_Amraam", "Missile120C", "AIM-120C on the ejector"),
+    "Agm88": ("KSArmory_Prefab_Agm88", "KSArmory_Harm_Harm_Round00",
+              "KSArmory_Subpart_Harm", "MissileAgm88", "AGM-88 on the ejector"),
+    "B61": ("KSArmory_Prefab_B61", "KSArmory_Bomb_B6100",
+            "KSArmory_Subpart_B61", "NukeB61", "B61 on the ejector"),
     # Its beam is generated and its round is not, so only the round is checked here. The beam
     # carries no geometry its definition names -- the seat and the tube both come off the round.
     "NukeRack": ("KSArmory_Prefab_NukeRack", "KSArmory_NukeRack_B6100",
@@ -1165,6 +1174,50 @@ def check_authored_launcher_geometry(profile, part_id, seat_id, mesh_id, munitio
 
     return problems, checked
 
+# Launchers whose round's mesh is generated and not centred on its origin, so the tube is the seat plus
+# half the munition's BodyLength -- what tools/model/sidewinder.py prints -- rather than half the mesh.
+#
+#   profile -> (part Id, seated round's SubPart Id, munition profile, label)
+SEATED_GENERATED_ROUNDS = {
+    "Aim9J": ("KSArmory_Prefab_Aim9J", "KSArmory_Sidewinder_Aim900", "Missile9J", "AIM-9J on the ejector"),
+}
+
+
+def check_seated_generated_round(profile, part_id, seat_id, munition, label):
+    """The tube mouth is the seated round's nose: its seat plus half its declared length."""
+    text = arsenal_text()
+    block = profile_block(text, profile)
+    seat = None
+    for path in sorted(MOD.glob("KSArmory*.xml")):
+        for part in ET.parse(path).getroot().findall("Part"):
+            for sub in part.findall("SubPart"):
+                position = sub.find("Transform/Position")
+                if part.get("Id") == part_id and sub.get("Id") == seat_id and position is not None:
+                    seat = [float(position.get(axis, "0")) for axis in "XYZ"]
+    body = re.search(rf"{munition}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
+    length = re.search(r"BodyLength\s*=\s*([\d.]+)f\s*,", body.group(1)) if body else None
+    tube = re.search(r"Tubes\s*=\s*\[\s*new\(new\(\s*(-?[\d.]+),\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\),", block or "")
+    offset = re.search(r"MuzzleForwardOffset\s*=\s*([\d.]+)\s*,", block or "")
+    if None in (seat, length, tube, offset):
+        print(f"  MISSING the seat, BodyLength, Tubes or MuzzleForwardOffset of {profile}", file=sys.stderr)
+        return 1, 1
+
+    want = [seat[0], seat[1] + float(length.group(1)) / 2, seat[2]]
+    got = [float(v) for v in tube.groups()]
+    problems = 0
+    if any(abs(a - b) > 5e-4 for a, b in zip(got, want)):
+        print(f"  STALE {profile}.Tubes = {tuple(got)}, the seat and BodyLength say {tuple(round(v, 5) for v in want)}",
+              file=sys.stderr)
+        problems += 1
+    if abs(float(offset.group(1)) - seat[0]) > 5e-4:
+        print(f"  STALE {profile}.MuzzleForwardOffset = {offset.group(1)}, the XML seats the round at {seat[0]}",
+              file=sys.stderr)
+        problems += 1
+    if problems == 0:
+        print(f"  {label} geometry: 1 tube at its round's seat and declared length")
+    return problems, 2
+
+
 # Authored launchers carrying a *cluster* of seated rounds rather than one. The single-tube check
 # above cannot cover them: it reads one tube out of Tubes and compares it to one seat, where these
 # have to agree seat by seat, and each seat points somewhere different.
@@ -1173,6 +1226,10 @@ def check_authored_launcher_geometry(profile, part_id, seat_id, mesh_id, munitio
 CLUSTER_LAUNCHERS = {
     "MirvBus": ("KSArmory_Prefab_MirvBus", "KSArmory_PostBoost_Mirv_Rv",
                 "KSArmory_Subpart_PostBoostRv", "ReentryVehicleMk21", 7, "Heavy MIRV Bus"),
+    "Lau10": ("KSArmory_Prefab_Lau10", "KSArmory_Lau10_Zuni_Round",
+              "KSArmory_Subpart_ZuniRound", "RocketZuni", 4, "LAU-10 Zuni pod"),
+    "ZuniPod6": ("KSArmory_Prefab_ZuniPod6", "KSArmory_ZuniPod6_Zuni_Round",
+                 "KSArmory_Subpart_ZuniRound", "RocketZuni", 6, "Zuni six-round pod"),
 }
 
 
@@ -1398,11 +1455,9 @@ def registered(text, registry):
     return names
 
 
-# --- the weapon definitions, read for the gates ---------------------------------------------
-#
-# Every gate below was written against C# object-initialiser blocks and pulls fields out of them by
-# regex. Every definition in the core's KSArmory/*.xml is rendered into that block shape, keyed on the C#
-# field name the gate tables use, so the gates read the XML without each learning a second syntax.
+# The gates below pull fields out of C# object-initialiser blocks by regex. Every definition in the
+# core's KSArmory/*.xml is rendered into that block shape, keyed on the C# field name the gate tables
+# use, so the gates read the XML without each learning a second syntax.
 
 DEFINITIONS = MOD / "KSArmory"
 
@@ -1411,13 +1466,13 @@ _XML_FIELD = {"GunReferenceElevationDeg": ("GunReferenceElevationRad", "rad"),
               "PodReferenceElevationDeg": ("PodReferenceElevationRad", "rad"),
               "SeekerBand": ("Band", None)}
 
-# The name the gate tables key each built-in on. A
-# definition missing here is rendered under its own key, and no gate names it.
+# The name the gate tables key each built-in on. A definition missing here is rendered under its
+# own key, and no gate names it.
 _CSHARP_NAME = {
     ("Munition", "AIM9J"): "Missile9J", ("Munition", "AIM120C"): "Missile120C",
     ("Munition", "AGM88"): "MissileAgm88", ("Munition", "20MM"): "Cannon20Mm",
     ("Munition", "5IN54"): "Shell5In54", ("Munition", "B61"): "NukeB61",
-    ("Munition", "MK21"): "ReentryVehicleMk21",
+    ("Munition", "MK21"): "ReentryVehicleMk21", ("Munition", "ZUNI"): "RocketZuni",
     ("Munition", "57E6"): "Missile57E6", ("Munition", "30MM"): "Cannon30Mm",
     ("Sensor", "AIM9SEEK"): "SeekerHeadAim9", ("Sensor", "AIM120SEEK"): "SeekerHeadAim120",
     ("Sensor", "AGM88SEEK"): "SeekerHeadAgm88", ("Sensor", "VPS2"): "SearchRadarVps2",
@@ -1425,13 +1480,19 @@ _CSHARP_NAME = {
     ("Sensor", "TSU"): "TurretSight", ("Sensor", "BOMBSIGHT"): "BombSight",
     ("Sensor", "EO"): "EoSensor", ("Sensor", "Litening"): "PodSensor",
     ("Sensor", "Yal1BeamDirector"): "BeamDirectorSensor", ("Sensor", "Irst"): "InfraredSearchSet",
-    ("Sensor", "1RS1"): "SearchRadar1Rs1",
+    ("Sensor", "1RS1"): "SearchRadar1Rs1", ("Sensor", "ZUNISIGHT"): "RocketSight",
     ("Launcher", "KSArmory_Prefab_Launcher6"): "PantsirS1",
     ("Launcher", "KSArmory_Prefab_MirvBus"): "MirvBus",
     ("Launcher", "KSArmory_Prefab_SidewinderRail"): "SidewinderRail",
     ("Launcher", "KSArmory_Prefab_AmraamRail"): "AmraamRail",
     ("Launcher", "KSArmory_Prefab_HarmRail"): "HarmRail",
+    ("Launcher", "KSArmory_Prefab_Aim9J"): "Aim9J",
+    ("Launcher", "KSArmory_Prefab_Aim120C"): "Aim120C",
+    ("Launcher", "KSArmory_Prefab_Agm88"): "Agm88",
+    ("Launcher", "KSArmory_Prefab_B61"): "B61",
     ("Launcher", "KSArmory_Prefab_NukeRack"): "NukeRack",
+    ("Launcher", "KSArmory_Prefab_Lau10"): "Lau10",
+    ("Launcher", "KSArmory_Prefab_ZuniPod6"): "ZuniPod6",
     ("Launcher", "KSArmory_Prefab_Ciws"): "Ciws",
     ("Launcher", "KSArmory_Prefab_Mk42"): "Mk42",
     ("Launcher", "KSArmory_Prefab_M197"): "M197",
@@ -1573,7 +1634,9 @@ def check_launcher_geometry():
             p, c = check_cluster_launcher_geometry(profile, *CLUSTER_LAUNCHERS[profile])
             problems += p; checked += c
             continue
-        if profile in AUTHORED_GUNS:
+        if profile in SEATED_GENERATED_ROUNDS:
+            p, c = check_seated_generated_round(profile, *SEATED_GENERATED_ROUNDS[profile])
+        elif profile in AUTHORED_GUNS:
             p, c = check_authored_gun_geometry(profile, *AUTHORED_GUNS[profile])
         elif profile in AUTHORED_LAUNCHERS:
             p, c = check_authored_launcher_geometry(profile, *AUTHORED_LAUNCHERS[profile])

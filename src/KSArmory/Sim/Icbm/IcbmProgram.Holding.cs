@@ -77,8 +77,7 @@ internal sealed partial class IcbmProgram
         _burnLead = lead;
 
         // A burn lit on a warped step flies its first frame for minutes; NeedsShortSteps is already slowing the world.
-        // And one lit mid-turn pushes off its line, so a turn begun late is waited for, a little.
-        // Only after a hold long enough to have drifted: a window that is due at once is turned onto as before.
+        // One lit mid-turn pushes off its line, so after a hold long enough to have drifted a late turn is waited for.
         if (_windowWait > HoldPointing.MaxLeadSeconds) _heldToDrift = true;
 
         bool turned = !Config.HoldDriftsUntilIgnition || !_heldToDrift || state.ThrustAxisCci.Equals(Vec.Zero)

@@ -9,15 +9,12 @@ internal sealed partial class IcbmComputer
     private bool _separated;
     private readonly List<ShedCandidate> _shedCandidates = [];
 
-    // Whether the next sequence would fire the joint the launcher hangs on -- that one, not any
-    // later. A launcher that can separate at all is not a reason to refuse every stage: a
-    // multi-stage stack carrying a bus has a decoupler under it from the moment it is built, and
-    // treating that as "the next stage drops my rounds" strands it with a dead first stage.
+    // The next sequence only, not any later: a stack carrying a bus always has a decoupler under
+    // it, and refusing every stage for that strands it with a dead first stage.
     private static bool StagingWouldDropTheLauncher(IManualFire? weapon)
         => weapon is { NextStageSeparatesIt: true };
 
-    // Once, and only where the part tree offers a joint to let go of. Nothing shipped declares one,
-    // so this does nothing until a craft is built with a decoupler under its launcher.
+    // Once, and only where the part tree offers a joint to let go of.
     private void SeparateOnce(IManualFire? weapon)
     {
         if (_separated || weapon is null) return;
@@ -157,10 +154,8 @@ internal sealed partial class IcbmComputer
         _wasBeforeStage.Clear();
     }
 
-    // Spent stages cost frame time for the whole coast while they fall, and frame time is the only
-    // thing that buys simulation rate. Off unless asked for: it destroys things in the player's
-    // world. Sim/StageDisposal.cs holds the rules, including that the half the clearance is still
-    // reading is never taken.
+    // Off unless asked for, since it destroys things in the player's world; Sim/StageDisposal.cs
+    // holds the rules.
     private void DisposeShedStages()
     {
         for (int i = _shed.Count - 1; i >= 0; i--)
@@ -200,14 +195,8 @@ internal sealed partial class IcbmComputer
         }
     }
 
-    // The half of the stack this vehicle let go of, found by difference: the decoupler makes a
-    // vehicle that did not exist a frame ago, and everything else in the world did.
-    //
-    // Rehome captures it too, but only when the computer follows its weapon onto the *other* half.
-    // The ordinary case is the bus keeping both the launcher and the computer, where Rehome never
-    // runs -- so without this the distance is unreadable on every flight and SeparationClearance
-    // falls back to a blind clock, which is the trim being authorised while the stack is still
-    // metres away.
+    // Found by difference: the decoupler makes a vehicle that did not exist a frame ago. Rehome
+    // captures it only when the computer moves to the other half, which is not the usual case.
     private Vehicle? WhatWasDropped()
     {
         _afterSplit.Clear();
@@ -237,10 +226,8 @@ internal sealed partial class IcbmComputer
         return choice.Verdict == ShedVerdict.Take ? _afterSplit[choice.Index] : null;
     }
 
-    // The world half of SeparationClearance: how far apart the two actually are. Both positions
-    // come from the same instant, so the ecliptic motion they each carry cancels in the difference
-    // - see docs/FRAMES-AND-EPOCHS.md. NaN rather than zero when the stack cannot be read, because
-    // the two mean opposite things there.
+    // The world half of SeparationClearance. Both positions from one instant, so the ecliptic
+    // motion cancels; NaN, never zero, when the stack cannot be read.
     private Clearance Clear(double simStep)
     {
         _sinceSplit += simStep;
@@ -253,8 +240,7 @@ internal sealed partial class IcbmComputer
             double3 between = KsaWorld.PositionEcl(stack) - KsaWorld.PositionEcl(Craft);
             if (Vec.IsFinite(between)) apart = Vec.Len(between);
 
-            // The stage's own bounding sphere, which is what the coarse contact test a released
-            // store would be scored against actually uses.
+            // The bounding sphere, which the coarse contact test a released store meets uses.
             try { radius = stack.MeanRadius; }
             catch { radius = double.NaN; }
         }
@@ -272,9 +258,7 @@ internal sealed partial class IcbmComputer
         // report different distances about one frame.
         _proximity.Update(simStep, apart, radius);
 
-        // What the trim's interlock is asked, recorded here because this is the one place the
-        // separation is measured -- a second derivation could report a different distance about the
-        // same frame. In Cci, because that is the frame the trim's own axes are in.
+        // For the trim's interlock, from the one place the separation is measured, in the trim's Cci.
         _keepOutTowardCci = double3.Zero;
 
         if (double.IsFinite(apart) && apart < ProximityWatch.KeepOutFor(radius)
@@ -290,9 +274,8 @@ internal sealed partial class IcbmComputer
             }
         }
 
-        // An unreadable stack falls back to the clock rather than to "clear": a part tree
-        // mid-rebuild reads as no distance at all, and treating that as clearance is exactly the
-        // case this exists to prevent -- and it is asked fresh every pass, never remembered.
+        // An unreadable stack falls back to the clock, never to "clear": a part tree mid-rebuild
+        // reads as no distance at all.
         return SeparationClearance.Check(apart, radius, _sinceSplit, ForTheTrimMetres(radius));
     }
 

@@ -5,16 +5,12 @@ namespace KSArmory;
 /// <summary>
 /// Writes to stdout and to a file beside KSA's own logs.
 ///
-/// The file matters: StarMap mods only reach stdout, which lands in whatever terminal launched
-/// the game and is awkward to read (and impossible to read after the fact). KSA's own
-/// per-session <c>KittenSpaceAgency.*.log</c> is written by its internal logger, which mods cannot
-/// reach.
-/// So this mod keeps its own, in the same folder, where it can be tailed from outside the game.
+/// KSA's own per-session <c>KittenSpaceAgency.*.log</c> is written by an internal logger mods cannot
+/// reach, and stdout is gone after the fact, so this mod keeps its own file in the same folder.
 ///
-/// Lines are batched rather than written one at a time. A salvo at full rate is hundreds of
-/// outcome lines a second, and an open/write/close each is a syscall storm on the frame thread.
-/// What that costs is a bounded tail on a hard crash, so <see cref="FlushIntervalMs"/> bounds it
-/// and anything above <see cref="Level.Info"/> goes straight to disk.
+/// Lines are batched: a salvo is hundreds of lines a second on the frame thread. A hard crash can
+/// lose at most <see cref="FlushIntervalMs"/> of them, and anything above <see cref="Level.Info"/>
+/// goes straight to disk.
 /// </summary>
 internal static class Log
 {
@@ -28,9 +24,7 @@ internal static class Log
     private static bool _resolved;
     private static bool _fileBroken;
 
-    // The most a crash may take with it. 100 ms is six frames at 60 fps -- inside the moment the
-    // fault happened, so the lines that explain it survive -- while turning ~750 writes a second
-    // into ten.
+    // The most a crash may take with it: six frames at 60 fps.
     private const int FlushIntervalMs = 100;
 
     // A single frame can dump thousands of lines (the verbose world dump walks every craft), which
@@ -41,8 +35,7 @@ internal static class Log
     private static long _lastFlushMs = Environment.TickCount64;
 
     // Fires whether or not anything is logging, so a session that goes quiet still gets its last
-    // lines to disk. Checking the interval on the way through Write cannot do that: the write that
-    // would notice never comes.
+    // lines to disk.
     private static Timer? _ticker;
 
     /// <summary>How much detail reaches the log.</summary>
@@ -61,12 +54,8 @@ internal static class Log
     }
 
     /// <summary>
-    /// The threshold. Debug builds keep everything; release builds start at
-    /// <see cref="Level.Info"/>, because the developer detail is measured in hundreds of lines
-    /// per engagement and buries the handful that matter.
-    ///
-    /// Raised or lowered at runtime from the panel, so a user chasing a bug can turn the
-    /// detail back on without a special build.
+    /// Release builds start at <see cref="Level.Info"/>, because developer detail runs to hundreds of
+    /// lines per engagement. The panel's Verbose log changes it at runtime.
     /// </summary>
 #if DEBUG
     public static Level Threshold { get; set; } = Level.Debug;
@@ -77,8 +66,7 @@ internal static class Log
     /// <summary>
     /// Full path of the log file, or null if no writable location was found.
     ///
-    /// <para>Flushes on the way past, because every reader of the file goes through here. A bug
-    /// report attaching the tail would otherwise be missing the lines that prompted it.</para>
+    /// <para>Flushes on the way past, because every reader of the file goes through here.</para>
     /// </summary>
     public static string? FilePath
     {
@@ -93,11 +81,7 @@ internal static class Log
         }
     }
 
-    /// <summary>
-    /// Developer detail. Takes a delegate rather than a string so that the interpolation cost
-    /// is not paid when the line is going to be discarded — most of these are inside loops over
-    /// every vehicle in the scene.
-    /// </summary>
+    /// <summary>A delegate, so the interpolation is not paid for a discarded line.</summary>
     public static void Debug(Func<string> message)
     {
         if (Threshold > Level.Debug) return;
@@ -132,8 +116,7 @@ internal static class Log
 
             Pending.Append(line).Append(Environment.NewLine);
 
-            // Anything that went wrong goes to disk now. A warning is often the last thing written
-            // before whatever it was warning about takes the process down.
+            // A warning is often the last thing written before the process goes down.
             if (level >= Level.Warn
                 || Pending.Length >= FlushBytes
                 || Environment.TickCount64 - _lastFlushMs >= FlushIntervalMs)
@@ -144,9 +127,8 @@ internal static class Log
     }
 
     /// <summary>
-    /// Writes anything still buffered and stops the background flush. For unload, after the last
-    /// line: a timer held in a static field would otherwise go on firing into a mod that is no
-    /// longer loaded.
+    /// Writes anything still buffered and stops the background flush, for unload: a static timer
+    /// would otherwise go on firing into an unloaded mod.
     /// </summary>
     public static void Shutdown()
     {
@@ -212,9 +194,8 @@ internal static class Log
 
                 string path = Path.Combine(candidate, "KSArmory.log");
 
-                // Truncated per session so the file reflects this run, not every run ever -- and the
-                // last run kept beside it, because a game relaunched to look into a report is exactly
-                // the moment the report's own log would otherwise be lost.
+                // Truncated per session, with the last run kept beside it, so relaunching to
+                // investigate does not erase the evidence.
                 if (File.Exists(path)) File.Copy(path, Path.Combine(candidate, "KSArmory.prev.log"), overwrite: true);
                 File.WriteAllText(path, $"=== KSArmory session {DateTime.Now:yyyy-MM-dd HH:mm:ss} ==={Environment.NewLine}");
                 _path = path;
@@ -223,16 +204,12 @@ internal static class Log
             }
             catch
             {
-                // Try the next candidate.
             }
         }
     }
 
-    // Where the log might go, best first. KSA runs on Linux as well as Windows and puts its user
-    // data in a different place on each, so this tries the plausible locations rather than assuming
-    // one — and only ever uses a directory that already exists, so a wrong guess costs nothing but
-    // a failed Directory.Exists. The temp directory is the last resort and always works, which is
-    // why the mod can say where it is logging on startup rather than silently going quiet.
+    // Where the log might go, best first. Only a directory that already exists is used, so a wrong
+    // guess costs a failed Directory.Exists; temp is the last resort.
     private static IEnumerable<string> CandidateDirectories()
     {
         const string game = "Kitten Space Agency";

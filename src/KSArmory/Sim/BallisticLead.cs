@@ -5,30 +5,14 @@ namespace KSArmory;
 /// <summary>
 /// Where an unguided round has to be aimed to arrive where a moving target will be.
 ///
-/// <para>A missile does not need this: it steers, so pointing the launcher at the target is
-/// enough and the round closes the rest. A shell cannot, so everything the engagement needs has
-/// to be in the barrel's direction at the instant it leaves — the target's motion during the
-/// flight, and the drop over the same interval.</para>
-///
-/// <para>Neither term is small at cannon ranges. A 300 m/s target crosses ~1.4 km during a 4 km
-/// shot, and the round falls ~100 m over the same 4.5 s.</para>
-///
-/// <para>Nor is the target's own acceleration once the flight is long. A lead that assumes the
-/// target holds its velocity misses anything slowing or falling by half that acceleration times
-/// the flight time squared: nothing over a CIWS's second, and hundreds of metres over a five-inch
-/// gun's eight.</para>
+/// <para>A shell cannot steer, so the target's motion and the round's drop over the flight are in
+/// the barrel's direction: a 300 m/s target crosses ~1.4 km during a 4 km shot, the round falls ~100 m.
+/// So is the target's acceleration, ½·a·t², hundreds of metres over a five-inch gun's eight seconds.</para>
 /// </summary>
 public static class BallisticLead
 {
-    // Time of flight depends on where the target will be, which depends on time of flight, so it
-    // is solved by iterating to a fixed point.
-    //
-    // Run to a tolerance rather than a fixed pass count. The iteration contracts by roughly the
-    // ratio of target speed to muzzle speed, so a fixed four passes is only enough while that
-    // ratio is small -- which was true of the aircraft it was calibrated on and false of the
-    // thing point defence exists for. Intercepting a missile at 576 m/s with a 956 m/s shell
-    // leaves ~13% of the error after four passes, tens of metres of lead, and it amplifies the
-    // frame-to-frame variation in the target's position instead of settling it.
+    // A fixed point in the time of flight, run to a tolerance: it contracts by about the ratio of
+    // target to muzzle speed, so four passes against a 576 m/s missile with a 956 m/s shell leave ~13%.
     private const double ToleranceSeconds = 1e-7;
 
     // Bounded so a ratio near or above 1 cannot spin: past that the round never arrives and the
@@ -40,14 +24,8 @@ public static class BallisticLead
     /// no muzzle speed, or a target so fast the round can never arrive.
     /// </summary>
     /// <remarks>
-    /// Takes both velocities and differences them here rather than accepting a relative one.
-    /// The subtraction carries the whole frame contract — both terms hold the planet's ~29.8 km/s
-    /// around its star, the round is launched with the shooter's share already in it, and leading
-    /// on the common part throws the aim point a hundred kilometres wide. Accepting the difference
-    /// would leave that subtraction at a call site in <c>Ksa/</c>, which no test can reach.
-    ///
-    /// <para>This is the convention for the whole of <c>Sim/</c>: an entry point takes both
-    /// frame-carrying terms and differences them itself. See docs/FRAMES-AND-EPOCHS.md.</para>
+    /// Takes both velocities and differences them here: both carry the planet's ~29.8 km/s, and leading
+    /// on the common part throws the aim a hundred kilometres wide. docs/FRAMES-AND-EPOCHS.md.
     /// </remarks>
     /// <param name="gravityEcl">Acceleration acting on the round, not on the shooter.</param>
     public static bool TrySolve(double3 shooterPos, double3 shooterVelocity,
@@ -59,8 +37,7 @@ public static class BallisticLead
     /// <summary>
     /// The same solve, also reporting the time of flight it converged on.
     ///
-    /// <para>Handed out rather than recomputed by the caller: a timed fuse set from a second,
-    /// separately derived number would burst somewhere the gun was not aiming.</para>
+    /// <para>Handed out so a timed fuse is set from the same number the gun aimed with.</para>
     /// </summary>
     public static bool TrySolve(double3 shooterPos, double3 shooterVelocity,
                                 double3 targetPos, double3 targetVelocity,
@@ -113,13 +90,10 @@ public static class BallisticLead
             if (moved <= ToleranceSeconds) { converged = true; break; }
         }
 
-        // A solve that ran out of passes has not found an intercept, it has been walking away from
-        // one: the target is outrunning the round. Reporting the last iterate would be an aim point
-        // presented with the same confidence as a real one.
+        // Out of passes is a target outrunning the round, not an intercept.
         if (!converged) return false;
 
-        // Aim above the intercept by exactly what the round will fall, so the two cancel on the
-        // way. Sign matters: gravity points down, so subtracting raises the aim.
+        // Gravity points down, so subtracting the fall raises the aim.
         double3 intercept = targetPos + targetVelocityRelative * flightTime
                             + targetAccelerationEcl * (0.5 * flightTime * flightTime);
         aimPoint = intercept - gravityEcl * (0.5 * flightTime * flightTime);
@@ -139,19 +113,11 @@ public static class BallisticLead
     /// The same solve for a round that slows down: the shell is flown through the air and the
     /// gravity it will meet, rather than assumed to keep its muzzle speed.
     ///
-    /// <para>Distance over muzzle speed falls short of the real flight time by whatever speed the
-    /// air takes away, and the lead, the drop and a timed fuse all hang off that one number. A
-    /// five-inch shell 15.7 km out at 80° flies 43.4 s, not the 19.4 s the division gives, so a
-    /// fuse set from it bursts 5.5 km short. Flown, all three come off one trajectory.</para>
+    /// <para>Distance over muzzle speed puts a five-inch shell 15.7 km out at 80° at 19.4 s where it flies
+    /// 43.4 s, and a fuse set from it 5.5 km short; flown, the lead, the drop and the fuse share one path.</para>
     ///
-    /// <para>The flight is measured against the ground the round flies over, because that is what
-    /// its drag reads — so the mount's, the target's and the air's velocities are all differenced
-    /// here, and motion common to the three cannot reach the answer. So is the ground's acceleration,
-    /// which on a world that turns is not zero.</para>
-    ///
-    /// <para>The target is flown too. Its acceleration is split into gravity, a drag along its
-    /// airspeed and whatever is left, and the drag is carried as a drag — so a craft coasting in air
-    /// is not assumed to keep slowing at the rate it is slowing now.</para>
+    /// <para>Flown against the ground under the mount, whose velocity, acceleration and the air's are all
+    /// differenced here. The target is flown too, its drag carried as a drag.</para>
     /// </summary>
     /// <param name="targetAccelerationEcl">Everything accelerating the target, gravity included.</param>
     /// <param name="targetDragShape">
@@ -164,14 +130,12 @@ public static class BallisticLead
     /// round's and the target's accelerations alike, so neither falls under a gravity the ground does not feel.
     /// </param>
     /// <param name="bodyVelocity">
-    /// The velocity of the body that ground belongs to. The ground carries the mount round the body's centre at
-    /// the difference, so the pull and the air are read where the round is against where that centre has gone:
-    /// held still against the mount, the pull turns the wrong way by that speed times the time over the radius,
-    /// and a 5"/54 laid 60 km out on Earth came down 80 m off.
+    /// The velocity of the body that ground belongs to, so the pull and the air are read against where the
+    /// centre has gone: held still, a 5"/54 laid 60 km out on Earth came down 80 m off.
     /// </param>
     /// <param name="gravityAt">
-    /// The pull at a position at the current instant. A field rather than one vector, because on a
-    /// small world it turns under the shell: 3.6° across 15.7 km of a 250 km body.
+    /// The pull at a position at the current instant: a field, since it turns 3.6° across 15.7 km of a
+    /// 250 km body.
     /// </param>
     /// <param name="densityAt">
     /// Air density as a multiple of sea level, at a position at the current instant — the air alone, never the
@@ -180,9 +144,7 @@ public static class BallisticLead
     /// <param name="directionHint">Where the previous solve pointed, or zero. Only where the search starts.</param>
     /// <param name="groundVelocityAt">
     /// The ground's velocity at a position at the current instant, which is the air's; null holds the air still
-    /// against the mount's ground. On a world that turns the air a distance x away moves at the spin times x
-    /// against the mount, 1.7 m/s at 23 km: held still, a 5"/54 laid onto the ground there lands 5-12 m off by
-    /// bearing, and a place on the ground reads as moving through the air.
+    /// against the mount's ground. The spin moves it 1.7 m/s at 23 km, which held still lands a 5"/54 5-12 m off.
     /// </param>
     public static bool TrySolveFlown(double3 shooterPos, double3 shooterVelocity, double3 groundVelocity,
                                      double3 groundAcceleration, double3 bodyVelocity,
@@ -230,9 +192,8 @@ public static class BallisticLead
                                 groundAcceleration, groundVelocity - bodyVelocity, munition, gravityAt, densityAt,
                                 groundVelocity, groundVelocityAt);
 
-        // A pass that converges takes most of the miss out. One that has not cut it by a fifth in several
-        // passes is walking, and a target out of reach is the usual cause: flying every remaining pass to
-        // the end of a long-lived shell's flight is what waiting it out would cost, every frame.
+        // Not cut by a fifth in several passes is walking, usually a target out of reach; give up rather
+        // than fly every remaining pass every frame.
         const double StallProgress = 0.8;
         const int StallPasses = 4;
         double bestMiss = double.MaxValue;
@@ -276,11 +237,8 @@ public static class BallisticLead
                 return false;
             }
 
-            // Flat, a turn moves the shell by the reach times the angle, and turning along the miss takes it out.
-            // Lobbed, the shell comes down steeper than it went up, so a turn upwards moves its path mostly along
-            // itself: turned along the miss the correction shrinks by the square of that cosine and is gone before
-            // the barrel reaches 45 degrees -- a shell that goes 64.8 km could not be laid past 55. So the flat
-            // answer is only where it starts, and what a turn really does is learnt from the turns flown.
+            // Lobbed, a turn upwards moves the path mostly along itself, so the flat answer is only the start
+            // and what a turn does is learnt from the turns flown: laid by the flat rule a 64.8 km gun stopped at 55.
             if (i == 0)
             {
                 byX = new double3(-reach, 0, 0);
@@ -330,19 +288,12 @@ public static class BallisticLead
     /// <see cref="TrySolveFlown"/>, or, for a target out of reach, the farthest place on the way to it the
     /// shell can get to.
     ///
-    /// <para>A gun given nothing it can reach has only the line of sight to lay along, which leaves the
-    /// barrel near level and the shell a kilometre or two out whatever the range. Thrown as far as it
-    /// goes instead, it lands as close to the target as the gun allows.</para>
+    /// <para>Along the line of sight a shell lands a kilometre or two out whatever the range; thrown as far as
+    /// it goes, it lands as close as the gun allows. <paramref name="along"/> walks the ground rather than the
+    /// straight line, which from Mars ran 1,457 m under it at 90.3 km.</para>
     ///
-    /// <para><b>Over the ground, where the target is on it.</b> The straight line to a place far out runs
-    /// under the ground between: from Mars the point 90.3 km along it was 1,457 m under, and the shell laid
-    /// through it came down 3.9 km short of it. <paramref name="along"/> gives places on the ground instead,
-    /// each moving as its own ground does; without it they are on the straight line and move with the
-    /// target.</para>
-    ///
-    /// <para>Found by halving along the way, up to <see cref="MostReachHalvings"/> solves. A target that has
-    /// not moved far is settled by confirming the last answer instead — that place still solves and a
-    /// little further does not — which is three.</para>
+    /// <para>Found by halving, up to <see cref="MostReachHalvings"/> solves, or three to confirm last frame's
+    /// answer.</para>
     /// </summary>
     /// <param name="reachHint">Last frame's <paramref name="reachFraction"/>, or one when there was none.</param>
     /// <param name="reachFraction">
@@ -368,10 +319,8 @@ public static class BallisticLead
             return true;
         }
 
-        // Once more from nothing before calling it out of reach. Seeded from last frame's answer the first miss is
-        // already small, and near the longest reach the turns that take a small miss out are learnt too slowly to
-        // beat the stall rule -- so without this a lay that solved last frame fails this one and is thrown to the
-        // longest reach instead, on 47 frames in 300 at 23 km. A search from nothing takes big turns and learns them.
+        // Once more from nothing before calling it out of reach: seeded near the longest reach, the turns are
+        // learnt too slowly to beat the stall rule (47 frames in 300 at 23 km).
         if (Vec.Len2(directionHint) > 0.0
             && TrySolveFlown(shooterPos, shooterVelocity, groundVelocity, groundAcceleration, bodyVelocity, targetPos,
                              targetVelocity, targetAccelerationEcl, targetDragShape, munition, gravityAt, densityAt,
@@ -402,9 +351,7 @@ public static class BallisticLead
         double far = 1.0;
         bool found = false;
 
-        // Resolved in metres, not in a share of the way: a gun reaching 1.5 km towards a place 2,000 km
-        // off has its whole reach under a thousandth of the way, and a search that stops there finds
-        // nothing at all.
+        // In metres, not a share of the way: 1.5 km of reach toward 2,000 km is under a thousandth.
         double resolution = Math.Min(ReachResolution, ReachResolutionMetres / Math.Max(Vec.Len(toTarget), 1.0));
         int halvings = Math.Min(MostReachHalvings, (int)Math.Ceiling(Math.Log2(1.0 / resolution)) + 2);
 
@@ -445,9 +392,7 @@ public static class BallisticLead
         return found;
     }
 
-    // A thousandth of the way, or 25 m where that is finer: 24 m at 24 km, inside what the fall scatters
-    // a shell by anyway. Each halving flies a shell, and an out-of-reach answer is reused for half a
-    // second, so the extra halvings a far place needs are paid when it moves rather than every frame.
+    // A thousandth of the way, or 25 m where that is finer: inside a shell's own scatter.
     private const double ReachResolution = 0.001;
     private const double ReachResolutionMetres = 25.0;
     private const int MostReachHalvings = 24;
@@ -519,10 +464,8 @@ public static class BallisticLead
         // or lift — held as it was measured, and turned with the body when its shape says it is turning.
         private readonly double3 _targetPush;
 
-        // Its drag as a coefficient on airspeed squared at sea-level density, so the deceleration it
-        // was measured with eases as it slows and thins as it climbs. Holding the deceleration itself
-        // put the Mk 42's bursts 152 m behind a coasting drone at 8.4 s, flown. Only read where there is
-        // no shape to compute the drag from.
+        // Its drag as a coefficient at sea-level density, where there is no shape: holding the deceleration
+        // put the Mk 42's bursts 152 m behind a coasting drone at 8.4 s.
         private readonly double _targetDrag;
 
         // The engine's own drag, off the body, which changes as the airflow turns against it. Holding the
@@ -592,10 +535,8 @@ public static class BallisticLead
             round = Vec.Zero;
             target = _targetOffset;
 
-            // A round the ground stops runs no clock while its path can only land, so it is followed as long as a
-            // shell leaving this fast could stay up under the pull here -- straight up, with margin for a round
-            // world, and air only shortens it. From Mars the longest reach is past three minutes, where following
-            // it for its two-minute life ended the gun's reach at 90 km. Anything else is followed for its life.
+            // A round the ground stops is followed as long as a shell this fast could stay up here, straight up
+            // with margin, not its life: from Mars the longest reach is past three minutes.
             double horizon = _munition.MaxFlightSeconds > 0f ? _munition.MaxFlightSeconds : DefaultHorizonSeconds;
             if (_munition.HitsTerrain)
             {
@@ -619,10 +560,8 @@ public static class BallisticLead
                     double part = Step * (closing / (closing - nextClosing));
                     State met = Advance(now, part);
 
-                    // Interpolated across a whole step, the meeting lands a hair early or late, and at a
-                    // head-on closing speed of 1,300 m/s a tenth of a millisecond is 0.13 m of miss along
-                    // the closing line -- which no turn of the barrel takes out, so the solve stalled
-                    // against it short of its tolerance. One straight-line closest approach removes it.
+                    // Interpolated across a step, the meeting is 0.13 m off along a 1,300 m/s closing line,
+                    // which no turn takes out; one straight-line closest approach removes it.
                     double3 apart = met.Round - met.Target;
                     double3 relative = met.RoundVelocity - met.TargetVelocity;
                     double early = -Vec.Dot(apart, relative) / Vec.Len2(relative);
@@ -681,17 +620,15 @@ public static class BallisticLead
             return Vec.IsFinite(wind) ? wind : Vec.Zero;
         }
 
-        // Where the round is t seconds in against the body as it was sampled, the frame's own acceleration
-        // included: the spin carries the mount 77 m toward the axis over a 72 s flight, 67 m of it down, and read
-        // without it the air is 0.8% thin where the shell is lowest -- metres of range at 23 km.
+        // Against the body as sampled, the frame's acceleration included: 67 m down over a 72 s flight,
+        // without which the air reads 0.8% thin -- metres of range at 23 km.
         private double3 Sampled(double3 offset, double t)
             => _mount + offset + (_frameSpin * t) + (_frameAcceleration * (0.5 * t * t));
 
         private double3 TargetAcceleration(double3 y, double3 w, double t)
         {
-            // Read where the frame began, unlike the round's: the target's acceleration was measured against the
-            // pull there, and what holds it up is held with it. Turning the pull alone walks a place on the
-            // ground away by as much as the round's own correction brings it back.
+            // Read where the frame began, unlike the round's: the target's acceleration was measured against
+            // the pull there, and turning the pull alone walks a place on the ground away.
             double3 pull = Pull(_gravityAt, _mount + y) - _frameAcceleration;
             double3 air = w - Wind(Sampled(y, t), t);
 

@@ -6,20 +6,14 @@
 #   ./tools/ksa-api-diff.sh ../ksa-game-assemblies              # vs the previous commit there
 #   ./tools/ksa-api-diff.sh ../ksa-game-assemblies HEAD~3       # vs a specific ref
 #   ./tools/ksa-api-diff.sh ../ksa-game-assemblies --members    # only the missing-member check
+#   ./tools/ksa-api-diff.sh ../ksa-game-assemblies --files      # only the changed-file check
 #
-# A KSA update changes thousands of lines across a quarter of a million. Almost none of it can
-# possibly affect this mod, which binds only to the members in docs/KSA-API-SURFACE.md. This
-# narrows the diff to the ones that can, and separately checks whether any member the mod
-# depends on has vanished outright.
+# Two questions:
 #
-# Two questions, because they fail differently:
-#
-#   1. Missing members - a member in the surface that no longer appears anywhere in its
-#      assembly. Mechanical, precise, and the same set the compiler would shout about, except
-#      you get it as a list before building rather than as cascading errors after.
-#   2. Changed files - the decompiled files defining the types the mod uses, that this update
-#      touched. This is the one the compiler cannot give you: a member that kept its name and
-#      signature and changed its behaviour compiles clean and is wrong at runtime. Read these.
+#   1. Missing members: a member in the surface no longer in its assembly -- what the compiler
+#      would report, as a list before building.
+#   2. Changed files: the decompiled files defining the types the mod uses that this update
+#      touched. A member that kept its name and signature and changed its behaviour shows only here.
 #
 set -euo pipefail
 
@@ -44,9 +38,7 @@ SRC="$TARGET/current/src"
 [[ -d "$SRC" ]] || { echo "error: no decompiled sources in $SRC" >&2
                      echo "       run ./tools/decompile-assemblies.sh $TARGET" >&2; exit 1; }
 
-# ---------------------------------------------------------------------------------------------
-# Parse the surface: "## Assembly" then "### Full.Type.Name" then "- `member`" lines.
-# ---------------------------------------------------------------------------------------------
+# The surface: "## Assembly" then "### Full.Type.Name" then "- `member`" lines.
 declare -A TYPE_ASM        # full type name -> assembly
 declare -A TYPE_MEMBERS    # full type name -> newline-separated member texts
 assembly=""; type=""
@@ -64,9 +56,6 @@ done < "$SURFACE"
 
 echo "surface: ${#TYPE_ASM[@]} types across the assemblies in $(basename "$SURFACE")"
 
-# ---------------------------------------------------------------------------------------------
-# 1. Members that no longer exist anywhere in their assembly.
-# ---------------------------------------------------------------------------------------------
 missing_report() {
     echo
     echo "=== members in the surface that are missing from the new corpus ==="
@@ -85,24 +74,19 @@ missing_report() {
             else
                 name="${member##* }"
             fi
-            # Constructors and operators are named by the language, not by KSA; a rename is not
-            # a thing that can happen to them.
+            # Constructors and operators are named by the language and cannot be renamed.
             [[ "$name" == .ctor || "$name" == .cctor || "$name" == op_* ]] && continue
 
-            # Properties and events reach IL as get_X/set_X/add_X/remove_X, but the decompiled
-            # C# says `public T X { get; set; }` - the accessor name appears nowhere. Searching
-            # for it reports every property this mod uses as missing.
+            # Accessors reach IL as get_X/set_X/add_X/remove_X, a name the decompiled C# never spells.
             case "$name" in
                 get_*|set_*)       name="${name#???_}" ;;
                 add_*)             name="${name#add_}" ;;
                 remove_*)          name="${name#remove_}" ;;
             esac
 
-            # Look in the type's own file first. ILSpy writes each type to <Namespace>/<Type>.cs,
-            # so that is where a declaration is; searching the whole assembly instead lets an
-            # unrelated *caller* elsewhere keep a deleted member looking alive. Fall back to the
-            # assembly only when the file cannot be located, so inherited members on a type whose
-            # declaration is never seen do not report as missing.
+            # The type's own file first (ILSpy writes <Namespace>/<Type>.cs): searching the whole
+            # assembly lets an unrelated caller keep a deleted member looking alive. The assembly is
+            # the fallback only when that file cannot be found.
             local leaf="${type##*.}"; leaf="${leaf%%+*}"
             local file
             file="$(find "$dir" -name "${leaf}.cs" -print -quit 2>/dev/null || true)"
@@ -127,9 +111,6 @@ missing_report() {
     (( found )) || echo "  none - every member this mod binds to still exists"
 }
 
-# ---------------------------------------------------------------------------------------------
-# 2. Decompiled files defining the types the mod uses, that changed in this update.
-# ---------------------------------------------------------------------------------------------
 changed_report() {
     local ref="$SINCE"
     if [[ -z "$ref" ]]; then

@@ -3,7 +3,6 @@ namespace KSArmory;
 /// <summary>What the frame hook should do about the world running faster than a round can fly.</summary>
 internal enum WarpAction
 {
-    /// <summary>Nothing to do.</summary>
     None,
 
     /// <summary>Ask the world to run slower, at <see cref="WarpDecision.Speed"/>.</summary>
@@ -19,7 +18,6 @@ internal enum WarpAction
     Abandon,
 }
 
-/// <summary>The action, the speed it needs, and something to say about it.</summary>
 internal readonly record struct WarpDecision(WarpAction Action, double Speed, string Why)
 {
     public static readonly WarpDecision Nothing = new(WarpAction.None, 0.0, "");
@@ -34,10 +32,8 @@ internal readonly record struct WarpDecision(WarpAction Action, double Speed, st
 /// they trail further behind every frame and the salvo reads as a guidance failure. Measured at
 /// 600x: closest approach 124 km, against 15-20 m unwarped.</para>
 ///
-/// <para>This is a control loop against an actuator that answers late and is shared with the
-/// player. See the constants for what each one is holding shut.</para>
-///
-/// <para>No KSA types: the caller supplies the speed and applies the answer.</para>
+/// <para>A control loop against an actuator that answers late and is shared with the player; each
+/// constant below says what it holds shut.</para>
 /// </summary>
 internal sealed class WarpPolicy
 {
@@ -57,17 +53,9 @@ internal sealed class WarpPolicy
     /// <summary>
     /// Longest wall-clock frame a frame <em>rate</em> may be inferred from.
     ///
-    /// <para><see cref="Margin"/>'s formula divides by the step to learn the frame time, which is
-    /// right for an ordinary frame and wrong for the one a speed change lands on: the engine has a
-    /// large change to absorb there and that frame is enormously long. Flown, a jump to 100x and a
-    /// jump to 800x both produced the same <b>1.5x</b> answer — only possible because the speed
-    /// cancels out, leaving <c>Margin x faithfulStep / frameTime</c>, and both had measured the
-    /// same <b>3.2 s</b> hitch. The world then sat at real time for the whole flight, because the
-    /// steps afterwards are far inside the limit and nothing looks again.</para>
-    ///
-    /// <para>A second of wall clock is not a frame rate on any machine that can run this, so a step
-    /// implying one is a hitch and is not decided on. Nothing is lost by waiting: the frame after it
-    /// is ordinary, and the answer from that one is the machine's.</para>
+    /// <para>The frame a speed change lands on is a hitch, and deciding on it pins the world near real
+    /// time for the whole flight: flown, jumps to 100x and to 800x both measured the same 3.2 s hitch
+    /// and both asked for 1.5x. A step implying a second or more is skipped; the next frame is ordinary.</para>
     /// </summary>
     public const double MaxPlausibleFrameSeconds = 1.0;
 
@@ -75,10 +63,8 @@ internal sealed class WarpPolicy
     /// <summary>
     /// Steps to let pass after a request lands before judging it.
     ///
-    /// <para>The step arriving on the frame a write takes effect still measures the interval
-    /// *before* it. Dividing by that again reduces on top of a reduction already in flight: 30x
-    /// becomes 9.9x and then straight on to 3.2x, and the pair repeats for as long as the salvo
-    /// lasts.</para>
+    /// <para>The step arriving on the frame a write takes effect still measures the interval before
+    /// it; judged on that, 30x went to 9.9x then 3.2x and oscillated for the whole salvo.</para>
     /// </summary>
     public const int SettleSteps = 1;
 
@@ -92,9 +78,8 @@ internal sealed class WarpPolicy
     /// <summary>
     /// Times something else may raise the speed while it is held before the mod stops competing.
     ///
-    /// <para>The player's warp control and KSA's auto-warp both write the same field this does.
-    /// Fighting them frame by frame is a loop neither side wins, and the mod is the one that
-    /// should stand down — it is the guest.</para>
+    /// <para>The player's warp control and KSA's auto-warp write the same field; trading writes
+    /// frame by frame is a loop neither side wins, so the mod stands down.</para>
     /// </summary>
     public const int OverridesBeforeYielding = 2;
 
@@ -118,25 +103,15 @@ internal sealed class WarpPolicy
     /// <summary>True once this salvo has given up competing for the speed control.</summary>
     public bool Yielded => _yielded;
 
-    /// <summary>
-    /// Decides what the frame hook should do, given the step the engine just reported.
-    /// </summary>
     /// <param name="dtSim">Simulated seconds in the step just taken.</param>
-    /// <param name="currentSpeed">The world's timewarp factor right now.</param>
-    /// <param name="roundsInFlight">Whether anything is airborne that has to be integrated.</param>
-    /// <param name="enabled">The player's setting; false disables the whole mechanism.</param>
     /// <param name="faithfulStep">
-    /// Longest step the rounds in the air can be integrated across, which is the smallest such
-    /// step among them. Defaults to the interceptor's, which is what a hard-manoeuvring endgame
-    /// round needs; a ballistic weapon can take far longer ones and holding the world down to
-    /// this for a flight lasting minutes is what trips the abandon guard below.
+    /// Longest step the rounds in the air can be integrated across, the smallest among them.
+    /// Defaults to the interceptor's; a ballistic weapon can take far longer ones.
     /// </param>
     /// <param name="autoWarpRunning">
-    /// Whether KSA is running its own warp-to-a-time. It refuses a speed change outright while one
-    /// is, and from here that refusal is indistinguishable from a slow write — which is what the
-    /// abandon guard below counts. So nothing is asked for and nothing is counted: the rounds take
-    /// whatever step the warp hands out, which is the same trade
-    /// <c>Ksa/Icbm/IcbmComputers.cs</c> already makes for a holding burn.
+    /// Whether KSA is running its own warp-to-a-time, which refuses any speed change. Nothing is then
+    /// asked or counted and the rounds take the warp's step, as <c>Ksa/Icbm/IcbmComputers.cs</c> does
+    /// for a holding burn.
     /// </param>
     public WarpDecision Decide(double dtSim, double currentSpeed, bool roundsInFlight, bool enabled,
                                double faithfulStep = Interceptor.MaxFaithfulStep,
@@ -150,10 +125,8 @@ internal sealed class WarpPolicy
             return WarpDecision.Nothing;
         }
 
-        // Asking is refused and the refusal cannot be told from a slow write, so the guard would
-        // count to FramesAwaitingWrite and abandon everything in the air — which deletes a store
-        // released high and then warped to. Whatever was already asked for is dropped rather
-        // than left pending, or the count resumes where it left off when the warp ends.
+        // The refusal cannot be told from a slow write, so counting it would abandon a store released
+        // high and warped to. A pending request is dropped, or the count resumes when the warp ends.
         if (autoWarpRunning)
         {
             _awaitingWrite = false;
@@ -161,8 +134,7 @@ internal sealed class WarpPolicy
             return WarpDecision.Nothing;
         }
 
-        // Once stood down, stay down until the air is clear. Otherwise the next overrunning frame
-        // simply restarts the fight.
+        // Stay down until the air is clear, or the next overrunning frame restarts the fight.
         if (_yielded) return WarpDecision.Nothing;
 
         if (Holding)
@@ -201,31 +173,19 @@ internal sealed class WarpPolicy
             }
         }
 
-        // Note what is *not* reset here. A step inside the limit is exactly what the fight against
-        // another writer produces -- the requested value lands, one good frame passes, the speed
-        // goes back up -- so clearing the override count on it means the count never reaches its
-        // threshold. The budget is per salvo and only Release clears it.
+        // The override count is not cleared on a step inside the limit: the fight against another
+        // writer produces exactly those, so it would never reach its threshold. Only Release clears it.
         if (dtSim <= faithfulStep) return WarpDecision.Nothing;
 
-        // Not on a hitch. The frame a speed change lands on is worth seconds of wall clock, and the
-        // rate inferred from it is the hitch rather than the machine -- see MaxPlausibleFrameSeconds.
+        // See MaxPlausibleFrameSeconds.
         if (dtSim / currentSpeed > MaxPlausibleFrameSeconds) return WarpDecision.Nothing;
 
-        // Self-calibrating: the frame time is dtSim/currentSpeed, so the speed that lands on the
-        // target step needs no knowledge of the frame rate. That also makes a slow frame and a
-        // high warp the same problem, which to a round they are.
+        // The frame time is dtSim/currentSpeed, so this needs no knowledge of the frame rate.
         double target = currentSpeed * (faithfulStep * Margin) / dtSim;
 
-        // Never below real time. A round that would rather the world ran slower than the player's
-        // own clock does not get it: the mod is a guest, and a game that crawls is a worse thing to
-        // hand somebody than a round integrated on a longer step. Where the two conflict, the round
-        // takes the coarser step and the accuracy that comes with it.
-        //
-        // Deliberately NOT rate-limited on top of this. Capping how much one decision may take
-        // costs the contract the tests below pin -- that the speed asked for lands inside the limit
-        // -- and an interceptor converging over several decisions spends every one of them stepping
-        // past its own fuse. The hitch guard above is the targeted fix; a cap would be a second,
-        // blunter one that weakens a guarantee to cover the same case.
+        // Never below real time: where they conflict the round takes the coarser step. Not rate-limited
+        // either: a cap breaks the contract that the speed asked for lands inside the limit, and an
+        // interceptor converging over several decisions steps past its fuse on each.
         target = Math.Max(target, RealTime);
 
         if (!double.IsFinite(target) || target <= 0.0 || target >= currentSpeed)
@@ -247,20 +207,9 @@ internal sealed class WarpPolicy
     }
 
     /// <summary>
-    /// Tell the policy that <em>this mod</em> just set the world speed, so the next cycle reads it
-    /// as where it is starting from rather than as somebody to fight.
-    ///
-    /// <para><b>The yield is for other writers, and the mod became one.</b> It stands the policy
-    /// down after <see cref="OverridesBeforeYielding"/> raises it did not ask for — written for the
-    /// player's control and KSA's auto-warp, which are not arguments the guest should win. A
-    /// deliberate request from inside the mod looks identical from here and is not the same thing.
-    /// </para>
-    ///
-    /// <para>The cost of confusing them is not one frame. <c>_yielded</c> is cleared only by
-    /// <see cref="Release"/>, which needs an empty sky, and a salvo of eight staggered rockets never
-    /// gives it one — so a single spurious yield stands the policy down for the whole flight.
-    /// Measured over 12 shots: 9 yielded, and in every one of them warheads landed on frames of 117
-    /// to 267 ms against 18 to 33 for the 3 that held.</para>
+    /// Tells the policy that <em>this mod</em> just set the world speed, so it is not counted as an
+    /// override. A yield lasts until the sky is empty, which a staggered salvo never gives it: over
+    /// 12 shots, 9 yielded and landed warheads on 117-267 ms frames against 18-33 ms for the 3 that held.
     /// </summary>
     public void NoteOurOwnRequest(double speed)
     {

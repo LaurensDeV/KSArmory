@@ -5,11 +5,9 @@ namespace KSArmory;
 /// <summary>
 /// Whether a tracking radar has lost a target to chaff, which is what notching is.
 ///
-/// <para>A tracking set holds its target in a range gate and a velocity gate. A target flying square to
-/// the line of sight has almost no Doppler, and neither has chaff that has stopped in the air; with a
-/// bigger chaff return in the same resolution cell, the set cannot tell the two apart and its gates
-/// walk onto the cloud. Off the beam the chaff's Doppler is hundreds of m/s from the target's, and
-/// nothing happens. Both conditions are geometry, so the break is decided rather than rolled.</para>
+/// <para>A target flying square to the line of sight has almost no Doppler, nor has chaff stopped in the
+/// air; with a bigger chaff return in the same cell the set's gates walk onto the cloud. Both conditions
+/// are geometry, so the break is decided rather than rolled.</para>
 ///
 /// <para>A broken track takes <see cref="SensorProfile.ChaffReacquireSeconds"/> to be found again. A set
 /// with an optical channel then holds it on the camera for as long as the target stays in the notch,

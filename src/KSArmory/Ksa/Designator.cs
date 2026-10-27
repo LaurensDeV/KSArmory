@@ -4,16 +4,8 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
-/// Point at the world and shoot at that spot — an operator naming a place instead of the radar
-/// naming a craft.
-///
-/// <para>This is the only way to engage something the sensor cannot supply: terrain, a spot
-/// ahead of a target, or anything the threat model rejects for being too slow or too cold. A
-/// designation carries no allegiance and no track, so the IFF and liveness gates are not skipped
-/// so much as inapplicable — <see cref="WeaponSystem.FireAt"/> says which gates still run.</para>
-///
-/// <para>Per system rather than per session, like every other tool that acts on one
-/// installation: two sites in the same world are aimed by different people at different things.</para>
+/// Click the world to shoot at that spot, with no track: the IFF and liveness gates do not apply, and
+/// <see cref="WeaponSystem.FireAt"/> says which gates still run. Per system, not per session.
 /// </summary>
 internal sealed class Designator
 {
@@ -32,18 +24,14 @@ internal sealed class Designator
 
         // A click on the panel is not a click on the world behind it.
         if (ImGui.GetIO().WantCaptureMouse) return;
-        // Shift is the designate gesture, so a shift-click is not a click on the world.
-        // Without this, locking a target while this tool is on also sends a round at it.
+        // Shift-click designates; without this it would also send a round.
         if (ImGui.GetIO().KeyShift) return;
 
         if (!ImGui.IsMouseClicked(ImGuiMouseButton.Left, repeat: false)) return;
 
         if (!KsaWorld.TryCursorGroundPoint(out double3 groundEcl, out _, out _, out _))
         {
-            // Nothing under the cursor is not a reason to hold fire. A gun shoots where it is
-            // pointing rather than at a named place, and the sky is where most of its targets are:
-            // requiring a ground hit would leave the CIWS unable to fire at anything above the
-            // horizon, which is the one thing a CIWS is for.
+            // A gun shoots where it points, and over sky there is no ground to name.
             if (system.TriggerArmament == ArmamentKind.Belt) system.FireBurst();
             return;
         }
@@ -65,12 +53,8 @@ internal sealed class Designator
 
         double3 at = Lifted(groundEcl, system);
 
-        // Coloured by whether the weapon could take the shot, because loaded and laid, in range and
-        // within the seeker's reach are three refusals that all look like a click doing nothing.
-        // The last is the least obvious: a fixed launcher can only shoot where it points.
-        //
-        // Asked of the armament the trigger fires. Reading the magazine leaves a gun marked refused
-        // forever, since a belt is not a magazine.
+        // Coloured by whether the shot would go: loaded and laid, in range, and within the seeker's
+        // reach. Asked of the trigger's armament, because a belt is not a magazine.
         bool ready = system.ReadyToFire;
         double range = system.Platform is null ? 0.0 : Vec.Len(at - system.PlatformEcl);
         bool reaches = range <= system.TriggerMunition.MaxRange;

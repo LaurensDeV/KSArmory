@@ -15,8 +15,9 @@ What is thin is the **first second** and the **last minute**.
 
 Nearly every signature that makes a burst read as *nuclear* rather than as a large explosion lives
 in the first second: the double thermal pulse, the shock front going opaque and then transparent
-again, the condensation ring, the fireball becoming the thing that rises. The mod draws one flash
-that decays, and a ball that contracts into its own smoke.
+again, the condensation ring, the fireball becoming the thing that rises. When this list was
+written the mod drew one flash that decayed, and a ball that contracted into its own smoke; items 1
+and 4 have since built the double pulse and the ball becoming the cap.
 
 And a real cloud does not fade where it stood. It drifts, it spreads under the tropopause, and its
 fallout runs downwind for tens of kilometres. The mod's cloud leans in a wind that never moves it.
@@ -178,9 +179,9 @@ the trough, 148 at the second maximum.
 
 ### 2. Blinded only if you are looking at it — built
 
-`Ksa/BurstFlash.cs` takes the eye's **position**, for the solid angle, and throws the **direction**
-away — `TryMainCameraPose(out double3 eyeEcl, out _)`. So a burst directly behind the camera whites
-the screen out exactly as one dead ahead does.
+`Ksa/BurstFlash.cs` took the eye's **position**, for the solid angle, and threw the **direction**
+away, so a burst directly behind the camera whited the screen out exactly as one dead ahead did. It
+reads both now (`TryMainCameraPose(out eyeEcl, out forwardEcl)`).
 
 `Sim/FlashGlare.cs`. Full while the burst is in frame, then a smoothstep to a floor, and the field
 is the view's own so the sight's three-degree frame is judged as three degrees.
@@ -314,7 +315,8 @@ What follows is the case for it, kept because it is why the constants are what t
 kilotonne one. Real clouds hit the tropopause and spread **sideways** — Castle Bravo's was about
 100 km across against 40 km tall, which is wider than it was tall.
 
-`DrawnCapWidening = 1.9` is a constant standing in for this at every yield, and says so. A real
+`DrawnCapWidening = 1.9` stood in for this at every yield; it now holds only up to Bravo and eases to
+`TsarCapWidening` (0.6) past it. A real
 tropopause with the cap spreading *under* it would make the yield readable from the silhouette
 instead of only from the scale, which is the one thing a player cannot currently judge.
 
@@ -374,7 +376,20 @@ of a frame whose whole left half was in shadow anyway. The honest number is the 
 mean over the ground it covers at the first shape, 19.8 at the shipped one, peaking at 58 which is
 the same darkening the crater itself reaches.
 
-### 8. A rumble, not a bang — built, and not yet heard
+### 8. A rumble, not a bang — built, and heard
+
+**Since 2026-10-25 the bang is a recording**, not Core's `ExplosionBig`, and was heard in game on 2026-10-27: the Upshot-Knothole ANNIE
+film's, 16 kt heard from about 10.7 km, with the hiss and a scream over its tail taken out
+(`tools/annie-sounds.py`), so the paragraphs below about Core's three layers describe what it
+replaced. It is pitched only down, for a burst bigger than ANNIE's 16 kt: what it sounds like is mostly
+the 10.7 km it crossed, which no yield changes, and played faster for the B61 it was a thin thud. What
+the distance took off it is put back close in by **Core's own close crack**, its first layer alone, told
+the range on Core's `Distance` parameter scaled by the cube root of the yield (`MushroomCloud.CrackDistance`),
+so it is full within 100 m of a 0.3 kt burst and gone by a kilometre. And FMOD is given the burst's
+velocity against the camera, as KSA's own explosions give it: given its ecliptic one, a bang past the
+500 m where it is fully 3D was Dopplered to a thud or to nothing, which the old bang hid in its echo. Beside it, the film's other sound: the recording
+equipment picking up the flash, played at the instant of the burst wherever it is heard
+(`BurstHearing.PickupLoudness`).
 
 **The rumble was already there.** Core's `ExplosionBig` is a crack, a distance-filtered far report
 and a **10.6–10.8 s** echo layer whose spatial data turns non-directional between one and ten
@@ -415,10 +430,12 @@ standing still, no smear and no doubled edge; at 360 deg/s — a whip-pan — th
 away rather than dragged, and what shows is a single frame's grain, speckled at the edges. It never
 ghosts.
 
-The march is 48 steps on a per-pixel hash, and grain is what limits it. Interleaved gradient noise
-was tried in its place and reverted, because it is built to be resolved by temporal accumulation
-and there is none here. Accumulating across frames buys either half the cost or twice the quality,
-and is the only thing that does.
+The march is at most 48 steps, spaced at the bound's diameter over 48 so the count follows the
+chord, and starts each ray on a per-pixel hash moved every frame by the golden ratio;
+`Shaders/KSArmoryCloudResolve.comp` blends each frame into the reprojected history at
+`NewShare` 0.125, clamped to the neighbourhood. Grain is still what limits the march, and only more
+samples remove it — these are last frame's. Interleaved gradient noise was tried for the dither and
+reverted, before the march had a history to resolve it; it is not recorded as tried since.
 
 ### 10. Water bursts — the surface and the deep built; the shallow one is not
 
@@ -471,9 +488,9 @@ would reuse the claim ladder and the zoom that already exist.
 
 ### 12. A crater
 
-Probably blocked. The height field is GPU-side; `docs/DAMAGE-DECALS.md` records that ground clutter
-placement is entirely on the GPU and that the readback path is never constructed in a shipping
-build. Worth re-checking after a KSA update rather than planning around.
+Probably blocked. The height field is GPU-side. `docs/DAMAGE-DECALS.md` §2 recorded that ground
+clutter placement had no CPU readback; on 2026.10.19.5638 it has one, so that part no longer argues
+for or against a crater. Worth re-checking after a KSA update rather than planning around.
 
 ---
 

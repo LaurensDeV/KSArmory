@@ -7,13 +7,15 @@ mushroom cloud actually looks like. This is the result, kept because re-deriving
 **Route A shipped and has been retired.** The cloud is raymarched now — `Ksa/CloudPass.cs`, a
 compute pass of this mod's own inside KSA's frame, cheaper than the pens it replaced and lit by the
 engine's own atmosphere. *What was built* is kept because it is where every dimension in the shape
-was calibrated and why, and the raymarch reads the same `MushroomCloud.Shape`; only the drawing
-changed. *The raymarched cloud* at the end is the one that ships.
+was calibrated and why, and the raymarch reads the same shape (`MushroomCloud.At` returns a
+`Shape`); only the drawing changed. This file has no section on the raymarch: `Ksa/CloudPass.cs`
+and `Shaders/KSArmoryCloud.comp` are the drawing, `docs/NUKE-VFX-PHASE0.md` the route there.
+`Ksa/Fireball.cs` is now the fireball's light alone; the ball is drawn by the cloud pass.
 
-**Its geometry has been deleted with it** — `CapPoint`, the lobed rings, the stroke pitch, the
-skirt tube, the lean and everything that only ever placed a pen, with the twenty tests that were
-the last thing keeping them alive. What is left of `MushroomCloud` is what the raymarch and the
-fireball read: the size laws, the tracked climb, `Shape`, the flash and the ember. 887 lines to 569.
+**Its geometry has been deleted with it** — `CapPoint`, `Lobe`, `PhaseOffset`, `LeanAt`, the
+skirt tube and everything that only ever placed a pen, with their tests
+(`ALobedRingStillCloses`, `TheCapStaysOverTheColumn` among them). Where *What was built* below names
+those, or `Ksa/NuclearClouds.cs` walking pens, it describes deleted code.
 
 The sections below are kept as the record of where those dimensions came from and why, because the
 raymarch draws the same `Shape` and the calibration is still the calibration. The pen walk records

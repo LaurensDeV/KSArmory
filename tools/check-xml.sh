@@ -4,12 +4,8 @@
 #
 #     ./tools/check-xml.sh
 #
-# KSA reports a malformed asset file as the part simply not existing, with nothing in its log
-# tying that back to a stray angle bracket. This is the cheapest check in the repository and it
-# covers the failure that is hardest to read from the game.
-#
-# validate-parts.py checks what the XML *says*; this only checks that it can be read at all, so
-# it stays useful when the game is not installed.
+# KSA reports a malformed asset file as the part not existing, with nothing in its log pointing at
+# the XML. validate-parts.py checks what the XML says; this only that it parses.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

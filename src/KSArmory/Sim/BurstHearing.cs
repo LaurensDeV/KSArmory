@@ -26,6 +26,27 @@ internal static class BurstHearing
     public static double Loudness(double pascals)
         => Heard(pascals) ? Math.Min(1.0, Math.Sqrt(pascals / LoudPascals)) : 0.0;
 
+    /// <summary>The yield and range the equipment's pickup was recorded at: ANNIE, 16 kt from 10.7 km.</summary>
+    public const double PickupReferenceKt = 16.0;
+    public const double PickupReferenceMetres = 10_700.0;
+
+    /// <summary>The faintest pickup played, as a share of the recording's own level.</summary>
+    public const double FaintestPickup = 0.05;
+
+    /// <summary>
+    /// How loud the equipment's pickup of the flash is, from nothing to one: as recorded at ANNIE's
+    /// range scaled by the cube root of the yield, falling as one over the range past it -- a choice,
+    /// not a field law -- and nothing fainter than <see cref="FaintestPickup"/>.
+    /// </summary>
+    public static double PickupLoudness(double yieldKt, double rangeMetres)
+    {
+        if (!(yieldKt > 0.0) || !(rangeMetres >= 0.0)) return 0.0;
+
+        double reach = PickupReferenceMetres * Math.Cbrt(yieldKt / PickupReferenceKt);
+        double loudness = Math.Min(1.0, reach / Math.Max(rangeMetres, 1.0));
+        return loudness >= FaintestPickup ? loudness : 0.0;
+    }
+
     /// <summary>
     /// Whether the front reached the ear this step: it was short of the range and now is not. The front
     /// is followed live rather than timed from the burst, so an ear that moves hears it when it arrives.

@@ -1,10 +1,10 @@
 #version 450
 
 // Gun rounds: a tracer as a glowing segment added into the scene before bloom, so a bright core
-// blooms like any other light, and a round with no tracer as a faint grey streak of its own width
-// with no halo -- a negative brightness. One dispatch over every tracer on screen: the segments arrive projected, in
-// pixels, from ShellTracers, and each workgroup first gathers the ones that can reach its tile so a
-// pixel tests only its neighbours rather than the whole stream.
+// blooms like any other light, and a round with no tracer, sent as a negative brightness, as a faint
+// grey streak of its own width with no halo. One dispatch over every round on screen: the segments
+// arrive projected, in pixels, from ShellTracers, and each workgroup first gathers the ones that can
+// reach its tile so a pixel tests only its neighbours rather than the whole stream.
 //
 // Bindings follow ComputePipelineWrapper's order: the storage image, the depth it samples, then the
 // storage buffer of segments.

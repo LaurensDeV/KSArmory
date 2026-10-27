@@ -5,22 +5,12 @@ namespace KSArmory;
 /// <summary>
 /// What this mod costs the frame, split by the work that costs it.
 ///
-/// <para><b>Frame time is the only thing that buys simulation rate</b> — the engine advances the
-/// world by at most a thirtieth of a second per frame, so <c>sim rate = 33.3 ms / frame time</c>
-/// (<c>docs/METRE-LEVEL.md</c> §5). <see cref="SolverLoad"/> already says what the frame costs in
-/// total and what the engine's own vehicle solver took of it; on eight rockets those were 78.7 ms
-/// and 13–20, leaving about sixty milliseconds belonging to nobody.</para>
+/// <para><b>Frame time is the only thing that buys simulation rate</b>: the engine advances the world
+/// by at most a thirtieth of a second per frame (<c>docs/METRE-LEVEL.md</c> §5). This is the mod's
+/// side of <see cref="SolverLoad"/>'s subtraction, every span measured rather than suspects ablated.</para>
 ///
-/// <para><b>Three mod-side suspects were eliminated by turning them off one at a time</b>, which
-/// is not the same as measuring the mod. An ablation can only clear the things somebody thought
-/// of, and it clears them one at a time against a number that moves by itself. This measures every
-/// span instead, so what is left over is genuinely the engine's rather than merely unattributed.
-/// </para>
-///
-/// <para>Cheap enough to leave on: two timestamp reads per span, a dictionary add, and a string
-/// built once every <see cref="ReportIntervalSeconds"/>. It reports the <b>worst</b> frame beside
-/// the mean, because a cost that arrives on one frame in thirty is what a mean hides and what a
-/// player feels.</para>
+/// <para>Cheap enough to leave on. It reports the <b>worst</b> frame beside the mean, because a cost on
+/// one frame in thirty is what a mean hides and what a player feels.</para>
 /// </summary>
 internal sealed class FrameBudget
 {
@@ -48,10 +38,8 @@ internal sealed class FrameBudget
     /// <param name="top">
     /// Whether this span is one of the outermost, and so counts toward the frame's total.
     ///
-    /// <para><b>Spans nest</b> — the GUI pass contains the panel, the simulation contains the
-    /// ballistic computers — so summing all of them counts the inner ones twice and reports a mod
-    /// costing more of the frame than it does. Only the outermost are added up; the rest are
-    /// detail about where an outer one went.</para>
+    /// <para><b>Spans nest</b>, so only the outermost are added up; summing all of them counts the
+    /// inner ones twice.</para>
     /// </param>
     public Span Measure(string name, bool top = false) =>
         new(this, name, Stopwatch.GetTimestamp(), top);

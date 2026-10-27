@@ -6,11 +6,9 @@ namespace KSArmory.Tests;
 /// <summary>
 /// What a weapons system says it is fitted with, which is what the panel draws itself from.
 ///
-/// <para>The shapes here are deliberately not the two the mod ships: a launcher with no tubes, one
-/// with nothing that moves, one with no sensor and one whose magazine is deeper than its tubes.
-/// The point of a description is that a system nobody has built yet can be described by it, and a
-/// suite that only asks about the Pantsir cannot tell that apart from a description that happens
-/// to fit the Pantsir.</para>
+/// <para>The shapes here are deliberately invented: a launcher with no tubes, one with nothing that
+/// moves, one with no sensor and one whose magazine is deeper than its tubes. A suite that only asks
+/// about what ships cannot tell a description from one that happens to fit it.</para>
 /// </summary>
 [Collection("catalogue")]
 public class WeaponFitTests
@@ -67,8 +65,6 @@ public class WeaponFitTests
         GunAmmo = 1550,
     };
 
-    // ---- What a system carries -----------------------------------------
-
     [Fact]
     public void AMixedMountListsBothArmamentsInFiringOrder()
     {
@@ -124,8 +120,6 @@ public class WeaponFitTests
         Assert.Equal("Bombs", WeaponFit.Of(Rail("Bombs"), Sensor()).Armaments[0].Label);
     }
 
-    // ---- Capacity -------------------------------------------------------
-
     /// <summary>
     /// A belt-fed launcher carries far more rounds than it has barrels, and the panel counts down
     /// from what the magazine was filled with. Reading the tube count instead says "1550/2".
@@ -148,8 +142,6 @@ public class WeaponFitTests
         Assert.Equal(2, WeaponFit.MagazineCapacity(Weapon(magazineDepth: 2)));
         Assert.Equal(2, WeaponFit.MagazineCapacity(Weapon(magazineDepth: 0)));
     }
-
-    // ---- What a system can be told to do --------------------------------
 
     [Fact]
     public void AFullBatteryAnswersYesToEveryFaculty()
@@ -209,8 +201,6 @@ public class WeaponFitTests
         Assert.Equal(1, fit.SalvoCapacity);
     }
 
-    // ---- What the panel prints ------------------------------------------
-
     [Fact]
     public void AnArmamentReadsAsWhatIsLeftAgainstAFullLoad()
     {
@@ -220,8 +210,6 @@ public class WeaponFitTests
         Assert.Equal("Missiles: 1/2", fit.Armaments[0].Describe(1, firing: false));
         Assert.Equal("Cannon: 300/480 FIRING", fit.Armaments[1].Describe(300, firing: true));
     }
-
-    // ---- The switch each armament answers to ----------------------------
 
     [Fact]
     public void EachArmamentDrivesItsOwnSwitchAndNotTheOther()
@@ -236,8 +224,6 @@ public class WeaponFitTests
         Armament.EnabledIn(policy, fit.Armaments[1].Kind) = false;
         Assert.False(policy.GunsEnabled);
     }
-
-    // ---- Against what the mod actually ships -----------------------------
 
     /// <summary>
     /// Every registered system describes itself as carrying something. A launcher that shoots
@@ -261,12 +247,8 @@ public class WeaponFitTests
         }
     }
 
-    // ---- Against the systems the mod actually registers ------------------
-    //
-    // The shapes above are invented, on purpose: a description that only fits what ships is not a
-    // description. These run the same builder over the real registry, which is the half that
-    // catches a profile whose fields say something the panel cannot render.
-
+    // The same builder over the real registry: the half that catches a profile whose fields say
+    // something the panel cannot render.
     [Fact]
     public void EveryRegisteredSystemIsDescribedBySomethingItCanShoot()
     {

@@ -4,13 +4,8 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Spawns a drone on a timed pass over the system, so the system can be exercised without
-/// building a second craft and flying it into position by hand.
-///
-/// Drones fly one of KSA's stock craft by default, so the thing being shot at is recognisably
-/// a separate vessel rather than another copy of the launcher. They are placed on a course
-/// computed backwards from the moment of closest approach, so "30 seconds out at 300 m/s"
-/// means exactly that.
+/// Spawns a drone on a timed pass over the system. The course is computed backwards from the
+/// moment of closest approach, so "30 seconds out at 300 m/s" means exactly that.
 /// </summary>
 internal static class TestTarget
 {
@@ -43,10 +38,7 @@ internal static class TestTarget
         PassingBy,
     }
 
-    /// <summary>
-    /// Creates the drone. Returns null and logs if anything in the spawn chain fails - this is
-    /// a testing aid, so it must never take the game down with it.
-    /// </summary>
+    /// <summary>Null, logged, if anything in the spawn chain fails: a testing aid must not throw.</summary>
     /// <param name="platform">The vehicle carrying the system.</param>
     /// <param name="secondsToClosestApproach">Flight time from spawn to the pass.</param>
     /// <param name="speed">Drone speed relative to the platform (m/s).</param>
@@ -82,15 +74,11 @@ internal static class TestTarget
             double3 originVel = KsaWorld.VelocityEcl(platform);
             double3 up = KsaWorld.LocalUp(platform);
 
-            // Build the approach in world space. `heading` is the direction the drone travels, and
-            // the pass is offset square to the bearing it comes in on.
             double3 azimuth = Vec.Len2(bearing) > 0.0 ? Vec.Unit(bearing) : ApproachBearing(platform);
             double3 north = Vec.Cross(up, azimuth);
 
-            // Spawn by elevation angle rather than flying a level track. A level pass computed
-            // from range alone starts the drone at ~9 degrees elevation, which is both outside
-            // the radar cone (measured off local up) and deep in dense air, where a blunt
-            // 185 kg craft sheds its speed in seconds. Starting high fixes both.
+            // By elevation angle, not a level track: a level pass starts at ~9 degrees elevation,
+            // outside a radar cone measured off local up and deep in air that sheds its speed.
             double elevationDeg = profile switch
             {
                 Profile.HeadOn => 75.0,     // steep dive onto the site
@@ -108,8 +96,6 @@ internal static class TestTarget
             double t = secondsToClosestApproach;
             double spawnRange = speed * t;
 
-            // Direction from the system to the spawn point: elevation above the horizon,
-            // azimuth around it.
             double elev = double.DegreesToRadians(elevationDeg);
             double3 spawnDir = up * Math.Sin(elev) + azimuth * Math.Cos(elev);
 
@@ -119,19 +105,8 @@ internal static class TestTarget
             // that the requested speed still lands the timing.
             double3 heading = Vec.Unit(closestPointEcl - spawnEcl);
 
-            // Solve the ballistic problem rather than just aiming the velocity: without this the
-            // drone falls ~18 km over a 60 s run and buries itself in the terrain long before
-            // arriving. For displacement d over time t under gravity g,
-            //     d = v0*t + 0.5*g*t^2   =>   v0 = d/t - 0.5*g*t
-            // which is an upward bias, since g points down. Inheriting the platform's velocity
-            // also carries the site's rotation, leaving only ~60 m of centripetal drift over a
-            // minute - close enough for a test target.
-            //
-            // This is a *vacuum* solution and KSA models atmosphere, so the drone sheds speed on
-            // the way down and lands short of
-            // the aim point, by a few km on a shallow pass. Steeper profiles (HeadOn) are much
-            // less affected, and the miss is harmless for testing: the drone still flies a real
-            // trajectory through the radar's volume.
+            // v0 = d/t - g*t/2, or the drone falls ~18 km over a 60 s run. A vacuum solution, so
+            // in air it arrives short, a few km on a shallow pass, still through the radar volume.
             double3 gravity = KsaWorld.GravityAt(platform, spawnEcl);
             double3 spawnVelEcl = originVel + heading * speed - gravity * (0.5 * t);
 
@@ -163,10 +138,8 @@ internal static class TestTarget
             Log.Debug($"  orbit: pe = {orbit.Periapsis / 1000.0:F1} km, ap = {orbit.Apoapsis / 1000.0:F1} km, " +
                      $"ecc = {orbit.Eccentricity:F4}");
 
-            // Held from the parts until the drone is placed. Building a vehicle mutates the shapes
-            // registry, the vehicle worker holds that for its whole run, and a hook of this mod can
-            // land inside the run. Racing it builds half a vehicle, which the game does not survive;
-            // this waits the run out instead, at the cost of one worker step on a button press.
+            // Building a vehicle mutates the shapes registry, which the vehicle worker holds for its
+            // whole run and a hook of this mod can land inside; racing it builds half a vehicle.
             using ShapesUnlock shapes = ConstraintSim.UnlockShapesBlocking();
 
             DroneBlueprint blueprint = BuildDroneParts(platform, craftName);
@@ -174,33 +147,15 @@ internal static class TestTarget
             string id = $"AD Test Drone {++_counter}";
             Vehicle drone = CreateDroneVehicle(blueprint, system, platform, parent, id, orbit, bodyRates);
 
-            // Constructing the Vehicle is not enough to put it in the world: without this,
-            // CelestialSystem.UpdatePerFrameData never walks it, so its cached Ecl position stays
-            // at the frame origin and it neither moves nor can be seen. A bubble it does not need
-            // - Universe.PrepareVehicleWorkers collects every vehicle in no bubble and
-            // VehicleUpdateTask.AssignOrphanVehicles gives it one before the step it was found on.
+            // Without this CelestialSystem.UpdatePerFrameData never walks it and it sits at the
+            // frame origin. No bubble is needed: AssignOrphanVehicles gives it one on the next step.
             parent.Children.Add(drone);
 
-            // Work out how big it is.
-            //
-            // Vehicle.MeanRadius is BoundingSphereRadiusBody, which only ever gets set by
-            // UpdateCollisionGeometry, which is private and reachable only through this call.
-            // A vehicle assembled here and never handed through it keeps a radius of zero - and
-            // the camera scales its zoom by MeanRadius, so such a drone cannot be zoomed in or
-            // out at all. It also feeds the flight plan's impact clearance margin.
-            //
-            // KSA's own runtime spawn path reaches this the same way, after the part tree is
-            // attached; a vehicle assembled here has to ask for it explicitly.
+            // MeanRadius stays zero until UpdateAfterPartTreeModification recomputes it, and the
+            // camera's zoom scales by it.
             try
             {
-                // Rebuild the part tree's derived data, then the vehicle's, in that order: the
-                // second reads the SubstanceStores and inert mass properties the first rebuilds.
-                // Between them they are what a tree assembled from a save has never been through.
-                //
-                // Neither bears on whether the drone can be *controlled*: RecomputeAllDerivedData
-                // rebuilds substance stores, static mass, motor stacks and seats, and never
-                // touches Controls. Controllability is a matter of class, not of cache - see
-                // CreateDroneVehicle.
+                // In this order: the second reads the stores and mass properties the first rebuilds.
                 drone.Parts.RecomputeAllDerivedData();
                 drone.UpdateAfterPartTreeModification();
             }
@@ -210,20 +165,15 @@ internal static class TestTarget
                          + "the camera will not zoom on it");
             }
 
-            // What the camera needs, logged rather than assumed. Zoom scales by MeanRadius and is
-            // stored per craft in OrbitView.DistancePower, so a spawned drone that cannot be
-            // zoomed has one of the two wrong.
+            // Zoom scales by MeanRadius and is stored per craft in OrbitView.DistancePower, so a
+            // drone that cannot be zoomed has one of the two wrong.
             try
             {
                 double radius = drone.MeanRadius;
                 var view = drone.OrbitView;
-                // INFO, not DEBUG: it fires once per spawn, and it is the number that decides
-                // whether the camera can frame the thing at all.
                 Log.Info($"  drone     {Describe(drone)}");
 
-                // Against craft that already zoom correctly. A number on its own says nothing;
-                // the same number beside a working one says everything, and the vehicles already
-                // in the scene are exactly that reference.
+                // Beside craft that already zoom correctly, as the reference.
                 var scratch = new List<Vehicle>();
                 KsaWorld.CollectVehicles(scratch);
                 foreach (Vehicle other in scratch)
@@ -237,12 +187,10 @@ internal static class TestTarget
                 Log.Warn($"  could not read drone camera data: {e.GetType().Name}");
             }
 
-            // Populate the per-frame cache now rather than waiting a frame, so the read-back
-            // below reports the real position.
+            // Now rather than next frame, so the read-back below reports the real position.
             drone.UpdatePerFrameData();
 
-            // Where did it actually end up? If this disagrees with the intended spawn range,
-            // the orbit did not take.
+            // Disagreeing with the intended range means the orbit did not take.
             try
             {
                 double actualRangeKm = Vec.Len(KsaWorld.PositionEcl(drone) - originEcl) / 1000.0;
@@ -313,9 +261,7 @@ internal static class TestTarget
     /// <summary>Stock craft that ship with the game, usable as drones.</summary>
     public static readonly string[] StockCraft = ["Gemini7", "Hunter", "Banjo", "Polaris", "Rocket"];
 
-    // Everything about a vehicle that plausibly bears on whether the camera can frame it. One
-    // function for both the spawned drone and the craft already in the scene, so the two are
-    // described identically and only the difference between them stands out.
+    // One function for the drone and the reference craft, so only their difference stands out.
     private static string Describe(Vehicle v)
     {
         try
@@ -343,35 +289,24 @@ internal static class TestTarget
         }
     }
 
-    // Whether the tree carries a Control module at all, listed or not.
     private static string HasControlModule(Vehicle v)
     {
         try { return v.Parts?.Modules.HasAny<Control>().ToString() ?? "?"; } catch { return "?"; }
     }
 
-    // Control modules the tree has, which is exactly what Vehicle.IsControllable tests. Zero
-    // modules and zero controls means the save's parts arrived without their modules at all.
-    // Modules present but no controls means they exist and the hot-path list was never built. Those
-    // need different fixes, and the difference is invisible from IsControllable alone.
+    // What Vehicle.IsControllable tests. Beside HasControlModule it tells parts arriving without
+    // modules from modules whose hot-path list was never built, which IsControllable alone cannot.
     private static int ControlCount(Vehicle v)
     {
         try { return v.Parts?.Controls.NumModules ?? -1; } catch { return -1; }
     }
 
-    // A drone's part tree, plus the character it belongs to if the save names one. The character is
-    // empty for craft. It is the only thing that distinguishes a kitten save from a vehicle save,
-    // and it cannot be recovered from the part tree.
+    // The character is empty for craft; it is all that tells a kitten save from a vehicle save.
     private readonly record struct DroneBlueprint(PartTree Parts, string Character);
 
-    // Builds the drone in whichever class KSA itself would have used for this save. Kittens are not
-    // craft: KittenEva is a Vehicle subclass that overrides IsControllable to a constant true, and
-    // the stock Hunter, Banjo and Polaris are instances of it carrying no control module at all,
-    // which is exactly what the base Vehicle.IsControllable requires. So a Hunter rebuilt through
-    // Vehicle.CreateVehicle is a plain vehicle wearing a kitten's part tree: it matches the stock
-    // one in every measurable respect, same radius, half extents, zoom power, part count and zero
-    // control modules, and can never be controlled or zoomed, because the property that would say
-    // otherwise belongs to a class it is not an instance of. KSA chooses between the two on whether
-    // the save names a character, see VehicleTemplate, which branches on Character != null.
+    // In the class KSA would use: VehicleTemplate makes a KittenEva when the save names a character.
+    // The stock Hunter, Banjo and Polaris carry no control module, and only KittenEva's
+    // IsControllable override makes them controllable; built as a plain Vehicle they never are.
     private static Vehicle CreateDroneVehicle(
         DroneBlueprint blueprint, CelestialSystem system, Vehicle platform,
         IParentBody parent, string id, Orbit orbit, double3 bodyRates)
@@ -386,9 +321,7 @@ internal static class TestTarget
             }
             catch (Exception e)
             {
-                // The id is resolved through ModLibrary, so a renamed or unloaded character
-                // throws here. A plain vehicle is still a perfectly good thing to shoot at; it
-                // just cannot be flown, which is what the warning is for.
+                // A renamed or unloaded character throws: the id is resolved through ModLibrary.
                 Log.Warn($"test target: '{blueprint.Character}' is not a loadable character "
                          + $"({e.GetType().Name}); spawning a plain vehicle, which cannot be flown");
             }
@@ -398,20 +331,14 @@ internal static class TestTarget
                                      parent, id, blueprint.Parts.Root, orbit);
     }
 
-    // The drone's parts, preferring one of KSA's own craft. Cloning the launcher platform is always
-    // structurally valid, but it means shooting air-defence sites at air-defence sites, which is
-    // both silly to watch and actively confusing: a drone carrying a launcher looks like it should
-    // be fighting back, and being a clone it shares the guards that protect the player's craft. A
-    // stock vessel is an obviously separate thing. Falls back to the clone if the library craft
-    // will not load.
+    // A clone of the platform is the fallback only: it carries a launcher and shares the guards
+    // that protect the player's craft.
     private static DroneBlueprint BuildDroneParts(Vehicle platform, string? craftName)
     {
         if (!string.IsNullOrEmpty(craftName))
         {
             try
             {
-                // Both are genuinely nullable in KSA - FindSave returns VehicleSave? and Load
-                // returns PartTree? - so the checks below are load-bearing rather than defensive.
                 VehicleSave? save = DefaultVehicleSaves.FindSave(craftName) ?? LibrarySave(craftName);
                 if (save is not null)
                 {
@@ -440,10 +367,8 @@ internal static class TestTarget
         return null;
     }
 
-    // Converts an ecliptic state into the parent body's inertial frame. Cce is the parent-centred
-    // *ecliptic* frame, so it differs from Ecl only by the body's own position and velocity. Cci is
-    // parent-centred *inertial*, a fixed rotation away from Cce - both are non-rotating, so the
-    // same quaternion carries position and velocity.
+    // Cce differs from Ecl by the body's position and velocity; Cci is a fixed rotation of Cce, both
+    // non-rotating, so one quaternion carries position and velocity.
     private static bool ToParentInertial(
         IParentBody parent, double3 posEcl, double3 velEcl, out double3 posCci, out double3 velCci)
     {

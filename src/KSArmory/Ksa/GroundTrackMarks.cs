@@ -9,15 +9,9 @@ namespace KSArmory;
 /// What this mod draws on KSA's ground-track map: where the warheads are going, and how far the
 /// bus can still move them.
 ///
-/// <para>Placement is <see cref="GroundTrackWindow.ProjectOnImage"/>, KSA's own function, so a
-/// mark cannot disagree with the locations drawn beside it. The crop it is given is the engine's
-/// own, captured as it is worked out — see <see cref="GroundTrackHook"/>.</para>
-///
-/// <para><b>An aim is latitude and longitude already</b>, which is what makes this cheap:
-/// <see cref="AimSite"/> stores a place rather than a position, for the reason a ballistic flight
-/// lasts half an hour. The reach is the exception — an ellipse in the ecliptic — so it is walked
-/// round and each point converted, which also handles it crossing the dateline, where an
-/// equirectangular map jumps a full width.</para>
+/// <para>Placed with KSA's own <see cref="GroundTrackWindow.ProjectOnImage"/> on the engine's own
+/// crop (<see cref="GroundTrackHook"/>), so a mark cannot disagree with the map. The reach is an
+/// ellipse in the ecliptic, so it is walked point by point, which also handles the dateline.</para>
 /// </summary>
 internal static class GroundTrackMarks
 {
@@ -58,10 +52,8 @@ internal static class GroundTrackMarks
     {
         ImDrawListPtr draw = ImGui.GetWindowDrawList();
 
-        // Everything here is placed by projecting a coordinate, and a coordinate outside the crop
-        // projects outside the image -- off the top of a zoomed map and over the window's own
-        // chrome. The marks cull themselves; the reach cannot, because the line between two points
-        // that are both off screen can still cross it.
+        // A coordinate outside the crop projects over the window's chrome. Marks cull themselves;
+        // the reach cannot, since a line between two off-screen points can still cross the image.
         draw.PushClipRect(at, at + size, true);
 
         try
@@ -87,9 +79,8 @@ internal static class GroundTrackMarks
     }
 
     /// <summary>
-    /// Which target's mark a point is on, or -1. What separates weighting a target already chosen
-    /// from placing a new one — and they are different gestures, because only placement is bounded
-    /// by what the bus can divert to.
+    /// Which target's mark a point is on, or -1: weighting a chosen target rather than placing a
+    /// new one, which only placement is bounded by the reach.
     /// </summary>
     public static int Nearest(IcbmComputer computer, float2 at, float2 size,
                               float2 min, float2 max, float2 point)
@@ -121,17 +112,12 @@ internal static class GroundTrackMarks
         return found;
     }
 
-    // How near a mark counts as being on it. Wider than the diamond, because the gesture is worth
-    // more than the pixel: a click that lands a few pixels off should weight the target it
-    // obviously meant rather than place a new one on top of it.
+    // Wider than the diamond, so a click a few pixels off weights the target rather than placing
+    // a new one on top of it.
     private const float GrabPx = 11f;
 
-    // What a warhead does to the ground round each target: the fireball, what it destroys and
-    // what it damages, as Warhead derives them from the charge. Walked on the sphere rather than
-    // drawn as screen circles -- GroundCircle says why that is not the same shape.
-    //
-    // Per warhead, not per target. A target taking three is hit three times in one place, which
-    // makes the hole deeper and not wider; a bigger circle would say otherwise.
+    // Walked on the sphere, not drawn as screen circles (GroundCircle says why). Per warhead, not
+    // per target: three on one place make the hole deeper, not wider.
     private static void DrawEffects(ImDrawListPtr draw, IcbmComputer computer,
                                     float2 at, float2 size, float2 min, float2 max)
     {
@@ -169,8 +155,7 @@ internal static class GroundTrackMarks
     {
         if (!(metres > 0.0)) return;
 
-        // Cheap first: a ring under a few pixels across is noise round the mark, and walking it
-        // would be dozens of projections for something nobody can see.
+        // Cheap first: a ring a few pixels across would cost dozens of projections for nothing.
         if (GroundCircle.HeightDeg(metres, body.MeanRadius) * pixelsPerDegree < RingLeastPx) return;
 
         float2 wasAt = default;
@@ -207,9 +192,8 @@ internal static class GroundTrackMarks
 
         if (!MapViewport.Shows(MapViewport.ToUv(lon, lat), min, max)) return;
 
-        // How far it could throw one, round where it would throw it from. A ceiling rather than a
-        // line a shot will make -- see BoosterReach -- so it is drawn fainter than anything that
-        // refuses a click.
+        // A ceiling rather than a promise (BoosterReach), so fainter than anything that refuses
+        // a click.
         if (computer.BoosterCeilingMetres > 0.0 && computer.Parent is { } body)
         {
             Ring(draw, body, new AimSite(body.Id, lat, lon, ""), computer.BoosterCeilingMetres,
@@ -255,9 +239,8 @@ internal static class GroundTrackMarks
             drawn++;
         }
 
-        // Said when the count changes, which answers "why is my target not on the map": held and
-        // off the crop are different answers, and the screen position is what a projection fault
-        // would show up in.
+        // Logged on a change: tells a target off the crop from one not held, and the lead's pixel
+        // is where a projection fault would show.
         if (drawn == _drawn) return;
 
         _drawn = drawn;
@@ -321,9 +304,8 @@ internal static class GroundTrackMarks
                  + $"{Vec.Len(minor) / 1000.0:F1} km{offset}");
     }
 
-    // Said when the answer changes. Which of the three refusals it is matters: a bus on the pad
-    // has no divert footprint at all, and that reads the same from outside as a projection that
-    // silently dropped every point.
+    // Logged on a change: a bus on the pad has no region at all, which otherwise looks the same
+    // as a projection that dropped every point.
     private static void SayReach(string what)
     {
         if (what == _said) return;
@@ -354,9 +336,8 @@ internal static class GroundTrackMarks
         draw.AddLine(left, top, colour, 1.5f);
     }
 
-    // Nine crosses at round coordinates, which sit on the ground they name at any zoom -- 0,-90 on
-    // the Galapagos. NOT on KSA's drawn grid lines except unzoomed: that grid is 25 meridians and
-    // 13 parallels spread across whatever is visible, so zoomed in it falls on arbitrary values.
+    // On the ground they name at any zoom, not on KSA's grid: that is 25 meridians and 13
+    // parallels spread across whatever is visible, so zoomed in it falls on arbitrary values.
     private static void DrawCalibration(ImDrawListPtr draw, float2 at, float2 size,
                                         float2 min, float2 max)
     {

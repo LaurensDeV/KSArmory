@@ -5,13 +5,8 @@ LAU-7 rail and the EO director into one atlas sharing one palette material. Keep
 extend it — new art is authored in Blender over MCP, per `.claude/skills/ksa-blender/SKILL.md`.
 `README.md` beside this has the full pipeline and the coordinate system; this file is the rules.
 
-The CIWS is not among them any more: it is authored, into an atlas of its own. The generator still
-draws its old boxes' jitter, so the director built after them keeps its planes.
-
-The nuclear rack is not among them: all three of its bodies are authored, into one atlas sharing
-one unwrap. It stopped instancing the generated beam when the B61-12 turned out to hang from
-30-inch lugs where that beam's hooks are 14 inches apart — a MAU-12 carries both spacings, so the
-authored rack carries both spacings.
+`main()` still draws twelve jitter values for four boxes that no longer build here, so the director
+built after them keeps its planes. Every other part is authored, into atlases of its own.
 
 Blender **5.2** is installed at
 `/mnt/c/Program Files/Blender Foundation/Blender 5.2/blender.exe` and is driven entirely from
@@ -66,8 +61,8 @@ rather than the bytes, and **revert the atlas** if it says the geometry is uncha
   assembly would have to move to leave another. It needs neither Blender nor the game — the atlas
   is a library of bodies in their own local frames, so any pose is reconstructible from it plus
   `muzzles.json`.
-- **It sweeps every articulated vehicle, and a new one has to be added to `vehicles()` by hand.**
-  A body set it does not name is simply not swept, and the tool still prints "clear" — a vehicle
+- **It sweeps only the vehicles `vehicles()` names — today the Pantsir alone, since an authored
+  mount is swept in Blender.** A body set it does not name is simply not swept, and the tool still prints "clear" — a vehicle
   with a traverse and an elevating head can have no coverage at all. A tool that reads the first
   entry looks correct until there is a second, which is the shape of the launcher registry and
   the travel reader too. **When a weapon system stops being the only one, check what still

@@ -1,7 +1,7 @@
 # Short-range ballistic shots (25–1,000 km)
 
 **A record.** How short shots are flown now is `docs/ICBM-GUIDANCE.md`, "Short shots"; what is open is
-`docs/ICBM-OUTSTANDING.md` 1.17, 1.18 and 3.2. What stays here is the 2026-10-03 plan, kept for its measurements,
+`docs/ICBM-OUTSTANDING.md` 3.2 (1.17 and 1.18, once open, are done). What stays here is the 2026-10-03 plan, kept for its measurements,
 and every flight since. Of the plan's steps, Step 4 and the characterisation were flown on 2026-10-12 as
 ICBM-OUTSTANDING 2.1; Steps 1 and 3 and the fallbacks are not built.
 
@@ -129,10 +129,10 @@ Items 1–4 are built (`GameStackShortRangeTests`, `IcbmFlightRig`'s `Solid`, `V
    `ArrivalPreference` 0.5 and 0. Log per shot: cut reason (backstop / `ShouldCutOff` / burnout / solution
    reached during the SRB phase), the minimum velocity still to gain during the pitch programme and where, whether
    the arrival latched, cutoff altitude, speed and q, apogee, and the miss from cutoff with
-   `Arsenal.Mk21WithDragFromShape` (what the game flies), carried as `AimConvergenceTests.ActualMissMetres` does.
+   `Arsenal.Mk21WithDragFromShape` (what the game flies; that drag now ships, as `BuiltIns.ReentryVehicleMk21`), carried as `AimConvergenceTests.ActualMissMetres` does.
 3. Label the table **the ascent's floor, not the shot**: the rig has no separation shove, trim, release or bus drag.
 4. Tag the test `kind=study` and record it in `tests/KSArmory.Tests/STUDIES.md` (`ShortRangeAscentTests`
-   currently asserts nothing and sits in the push loop).
+   asserted nothing and sat in the push loop; it is tagged now).
 5. Write the golden harness before Step 2: flag on against flag off **on the same build**, bit-equal cutoff state,
    over the pad fixtures (`IcbmFlightTests`, `ShortRangeAscentTests`' 1,200/2,500/6,269 km rows,
    `GroundLaunchArrivalTests`, `ArrivalPreferenceTests`) and the orbit fixtures (`AimConvergenceTests`,

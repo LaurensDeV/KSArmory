@@ -30,7 +30,6 @@ public class ContactSweepTests
         Assert.Equal(0.0, miss, 6);
     }
 
-    /// <summary>Passing wide is not a contact, however briefly it was the nearest thing.</summary>
     [Fact]
     public void PassingWideIsAMiss()
     {
@@ -40,9 +39,8 @@ public class ContactSweepTests
     }
 
     /// <summary>
-    /// A shell fired at nothing still hits what is in the way. A slug fused only against a target
-    /// fire control designated has nothing to fuse on in a hand-aimed burst, so every round flies
-    /// its full 2.2 km and expires through the craft it passed straight through.
+    /// A hand-aimed burst has no designated target, so a slug fused only against one would pass
+    /// straight through the craft in its way.
     /// </summary>
     [Fact]
     public void AShellFiredAtNothingStillHitsWhatIsInTheWay()
@@ -105,11 +103,8 @@ public class ContactSweepTests
     }
 
     /// <summary>
-    /// The frame contract, tested for invariance the way docs/FRAMES-AND-EPOCHS.md asks. Put the
-    /// whole scene on an ecliptic orbit — the shell and the body carrying the same 29.8 km/s, the
-    /// body sampled a frame ahead as the engine reports it — and the hit must still be a hit.
-    /// Without the back-dating the shared motion arrives as ~500 m of separation per frame, which
-    /// is two hundred times the fuse radius it is compared against.
+    /// The shell and the body share 29.8 km/s and the body is sampled a frame ahead, as the engine
+    /// reports it; without the back-dating that is ~500 m of separation a frame, 200x the fuse radius.
     /// </summary>
     [Fact]
     public void SharedEclipticMotionDoesNotDecideWhatIsHit()
@@ -137,9 +132,8 @@ public class ContactSweepTests
     }
 
     /// <summary>
-    /// The fallback for a body with nothing to cast against, answered in fractions of the step.
-    /// A round passing 3 m from something a metre across has missed it — which is the whole of the
-    /// kitten complaint, and the size fed in is the only thing that decides it.
+    /// The fallback for a body with nothing to cast against: a round passing 3 m from something a
+    /// metre across has missed it, and only the size fed in decides that.
     /// </summary>
     [Fact]
     public void ReachingASphereIsDecidedByItsOwnSize()

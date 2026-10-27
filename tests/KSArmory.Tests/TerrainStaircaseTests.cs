@@ -183,10 +183,8 @@ public class TerrainStaircaseTests(ITestOutputHelper Out)
     /// 1,375 m. If the prediction were converged the walk would read the round's own sub-step bias
     /// and nothing more, which `SubStepConvergenceTests` puts at -5.36 mm; flown it is -10.3 mm.</para>
     ///
-    /// <para><c>docs/ACCURACY-PLAN.md</c> records "refining the predictor's step" as ruled out, and
-    /// says in its own retrospective that the test which ruled it out passed <b>no terrain</b> — a
-    /// mean sphere, the one surface a step cannot undersample. This asks it again with ground under
-    /// it.</para>
+    /// <para>Asked with ground under it, because a mean sphere is the one surface a step cannot
+    /// undersample.</para>
     /// </remarks>
     [Fact]
     public void ThePredictorsOwnStepIsTheOtherHalfOfTheWalksBias()
@@ -223,10 +221,6 @@ public class TerrainStaircaseTests(ITestOutputHelper Out)
     /// 0.25 ms, against a prediction that refines its own to under a metre — so it should move the
     /// walk's SCATTER too.
     /// </summary>
-    /// <remarks>
-    /// This is the quantitative form of the secondary read declared for the 2026-09-17 night, and it
-    /// is written down before that night's arms have been looked at.
-    /// </remarks>
     [Fact]
     public void OverGroundTheSubStepMovesTheScatterAndNotOnlyTheBias()
     {

@@ -4,12 +4,8 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// The order a walk is flown in, and the second limit that can empty the tank before it ends.
-///
-/// <para><b>The flight this exists for.</b> Four targets 1 km apart walked <b>3 → 0 → 1 → 2</b> —
-/// out to the near end and back — which is 5 km of travel for a 3 km chain. Its four stops spent
-/// 11.21, 17.08 and 31.72 m/s, reaching <b>60.01 of a 60 m/s budget</b>, and the fourth released at
-/// <c>divert 0.00</c> a kilometre from where its warhead was sent.</para>
+/// Flown: four targets 1 km apart walked 3 → 0 → 1 → 2, 5 km for a 3 km chain, and reached 60.01 of a 60 m/s
+/// budget, so the fourth released undiverted a kilometre off. <c>docs/ICBM-GUIDANCE.md</c>, "Several targets".
 /// </summary>
 public class ReleaseWalkOrderTests(ITestOutputHelper Out)
 {
@@ -39,8 +35,8 @@ public class ReleaseWalkOrderTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>The zigzag.</b> Led from the far end, the walk goes to the near neighbour each time rather
-    /// than to whichever was clicked next — which for a chain is the monotone walk.
+    /// Led from the far end, the walk goes to the near neighbour each time rather than to whichever
+    /// was clicked next, which for a chain is the monotone walk.
     /// </summary>
     [Fact]
     public void AChainIsWalkedInOrderRatherThanInTheOrderItWasClicked()
@@ -104,12 +100,11 @@ public class ReleaseWalkOrderTests(ITestOutputHelper Out)
         Out.WriteLine($"order {string.Join(" -> ", order)}");
     }
 
-    // ------------------------------------------------- the budget, which refuses nothing downstream
-
     /// <summary>
-    /// <b>The second limit.</b> A hop inside the per-pass ceiling can still be one the flight cannot
-    /// pay for — and nothing below refuses it, so the release happens with no divert flown.
+    /// A hop inside the per-pass ceiling can still be one the budget cannot pay for, and nothing
+    /// downstream refuses it, so the release happens with no divert flown.
     /// </summary>
+
     [Fact]
     public void AHopTheBudgetCannotPayForIsRefusedEvenThoughOnePassWouldFlyIt()
     {

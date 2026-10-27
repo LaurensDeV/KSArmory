@@ -5,16 +5,10 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Six warheads off one aim, and what the tube cant does to them.
-///
-/// <para>A bus's tubes are canted six degrees at six clock positions, so each warhead is ejected on
-/// its own vector. There is one aim for all six, so no aim correction can remove it — the bus has
-/// to turn between releases and put each tube in turn on the same line.</para>
-///
-/// <para>Each leaves from its own mouth, a metre off the tubes' mean. Turning the bus cannot remove
-/// that ring, so re-pointed is a few tens of metres on this shallow arrival rather than one point;
-/// <see cref="ReleaseFocusTests"/> is what does.</para>
+/// The tubes are canted six degrees at six clock positions and share one aim, so only turning the bus between
+/// releases removes the cant. The ring of mouths a metre off their mean is left; <see cref="ReleaseFocusTests"/>.
 /// </summary>
+
 public class MirvSpreadTests(ITestOutputHelper Out)
 {
     private const double Mu = 3.986004418e14;

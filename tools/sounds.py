@@ -7,10 +7,9 @@ Synthesises the fallback cannon loop.
 
 A warhead's burst is KSA's own explosion, sound and all, so nothing here is an explosion.
 
-Generated rather than sourced, for the same reason the meshes and the palette are. A downloaded
-sample carries a licence that has to travel with the archive, has to be auditioned by ear before
-anyone can tell whether it changed, and cannot be re-cut for a different rate. A script is
-MIT like the rest of the repository, diffs as text, and takes a parameter.
+The shipped cannon is cut from a recording by tools/cut-cannon.py; this is the fallback if that
+recording cannot ship. A script is MIT like the rest of the repository, diffs as text, and takes a
+parameter.
 
 ## What a cannon is made of
 
@@ -28,7 +27,7 @@ So the loop is a pulse train at the cycle rate, not a sample of a shot repeated:
 The file holds a whole number of cycles so that restarting it is phase-continuous, which is what
 lets a two-second sample stand in for a burst of any length without a click at the seam. And the
 rate is a *pitch* multiplier at playback: a gun cycling at half the reference rate is the same
-sound an octave down, so one sample serves every cannon in the mod.
+sound an octave down.
 """
 
 import argparse
@@ -92,11 +91,9 @@ def cannon(seed, rounds_per_minute=CANNON_REFERENCE_RPM, cycles=150,
     round has body without having a *note*.
 
     The weights are fitted to a recording of real gunfire, octave band by octave band, because
-    nobody in this loop can hear the result. Mean band error 1.6 points, against 5.8 for the
-    ringing version and 8.7 for the first one. Fit them against *this whole function* if they are
-    retuned: an earlier attempt fitted a simplified copy of the layers and landed on weights that
-    were wrong for the real thing, since the reverb and the output filter move the balance as much
-    as the layers do.
+    nobody in this loop can hear the result: mean band error 1.6 points, against 5.8 for the ringing
+    version. Fit them against *this whole function* if they are retuned, since the reverb and the
+    output filter move the balance as much as the layers do.
     """
     rng = np.random.default_rng(seed)
 
@@ -175,10 +172,8 @@ def main():
                     help="write the synthesised cannon loop, which the recording replaced")
     args = ap.parse_args()
 
-    # Not written by default. The shipped cannon is cut from a recording by tools/cut-cannon.py,
-    # because a synthesised one reads as a texture rather than as a gun even with its octave
-    # balance within 1.6 points of real gunfire. This stays as the fallback for the case where the
-    # recording's licence turns out not to permit redistribution; see tools/audio/README.md.
+    # Not written by default: a synthesised cannon reads as a texture rather than as a gun even at
+    # 1.6 points of band error, so the shipped one is cut from a recording (tools/audio/README.md).
     if not args.synth_cannon:
         print("nothing written: the shipped cannon is a recording, and --synth-cannon writes the fallback")
         return

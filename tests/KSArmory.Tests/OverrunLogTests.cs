@@ -16,8 +16,8 @@ public class OverrunLogTests
     private const double Warped = 1.0;
 
     /// <summary>
-    /// The defect. The sky is empty across a scene load, so nothing is behind the world when it
-    /// ends and there is nothing to warn about.
+    /// The sky is empty across a scene load, so nothing is behind the world when it ends and there
+    /// is nothing to warn about.
     /// </summary>
     [Fact]
     public void AnEmptySkyIsNotWorthAWarning()
@@ -36,10 +36,10 @@ public class OverrunLogTests
     }
 
     /// <summary>
-    /// The half that is easy to lose while fixing the first. Time is discarded whatever is in the
-    /// air — the clamp does not ask — so suppressing the line must not suppress the accounting,
-    /// or a later real overrun under-reports how much has gone.
+    /// Time is discarded whatever is in the air, so suppressing the line must not suppress the
+    /// accounting, or a later real overrun under-reports how much has gone.
     /// </summary>
+
     [Fact]
     public void TimeIsCountedWhetherOrNotAnythingWasFlying()
     {

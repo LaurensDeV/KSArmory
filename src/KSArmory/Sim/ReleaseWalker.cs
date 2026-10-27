@@ -1,27 +1,18 @@
 namespace KSArmory;
 
 /// <summary>
-/// The cursor <see cref="ReleaseLoop.Step"/> is written against: which stop a bus is on, how many
-/// of that stop's warheads have gone, and the three numbers a flight reads off it.
+/// The cursor <see cref="ReleaseLoop.Step"/> is written against: which stop a bus is on and how many
+/// of that stop's warheads have gone.
 ///
-/// <para><b>Every statement a walk makes is behind <see cref="Walking"/>, and it is false for a set
-/// of one.</b> <see cref="ReleaseLoop.Plan"/> answers <see cref="ReleaseWalkHold.OneStop"/> for any
-/// one-stop set, so <see cref="GateOverrideSeconds"/> is NaN, <see cref="TubesLeft"/> hands back the
-/// magazine it was given and <see cref="TargetIndex"/> hands back the lead — each of them the value
-/// a flight with no walk reads. That is what makes a single-target shot the one every
-/// accuracy measurement on this mod was taken against, and it is pinned in
-/// <c>ReleaseWalkerTests</c> rather than left to reading <c>Ksa/Icbm/IcbmComputer.cs</c>.</para>
-///
-/// <para><b>A plan is committed by the first warhead leaving.</b> Until then the set can still be
-/// edited and the walk is re-planned as the reach is re-flown; after it the bus has already been
-/// somewhere, and re-ordering the stops behind it would aim it at a place it has been.</para>
+/// <para><b>Every statement a walk makes is behind <see cref="Walking"/>, false for a set of one</b>,
+/// so a single-target flight reads exactly what it would with no walk; <c>ReleaseWalkerTests</c> pins
+/// it. The first warhead leaving commits the plan.</para>
 /// </summary>
 internal sealed class ReleaseWalker
 {
     private ReleaseWalk _walk;
     private bool _committed;
 
-    /// <summary>The plan being flown, or a default one holding no stops.</summary>
     public ReleaseWalk Walk => _walk;
 
     /// <summary>Which stop the bus is on, counted from zero.</summary>
@@ -33,18 +24,12 @@ internal sealed class ReleaseWalker
     /// <summary>Every stop that fits has had its warheads, so nothing is left to re-aim for.</summary>
     public bool Finished { get; private set; }
 
-    /// <summary>
-    /// Whether the flight is doing something a single-target one does not. <b>The one gate</b>: no
-    /// statement of the loop runs with this false.
-    /// </summary>
+    /// <summary>The one gate: no statement of the loop runs with this false.</summary>
     public bool Walking => _walk.Walks && !Finished && !Curtailed;
 
     /// <summary>
-    /// The walk ended at the stop the bus is on, and that stop takes every warhead left.
-    ///
-    /// <para>What a hop the trim will not fly comes to: the bus is already trimmed and corrected on
-    /// this target, so the warheads still aboard are delivered here rather than sent to a place
-    /// nothing flew the bus to. The later targets get nothing, which is what the log says.</para>
+    /// The walk ended at the stop the bus is on, which takes every warhead left: what a hop the trim
+    /// will not fly comes to, since the bus is already trimmed onto this target.
     /// </summary>
     public bool Curtailed { get; private set; }
 
@@ -52,11 +37,8 @@ internal sealed class ReleaseWalker
     public bool Done => _walk.Walks && Finished;
 
     /// <summary>
-    /// Whether a warhead has gone, so the plan is the one being flown rather than one being made.
-    ///
-    /// <para>What a caller has to ask before letting the target list be edited: a stop names an
-    /// index into that list, so taking an entry out from under a committed walk sends the bus to
-    /// whichever place slid into the gap.</para>
+    /// Whether a warhead has gone. Asked before the target list is edited: a stop names an index into
+    /// it, so removing an entry under a committed walk sends the bus to whatever slid into the gap.
     /// </summary>
     public bool Committed => _committed;
 
@@ -66,13 +48,9 @@ internal sealed class ReleaseWalker
     /// </summary>
     public bool FirstStopAway => _walk.Walks && (Stop > 0 || !Step.ReleaseHere);
 
-    /// <summary>What this stop wants of the flight right now.</summary>
     public ReleaseStep Step => ReleaseLoop.Step(_walk, Stop, AwayThisStop);
 
-    /// <summary>
-    /// Take a freshly planned walk, refusing one once the first warhead has gone.
-    /// </summary>
-    /// <returns>Whether it was taken.</returns>
+    /// <returns>False once the first warhead has gone.</returns>
     public bool Plan(in ReleaseWalk walk)
     {
         if (_committed) return false;
@@ -85,14 +63,12 @@ internal sealed class ReleaseWalker
         return true;
     }
 
-    /// <summary>One warhead has left, which is also what commits the plan.</summary>
     public void WarheadAway()
     {
         _committed = true;
         if (_walk.Walks && !Finished) AwayThisStop++;
     }
 
-    /// <summary>Move to the next stop, which is the frame the bus re-aims.</summary>
     public void Advance()
     {
         if (!Walking) return;
@@ -101,17 +77,12 @@ internal sealed class ReleaseWalker
         AwayThisStop = 0;
     }
 
-    /// <summary>End the walk, so nothing more is released and the trim has nobody left to aim for.</summary>
     public void Finish() => Finished = true;
 
     /// <summary>
-    /// End the walk here, and let this stop take every warhead that is left.
+    /// For a hop the trim will refuse. Not <see cref="Finish"/>, which takes <see cref="TubesLeft"/> to
+    /// zero and leaves the rest of the magazine aboard.
     /// </summary>
-    /// <remarks>
-    /// For a hop the trim will refuse. <see cref="Finish"/> is the wrong ending there — it takes
-    /// <see cref="TubesLeft"/> to zero and the rest of the magazine rides the bus down, where the
-    /// stop the bus is <em>on</em> is a solution it has already been trimmed and corrected onto.
-    /// </remarks>
     public void StopHere()
     {
         if (!Walking) return;
@@ -119,7 +90,6 @@ internal sealed class ReleaseWalker
         Curtailed = true;
     }
 
-    /// <summary>Back to no plan at all, for a flight being started over.</summary>
     public void Reset()
     {
         _walk = default;
@@ -137,21 +107,13 @@ internal sealed class ReleaseWalker
     /// The coast a set is planned against: its own length, latched the first time it is known.
     /// </summary>
     /// <remarks>
-    /// <para><b>Not what is left of it.</b> <see cref="ReleaseItinerary.Bus.CoastSeconds"/> is
-    /// measured "from the earliest release the flight allows", so it belongs to the trajectory
-    /// rather than to the clock — and <see cref="ReleaseItinerary.CoastFits"/> asks whether
-    /// <c>coast - gate</c> holds another hop. Handed the countdown, that stops holding one at
-    /// <c>gate + hop</c>, which is exactly
-    /// <see cref="ReleaseItinerary.FirstBeforeArrivalSeconds"/>: the set is cut to a single stop on
-    /// the frame the first release becomes due, and the walk never starts.</para>
+    /// <para>Not what is left of it: handed the countdown, <see cref="ReleaseItinerary.CoastFits"/> stops
+    /// holding another hop at <c>gate + hop</c>, which is the frame the first release becomes due, and
+    /// the walk never starts.</para>
     ///
-    /// <para>NaN until the vehicle is coasting, which leaves the count unbounded by the coast — the
-    /// pad cannot know it, and the panel says the count is settled at cutoff.</para>
+    /// <para>NaN until the vehicle is coasting, which leaves the count unbounded by the coast.</para>
     /// </remarks>
-    /// <param name="secondsToArrival">
-    /// <see cref="IcbmProgram.CommittedArrivalFromNow"/>. Read once: what makes this a latch is that
-    /// every later call returns the first answer.
-    /// </param>
+    /// <param name="secondsToArrival"><see cref="IcbmProgram.CommittedArrivalFromNow"/>; only the first is kept.</param>
     public double CoastForPlanning(double secondsToArrival, bool coasting)
     {
         if (!coasting) return double.NaN;
@@ -166,21 +128,15 @@ internal sealed class ReleaseWalker
     }
 
     /// <summary>
-    /// When the warheads may first go, in seconds before arrival, or NaN for the setting the flight
-    /// has always read.
+    /// When the warheads may first go, in seconds before arrival, or NaN with no walk — so the flight
+    /// reads <see cref="IcbmConfig.ReleaseBeforeArrivalSeconds"/> live, a setting the player can move mid-flight.
     /// </summary>
-    /// <remarks>
-    /// NaN rather than <paramref name="gateSeconds"/> so that a flight with no walk reads
-    /// <see cref="IcbmConfig.ReleaseBeforeArrivalSeconds"/> <em>live</em>: latching the number here
-    /// would freeze a setting the player can still move mid-flight.
-    /// </remarks>
     public double GateOverrideSeconds(double gateSeconds)
         => Walking ? ReleaseLoop.FirstBeforeArrivalSeconds(_walk, gateSeconds) : double.NaN;
 
     /// <summary>
-    /// <see cref="GateOverrideSeconds"/>, or <see cref="IcbmConfig.SingleTargetReleaseBeforeArrivalSeconds"/> for a
-    /// computer with one target. Several targets keep the walk's gate even before a walk is planned, because the split and
-    /// the pricing of the first hop are both counted from it.
+    /// <see cref="GateOverrideSeconds"/>, or <see cref="IcbmConfig.SingleTargetReleaseBeforeArrivalSeconds"/> for one
+    /// target. Several keep the walk's gate before a walk is planned: the split and the first hop's price count from it.
     /// </summary>
     public double GateOverrideSeconds(IcbmConfig config, int targets)
     {
@@ -190,34 +146,22 @@ internal sealed class ReleaseWalker
     }
 
     /// <summary>
-    /// How much of the magazine <see cref="ReleaseSequence"/> may let go, which is this stop's quota
-    /// rather than everything loaded.
+    /// How much of the magazine <see cref="ReleaseSequence"/> may let go: this stop's quota. Zero once
+    /// the walk is over, so a rack that reloads cannot send warheads the plan never assigned.
     /// </summary>
-    /// <remarks>
-    /// Zero once the walk is over, so a rack that reloads — which is what a rack does a few seconds
-    /// after a salvo — cannot send warheads the plan never assigned anywhere.
-    /// </remarks>
     public int TubesLeft(int loaded)
         => !_walk.Walks || Curtailed ? loaded
          : Finished ? 0
          : ReleaseLoop.TubesLeftForStop(Step, loaded);
 
-    /// <summary>Which target a warhead leaving now is being sent to.</summary>
-    /// <remarks>
-    /// A curtailed walk still answers with the stop the bus is on, because that is where its
-    /// remaining warheads are going and what a harness has to score them against.
-    /// </remarks>
+    /// <summary>Which target a warhead leaving now is being sent to; a curtailed walk's is the stop it is on.</summary>
     public int TargetIndex(int lead)
         => _walk.Walks && !Finished ? Step.Target : lead;
 
     /// <summary>
-    /// The line a night is scored off, one per stop.
+    /// The line a night is scored off, one per stop. Its shape is a contract: <c>tools/shot-report.py</c>
+    /// parses it, so it is formatted here where a test can hold it.
     /// </summary>
-    /// <remarks>
-    /// <b>The shape is the contract</b>, not the prose: <c>tools/shot-report.py</c> and
-    /// <c>Ksa/BallisticScenario.cs</c> read the target index and the count out of it, so it is
-    /// formatted here where a test can hold it rather than at the call site.
-    /// </remarks>
     /// <param name="target">Counted from zero, as <see cref="TargetSet.Entries"/> indexes.</param>
     /// <param name="divertMetresPerSecond">
     /// What the trim spent on this stop — the hop from the one before, or, on the first, everything
@@ -230,18 +174,11 @@ internal sealed class ReleaseWalker
            + $"{warheads} warhead{(warheads == 1 ? "" : "s")}, "
            + $"divert {divertMetresPerSecond:F2} m/s, {leftMetresPerSecond:F1} m/s left";
 
-    /// <summary>
-    /// What the whole walk came to: every stop, what went there, and what it cost in all.
-    /// </summary>
     /// <param name="wentTo">
-    /// One entry per stop flown, in flown order — the target as <see cref="TargetSet.Entries"/>
-    /// indexes it, its description, and how many warheads actually left there, which is fewer than
+    /// One entry per stop flown, in flown order, with how many warheads actually left there — fewer than
     /// the quota when the rack could not fill it.
     /// </param>
-    /// <param name="keptAboard">
-    /// Warheads no stop took. <b>They stay aboard rather than being scattered</b>, which is what an
-    /// unassigned warhead has always done.
-    /// </param>
+    /// <param name="keptAboard">Warheads no stop took; they stay aboard rather than being scattered.</param>
     public static string SayWalk(string craft, IReadOnlyList<(int Target, string Site, int Warheads)> wentTo,
                                  double spentMetresPerSecond, double budgetMetresPerSecond,
                                  int keptAboard)

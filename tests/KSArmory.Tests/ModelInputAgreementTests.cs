@@ -5,18 +5,10 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Whether the round and the <see cref="ImpactPredictor"/> that predicts it are handed the same
-/// world — as opposed to <c>ProbeGapTests</c>, which hands them one world on purpose and prices
-/// what the two <em>flight models</em> then do differently.
-///
-/// <para>In flight the two take their gravity, their air, their air's motion and their ground from
-/// different code paths. Four of those five agree exactly, by construction rather than by luck, and
-/// the reasons are in <c>docs/MIRV-NEXT.md</c>. The fifth is here because it is the one term that
-/// is <b>identically zero in every headless rig and never zero in the game</b>: a round is
-/// integrated in <c>Ecl</c> about a planet KSA is moving along its own orbit, and the prediction is
-/// integrated in <c>Cci</c> about a planet at rest.</para>
-///
-/// <para><b>Measurement only.</b> Nothing here proposes a change.</para>
+/// Measurement only: whether the round and the <see cref="ImpactPredictor"/> are handed the same world
+/// (<c>ProbeGapTests</c> prices their flight models in one world). The term priced here is zero in every
+/// headless rig and never in the game: the round is integrated in <c>Ecl</c> about a planet falling
+/// toward its Sun, the prediction in <c>Cci</c> about a planet at rest.
 /// </summary>
 public class ModelInputAgreementTests(ITestOutputHelper Out)
 {

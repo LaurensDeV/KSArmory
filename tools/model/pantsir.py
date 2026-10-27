@@ -55,9 +55,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import optic
 import sidewinder
 
-# ---------------------------------------------------------------------------
-# Arguments
-# ---------------------------------------------------------------------------
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 OUT_DIR = argv[0]
@@ -81,10 +78,8 @@ EXPORT = "--no-export" not in argv
 
 PALETTE = json.loads(open(PALETTE_PATH).read())["swatches"]
 
-# ---------------------------------------------------------------------------
 # Dimensions. Roughly a Pantsir-S1 on its KAMAZ-6560 8x8: 7.9 m long, 3.0 m wide,
 # missiles reaching 5.4 m with the pods elevated.
-# ---------------------------------------------------------------------------
 
 WHEEL_R = 0.66
 WHEEL_W = 0.44
@@ -137,30 +132,17 @@ RADAR_SPLAY = math.radians(21.0)         # lean of each face off vertical
 RADAR_CLOCK = math.pi / 6
 RADAR_PIVOT = (4.05, RADAR_MAST_Y, 0.0)  # spin axis, parallel to the part's X
 
-# Electro-optical head. Aimed freely rather than on an axis, so its mesh is recentred on the
-# ball's own centre and the mod writes a full rotation. At rest it looks along +Y, the way the
-# vehicle drives, which is the direction its lens is modelled sticking out in.
-#
-# Above the tracking array, which reaches X 3.67. Beside it the array cuts the sight line the
-# moment the head looks down and forward - which is exactly where a target on its final approach
-# is.
-
 # Where the Pantsir's own director bolts to the turret roof: the flange's bottom face, in part
-# space. The turret deck's top is X 3.38 and OPTIC_PLINTH raises it the rest of the way.
+# space. The turret deck's top is X 3.38 and the pad in build_tracking_radar() raises it the rest of
+# the way. The head then sits above the tracking array (X 3.67), which would otherwise cut the
+# sight line looking down and forward.
 #
-# Off the traverse axis on purpose, which costs nothing and is where a real one sits. The axis
-# itself is not free: the search array turns about it with a 0.95 m circumradius, reaching forward
-# to TURRET_Y - 0.15, so a ball on the centreline would grind through a body that never stops.
+# Off the traverse axis, because the search array turns about it with a 0.95 m circumradius,
+# reaching forward to TURRET_Y - 0.15. The mod reads the base subpart's transform rather than
+# reconstructing it from the traverse angle; see Sim/OpticGeometry.MountFrame.
 #
-# The mod does not reconstruct this from the traverse angle -- it reads the base subpart's
-# transform, which the turret drive has already written. See Sim/OpticGeometry.MountFrame.
-#
-# Y is set by the tracking array's housing, not by taste. That housing leans back 0.16 rad, which
-# swings its rear face to Y = TURRET_Y + 1.22 rather than the TURRET_Y + 1.35 its half-extent
-# suggests, and the flange's 0.30 m radius has to clear it. The blanked-off stub this replaced
-# overlapped it and nothing complained, because the stub was part of the turret's own body and a
-# body cannot intersect itself -- the clash only became visible once the director was a body in
-# its own right. tools/model/checkswept.py measured it at 7.0 cm, exactly FLANGE_TOP.
+# Y is set by the tracking array's housing: it leans back 0.16 rad, which swings its rear face to
+# Y = TURRET_Y + 1.22 rather than TURRET_Y + 1.35, and the flange's 0.30 m radius has to clear it.
 OPTIC_MOUNT = (3.46, TURRET_Y + 0.82, 0.44)
 
 # The 57E6 round: a bronze booster with small tail fins, a cluster of four delta fins at the
@@ -231,10 +213,6 @@ _objects = {"chassis": [], "turret": [], "pods": [], "radar": [], "guns": [],
             "missile": [], "fins": []}
 _group = "chassis"
 
-
-# ---------------------------------------------------------------------------
-# Primitives
-# ---------------------------------------------------------------------------
 
 def project_to_swatch(mesh, uv, centre):
     """Box-projects each face into a small patch centred on one palette swatch.
@@ -423,10 +401,6 @@ def elevated_frame(elev):
     return d, p
 
 
-# ---------------------------------------------------------------------------
-# Scene
-# ---------------------------------------------------------------------------
-
 def new_scene():
     bpy.ops.wm.read_factory_settings(use_empty=True)
 
@@ -440,10 +414,6 @@ def new_scene():
     links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
     bsdf.inputs["Roughness"].default_value = 0.8
 
-
-# ---------------------------------------------------------------------------
-# Chassis: KAMAZ-6560 8x8 with the equipment deck behind the cab
-# ---------------------------------------------------------------------------
 
 def build_chassis():
     global _group
@@ -510,10 +480,6 @@ def build_chassis():
         for z in (-1.0, 1.0):
             box((0.22, 0.34, 0.34), (1.05, y, z * (BODY_Z + 0.14)), swatch="steel_dark")
 
-
-# ---------------------------------------------------------------------------
-# Turret: missile pods, twin autocannon, tracking array and search radar
-# ---------------------------------------------------------------------------
 
 def build_turret():
     global _group
@@ -667,7 +633,7 @@ def build_guns():
 
 
 def build_tracking_radar():
-    """1RS2-1E: the big flat array across the turret front, plus the electro-optical head."""
+    """1RS2-1E: the big flat array across the turret front, plus the pad the director bolts to."""
     face_y = TURRET_Y + 1.70
     tilt = -0.16          # leans back a touch, as the real housing does
 
@@ -686,10 +652,8 @@ def build_tracking_radar():
     # exactly on a plane z-fight, and this pair is small enough that it would read as a flicker
     # rather than as anything diagnosable.
     #
-    # The box() call stays rather than going with the head. Jitter runs off one seed, so deleting
-    # a box moves every box drawn after it onto different planes -- in the pods, the cannon and
-    # the rail, none of which have anything to do with this. Resizing and moving one is free;
-    # only adding, removing or reordering disturbs the sequence.
+    # Jitter runs off one seed, so removing this box moves every box drawn after it onto different
+    # planes. Resizing and moving it is free; adding, removing or reordering is not.
     box((0.10, 0.68, 0.68), (OPTIC_MOUNT[0] - 0.03, OPTIC_MOUNT[1], OPTIC_MOUNT[2]),
         swatch="hull_dark")
 
@@ -816,10 +780,6 @@ def build_search_array():
         cyl(RADAR_R * 0.86, 0.30, centre, normal, "array", verts=6, spin=RADAR_CLOCK)
 
 
-# ---------------------------------------------------------------------------
-# Export
-# ---------------------------------------------------------------------------
-
 def join_group(name, recentre=None):
     """Merges one group's primitives into a single named mesh, transforms already applied.
 
@@ -895,10 +855,6 @@ def export(path):
     )
     return chassis, turret
 
-
-# ---------------------------------------------------------------------------
-# Preview renders
-# ---------------------------------------------------------------------------
 
 VIEWS = {
     # name: (camera location, point it looks at)
@@ -1044,8 +1000,6 @@ def render_sidewinder(out_dir, cam, show_only):
         ob.matrix_world = matrix
 
 
-# ---------------------------------------------------------------------------
-
 def report_muzzles(out_dir):
     """Emits the firing tubes as a C# array and as JSON.
 
@@ -1146,8 +1100,8 @@ def main():
     # Last, so the shared box jitter reshuffles nothing above it: the generator runs off one
     # seed, and inserting a box moves every box drawn after it onto different planes.
     sidewinder.build(sys.modules[__name__])
-    # The CIWS was generated here and is authored now. Its four boxes still draw their jitter, so
-    # the director built after them keeps the planes it has always had.
+    # Twelve draws hold the place of four boxes that no longer build here, so the director after
+    # them keeps its planes.
     for _ in range(4 * 3):
         _jitter.random()
     optic.build(sys.modules[__name__])

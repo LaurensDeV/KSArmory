@@ -3,46 +3,30 @@ namespace KSArmory;
 /// <summary>
 /// Whether a stage a vehicle has shed may be taken out of the world.
 ///
-/// <para><b>This is throughput, not tidiness.</b> The engine's simulated step is capped at a
-/// thirtieth of a second however long a frame takes, so <c>sim rate = 33.3 ms / frame time</c> and
-/// frame time grows at about 2.0 ms per vehicle — `docs/METRE-LEVEL.md` §5b. One rocket sheds four
-/// vehicles and keeps two, so on a world flying several of them the spent stages are most of what
-/// is being simulated, and they are simulated for the whole coast while they fall.</para>
+/// <para>Throughput: <c>sim rate = 33.3 ms / frame time</c>, and frame time grows about 2.0 ms per vehicle
+/// (<c>docs/METRE-LEVEL.md</c> §5b). A rocket sheds four vehicles and keeps two.</para>
 ///
-/// <para><b>The stack the clearance is watching is never disposable</b>, whatever it costs.
-/// <see cref="SeparationClearance"/> and <see cref="ProximityWatch"/> both read the distance to it,
-/// and an unreadable distance is not "clear" — it falls back to a blind clock, which is the trim
-/// being authorised while the stack is still metres away. Disposing of it would buy one vehicle in
-/// four and put the bus into the thing it just dropped.</para>
-///
-/// <para>So this covers the ascent stages, which nothing reads, and that is three of the four.</para>
+/// <para>The stack <see cref="SeparationClearance"/> and <see cref="ProximityWatch"/> read is never
+/// disposable: unreadable falls back to a blind clock. So this covers the three ascent stages.</para>
 /// </summary>
 internal static class StageDisposal
 {
     /// <summary>
-    /// How far a shed stage has to have got before it is nothing but frame time, in metres.
-    ///
-    /// <para>Not a physical threshold — nothing reads an ascent stage at any distance. It is the
-    /// margin against destroying the wrong vehicle: the census identifies a stage as "new in the
-    /// world and nearest to the craft", and a kilometre is far enough that nothing adjacent to the
-    /// craft can be mistaken for one. A rocket under power puts a dropped stage past it within
-    /// seconds, so waiting for it costs nothing.</para>
-    ///
-    /// <para>It protects nothing against another rocket's stages, which a world staging together
-    /// hands to whichever census looks first and which are kilometres off already. What keeps that
-    /// safe is the census's one-frame window and KSA giving the new vehicle to the part that drops
-    /// away: over 62,013 such removals none was ever seen alive again.</para>
+    /// How far a shed stage has to have got before it is disposed of, in metres: a margin against taking
+    /// something adjacent to the craft for the stage, which a rocket under power clears in seconds.
     /// </summary>
+    /// <remarks>
+    /// No guard against another rocket's stages: the census's one-frame window is. Over 62,013 removals
+    /// none was seen alive again.
+    /// </remarks>
     public const double ClearOfTheCraftMetres = 1000.0;
 
-    /// <param name="enabled">Whether the operator asked for this at all. Off is the default.</param>
+    /// <param name="enabled"><see cref="Config.DisposeSpentStages"/>, off by default.</param>
     /// <param name="watchedByTheClearance">
     /// Whether this is the half the separation clearance is still reading. Never disposable.
     /// </param>
     /// <param name="metresFromTheCraft">
-    /// How far the stage has got, or NaN when it cannot be read. <b>Unreadable is never
-    /// disposable</b> — the same rule <see cref="SeparationClearance"/> follows, and for a stronger
-    /// reason: there the cost of guessing is a bad trim, here it is destroying something at random.
+    /// How far the stage has got, or NaN when it cannot be read, which is never disposable.
     /// </param>
     public static bool MayDispose(bool enabled, bool watchedByTheClearance, double metresFromTheCraft)
     {

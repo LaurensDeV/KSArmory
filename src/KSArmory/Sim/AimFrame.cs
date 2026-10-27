@@ -5,29 +5,16 @@ namespace KSArmory;
 /// <summary>
 /// Which way is <em>up</em> for a vehicle told to point somewhere.
 ///
-/// <para>Pointing needs two directions, not one. Where the nose goes leaves the roll about that
-/// nose undecided, and something has to decide it — normally the planet, by putting the vehicle's
-/// belly toward it.</para>
-///
-/// <para><b>That rule has no answer when the nose points at the planet or away from it</b>, and
-/// worse than no answer: it <em>reverses</em>. Sweep the nose up through the vertical and "belly
-/// down" swings through half a turn, because the side the planet is on has changed. A vertical
-/// rise sits exactly there for its whole duration. So a rule that re-derives the roll from the
-/// aim each frame commands a vehicle that rolls hard for no reason, and no threshold fixes it —
-/// the discontinuity is in the rule, not in the arithmetic.</para>
-///
-/// <para>The reference is therefore <em>carried</em>: each frame's is the previous one squared up
-/// against the new aim. Continuous by construction, because it never asks the question again. It is
-/// only re-seeded when the aim swings so far that the old reference has become parallel to it,
-/// which is a different vehicle attitude rather than a boundary being crossed.</para>
+/// <para>"Belly toward the planet" has no answer with the nose vertical and reverses through half a turn
+/// as the nose sweeps past it, which a vertical rise does for its whole duration. So the reference is
+/// <em>carried</em>: each frame's is the previous one squared up against the new aim, and re-seeded only
+/// once the aim has swung parallel to it.</para>
 /// </summary>
 internal static class AimFrame
 {
     /// <summary>
-    /// How square to the aim a reference has to stay before it is given up as unusable.
-    ///
-    /// <para>The cross product loses its <em>direction</em> long before it loses its length, so a
-    /// reference within a few degrees of the aim is already noise.</para>
+    /// How square to the aim a reference has to stay before it is given up: the cross product loses its
+    /// direction long before its length, so a reference within a few degrees of the aim is noise.
     /// </summary>
     public const double MinimumSeparation = 0.05;
 
@@ -44,7 +31,6 @@ internal static class AimFrame
         double3 aim = Vec.Unit(aimCci);
         if (aim.Equals(Vec.Zero)) return previousCci;
 
-        // Carried forward wherever it still means anything, which is almost always.
         double3 carried = Flatten(previousCci, aim);
         if (!carried.Equals(Vec.Zero)) return carried;
 

@@ -77,13 +77,11 @@
 # What it cannot judge is appearance. That is what the screenshots are for: they arrive without
 # anyone sitting through the flight, and a person -- or a model -- looks at them afterwards.
 #
-# ---------------------------------------------------------------------------------------------
 # mirv: what it needs of you, and what it does for you
 #
-# You have to supply the rocket. A mod cannot put one on the pad -- LoadVehicleFromLibrary
-# resolves under the game install, see CLAUDE.md -- so this needs a craft carrying a MIRV bus,
-# already loaded, on the ground, with a launch solution available. Point settings.toml's
-# startVehicle at it, or name it here:
+# You have to supply the rocket: a save holding a craft carrying a MIRV bus on the ground, with a
+# launch solution available, named by KSARMORY_SCENARIO_SAVE (tools/make-rocket.py builds one).
+# Point settings.toml's startVehicle at the craft, or name it here:
 #
 #   KSARMORY_SCENARIO_CRAFT="Peacekeeper" ./tools/scenario.sh mirv
 #   KSARMORY_SCENARIO_HOLDKEYS=1 ./tools/scenario.sh mirv   # ...with the UI holding the keyboard throughout,
@@ -120,9 +118,8 @@ SHOTS_ON=0
 DEPLOY=1
 
 # Which variant each rocket in the world flies, so two arms are compared inside one run rather than
-# across a night of them. See Sim/ShotArms.cs for why -- the short version is that the same baseline
-# read 14.49 km and 5.43 km on identical code three hours apart, so a between-run difference under
-# about 3x is not readable and everything worth flying is under 3x.
+# across a night of them: the same baseline read 14.49 km and 5.43 km on identical code three hours
+# apart. See Sim/ShotArms.cs.
 ARMS=""
 ARM_PHASE=0
 
@@ -144,20 +141,14 @@ done
 # The craft to boot into. It must carry a launcher, or the runner waits forever for a battery to
 # crew: the default startVehicle is a plain Rocket and nothing crews on it.
 #
-# settings.toml's startVehicle, not a save. StarMap passes its GameArguments on to KSA only from
-# 0.4.7, so "-load <name>" there is untried; a save comes from the mod's own ScenarioRunner, through
+# settings.toml's startVehicle; a save is loaded by the mod's own ScenarioRunner, through
 # scenario.txt below. Install the craft with tools/install-testcraft.sh.
 CRAFT="${KSARMORY_SCENARIO_CRAFT:-}"
 
 # How long to wait for a verdict, and the scenario's own budget. A ballistic shot is seven minutes
 # of simulated flight and the timewarp it asks for can be refused, so its budget has to cover the
-# whole thing -- a deadline that cuts a working shot short reports a timeout for something that was
-# going fine.
-#
-# And the floor is no longer one times speed. A round may now ask the world to run *slower* than
-# real time through MunitionProfile.PreferredStepSeconds, which is how the ballistic warhead buys
-# accuracy back from the frame it is integrated across -- so seven minutes of flight can be eight
-# or more of wall clock, on top of the ascent.
+# whole thing. A round may also slow the world below 1x through MunitionProfile.PreferredStepSeconds,
+# so seven minutes of flight can be eight or more of wall clock, on top of the ascent.
 DEADLINE_SECONDS=300
 
 case "${SCENARIO%%:*}" in
@@ -190,10 +181,7 @@ case "${SCENARIO%%:*}" in
         # Earth and Moon, because a ballistic shot at Earth needs Earth and nothing else. KSA loads
         # lastSystemId, which defaults to the 25-body "Sol", and every celestial in it is work the
         # engine does per frame and work this mod does per ground lookup. Patched conics, so
-        # dropping the outer planets cannot change an Earth trajectory.
-        #
-        # Defaulted rather than left to the operator because leaving it opt-in is what let a whole
-        # class of slow night happen without anyone naming the cause -- docs/MIRV-NEXT.md 8ac.
+        # dropping the outer planets cannot change an Earth trajectory. docs/MIRV-NEXT.md 8ac.
         # Set KSARMORY_SCENARIO_SYSTEM to something else to override it.
         SYSTEM="${KSARMORY_SCENARIO_SYSTEM:-SolLite}"
         ;;
@@ -215,8 +203,7 @@ mkdir -p "$USER_DIR/Logs"
 # line that is only sometimes written cannot be addressed by position.
 #
 # A file rather than the environment: the game is a Windows process launched from WSL and the
-# environment does not survive that. KSARMORY_SCENARIO_KEEPSTAGES was tried as one and the mod never
-# saw it -- 100 disposals in a run that was meant to keep every stage.
+# environment does not survive that.
 {
     printf '%s|%s\n' "$SCENARIO" "$SAVE"
     printf '%s\n%s\n' "$ARMS" "$ARM_PHASE"
@@ -241,12 +228,8 @@ if [[ -f "$SETTINGS" ]]; then
 
     sed -i 's/^selectSystemOnStart = true/selectSystemOnStart = false/' "$SETTINGS"
 
-    # Skipping the dialog does not choose a system -- the game loads lastSystemId, which is
-    # whatever was picked last and defaults to the full 25-body "Sol". Every celestial is work the
-    # engine does per frame and work the mod does per ground lookup, and a ballistic shot at Earth
-    # needs Earth. Defaulted to SolLite for mirv above; KSARMORY_SCENARIO_SYSTEM overrides.
-    #
-    # Restored on exit with everything else here: it is the player's setting, not the harness's.
+    # Skipping the dialog does not choose a system: the game loads lastSystemId, set from SYSTEM
+    # above and restored on exit with everything else here.
     SYSTEM_WAS="$(grep -oE '^lastSystemId = ".*"' "$SETTINGS" | head -1 || true)"
 
     if [[ -n "${SYSTEM:-}" ]]; then
@@ -271,7 +254,7 @@ if (( DEPLOY )); then
     # Retried, because the process check above is not sufficient on its own. A game killed at the
     # end of the previous run leaves tasklist within a moment and holds the mod's DLL for a little
     # longer, so the guard sees nothing to close and the copy lands on a file Windows has not let go
-    # of yet. That is a lock error instead of a verdict, and it has cost real runs.
+    # of yet.
     for attempt in 1 2 3 4 5; do
         if "$REPO_ROOT/tools/deploy.sh" >/dev/null 2>&1; then
             break
@@ -337,9 +320,8 @@ NEXT_GAME_CHECK=$SECONDS
 while (( SECONDS < DEADLINE )); do
     [[ -f "$LOG" ]] || { sleep 2; continue; }
 
-    # Counted rather than remembered: matching each line against everything seen was quadratic, ran
-    # minutes behind an eight-rocket log, and could hide a verdict inside a longer line. A shorter
-    # log is a restart or a truncation, and is read from its start.
+    # Counted rather than matched against everything seen, which is quadratic on a long log and can
+    # hide a verdict inside a longer line. A shorter log is a restart or a truncation, read from its start.
     COUNT=$(grep -cF SCENARIO "$LOG" 2>/dev/null || true)
     (( ${COUNT:-0} < PRINTED )) && PRINTED=0
     mapfile -t FRESH < <(grep -F SCENARIO "$LOG" 2>/dev/null | tail -n +$(( PRINTED + 1 )))

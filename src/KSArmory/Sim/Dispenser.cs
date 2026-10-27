@@ -95,10 +95,8 @@ public sealed class Dispenser
 /// A craft's dispensers answering as one: a press of <b>Flares</b> is a salvo from <em>every</em> flare
 /// dispenser aboard with any left, together.
 ///
-/// <para>Together rather than from the fullest, because that is how a symmetric fit is used: a pair
-/// either side of the craft puts its decoys either side of it, where one side at a time pulls a
-/// seeker off to that side only. It also means fitting more dispensers makes each press heavier, which
-/// is what a real installation's programme does with the dispensers it has.</para>
+/// <para>Together rather than from the fullest, so a symmetric pair throws either side of the craft, where
+/// one side at a time pulls a seeker off to that side only.</para>
 /// </summary>
 public static class DispenseOrder
 {

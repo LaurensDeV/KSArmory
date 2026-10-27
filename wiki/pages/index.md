@@ -17,13 +17,14 @@ hide:
 </div>
 </div>
 <div class="ks-patch"><!-- patch --></div>
-<p class="ks-intro">Search radars, fire control, guided and unguided rounds, guns, sights and countermeasures
-for <a href="https://ahwoo.com/app/100000/kitten-space-agency">Kitten Space Agency</a>, the parts to mount
-them on, and a way for anyone to add their own.</p>
+<p class="ks-intro">KSArmory adds weapons to
+<a href="https://ahwoo.com/app/100000/kitten-space-agency">Kitten Space Agency</a>: missile
+launchers, guns, bombs, sights, radars and countermeasures, each on a part you can build into a
+craft. You can also add weapons of your own without writing code.</p>
 <div class="ks-actions">
-<a class="ks-button ks-button--primary" href="/players/install/">Install</a>
-<a class="ks-button" href="/players/using/">Using it</a>
-<a class="ks-button" href="/modding/weapon-packs/">Make a weapon</a>
+<a class="ks-button ks-button--primary" href="/guide/install/">Install</a>
+<a class="ks-button" href="/guide/using/">Using it</a>
+<a class="ks-button" href="/modding/weapon-packs/">Make your own</a>
 </div>
 </div>
 
@@ -31,11 +32,14 @@ them on, and a way for anyone to add their own.</p>
 
 <!-- every weapon -->
 
-Each one opens on a 3D model you can turn, with its range, its warhead and what it sees with. They are
-generated from the mod's own files at each release, so they are what you can download.
+Each weapon's page has a 3D model you can rotate and its main numbers: range, warhead and sensor.
+The pages are built from the same files as the release, so the numbers match the version you
+download.
 
 ## Making your own
 
-A weapon pack is an ordinary KSA mod with a `KSArmory/` folder of definitions in it and no code. The
-[weapon pack reference](modding/weapon-packs.md) has every element and attribute, and every weapon above
-is defined the same way, so each one is a worked example.
+A weapon pack is an ordinary KSA mod. Add your parts and art as usual, then put XML files describing
+the weapons in a `KSArmory/` folder inside the mod. No code is needed. The
+[weapon pack reference](modding/weapon-packs.md) starts with a working example and lists every
+element and attribute. The built-in weapons above are defined the same way, so any of them can serve
+as a starting point.

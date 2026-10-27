@@ -38,9 +38,8 @@ dotnet build "$REPO_ROOT/src/KSArmory/KSArmory.csproj" -c "$CONFIG" --nologo
 
 OUT="$REPO_ROOT/src/KSArmory/bin/$CONFIG/net10.0"
 
-# Before the copy, not after: a bad asset Id or a marker resolving to nothing is a *silent*
-# in-game failure, so without this the first sign is a launch, an inspection and a quit. 89 ms
-# against that. --offline because a deploy only needs the mod's own files to be consistent.
+# Before the copy: a bad asset Id is a silent in-game failure, and this costs 89 ms. --offline
+# because a deploy only needs the mod's own files to be consistent.
 if ! "$REPO_ROOT/tools/validate-parts.py" --offline; then
     echo >&2
     echo "error: the part assets did not validate; not deploying." >&2
@@ -71,11 +70,8 @@ cp "$OUT/mod.toml" "$TARGET/"
 : > "$TARGET/developer"
 [[ -f "$OUT/KSArmory.pdb" ]] && cp "$OUT/KSArmory.pdb" "$TARGET/"
 
-# Part definitions and every asset folder they reference. Paths here must match the assets array
-# in mod.toml and the <MeshAtlas>/<PbrMaterial>/<SoundFile> paths inside the XML.
-#
-# Discovered rather than listed. A named list means a new asset folder deploys nothing while the
-# XML declaring it still loads, and an asset that resolves to null is reported by nobody.
+# Asset folders are discovered rather than listed: a folder missing from a list deploys nothing
+# while the XML naming it still loads, and an asset resolving to null is reported by nobody.
 cp "$OUT"/KSArmory*.xml "$TARGET/"
 found_assets=0
 for path in "$OUT"/*/; do
@@ -83,8 +79,7 @@ for path in "$OUT"/*/; do
     dir="$(basename "$path")"
 
     mkdir -p "$TARGET/$dir"
-    # The definitions folder is read whole, so a file renamed or removed here would otherwise be
-    # left behind and registered beside its replacement.
+    # The definitions folder is read whole, so a renamed file left behind registers twice.
     [[ "$dir" == KSArmory ]] && rm -f "$TARGET/$dir"/*.xml
     cp "$path"/* "$TARGET/$dir/"
     found_assets=1
@@ -103,8 +98,8 @@ fi
 
 echo "installed to $TARGET"
 
-# KSA discovers mods through manifest.toml, and StarMap walks the same list to find code mods.
-# Dropping the folder in is not enough -- without an entry here nothing loads.
+# KSA discovers mods through manifest.toml, and StarMap walks the same list; without an entry
+# nothing loads.
 MANIFEST="$(dirname "$MODS_DIR")/manifest.toml"
 
 if [[ ! -f "$MANIFEST" ]]; then

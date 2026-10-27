@@ -25,9 +25,9 @@ control and *is* still off by default; the two disagree only in how the floor is
 they disagree the floor wins.
 
 **Steeper is not open-ended.** `ArrivalPreference = 0.8` latches 53.6 degrees and is a settled loss
-at 5.55x, and `BallisticArc.TryCheapest` returns *false* past roughly 35 degrees from the state the
-burn actually leaves — the arc ceases to exist rather than becoming dear. `ACCURACY-PLAN.md` 3ag and
-item 5e are that wall and the one thing that might move it.
+at 5.55x. What ends it is the post-boost trim's ability to finish paying, somewhere between 44 and 54
+degrees, not a missing arc: from the state the burn leaves, arcs exist up to 40.9–77.8 degrees, above
+what the latch can afford at every range (`ACCURACY-PLAN.md` 3be, which refuted 3ag's wall).
 
 **Everything below is measured** by `tests/KSArmory.Tests/ArrivalAngleTests.cs`,
 `ArrivalFloorTests.cs` — the search — and `ArrivalFloorFlightTests.cs`, which flies the whole program

@@ -7,13 +7,11 @@ namespace KSArmory.Tests;
 /// <summary>
 /// What is left ungained when the engines stop, and what it costs.
 ///
-/// <para>The rig used to honour a throttle command exactly and act on it the same frame, so it
-/// measured residuals of a few thousandths of a metre a second while the game produced two. Both
-/// of those lies are what hid this: KSA copies control inputs in <c>PrepareWorker</c>, which runs
-/// before this mod's hook, so a cutoff lands a frame late, and a real throttle servo takes time to
-/// come down. <see cref="IcbmFlightRig.CommandLatencyFrames"/> and
-/// <see cref="IcbmFlightRig.ThrottleRatePerSecond"/> are those two facts, off by default so every
-/// other suite keeps its old meaning.</para>
+/// <para>KSA copies control inputs in <c>PrepareWorker</c>, which runs before this mod's hook,
+/// so a cutoff lands a frame late, and a real throttle servo takes time to come down. A rig
+/// without both measures residuals of thousandths of a metre a second where the game leaves two.
+/// <see cref="IcbmFlightRig.CommandLatencyFrames"/> and
+/// <see cref="IcbmFlightRig.ThrottleRatePerSecond"/> are those two facts, off by default.</para>
 ///
 /// <para>The residual matters out of proportion to its size on a deorbit: the arc grazes for
 /// thousands of kilometres, so a metre a second left along the track is about 1.8 km of miss and
@@ -84,7 +82,7 @@ public class CutoffResidualTests(ITestOutputHelper Out)
     private static IcbmProgram Armed() => new(new IcbmConfig { Armed = true, ArrivalPreference = FixtureGeometry.ArrivalPreference, MinArrivalAngleDeg = ShallowArrival, PulsesBelowTheFloor = false });
 
     /// <summary>
-    /// Every fixture above aims along the orbit track, where the burn has no out-of-plane work to
+    /// Every other fixture here aims along the orbit track, where the burn has no out-of-plane work to
     /// leave behind — so the residual is all along the thrust line and all of it one frame's worth.
     /// <b>That is the geometry, not the guidance</b>, and the long shot is not flown at it.
     /// </summary>
@@ -131,7 +129,7 @@ public class CutoffResidualTests(ITestOutputHelper Out)
     /// <summary>
     /// And the freeze that leaves it lasts <c>HoldDirectionFrames x step</c> seconds, so a slower
     /// machine holds the line longer -- in the rig, where the 5 m/s cap does not bind. In flight it
-    /// does (ACCURACY-PLAN 3fl).
+    /// does (<c>docs/ACCURACY-PLAN.md</c> 3fl).
     /// </summary>
     [Theory]
     [InlineData(0.0167, 0.0400, 2.60)]

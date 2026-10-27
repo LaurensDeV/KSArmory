@@ -11,7 +11,7 @@ already allow.
 **The bridge** (`Ksa/Bridge.cs`, `Sim/BridgeCommand.cs`) and **the MCP server over it**
 (`tools/ksa-mcp/server.py`, registered in `.mcp.json`), with **shader hot reload**, **capture
 bundles**, **same-instant variants**, **frame series** and **the toolkit** (`tools/vis/vis.py`) —
-items 1 to 5 and 10 below. From a shell, before a session has the MCP tools:
+items 1 to 5 and 10 below; 6 to 9 and 11 are built too, and only 12 is not. From a shell, before a session has the MCP tools:
 
 ```bash
 python3 tools/ksa-mcp/server.py cli launch '{"save":"B61-13"}'
@@ -120,7 +120,8 @@ The biggest change: **stop relaunching**. The mod already reads a request from a
 log (`scenario.txt`); a command channel is the same idea kept open for the whole session.
 
 - **The mod** polls `<user dir>/Logs/bridge/in/` ten times a second, runs each command file it
-  finds, oldest first, and answers in `.../out/` — JSON, plus any pictures. Commands: *status*,
+  finds, oldest first, and answers in `.../out/` — JSON, plus any pictures. The commands this
+  section was written for (`Bridge.cs` dispatches about forty now, the engagement ones above among them): *status*,
   *pause*, *resume*, *speed*, *step* (run so many simulated seconds, then pause), *camera* (a pose
   relative to the newest burst, circling it at `orbit_deg_s` if asked, or *release*), *burst* (a yield east and north of the craft, as the
   panel's burst tool does, with no damage unless `damage` is set, when every craft is judged as that
@@ -152,7 +153,7 @@ What the reloader does is small: `ShaderReference.DoLoad()` recompiles the modul
 internal, so it is one verified reflection away, like the handful the mod already makes; the mod
 then drops its pipelines (`CloudPass.Release`) and they rebuild next frame against the new module.
 
-Triggered by *reload shaders* on the channel, or by the file's timestamp changing. A compile error is
+Triggered by *reload shaders* on the channel; nothing watches the file. A compile error is
 caught and logged, and the old pipeline stays. **The MCP tool copies the tree's shaders over the
 installed ones first**, keeping their timestamps, so a variant has to be edited in the tree: one copied
 into the mods folder by hand is overwritten before the game reads it, and the pass draws the tree's
@@ -202,9 +203,8 @@ series becomes:
 
 ### 6. Debug views in the shader — built
 
-One `Config` field chooses what the pass writes instead of the picture: density, the layer's
-transmittance, the cloud's weighted depth, the weather mask and the weather's distance, the history's
-weight and where it was rejected, the burn mask. False colour, same camera. The blocky squares at the
+One tunable, `DebugView`, chooses what the pass writes instead of the picture — the eight views are
+listed under *Order* below. False colour, same camera. The blocky squares at the
 fireball's edge would have been one picture of the weather mask instead of an elimination flight.
 
 ### 7. Live tunables — built
@@ -217,14 +217,14 @@ is Blender's loop — build, look, adjust — for the shader.
 
 ### 8. "Capture for Claude", in play — built
 
-A button in the panel, and a key, that writes a bundle the moment the player sees something: eight
+A button in the panel's debug pane, on a developer's install, that writes a bundle the moment the player sees something: eight
 consecutive frames, the manifest, the settings, the last lines of the log. "Clouds flicker through
 my nuke" then arrives with the frames it is about, and the temporal map of them. Local only — it
 writes a folder and sends nothing, so it is not the report window and is not bound by its rules.
 
 ### 9. The shader compiled in `check-all.sh` — built
 
-`glslangValidator` (or shaderc, which is what KSA uses) against both `.comp` files, with
+`glslangValidator` (or shaderc, which is what KSA uses) against every `.comp` file in `Shaders/`, with
 `CoreAtmosphere.glsl` generated against the install the way `Ksa/CoreShaderInclude.cs` writes it at
 load. Seconds, and it catches the whole class of error the night found in flight.
 

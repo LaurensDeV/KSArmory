@@ -8,6 +8,18 @@ moved and against each other.
 summaries and the ranked plan below are dated and stale; what this file still serves is the numbered entries
 (3a-3fr and the items), which the code, the tests and the other docs cite.
 
+**What the entries say about the code is as of their date.** A switch an entry calls "built, off" is
+usually on now, and `Sim/IcbmConfig.cs` has the current defaults. These are no longer in the tree:
+
+- removed 2026-10-06 (`docs/ICBM-OUTSTANDING.md` 5.1): `QuietCoast` with `Sim/CoastQuiet.cs`, its tests,
+  `AttitudeHook.Quiet` and `QuietCoastAfterCorrection`; `RailsDuringCoast`; `AimWithinTrimBudget`;
+  `TrimCeilingFromBudget`; `StoppingInsideTheBandIsDone`; `AimThresholdTracksTheMiss`;
+  `ShrinkMissKickToTheGroup`;
+- `HoldDirectionSeconds`, deleted 2026-10-09 (3fl, 3fo);
+- `FeedForwardTheHold` and `PostBoostAim.CycleSeconds`, reverted together on 2026-09-10 (`8f1d6a60`);
+- `WarheadDragFromItsShape`, retired 2026-10-21 (`46ddb998`): the Mk 21 carries its shape's drag itself;
+- `Arsenal`: the built-in weapons are defined in `src/KSArmory/KSArmory/*.xml`, the bus in `Strategic.xml`.
+
 **It exists because four investigations landed at once** — the long-range logs, the guidance chain,
 the KSA corpus and the backlog itself — and between them they moved the top of the list from "tune a
 constant" to "there is a bug, and the engine has a lever nobody used".
@@ -3638,7 +3650,7 @@ have recorded a failed fix and moved on.
 `AttitudeHook.Quiet` now calls `VehicleCommand.ReleaseAttitude` every frame — Manual, None, target
 cleared — inside the `PrepareWorker` window, because a write from anywhere else is discarded before
 anything reads it. That window is the reason the hook exists, and it had been used for pointing but
-not for stopping.
+not for stopping. *(`AttitudeHook.Quiet` was removed on 2026-10-06, with `QuietCoast`.)*
 
 ### One thing to watch when it re-flies
 
@@ -3664,7 +3676,7 @@ reducing the push, that is the reason to look at first.
 > and re-settle on the committed line. `QuietDuringCoast` excludes `_salvoAway`, which is *after* the
 > warheads are gone and far too late.
 >
-> **Built as `Sim/CoastQuiet.cs`, 2026-09-06. Not flown.** See 3bb.
+> **Built as `Sim/CoastQuiet.cs`, 2026-09-06. Not flown.** See 3bb. *(Removed 2026-10-06, with `QuietCoast`.)*
 
 ## 3ba. QuietCoast works, is worth 0.73x, and is not the whole fault — flown 2026-09-06
 
@@ -3777,6 +3789,8 @@ through the coast — `PostBoostAim` and `ReleasePointing` re-point before the w
 the band can be very wide and the coast can be genuinely silent.
 
 ## 3bb. The quiet window is bounded at both ends — built 2026-09-06, NOT FLOWN
+
+*`Sim/CoastQuiet.cs` and `CoastQuietTests` were removed on 2026-10-06, with `QuietCoast`.*
 
 `Sim/CoastQuiet.cs`. Two bounds, and 3az/3ba between them say why each is needed:
 
@@ -4999,7 +5013,7 @@ look exactly like this — the aim moves, the arc is re-solved, and the trim doe
 
 ### Keep the change, off
 
-`AimThresholdTracksTheMiss` stays built and off. It is measured harmless (the interval's upper bound
+`AimThresholdTracksTheMiss` stays built and off *(removed 2026-10-06)*. It is measured harmless (the interval's upper bound
 is 1.10 and the pooled medians are 0.02 against 0.01), it makes the loop's stopping rule mean
 something at the scale the shot now flies, and any future work on what the correction converges to
 needs it on to be measurable at all — a loop that stops on three passes cannot show whether a change
@@ -6411,6 +6425,9 @@ The mechanism is not refuted. Applying it as a blanket offset on every cycle is.
 The resolved release probe and `PostBoostAim.CycleSeconds`. Between them they turned a night's
 reconstruction into a one-shot read, and they are why this loss cost 16 minutes instead of 4.5 hours.
 
+*Not as committed: the revert (`8f1d6a60`) took `PostBoostAim.CycleSeconds` out with the rest. `PostBoostAim` keeps
+the cycle length private.*
+
 ### The next candidate, and it is better evidenced than this one was
 
 Split the base arm by how its correction loop terminated:
@@ -6424,7 +6441,7 @@ Split the base arm by how its correction loop terminated:
 **Flights that stop on the dead band are three times worse.** That band is
 `AimCorrection.ImprovedByMetres`, which **3ca** already showed is arithmetically dead below 250 m and
 **3cl** found all six of its outliers missing by 20-50 m. Three independent lines now point at one
-constant, and `IcbmConfig.AimThresholdTracksTheMiss` already exists, off by default.
+constant, and `IcbmConfig.AimThresholdTracksTheMiss` already exists, off by default *(removed 2026-10-06)*.
 
 **It has flown once, and this paragraph first said it had not.** 3bx was that setting as its `band`
 arm: 0.88x [0.84, 1.10] on the miss, 14 blocks, with the arm aliased to the seat (3cl) and before
@@ -7789,7 +7806,7 @@ Read off the 960 warheads of `2026-09-12-query`, both arms pooled — they do no
 Nothing was flown for it.
 
 **The cause.** The MIRV bus's six tubes sit on a **0.86 m-radius ring** perpendicular to the release
-line, all pointing along +X (`Arsenal.MirvBus`), and every round spawns at its own mouth with the
+line, all pointing along +X (`Arsenal.MirvBus` then; now the Heavy MIRV Bus in `KSArmory/Strategic.xml`, which has a seventh tube on the axis), and every round spawns at its own mouth with the
 bus's velocity plus the spin that mouth is sweeping at — `ω × r`, which the prediction also leaves out. **Every release prediction uses the mean mouth** — `ProbeRelease` through
 `TryMeanReleaseStateEcl`, whose own doc says that what each tube does differently "is dispersion,
 and no single aim can remove it". So the aim loop lands the mean state on the target and the six
@@ -8511,7 +8528,7 @@ what it is"); the Mk 21 kept its hand-typed `DragK` because every baseline here 
 is believed to weigh 200 to 270 kg on a 55 cm base; at 270 kg and a slender cone's hypersonic 0.1 its drag is
 **5.39e-5, 3.6x** the constant's, about 2,300 lb/ft².
 
-`IcbmConfig.WarheadDragFromItsShape` flies one rocket's warheads that way. `IcbmComputer` swaps the launcher's round
+`IcbmConfig.WarheadDragFromItsShape` flies one rocket's warheads that way. *(Retired 2026-10-21: the Mk 21 now carries this drag itself.)* `IcbmComputer` swaps the launcher's round
 (`IManualFire.FlyRoundsAs`) before it reads it, so the prediction, the aim loop, the kick and the warheads it lets go
 are one profile, and logs `warheads drag from their shape, k 5.390E-005` once.
 
@@ -8869,7 +8886,7 @@ a rig leaves alone is a claim about the flight that nobody checked.
 ### What 45b is now, and what is still open
 
 `IcbmConfig.WarheadSubStepMs` **stays in the tree and stays off**, like `QuietCoastAfterCorrection` and
-`WarheadDragFromItsShape`: built, smoked, priced at 4 mm, and cheap to fly if the walk ever comes down far
+`WarheadDragFromItsShape` *(both since removed)*: built, smoked, priced at 4 mm, and cheap to fly if the walk ever comes down far
 enough for 4 mm to matter. It is not worth a night at a 21 mm walk.
 
 > **Flown on 2026-09-17, and it stays off on evidence rather than on price — 3ei.** Three arms at
@@ -12485,8 +12502,8 @@ kept for the mechanism. It read, when written: unfixed, measured headlessly.
 **Except where the coast is long enough to outgrow the caps.** The release probe's kick is capped at 1 m/s, and on a
 four-hour coast from orbit (`ORBIT 300` to 40 N, 10 E) the kick added at cutoff left 2.1 km to take back 393 s out,
 where the trim measured 384 m per m/s: about 5.5 m/s, refused whole, and the warheads landed 1.93 km out. The fix
-named at the end of this section is now built as `IcbmConfig.KickAtTheRelease` (`Sim/ReleaseCoast.cs`), and is
-**off**: it coasts the departure to `IcbmProgram.ReleaseGate` before arrival rather than by the clearing delay, since
+named at the end of this section is now built as `IcbmConfig.KickAtTheRelease` (`Sim/ReleaseCoast.cs`), and was
+**off** when moved here (on since 2026-10-13, `9e286404`): it coasts the departure to `IcbmProgram.ReleaseGate` before arrival rather than by the clearing delay, since
 that is when the release happens. Flown on 2026-10-12 it cut the trim to about a quarter at 6,181 km and landed the
 far coast at 0.4-1.3 mm with `FreezeKeepsABetterRecentAim`, and waits on a later release gate being checked on walks
 and short range. `docs/ICBM-OUTSTANDING.md` 1.14, 1.16.
@@ -12635,7 +12652,7 @@ rise on the attitude thrusters, saw no propellant for four seconds, and reported
 lit**: a first stage already pushing on frame zero flies every shot in `IcbmFlightTests` whether or
 not the computer has an ignition at all, and `IcbmFlightRig.StartsUnlit` is the fifth thing the rig
 has had to stop being better than the game at. So did the harness, which used to stage by hand —
-see [Flying one without watching it](#flying-one-without-watching-it).
+see `docs/ICBM-GUIDANCE.md`, [Flying one without watching it](ICBM-GUIDANCE.md#flying-one-without-watching-it).
 
 ### The prediction flies the warhead, not the bus
 

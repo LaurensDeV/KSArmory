@@ -3,13 +3,9 @@ namespace KSArmory;
 /// <summary>
 /// How much of a burst's glare reaches a viewer, given where they are looking.
 ///
-/// <para><b>It never reaches nothing.</b> A fireball is twice as bright as the surface of the sun,
-/// and light that bright does not stop at the edge of the frame: it scatters in the air between,
-/// it veils across the optics, and it lights the whole landscape the viewer <em>is</em> looking at.
-/// So turning away dims a burst and cannot abolish it, which is why the falloff lands on a floor
-/// rather than on zero.</para>
-///
-/// <para>Full while the burst is in frame, because a source anywhere on the glass floods it.</para>
+/// <para><b>It never reaches nothing</b>: light that bright scatters in the air, veils across the optics
+/// and lights the landscape the viewer is looking at, so the falloff lands on a floor. Full while the
+/// burst is in frame.</para>
 /// </summary>
 public static class FlashGlare
 {
@@ -26,10 +22,8 @@ public static class FlashGlare
     /// <summary>
     /// How much light a burst puts in the eye at <paramref name="range"/>, in suns: its thermal
     /// power at the pulse's peak spread over a sphere, against sunlight, and scaled by how bright
-    /// the ball is drawn now against its peak. A 0.3 kt burst is about 60 suns at 2.4 km. Taken off
-    /// the power rather than off the drawn ball's size, which at the instant of the flash is still
-    /// small and put the same burst at 8. In the air it went off in (<see cref="ThermalAltitude"/>):
-    /// a stratospheric burst gives more of itself as light, and over a shorter pulse.
+    /// the ball is drawn now against its peak: a 0.3 kt burst is about 60 suns at 2.4 km. In the air it
+    /// went off in (<see cref="ThermalAltitude"/>).
     /// </summary>
     public static double Suns(double yieldKt, double range, double glow, double airRatio = 1.0)
     {
@@ -92,10 +86,8 @@ public static class FlashGlare
     /// How violet the flash is at an age, in [0, 1]: all of it at the burst, warming to the ball's
     /// own yellow as it cools.
     ///
-    /// <para><b>Seen from a distance the whole blinded view is lavender</b>, whitest round the burst
-    /// and deeper toward the edges: the burst's gamma rays set the air round it fluorescing in
-    /// nitrogen's blue-violet lines, and the fireball is hottest, bluest, then. A warm veil from the
-    /// first frame is the tell against every film of a test shot from far off.</para>
+    /// <para>Gamma rays set the air round the burst fluorescing in nitrogen's blue-violet lines, so the
+    /// blinded view is lavender at first, not warm.</para>
     /// </summary>
     public static double VioletShare(double ageSeconds)
         => !(ageSeconds >= 0.0) ? 0.0 : Math.Exp(-ageSeconds / VioletSeconds);
@@ -107,11 +99,8 @@ public static class FlashGlare
     /// <summary>
     /// The time constant the whiteout clears on, for an eye adapted to <paramref name="adaptedSuns"/>.
     ///
-    /// <para><b>A dark-adapted eye recovers far more slowly</b>, which is why flash blindness from a
-    /// night burst lasts seconds to minutes where a daylight one is gone in a second: the pigment the
-    /// flash bleached is what the eye had been saving up to see in the dark. Eased on the log of the
-    /// adaptation, as <see cref="AdaptedTo"/> is built. Seconds rather than minutes at night: it is a
-    /// game, and a view that stays white for a minute is a player who cannot see what hit them.</para>
+    /// <para>A dark-adapted eye recovers far more slowly; eased on the log of the adaptation, and held to
+    /// seconds rather than minutes at night so the player can still see what hit them.</para>
     /// </summary>
     public static double RecoverySeconds(double adaptedSuns)
     {
@@ -127,9 +116,7 @@ public static class FlashGlare
     /// <summary>
     /// How far past the edge of the field the glare takes to fall to that floor, in degrees.
     ///
-    /// <para>Wide on purpose. A source a few degrees outside the frame is still in the lens, and a
-    /// cut at the frame edge would make the flash switch on and off as a burst drifted across
-    /// it — which is a worse artefact than the one this exists to fix.</para>
+    /// <para>Wide, so a burst drifting across the frame edge does not switch the flash on and off.</para>
     /// </summary>
     public const double FalloffDeg = 70.0;
 
@@ -140,8 +127,7 @@ public static class FlashGlare
     /// <param name="halfFieldDeg">Half the viewer's field of view.</param>
     public static double Reaching(double offAxisDeg, double halfFieldDeg)
     {
-        // Anything unreadable gives the whole of it. A flash that should not have fired is a
-        // surprise somebody reports; one that did not fire is a feature silently missing.
+        // Unreadable gives the whole of it: a missing flash is silent, a spurious one gets reported.
         if (!double.IsFinite(offAxisDeg) || !double.IsFinite(halfFieldDeg)) return 1.0;
 
         double edge = Math.Max(halfFieldDeg, 1.0);

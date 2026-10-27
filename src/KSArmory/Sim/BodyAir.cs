@@ -30,11 +30,9 @@ internal readonly record struct BodyAir(
     BodyTraits Traits,
     bool Wet = false)
 {
-    /// <summary>A body with no air at all.</summary>
     public static BodyAir Airless(double gravity, double radiusMetres, BodyTraits traits)
         => new(0.0, 0.0, 0.0, 0.0, gravity, radiusMetres, traits);
 
-    /// <summary>Whether there is any air.</summary>
     public bool HasAir => SeaLevelDensity > 0.0 && SeaLevelPascals > 0.0 && ScaleHeightMetres > 0.0
                           && BoundaryMetres > 0.0;
 

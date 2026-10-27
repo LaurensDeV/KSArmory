@@ -5,16 +5,11 @@ namespace KSArmory;
 /// <summary>
 /// A round in flight, seen by somebody else's sensor.
 ///
-/// <para>This is what makes an incoming missile a thing that can be shot at. The round itself is
-/// held by reference, so what it <em>is</em> — its name, its side, whether it is still flying —
-/// is always current.</para>
+/// <para>The round is held by reference, so whether it is still flying is always current.</para>
 ///
-/// <para><b>Its kinematics are a snapshot, and must be.</b> Every system in the world is handed
-/// one of these list before any of them steps, but a round's position is advanced by its
-/// <em>own</em> launcher's update — so a live reference reads as start-of-frame or end-of-frame
-/// depending on which system asks first, and roster order is a dictionary's. Against a 1.8 km/s
-/// closing round that is a whole frame of relative motion, metres of it across the shell's fuse
-/// radius, deciding a hit. Sampled once, every system sees one instant.</para>
+/// <para><b>Its kinematics are a snapshot, and must be.</b> A round is advanced by its own launcher's
+/// update, so a live reference reads as start-of-frame or end-of-frame depending on roster order,
+/// which is a dictionary's. Sampled once before any system steps, every system sees one instant.</para>
 /// </summary>
 /// <param name="round">The round itself, which is also its <see cref="IContact.Handle"/>.</param>
 /// <param name="positionEcl">
@@ -23,16 +18,10 @@ namespace KSArmory;
 /// <c>KSArmoryMod.CollectAirborne</c>, which is the only thing that may build one of these.
 /// </param>
 /// <param name="velocityEcl">Its velocity at that instant, carrying the frame's ~29.8 km/s.</param>
-/// <param name="firedBy">
-/// The system that launched it. Carried so a round inherits its shooter's allegiance: a launcher's
-/// own missiles must read as friendly to everything on its side, or a system engages its own
-/// salvo the moment it clears the tubes.
-/// </param>
+/// <param name="firedBy">The name of the craft that launched it, for its display name.</param>
 /// <param name="declaredTeam">
-/// The side the shooter's flag puts it on, or null when nothing has said and the name has to
-/// answer. Carried rather than looked up: a round's handle is the round, so it is in no craft
-/// roster — and a system that has gone loose has no craft left to look up either, while its
-/// policy, and so its side, is still there.
+/// The side the shooter's flag puts it on, or null for no team. Carried rather than looked up: a
+/// round is in no craft roster, and a loose system has no craft left to look up.
 /// </param>
 /// <param name="anchor">
 /// The craft the round's drawn offset is measured from. A round's <c>OffsetFromPlatform</c> is a
@@ -48,28 +37,20 @@ internal sealed class RoundContact(IProjectile round, string? firedBy, string? d
 
     public object Handle => Round;
 
-    /// <summary>
-    /// Named for the launcher and the tube, which is how the log already identifies a round.
-    /// </summary>
     public string DisplayName => $"{firedBy ?? "unknown"} {RoundLabel.For(Round.Tube)}";
 
-    /// <summary>Its shooter's craft, so a round is on the side that fired it.</summary>
     public string TeamKey => firedBy ?? string.Empty;
 
-    /// <summary>Its shooter's, for the same reason: a round is on the side that fired it.</summary>
+    /// <summary>Its shooter's, so a round is on the side that fired it.</summary>
     public string? DeclaredTeam => declaredTeam;
 
     /// <summary>The craft that fired it, so its own sensors can disregard it.</summary>
     public KSA.Vehicle? LaunchedFrom => anchor;
 
-    /// <summary>
-    /// A missile's body, not its warhead. Small: it is what a blast is measured against and what a
-    /// sight sizes its bracket from, and using a lethal radius here would make a round look like
-    /// the volume it threatens rather than the object it is.
-    /// </summary>
+    /// <summary>A missile's body, not its lethal radius: a blast is measured against it and a sight sizes its bracket from it.</summary>
     public double MeanRadius => 1.5;
 
-    public double HeatKwPerSr => Signature.HeatOfRound(Round.Age <= Round.Munition.TotalBoostSeconds);
+    public double HeatKwPerSr => Signature.HeatOfRound(Round.MotorBurning);
 
     /// <summary>Gone the moment it stops flying, whether it hit, burst or timed out.</summary>
     public bool IsAlive => Round.State == RoundState.Flying;
@@ -90,9 +71,8 @@ internal sealed class RoundContact(IProjectile round, string? firedBy, string? d
     public DragShape? DragShape => null;
 
     /// <summary>
-    /// The drawn position, which is the launcher's drawn position plus the round's own flight —
-    /// never the simulated one. The two differ by metres on a landed craft and by a frame of
-    /// ecliptic motion besides.
+    /// The launcher's drawn position plus the round's offset, never the simulated one, which differs by
+    /// metres on a landed craft and by a frame of ecliptic motion besides.
     /// </summary>
     public bool TryDrawEgo(out double3 posEgo)
     {

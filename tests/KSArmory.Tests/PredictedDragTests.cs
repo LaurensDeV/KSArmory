@@ -5,13 +5,8 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// The prediction and the round have to be flying the same trajectory.
-///
-/// <para>They were not. The predictor flew in vacuum and the released warhead flew through air, and
-/// on a shallow deorbit arrival — where the path through the atmosphere is a dozen times longer
-/// than the height lost — that is tens of kilometres, always short. Worse, it was unclosable:
-/// <see cref="AimCorrection"/> observes the prediction, so a difference the prediction cannot see
-/// is a difference no amount of correcting removes.</para>
+/// The prediction has to fly the round's drag: on a shallow deorbit a vacuum prediction is tens of kilometres
+/// long, and <see cref="AimCorrection"/> observes the prediction, so what it cannot see no correction removes.
 /// </summary>
 public class PredictedDragTests(ITestOutputHelper Out)
 {
@@ -113,9 +108,8 @@ public class PredictedDragTests(ITestOutputHelper Out)
     /// for a shell and kilometres for a warhead a quarter of the way round the planet — the air over
     /// the two points moves in measurably different directions.
     ///
-    /// <para>This is the launcher case, and it is the bound rather than the typical cost. A bus
-    /// coasts on nearly the warheads' own arc, so it stays beside them and the two readings barely
-    /// differ — which is why fixing this did not move an ICBM's impact.</para>
+    /// <para>This is the bound, not the typical cost: a bus coasts beside its warheads, so for it the
+    /// two readings barely differ.</para>
     /// </summary>
     [Fact]
     public void TheAirIsMeasuredOverTheRoundRatherThanOverAStationaryPlatform()
@@ -152,7 +146,7 @@ public class PredictedDragTests(ITestOutputHelper Out)
                     + $"{apart / 1000.0:F1} km, so this geometry no longer exercises the fault");
     }
 
-    /// <summary>And giving the prediction the round's own drag closes it, which is the whole fix.</summary>
+    /// <summary>Giving the prediction the round's own drag closes it.</summary>
     [Fact]
     public void PredictingWithTheWarheadsDragLandsWhereTheRoundLands()
     {
@@ -175,11 +169,8 @@ public class PredictedDragTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// The whole feature, end to end: solve, predict the round rather than the bus, correct the aim
-    /// by what the prediction loses, and the round arrives.
-    ///
-    /// <para>This is the test that would have failed against the shipped code. The correction loop
-    /// was already right; it was reading an instrument that could not see the error.</para>
+    /// End to end: solve, predict the round rather than the bus, correct the aim by what the
+    /// prediction loses, and the round arrives.
     /// </summary>
     [Fact]
     public void CorrectingAgainstADragAwarePredictionPutsTheRoundOnTheTarget()
@@ -244,7 +235,7 @@ public class PredictedDragTests(ITestOutputHelper Out)
     /// <para>Air density falls off on an 8 km scale height and a re-entering round covers a
     /// kilometre a frame at 1x — far more under warp. Sampling it once a frame and holding it flies
     /// the round through the thinner air it had at the top of the frame, so it under-drags and
-    /// overshoots. Flown at 10x before this was fixed: <b>381 km long</b>.</para>
+    /// overshoots: 381 km long, flown at 10x.</para>
     /// </summary>
     [Theory]
     [InlineData(1.0 / 60.0)]

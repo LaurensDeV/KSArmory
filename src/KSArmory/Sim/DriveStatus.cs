@@ -10,6 +10,7 @@ public enum DriveChannel
     Optic,
     Recoil,
     Linkage,
+    Ejector,
 }
 
 /// <summary>
@@ -24,7 +25,6 @@ public struct DriveStatus
 {
     private int _refused;
 
-    /// <summary>True while the engine is still accepting writes for this channel.</summary>
     public readonly bool Works(DriveChannel channel) => (_refused & Bit(channel)) == 0;
 
     /// <summary>Latches a channel off. True if this was its first refusal, so callers log once.</summary>
@@ -35,18 +35,14 @@ public struct DriveStatus
         return true;
     }
 
-    /// <summary>True once any channel has been refused.</summary>
     public readonly bool AnyRefused => _refused != 0;
 
     /// <summary>True while both channels that aim the missile tubes are still accepted.</summary>
     public readonly bool AimingAccepted => Works(DriveChannel.Turret) && Works(DriveChannel.Pods);
 
     /// <summary>
-    /// True while both channels that aim the cannon are still accepted.
-    ///
-    /// <para>Separate from <see cref="AimingAccepted"/> because the two weapons share only the
-    /// traverse. Reading the missiles' pair silences a cannon whose own drive and subpart are
-    /// fine, which is why the latches are per channel.</para>
+    /// True while both channels that aim the cannon are still accepted. Separate from
+    /// <see cref="AimingAccepted"/> because the cannon and the pods share only the traverse.
     /// </summary>
     public readonly bool GunAimingAccepted => Works(DriveChannel.Turret) && Works(DriveChannel.Guns);
 

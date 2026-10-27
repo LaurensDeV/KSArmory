@@ -2,10 +2,8 @@
 #
 # Checks that src/KSArmory/Sim stays free of KSA types.
 #
-# The real guard is the test project: it links Sim/** and references no KSA assembly, so a
-# `using KSA;` there fails the test build. That guard needs the game's assemblies to run, which
-# a hosted CI runner does not have — so this is the textual stand-in, and it is the reason CI
-# can say anything at all about the boundary.
+# The real guard is the test project, which links Sim/** and references no KSA assembly; it needs
+# the game's assemblies to build, so this is the textual stand-in for a runner without them.
 #
 set -euo pipefail
 
@@ -17,8 +15,7 @@ if [[ ! -d "$SIM" ]]; then
     exit 1
 fi
 
-# `using KSA;`, `KSA.Something`, and the loader's attributes. Comments and doc text are allowed
-# to name KSA — half the value of those files is explaining why they do not touch it.
+# `using KSA;` and `KSA.Something`. Comment lines may name KSA.
 offenders="$(grep -rnE '^\s*(using KSA;|using KSA\.)|(^|[^A-Za-z_."/])KSA\.[A-Z]' "$SIM" --include='*.cs' \
     | grep -vE '^\s*[^:]+:[0-9]+:\s*(//|///|\*)' || true)"
 

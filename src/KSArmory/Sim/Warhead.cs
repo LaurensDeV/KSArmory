@@ -3,15 +3,9 @@ namespace KSArmory;
 /// <summary>
 /// How much explosive a round carries, and what that reaches.
 ///
-/// <para>Everything scales as the <b>cube root</b> of the charge — the Hopkinson–Cranz law, which
-/// says the distance at which a given blast effect is felt goes as <c>R = Z · W^(1/3)</c>. That
-/// is the one fact worth encoding: doubling a warhead does not double its reach, it multiplies it
-/// by 1.26. Written as three independent radii instead, a profile can quietly describe a warhead
-/// whose lethal radius exceeds its blast radius.</para>
-///
-/// <para>The scaled distances below are a game model, not a munitions table. They are pinned to
-/// the 57E6's flown numbers, so a new round gets consistent radii from one figure rather than
-/// three guesses.</para>
+/// <para>Every radius is <c>R = Z · W^(1/3)</c> (Hopkinson–Cranz), so doubling a charge multiplies
+/// its reach by 1.26, and no profile can give a lethal radius past its blast radius. The scaled
+/// distances are a game model pinned to the 57E6's flown numbers.</para>
 /// </summary>
 public static class Warhead
 {
@@ -27,14 +21,13 @@ public static class Warhead
     /// </summary>
     public const double BlastScaledDistance = 22.104;
 
-    /// <summary>
-    /// The visible ball. Much tighter than either damage radius: an explosion that filled its own
-    /// blast radius would be a 60 m sphere for a missile, which reads as a bug rather than as a
-    /// warhead.
-    /// </summary>
+    /// <summary>The visible ball, much tighter than either damage radius.</summary>
     public const double FireballScaledDistance = 2.6;
 
-    /// <summary>Everything inside this is destroyed.</summary>
+    /// <summary>
+    /// Where a part of <see cref="BlastDamage.ReferencePascals"/> strength fails; with
+    /// <c>Config.DamageIndividualParts</c> off, everything inside it is destroyed.
+    /// </summary>
     public static double LethalRadius(double chargeKg) => Radius(LethalScaledDistance, chargeKg);
 
     /// <summary>Everything inside this is a near miss worth reporting.</summary>

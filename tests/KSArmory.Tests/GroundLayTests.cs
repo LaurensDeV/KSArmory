@@ -30,6 +30,7 @@ public class GroundLayTests(ITestOutputHelper output)
     private static MunitionProfile Airless(float lifetimeSeconds = 40f) => new()
     {
         Name = "GroundLayAirless",
+        BoostSeconds = 0f,
         DisplayName = "airless five-inch",
         LaunchSpeed = Shell.LaunchSpeed,
         DragK = 0f,
@@ -45,6 +46,7 @@ public class GroundLayTests(ITestOutputHelper output)
     private static MunitionProfile NearlyAirless() => new()
     {
         Name = "GroundLayNearlyAirless",
+        BoostSeconds = 0f,
         DisplayName = "nearly airless five-inch",
         LaunchSpeed = Shell.LaunchSpeed,
         DragK = 1.62e-6f,

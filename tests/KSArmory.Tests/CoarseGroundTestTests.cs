@@ -50,8 +50,8 @@ public class CoarseGroundTestTests
     }
 
     /// <summary>
-    /// Near the ground it samples every step. That is the part that decides where the bomb lands,
-    /// so it must be no coarser than it was before the cache existed.
+    /// Near the ground it samples every step, because that is the part that decides where the bomb
+    /// lands.
     /// </summary>
     [Fact]
     public void ItSamplesEveryStepOnceItIsNearTheGround()

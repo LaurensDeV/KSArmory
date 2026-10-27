@@ -42,7 +42,7 @@
 <line x1="172" y1="125" x2="194" y2="133" stroke="#EDEBE6" stroke-width="5" stroke-linecap="round"></line>
 </g>
 <text font-family="'Saira Condensed', sans-serif" font-weight="800" font-size="46" letter-spacing="10" fill="#EDEBE6" text-anchor="middle"><textPath href="#ksa-top" startOffset="50%">KSARMORY</textPath></text>
-<text font-family="'IBM Plex Mono', monospace" font-weight="500" font-size="22" letter-spacing="6" fill="#EDEBE6" text-anchor="middle"><textPath href="#ksa-bottom" startOffset="50%">WEAPON SYSTEMS DIVISION</textPath></text>
+<text font-family="'IBM Plex Mono', monospace" font-weight="500" font-size="22" letter-spacing="6" fill="#EDEBE6" text-anchor="middle"><textPath href="#ksa-bottom" startOffset="50%">KESSLER SYSTEMS ARMORY</textPath></text>
 <circle cx="38" cy="320" r="6" fill="#F2A900"></circle>
 <circle cx="602" cy="320" r="6" fill="#F2A900"></circle>
 

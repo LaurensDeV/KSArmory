@@ -23,10 +23,10 @@ reading of code and have not been run; everything else names where it was measur
 
 - [ ] 1. Flip night for the walk flags
 - [x] 2. Make a hop's time and budget belong to the hop (headless, flagged) -- 2026-10-18, rig only
-- [ ] 3. Spend the Heavy bus's tank, rolled once for the walk
+- [ ] 3. Spend the Heavy bus's tank, rolled once for the walk -- headless half built 2026-10-18 (guard, slider), roll deferred, night not flown
 - [x] 4. Decide the route to 50 km (rig pricing, a decision, no build) -- 2026-10-18: A and B, C deferred
-- [ ] 5. Build the chosen route (headless)
-- [ ] 6. Fly it in game, once
+- [ ] 5. Build the chosen route (headless) -- A and C built 2026-10-19 behind flags, all off; flown in step 6 and the 2026-10-19/20 nights
+- [ ] 6. Fly it in game, once -- flown 2026-10-19 for A, the second flight landing 25 warheads within 32 mm on seven-target sets that walked three
 - [ ] 7. The wide nights
 - [ ] 8. What a player sees
 
@@ -115,7 +115,7 @@ Headless, 1-2 days. Shared by every route. Everything new is behind one research
   `GateFor`, `CoastFits`, the warp's `UnplannedWalkSeconds` and the rig's two hardcoded calls. Tests asserting
   `MedianHopSeconds` directly stay valid with the flag off.
 - **Clocks per hop**: `BusTrim.MaxSeconds` and `PostBoostAim.MaxSeconds` scale with the hop's price.
-- **On the profile, only what step 3 needs**: a budget and an acceleration on `LauncherProfile` (`BusPerformance`),
+- **On the profile, only what step 3 needs**: a budget and an acceleration on `LauncherProfile` (built as `TrimAccelerationMetresPerSecond2` and its neighbours),
   the Heavy bus at today's values. The pass ceiling and hop clock move later, with an engine (`POSTBOOST-BUS.md` says
   so). Run `pack-api.py --check` and `check-docs.sh`.
 - **Mass in the rig**: a warhead's mass off per release; jet acceleration scaled by mass.
@@ -124,8 +124,8 @@ Pass: the new tests pass with the flag on, every stop under a centimetre, price 
 suite green with the flag off. Fail on linearity (flown well over price at 50 km): stop and re-price before step 3.
 
 **Done 2026-10-18, rig only, `HopsSizeTheirOwnSlots` off.** Built as listed, with two departures. The slot is
-`max(65.1, 48 + hop / a)`: 48 s is `MedianHopSeconds`' clearance and four passes without the split null only the first
-stop pays (`ReleaseItinerary.HopOverheadSeconds`), and `a` is `LauncherProfile.TrimAccelerationMetresPerSecond2` --
+`max(65.1, 48 + hop / a)`: 48 s was `MedianHopSeconds`' clearance and four passes without the split null only the first
+stop pays (`ReleaseItinerary.HopOverheadSeconds`; 41 s since `a46b54f2`, the upper quartile of 150 flown hops), and `a` is `LauncherProfile.TrimAccelerationMetresPerSecond2` --
 0.56 on the Heavy bus (flown), 0.40 on the post-boost bus (its four forward nozzles, bridge). The budget the plan and
 the passes read is the flight's own, an unlimited (negative) one as no bound (`ReleaseLoop.PlanningBudget`). Left
 alone: the warp's `UnplannedWalkSeconds` (a set not yet planned), and the rig's two `MedianHopSeconds` calls, which
@@ -295,7 +295,8 @@ Headless, behind a flag. Per branch:
      | Post-boost 6,181 km, 2 at 300 km | stop 2 lands 24.8 km out | 1 stop |
 
      **Where the honest plan walks fewer stops, the rig is the likelier reason.** It flies a hop's overhead in 16-27 s
-     against the 48 s the game measured over 96 buses (`ReleaseItinerary.HopOverheadSeconds`), so in the rig a stop
+     against the 41 s the game takes (`ReleaseItinerary.HopOverheadSeconds`, the upper quartile of 150 hops flown
+     2026-10-17 and 18), so in the rig a stop
      releases before its planned slot (Heavy 6,181 km at 40 km: the fourth at 1,112 s to go against 1,064 planned),
      where the hop is cheaper. A game flight on the game's overhead would buy its hops where the plan prices them,
      and the stale plan would curtail or run the guard there. Which of the two the game agrees with is a flown

@@ -79,8 +79,6 @@ public class FireArbitrationTests
     public void AFailedLeadSolveDoesNotHoldTheMissiles()
         => Assert.True(FireGate.MissilesMayFire(ringIsElsewhere: false, launchAlongTube: true));
 
-    // ---- What a fixed launcher can be pointed at ------------------------
-
     // The AIM-9J's gimbal limit, which is the only thing deciding what a rail can shoot at.
     private static readonly double Fov = double.DegreesToRadians(40.0);
 
@@ -114,7 +112,7 @@ public class FireArbitrationTests
     /// <summary>
     /// A command-linked round has no such limit: the launcher steers it, so where it leaves says
     /// nothing about whether it can turn. The Pantsir fires every round this way, and applying the
-    /// gate to it would ground the weapon that has been working all along.
+    /// gate to it would ground it.
     /// </summary>
     [Theory]
     [InlineData(0.0)]

@@ -5,13 +5,8 @@
 #     ./tools/check-docs.sh            # check, and fail on a mismatch
 #     ./tools/check-docs.sh --report   # report only, never fail
 #
-# Every number here is hand-copied from output that moves - the test count, the API surface, the
-# layout table, the KSA build - so it drifts, in files whose own rule is that a stale line is
-# worse than a missing one.
-#
-# The rule this enforces in practice: do not write a generated figure into prose without a check
-# that reads it back. Judgement-bearing prose is out of scope and always will be - this catches
-# the mechanical half, which is the half that actually rots.
+# Each fact here is hand-copied from output that moves -- the layout table, the API surface, the
+# test count, the KSA build -- so a generated figure in prose needs a check that reads it back.
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -27,15 +22,9 @@ fail() {
     FAIL=$((FAIL + 1))
 }
 
-# --- the layout table lists every source file -------------------------------
-#
-# A file absent from the table is invisible to anyone reading CLAUDE.md to find their way around,
-# which is the table's only job.
-
 echo "Layout table covers src/"
 
-# Table rows only, not the whole file. Searching all of CLAUDE.md passes a file that prose
-# happens to name while its row is missing, which is the failure this check exists to catch.
+# Table rows only: searching all of CLAUDE.md passes a file that prose names while its row is missing.
 rows="$(grep '^|' CLAUDE.md || true)"
 
 missing=""
@@ -48,8 +37,7 @@ if [[ -n "$missing" ]]; then
     fail "these source files are in no row of CLAUDE.md's Layout table"
 fi
 
-# And the other direction. A row naming a file that no longer exists is the worse half of the
-# same problem -- coverage alone stays green when a file is deleted, and the row is then trusted.
+# And a row naming a file that no longer exists, which coverage alone does not catch.
 stale=""
 while IFS= read -r path; do
     [[ -e "$path" || -e "src/KSArmory/$path" ]] || stale+="    $path"$'\n'
@@ -61,10 +49,7 @@ if [[ -n "$stale" ]]; then
     fail "CLAUDE.md's Layout table names these, and they do not exist"
 fi
 
-# --- the API surface counts -------------------------------------------------
-#
-# docs/KSA-API-SURFACE.md is generated and states its own totals on line 10. Any other file
-# quoting a member or type count is quoting it from memory.
+# docs/KSA-API-SURFACE.md is generated and states its own totals on line 10.
 
 if [[ -f docs/KSA-API-SURFACE.md ]]; then
     echo "API surface counts"
@@ -72,9 +57,8 @@ if [[ -f docs/KSA-API-SURFACE.md ]]; then
     types="$(sed -nE 's/^([0-9]+) types.*/\1/p' <<< "$surface_line")"
     members="$(sed -nE 's/.* and ([0-9]+) members.*/\1/p' <<< "$surface_line")"
 
-    # Exclusions are anchored to the path, not matched anywhere in the line: the layout row that
-    # carries the member count also names KSA-API-SURFACE.md, so a loose -v drops the one line
-    # this check exists for and it then passes against a count it never read.
+    # Exclusions are anchored to the path: the layout row carrying the member count also names
+    # KSA-API-SURFACE.md, so a loose -v would drop the one line this check is for.
     if [[ -n "$members" ]]; then
         while IFS= read -r hit; do
             [[ -z "$hit" ]] && continue
@@ -92,13 +76,8 @@ if [[ -f docs/KSA-API-SURFACE.md ]]; then
     fi
 fi
 
-# --- no hand-written test count ---------------------------------------------
-#
-# Deliberately not checked against a number: [MemberData] theories expand at run time, so a
-# static Fact+InlineData count never matches the runner's and no written-down figure can be
-# right. The fix is not a cleverer count - it is not writing one down. Prose says "the suite".
-#
-# docs/ is exempt: MODULARITY.md's "117 -> 203 tests" is a historical measurement and true.
+# Not checked against a number: [MemberData] theories expand at run time, so no static count
+# matches the runner's. docs/ is not searched, since a measurement there is dated.
 
 echo "No hand-written test count in guidance"
 while IFS= read -r hit; do
@@ -106,9 +85,7 @@ while IFS= read -r hit; do
     fail "quote the suite, not a count that drifts: $hit"
 done < <(grep -rnE "\b[0-9]{2,} tests\b" CLAUDE.md README.md CONTRIBUTING.md .claude --exclude-dir=worktrees --exclude=settings.local.json 2>/dev/null || true)
 
-# --- the KSA build, in every place it is written down -----------------------
-#
-# ksa-assemblies.lock is the one CI enforces; the others are for humans and drift silently.
+# ksa-assemblies.lock is the one CI enforces; the prose copies drift silently.
 
 echo "KSA build number"
 if [[ -f ksa-assemblies.lock ]]; then
@@ -128,13 +105,8 @@ README.md"
     fi
 fi
 
-# Nobody's home directory belongs in a public repository, and a hardcoded one is wrong for
-# everyone else anyway. `tools/ksa-user-dir.sh` and STARMAP_DIR are the portable answers.
-# A bare /mnt/c/Users is fine -- that is a search root -- as is one continuing into a variable.
-#
-# GuardTests is exempt because a home path is its subject: it feeds one in to check the feedback
-# service replaces it before a report reaches a public issue. Exempting the file rather than the
-# pattern keeps the check exact everywhere else.
+# `tools/ksa-user-dir.sh` and STARMAP_DIR are the portable answers. A bare /mnt/c/Users is a
+# search root and passes. GuardTests is exempt: a home path is its fixture.
 echo "No personal paths"
 while IFS= read -r hit; do
     [[ -n "$hit" ]] && fail "personal path: $hit"

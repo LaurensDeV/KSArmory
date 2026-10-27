@@ -5,15 +5,9 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// A warhead's prediction is flown through the air alone, never the ocean the medium reports under the
-/// mean sphere.
-///
-/// <para>A warhead stops at the ground or the waterline, so it never flies through water; but
-/// <c>KsaWorld.MediumDensityRatioAt</c> reads the ocean anywhere under the mean sphere, land above it or not.
-/// Under the 204 m of ground at 24 S 62 W, the stages of the air step that crosses the ground reach there,
-/// read 837x the air, and throw the warhead off the planet — the release probe's flown failures.
-/// <c>IcbmComputer.DensityRatioAt</c> asks for the air alone; this cannot reach it, and pins what that
-/// buys. <c>docs/ACCURACY-PLAN.md</c> 3ep.</para>
+/// A warhead's prediction reads the air alone: the medium reads the ocean anywhere under the mean sphere, and
+/// under 204 m of ground at 24 S 62 W an air step's stages read 837x the air there and throw the warhead off
+/// the planet. <c>IcbmComputer.DensityRatioAt</c> is out of reach here; this pins what it buys. ACCURACY-PLAN 3ep.
 /// </summary>
 public class PredictedMediumTests(ITestOutputHelper Out)
 {
@@ -64,11 +58,10 @@ public class PredictedMediumTests(ITestOutputHelper Out)
     /// At the waterline the ocean does not fail loudly — it answers, and the answer is wrong.
     /// </summary>
     /// <remarks>
-    /// Under 204 m of ground the stages that read the ocean belong to a step the crossing discards, so a
-    /// prediction it does not wreck is identical. At sea level the ground <i>is</i> the mean sphere, so the
-    /// stages of the step that lands read 837x the air and the impact moves — which no failure path reports
-    /// and no `release probe:` line can show. It is the aim a player clicking an ocean gets.
+    /// At sea level the ground <i>is</i> the mean sphere, so the stages of the step that lands read 837x the
+    /// air and the impact moves, which no failure path reports. It is the aim a player clicking an ocean gets.
     /// </remarks>
+
     [Fact]
     public void AtTheWaterlineTheOceanMovesTheLandingRatherThanFailing()
     {

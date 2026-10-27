@@ -5,20 +5,12 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Which attitude a tube's turn is measured from, and which one it is applied to.
+/// The tube axes are measured at the launcher's <em>actual</em> attitude, the held command is the one it was
+/// <em>asked</em> for, and KSA holds no roll angle, so a turn built from one and applied to the other carries
+/// the difference. <c>docs/MIRV-NEXT.md</c> item 5.
 ///
-/// <para>The two are not the same. The tube axes and the line they average to are measured at the
-/// launcher's <em>actual</em> attitude; the held command is the one it was <em>asked</em> for. A
-/// turn built from the first and applied to the second leaves the difference in the answer — the
-/// vehicle's own standing pointing error, plus everything its roll has done since, because KSA's
-/// flight computer holds no roll angle at all. <c>docs/MIRV-NEXT.md</c> item 5 has the engine's
-/// side.</para>
-///
-/// <para><b>The vehicle here obeys the engine's law, not the command.</b> KSA rebuilds the attitude
-/// error as a pointing-only rotation about <c>cross(nose, commanded)</c> and leaves the roll where
-/// it was, so a vehicle that has arrived has turned by exactly that much and no more. Every test
-/// below asks where the tube ends up after that rotation, which is the only thing the release can
-/// depend on.</para>
+/// <para>The vehicle here obeys the engine's law, not the command: KSA turns the nose about
+/// <c>cross(nose, commanded)</c> and leaves the roll, so each test asks where the tube is after that turn.</para>
 /// </summary>
 public class ReleaseFrameTests(ITestOutputHelper Out)
 {

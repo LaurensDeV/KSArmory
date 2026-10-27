@@ -6,7 +6,7 @@ namespace KSArmory;
 
 /// <summary>
 /// Tanks leaking through the holes shells have left in them — the liquid under each hole's level
-/// running out at Torricelli's rate (<see cref="TankLeak"/>), taken off the tank, and a stream where
+/// running out at Bernoulli's rate under the tank's pressure (<see cref="TankLeak"/>), taken off the tank, and a stream where
 /// it goes (<see cref="LeakStream"/>), drawn by <see cref="CloudPass"/>.
 ///
 /// <para><b>Measured ten times a second, written in the engine's own window.</b> The mass owed is
@@ -15,9 +15,8 @@ namespace KSArmory;
 /// <c>DepleteConsumables</c>: take it off, mark the fill changed, and recompute the craft's mass,
 /// which the engine does not do for itself.</para>
 ///
-/// <para><b>A stream from every hole that leaks, up to the biggest few</b> in the world. Every other
-/// hole still drains; it just draws nothing. Not particles: KSA's particle renderers draw nothing a
-/// motion can stretch, so a stream of them reads as a string of beads.</para>
+/// <para><b>A stream from each of the biggest few leaking holes</b>; the rest drain undrawn. Not
+/// particles: KSA's particle renderers draw nothing a motion can stretch.</para>
 /// </summary>
 internal static class Leaks
 {

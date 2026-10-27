@@ -4,17 +4,9 @@ using System;
 namespace KSArmory;
 
 /// <summary>
-/// The fields a round re-reads <em>inside</em> its own sub-step loop, rather than holding at the
-/// frame's first sample.
-///
-/// <para>Each is a lookup rather than a value because the round moves within the frame and these
-/// change materially over that distance: air density falls off on an 8 km scale height,
-/// gravity is a field about a centre the round is closing on, and the ground is whatever is
-/// underneath at the time. A round handed values instead of lookups flies the whole frame through
-/// the conditions it had at the top of it.</para>
-///
-/// <para>The frame's own values are still passed to <see cref="RoundDriver.Fly"/> beside these:
-/// they are what a round falls back to when a lookup is absent or answers with nothing.</para>
+/// The fields a round re-reads inside its own sub-step loop rather than holding at the frame's first
+/// sample. The frame's own values, passed to <see cref="RoundDriver.Fly"/> beside these, are the
+/// fallback when a lookup is absent or answers nothing.
 /// </summary>
 /// <param name="GravityAt">
 /// The pull at a stated position and a stated time into the frame. Both arguments matter — the time
@@ -22,10 +14,8 @@ namespace KSArmory;
 /// </param>
 /// <param name="AirDensityAt">The density at a stated position, back-dated the same way.</param>
 /// <param name="AirVelocityAt">
-/// The motion of the air at a stated position, back-dated the same way. It is the ground's velocity, so it carries the body's spin as
-/// a cross product with the radius and therefore belongs to the <em>place</em> rather than to the
-/// body: over one frame a re-entering round crosses ~150 m of it. Absent, the round holds the
-/// frame's first sample, which is what <see cref="RoundFields.Held"/> means for this term too.
+/// The motion of the air at a stated position, back-dated the same way: the ground's velocity, which
+/// carries the body's spin at that radius and so belongs to the place. Absent, the frame's first sample.
 /// </param>
 /// <param name="Ground">Where the surface is under the round, or null for a round nothing stops.</param>
 /// <param name="ApproachAt">
@@ -34,8 +24,7 @@ namespace KSArmory;
 /// </param>
 /// <param name="GroundCentreDriftAt">
 /// How far the sampled ground centre has moved by a stated time into the frame, back-dated the same
-/// way. The radius keeps for the frame — it is a property of the ground — but the centre is a
-/// position on a body doing ~30 km/s, so holding it drifts against the round.
+/// way: the centre rides a body doing ~30 km/s, so holding it drifts against the round.
 /// </param>
 /// <param name="GroundQueryDriftAt">
 /// How far the ground <em>under a stated point</em> has moved by then — the centre's travel plus the
@@ -52,32 +41,16 @@ internal readonly record struct RoundFields(
     Func<double3, double, double3>? AirVelocityAt = null)
 {
     /// <summary>
-    /// No lookups at all: every field held at the frame's first sample for the whole frame.
-    ///
-    /// <para><b>Nothing flies this way.</b> It is here so a budget can price what re-reading a
-    /// field is worth, by flying the same release state both ways — and it is a named thing rather
-    /// than an omission precisely so that "the round as the game flies it" cannot be arrived at by
-    /// forgetting to pass something.</para>
+    /// Every field held at the frame's first sample. Nothing flies this way: it prices what re-reading a
+    /// field is worth, and is named so it cannot be reached by forgetting to pass something.
     /// </summary>
     public static RoundFields Held => default;
 }
 
 /// <summary>
-/// The one place a round is advanced by one frame.
-///
-/// <para><b>A seam rather than tidiness.</b> The game and the headless rig both come through here,
-/// so neither can hold an opinion of its own about which fields a round re-reads within a frame. A
-/// second implementation of this loop agrees with the first only while somebody keeps the two in
-/// step by hand, and a rig that has drifted still flies — it just prices every budget against a
-/// round nothing flew.</para>
-///
-/// <para>So a flight's configuration is <em>what the caller supplies</em>, never a flag something
-/// else interprets. The round the game flies is spelled by passing the game's lookups, which is
-/// the only way to spell it and not a thing anyone can arrive at by accident.</para>
-///
-/// <para>What deliberately stays with the caller is everything KSA-shaped — the contact candidates
-/// and the hull test — because <c>Sim/</c> cannot name those types and the rig has no equivalent of
-/// them.</para>
+/// The one place a round is advanced by one frame. The game and the headless rig both come through
+/// here, so they cannot differ about which fields a round re-reads; a flight's configuration is what
+/// the caller supplies, never a flag. The contact candidates and the hull test stay with the caller.
 /// </summary>
 internal static class RoundDriver
 {
@@ -92,9 +65,7 @@ internal static class RoundDriver
                            MunitionProfile munition, double mediumDensityRatio,
                            in RoundFields fields)
     {
-        // Assigned rather than assigned-if-present: a caller that means "hold this field" says so
-        // by passing nothing for it, and that has to be distinguishable from a caller that simply
-        // did not reach this line.
+        // Assigned even when null: passing nothing is how a caller holds a field.
         if (round is Slug slug)
         {
             slug.GravityAt = fields.GravityAt;
@@ -107,9 +78,8 @@ internal static class RoundDriver
         }
         else if (round is Interceptor missile)
         {
-            // The air, and the ground for one that stops on it. An interceptor's flight is dominated
-            // by its own guidance rather than by gravity, but the medium decides whether it flies at
-            // all: held for the frame, a round low over the sea reads as under it.
+            // Gravity is held: guidance dominates. The medium is not: held for the frame, a round
+            // low over the sea reads as under it.
             missile.AirDensityAt = fields.AirDensityAt;
             missile.Ground = fields.Ground;
             missile.GroundCentreDriftAt = fields.GroundCentreDriftAt;

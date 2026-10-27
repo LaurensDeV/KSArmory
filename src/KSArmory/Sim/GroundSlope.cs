@@ -5,19 +5,10 @@ namespace KSArmory;
 /// <summary>
 /// How steep the ground is around a point, and what a round arriving on it pays for that.
 ///
-/// <para>The terrain adds no bias — the aim point's placement and the round's stopping surface are
-/// an exact round trip through one field — but it <em>multiplies</em>. A residual miss `d` lands on
-/// ground `slope·d` higher or lower, which the arrival angle turns back into `slope·d / tan γ` of
-/// further miss, so the loop's gain is <c>slope / tan γ</c>. **At gain one there is no fixed point
-/// at all**: where the round stops is decided by the ground rather than by the shot, and re-aiming
-/// walks away from the answer. <c>docs/KINETIC-FLOOR.md</c> section 5.</para>
-///
-/// <para>That regime is not hypothetical. Measured over 1,273 warheads at 26.485S, 68.148W, in
-/// the Andes, the local slope runs to a median
-/// of 0.152 and a 90th percentile of 1.092, which at the flown 32° arrival puts a quarter of
-/// rockets past gain one, where their groups blow up from about 7 mm to 20–28 mm
-/// (<c>docs/ACCURACY-PLAN.md</c> 3ej). **A site has to be judged before a night is spent on it**,
-/// and this judges it without flying.</para>
+/// <para>The terrain adds no bias but <em>multiplies</em>: a residual miss <c>d</c> lands on ground
+/// <c>slope·d</c> higher or lower, so the loop's gain is <c>slope / tan γ</c>, and <b>at gain one there
+/// is no fixed point at all</b> (<c>docs/KINETIC-FLOOR.md</c> section 5). Over 1,273 warheads in the
+/// Andes a quarter were past it (<c>docs/ACCURACY-PLAN.md</c> 3ej); this judges a site without flying.</para>
 /// </summary>
 public static class GroundSlope
 {
@@ -26,14 +17,9 @@ public static class GroundSlope
 
     /// <summary>What the ground around a point is, and what it costs a round coming in at an angle.</summary>
     /// <param name="Median">
-    /// The magnitude of the ground's gradient — the slope of the plane through the samples, which is
-    /// the same number whichever way that plane is tilted.
-    ///
-    /// <para><b>Not the middle of a ring of spokes</b>, which is the obvious implementation and is
-    /// wrong: a spoke across the contour of a tilted plane reads zero, so the median of a ring
-    /// <em>halves</em> a planar slope — 0.150 for a plane tilted 0.300 — and the ground at a
-    /// warhead's own scale is a tilted plane (<c>docs/KINETIC-FLOOR.md</c> section 4). That would
-    /// understate every gain by about two, and the gain is the whole question.</para>
+    /// The magnitude of the ground's gradient, whichever way it is tilted. <b>Not the median of a ring
+    /// of spokes</b>, despite the name: that halves a planar slope, 0.150 for a plane tilted 0.300
+    /// (<c>docs/KINETIC-FLOOR.md</c> section 4).
     /// </param>
     /// <param name="Worst">The steepest spoke — roughness, which the gradient alone cannot show.</param>
     /// <param name="Gain">`Median / tan γ`, the loop gain a residual miss is multiplied by each pass.</param>
@@ -60,14 +46,8 @@ public static class GroundSlope
     /// <paramref name="spokes"/> directions at <paramref name="metres"/>.
     /// </summary>
     /// <remarks>
-    /// <para><b>The radius is the question, not a detail.</b> A height field answers differently at
-    /// different scales — on Earth the base grid is 1.5–3.1 km, the detail textures 7–20 m a texel,
-    /// and below about a third of a metre the engine's `float3` direction packing makes the surface
-    /// a staircase (<c>docs/KSA-TERRAIN.md</c>). So ask at the scale the miss actually spans, and
-    /// ask at more than one if that scale is not known.</para>
-    ///
-    /// <para>The median rather than the mean, because a single spoke crossing a gully is not what
-    /// the ground there is, and the mean lets it decide.</para>
+    /// <para><b>The radius is the question, not a detail</b>: a height field answers differently at each
+    /// scale (<c>docs/KSA-TERRAIN.md</c>), so ask at the scale the miss spans.</para>
     /// </remarks>
     public static bool TryAround(MapFrame frame, Func<double3, double> radiusAt, double metres,
                                  int spokes, double arrivalRadians, out Reading reading)
@@ -96,8 +76,7 @@ public static class GroundSlope
         double dy = (north - south) / (2.0 * metres);
         double slope = Math.Sqrt(dx * dx + dy * dy);
 
-        // And a ring besides, for what a gradient cannot say: whether the ground is merely tilted
-        // or actually rough. A plane reads the same on both; a gully reads far worse on this one.
+        // The ring says what a gradient cannot: whether the ground is tilted or rough.
         double worst = 0.0;
         for (int i = 0; i < spokes; i++)
         {

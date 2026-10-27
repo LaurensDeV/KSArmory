@@ -44,10 +44,8 @@ public class ReleaseLoopTests(ITestOutputHelper Out)
         return set;
     }
 
-    // ---------------------------------------------------------------- a set of one
-
     /// <summary>
-    /// <b>The property the whole phase rests on.</b> No set of one produces a walk, whatever the
+    /// No set of one produces a walk, whatever the
     /// budget, the coast, the magazine or the spacing — so a single-target flight holds no walk and
     /// not one statement of the loop runs.
     /// </summary>
@@ -96,8 +94,6 @@ public class ReleaseLoopTests(ITestOutputHelper Out)
         Assert.Equal(ReleaseWalkHold.NoStops, walk.Hold);
         Assert.Equal(0, walk.Stops);
     }
-
-    // ---------------------------------------------------------------- the walk
 
     /// <summary>Three stops, walked in the itinerary's order, one warhead each.</summary>
     [Fact]
@@ -200,10 +196,8 @@ public class ReleaseLoopTests(ITestOutputHelper Out)
         Assert.Equal(2, ReleaseLoop.TubesLeftForStop(ReleaseLoop.Step(walk, 0, 0), loaded: 2));
     }
 
-    // ---------------------------------------------------------------- what it refuses
-
     /// <summary>
-    /// <b>The contradiction phase 3 cannot decide for itself.</b> A set ordered the way
+    /// A set ordered the way
     /// <see cref="ReachDisplay"/> orders it — farthest from the bus's landing first — does not start
     /// where the booster aimed, because the booster aimed at the first target chosen and every other
     /// one was added during the coast. Flown as ordered the bus walks out and back, so the walk is
@@ -230,8 +224,7 @@ public class ReleaseLoopTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>Every click was inside the ring and the hop between two of them is not.</b>
-    /// <see cref="ReachDisplay"/> bounds a click to one hop from where the warheads land now, so two
+    /// Every click inside the ring does not make every hop inside it: <see cref="ReachDisplay"/> bounds a click to one hop from where the warheads land now, so two
     /// targets on opposite edges are twice the ring's radius apart — and that hop is what the bus
     /// actually flies.
     /// </summary>

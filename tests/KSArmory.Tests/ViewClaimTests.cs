@@ -164,8 +164,7 @@ public class ViewClaimTests
     /// <summary>
     /// Standing down releases the view once; it does not stop the setting asking for it. With the
     /// request left on, the frame after a stand-down is a plain Take and the view blinks straight
-    /// back — which reads as the mod refusing to let go. The caller has to clear the request, and
-    /// this pins why.
+    /// back — which reads as the mod refusing to let go. The caller has to clear the request.
     /// </summary>
     [Fact]
     public void StandingDownIsNotEnoughOnItsOwnToGiveTheViewUp()
@@ -232,9 +231,8 @@ public class ViewClaimTests
     }
 
     /// <summary>
-    /// The two rules composed, over the sequence that produced the bug: the sight holds the view,
-    /// the chase takes it, the player switches vessels, the chase stands down and the sight is left
-    /// holding a view that is no longer in any sense its own.
+    /// The two rules composed: the sight holds the view, the chase takes it, the player switches
+    /// vessels and the chase stands down, leaving the sight holding a view that is no longer its own.
     /// </summary>
     [Fact]
     public void ASightYieldsToTheChaseAndStandsDownOnceThePlayerHasTheView()
@@ -254,7 +252,6 @@ public class ViewClaimTests
                                         holding: true, stillOurs: ours));
     }
 
-    /// <summary>Nothing is annotated before the view has actually been taken.</summary>
     [Fact]
     public void TheSightDoesNotPaintOnAMainViewItHasNotTakenYet()
     {

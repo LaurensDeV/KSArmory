@@ -7,31 +7,12 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// One of the places this mod patches the game, and the only way to point a vehicle at all.
-///
-/// <para>KSA double-buffers a vehicle's flight computer across the frame.
-/// <c>ApplyVehicleSolvers</c> writes the worker's result over it, <c>ExecuteNextVehicleSolvers</c>
-/// snapshots it for the next worker, and <em>then</em> the GUI pass runs — so an attitude command
-/// written from any StarMap hook is not in the snapshot, and next frame's result overwrites it. The
-/// write lands and is gone before anything reads it. Measured in flight over thousands of frames:
-/// <c>before Manual/None -&gt; after Auto/Custom</c>, every single one, with the engine's own error
-/// angles at zero because it is tracking nothing. <c>docs/BLOCKED-ON-KSA.md</c> has the frame
-/// order.</para>
-///
-/// <para><b>So the command has to be written between those two calls</b>, and
-/// <see cref="Vehicle.PrepareWorker"/> is the only thing in that window a mod can reach. A prefix
-/// on it runs immediately before the snapshot is taken.</para>
-///
-/// <para><b>Why this is a far weaker thing than patching usually is.</b> The target is
-/// <c>public virtual</c> rather than private, so it is declared API — <see cref="PinTheSignature"/>
-/// puts it in this assembly's metadata, which means <c>tools/api-surface.sh</c> tracks it and a KSA
-/// change to it is a build error rather than a silent break. That is the property
-/// <c>CLAUDE.md</c>'s rule against patching exists to protect. Harmony itself ships with StarMap,
-/// so nothing here asks a player to install anything.</para>
-///
-/// <para><b>Nothing in the prefix may throw.</b> It runs inside the engine's own frame loop, where
-/// an exception is the game rather than a log line — the same rule
-/// <see cref="LevelHorizonController"/> follows.</para>
+/// The only window in which a write to a vehicle's flight computer survives.
+/// <para>KSA double-buffers the flight computer: <c>ApplyVehicleSolvers</c> writes the worker's result
+/// over it and <c>ExecuteNextVehicleSolvers</c> snapshots it before the GUI pass, so a write from any
+/// StarMap hook is overwritten unread. A prefix on <see cref="Vehicle.PrepareWorker"/> runs just before
+/// the snapshot. <c>docs/KSA-FRAME-ORDER.md</c> has the order.</para>
+/// <para>Nothing in the prefix may throw: it runs inside the engine's frame loop.</para>
 /// </summary>
 internal static class AttitudeHook
 {
@@ -47,12 +28,9 @@ internal static class AttitudeHook
     // a worker's results are applied -- the same reason the attitude is written from this window.
     private static readonly HashSet<Vehicle> Pulsing = [];
 
-    // Every craft the mod has put in pulse mode and not yet handed back, whether or not it is
-    // pulsing this frame. The mode is a field on that same double-buffered computer, so what is not
-    // restated each frame keeps whatever it last had: writing it only while something is pulsing
-    // leaves the last one in pulse mode for good, and its next HOLD then delivers a millisecond a
-    // frame against metres per second. Flown as a tail frozen at 3.48 m/s across 12 s of holding,
-    // struck off as a dead thruster, and released 0.3-1.1 km out. docs/ACCURACY-PLAN.md 3cu.
+    // Every craft the mod has put in pulse mode and not yet handed back, pulsing this frame or not:
+    // the mode is on the double-buffered computer, so one not restated stays in pulse mode for good
+    // and a later hold delivers a millisecond a frame. docs/ACCURACY-PLAN.md 3cu.
     private static readonly HashSet<Vehicle> Pulsed = [];
 
     // Those owed one more Direct write, which has to happen in this window like every other one.
@@ -87,10 +65,8 @@ internal static class AttitudeHook
                                                  | ThrusterMapFlags.TranslateRight | ThrusterMapFlags.TranslateLeft
                                                  | ThrusterMapFlags.TranslateDown | ThrusterMapFlags.TranslateUp;
 
-    // Shoves written, read back two steps later, once the worker that integrated them has had its
-    // results applied: what the craft's velocity did against what was written, because a frame
-    // wrong in the conversion shows as a craft thrown the wrong way. Then followed for a few seconds,
-    // because where a thrown craft ends up is the engine's physics as much as the push.
+    // Shoves read back two steps later, once the worker that integrated them has been applied, since
+    // a frame wrong in the conversion shows as a craft thrown the wrong way; then traced a few seconds.
     private sealed class Probe
     {
         public required Vehicle Craft;
@@ -113,7 +89,7 @@ internal static class AttitudeHook
     /// <summary>Whether the patch is in place. False means nothing this mod does can steer.</summary>
     public static bool Installed { get; private set; }
 
-    /// <summary>Why it is not installed, for the panel to show rather than leaving it a mystery.</summary>
+    /// <summary>Why it is not installed, for the panel to show.</summary>
     public static string Trouble { get; private set; } = "";
 
     public static void Install()
@@ -191,11 +167,8 @@ internal static class AttitudeHook
     public static void StopDrifting(Vehicle craft) => Drifting.Remove(craft);
 
     /// <summary>
-    /// Fire this craft's translation in pulses this frame, or hold it directly.
-    ///
-    /// <para>Stated every frame like the aim, because it is the same field on the same double-buffered
-    /// flight computer: what is not restated is copied back to <c>Direct</c> by the next worker's
-    /// results.</para>
+    /// Fire this craft's translation in pulses this frame, or hold it directly. Stated every frame like
+    /// the aim, since it lives on the same double-buffered flight computer.
     /// </summary>
     public static void PulseMode(Vehicle craft, bool pulsing)
     {
@@ -458,8 +431,6 @@ internal static class AttitudeHook
         }
     }
 
-    // Never called. It exists so the compiler emits a reference to the patched method, which is
-    // what puts Vehicle.PrepareWorker in docs/KSA-API-SURFACE.md and turns a signature change in
-    // KSA into a build error here rather than a rocket that quietly stops steering.
+    // Never called: puts the patched method in docs/KSA-API-SURFACE.md, so a signature change is a build error.
     private static void PinTheSignature(Vehicle vehicle, SimStep step) => vehicle.PrepareWorker(step);
 }

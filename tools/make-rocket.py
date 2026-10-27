@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Generate KSA vehicle designs: multi-stage rockets carrying the MIRV bus, from a short spec.
 
-The ballistic computer has been flown on essentially one stack, GeoSat FAT. This writes design
-library entries (vehicle.xml + meta.toml, the shape of <KSA user dir>/Vehicles/<name>/) for other
-stacks, so it can be flown on many.
+Writes design library entries (vehicle.xml + meta.toml, the shape of <KSA user dir>/Vehicles/<name>/)
+so the ballistic computer can be flown on stacks other than GeoSat FAT.
 
 Nothing about placement is copied from a saved craft: every stacked part's position comes from the
 connector offsets in the part definitions, mated end to end. The only measured numbers are the two
@@ -129,9 +128,6 @@ HOT_LIFTOFF_TWR = 4.0
 REFERENCE_SPEC = dict(stages=["A2x4:LF3W6HBx2", "A3:LF3W3HB"], srb=3)
 
 
-# ---------------------------------------------------------------------------------------------
-# Geometry
-
 def quat_xyz(rx, ry, rz):
     """KSA's QuaternionEx.CreateFromXyzRadians, as (x, y, z, w)."""
     c1, c2, c3 = math.cos(rx / 2), math.cos(ry / 2), math.cos(rz / 2)
@@ -169,9 +165,6 @@ def wrap(angle):
     a = math.fmod(angle + math.pi, 2 * math.pi)
     return (a + 2 * math.pi if a < 0 else a) - math.pi
 
-
-# ---------------------------------------------------------------------------------------------
-# Part library
 
 def metres(el):
     if el is None:
@@ -329,9 +322,6 @@ def parse_stage(text):
                 tank=full_name(tank, TANK), tanks=int(n_tank or 1))
 
 
-# ---------------------------------------------------------------------------------------------
-# The craft as a tree
-
 class Node:
     def __init__(self, lib, pid, rot=(0.0, 0.0, 0.0)):
         self.lib, self.pid, self.rot = lib, pid, rot
@@ -441,9 +431,6 @@ def resource_groups(root):
         for part in lst:
             part.stage = number
 
-
-# ---------------------------------------------------------------------------------------------
-# Building a rocket
 
 class Rocket:
     def __init__(self, lib, name, stages, srb=0, bus_after=None, solid_core=0, bus="mirv"):
@@ -692,8 +679,6 @@ class Rocket:
                         f"stage {k + 1}'s {short(engine.pid)} reaches {top_of_lower - bell:.2f} m "
                         f"into stage {k}'s tank top below the {short(inter.pid)}")
 
-    # -- mass and thrust --------------------------------------------------------------------
-
     def performance(self):
         lib = self.lib
         stage_mass = []
@@ -769,9 +754,6 @@ def fmt(v):
     s = f"{v:.4f}".rstrip("0").rstrip(".")
     return "0" if s in ("-0", "") else s
 
-
-# ---------------------------------------------------------------------------------------------
-# Writing
 
 def assign_ids(root):
     """In the order KSA numbers a save: a part, its modules, its subparts, then its children."""
@@ -877,9 +859,6 @@ def game_build():
             return line.split()[1]
     return "unknown"
 
-
-# ---------------------------------------------------------------------------------------------
-# Checking
 
 def saved_parts(root_el):
     """(element, parent element) for every PartRef in a saved craft, root first."""
@@ -1086,8 +1065,6 @@ def check_reference(lib, udir, design_name, save_name, vehicle):
     ok &= not bad
     return ok
 
-
-# ---------------------------------------------------------------------------------------------
 
 def report(rocket, path, lib, references):
     liftoff, rows = rocket.performance()

@@ -45,7 +45,7 @@ public class AscentProfileTests
 
     /// <summary>
     /// Thin air is not no load. At 35 km a rising stack has a hundredth of sea-level density on it
-    /// and several kilopascals, because by then it is doing two kilometres a second — so a limiter
+    /// and about 25 kilopascals, because by then it is doing two kilometres a second — so a limiter
     /// that opens on density lets go exactly where the vehicle is going fastest.
     /// </summary>
     [Fact]
@@ -57,7 +57,7 @@ public class AscentProfileTests
         double3 loaded = AscentProfile.HoldIntoTheAirflow(wanted, flow, 30_000.0, 8.0);
         Assert.Equal(8.0, Vec.AngleBetween(loaded, flow) * 180.0 / Math.PI, 3);
 
-        // Thin air, but fast: still thousands of pascals, still held.
+        // Thin air, but fast: still tens of kilopascals, still held.
         double thinButFast = AscentProfile.DynamicPressure(0.01, 2000.0);
         Assert.True(thinButFast > 20_000.0, $"{thinButFast:F0} Pa");
         Assert.Equal(8.0, Vec.AngleBetween(AscentProfile.HoldIntoTheAirflow(wanted, flow, thinButFast, 8.0), flow)

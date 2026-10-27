@@ -3,15 +3,9 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
-/// The view shaken as a blast front passes the camera: <see cref="ViewShake"/>'s jolt, struck the
-/// step a burst's front reaches the camera (<see cref="BurstSound"/> follows it), as hard as the real
-/// overpressure there. <b>The model, not the drawing</b>: <see cref="CloudPass"/> moves the picture
-/// by <see cref="Offset"/>.
-///
-/// <para>On the simulated step, like the bang and the front itself: it waits through a pause and
-/// slows with the world. Read against the live front rather than timed from the flash, so a camera
-/// that moves while the front is on its way is struck where it has got to. Every front that passes
-/// is felt, and fronts passing close together add, held to the most one front can throw.</para>
+/// The view shaken as a blast front passes the camera, as hard as the overpressure there. The model
+/// only: <see cref="CloudPass"/> moves the picture by <see cref="Offset"/>.
+/// <para>On the simulated step. Fronts passing close together add, held to the most one front can throw.</para>
 /// </summary>
 internal static class BlastShake
 {
@@ -24,7 +18,6 @@ internal static class BlastShake
     /// </summary>
     public static (double X, double Y, double Roll) Offset { get; private set; }
 
-    /// <summary>Whether the picture is being moved at all this frame.</summary>
     public static bool Shaking => Offset != (0.0, 0.0, 0.0);
 
     public static void Clear()
@@ -60,9 +53,8 @@ internal static class BlastShake
     }
 
     /// <summary>
-    /// A front passing the camera at this peak, pushing for this long: starts its rattle, and answers how
-    /// hard. Struck by <see cref="BurstSound"/>, which follows each front to the camera, so the shake and
-    /// the bang are one arrival.
+    /// Starts a rattle and returns its strength. Called by <see cref="BurstSound"/>, which follows each
+    /// front to the camera, so the shake and the bang are one arrival.
     /// </summary>
     public static double Struck(double pascals, double positivePhaseSeconds, int seed)
     {

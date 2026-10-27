@@ -1,16 +1,16 @@
 # Where KSA thinks the ground is
 
 Everything below comes from the decompiled corpus at `../ksa-game-assemblies` against build
-**2026.8.22.5348**, from the shipped `Content/Core/Astronomicals.xml`, and from measurements taken
+**2026.8.22.5348**, its line citations re-pointed at **2026.10.19.5638**, from the shipped `Content/Core/Astronomicals.xml`, and from measurements taken
 directly off the shipped `Earth_Height.ktx2`. Nothing here has been flown. The measurements were
 taken against 2026.8.19.5261 and still stand: they are sampled well inside a face, and the only
 sampling change since is in the seam branch.
 
-**Why it matters now.** A MIRV shot lands at about **0.65 km** from a **six-to-seven-degree**
-arrival. At that angle one metre of disagreement about where the surface is costs **9.3 m of
-ground** — measured, `SurfaceAgreementTests.AMetreOfHeightIsCotangentMetresOfGround`, 11.1 m at
-five degrees and 2.7 m at twenty. So a surface question that would be a rounding on a steep arrival
-is a first-order term on this one.
+**Why it matters.** One metre of disagreement about where the surface is costs `cot γ` metres of
+ground at an arrival angle `γ`: **9.3 m** at the six-to-seven degrees this file was written against,
+11.1 m at five and 2.7 m at twenty (`SurfaceAgreementTests.AMetreOfHeightIsCotangentMetresOfGround`).
+The mod now arrives far steeper — 32° at 6,181 km, `docs/ARRIVAL-ANGLE.md` — so the "ground at six
+degrees" figures below overstate today's cost about sixfold; the surface facts under them stand.
 
 Three things in this mod sample the surface and they have to agree:
 
@@ -26,9 +26,9 @@ more than it sounds.
 
 ## The field itself
 
-`Celestial.GetTerrainHeightFromDirCcf` (`Celestial.cs:792`) is the only height query in the engine.
-Every other entry point funnels into it: `…FromDirCce` (`:780`) and `…FromDirCci` (`:786`) rotate the
-direction into `Ccf` and call it; `GetSurfacePositionEclFromDirCce` (`:770`) calls it and multiplies
+`Celestial.GetTerrainHeightFromDirCcf` (`Celestial.cs:781`) is the only height query in the engine.
+Every other entry point funnels into it: `…FromDirCce` (`:769`) and `…FromDirCci` (`:775`) rotate the
+direction into `Ccf` and call it; `GetSurfacePositionEclFromDirCce` (`:759`) calls it and multiplies
 out to a position.
 
 It is a **cubemap lookup plus a procedural stack**:
@@ -93,8 +93,8 @@ a normal cubemap *and* biome materials — Earth has both — `GetTerrainHeightF
 direction down before the modifier loop:
 
 ```csharp
-float3 float6 = float3.Pack(in vector);        // Celestial.cs:833
-float heightKm = (float)num2;                  // Celestial.cs:842
+float3 float6 = float3.Pack(in vector);        // Celestial.cs:824
+float heightKm = (float)num2;                  // Celestial.cs:833
 modData = new ... { Position = float6, TextureNormal = float6, ... };
 ```
 
@@ -140,10 +140,10 @@ geometry is.
 
 ### Interpolation
 
-- `accurate: false` → `SampleHeightMapBilinear(TextureReference, double3)` (`Celestial.cs:1077`).
+- `accurate: false` → `SampleHeightMapBilinear(TextureReference, double3)` (`Celestial.cs:1017`).
   Four texels, `-0.5` texel offset, and a proper cross-face wrap through `GetAdjacentFaceUv` for taps
   that fall off the edge.
-- `accurate: true` → `SampleHeightBicubic(TextureAsset, direction, lod: 0)` (`Celestial.cs:1585`).
+- `accurate: true` → `SampleHeightBicubic(TextureAsset, direction, lod: 0)` (`Celestial.cs:1469`).
   Catmull-Rom over a 4×4 texel neighbourhood, each tap a point fetch through `SampleCubeFacePointR`,
   seams handled by re-deriving the direction and re-projecting. `lod` is a parameter and is always
   passed 0 — there is no exposed way to ask for a coarser one, and `SampleCubemapFaceSingleChannel`
@@ -154,7 +154,7 @@ geometry is.
   blend of four `FetchTexelSeamlessR` taps taken at a `-0.5` texel offset. So a height within a
   face is the same number it was, and one within two texels of a cube edge is not.
 
-The two face-selection routines are written twice — `DirectionToCubemap` (`:1454`) for the bicubic
+The two face-selection routines are written twice — `DirectionToCubemap` (`:1357`) for the bicubic
 path and an inlined copy inside the bilinear one — and they **agree**, face for face and axis for
 axis. Checked term by term.
 
@@ -190,17 +190,20 @@ only by 12 texel fetches.
 
 `Ksa/TerrainHeights.cs` is the mod's only `accurate: false` caller — the radar's horizon mask, asked
 tens of times per contact per scan. KSA's own `TerrainImpactFinder` makes the same choice for the
-same reason (`TerrainImpactFinder.cs:64`).
+same reason (`TerrainImpactFinder.cs:60`).
 
 ## Is `accurate: true` the surface the game itself uses?
 
 **For physics, yes — the identical call.**
 
-- `PhysicsEnvironment.RecomputePositionalValues` (`PhysicsEnvironment.cs:112`) sets
-  `TerrainRadius = MeanRadius + GetTerrainHeightFromDirCcf(dir)`, default `accurate: true`.
-- `TerrainPatch.GetTerrainRadiusCcf` (`TerrainPatch.cs:518`) does the same, and
+- `PhysicsEnvironment.RecomputePositionalValues` (`PhysicsEnvironment.cs:107`) sets
+  `TerrainRadius` through `TerrainRadiusCache.ComputeRadiusCcf`, which is
+  `MeanRadius + GetTerrainHeightFromDirCcf(dir)`, default `accurate: true`, re-sampled once the
+  direction has moved 0.25 m of arc (`TerrainRadiusCache.cs`).
+- `TerrainPatch.GetTerrainRadiusCcf` (`TerrainPatch.cs:515`) does the same through the same cache, at
+  an arc set by the patch's resolution, and
   `GetTerrainVertexCcf` places every vertex of the collision patch on it. The patch grid step is
-  **2 m** (`TerrainPatch.UpdateState` initialises with `2.0`), so the surface a craft rests on is a
+  **2 m** (`grid.EnsureBasis(…, 2.0)`, `TerrainPatch.cs:141`), so the surface a craft rests on is a
   2 m triangulation of exactly the field the mod samples continuously. Against the finest erosion
   octave above, the chord error of that triangulation is of order **a centimetre**.
 
@@ -233,7 +236,7 @@ a given camera distance is a rendering question.
 | `Cci` | body-centred **i**nertial. Same origin, does not rotate. |
 | `Cce` | body-centred, **e**cliptic axes. Same origin, ecliptic orientation, so a *direction* in `Cce` is the same direction in `Ecl`. |
 
-`GetTerrainHeightFromDirCce` (`Celestial.cs:780`) is one line plus a delegation:
+`GetTerrainHeightFromDirCce` (`Celestial.cs:769`) is one line plus a delegation:
 
 ```csharp
 double3 positionDirCcf = positionDirCce.Transform(GetCcf2Cce().Inverse());
@@ -248,9 +251,9 @@ Passing either direction to the other entry point would rotate it by the planet'
 the full 465 m/s × (time since epoch) error the question was worried about — but nothing here does.
 
 The rotations all come from one per-frame snapshot and cannot drift against each other:
-`UpdatePerFrameData` (`:594`) sets `_ccf2Cci = GetCcf2Cci(Orbit.StateVectors.StateTime)` and
+`UpdatePerFrameData` (`:591`) sets `_ccf2Cci = GetCcf2Cci(Orbit.StateVectors.StateTime)` and
 `_ccf2Cce = _ccf2Cci * _cci2Cce`, and `Universe` calls it once per frame after applying the step
-(`Universe.cs:1683`). `GetCci2Ccf()` and `GetCcf2Cce()` are both derived from that same `_ccf2Cci`,
+(`Universe.cs:1948`). `GetCci2Ccf()` and `GetCcf2Cce()` are both derived from that same `_ccf2Cci`,
 so the `Cce` path and the `Ccf` path are in phase by construction.
 
 ## The round trip is exact
@@ -262,8 +265,8 @@ dirCcf(lat, lon) · (MeanRadius + h(dirCcf)) · Ccf2Cce + bodyEcl
 ```
 
 and `GroundTest` recovers `unit(pos − bodyEcl)` = the same `Ccf` direction after
-`Cce2Ccf`, so it reads the same `h`. `Celestial.GetDirCcfFromLatLon` (`:670`) and
-`GetLatitudeFromCcf`/`GetLongitudeFromCcf` (`:708`, `:743`) are exact inverses —
+`Cce2Ccf`, so it reads the same `h`. `Celestial.GetDirCcfFromLatLon` (`:664`) and
+`GetLatitudeFromCcf`/`GetLongitudeFromCcf` (`:699`, `:732`) are exact inverses —
 `(cos φ cos λ, cos φ sin λ, sin φ)` against `asin(z)` and `atan2(y, x)` — and both sides use the same
 cached `_ccf2Cce`, so the trip closes to floating-point.
 
@@ -321,7 +324,7 @@ Over dry land the terrain is above the waterline and the clamp is a no-op either
 purely inland shot never showed it.
 
 **One residual, and it is small.** KSA's own physics uses `OceanRenderer.GetOceanHeightAtPositionCcf`,
-the *displaced wave* surface, not the flat level (`PhysicsEnvironment.cs:120`). The mod uses
+the *displaced wave* surface, not the flat level (`PhysicsEnvironment.cs:136`). The mod uses
 `OceanReference.Level` on all three paths, so they agree with each other and not with the engine.
 Waves are metres, which is tens of metres of ground here — below the noise, and the reason the mod's
 surface and KSA's will never agree exactly.
@@ -339,7 +342,7 @@ engine either calls it or is coarser:
 | `Celestial.SampleCubemapFaceSingleChannel(asset, texel, face)` | `public static`, one raw texel |
 | `TerrainImpactFinder.TryFind(body, trajectory, …)` | `public static`, does the crossing bisection for you — but samples `accurate: false` internally, so it is coarser than `Sim/ImpactPredictor.cs` already is. 24 bisection iterations plus a coarse march. |
 | `TerrainPatch` / the physics collision mesh | its public entry points want a `ReadOnlyPhysicsStates` ref struct a mod cannot construct, and its vertices come from `accurate: true` anyway |
-| `KSA.Rendering.BoundingVolumeHierarchy` | a builder for the raytracing acceleration structure, not a query API; its terrain triangles come from the same call (`:651`) |
+| `KSA.Rendering.BoundingVolumeHierarchy` | a builder for the raytracing acceleration structure, not a query API; its terrain triangles come from the same call (`:646`) |
 
 There is **no raycast**, no collider query, and no higher LOD. The cost of the exact call is roughly
 16 texel fetches for the bicubic plus the normal, biome and LUT work plus the modifier evaluation —
@@ -349,21 +352,24 @@ already only asks near the surface (`SurfaceUnder` returns the mean sphere above
 
 ## Two smaller things worth knowing
 
-**The mod's terrain-mask ceiling is a sample, not a bound.** `KsaWorld` passes
-`body.MaxTerrainHeightApprox` to `TerrainMask.Blocked` as the sphere that contains all terrain.
-`Celestial.UpdateApproxTerrainAltitudes` (`:931`) computes it once at construction from **16,384**
+**`MaxTerrainHeightApprox` is a sample, not a bound.**
+`Celestial.UpdateApproxTerrainAltitudes` (`:921`) computes it once at construction from **16,384**
 Fibonacci-spiral directions at `accurate: true` — about one sample per **176 km** on Earth,
 not the 5.6 km this file claimed: 16,384 points over a sphere is `sqrt(4*pi/16384) x 6,371 km`,
 and the earlier figure was out by a factor of 31. Measured against the shipped
 `Earth_Height.ktx2` the spiral returns **~5,692 m** where the base field alone reaches
 **8,011 m** (and the template declares 8,631). So it can
-undershoot the true maximum, and CLAUDE.md's *a sphere containing the terrain cannot produce a false
-negative* holds only up to that sampling. The alternative, `Astronomical.MaxTerrainRadius`
-(`Astronomical.cs:116`), is `MeanRadius + HeightReference.Maximum` — a hard bound on the base texture
-that does not bound the modifiers standing on top of it. Neither is a guarantee.
+undershoot the true maximum. `Astronomical.MaxTerrainRadius` (`Astronomical.cs:114`) is
+`MeanRadius + HeightReference.Maximum` — a hard bound on the base texture that does not bound the
+modifiers standing on top of it. The mod's terrain-mask ceiling (`KsaWorld.MaxTerrainHeightMetres`)
+therefore takes `MaxTerrainRadius` plus 8,000 m of headroom over the modifiers' declared amplitudes,
+7,525 m on Earth, and falls back to `MaxTerrainHeightApprox` only where that cannot be read.
+`KsaWorld.ArrivalCeilingRadius` still takes `MaxTerrainHeightApprox`, as the larger of it and the
+air's height.
 
-**The round samples the ground once a frame and holds it across every sub-step.** `Sim/Slug.cs` calls
-`Ground.TryGround` before the sub-step loop by design — the sample is the expensive call, and
+**The round samples the ground once a frame and holds it across every sub-step**, unless it sets
+`ResampleGroundNearImpact` (a reentry vehicle does, under `IcbmConfig.ResampleGroundAtImpact`; see
+CLAUDE.md "Not done"). `Sim/Slug.cs` calls `Ground.TryGround` before the sub-step loop by design — the sample is the expensive call, and
 `IGroundTest` answers as a centre and a radius precisely so the sub-steps cost a subtraction. The
 consequence on a shallow arrival is that the round stops on the surface as it was up to one frame of
 ground track behind: with slope `s` and arrival angle `γ`, the error is about `s·Δ / (tan γ + s)`
@@ -372,5 +378,5 @@ where `Δ` is the ground track covered in a frame. At an impact speed near 1.8 k
 so it is one more thing that gets worse under timewarp. `Sim/ImpactPredictor.cs` re-samples every
 integration step, which is **not** the same as sampling finely: its terminal step is sized for drag
 rather than for clearance, so at a 7 degree arrival it asks every **826 m** of ground track against
-the round's ~55 m. The prediction is fifteen times coarser than the thing it predicts, and
-`docs/ACCURACY-PLAN.md` 3z is what that costs.
+the round's ~55 m. The prediction is fifteen times coarser than the thing it predicts;
+`docs/ACCURACY-PLAN.md` 3z priced that as the long-range miss and 3ab refuted it headlessly.

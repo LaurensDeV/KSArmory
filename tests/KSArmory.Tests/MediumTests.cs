@@ -49,8 +49,6 @@ public class MediumTests
         BoostSeconds = 0f, BoostAccel = 0f, DragK = dragK, MaxFlightSeconds = 60f,
     };
 
-    // ---- Drag scales with the medium -------------------------------------
-
     [Theory]
     [MemberData(nameof(AllKinds))]
     public void WaterScrubsFarMoreSpeedThanAir(Kind kind)
@@ -90,8 +88,6 @@ public class MediumTests
 
         Assert.InRange(speed, 79.0, 80.0);
     }
-
-    // ---- Buoyancy ---------------------------------------------------------
 
     /// <summary>Off by default, so nothing that only ever flies through air changes.</summary>
     [Theory]

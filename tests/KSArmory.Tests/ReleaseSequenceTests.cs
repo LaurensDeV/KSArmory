@@ -9,8 +9,7 @@ namespace KSArmory.Tests;
 /// </summary>
 public class ReleaseSequenceTests(ITestOutputHelper Out)
 {
-    // What the bus throws at, which is what prices a cant. Off the profile rather than repeated,
-    // because the sequencer takes it from the munition now and a second copy here would drift.
+    // What the bus throws at, which is what prices a cant.
     private static readonly double Ejection = LoudKick.MetresPerSecond;
 
     private const double Step = 1.0 / 60.0;
@@ -47,13 +46,8 @@ public class ReleaseSequenceTests(ITestOutputHelper Out)
                                                    degrees * Math.PI / 180.0) * reference);
 
     /// <summary>
-    /// One magazine per sequence. A launcher reloads — three seconds after a salvo it is full again
-    /// — and a ballistic missile deploys once.
-    ///
-    /// <para>Flown 2026-08-24 before the latch: a six-tube bus put <b>sixty</b> warheads down. The
-    /// first six grouped at 2.88-2.90 km and every salvo after them went as the previous one landed,
-    /// the last of them from a few hundred metres up, 606 km from the aim point. The scenario scored
-    /// all sixty — docs/MIRV-NEXT.md item 0c.</para>
+    /// One magazine per sequence: a launcher reloads three seconds after a salvo, and a ballistic
+    /// missile deploys once. Unlatched, a six-tube bus puts sixty down (<c>docs/MIRV-NEXT.md</c> 0c).
     /// </summary>
     [Fact]
     public void AReloadedLauncherDoesNotGetASecondSalvo()
@@ -282,8 +276,7 @@ public class ReleaseSequenceTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// With nothing latched it is exactly the gate that flew before it: steady, or give up and say
-    /// so. That is the behaviour six salvos were flown on, so it must survive being moved here.
+    /// With nothing latched it is the plain steadiness gate: steady, or give up and say so.
     /// </summary>
     [Fact]
     public void BeforeItBeginsItIsExactlyTheOldSteadyGate()
@@ -343,10 +336,8 @@ public class ReleaseSequenceTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// The two gates that flew were independent thresholds, and independent thresholds compare
-    /// nothing. One budget swaps both of these verdicts round, because what reaches the round is the
-    /// sum: 0.4° while sweeping 0.045 m/s is 0.059 m/s at the tube, and a full degree while dead
-    /// still is 0.035.
+    /// One budget on the sum, not two independent thresholds, because the sum is what reaches the
+    /// round: 0.4° while sweeping 0.045 m/s is 0.059 m/s at the tube, and a full degree dead still is 0.035.
     /// </summary>
     [Theory]
     [InlineData(0.4, 0.045, false)]

@@ -61,9 +61,7 @@ public class ChaseStopShortTests
     }
 
     /// <summary>
-    /// A bomb whose whole flight is inside the distance it is watched from is ridden down to its last
-    /// seconds rather than let go of at release, which left the view kilometres from it for the whole
-    /// of a thrown-up drop.
+    /// Let go of at release, the view would stay kilometres from a thrown-up drop for its whole fall.
     /// </summary>
     [Fact]
     public void AFlightInsideTheDistanceIsRiddenToItsLastSeconds()
@@ -113,14 +111,6 @@ public class ChaseStopShortTests
         Assert.Equal(Vec.Unit(farColumn), ChaseView.WatchBurstForward(farBurst, farColumn, 60.0));
     }
 
-    /// <summary>
-    /// The view is held on a burst for as long as there is something still happening, which for a
-    /// conventional round is no time at all and for a nuclear one is the cloud's whole rise.
-    ///
-    /// <para>A flat three seconds showed about a twenty-fifth of a mushroom cloud and took the
-    /// camera away mid-event. Reported from a stream, which is the only place anybody watches one
-    /// all the way through.</para>
-    /// </summary>
     [Theory]
     [InlineData(0.02)]            // a 20 mm shell
     [InlineData(20.0)]            // a 57E6 warhead
@@ -130,7 +120,6 @@ public class ChaseStopShortTests
         Assert.Equal(ChaseView.MinLingerSeconds, InAir(chargeKg));
     }
 
-    /// <summary>A burst that grows a cloud is held until the cloud stops changing shape.</summary>
     [Theory]
     [InlineData(MushroomCloud.ThresholdKg)]
     [InlineData(300_000.0)]       // the B61 at its lowest yield
@@ -141,9 +130,8 @@ public class ChaseStopShortTests
     }
 
     /// <summary>
-    /// And the threshold it turns on is the one that decides whether a cloud exists at all, rather
-    /// than a second number that could drift from it — a hold sized for a cloud nobody drew would
-    /// be the camera taken hostage for nothing.
+    /// One threshold, not a second number that could drift from it: a hold sized for a cloud nobody
+    /// drew holds the camera for nothing.
     /// </summary>
     [Fact]
     public void TheHoldTurnsOnTheSameThresholdTheCloudDoes()
@@ -155,9 +143,8 @@ public class ChaseStopShortTests
     }
 
     /// <summary>
-    /// A charge that grows a cloud is watched from far enough to see the cloud, which is the thing
-    /// it made. Six fireball radii clears the fireball and leaves the camera under a cloud four
-    /// times taller than its own distance — and inside the radius that same charge is lethal to.
+    /// Six fireball radii clears the fireball but leaves the camera under the cloud and inside the
+    /// radius that same charge is lethal to.
     /// </summary>
     [Theory]
     [InlineData(0.3)]
@@ -175,7 +162,6 @@ public class ChaseStopShortTests
         Assert.True(stand > Warhead.LethalRadius(chargeKg));
     }
 
-    /// <summary>A conventional round is unaffected: its stand-off is still the fireball's.</summary>
     [Fact]
     public void AConventionalBurstKeepsItsOwnStandOff()
     {

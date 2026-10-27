@@ -5,11 +5,8 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// What the reader accepts, and — mostly — what it refuses.
-///
-/// A loader's interesting behaviour is almost entirely in what it will not take and what it says
-/// about it, because every refusal it declines to make is a weapon that loads wrong and flies
-/// with nothing on screen to show for it.
+/// Mostly what the reader refuses: every refusal it declines to make is a weapon that loads wrong
+/// and flies with nothing on screen to show for it.
 /// </summary>
 public class PackReaderTests
 {
@@ -35,8 +32,6 @@ public class PackReaderTests
         </Launcher>
         """;
 
-    // ---- Accepting ------------------------------------------------------
-
     [Fact]
     public void ABeltsTracersAreReadOffTheRound()
     {
@@ -46,6 +41,26 @@ public class PackReaderTests
         MunitionProfile round = Assert.Single(pack.Munitions);
         Assert.Equal(5, round.TracerEvery);
         Assert.Equal(2.5f, round.TracerBurnSeconds);
+    }
+
+    // An unguided round flies whatever motor it declares, so one that declares none must not get a missile's.
+    [Theory]
+    [InlineData("None")]
+    [InlineData("Inertial")]
+    public void AReleasedRoundThatNamesNoMotorHasNone(string guidance)
+    {
+        MunitionProfile round = Assert.Single(Read(Wrap(
+            $"""<Munition Name="Shell" DisplayName="Shell" Guidance="{guidance}" />""")).Munitions);
+
+        Assert.Equal((0f, 0f), (round.BoostSeconds, round.BoostAccel));
+    }
+
+    [Fact]
+    public void AMissileThatNamesNoMotorHasTheDefaultOne()
+    {
+        MunitionProfile round = Assert.Single(Read(Wrap(ARound)).Munitions);
+
+        Assert.Equal((2.4f, 520f), (round.BoostSeconds, round.BoostAccel));
     }
 
     [Fact]
@@ -124,8 +139,9 @@ public class PackReaderTests
 
         Assert.Empty(pack.Faults);
 
-        // The built-ins predate qualification and keep bare keys, so the prefix is stripped
-        // rather than kept -- otherwise the launcher holds a name the catalogue cannot answer.
+        // The built-ins keep bare keys, so the prefix is stripped: kept, the launcher would hold a
+        // name the catalogue cannot answer.
+
         Assert.Equal("20MM", pack.Launchers[0].Munition);
         Assert.True(pack.Launchers[0].HasCannon);
     }
@@ -439,8 +455,6 @@ public class PackReaderTests
         Assert.Contains(pack.Faults, f => f.Reason.Contains("RateDegPerSecond"));
     }
 
-    // ---- Refusing -------------------------------------------------------
-
     [Fact]
     public void AFamilyOnAPacksRootIsRefusedAndOnTheCoresIsRead()
     {
@@ -464,10 +478,7 @@ public class PackReaderTests
         Assert.Equal(3, pack.Accepted);
     }
 
-    /// <summary>
-    /// The reason every attribute is consumed. A misspelling that is merely ignored leaves the
-    /// author looking at a number in their file that nothing reads.
-    /// </summary>
+    /// <summary>Every attribute is consumed, so a misspelling is refused rather than leaving a number nothing reads.</summary>
     [Fact]
     public void AMisspeltAttributeIsRefusedRatherThanIgnored()
     {
@@ -475,6 +486,39 @@ public class PackReaderTests
 
         Assert.Empty(pack.Munitions);
         Assert.Contains(pack.Faults, f => f.Reason.Contains("NavConstnat"));
+    }
+
+    [Fact]
+    public void AnEjectorsPushAndMotorDelayAreRead()
+    {
+        LauncherProfile ejector = Assert.Single(Read(Wrap(ARound + ASet + """
+            <Launcher PartId="TestPack_Prefab_Ejector" DisplayName="Test ejector"
+                      Munition="Dart" Sensor="Eye" EjectSpeed="6" MotorDelaySeconds="0.5">
+              <Tube Position="0.3, 1, 0" Direction="0, 1, 0" />
+            </Launcher>
+            """)).Launchers);
+        LauncherProfile rail = Assert.Single(Read(Wrap(ARound + ASet + ARail)).Launchers);
+
+        Assert.Equal(6f, ejector.EjectSpeed);
+        Assert.Equal(0.5f, ejector.MotorDelaySeconds);
+        Assert.Equal(0f, rail.EjectSpeed);
+        Assert.Equal(0f, rail.MotorDelaySeconds);
+    }
+
+    [Theory]
+    [InlineData("EjectSpeed")]
+    [InlineData("MotorDelaySeconds")]
+    public void ANegativeEjectionIsRefused(string attribute)
+    {
+        PackContents pack = Read(Wrap(ARound + ASet + $"""
+            <Launcher PartId="TestPack_Prefab_Ejector" DisplayName="Test ejector"
+                      Munition="Dart" Sensor="Eye" {attribute}="-1">
+              <Tube Position="0.3, 1, 0" Direction="0, 1, 0" />
+            </Launcher>
+            """));
+
+        Assert.Empty(pack.Launchers);
+        Assert.Contains(pack.Faults, f => f.Reason.Contains(attribute));
     }
 
     [Fact]
@@ -599,8 +643,6 @@ public class PackReaderTests
         Assert.Contains(pack.Faults, f => f.Reason.Contains("RollMarker"));
     }
 
-    // ---- The file itself ------------------------------------------------
-
     [Fact]
     public void AFileThatIsNotXmlIsRefusedWholeAndSaysSo()
     {
@@ -650,9 +692,10 @@ public class PackReaderTests
     }
 
     /// <summary>
-    /// The one that costs a whole flight model. On a machine whose decimal separator is a comma,
-    /// a culture-sensitive parse reads 2.4 as 24 — ten times the boost, and nothing to see.
+    /// On a machine whose decimal separator is a comma, a culture-sensitive parse reads 2.4 as 24:
+    /// ten times the boost, and nothing to see.
     /// </summary>
+
     [Fact]
     public void NumbersAreReadTheSameWhateverTheMachinesCulture()
     {

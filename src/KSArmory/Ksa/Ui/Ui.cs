@@ -9,9 +9,7 @@ namespace KSArmory;
 /// </summary>
 internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHeads heads, Countermeasures countermeasures, SearchSets searchSets, CraftPicture picture, IcbmComputers icbms, WarpPolicy warp, WatchCamera watch, CraftMover mover, BurstTool bursts, Func<WeaponSystem, StoreReach> reachFor)
 {
-    // The overlay's own answer rather than a fresh one: solving here would be three flown
-    // trajectories per frame for a readout the ring is already showing, and a line that
-    // disagreed with the ring would be worse than no line.
+    // The overlay's own answer: a fresh solve is three flown trajectories, and could disagree with the ring.
     private readonly Func<WeaponSystem, StoreReach> _reachFor = reachFor;
 
     private static readonly float4 Green = new(0.4f, 1.0f, 0.45f, 1f);
@@ -19,9 +17,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private static readonly float4 Amber = new(1.0f, 0.78f, 0.25f, 1f);
     private static readonly float4 Grey = new(0.65f, 0.65f, 0.7f, 1f);
 
-    // Warp above which a frame carries more simulated time than the interceptor can integrate, so
-    // the system stands rounds down. Indicative only: the real limit is per frame, so a lower
-    // frame rate reaches it sooner. Assumes 60 fps.
+    // Indicative only, at an assumed 60 fps: the real limit is per frame step.
     private const double MaxTrackableWarp = Interceptor.MaxFaithfulStep * 60.0;
 
     private readonly Config _config = config;
@@ -34,16 +30,12 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private readonly List<SearchSet> _searchScratch = [];
     private readonly WarpPolicy _warp = warp;
 
-    // The system the panes read. Not fixed, and not set here: Focus points them at whichever
-    // system is being drawn and this file calls it before anything else runs. The panes live in
-    // UiSystem.cs and UiTuning.cs and simply use them, so a pane reached by any other path will
-    // quietly describe the wrong installation.
+    // Set by Focus before any pane draws; a pane reached by another path describes the wrong system.
     private WeaponSystem _system = null!;
     private SystemConfig _policy = null!;
 
-    // Whether the two above are safe to read this frame. A craft can be worth a window without
-    // being a weapons system -- one director and no armament is the case -- and everything under
-    // Debug and every pane reads a system.
+    // Whether the two above are safe to read: a craft with one director and no armament has a
+    // window but no system.
     private bool _crewed;
     private readonly WatchCamera _watch = watch;
     private readonly CraftMover _mover = mover;
@@ -63,8 +55,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     /// <summary>Points the panel at a craft, as its switcher row's "..." button does.</summary>
     public void Manage(KSA.Vehicle craft) => _managed = craft;
 
-    // Points the panes at one system. Returns false when there is nothing crewed to point at,
-    // which is the only state in which they must not be drawn at all.
+    // False when nothing is crewed, the one state in which the panes must not be drawn.
     private bool Focus(KSA.Vehicle? craft)
     {
         if (_roster.For(craft) is not { } entry) return false;
@@ -74,12 +65,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         return true;
     }
 
-    // What a pane is about. Anything belonging to one installation is a tab in that system's own
-    // window; Debug is for whoever is working on the mod rather than playing with it.
     private enum PaneGroup { Session, Debug }
 
-    // One pop-out window: what it is called, whether it is open, and what it draws. A class
-    // rather than a struct so Open is shared with the button that toggles it.
+    // A class so Open is shared with the button that toggles it.
     private sealed class Pane(string title, Action body, PaneGroup group)
     {
         public readonly string Title = title;
@@ -91,18 +79,14 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
     private Pane[]? _panes;
 
-    // Built lazily because every Body is an instance method. Order is the order the buttons
-    // appear in, which runs roughly from what an operator touches most to what they touch once.
+    // Lazy because every Body is an instance method. Listed in button order.
     private Pane[] Panes => _panes ??=
     [
         new("KSArmory settings", DrawSettingsPane, PaneGroup.Session),
 
-        // Who fights whom, in one place: a team's rules are every system on it.
         new("Teams", DrawTeamsWindow, PaneGroup.Session),
 
-        // Its own button beside settings, rather than a collapsed header inside that window. Sim
-        // speed, the target spawner and the log are all reached *while* an engagement is running,
-        // and a fold two windows deep is not a place to keep those.
+        // Its own button, not a fold in settings: it is reached during an engagement.
         new("Debug tools", DrawDebugPane, PaneGroup.Session),
 
         new("Test targets", DrawTestTargets, PaneGroup.Debug),
@@ -110,29 +94,15 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     ];
 
     /// <summary>
-    /// Adds <c>Mods → KSArmory</c> to the game's own menu bar.
-    ///
-    /// <para>KSA draws that bar inline in <c>Program</c> with hardcoded menus and offers no
-    /// extension point, and StarMap's attributes are lifecycle hooks with nothing menu-shaped
-    /// among them. What makes this work anyway is that ImGui's main menu bar is immediate-mode
-    /// and persistent: reopening it later in the same frame appends rather than starting a
-    /// second bar.</para>
-    ///
-    /// <para>A top-level <c>KSArmory</c> rather than a shared <c>Mods</c>, deliberately. MrJeranimo's
-    /// <b>ModMenu</b> owns that name: it transpiles <c>Program.DrawMenuBar</c> and splices in its
-    /// own <c>BeginMenu("Mods")</c>. Two of those in one bar merge only if ImGui's menu-merging
-    /// covers it, and being wrong means two menus side by side on the machines of exactly the
-    /// people who have both mods. A name of this mod's own cannot collide, needs no dependency,
-    /// and leaves registering with ModMenu as something to add later rather than undo.</para>
-    ///
-    /// <para>Called from <b>before</b> KSA's GUI pass, not after. From an after-GUI hook
-    /// <c>BeginMainMenuBar</c> returns false and nothing appears, because the bar has already been
-    /// ended for the frame. Opening it first instead means KSA's own menus append to this one.</para>
+    /// Adds a top-level <c>KSArmory</c> menu to the game's menu bar, which has no extension point:
+    /// ImGui's main menu bar appends when reopened in the same frame. Top-level rather than under
+    /// <c>Mods</c>, which ModMenu owns and splices in by transpiling <c>Program.DrawMenuBar</c>.
+    /// <para>Called <b>before</b> KSA's GUI pass: after it, <c>BeginMainMenuBar</c> returns false
+    /// because the bar has been ended for the frame.</para>
     /// </summary>
     public void DrawMenuBarEntry()
     {
-        // ModMenu draws this mod's entry when it is installed -- see DrawModMenu. Drawing a
-        // second one here would list KSArmory twice in the same bar.
+        // ModMenu draws the entry when installed (DrawModMenu); a second would list it twice.
         if (ModMenuPresence.Installed) return;
 
         try
@@ -149,8 +119,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         }
         catch (Exception e)
         {
-            // Never take the panel down with it. A menu that does not appear is a cosmetic loss;
-            // an exception here happens inside KSA's own GUI pass.
+            // An exception here is inside KSA's own GUI pass; a missing menu is cosmetic.
             if (_warnedMenuBar) return;
 
             _warnedMenuBar = true;
@@ -160,7 +129,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
     private bool _warnedMenuBar;
 
-    // What sits under the menu, wherever the menu came from: this mod's own bar, or ModMenu's.
     private void DrawMenuContents()
     {
         bool visible = Visible;
@@ -208,25 +176,17 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         return label.ToString();
     }
 
-    /// <summary>
-    /// Called by <b>ModMenu</b>, if the player has it, to fill this mod's entry in its shared
-    /// menu. Found by reflection on the attribute's name — see <see cref="ModMenuEntryAttribute"/>
-    /// for why that means no dependency.
-    ///
-    /// <para>Static because ModMenu resolves an instance only for a couple of hardcoded method
-    /// names; a static one it can always call. <see cref="Current"/> is set when the panel is
-    /// built, and the null check is what happens if ModMenu scans before that.</para>
-    /// </summary>
-    // Said once, not per frame: this is called from inside a menu build, so a failure repeats for
-    // as long as the menu is open.
+    // Said once: a failure inside a menu build repeats every frame the menu is open.
     private static bool _warnedModMenu;
 
+    /// <summary>
+    /// Called by ModMenu, found by the attribute's name. Static because ModMenu resolves an
+    /// instance only for a few hardcoded method names; <see cref="Current"/> is null before the first draw.
+    /// </summary>
     [ModMenuEntry("KSArmory")]
     public static void DrawModMenu()
     {
-        // Wrapped as the identical call through this mod's own bar is: unwrapped, anything thrown
-        // here goes into ModMenu's menu build instead of the log -- leaving an entry that does
-        // nothing and no evidence anywhere of why.
+        // Unwrapped, anything thrown here lands in ModMenu's menu build instead of this log.
         try
         {
             Current?.DrawMenuContents();
@@ -240,17 +200,14 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         }
     }
 
-    /// <summary>The panel ModMenu should drive. There is one.</summary>
+    /// <summary>The panel ModMenu should drive.</summary>
     internal static Ui? Current { get; private set; }
 
     public void Draw()
     {
-        // Set here rather than in a constructor: this is a primary-constructor class, and ModMenu
-        // may scan for the attribute before anything has drawn.
         Current = this;
 
-        // This pass walks the world too, and it is a different hook from the simulation step --
-        // one can run without the other, so neither may inherit the other's census.
+        // A different hook from the simulation step, and either can run without the other.
         KsaWorld.InvalidateCensus();
 
         RefreshSystems();
@@ -258,9 +215,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         _icbms.Sync(_systems, _roster.Handovers);
 
 
-        // Follow a weapon that a decoupler carried onto another craft, before the test below
-        // notices the old one has nothing left and shuts the window - which would happen in the
-        // middle of a deployment, on the frame the operator most wants to be watching.
+        // Before the test below, which would shut the window on the craft a decoupler emptied.
         for (int i = 0; i < _roster.Handovers.Count; i++)
         {
             if (ReferenceEquals(_managed, _roster.Handovers[i].From))
@@ -269,9 +224,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             }
         }
 
-        // Dropped when the craft has nothing left to manage -- a system *or* a director. Testing
-        // the system alone clears the selection on the frame after a camera-only craft is picked,
-        // so the window opens and shuts again before it is ever drawn.
+        // A system, a director or a search set: testing the system alone drops a camera-only craft.
         if (_managed is not null
             && _roster.For(_managed) is null && _heads.FirstOn(_managed) is null && !CarriesSearchSet(_managed))
         {
@@ -283,33 +236,24 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             _weaponsCraft = null;
         }
 
-        // The Weapons window, opened from a row, is the craft being operated: its trigger, its
-        // designator and its sight follow it.
+        // The Weapons window's craft is the one operated: trigger, designator and sight follow it.
         Focused = _weaponsCraft ?? _managed ?? _roster.Default();
 
-        // Two different questions, and collapsing them into one is a null dereference. The manage
-        // window has something to show for a system *or* a director, so it asks the second; the
-        // panes all read `_system`, which `Focus` leaves unassigned when it answers false, so they
-        // must ask the first.
+        // Two questions: the panes read `_system` and need the first; the manage window also opens
+        // for a director, so it asks the second. Collapsing them is a null dereference.
         _crewed = Focus(Focused);
 
         bool anyCrewed = _crewed || _heads.FirstOn(Focused) is not null;
 
-        // Filled here rather than by whichever tab happens to be in front: every window below
-        // reads it, and `BeginTabItem` bodies run only for the selected tab, so filling it from
-        // Components leaves the map drawing the heads of whatever craft was shown when that tab
-        // was last open.
+        // Here, not in a tab: BeginTabItem bodies run only for the selected tab, and every window
+        // below reads it.
         _heads.On(_managed, _headScratch);
 
         if (Visible)
         {
-            // ###id so the version can ride in the title without the window losing its place
-            // every time the mod is bumped.
+            // ###id so a version bump does not move the window.
             if (ImGui.Begin($"KSArmory {Build.Version}###KSArmory", ref Visible))
             {
-                // Opens on what exists in the world rather than on whatever the camera is pointed
-                // at. Everything below is about the *selected* system, and everything that is not
-                // about one particular system is a pane.
                 DrawSystemList();
                 ImGui.Separator();
                 DrawReportFooter();
@@ -319,15 +263,8 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         }
         else if (_config.FloatingPanelButton)
         {
-            // Closing the panel must not strand the operator with no way back, and the button is
-            // the only route this mod controls. Both others are somebody else's: appending to
-            // KSA's bar is ImGui behaviour rather than a supported hook, and ModMenu's entry is
-            // another mod's menu reached by transpiling a private method.
-            //
-            // Drawn whenever it is wanted rather than being suppressed where ModMenu would
-            // provide a route: the recovery cannot be conditional on a third party working,
-            // because there is no way back from being wrong -- the setting that would switch this
-            // on lives *inside* the panel that is shut.
+            // The only route back this mod controls, so it is not suppressed where ModMenu would
+            // offer one: the setting to switch it on is inside the shut panel.
             if (ImGui.Begin("KSArmory##reopen",
                             ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar))
             {
@@ -337,11 +274,8 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             ImGui.End();
         }
 
-        // Each of these is its own top-level window, so none may be nested inside the panel's
-        // Begin/End -- and none is gated on the panel being open. Every one carries its own open
-        // flag and returns on it, so closing the panel is not a request to shut the map, the
-        // scope, a report half-written, or the switcher the trigger is pointed at. The manage
-        // window is the only one gated at all, on there being something to manage.
+        // Top-level windows, outside the panel's Begin/End and not gated on it: each carries its
+        // own open flag, so closing the panel shuts none of them.
         if (anyCrewed) DrawManageWindow();
         DrawPanes();
         DrawReportWindow();
@@ -351,10 +285,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         DrawWeaponsWindow();
     }
 
-    // Every craft in the world this mod recognises as a weapons system, refreshed on a timer.
-    //
-    // Surveying is a walk of every part of every loaded vehicle, so it does not belong on a
-    // per-frame path just to draw a list that changes when a craft is built or destroyed.
+    // On a timer: a survey walks every part of every loaded vehicle.
     private readonly List<(KSA.Vehicle Craft, WeaponInventory Inventory)> _systems = [];
     private int _systemsAge = RefreshSystemsEvery;
     private const int RefreshSystemsEvery = 60;
@@ -381,11 +312,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         }
     }
 
-    // The list the panel opens on: what exists, not what happens to be under the camera.
-    //
-    // Grouped by the team each installation fights for, one row each, after the vessel switchers
-    // players already know: the name flies it, and what is wanted mid-fight -- guard, chase, team
-    // -- is one click on the same row. Everything else is behind its "..." window.
+    // Grouped by team, one row per installation.
     private void DrawSystemList()
     {
         RefreshSystems();
@@ -398,9 +325,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         if (!ImGui.BeginTable("##switcher", 6, ImGuiTableFlags.SizingStretchProp)) return;
 
-        // Weapons first, as the one most reached for. Each icon keeps its column, so a craft without
-        // one -- guard is only on a craft that engages on its own -- leaves a gap rather than
-        // shifting the rest.
+        // Each icon keeps its column, so a craft without one leaves a gap rather than shifting the rest.
         ImGui.TableSetupColumn("##name", ImGuiTableColumnFlags.WidthStretch);
         ImGui.TableSetupColumn("##weapons", ImGuiTableColumnFlags.WidthFixed);
         ImGui.TableSetupColumn("##guard", ImGuiTableColumnFlags.WidthFixed);
@@ -410,8 +335,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         IReadOnlyList<string> teams = _config.TeamNames;
 
-        // Each declared team in its declared order, then the rest: on no team, or on one that is
-        // no longer declared, which would otherwise be listed nowhere.
+        // Declared teams in order, then the rest: no team, or one no longer declared.
         for (int group = 0; group <= teams.Count; group++)
         {
             bool headed = false;
@@ -440,8 +364,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         ImGui.EndTable();
     }
 
-    // One installation's row. Each switch acts on everything of its kind on the craft -- two
-    // rails are one craft to guard -- where its own window acts on one system at a time.
+    // Each switch acts on every system of its kind on the craft; its window acts on one.
     private void DrawSwitcherRow(KSA.Vehicle craft, WeaponInventory inv)
     {
         _rowSystems.Clear();
@@ -466,14 +389,12 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         ImGui.TableNextColumn();
         DrawTeamButton(craft);
 
-        // Tinted while this craft's window is open, which is often not the craft being flown and
-        // is otherwise said nowhere in the list.
         ImGui.TableNextColumn();
         bool open = ReferenceEquals(_managed, craft);
         if (open) ImGui.PushStyleColor(ImGuiCol.Button, LitButton);
         if (ImGui.Button("..."))
         {
-            // One craft operated at a time: its window's trigger fires the focused craft's weapons.
+            // One craft operated at a time: a window's trigger fires the focused craft's weapons.
             _managed = craft;
             _weaponsCraft = null;
         }
@@ -481,8 +402,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         Tip(open ? "Its window is the one open." : "Everything else about it, in its own window.");
     }
 
-    // Clicking a name flies it, as in every switcher of this kind; looking at it without taking
-    // the seat is the right button.
     private void DrawSwitcherName(KSA.Vehicle craft, WeaponInventory inv)
     {
         ImGui.TableNextColumn();
@@ -490,9 +409,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         bool flying = ReferenceEquals(craft, KsaWorld.ControlledVehicle);
         float width = ImGui.GetContentRegionAvail().X;
 
-        // The flown craft is the only filled row, and marked as well as coloured so the colour is
-        // not the only thing saying it. Every other name is text until hovered, so the list reads
-        // as a list rather than as a wall of identical buttons.
+        // Marked as well as coloured, so colour is not the only cue.
         ImGui.PushStyleColor(ImGuiCol.Button, flying ? FlyingButton : new float4(0f, 0f, 0f, 0f));
         if (flying) ImGui.PushStyleColor(ImGuiCol.ButtonHovered, FlyingButtonHovered);
         float2 leftAligned = new(0f, 0.5f);
@@ -533,8 +450,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             guard = guard is { } soFar ? GuardState.Combine(soFar, one) : one;
         }
 
-        // Nothing aboard engages on its own -- a craft carrying only stores -- so there is nothing
-        // to switch, and its FIRE needs nothing switched.
+        // Nothing aboard engages on its own, as on a craft carrying only stores.
         if (guard is not { } state) return;
 
         ImColor8 ink = state switch
@@ -585,7 +501,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             + "eases back behind it.");
     }
 
-    // Straight to the Weapons window for this craft, without opening its own window first.
     private void DrawWeaponsButton(KSA.Vehicle craft)
     {
         bool open = _weaponsOpen && ReferenceEquals(Focused, craft);
@@ -609,8 +524,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         Tip(open ? "Its weapons are open." : "Its weapons: what each is loaded with, whether it is armed, and a trigger.");
     }
 
-    // A click opens the menu, because it is the control a new player tries first and creating the
-    // first team is in it. Right-click steps to the next team without opening anything.
+    // A click opens the menu, where the first team is created; right-click steps to the next team.
     private void DrawTeamButton(KSA.Vehicle craft)
     {
         List<string> teams = _config.TeamNames;
@@ -674,20 +588,15 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         Tip("Type a name and press Enter to create the team and put this craft on it.");
     }
 
-    // Every system and director on the row's craft: a craft fights for one side.
-    //
-    // This is also what puts the craft on that side in everyone *else's* picture: KSArmoryMod
-    // declares it into KsaWorld.TeamRoster each frame off these same policies. Both halves come
-    // from here, so a flag that wrote only the first would leave two sites on one team reading
-    // each other as Unknown, which is engageable by default.
+    // Every system and director on the craft. KSArmoryMod declares the team roster off these same
+    // policies, so this is also the side everyone else reads the craft on.
     private void SetTeam(string? team)
     {
         foreach (WeaponSystems.Entry e in _rowSystems) e.Policy.Iff.OwnTeam = team;
         foreach (OpticalHeads.Entry h in _rowHeads) h.Policy.Iff.OwnTeam = team;
     }
 
-    // The side an installation fights for: its selected weapon's, or its director's when it
-    // carries no weapon. What the flag shows and what the list groups by.
+    // Its selected weapon's team, or its director's when it carries no weapon.
     private string? TeamOf(KSA.Vehicle craft)
     {
         if (_roster.For(craft) is { } entry) return entry.Policy.Iff.OwnTeam;
@@ -732,8 +641,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private static readonly float4 FlyingButtonHovered = new(0.20f, 0.52f, 0.30f, 1f);
     private static readonly ImColor8 FlyingMarker = new(235, 255, 235, 255);
 
-    // A small triangle at the left of the flown craft's name. Drawn rather than typed, as the icons
-    // are, because the font carries basic Latin only.
+    // Drawn rather than typed: the font carries basic Latin only.
     private static void DrawFlyingMarker(float2 min, float2 max)
     {
         float h = max.Y - min.Y;
@@ -752,8 +660,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
     private enum Icon { Shield, Camera, Flag, Missile }
 
-    // A square button the height of a text one, with a symbol drawn on it. Drawn rather than
-    // typed, because KSA's fonts carry basic Latin only and a symbol would render as a box.
+    // Drawn rather than typed: KSA's fonts carry basic Latin only and a symbol renders as a box.
     private static bool IconButton(string id, Icon icon, ImColor8 ink, bool lit)
     {
         float side = ImGui.GetFrameHeight();
@@ -791,7 +698,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                 break;
 
             case Icon.Missile:
-                // Climbing to the right: body, nose and a pair of tail fins.
                 draw.AddQuadFilled(P(0.20f, 0.70f), P(0.28f, 0.78f), P(0.70f, 0.36f), P(0.62f, 0.28f), ink);
                 draw.AddTriangleFilled(P(0.62f, 0.28f), P(0.70f, 0.36f), P(0.84f, 0.14f), ink);
                 draw.AddTriangleFilled(P(0.24f, 0.74f), P(0.14f, 0.58f), P(0.32f, 0.66f), ink);
@@ -800,8 +706,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         }
     }
 
-    // One system's own window: everything that belongs to that installation rather than to the
-    // session, as tabs. Separate from the main panel so the list stays a list.
     private void DrawManageWindow()
     {
         if (_managed is not { } craft || !KsaWorld.IsAlive(craft))
@@ -810,12 +714,8 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             return;
         }
 
-        // Point the panes at *this* window's craft. Focus was worked out at the top of the frame
-        // from last frame's selection, so the window that opens on the click that selected it
-        // would otherwise show -- and edit -- the previously focused system for one frame.
-        // A craft can carry a director and no armament at all, and every tab but Components reads
-        // a system. Rather than refusing to open -- which leaves the operator with a listed craft
-        // and no way into its camera -- the window opens with what that craft actually has.
+        // Re-focused here: the frame's Focus used last frame's selection, and would show and edit
+        // the previous system for a frame. Unarmed craft still open, with what they have.
         bool armed = Focus(craft);
         if (!armed && _heads.FirstOn(craft) is null && !CarriesSearchSet(craft))
         {
@@ -825,25 +725,19 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         bool open = true;
 
-        // The title is the craft's identity, so the pane below it does not repeat either half.
-        // ###id keeps the window in place while the visible part changes.
+        // ###id keeps the window in place while the title changes.
         string flying = ReferenceEquals(craft, KsaWorld.ControlledVehicle) ? "" : " - not flying";
 
         if (ImGui.Begin($"{KsaWorld.DisplayName(craft)}{flying}###KSArmorySystem", ref open))
         {
-            // Above the tabs, so it is on screen whichever one is open. What it carries is the
-            // answer to why the system is or is not shooting, which is the question most often
-            // asked while looking at some other tab.
+            // Above the tabs: why it is or is not shooting must show whichever tab is open.
             if (armed) DrawSystemHeader();
 
             if (ImGui.BeginTabBar("##systemtabs"))
             {
-                // First, and the only one a craft always has: what it is made of. Every other tab
-                // is about a weapons system, which a craft carrying one director does not have.
                 if (ImGui.BeginTabItem("Components")) { DrawComponents(craft); ImGui.EndTabItem(); }
 
-                // Second, and not gated on `armed`: the computer flies the whole vehicle, so it is
-                // there whether or not the weapon it is delivering has a radar to speak of.
+                // Not gated on `armed`: the computer flies the whole vehicle.
                 if (_icbms.For(craft) is { } computer && ImGui.BeginTabItem("Ballistic"))
                 {
                     DrawIcbm(computer);
@@ -852,14 +746,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
                 if (armed)
                 {
-                    // "Radar" rather than "Tracks": the tab carries the lock and the scope state
-                    // as well as the list, which is the whole of what the set is doing.
-                    //
-                    // Only for a set that presents a picture. A seeker head cues the shooter with a
-                    // growl and a reticle and a designation set has no array at all, so a scope of
-                    // tracks for either shows a search that never happened. An anti-radiation
-                    // seeker is the exception and gets its own name, because a list of who is
-                    // radiating is not a search picture.
+                    // Only for a set that presents a picture: a seeker or designation set has none.
                     string? scope = ScopeTab(_sensor);
 
                     if (scope is not null && ImGui.BeginTabItem(scope))
@@ -878,10 +765,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         if (!open) _managed = null;
     }
 
-    // What one system is holding, in a table cell: every armament it carries, however many that is.
-    // Airspeed against the ground under it, the way a round's is measured -- in the ecliptic every
-    // craft on the planet reads 29.8 km/s and none of them are going anywhere. Blank below walking
-    // pace, because a row for a launcher parked on its pad does not need a zero in it.
+    // Against the ground under it: in the ecliptic every craft on the planet reads 29.8 km/s.
     private static string Speed(IWeaponSystemView system)
     {
         if (system.Platform is not { } craft || !KsaWorld.IsAlive(craft)) return "";
@@ -917,8 +801,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         return string.Join(", ", parts);
     }
 
-    // The tab a set's picture is shown on, or null for a set that presents none. Everything that
-    // offers a scope asks this, so a seeker never gets a button for a tab it does not have.
+    // Null for a set that presents no picture. Everything offering a scope asks this.
     private static string? ScopeTab(SensorProfile sensor) => sensor.Scope switch
     {
         ScopePresentation.Search => "Radar",
@@ -928,9 +811,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
     private void DrawPaneToggles()
     {
-        // One button. Everything session-wide lives in the window behind it, so the main panel is
-        // the list of systems and nothing else -- which is the only thing on it that changes as
-        // the world does.
         DrawPaneGroup(null, PaneGroup.Session);
     }
 
@@ -946,11 +826,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
             if (shown++ > 0) ImGui.SameLine();
 
-            // A button, never a tick box. A checkmark reads as "this setting is on", so a window
-            // arriving instead is unannounced and the tick says nothing about where it went.
-            // Opening a window is an action; tick boxes are for state.
-            // Read once: the button toggles pane.Open, so testing it again after would pop a
-            // colour that was never pushed, or leak one that was.
+            // Read once: the button toggles pane.Open, and re-reading would unbalance the colour push.
             bool open = pane.Open;
 
             if (open) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.45f, 0.25f, 1f));
@@ -966,27 +842,20 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             Pane pane = Panes[i];
             if (!pane.Open) continue;
 
-            // Title doubles as the ImGui id, so each pane keeps its own size and position
-            // across sessions the way any other window does.
             if (ImGui.Begin(pane.Title, ref pane.Open)) pane.Body();
             ImGui.End();
         }
     }
 
-    // The profiles of whichever system the panel is showing. Tuning edits the shared
-    // Arsenal instance, so it reaches every system running that launcher.
+    // The shared Catalogue instances: tuning reaches every system running that loadout.
     private LauncherProfile _profile => _system.Profile;
     private MunitionProfile _munition => _system.Munition;
     private SensorProfile _sensor => _system.Sensor;
 
-    // What the focused system is fitted with, which is what decides which controls exist. Read
-    // fresh every time: the profiles it is derived from are the same instances the tuning sliders
-    // edit, so anything held across frames answers for the load the system started with.
+    // Read fresh: the tuning sliders edit the profiles it is derived from.
     private WeaponFit _fit => WeaponFit.Of(_system.Profile, _system.Sensor);
 
-    // The system's own counters, paired with the armament they belong to. The one place that
-    // names an armament kind: a system exposes a counter per weapon rather than a lookup, so
-    // something has to bridge the description to them.
+    // The one place that maps an armament kind onto the system's per-weapon counters.
     private static (int Remaining, bool Firing) LiveState(WeaponSystem system, Armament arm)
         => arm.Kind switch
         {
@@ -1001,8 +870,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         ("0.01x", 0.01), ("0.05x", 0.05), ("0.1x", 0.1), ("0.25x", 0.25), ("1x", 1.0),
     ];
 
-    // 30 s at 300 m/s spawns 9 km out, comfortably inside the default 20 km radar range,
-    // and keeps the ballistic arc shallow enough to stay well clear of terrain.
+    // 30 s at 300 m/s spawns 9 km out, inside the 1RS1's 36 km range.
     private float _spawnSeconds = 30f;
     private float _spawnSpeed = 300f;
     private float _spawnMiss = 1500f;
@@ -1014,8 +882,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         else set.Remove(team);
     }
 
-    // Out of every policy in the world rather than the one on screen: a policy still holding a
-    // removed team keeps it as its side.
+    // Out of every policy in the world: one still holding a removed team keeps it as its side.
     private void ForgetTeam(string team)
     {
         _config.TeamNames.RemoveAll(t => string.Equals(t, team, StringComparison.OrdinalIgnoreCase));
@@ -1033,8 +900,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         _ => Amber,
     };
 
-    // ImGui.InputText wants a fixed byte buffer, so each field owns one and the string is
-    // marshalled either side of the call.
     private static bool TextField(string label, ref string value, string? hint = null)
     {
         Span<byte> buffer = stackalloc byte[64];
@@ -1052,10 +917,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         return true;
     }
 
-    // What the control just drawn does, on hover. Explanations live here and a line under a
-    // control is for state the operator has to act on -- see CLAUDE.md on the panel.
-    //
-    // Wrapped, because a bare tooltip never is and a long one runs off the screen.
+    // Wrapped, because a bare tooltip is not and runs off the screen.
     private static void Tip(string text)
     {
         if (!ImGui.BeginItemTooltip()) return;
@@ -1069,7 +931,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     // The width Dear ImGui's own help markers wrap at.
     private const float TipWidthEms = 35f;
 
-    // A grey (?) carrying an explanation that belongs to a section rather than to one control.
     private static void Help(string text)
     {
         ImGui.TextDisabled("(?)");

@@ -6,31 +6,23 @@ namespace KSArmory;
 /// <summary>
 /// Borrows the player's main view and looks through the optical head, then gives it back.
 ///
-/// <para><b>The main view is the full picture.</b> A camera window draws terrain and sky, but the
-/// clouds, the ocean and the clustered lights run only for the frame viewport
-/// (<c>docs/BLOCKED-ON-KSA.md</c>), so this is the option for a sight that has to look right and
-/// a window the one for watching a site from somewhere else.</para>
+/// <para><b>The main view is the full picture</b>: a camera window draws no clouds, ocean or
+/// clustered lights (<c>docs/BLOCKED-ON-KSA.md</c>).</para>
 ///
 /// <para><b>It follows the launcher's own craft, whatever the player was following.</b>
-/// <c>FixedController</c> places the camera at <c>following.GetPositionEcl() + CameraOffset</c>
-/// during its own frame pass, so the offset is applied at a later instant than the one it was
-/// computed at. Measured from the launcher's craft that costs nothing, because the eye is derived
-/// from the same sample; measured from anything else it carries a frame of that craft's motion
-/// every frame, which at 29.8 km/s reads as the sight shivering. Same reason
-/// <see cref="ChaseCamera"/> follows the round it is riding.</para>
+/// <c>FixedController</c> places the camera at <c>following.GetPositionEcl() + CameraOffset</c> in its
+/// own pass, so an offset measured from any other craft carries a frame of its motion and the sight
+/// shivers.</para>
 /// </summary>
 internal sealed class SightCamera : IViewPose
 {
     private KsaWorld.MainView _saved;
 
-    // The head being looked through, kept only so the pose can be re-resolved inside the engine's
-    // viewport pass. Null whenever the view is not held, which is what stops that pass reaching
-    // into a system the panel has moved off.
+    // The head being looked through, so the pose can be re-resolved inside the engine's viewport
+    // pass. Null whenever the view is not held.
     private IOpticalHead? _head;
 
-    // How far the optics are wound in, from the last frame the panel was read. Held for the same
-    // reason as the head: the pose is answered inside the engine's pass, which has no route to the
-    // system's own settings.
+    // How far the optics are wound in, held for the engine's pass, which cannot reach the settings.
     private double _magnification = 1.0;
 
     /// <summary>Null: the sight looks where its head points, and the mouse aims the head.</summary>
@@ -40,10 +32,8 @@ internal sealed class SightCamera : IViewPose
     /// <summary>
     /// Where the view goes, asked from inside the engine's own frame pass.
     ///
-    /// <para>The pose written from the GUI hook is a frame old by the time it is drawn, and that
-    /// frame is one frame of the <em>target's</em> angular motion — a couple of pixels at 1x, and a
-    /// third of the picture at 16x under warp, because it scales with simulation speed. Resolving
-    /// it again here costs a part-transform read and removes the whole term.</para>
+    /// <para>A pose written from the GUI hook is a frame of the target's angular motion old when
+    /// drawn: a couple of pixels at 1x, a third of the picture at 16x under warp.</para>
     /// </summary>
     public bool TryPose(double3 followedEcl, out double3 offsetFromFollowed, out double3 forwardEcl,
                         out double3 upEcl, out double fovDeg)
@@ -54,56 +44,35 @@ internal sealed class SightCamera : IViewPose
         if (_head is not { } head || !_saved.Valid) return false;
         if (head.Platform is null || head.OpticPart is null) return false;
 
-        // Against the position the engine has just placed the craft at, not the mod's own sample.
-        // Pairing the eye with an older platform sample would put a frame of the planet's motion
-        // back into the separation, which is the same fault in a different term.
+        // Against the position the engine has just placed the craft at, not the mod's older sample.
         if (!head.TryOpticViewEclAt(followedEcl, out double3 eye, out forwardEcl)) return false;
 
         offsetFromFollowed = eye - followedEcl;
         upEcl = head.RollReferenceEcl;
         fovDeg = SightZoom.FovDegreesFor(_saved.FovDeg, _magnification);
 
-        // Diagnostic only, and inside the engine's frame pass -- so it is caught here rather than
-        // relying on the caller's catch, which would drop the whole pose for that frame and turn a
-        // logging fault into a visible one.
+        // Caught here: the caller's catch would drop the whole pose for the frame.
         try { ProbeAim(head, eye, forwardEcl, fovDeg); } catch { /* a probe must never cost a frame */ }
 
         return true;
     }
 
-    // Frames since the last line. A probe inside the engine's frame pass that writes a file every
-    // frame is a probe that causes the stutter it is looking for -- 4,000 synchronous writes in one
-    // session, in the loop that positions the camera. Sampled instead, with any new worst case let
-    // through so a spike is never missed between samples.
+    // Frames since the last line: a file write every frame in this pass causes the stutter it is
+    // looking for. Sampled, with any new worst case let through.
     private int _probeSkipped;
 
-    // The largest miss reported so far, which is what lets a spike through between samples.
     private double _probeWorst;
 
-    // Where the camera is being sent against where the target actually is, per frame, under a
-    // verbose log.
-    //
-    // `missed` is what the geometry gives; `crosses` is how far the target moves across the picture
-    // in one step. A miss that tracks the crossing and grows with simulation speed is the aim
-    // arriving a frame late; a miss that stays put while the crossing grows is something else.
-    //
-    // That residual is 0.007 deg per unit of simulation speed, and it is not extrapolated away:
-    // leading the aim by the drive's own last turn measures 0.35 deg at 10x against a target
-    // crossing 0.0037 deg -- ninety times further than the target moved, and noisy frame to frame.
-    // Not to be tried again; CLAUDE.md carries the reasoning. The probe earns its place as the
-    // measurement that also proves the in-pass re-solve in OpticalHead.TryOpticViewEclAt is
-    // reached, which is silently missed for a designation if it is not.
-    //
-    // Reported as a fraction of the field because that is what "off target" means to whoever is
-    // looking through it: 0.3 degrees is nothing at 60 degrees and a tenth of the picture at 3.
+    // Where the camera is sent against where the target is, per frame, under a verbose log. A miss
+    // that tracks `crosses` and grows with simulation speed is the aim arriving a frame late: 0.007 deg
+    // per unit of speed, deliberately not extrapolated away (CLAUDE.md, "Everything the mod draws is a
+    // step behind"). Also proves the in-pass re-solve in OpticalHead.TryOpticViewEclAt is reached.
     private void ProbeAim(IOpticalHead head, double3 eye, double3 forwardEcl, double fovDeg)
     {
         if (Log.Threshold > Log.Level.Debug) return;
 
-        // Whatever the head is actually following, which is the designation when there is one and
-        // the set's own pick otherwise. Asking only for a track measures nothing at all while a
-        // designation is driving -- and a designated patch of ground is never a track, so the
-        // probe would be silent in exactly the case it is wanted for.
+        // Whatever the head is following, designation included: a designated patch of ground is
+        // never a track.
         double3 targetEcl;
         double3 targetVel;
 
@@ -112,12 +81,8 @@ internal sealed class SightCamera : IViewPose
             targetEcl = head.Designation.PositionEcl;
             targetVel = head.Designation.VelocityEcl;
 
-            // Resolved again, here, against this instant. The stored position was resampled in the
-            // GUI hook a frame ago, and the eye below comes from the engine's own fresh sample --
-            // so comparing them measures one step of the planet's 29.8 km/s and calls it an aiming
-            // error. 383 m at 439 km reads as 0.05 deg, and it spikes on a long frame, which is
-            // exactly what a real fault would look like. An instrument that pairs two epochs is
-            // measuring itself; see docs/FRAMES-AND-EPOCHS.md.
+            // Resolved again against this instant: the stored position is a frame older than the
+            // eye, and pairing them measures a step of the planet's 29.8 km/s as aiming error.
             if (head.Designation.NeedsResampling
                 && KsaWorld.TryGroundAnchorEcl(head.Designation.Handle, head.Designation.Anchor,
                                                out double3 nowEcl, out double3 nowVel))
@@ -133,9 +98,7 @@ internal sealed class SightCamera : IViewPose
         }
         else if (head.LockedTrack is { } track)
         {
-            // The drawn position, which is what the bracket is painted at -- so this compares the
-            // two things actually on screen rather than the camera against a simulated position no
-            // pixel corresponds to.
+            // The drawn position, which the bracket is painted at.
             targetEcl = track.PositionEcl;
             targetVel = track.VelocityEcl;
 
@@ -158,13 +121,8 @@ internal sealed class SightCamera : IViewPose
         double dt = KsaWorld.SimStepSeconds;
         double speed = KsaWorld.SimulationSpeed;
 
-        // How far the target crosses the picture in one step, from its velocity *relative to the
-        // platform* and within this one frame.
-        //
-        // Never by differencing two ecliptic positions a frame apart: that carries 29.8 km/s of the
-        // planet's own motion, 655 m across a 22 ms step, which at 8 km reads as 4.7 degrees of
-        // target movement that never happened. See docs/FRAMES-AND-EPOCHS.md -- the rule is the
-        // same one the rounds and the overlay already obey, and a diagnostic is not exempt from it.
+        // How far the target crosses the picture in one step, from its velocity relative to the
+        // platform; never two ecliptic positions a frame apart, which carry 29.8 km/s.
         double3 relative = head.Platform is { } craft
             ? targetVel - KsaWorld.VelocityEcl(craft)
             : targetVel;
@@ -173,8 +131,7 @@ internal sealed class SightCamera : IViewPose
         double3 across = relative - along * Vec.Dot(relative, along);
         double crossing = range > 0.0 ? Vec.Len(across) / range * dt : 0.0;
 
-        // One in fifteen, plus anything worse than has been seen. At 60 fps that is four lines a
-        // second, which is enough to see a pattern and few enough to cost nothing.
+        // One in fifteen, plus anything worse than has been seen: four lines a second at 60 fps.
         bool worst = missed > _probeWorst * 1.25;
         if (worst) _probeWorst = missed;
 
@@ -190,38 +147,26 @@ internal sealed class SightCamera : IViewPose
             + $"range {range / 1000.0:F2} km, step {dt * 1000.0:F2} ms, sim {speed:F2}x");
     }
 
-    // The craft the view was pointed at, which is what every offset written below is measured
-    // from. Held because the panel can move to another system without the view being released,
-    // and an offset for one launcher applied to another craft's position places the eye wherever
-    // the two happen to be apart -- which is not a small error between two sites on one world.
+    // The craft the view was pointed at, which every offset below is measured from; the panel can
+    // move to another system without the view being released.
     private Vehicle? _followed;
 
     /// <summary>True while this holds the main view, which is what the chase has to outrank.</summary>
     public bool Holding => _saved.Valid;
 
-    // Frames the restore has been attempted and refused. A scene change is the case: leaving
-    // flight is exactly when the viewport may not be readable, and it is also the one moment the
-    // view has to be handed back.
+    // Frames the restore has been attempted and refused, as on leaving flight.
     private int _refusedFrames;
 
-    // Long enough to cover a scene load, short enough that a viewport which is never coming back
-    // does not leave this trying for the session.
+    // Long enough to cover a scene load.
     private const int GiveUpAfterFrames = 180;
 
     /// <summary>
     /// Lets go of the mode and the follow, for when the scene the recording describes has gone.
     ///
-    /// <para>Leaving flight is the case. The recording names a camera mode and a craft to follow
-    /// that belonged to the flight scene, and restoring them once the editor is up writes a dead
-    /// scene's camera onto the live one — which is a view the player cannot account for and did
-    /// not ask for. The new scene sets up its own camera, so neither is worth handing back.</para>
+    /// <para>Leaving flight is the case: the new scene sets up its own camera.</para>
     ///
-    /// <para><b>The field of view is not the scene's, and is put back anyway.</b> It is a
-    /// preference on a camera object that outlives every scene, so nothing resets it and no later
-    /// borrower will ever hand it back — the next one records the magnified field as the player's
-    /// own and magnifies again from there. The player cannot recover it either: their zoom keys
-    /// clamp to 15°–120°, so the field they had is not reachable from any control they have. This
-    /// is what keeps a wrong answer about the scene merely wrong instead of unrecoverable.</para>
+    /// <para><b>The field of view is put back anyway</b>: the camera outlives every scene, and the
+    /// player's zoom keys clamp to 15°–120°, so nothing else would recover it.</para>
     /// </summary>
     public void Forget()
     {
@@ -242,16 +187,11 @@ internal sealed class SightCamera : IViewPose
     {
         if (!_saved.Valid) return;
 
-        // The follow is classified here as well as at the stand-down rung, because this path is
-        // reachable without Apply ever having seen the takeover: losing the head and switching
-        // vessels on the same frame arrives here instead, and restoring then puts the player back
-        // on the craft they just left. The mode needs no such test — a mode taken by hand stands
-        // the sight down before it can reach this.
+        // The follow is classified here too: losing the head and switching vessels on one frame
+        // reaches this without Apply seeing the takeover.
         //
-        // A refused restore keeps the recording and tries again. Dropping it on the first attempt
-        // is what strands the player: the view stays in Fixed mode at the optic's pose and field,
-        // and the only description of what it was doing has been thrown away. Nothing is
-        // recoverable after that, in any scene.
+        // A refused restore keeps the recording and tries again; dropped, the view stays in Fixed
+        // with nothing left to restore.
         if (!KsaWorld.TryHandBackMainView(_saved, _followed, out bool mode, out bool follow))
         {
             _refusedFrames++;
@@ -282,14 +222,11 @@ internal sealed class SightCamera : IViewPose
     /// <param name="outranked">Something with a stronger claim holds the view — the chase.</param>
     /// <param name="magnification">How far the head's optics are wound in.</param>
     /// <returns>
-    /// What was done, so the caller can act on it. <see cref="ViewAction.StandDown"/> is the one
-    /// that matters: releasing alone is not enough, because the setting still asks for the view
-    /// and the next frame would take it straight back.
+    /// <see cref="ViewAction.StandDown"/> asks the caller to switch the setting off, or the next frame
+    /// takes the view straight back.
     /// </returns>
     public ViewAction Apply(IOpticalHead head, bool wanted, bool outranked, double magnification)
     {
-        // Declared up front rather than in the condition: the resolve short-circuits, and the
-        // drive below has to be reachable on the one path where it succeeded.
         double3 eye = Vec.Zero;
         double3 forward = Vec.Zero;
 
@@ -311,9 +248,8 @@ internal sealed class SightCamera : IViewPose
                 return action;
 
             case ViewAction.Yield:
-                // Held on paper, driven by the chase. The recording stays: it is the only route
-                // back to what the player was doing, and the chase's own recording is of this
-                // pose, so it hands the view straight back here when it finishes.
+                // Held on paper, driven by the chase. The recording stays: the chase's own is of
+                // this pose and hands the view back here when it finishes.
                 return action;
 
             case ViewAction.Take when !Take(head):
@@ -323,27 +259,19 @@ internal sealed class SightCamera : IViewPose
                 return action;
         }
 
-        // The panel moved to a system on another craft without the view ever being released. The
-        // recording still describes what the player was doing, so this re-points rather than
-        // releasing -- but it has to happen before the offset below is written, because that
-        // offset means nothing measured from the craft the view followed a moment ago.
+        // The panel moved to another craft without the view being released: re-point before the
+        // offset below is written, since it is measured from the craft followed.
         if (!ReferenceEquals(_followed, head.Platform) && !Follow(head.Platform)) return action;
 
-        // The separation, not either position. Both terms come from this frame's one sample of the
-        // craft the view now follows, so the difference carries no instant and the engine may
-        // apply it whenever in its pass it likes.
+        // The separation, both terms from one sample of the followed craft, so it carries no instant.
         double3 offsetFromCraft = eye - head.PlatformEcl;
 
-        // A refused write must not leave the view held: the player would be stranded wherever the
-        // last good frame put them, in a mode they never chose.
-        // Handing itself over as the pose source is what puts the aim in phase with the frame; the
-        // values written here are the fallback the controller keeps if that ever refuses.
+        // A refused write must not leave the view held. The values written are the controller's
+        // fallback; the pose source puts the aim in phase with the frame.
         _head = head;
         _magnification = magnification;
 
-        // The field is not written here. It is part of the pose now, answered inside the engine's
-        // viewport pass along with everything else, so a write from this hook would be a stale
-        // copy of the same number one frame early.
+        // The field is part of the pose, answered inside the engine's viewport pass, so not written here.
         if (!KsaWorld.TryLookFromMainViewport(offsetFromCraft, forward, head.RollReferenceEcl,
                                               SightZoom.FovDegreesFor(_saved.FovDeg, magnification),
                                               this))
@@ -354,8 +282,7 @@ internal sealed class SightCamera : IViewPose
         return action;
     }
 
-    // What the engine reports about the view, against what this pointed it at. The rule is in
-    // ViewClaim; only the two readings are here.
+    // What the engine reports about the view, against what this pointed it at; the rule is ViewClaim's.
     private bool StillOurs(bool outranked)
         => ViewClaim.StillOurs(KsaWorld.MainViewIsFixed(),
                                KsaWorld.MainViewFollows(_followed), outranked);
@@ -373,8 +300,7 @@ internal sealed class SightCamera : IViewPose
                  + "), standing down");
     }
 
-    // Records what the view was doing, then points it at the launcher's craft. Both have to
-    // succeed or neither counts: a follow swapped without a saved state has nothing to go back to.
+    // Records what the view was doing, then points it at the launcher's craft; both or neither.
     private bool Take(IOpticalHead head)
     {
         if (head.Platform is null) return false;
@@ -382,8 +308,7 @@ internal sealed class SightCamera : IViewPose
         _saved = KsaWorld.RememberMainView();
         if (!_saved.Valid)
         {
-            // Said, not swallowed. A silent return is indistinguishable from the optic being
-            // switched off, and looks like the sight simply never opening.
+            // Logged: silent, it looks like the optic being switched off.
             Log.Warn("sight: cannot read the main view, not taking it");
             return false;
         }
@@ -397,8 +322,7 @@ internal sealed class SightCamera : IViewPose
         return true;
     }
 
-    // Points the view at a craft and records which one, so the offsets written against it are
-    // known to be measured from the same place the engine will apply them to.
+    // Points the view at a craft and records which one, so offsets are measured from what the engine applies them to.
     private bool Follow(Vehicle? platform)
     {
         if (platform is null) return false;

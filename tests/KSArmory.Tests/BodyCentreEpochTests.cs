@@ -57,6 +57,7 @@ public class BodyCentreEpochTests(ITestOutputHelper Out)
     {
         Name = "TEST",
         DisplayName = "a round that only falls",
+        BoostSeconds = 0f,
         HitsTerrain = true,
         MaxFlightSeconds = 10_000f,
         SubStepSeconds = 0.005f,
@@ -103,7 +104,7 @@ public class BodyCentreEpochTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>The fault and the fix.</b> A coarse frame must fly the same orbit a fine one does, and
+    /// A coarse frame must fly the same orbit a fine one does, and
     /// with a body sample a frame ahead of the round it does not.
     ///
     /// <para>Scored against a 1 ms reference, where the staleness is seventeen times smaller and
@@ -131,13 +132,10 @@ public class BodyCentreEpochTests(ITestOutputHelper Out)
     /// <summary>
     /// With the body at rest the correction is identically nothing — not merely small.
     ///
-    /// <para>That is the property that makes this one change rather than two. Aiming the frame's
-    /// single gravity vector at the body's mid-frame position leaves the number of evaluations, the
-    /// sub-step count and the held-for-the-frame convention exactly as they were; only where it
-    /// points moves, and with a still body it does not move at all. Re-aiming <em>per sub-step</em>
-    /// would correct another 16 m here and would bundle in gravity re-read per sub-step, which has
-    /// been flown alone and lost — <c>docs/MIRV-NEXT.md</c> item 2d, priced by <c>ProbeGapTests</c>
-    /// at -740 m on the deorbit arc.</para>
+    /// <para>Aiming the frame's single gravity vector at the body's mid-frame position changes only
+    /// where it points. Re-aiming <em>per sub-step</em> would correct another 16 m here but bundles
+    /// in gravity re-read per sub-step, which flew alone and lost — <c>docs/MIRV-NEXT.md</c> item 2d,
+    /// priced by <c>ProbeGapTests</c> at -740 m on the deorbit arc.</para>
     /// </summary>
     [Fact]
     public void WithTheBodyAtRestNothingChangesAtAll()
@@ -154,8 +152,7 @@ public class BodyCentreEpochTests(ITestOutputHelper Out)
     /// <summary>
     /// The round is not asked to know any of this. The choice of where to aim belongs to whoever
     /// composes the vector — which is why it lives in <c>WeaponSystem.GravityAtRound</c> beside the
-    /// body's own fall, and why aiming it there cannot discard that term the way re-deriving it
-    /// inside the round did.
+    /// body's own fall, so aiming it cannot discard that term.
     /// </summary>
     [Fact]
     public void TheRoundIsHandedAVectorAndKnowsNothingAboutBodies()

@@ -27,8 +27,7 @@ public static class PackReader
 
     /// <summary>
     /// The qualifier a pack uses to name one of the built-ins — <c>KSArmory:30MM</c>. Built-ins
-    /// carry bare keys because they predate qualification, so this is the one prefix that is
-    /// stripped rather than kept.
+    /// carry bare keys, so this is the one prefix that is stripped rather than kept.
     /// </summary>
     public const string BuiltInSource = "KSArmory";
 
@@ -186,14 +185,17 @@ public static class PackReader
         return new PackContents { Source = source, Faults = faults };
     }
 
-    // ---- Definitions ----------------------------------------------------
-
     private static void ReadMunition(XElement el, string source, List<PackFault> faults,
                                      List<MunitionProfile> into)
     {
         Reader r = new(el, source, "Munition", faults);
         string name = r.Required("Name");
         r.Describe(name);
+
+        // A released round carries a motor only when it says so: a shell or a bomb that never mentions
+        // one must not be handed the 57E6's.
+        GuidanceMode guidance = r.Choice("Guidance", GuidanceMode.CommandLink);
+        bool released = guidance is GuidanceMode.None or GuidanceMode.Inertial;
 
         MunitionProfile round = new()
         {
@@ -215,8 +217,8 @@ public static class PackReader
             FinStowedScale = r.Number("FinStowedScale", 0.06f),
 
             LaunchSpeed = r.Number("LaunchSpeed", 45f),
-            BoostSeconds = r.Number("BoostSeconds", 2.4f),
-            BoostAccel = r.Number("BoostAccel", 520f),
+            BoostSeconds = r.Number("BoostSeconds", released ? 0f : 2.4f),
+            BoostAccel = r.Number("BoostAccel", released ? 0f : 520f),
             MaxFlightSeconds = r.Number("MaxFlightSeconds", 30f),
             MaxFaithfulStepSeconds = r.Number("MaxFaithfulStepSeconds", (float)Interceptor.MaxFaithfulStep),
             PreferredStepSeconds = r.Number("PreferredStepSeconds", 0f),
@@ -226,7 +228,7 @@ public static class PackReader
 
             NavConstant = r.Number("NavConstant", 4f),
             MaxLateralG = r.Number("MaxLateralG", 35f),
-            Guidance = r.Choice("Guidance", GuidanceMode.CommandLink),
+            Guidance = guidance,
             SeekerFovDeg = r.Number("SeekerFovDeg", 55f),
             Band = r.Choice("SeekerBand", SeekerBand.Radar),
             CountermeasureResistance = r.Number("CountermeasureResistance", 0f),
@@ -491,6 +493,8 @@ public static class PackReader
             GunRodMarker = r.Text("GunRodMarker"),
             GunFeedMarker = r.Text("GunFeedMarker"),
             GunRotorMarker = r.Text("GunRotorMarker"),
+            EjectorArmMarker = r.Text("EjectorArmMarker"),
+            CarriageMarker = r.Text("CarriageMarker"),
 
             Tubes = r.Tubes(),
             TurretPivot = r.Vector("TurretPivot", default),
@@ -531,6 +535,10 @@ public static class PackReader
             LaunchAlongTube = r.Flag("LaunchAlongTube", true),
             LaunchLoft = r.Number("LaunchLoft", 0.35f),
             EjectAwayFromMount = r.Number("EjectAwayFromMount", 0f),
+            EjectSpeed = r.Number("EjectSpeed", 0f),
+            MotorDelaySeconds = r.Number("MotorDelaySeconds", 0f),
+            EjectorStrokeMetres = r.Number("EjectorStrokeMetres", 0f),
+            EjectorReturnSeconds = r.Number("EjectorReturnSeconds", 0.8f),
             MuzzleOffset = r.Number("MuzzleOffset", 8f),
 
             GunAmmo = r.Count("GunAmmo", 480),
@@ -567,6 +575,9 @@ public static class PackReader
         {
             r.Fault("declares no Tube, no GunMunition and no FiresBeam, so it cannot shoot with anything");
         }
+
+        if (launcher.EjectSpeed < 0f) r.Fault("EjectSpeed is a speed out of the mounting face; it cannot be negative");
+        if (launcher.MotorDelaySeconds < 0f) r.Fault("MotorDelaySeconds cannot be negative");
 
         // Elevation gear with no trunnion offset swings the assembly about the turret's own
         // centre, which reads as a pod orbiting the vehicle.
@@ -649,15 +660,11 @@ public static class PackReader
         };
     }
 
-    // ---- Names ----------------------------------------------------------
-
     // A pack's own key, carrying the pack. Two packs shipping an "AIM-9X" are then two rounds
     // rather than a silent capture of whichever registered first.
     //
-    // The built-ins are the exception and keep bare keys, because they are the namespace every
-    // qualified reference is resolved against -- KeyFor already strips "KSArmory:" for the same
-    // reason. It is also what lets this mod's own weapons move into a definitions file without
-    // renaming every key a saved setting or a pack reference already holds.
+    // The built-ins keep bare keys, because they are the namespace every qualified reference is
+    // resolved against, and a saved setting or a pack reference already holds those keys.
     private static string Qualify(string source, string name)
         => source == BuiltInSource ? name : $"{source}:{name}";
 
@@ -689,8 +696,6 @@ public static class PackReader
 
         return false;
     }
-
-    // ---- Reading one element --------------------------------------------
 
     // One element being read, and every way it can be wrong.
     //

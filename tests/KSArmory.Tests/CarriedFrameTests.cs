@@ -6,7 +6,7 @@ using Xunit.Abstractions;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// Whether a flight survives its planet moving — which is the one thing this rig could not ask.
+/// Whether a flight survives its planet moving.
 ///
 /// <para>KSA carries a planet at ~29.8 km/s and integrates rounds in <c>Ecl</c>, so every quantity a
 /// round is differenced against carries that speed and cancels only when the two terms belong to the
@@ -76,8 +76,7 @@ public class CarriedFrameTests(ITestOutputHelper Out)
     /// <para>Expressed as a displaced pull centre rather than by breaking the rig, because that is
     /// the same displacement <c>docs/KSA-FRAME-ORDER.md</c> section 5 describes: the game reads
     /// gravity at the round's pre-step position against a celestial sample from the frame's end.
-    /// What is new is that the carrier is what <em>produces</em> the displacement rather than a
-    /// number somebody typed.</para>
+    /// Here the carrier <em>produces</em> the displacement rather than a typed number.</para>
     /// </summary>
     [Fact]
     public void APairingTakenAtTheWrongInstantMovesTheImpact()
