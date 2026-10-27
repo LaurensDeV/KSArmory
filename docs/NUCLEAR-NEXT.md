@@ -376,9 +376,9 @@ of a frame whose whole left half was in shadow anyway. The honest number is the 
 mean over the ground it covers at the first shape, 19.8 at the shipped one, peaking at 58 which is
 the same darkening the crater itself reaches.
 
-### 8. A rumble, not a bang — built, and not yet heard
+### 8. A rumble, not a bang — built, and heard
 
-**Since 2026-10-25 the bang is a recording**, not Core's `ExplosionBig`: the Upshot-Knothole ANNIE
+**Since 2026-10-25 the bang is a recording**, not Core's `ExplosionBig`, and was heard in game on 2026-10-27: the Upshot-Knothole ANNIE
 film's, 16 kt heard from about 10.7 km, with the hiss and a scream over its tail taken out
 (`tools/annie-sounds.py`), so the paragraphs below about Core's three layers describe what it
 replaced. It is pitched only down, for a burst bigger than ANNIE's 16 kt: what it sounds like is mostly
