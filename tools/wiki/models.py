@@ -37,6 +37,15 @@ VIEWS = {"KSArmory_Prefab_LaunchRail": ("KSArmory_Prefab_Aim9J", "LaunchRail")}
 # turn about (1, 1, 1) takes X to Y, Y to Z and Z to X, and keeps the handedness.
 KSA_TO_Y_UP = [0.5, 0.5, 0.5, 0.5]
 
+# Stores, what they hang from, and a pod or turret hung under a hull are shown under their mounting
+# face, as they are carried: the turn above and then half a turn about forward, which puts +X down.
+HANGING = {"KSArmory_Prefab_Aim9J", "KSArmory_Prefab_Aim120C", "KSArmory_Prefab_Agm88",
+           "KSArmory_Prefab_B61", "KSArmory_Prefab_Lau10", "KSArmory_Prefab_ZuniPod6",
+           "KSArmory_Prefab_SidewinderRail", "KSArmory_Prefab_AmraamRail", "KSArmory_Prefab_HarmRail",
+           "KSArmory_Prefab_NukeRack", "KSArmory_Prefab_WeaponsRail", "KSArmory_Prefab_Rail",
+           "KSArmory_Prefab_LaunchRail", "KSArmory_Prefab_Litening", "KSArmory_Prefab_M197"}
+KSA_TO_HANGING = [-0.5, 0.5, 0.5, -0.5]
+
 # KSA's ModelPbr.frag discards a texel under this alpha; its glass draws at this opacity.
 ALPHA_CUTOFF = 0.1
 GLASS_OPACITY = 0.75
@@ -114,8 +123,13 @@ def rotate(q: list[float], v: list[float]) -> list[float]:
     return [v[0] + w * tx + y * tz - z * ty, v[1] + w * ty + z * tx - x * tz, v[2] + w * tz + x * ty - y * tx]
 
 
+def turn(part_id: str) -> list[float]:
+    return KSA_TO_HANGING if part_id in HANGING else KSA_TO_Y_UP
+
+
 def standing(assets: Assets, part_id: str) -> tuple[float, float]:
-    """The part's lowest and highest point once turned Y-up, from each mesh's bounding box."""
+    """How far the part reaches below and above its mounting face once turned Y-up, from each mesh's
+    bounding box; for a hanging part, measured downward."""
     low, high = float("inf"), float("-inf")
     for _, mesh, _, _, position, rotation, scale in assets.placements(part_id):
         gltf, _ = assets.atlases[assets.mesh_atlas[mesh]]
@@ -125,8 +139,9 @@ def standing(assets: Assets, part_id: str) -> tuple[float, float]:
                 p = [box["max"][i] if corner >> i & 1 else box["min"][i] for i in range(3)]
                 p = [p[i] * scale[i] for i in range(3)]
                 p = rotate(rotation, p)
-                p = rotate(KSA_TO_Y_UP, [p[i] + position[i] for i in range(3)])
-                low, high = min(low, p[1]), max(high, p[1])
+                p = rotate(turn(part_id), [p[i] + position[i] for i in range(3)])
+                y = -p[1] if part_id in HANGING else p[1]
+                low, high = min(low, y), max(high, y)
     return low, high
 
 
@@ -217,7 +232,7 @@ def assemble(assets: Assets, part_id: str) -> bytes:
         gltf["nodes"].append({"name": sub_id, "mesh": mesh(mesh_id, material_id, glass),
                               "translation": position, "rotation": rotation, "scale": scale})
         children.append(len(gltf["nodes"]) - 1)
-    gltf["nodes"].append({"name": part_id, "rotation": KSA_TO_Y_UP, "children": children})
+    gltf["nodes"].append({"name": part_id, "rotation": turn(part_id), "children": children})
     gltf["scenes"][0]["nodes"] = [len(gltf["nodes"]) - 1]
 
     blob.extend(b"\0" * (-len(blob) % 4))
@@ -230,7 +245,7 @@ def assemble(assets: Assets, part_id: str) -> bytes:
 
 
 def check(assets: Assets) -> list[str]:
-    """Every part resolves, and stands on its mounting face rather than lying on its side or hanging."""
+    """Every part resolves, and stands on its mounting face or hangs from it, never lies on its side."""
     faults = []
     for part_id in [*assets.parts, *VIEWS]:
         if not assets.placements(part_id):
@@ -239,8 +254,9 @@ def check(assets: Assets) -> list[str]:
         low, high = standing(assets, part_id)
         # Most of a part rises out of its mounting face; a turret ring or a shroud may sit a little below.
         if high <= 0 or -low > high / 3:
-            faults.append(f"{part_id}: spans {low:.2f} to {high:.2f} m above its mounting face once turned "
-                          "Y-up, so it would not stand on it")
+            way = "below" if part_id in HANGING else "above"
+            faults.append(f"{part_id}: spans {low:.2f} to {high:.2f} m {way} its mounting face once turned "
+                          "Y-up, so it would not stand on it or hang from it")
     return faults
 
 
@@ -256,7 +272,7 @@ def main() -> int:
             print(f"models: {fault}", file=sys.stderr)
         return 1
     if args.check:
-        print(f"models: {len(assets.parts)} parts and {len(VIEWS)} view(s) assemble and stand on their mounting faces")
+        print(f"models: {len(assets.parts)} parts and {len(VIEWS)} view(s) assemble and stand on or hang from their mounting faces")
         return 0
     if args.out is None:
         parser.error("an output directory, or --check")
