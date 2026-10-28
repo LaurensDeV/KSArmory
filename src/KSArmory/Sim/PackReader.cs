@@ -343,6 +343,7 @@ public static class PackReader
             MaxElevationDeg = r.Number("MaxElevationDeg", 85f),
             MaxOffBoresightDeg = r.Number("MaxOffBoresightDeg", 135f),
             KeyholeDeg = r.Number("KeyholeDeg", 4f),
+            CarriageMarker = r.Text("CarriageMarker"),
             MaxMagnification = r.Number("MaxMagnification", 16f),
             HasLaser = r.Flag("HasLaser", false),
             LaserRangeMetres = r.Number("LaserRangeMetres", 20000f),

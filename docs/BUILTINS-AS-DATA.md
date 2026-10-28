@@ -134,7 +134,7 @@ before something uses it.
   family loses its art gate mid-programme. `check_registered_part_ids` reads both.
 - `checkswept.py:253-357` reads every core XML file.
 - The generators keep printing; what they print changes to XML fragments for families already moved
-  (`pantsir.py:38,1053,1066`, `sidewinder.py:168`, `optic.py:137`, `import-litening.py:49,479`). They never
+  (`pantsir.py:38,1053,1066`, `sidewinder.py:168`, `optic.py:137`). They never
   wrote `Arsenal.cs`; `muzzles.json` stays their only written output.
 
 ### Phase 2 — the move, one family per slice

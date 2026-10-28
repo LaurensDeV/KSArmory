@@ -821,7 +821,6 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/model/pantsir.py` | the Pantsir, and the entry point that builds the whole atlas |
 | `tools/model/sidewinder.py` | the LAU-7 rail and its AIM-9J, into that same atlas |
 | `tools/model/optic.py` | the EO director: the sight, as a part anything can carry |
-| `tools/model/import-litening.py` | reframes the hand-modelled pod into what KSA reads |
 | `tools/model/mk42-textures.py` | composes the Mk 42's KSA maps, mount and shell, from the set its author paints — **rerun it on every version he sends**, because the unwraps are his and nothing else has to move |
 | `tools/model/m197-textures.py` | the same for the M197, from his `M197_*` set |
 | `tools/model/zuni-textures.py` | the same for the Zuni and both pods, one set on one unwrap, from his `5InchRocketCamo_*` |
@@ -2675,17 +2674,16 @@ against the mast head's reference.
 
 **Its travel is one number, and the aperture is measured beside it rather than assumed.** 360° of
 roll makes every bearing the same bearing, so what bounds a roll-nod head is the nod alone.
-`MaxOffBoresightDeg` is the *gimbal's* stop; `import-litening.py` casts rays from the ball's pivot
-to find where the shell actually blocks, so the binding one is known. For the LITENING they are
-150° and 158°, so the mechanism stops first with 8° in hand — and the far side of the shroud clears
-only 107°, which never binds because **the nod is never negative** and the roll is what puts the
-open side on the target. That is why the importer clocks the shell: get it half a turn out and the
-sight looks through the closed side.
+`MaxOffBoresightDeg` is set to whichever binds first, the gimbal's stop or the shell: LITENING III
+publishes 150°, and the slot's slanted floor stops the sightline from the ball's centre at 147°, so
+the pod's is 147. The closed side never binds because **the nod is never negative** and the roll is
+what puts the open side on the target — which is why the roll mesh is modelled with its slot on
+the side the nod tilts towards: half a turn out and the sight looks through the closed side.
 
 **And the far end of the travel is a singularity rather than a stop.** Dead along the roll axis
 there is no roll angle at all, and near it a target crossing the nose asks for unbounded roll rate
 — the same singularity an alt-az telescope has at zenith. `KeyholeDeg` holds the command out of
-that cone, which is also why a pod stows looking *out of its mounting face* rather than along the
+that cone, which is also why a pod parks looking *out of its mounting face* rather than along the
 host: `OpticGeometry.RestAim`, because the mast head's rest direction is the pod's keyhole.
 
 **A rolling nose turns the scene in the focal plane, and the picture is derotated.** Half a turn of

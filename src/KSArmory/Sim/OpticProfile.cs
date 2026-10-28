@@ -142,6 +142,12 @@ public sealed class OpticProfile
     public float KeyholeDeg = 4f;
 
     /// <summary>
+    /// A pod's own carriage, every subpart whose Id holds this, shown only while the part is attached
+    /// to something -- as <see cref="LauncherProfile.CarriageMarker"/> does for a store.
+    /// </summary>
+    public string? CarriageMarker { get; init; }
+
+    /// <summary>
     /// How far the optics wind in, against the engine's 50° view. The zoom steps through the
     /// doubling detents up to it, and ends on it when it is not one.
     /// </summary>

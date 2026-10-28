@@ -2146,20 +2146,22 @@ maps are all unproven paths.
 
 - [ ] `LITENING Targeting Pod` appears under **Sensors** in the editor and surface-attaches to a
       wing or fuselage. It cannot root a craft, which is right for a store.
-- [ ] **It renders at all.** A second `<MeshAtlas>` and three `<PbrMaterial>`s alongside the
-      palette one is new; a mesh Id that does not resolve is a *silent* failure. An untextured or
-      magenta pod means the material Ids, not the geometry.
+- [ ] **It renders at all.** Its own `<MeshAtlas>` and one `<PbrMaterial>`; a mesh Id that does
+      not resolve is a *silent* failure. An untextured or magenta pod means the material Id, not the
+      geometry.
 - [ ] It reads as a Litening: 2.2 m long, the ball nearly as fat as the body, the lugs on top.
 - [ ] **The nose rolls and the ball nods.** Watch it while the head tracks a crossing target: the
       shroud and its cheeks sweep round the centreline, the ball tilts within them, and the ball
       never parts company with the shroud. That last is the one thing the tests cannot see.
-- [ ] **The recession faces the way the sight looks.** If the pod is looking out through the
-      *closed* side of the shroud, `CLOCK_DEG` in `import-litening.py` is half a turn out.
+- [ ] **The slot faces the way the sight looks.** If the pod is looking out through a cheek or
+      the closed side of the nose, the roll mesh's slot is on the wrong side of +X.
+- [ ] **It hangs on the ejector it brings, and clicks into the Weapon Mount.** The lugs sit in the
+      ejector's hooks and the sway-brace arms rest on the skin.
 - [ ] The **Camera** row says `roll-nod gimbal`, with a roll and a nod that move as it tracks.
 - [ ] Looking dead ahead it says **in the keyhole** and holds ~4° off the centreline rather than
       spinning the nose. This is the alt-az-at-zenith singularity and is expected, not a fault.
-- [ ] Looking aft and down it says **at the nod stop** at 150°, and the ball is still inside the
-      shroud there — the shell clears the sightline to 158°, so it should have 8° in hand.
+- [ ] Looking aft and down it says **at the nod stop** at 147°, where the slot's slanted floor
+      meets the sightline from the ball's centre.
 - [ ] **Derotation.** Roll the aircraft, or track a target right round the pod: the picture keeps
       the airframe at the top rather than turning with the nose.
 - [ ] The pod stows looking **out of its mounting face** — straight down under a wing — rather

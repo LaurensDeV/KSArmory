@@ -132,9 +132,9 @@ What KSA reads out of a `.glb`, verified against all 44 Core atlases (1054 nodes
 | **`_ColPrim_*` carries the collider.** A unit box or cylinder with the volume in its node transform, never rendered, no UVs. | Core ships 58. Read `<Collider>` out of it rather than eyeballing one. |
 
 **Author to this and there is no import step.** The suspension rail satisfies all of it and is
-copied in as exported. The targeting pod satisfies none of it and needs
-`tools/model/import-litening.py` to bake, reframe, recentre and clock it. The difference is
-entirely this table, and it is far cheaper to get right in Blender than to correct afterwards.
+copied in as exported, and so is the targeting pod since it was rebuilt to it. Its first version
+satisfied none of it and needed an import tool to bake, reframe, recentre and clock it. The difference
+is entirely this table, and it is far cheaper to get right in Blender than to correct afterwards.
 
 A part that loads but renders nothing is nearly always a name mismatch — `<Mesh Id="…">` must be the
 atlas name exactly. Silent in game; caught by `./tools/validate-parts.py`.

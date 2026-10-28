@@ -449,6 +449,7 @@ launcher declares it with `<Provides Role="Camera">`, as the Pantsir does.
 | `MinElevationDeg`, `MaxElevationDeg` | number | `-20`, `85` | Elevation limits of a `Mast` head. |
 | `MaxOffBoresightDeg` | number | `135` | Nod limit of a `RollNod` head, its only travel limit. |
 | `KeyholeDeg` | number | `4` | A `RollNod` head will not aim within this angle of its roll axis, where tracking would need impossible roll rates. |
+| `CarriageMarker` | text | none | A pod that brings its own ejector, as a `<Launcher>`'s `CarriageMarker`: every subpart whose Id contains this shows only while the part is attached. Declare those subparts at `<Scale>` 0.001. |
 | `MaxMagnification` | number | `16` | Maximum zoom against KSA's 50° default view. Zoom steps ×1, ×2, ×4 and so on, ending at this value. `53` gives a 1° field. The limit for any optic is `1024`. |
 | `HasLaser` | `true` or `false` | `false` | A laser rangefinder and designator, fired with the LASER button in the camera window. Another director with Spot on can lock onto its spot by code. |
 | `LaserRangeMetres` | number | `20000` | Maximum laser range, m. |
