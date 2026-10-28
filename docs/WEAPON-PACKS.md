@@ -247,6 +247,11 @@ A motor with more than one stage lists the extra stages as `<Stage>` children. `
 | --- | --- | --- | --- |
 | `ChargeKg` | number | `20` | Explosive charge in kg. Lethal radius, blast radius and fireball size are all worked out from it, by the cube root: doubling the charge multiplies the reach by 1.26. |
 | `MaxChargeKg` | number | `0` | Top of the yield slider in the panel. `0` uses the slider's own maximum. |
+| `FragmentCount` | whole number | `0` | Fragments the warhead throws. They break parts past the few metres the blast reaches. `0` throws none. |
+| `FragmentMassGrams` | number | `5` | One fragment's mass, g. |
+| `FragmentSpeed` | number | `1800` | How fast a fragment leaves the warhead, m/s. |
+| `SprayAngleDeg` | number | `90` | The middle of the fragment band, in degrees from the nose. `90` is straight out of the side. |
+| `SprayHalfWidthDeg` | number | `10` | Half the band's width either side of `SprayAngleDeg`. |
 | `FuseRadius` | number | `15` | Proximity fuse distance, m. `0` means no proximity fuse. |
 | `FuseArmSeconds` | number | `0.6` | Time after release before the warhead can go off. A shell, bomb or rocket that hits something or the ground earlier stops there as a dud: what it hit takes the impact, but nothing explodes. Before it arms a missile stops only on the ground, also as a dud. |
 | `TimedFuse` | `true` or `false` | `false` | For flak: also burst at the flight time the gun's aiming solution asked for. The proximity fuse still works. |

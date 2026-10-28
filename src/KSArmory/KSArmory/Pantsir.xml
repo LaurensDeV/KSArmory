@@ -15,8 +15,9 @@
     The defaults on MunitionProfile are this round, so most of the figures live there. What
     matters here is which of them are real and which are ours: peak speed (~1300 m/s), boost
     duration (~2.4 s), reach (20 km) and the command-link guidance are taken from the actual
-    weapon. The fuse and blast radii are gameplay numbers - a 20 kg continuous-rod warhead has a
-    much smaller lethal envelope than 20 m, and a realistic radius reads as the round doing nothing.
+    weapon. The warhead is 20 kg, of which 5 kg is explosive (GlobalSecurity); the rest is an expanding
+    rod and about 1,500 fragments of 6 g, thrown square to the body at about 1.5 km/s, which is what
+    kills past a few metres. The fragment figures are estimates: no open source gives them.
 
     It carries no seeker. The vehicle tracks and uplinks steering commands, which is why a
     hard-manoeuvring target cannot blind it - the engagement ends when the launcher loses the
@@ -24,7 +25,10 @@
   -->
   <Munition Name="57E6" DisplayName="57E6 two-stage SAM"
             BodyMarker="Missile" FinMarker="Fins"
-            MinRange="1200" MaxRange="20000" />
+            MinRange="1200" MaxRange="20000"
+            ChargeKg="5"
+            FragmentCount="1500" FragmentMassGrams="6" FragmentSpeed="1500"
+            SprayAngleDeg="90" SprayHalfWidthDeg="5" />
 
   <!--
     The 2A38M's 30 mm shell: the Pantsir's inner layer, for what the missiles cannot reach.

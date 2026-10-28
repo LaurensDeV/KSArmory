@@ -388,7 +388,9 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/HoleLook.cs` | how big a shell's mark on a hull is — the hole at one and a half calibres, the soot by the cube root of the charge |
 | `Sim/TankLeak.cs` | where the liquid in a holed tank stands and how fast it runs out — **the surface square to the acceleration the craft feels**, followed with a 1.5 s lag because liquid crossing a tank takes seconds (read raw, a coasting craft's attitude pulses settled and floated it several times a second), found by counting points spread through the tank's own shape rather than solving a tilted one: `TankShape` is KSA's one family of tank, a truncated cone with a dome each end, its kind and proportions read off the template by `KsaWorld.TryTankShape` and **fitted into the part's box**, because a template is sized to KSA's volume model and not its mesh (the stock 3 m tank's is 3 m in *radius*) while the holes are on the mesh; the plain cylinder in the box where it cannot be read, and Bernoulli's rate through each hole under it, `√(2P/ρ + 2ah)` — **only a hole inside that shape, give or take the skin**, so a raceway holed on the same part leaks nothing. KSA models no pressure, so the tank's is the mod's, **0.2 bar and held constant**: low enough that depth and pull still double or halve a leak, where a flight tank's couple of bar would make the hole's place irrelevant, and enough that a **coasting craft** — its liquid floating, wetting the walls — leaks from any hole as often as the tank is full |
 | `Sim/LeakStream.cs` | a hole's stream, **flown parcel by parcel** (`LeakJet`) in a frame riding with the craft but not turning with it, under the pull the craft feels reversed — so a throttle change bends it from the hole outward and a turn swings it, where an arc solved for the acceleration of the moment re-bends whole in a frame; thinning as it speeds up (`r ∝ 1/√v`) and whole for about thirty diameters before it is drops |
-| `Sim/PartHealth.cs` | what is left of each part — a burst costs its `BlastDamage.Share` times `Config.DamageScale`, **one exactly where the part fails**, so at 1x a fresh part breaks where it always did and what changes is that a load short of that is not forgotten |
+| `Sim/PartHealth.cs` | what is left of each part, from one down to nothing — a hit costs its share times `Config.DamageScale`, never more than a whole share at once, and a load short of breaking is not forgotten |
+| `Sim/Fragmentation.cs` | **what kills past a few metres** — a warhead's fragments thrown in a band about its nose, tilted forward by its own speed against the target, thinning as the square of the range and counted on a part as a Poisson draw; a part outside the band takes nothing however close, which is why a missile's kill probability is not one. And where a fuze matched to its warhead fires, since bursting at the nearest point throws the band ahead of a fast pass |
+| `Sim/PartToughness.cs` | how much energy breaks a part — **its mass to the two thirds**, so size buys toughness where KSA's tolerance reads only density — and what a burst's intercepted share, a fragment or a shell's own impact pays against it; a round in the air is a fraction as tough, since one fragment through its warhead or motor ends it |
 | `Sim/TargetAllocation.cs` | what one craft's weapons have in the air **between them** — the unit that over-commits is the craft, not the weapon |
 | `Sim/RoundReach.cs` | whether a round the ground stops can still get to it — **the reaper for a store that will never arrive**, because a long fall is long rather than stuck |
 | `Sim/PointGravity.cs` | **the pull every round, store and decoy is flown with** — the inverse square aimed where the body was at the round's own instant, plus the body's own fall toward its primary; a contact's acceleration leaves the fall out, as the ground frame does |
@@ -791,6 +793,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/NUCLEAR-RADIATION.md` | **a record, not yet flown** — what a burst irradiates and how KSA's own dose gauge and belts are made to show it: the four sources, each fit and what it was fitted to, and what is left out |
 | `docs/NUCLEAR-NEXT.md` | **a backlog, mostly built** — what the burst still needed, ranked: the first second, where every signature that reads as *nuclear* lives, and the last minute, where a real cloud drifts and spreads rather than fading where it stood |
 | `docs/VISUAL-TESTING.md` | **half built** — how an agent sees what the mod draws from a terminal: what the screenshot loop cost the night the burst was built, and a ranked route to a live session with an MCP bridge, shader hot reload and same-instant controls |
+| `docs/DAMAGE-PLAN.md` | **part record, part plan** — how a hit becomes damage: fragments, the blast held to what a part intercepts, toughness by size, a shell's impact, and the calibration; then what is left to build — damage to engines and tanks, fire and its effects, and the gun rounds split |
 | `docs/DAMAGE-DECALS.md` | **a plan, not a record** — how a decal is projected onto a hull, a hillside or a rock out of the depth buffer, read off gatOS's implementation and re-verified here, and what a burn mark on a craft would cost |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |
@@ -2040,21 +2043,20 @@ distance from the burst and its own `CrashTolerancePascals` — the template's o
 one (Core's engines say 3 MPa), otherwise derived by the engine from the part's mass and volume — so a warhead against a booster's tail takes the engines and leaves the
 payload, and no profile says anything about damage. `Sim/BlastDamage.cs` is the whole rule.
 
-**And a part has health, which a burst spends rather than tests.** `BlastDamage.Share` is the real
-overpressure over what breaks the part — exactly one at the failure radius — and `Sim/PartHealth.cs`
-takes that times `Config.DamageScale` off a part that starts at one. So at 1x a fresh part breaks
-exactly where the sweep alone broke it (`PartHealthTests` pins it part for part), and at 0.1x the
-same burst has to land ten times. **No one hit costs more than a whole share**: a shell bursting on the
-skin is hundreds of them, so uncapped the scale did nothing against a gun. A shell that struck and broke
-nothing tops the nearest part up to a whole share, blast included, and **that part breaks off** when it runs
-out, with the fragment guard deciding whether that is the craft. So a 20 mm strike on a rocket at 1x takes
-the tank it hit rather than the rocket, which it used to; destroying the craft there made a gun's every
-fifth round at 0.2x a kill. The ledger
-holds the engine's `Part` weakly, so nothing prunes it, and it is not saved: a reload starts every
-part whole. With `DamageIndividualParts` off there are no parts to charge, and a burst in the lethal
-radius still destroys the craft.
+**And a part has health, which a hit spends rather than tests.** A burst costs each part three
+things against the energy that breaks it (`Sim/PartToughness.cs`, its mass to the two thirds): the
+blast's `BlastDamage.Share`, **held under what the part's area intercepts of the charge**; the
+fragments that hit it (`Sim/Fragmentation.cs`); and, for the part a shell struck, the shell's own
+impact. `Sim/PartHealth.cs` takes that times `Config.DamageScale` off a part that starts at one, and
+**no one hit costs more than a whole share**. So a 20 mm strike holes a 2 t tank and breaks a fin, and a
+missile breaks what its fragments reach in numbers, not everything inside a radius: the overpressure law
+alone broke every hollow part 43 m from a 20 kg warhead, because KSA's tolerance reads density and
+never size. A nuclear charge is judged on its pressure alone, which is what its reach is calibrated
+on. `docs/DAMAGE-PLAN.md` has the calibration. The ledger holds the engine's `Part` weakly, so nothing
+prunes it, and it is not saved: a reload starts every part whole. With `DamageIndividualParts` off
+there are no parts to charge, and a burst in the lethal radius still destroys the craft.
 
-**Its reach is the mod's own law re-anchored, not a second damage model.** Cube-root scaling says a
+**The blast's own reach is the mod's law re-anchored, before the ceiling holds it.** Cube-root scaling says a
 given overpressure is felt at a fixed *scaled* distance and pressure near the burst falls as the
 cube of it, so the radius at which a part's tolerance is reached goes as `(W/P)^(1/3)` — which is
 `Warhead.LethalRadius` with a second cube root on the strength ratio. `BlastDamage.ReferencePascals` is
@@ -2080,12 +2082,11 @@ fragment machinery can survive, so a warhead that engulfs a drone is still a kil
 big enough to lose a piece loses one. A copy of the threshold here would be a number free to drift
 from the code that has to cope with the answer.
 
-**A verdict already reached elsewhere is never overturned by an empty sweep.** A round that
-*struck* has the fuse's lethal verdict, so the part sweep may only decide what breaks; finding
-nothing near enough falls back to destroying the craft, the same rule the hull test obeys. On the
-splash path there is no prior verdict and the sweep *is* the verdict, so nothing near enough
-genuinely means nothing happened. The difference that matters is between a part tree that could not
-be read — fall back — and one that was read and said no.
+**A fuze's verdict says a round reached its target, not that it broke anything.** What breaks is
+the costs' alone, so a burst whose fragments missed and whose blast fell short leaves the craft
+damaged or untouched and says so. The exception is a part tree that could not be read: there a
+confirmed hit destroys the craft, as the hull test falls back, because an unreadable craft must not
+be bulletproof.
 
 **And a part that a warhead destroys is one a decoupler could never have taken away.** A decoupler
 leaves a launcher somewhere, so `PlatformHandover`'s "absence never moves anything" was the whole
@@ -2206,8 +2207,10 @@ Three things follow, and the first is the one that bites:
   of the salvo. The burst is aimed at the missile, which is the case that matters; the cost of the
   general one has never been measured, and CLAUDE.md's rule about unmeasured per-frame costs
   applies.
-- **A missile intercepts by blast, a shell by touching** — the same split as everywhere else, and
-  it falls out for free: the splash sweep now runs over rounds in the air as well as craft.
+- **A round in the air pays as a part does**, keyed on the round in the same ledger: blast, fragments
+  and a shell's impact, against `PartToughness.RoundVulnerability` of a part its mass. A gun shell's
+  proximity fuse firing on the round it was aimed at counts as striking it, which is what that fuse
+  stands in for.
 
 **A fired round does not belong to its launcher any more, so destroying the launcher does not
 un-fire it.** A seeker head is aboard the round, and an anti-radiation round already carries the
@@ -2300,7 +2303,9 @@ of the fireball are all read off it in `Sim/Warhead.cs`, as the **cube root** �
 thing about explosives worth encoding rather than leaving to whoever types the next profile. Three
 free radii could also describe a round whose lethal radius exceeds its blast radius;
 `WarheadTests` pins that it cannot. The scaled distances are calibrated to the 57E6's flown
-numbers: 20 kg → 20 m lethal, 60 m blast.
+numbers: 20 kg → 20 m lethal, 60 m blast. **What it kills with past a few metres is its fragments**,
+which are their own numbers (`MunitionProfile.FragmentCount` and beside it): `ChargeKg` is the explosive
+alone, 5 kg of the 57E6's 20.
 
 The *drawn* size is KSA's, and it has a floor the radii do not. `ExplosionSystem` sizes a burst by
 the cube root of its energy over 5×10¹⁰ J and floors that at 0.05, which every conventional warhead

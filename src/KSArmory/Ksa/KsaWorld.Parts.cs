@@ -657,7 +657,12 @@ internal static partial class KsaWorld
                 double radius = Vec.Len(max - min) * 0.5;
                 if (!double.IsFinite(radius) || radius < 0.0) radius = 0.0;
 
-                into.Add(new DamageablePart(handles.Count, ecl, radius, part.CrashTolerancePascals));
+                double3 size = max - min;
+                double area = 0.5 * ((size.X * size.Y) + (size.Y * size.Z) + (size.Z * size.X));
+                if (!double.IsFinite(area) || area < 0.0) area = 0.0;
+
+                into.Add(new DamageablePart(handles.Count, ecl, radius, part.CrashTolerancePascals,
+                                            MassKg: part.ComputeSubtreeInertMass(), PresentedAreaM2: area));
                 handles.Add(part);
             }
 

@@ -25,7 +25,8 @@
             TracerEvery="4" TracerBurnSeconds="2.2" />
 
   <!--
-    The 5"/54's anti-aircraft shell. LaunchSpeed and the 3.3 kg charge are the real round's; MaxRange is
+    The 5"/54's anti-aircraft shell. LaunchSpeed and the 3.5 kg charge are the real round's (NavWeaps);
+    its 1,500 fragments of 10 g are an estimate; MaxRange is
     how far out the mount engages.
 
     TimedFuse="true": the shell bursts at the flight time the aiming solution asked for, so it does not
@@ -50,7 +51,9 @@
             MinRange="350" MaxRange="15700"
             LaunchSpeed="807.7" BoostSeconds="0" BoostAccel="0" MaxFlightSeconds="120"
             MassKg="31.75" CalibreMm="127" DragCoefficient="0.306"
-            TimedFuse="true" FuseRadius="12" FuseArmSeconds="0.45" ChargeKg="3.3"
+            TimedFuse="true" FuseRadius="12" FuseArmSeconds="0.45" ChargeKg="3.5"
+            FragmentCount="1500" FragmentMassGrams="10" FragmentSpeed="1000"
+            SprayAngleDeg="80" SprayHalfWidthDeg="30"
             HitsTerrain="true" />
 
   <!--

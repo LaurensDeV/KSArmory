@@ -488,6 +488,24 @@ public sealed class MunitionProfile
     public float MaxChargeKg;
 
     /// <summary>
+    /// How many fragments the warhead throws, zero for one that throws none. Fragments are what kill
+    /// past a few metres; the blast alone breaks a part only close in (<see cref="Fragmentation"/>).
+    /// </summary>
+    public int FragmentCount;
+
+    /// <summary>One fragment's mass (g).</summary>
+    public float FragmentMassGrams = 5f;
+
+    /// <summary>How fast a fragment leaves the warhead, in the warhead's own frame (m/s).</summary>
+    public float FragmentSpeed = 1800f;
+
+    /// <summary>The middle of the fragment band, in degrees from the nose: 90 is straight out of the side.</summary>
+    public float SprayAngleDeg = 90f;
+
+    /// <summary>Half the band's width either side of <see cref="SprayAngleDeg"/> (degrees).</summary>
+    public float SprayHalfWidthDeg = 10f;
+
+    /// <summary>
     /// Whether the ground stops this round, and so whether it ends by landing
     /// (<see cref="RoundReach"/>). A missile meets the ground through <see cref="Interceptor.Ground"/>
     /// whatever this says.

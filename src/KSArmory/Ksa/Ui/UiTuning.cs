@@ -305,6 +305,19 @@ internal sealed partial class Ui
             ImGui.TextDisabled($"  lethal {_munition.LethalRadius:F0} m, "
                                + $"blast {_munition.BlastRadius:F0} m, "
                                + $"fireball {_munition.FireballRadius:F0} m");
+
+            ImGui.SliderInt("Fragments", ref _munition.FragmentCount, 0, 30000);
+            Tip("How many fragments the warhead throws. They are what breaks parts past a few metres; "
+                + "the blast alone only breaks what it is right beside. Zero throws none.");
+            if (_munition.FragmentCount > 0)
+            {
+                ImGui.SliderFloat("Fragment mass (g)", ref _munition.FragmentMassGrams, 0.5f, 50f);
+                ImGui.SliderFloat("Fragment speed (m/s)", ref _munition.FragmentSpeed, 300f, 3000f);
+                ImGui.SliderFloat("Spray angle (deg)", ref _munition.SprayAngleDeg, 0f, 180f);
+                Tip("The middle of the band the fragments fly in, from the nose: 90 is straight out of the side. "
+                    + "A moving warhead's band arrives tilted forward.");
+                ImGui.SliderFloat("Spray half-width (deg)", ref _munition.SprayHalfWidthDeg, 1f, 90f);
+            }
             if (_munition.HitsTerrain)
             {
                 ImGui.SliderFloat("Burst height (m)", ref _munition.BurstHeightMetres, 0f, 10000f,

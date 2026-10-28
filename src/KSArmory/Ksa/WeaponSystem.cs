@@ -79,6 +79,11 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private readonly List<Part> _partHandles = [];
     private readonly List<int> _failedParts = [];
     private readonly List<(int Index, double Share)> _partShares = [];
+
+    // How the warhead going off now was moving and pointing, and the air round it; null for a burst
+    // with no round, whose fragments then leave at the craft's own velocity, every way alike.
+    private (double3 VelocityEcl, double3 Nose, double AirKgPerM3, double3 FuzeLead)? _warhead;
+    private readonly Random _fragmentDice = new();
     private readonly List<(int Index, double PressureRatio, double GapMetres)> _dentLoads = [];
 
     // Craft one burst has already damaged. See where it is cleared for why this is not _pendingKills.
@@ -3457,6 +3462,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         // Per burst, not per frame: two rounds at opposite ends of one booster each break their own parts.
         _burstDamaged.Clear();
+        _warhead = (round.VelocityEcl, round.VelocityLocal, AirAt(burst), FuzeLeadFor(round));
 
         // fuse is what the kill is judged on; atBurst should match it; drawn disagreeing alone means
         // the drawing is wrong. Each pairs one instant: across 2.8 ms of ecliptic motion is 73 m.
@@ -3511,27 +3517,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 }
                 else
                 {
-                    // The fuse ruled it lethal: the sweep decides what breaks, never whether.
                     Damage(intended, burst, elapsed, judged, confirmed: true);
                 }
             }
         }
 
-        // The same for a round in the air, off the airborne list: KSA holds no state for it. Nobody
-        // flies a round, and the own salvo was filtered out.
-        if (!seduced
-            && (round.StruckBody ?? round.TargetRef) is IProjectile hit
-            && hit.State == RoundState.Flying
-            && _incomingByHandle.TryGetValue(hit, out IContact? hitContact))
-        {
-            if (round.MissDistance <= judged.LethalRadius + hitContact.MeanRadius)
-            {
-                hit.ShootDown();
-                Announce($"intercepted {hitContact.DisplayName} at {round.MissDistance:F1} m");
-            }
-        }
-
-        // The splash over every other round: a warhead need not touch what it kills.
+        // Rounds in the air pay as parts do, off the airborne list: KSA holds no state for them, so the
+        // ledger is keyed on the round. Nobody flies a round, and the own salvo was filtered out.
         for (int i = 0; i < _incoming.Count; i++)
         {
             IContact contact = _incoming[i];
@@ -3539,11 +3531,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
             double gap = BlastSweep.SurfaceGap(contact.PositionEcl, contact.VelocityEcl, elapsed,
                                                burst, contact.MeanRadius);
+            // A shell's proximity fuse stands in for the hit a real one needs, as it always has against a round.
+            bool struck = !seduced && (ReferenceEquals(round.StruckBody, other)
+                                       || (round is Slug && ReferenceEquals(round.TargetRef, other)
+                                           && round.MissDistance <= round.Munition.FuseRadius + contact.MeanRadius));
+            if (!struck && gap > judged.BlastRadius) continue;
 
-            if (BlastSweep.Effect(gap, judged) != BlastEffect.Lethal) continue;
+            double cost = RoundCost(other, contact, burst, elapsed, judged, struck ? round : null);
+            if (!(cost > 0.0) || !PartHealth.World.Hit(other, cost, _config.DamageScale)) continue;
 
             other.ShootDown();
-            Announce($"intercepted {contact.DisplayName} at {gap:F0} m");
+            Announce($"intercepted {contact.DisplayName} at {Math.Max(gap, 0.0):F0} m");
         }
 
         Splash(burst, elapsed, judged);
@@ -3574,6 +3572,41 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
     }
 
+    // A round in the air as one part: its own mass and body, the blast and fragments at it, and a shell's
+    // impact when the shell struck it.
+    private double RoundCost(IProjectile target, IContact contact, double3 burst, double elapsed,
+                             MunitionProfile munition, IProjectile? striker)
+    {
+        MunitionProfile body = target.Munition;
+        double length = Math.Max(body.BodyLength, 0.1);
+        double diameter = body.CalibreMm > 0f ? body.CalibreMm / 1000.0 : length / 15.0;
+        double area = Math.PI * diameter * (length + (0.5 * diameter)) / 4.0;
+        double mass = body.MassKg > 0f ? body.MassKg : RoundMassFallbackKg;
+
+        _roundPart[0] = new DamageablePart(0, contact.PositionEcl, 0.5 * length, BlastDamage.ReferencePascals,
+                                           MassKg: mass, PresentedAreaM2: area);
+        _roundShares.Clear();
+        BurstContext context = _warhead is { } w
+            ? new BurstContext(burst, elapsed, contact.VelocityEcl, w.VelocityEcl, w.Nose, w.AirKgPerM3, w.FuzeLead)
+            : new BurstContext(burst, elapsed, contact.VelocityEcl, contact.VelocityEcl, Vec.Zero, AirAt(burst));
+        BlastDamage.Costs(context, _roundPart, munition, _fragmentDice, _roundShares);
+
+        double cost = _roundShares.Count > 0 ? _roundShares[0].Share : 0.0;
+        if (striker is not null)
+        {
+            cost += PartToughness.KineticShare(munition.MassKg, Vec.Len(striker.VelocityEcl - contact.VelocityEcl),
+                                               PartToughness.Joules(mass, BlastDamage.ReferencePascals));
+        }
+
+        return cost / PartToughness.RoundVulnerability;
+    }
+
+    // A missile whose profile gives no mass: about a 57E6's.
+    private const double RoundMassFallbackKg = 75.0;
+
+    private readonly DamageablePart[] _roundPart = new DamageablePart[1];
+    private readonly List<(int Index, double Share)> _roundShares = [];
+
     // A round stopped before its fuze armed: the hit, and no blast, flash or cloud.
     private void Dud(IProjectile round)
     {
@@ -3593,11 +3626,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (ReferenceEquals(struck, Platform)) return;
         if (_policy.ProtectControlledVehicle && ReferenceEquals(struck, KsaWorld.ControlledVehicle)) return;
 
-        StrikeInert(struck, round.PositionEcl, round.DetonationElapsedInFrame);
+        StrikeInert(struck, round.PositionEcl, round.DetonationElapsedInFrame,
+                    round.Munition.MassKg, Vec.Len(round.VelocityEcl - KsaWorld.VelocityEcl(struck)));
     }
 
-    // The part a dud struck pays one share, as a strike does; nothing near it is touched.
-    private void StrikeInert(Vehicle v, double3 at, double elapsed)
+    // The part a dud struck pays for the shell's impact; nothing near it is touched.
+    private void StrikeInert(Vehicle v, double3 at, double elapsed, double shellMassKg, double impactSpeed)
     {
         if (_pendingKills.Contains(v)) return;
 
@@ -3611,7 +3645,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (StruckPart(v, at, elapsed) is not { } index) return;
 
         Part part = _partHandles[index];
-        if (!PartHealth.World.Hit(part, 1.0, _config.DamageScale))
+        DamageablePart struckPart = _partScratch[index];
+        double impact = PartToughness.KineticShare(
+            shellMassKg, impactSpeed, PartToughness.Joules(struckPart.MassKg, struckPart.CrashTolerancePascals));
+        if (!PartHealth.World.Hit(part, impact, _config.DamageScale))
         {
             Announce($"hit {part.Id} on {KsaWorld.DisplayName(v)}: {PartHealth.World.Of(part):P0} left");
             return;
@@ -3733,11 +3770,34 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         ArgumentNullException.ThrowIfNull(munition);
 
         _burstDamaged.Clear();
+        _warhead = null;
         _ground = GroundFor(burstEcl, Math.Min(inFrame, 0.0), munition.ChargeKg);
         _front = FrontFor(burstEcl, Math.Min(inFrame, 0.0), munition.ChargeKg);
         Splash(burstEcl, Math.Min(inFrame, 0.0), JudgedAs(munition, burstEcl, Math.Min(inFrame, 0.0)), spareOwn);
         ApplyPendingKills();
     }
+
+    // Only a missile's proximity fuse passes its target at a miss distance; a shell bursts on time or on contact.
+    private double3 FuzeLeadFor(IProjectile round)
+    {
+        if (round is not Interceptor || !double.IsFinite(round.MissDistance) || round.StruckBody is not null)
+            return Vec.Zero;
+
+        double3 targetVelocity = round.TargetRef switch
+        {
+            Vehicle craft when KsaWorld.IsAlive(craft) => KsaWorld.VelocityEcl(craft),
+            IProjectile other when _incomingByHandle.TryGetValue(other, out IContact? c) => c.VelocityEcl,
+            _ => round.VelocityEcl,
+        };
+
+        return Fragmentation.FuzeLead(FragmentSpray.Of(round.Munition), round.VelocityEcl, targetVelocity,
+                                      round.MissDistance);
+    }
+
+    private double AirAt(double3 burst)
+        => (EffectBody ?? Detonation.BodyFor(Platform)) is { } body
+            ? KsaWorld.AirDensityRatioAt(body, burst) * Medium.ReferenceDensityKgPerM3
+            : 0.0;
 
     // With the burst carried to the sample: uncarried, its height is up to a step of 30 km/s wrong.
     private GroundReflection GroundFor(double3 burst, double elapsed, double chargeKg)
@@ -3840,8 +3900,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     // Queued, never applied: ApplyPendingKills drains it, as the engine's solvers are live here.
-    // `confirmed` is the fuse's lethal verdict, which an empty sweep cannot overturn. True when
-    // anything was queued.
+    // `confirmed` is the fuse's verdict on this craft: a shell that struck it also pays for its impact,
+    // and a craft whose parts cannot be read is destroyed whole. True when anything was damaged.
     private bool Damage(Vehicle v, double3 burst, double elapsed, MunitionProfile munition,
                         bool confirmed)
     {
@@ -3874,14 +3934,40 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         Reflect(munition);
 
-        // At a scale of one a fresh part breaks exactly where the sweep alone broke it.
         _failedParts.Clear();
         _partShares.Clear();
-        BlastDamage.Shares(burst, elapsed, KsaWorld.VelocityEcl(v),
-                           CollectionsMarshal.AsSpan(_partScratch), munition, _partShares);
+        double3 craftVelocity = KsaWorld.VelocityEcl(v);
+        BurstContext context = _warhead is { } w
+            ? new BurstContext(burst, elapsed, craftVelocity, w.VelocityEcl, w.Nose, w.AirKgPerM3, w.FuzeLead)
+            : new BurstContext(burst, elapsed, craftVelocity, craftVelocity, Vec.Zero, AirAt(burst));
+        BlastDamage.Costs(context, CollectionsMarshal.AsSpan(_partScratch), munition, _fragmentDice, _partShares);
+
+        // A shell that struck this craft also pays the part it hit for what its own mass carried in.
+        if (confirmed && _warhead is { } shell && munition.MassKg > 0f
+            && StruckPart(v, burst, elapsed) is { } struckIndex)
+        {
+            DamageablePart struck = _partScratch[struckIndex];
+            double gap = BlastSweep.SurfaceGap(struck.PositionEcl, craftVelocity, elapsed, burst, struck.RadiusMetres);
+            if (gap <= 0.0)
+            {
+                double impact = PartToughness.KineticShare(
+                    munition.MassKg, Vec.Len(shell.VelocityEcl - craftVelocity),
+                    PartToughness.Joules(struck.MassKg, struck.CrashTolerancePascals));
+                _partShares.Add((struckIndex, impact));
+            }
+        }
+
+        double worst = 1.0;
         foreach ((int index, double share) in _partShares)
         {
-            if (PartHealth.World.Hit(_partHandles[index], share, _config.DamageScale)) _failedParts.Add(index);
+            if (PartHealth.World.Hit(_partHandles[index], share, _config.DamageScale))
+            {
+                if (!_failedParts.Contains(index)) _failedParts.Add(index);
+            }
+            else
+            {
+                worst = Math.Min(worst, PartHealth.World.Of(_partHandles[index]));
+            }
         }
 
         // Before the craft's fate is decided: the dents are for a craft that survives.
@@ -3905,12 +3991,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         if (_failedParts.Count == 0)
         {
-            // Only the fuse's verdict overrides the sweep: the struck part pays a whole share.
-            if (!confirmed) return false;
-            if (StruckPart(v, burst, elapsed) is not { } struck) return QueueWholeCraft(v);
-            if (!StrikeBreaks(v, struck)) return true;
+            if (_partShares.Count == 0) return false;
 
-            _failedParts.Add(struck);
+            Announce($"damaged {_partShares.Count} part(s) on {KsaWorld.DisplayName(v)}, the worst left at {worst:P0}");
+            return true;
         }
 
         // KSA's own fragment guard, asked rather than reproduced.
@@ -3956,22 +4040,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
 
         return nearest;
-    }
-
-    // Tops this burst's charge on the struck part up to a whole share; true when it breaks.
-    private bool StrikeBreaks(Vehicle v, int struck)
-    {
-        double paid = 0.0;
-        foreach ((int index, double share) in _partShares)
-        {
-            if (index == struck) paid = Math.Min(share, 1.0);
-        }
-
-        Part part = _partHandles[struck];
-        if (PartHealth.World.Hit(part, 1.0 - paid, _config.DamageScale)) return true;
-
-        Announce($"hit {part.Id} on {KsaWorld.DisplayName(v)}: {PartHealth.World.Of(part):P0} left");
-        return false;
     }
 
     private bool QueueWholeCraft(Vehicle v)
