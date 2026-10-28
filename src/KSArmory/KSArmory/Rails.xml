@@ -53,7 +53,7 @@
   <!--
     AGM-88 HARM. Length, mass and the 66 kg warhead are the real weapon's (designation-systems.net).
     Guidance="AntiRadiation": it homes on radar transmissions, so anything not transmitting is not a
-    target, however large or close. Useless against aircraft, decisive against a radar site.
+    target, however large or close: a radar site, or an aircraft whose radar is on.
 
     The real motor has two phases: BoostSeconds/BoostAccel is the boost, and the Stage is the sustainer,
     which keeps it accelerating where a coasting missile is already slowing. SeekerFovDeg="70": it finds
