@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-345 types and 916 members across 12 assemblies.
+345 types and 917 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -1263,6 +1263,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.Liquid
 
 - `float StorageDensity`
+- `float StorageTemperature`
 
 ### KSA.LookupCollection`1
 

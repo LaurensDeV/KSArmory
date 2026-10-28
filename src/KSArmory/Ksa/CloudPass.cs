@@ -1365,6 +1365,7 @@ internal static class CloudPass
         public int OriginX;            // the dispatch's first pixel
         public int OriginY;
         public float Clock;            // Leaks.Clock, which the pattern moves on
+        public float Daylight;         // TracerLook.Daylight where the camera is: what lights vapour
     }
 
     private const int StreamSegmentsPerView = Leaks.MostStreams * (LeakStream.Points - 1);
@@ -1380,6 +1381,19 @@ internal static class CloudPass
     private static double _streamCpuSeconds;
     private static int _streamCpuFrames;
     private static long _streamLoggedAt = long.MinValue / 2;
+
+    // A burning stream spreads to three times its width over its whole length, and a boiling one to six;
+    // widened here so the patch dispatched and the tiles gathered cover it.
+    private static double Spread(Leaks.Look look, double alongMetres, double wholeMetres)
+    {
+        double grown = wholeMetres > 0.0 ? Math.Clamp(alongMetres / wholeMetres, 0.0, 1.0) : 1.0;
+        return look switch
+        {
+            Leaks.Look.Burning => 1.0 + (3.0 * grown),
+            Leaks.Look.Vapour => 1.0 + (6.0 * grown),
+            _ => 1.0,
+        };
+    }
 
     // THE LEAKS' STREAMS: KSArmoryLeak.comp. One dispatch over the patch of screen they cover.
     private static void Streams(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
@@ -1445,7 +1459,8 @@ internal static class CloudPass
             for (int i = 0; i < points; i++)
             {
                 _clip[i] = camera.EgoToClipDouble(_arc[i].Position);
-                _across[i] = PixelsAcross(camera, _arc[i].Position, _arc[i].Radius, width, height);
+                _across[i] = PixelsAcross(camera, _arc[i].Position, _arc[i].Radius, width, height)
+                             * Spread(stream.Look, _arc[i].AlongMetres, whole);
             }
 
             for (int i = 1; i < points; i++)
@@ -1466,7 +1481,7 @@ internal static class CloudPass
                     Tail = new float4((float)tx, (float)ty, (float)(t.Z / t.W), (float)_arc[i].AlongMetres),
                     Look = new float4((float)headWidth, (float)tailWidth, whole, stream.Seed),
                     Flow = new float4((float)_arc[i - 1].OutSeconds, (float)_arc[i].OutSeconds,
-                                      (float)stream.ExitRadius, 0f),
+                                      (float)stream.ExitRadius, (float)stream.Look),
                 };
 
                 int reach = (int)Math.Ceiling(Math.Max(headWidth, tailWidth)) + 2;
@@ -1490,6 +1505,8 @@ internal static class CloudPass
             OriginX = minX,
             OriginY = minY,
             Clock = (float)KSArmory.Leaks.Clock,
+            Daylight = (float)TracerLook.Daylight(
+                camera.NearbyCelestial is { } near ? KsaWorld.SunElevationDeg(near, cameraEcl) : double.NaN),
         };
 
         using (commandBuffer.TagRegion(GpuTag))

@@ -26,8 +26,31 @@ internal static class Leaks
     /// <summary>The most leaking holes drawn with a stream at once, the biggest first.</summary>
     public const int MostStreams = 16;
 
-    /// <summary>One stream to draw: the first <paramref name="Count"/> of its points, in Ecl, how thick it leaves, and a seed.</summary>
-    public readonly record struct Stream(LeakStream.Point[] Points, int Count, double ExitRadius, float Seed);
+    /// <summary>How a stream is drawn, as the leak shader reads it.</summary>
+    public enum Look
+    {
+        Liquid = 0,
+
+        /// <summary>A tank on fire: the stream burns as it leaves.</summary>
+        Burning = 1,
+
+        /// <summary>A tank holding mostly a cryogen: it boils off the hole as white vapour.</summary>
+        Vapour = 2,
+    }
+
+    /// <summary>One stream to draw: the first <paramref name="Count"/> of its points, in Ecl, how thick it leaves, a seed, and how it is drawn.</summary>
+    public readonly record struct Stream(LeakStream.Point[] Points, int Count, double ExitRadius, float Seed,
+                                         Look Look = Look.Liquid);
+
+    // Stored colder than this, a liquid boils off at the hole: liquid oxygen (90 K), methane (111 K) and
+    // hydrogen (20 K) do, kerosene does not. NIST's line for a cryogen, 123 K, rounded down.
+    private const float CryogenKelvin = 120f;
+
+    private const string BreachId = "KSArmoryBreach";
+    private const string BreachFlameId = "KSArmoryBreachFlame";
+
+    // How fast the breach's spray leaves the hole, against the craft.
+    private const double BreachSpeed = 25.0;
 
     // One hole's stream, kept from frame to frame because its liquid is flown: a leak that stops lets
     // its tail fall, and is only forgotten once the last of it is gone.
@@ -38,6 +61,7 @@ internal static class Leaks
         public required float Seed;
         public Outlet Outlet;
         public bool Flowing;
+        public bool Breached;
 
         // How far behind the skin as drawn its stream starts, and how long since that was worked out.
         public double InsetMetres = double.NaN;
@@ -50,7 +74,7 @@ internal static class Leaks
     private const double MeasureSeconds = 0.1;
 
     // One hole a tank is running out of, and how fast.
-    private readonly record struct Outlet(BulletHoles.Hole Hole, double KgPerSecond, double JetSpeed);
+    private readonly record struct Outlet(BulletHoles.Hole Hole, double KgPerSecond, double JetSpeed, double CryoShare);
 
     private sealed class Leak
     {
@@ -233,7 +257,7 @@ internal static class Leaks
         if (!KsaWorld.TryCraftOf(tank.Parent, out Vehicle? craft)) return false;
 
         ReadOnlySpan<MoleState> states = craft.Parts.Moles.States;
-        double mass = 0.0, volume = 0.0;
+        double mass = 0.0, volume = 0.0, cryogen = 0.0;
         foreach (Mole mole in tank.Moles)
         {
             if (mole.Liquid is not { } liquid || !(liquid.StorageDensity > 0f)) continue;
@@ -241,6 +265,7 @@ internal static class Leaks
             double held = states[mole.StatesIdx].Mass;
             mass += held;
             volume += held / liquid.StorageDensity;
+            if (liquid.StorageTemperature < CryogenKelvin) cryogen += held;
         }
 
         _leaking.TryGetValue(tank, out Leak? was);
@@ -299,7 +324,7 @@ internal static class Leaks
 
             flow += kgPerSecond;
             leaking++;
-            _outlets.Add(new Outlet(hole, kgPerSecond, TankLeak.JetSpeed(depth, pull, density)));
+            _outlets.Add(new Outlet(hole, kgPerSecond, TankLeak.JetSpeed(depth, pull, density), cryogen / mass));
         }
 
         if (!(flow > 0.0)) return false;
@@ -533,8 +558,49 @@ internal static class Leaks
         int count = jet.Jet.Draw(exit, exitRadius, flowing, jet.Points);
         for (int i = 0; i < count; i++) jet.Points[i] = jet.Points[i] with { Position = jet.Points[i].Position + centre };
 
-        if (count >= 2) _streams.Add(new Stream(jet.Points, count, exitRadius, jet.Seed));
+        Look look = PartFire.World.IsBurning(hole.SubPart.FullPart) ? Look.Burning
+                    : jet.Outlet.CryoShare >= 0.5 ? Look.Vapour
+                    : Look.Liquid;
+
+        if (flowing && !jet.Breached)
+        {
+            jet.Breached = true;
+            Breach(jet.Craft, exit + centre, velocity, jet.Outlet.CryoShare >= 0.5, look == Look.Burning);
+        }
+
+        if (count >= 2) _streams.Add(new Stream(jet.Points, count, exitRadius, jet.Seed, look));
         return true;
+    }
+
+    // The moment a tank is holed: what it held under pressure thrown out of the hole as spray, white
+    // and longer-lived for a cryogen flashing to vapour, before the steady stream settles. Thrown into a
+    // fire already burning at the hole, the spray catches and flares instead.
+    private static void Breach(Vehicle craft, double3 holeEcl, double3 jetVelocity, bool cryogen, bool burning)
+    {
+        if (!Detonation.ParticlesEnabled || craft.Parent is not Celestial body) return;
+
+        try
+        {
+            double3 outward = Vec.Unit(jetVelocity);
+            double3 thrown = KsaWorld.VelocityEcl(craft) - KsaWorld.GroundVelocityAt(body, holeEcl) + (outward * BreachSpeed);
+
+            doubleQuat toCcf = body.GetCce2Ccf();
+            double3 holeCcf = (holeEcl - body.GetPositionEcl()).Transform(toCcf);
+            double3 thrownCcf = thrown.Transform(toCcf);
+            if (!Vec.IsFinite(holeCcf) || !Vec.IsFinite(thrownCcf)) return;
+
+            EmitterPool.Fire(burning ? BreachFlameId : BreachId, body, EmitterPool.At(body, holeCcf, thrownCcf), e =>
+            {
+                if (burning || !cryogen) return;
+
+                e.ParticleInfo.Size *= 1.8f;
+                e.ParticleInfo.Lifespan *= 3f;
+            });
+        }
+        catch
+        {
+            // A breach unseen; the stream still flows.
+        }
     }
 
     // Where a stream leaves the hull, relative to the craft's centre, and how fast: out along the way

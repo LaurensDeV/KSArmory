@@ -166,17 +166,36 @@ tank no longer breaks on the hit that holed it.
   where the ray from the burst meets it and streams out of it. Seen once, small, in a gap between
   boosters, so whether it reads well is still open.
 
-**Ideas from players, not built:**
+**Ideas from players (built and flown):**
 - **A burning leak.** A holed tank on fire draws its leak stream as flame rather than liquid, the
-  *Project Hail Mary* shot. `Shaders/KSArmoryLeak.comp` already draws every stream; it would need a
-  burning flag per stream.
-- **Cryogenic vapour.** A tank holding a cryogenic propellant vents white vapour where the stream
-  boils off. The tank's moles say what it holds.
-- **A pressure-vessel breach, not a barrel.** Today's stream is liquid falling out of a hole under the
-  mod's own 0.2 bar, so it reads as water from a drum. A flight tank holds a few bar, which throws a
-  fast jet that atomises into spray and, for a cryogen, flashes to vapour at the hole. That means
-  raising the tank pressure in `Sim/TankLeak.cs`, which was kept low on purpose (CLAUDE.md has why), or
-  drawing a burst of spray and vapour at the moment of the hit, apart from the steady stream.
+  *Project Hail Mary* shot. The stream is emissive orange, yellow at the hole and redder as it burns
+  out over one and a half times its whole length. It spreads to three times its width.
+- **Cryogenic vapour.** A tank more than half of whose liquid by mass is stored below 120 K boils off
+  the hole as a white veil rather than a rope of liquid. That covers liquid oxygen at 90 K, methane at
+  111 K and hydrogen at 20 K. The veil spreads to six times its width and fades over three times its
+  whole length. KSA's stock tanks hold oxidiser and fuel together and are mostly oxygen by mass, so
+  theirs is vapour.
+- **A pressure-vessel breach.** The moment a hole starts leaking, `KSArmoryBreach` throws a burst of
+  spray out of it at 25 m/s on top of the craft's own speed. Drag stops and spreads it. A cryogen's is
+  1.8 times the size and lives three times as long. Into a tank already burning at the hole the spray catches
+  instead, `KSArmoryBreachFlame`: shown first with white vapour beside the flame, which nothing at one
+  hole would do.
+
+All three are picked in `Leaks.Fly`: the stream's `Look` rides in `Flow.w` to `Shaders/KSArmoryLeak.comp`,
+and `CloudPass.Spread` widens it before the patch is sized. The tank's own pressure is still the mod's
+0.2 bar, kept for the reason CLAUDE.md gives, so the steady stream's speed is unchanged.
+
+**Next, from the player who asked for them:** holes close together merged into one opening. Holes a
+hand-width apart feed one jet and tear into each other, where today each draws its own thread.
+
+**Flown 2026-10-28**, the M197 against a parked small rocket at quarter speed:
+- **A cold breach.** One shell holed its lower tank below the liquid: a white breach puff, then a steady
+  white vapour leak at 7.3 kg/s, which the player saw.
+- **A burning leak.** A second shell lit that same tank, and its stream turned to curling orange flame.
+- **A fix from flight.** The vapour was first lit by whatever was behind it, and against dark grass it
+  came out black. It is now lit by daylight, as the grey gun rounds are.
+- **Brightness.** The fire's particles were drawn at ten times full brightness and read white after the
+  tone map. They are now at four, with the breach flame at five, which is not yet re-flown.
 
 ## Step 4: the gun rounds split (built)
 
