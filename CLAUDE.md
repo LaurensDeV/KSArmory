@@ -6,7 +6,7 @@ of six on an 8×8 chassis — and an **AIM-9J**, which slides off the launch rai
 and is the shipped example of a launcher with nothing that moves, an **AIM-120C**
 on the same rail, with ten times the reach and the first *round*
 whose art was authored rather than generated, an **AGM-88 HARM** on the rail, which
-is the one that cannot engage an aircraft at all and whose target has a say in whether it is one, a
+is the one whose target has a say in whether it is one: it homes only on a radar that is switched on, a
 **Mk 15 Phalanx CIWS** that stacks on a 3 m node and is the one with no missiles at all, a
 **5"/54 Mk 42 mount**, which is the other one with none and the opposite weapon — forty rounds a
 minute to the Phalanx's four and a half thousand, and shells that burst on a time fuze rather than

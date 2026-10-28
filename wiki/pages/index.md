@@ -18,9 +18,9 @@ hide:
 </div>
 <div class="ks-patch"><!-- patch --></div>
 <p class="ks-intro">KSArmory adds weapons to
-<a href="https://ahwoo.com/app/100000/kitten-space-agency">Kitten Space Agency</a>: missile
-launchers, guns, bombs, sights, radars and countermeasures, each on a part you can build into a
-craft. You can also add weapons of your own without writing code.</p>
+<a href="https://ahwoo.com/app/100000/kitten-space-agency">Kitten Space Agency</a>: missiles,
+rocket pods, guns, a laser, nuclear bombs and warheads, sights and sensors, and countermeasures,
+each on a part you can build into a craft. You can also add weapons of your own without writing code.</p>
 <div class="ks-actions">
 <a class="ks-button ks-button--primary" href="/guide/install/">Install</a>
 <a class="ks-button" href="/guide/using/">Using it</a>
@@ -33,7 +33,8 @@ craft. You can also add weapons of your own without writing code.</p>
 
 <!-- every weapon -->
 
-Each weapon's page has a 3D model you can rotate and its main numbers: range, warhead and sensor.
+Each weapon's page has a 3D model you can rotate and its main numbers, such as range, warhead and
+sensor.
 The pages are built from the same files as the release, so the numbers match the version you
 download.
 
