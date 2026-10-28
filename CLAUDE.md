@@ -2060,6 +2060,10 @@ on. `docs/DAMAGE-PLAN.md` has the calibration. The ledger holds the engine's `Pa
 prunes it, and it is not saved: a reload starts every part whole. With `DamageIndividualParts` off
 there are no parts to charge, and a burst in the lethal radius still destroys the craft.
 
+**A conventional charge's shock is carried by the air it went off in** (`BlastDamage.ShareInAir`, by
+Sachs), so it is the sea-level share at sea level and nothing in vacuum, where fragments are all a missile
+has. Inside its fireball the detonation products still load a part whatever the air.
+
 **The blast's own reach is the mod's law re-anchored, before the ceiling holds it.** Cube-root scaling says a
 given overpressure is felt at a fixed *scaled* distance and pressure near the burst falls as the
 cube of it, so the radius at which a part's tolerance is reached goes as `(W/P)^(1/3)` — which is

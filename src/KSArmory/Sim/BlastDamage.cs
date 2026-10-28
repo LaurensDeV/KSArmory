@@ -55,9 +55,10 @@ internal readonly record struct FrontLoad(double Ratio, double RealPascals, doub
 /// <param name="NoseAxis">The warhead's nose, or zero for one with no attitude, whose fragments go every way.</param>
 /// <param name="AirKgPerM3">The air at the burst, which slows fragments; zero where there is none.</param>
 /// <param name="FuzeLeadEcl">Where the fragments leave from against the burst (<see cref="Fragmentation.FuzeLead"/>).</param>
+/// <param name="AirPressureRatio">The air's pressure at the burst against sea level's, which carries the blast.</param>
 internal readonly record struct BurstContext(double3 BurstEcl, double SinceSample, double3 PartVelocityEcl,
                                              double3 WarheadVelocityEcl, double3 NoseAxis, double AirKgPerM3,
-                                             double3 FuzeLeadEcl = default);
+                                             double3 FuzeLeadEcl = default, double AirPressureRatio = 1.0);
 
 /// <summary>
 /// Which parts of a craft a burst breaks.
@@ -180,6 +181,24 @@ internal static class BlastDamage
             (double real, double breaking) = RealLoad(charge, tolerance, gap);
             return breaking > 0.0 && double.IsFinite(real) ? real / breaking : 0.0;
         }
+    }
+
+    /// <summary>
+    /// <see cref="Share"/> in air of <paramref name="pressureRatio"/> times sea level's pressure, by Sachs:
+    /// the distance scaled by the cube root of the pressure and the overpressure by the pressure, against
+    /// the same breaking overpressure. Exactly <see cref="Share"/> at sea level, and nothing in vacuum.
+    /// </summary>
+    public static double ShareInAir(double chargeKg, double crashTolerancePascals, double gap, double pressureRatio)
+    {
+        if (!(pressureRatio < 1.0)) return Share(chargeKg, crashTolerancePascals, gap);
+        if (!(pressureRatio > 0.0) || !(gap <= Warhead.BlastRadius(chargeKg))) return 0.0;
+
+        double breaking = BlastWave.PeakOverpressurePascals(chargeKg, FailureRadius(chargeKg, crashTolerancePascals));
+        if (!(breaking > 0.0)) return 0.0;
+
+        double real = BlastWave.PeakOverpressurePascals(chargeKg, gap * Math.Cbrt(pressureRatio),
+                                                        BlastWave.SeaLevelPascals * pressureRatio);
+        return double.IsFinite(real) ? real / breaking : 0.0;
     }
 
     /// <summary>
@@ -341,11 +360,20 @@ internal static class BlastDamage
             double charge = munition.ChargeKg * part.Reflection;
             double joules = PartToughness.Joules(part.MassKg, part.CrashTolerancePascals);
 
-            double cost = Share(charge, part.CrashTolerancePascals, gap);
+            double cost;
             if (capped)
             {
-                cost = Math.Min(cost, PartToughness.BlastShareCeiling(
-                    charge, Vec.Len(centre - burst.BurstEcl), part.AreaM2, joules));
+                double range = Vec.Len(centre - burst.BurstEcl);
+                double ceiling = PartToughness.BlastShareCeiling(charge, range, part.AreaM2, joules);
+
+                // Inside the fireball the products load the part whatever the air; outside, only the air's shock.
+                cost = gap <= Warhead.FireballRadius(charge)
+                    ? ceiling
+                    : Math.Min(ShareInAir(charge, part.CrashTolerancePascals, gap, burst.AirPressureRatio), ceiling);
+            }
+            else
+            {
+                cost = Share(charge, part.CrashTolerancePascals, gap);
             }
 
             FragmentLoad load = Fragmentation.OnPart(spray, burst.BurstEcl + burst.FuzeLeadEcl, burst.NoseAxis,

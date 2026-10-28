@@ -1,6 +1,6 @@
 # Damage: how a hit becomes a broken part
 
-**Part record, part plan.** Step 1 is built and flown (2026-10-28, below). Steps 2 and 3 are built and flown (2026-10-28), the fire's look still being judged. Step 4 is built and flown (2026-10-28). Step 5 is not built.
+**Part record, part plan.** Step 1 is built and flown (2026-10-28, below). Steps 2 and 3 are built and flown (2026-10-28), the fire's look still being judged. Steps 4 and 5 are built; step 5's vacuum case is tested but not flown.
 
 ## Why every weapon used to kill outright
 
@@ -204,8 +204,24 @@ shell's, so it flies flatter.
 **Kept as it was:** the 2.5 m proximity fuse on both rounds. Against a round in the air it stands in for
 the hit a real one needs (`docs/CIWS-REALISM.md`).
 
-## Step 5: blast in thin air (not built)
+## Step 5: blast in thin air (built)
 
-A conventional charge is judged on its whole charge at any height, including in vacuum. Sachs scaling
-(overpressure by the ambient pressure, distance by its cube root) would leave fragments as the only
-thing that kills in space. `BlastAltitude` already does this for nuclear charges.
+A conventional charge's shock used to be judged at sea level at any height, so in vacuum a missile
+broke parts by an air shock that was not there. Now (`BlastDamage.Costs`):
+
+- **Outside the fireball**, the blast's share follows Sachs scaling by the air's pressure at the burst
+  (`BlastDamage.ShareInAir`). The distance is scaled by the cube root of the pressure and the
+  overpressure by the pressure, measured against the same breaking overpressure. It is exactly the old
+  share at sea level, and nothing in vacuum.
+- **Inside the fireball** (`Warhead.FireballRadius`), the detonation products load the part whatever the
+  air, still held under the energy the part intercepts. So a shell bursting on a skin in space still holes it.
+- **Fragments are unchanged**, beyond the drag they already met. In space they are all a missile has past
+  a few metres.
+
+The air is read at the burst carried to the sample, as `JudgedAs` reads it for a nuclear charge. Air
+that cannot be read counts as sea level's. Dents are unchanged and still follow the sea-level law.
+
+**Flown 2026-10-28:** `gunnery`, drones at about 4.5 km in air at about 57% of sea level's pressure,
+destroyed by contact bursts as at sea level, which is right inside the fireball. **The vacuum case is
+not flown:** no save has a weapons system in orbit, and the bridge's burst needs one to judge damage.
+`DamageCostTests.InVacuumABlastOutsideItsFireballCostsNothing` fails when the air is ignored.

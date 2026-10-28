@@ -87,7 +87,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     // How the warhead going off now was moving and pointing, and the air round it; null for a burst
     // with no round, whose fragments then leave at the craft's own velocity, every way alike.
-    private (double3 VelocityEcl, double3 Nose, double AirKgPerM3, double3 FuzeLead)? _warhead;
+    private (double3 VelocityEcl, double3 Nose, double AirKgPerM3, double3 FuzeLead, double AirPressure)? _warhead;
     private readonly Random _fragmentDice = new();
     private readonly List<(int Index, double PressureRatio, double GapMetres)> _dentLoads = [];
 
@@ -3467,7 +3467,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         // Per burst, not per frame: two rounds at opposite ends of one booster each break their own parts.
         _burstDamaged.Clear();
-        _warhead = (round.VelocityEcl, round.VelocityLocal, AirAt(burst), FuzeLeadFor(round));
+        _warhead = (round.VelocityEcl, round.VelocityLocal, AirAt(burst, round.DetonationElapsedInFrame),
+                    FuzeLeadFor(round), AirPressureAt(burst, round.DetonationElapsedInFrame));
 
         // fuse is what the kill is judged on; atBurst should match it; drawn disagreeing alone means
         // the drawing is wrong. Each pairs one instant: across 2.8 ms of ecliptic motion is 73 m.
@@ -3593,8 +3594,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                            MassKg: mass, PresentedAreaM2: area);
         _roundShares.Clear();
         BurstContext context = _warhead is { } w
-            ? new BurstContext(burst, elapsed, contact.VelocityEcl, w.VelocityEcl, w.Nose, w.AirKgPerM3, w.FuzeLead)
-            : new BurstContext(burst, elapsed, contact.VelocityEcl, contact.VelocityEcl, Vec.Zero, AirAt(burst));
+            ? new BurstContext(burst, elapsed, contact.VelocityEcl, w.VelocityEcl, w.Nose, w.AirKgPerM3, w.FuzeLead, w.AirPressure)
+            : new BurstContext(burst, elapsed, contact.VelocityEcl, contact.VelocityEcl, Vec.Zero, AirAt(burst, elapsed),
+                               AirPressureRatio: AirPressureAt(burst, elapsed));
         BlastDamage.Costs(context, _roundPart, munition, _fragmentDice, _roundShares);
 
         double cost = _roundShares.Count > 0 ? _roundShares[0].Share : 0.0;
@@ -3800,10 +3802,24 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                       round.MissDistance);
     }
 
-    private double AirAt(double3 burst)
-        => (EffectBody ?? Detonation.BodyFor(Platform)) is { } body
-            ? KsaWorld.AirDensityRatioAt(body, burst) * Medium.ReferenceDensityKgPerM3
-            : 0.0;
+    // Unread air is sea level's, which is the blast every burst was judged on before air was read.
+    // Both at the burst carried to the sample, as JudgedAs reads it.
+    private double AirPressureAt(double3 burst, double elapsed)
+    {
+        if ((EffectBody ?? Detonation.BodyFor(Platform)) is not { } body) return 1.0;
+
+        double3 atSample = BlastSweep.GroundAtSample(burst, KsaWorld.GroundVelocityAt(body, burst), elapsed);
+        AmbientAir air = KsaWorld.AirAt(body, atSample);
+        return air.Known ? air.PressureRatio : 1.0;
+    }
+
+    private double AirAt(double3 burst, double elapsed)
+    {
+        if ((EffectBody ?? Detonation.BodyFor(Platform)) is not { } body) return 0.0;
+
+        double3 atSample = BlastSweep.GroundAtSample(burst, KsaWorld.GroundVelocityAt(body, burst), elapsed);
+        return KsaWorld.AirDensityRatioAt(body, atSample) * Medium.ReferenceDensityKgPerM3;
+    }
 
     // With the burst carried to the sample: uncarried, its height is up to a step of 30 km/s wrong.
     private GroundReflection GroundFor(double3 burst, double elapsed, double chargeKg)
@@ -3944,8 +3960,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _partShares.Clear();
         double3 craftVelocity = KsaWorld.VelocityEcl(v);
         BurstContext context = _warhead is { } w
-            ? new BurstContext(burst, elapsed, craftVelocity, w.VelocityEcl, w.Nose, w.AirKgPerM3, w.FuzeLead)
-            : new BurstContext(burst, elapsed, craftVelocity, craftVelocity, Vec.Zero, AirAt(burst));
+            ? new BurstContext(burst, elapsed, craftVelocity, w.VelocityEcl, w.Nose, w.AirKgPerM3, w.FuzeLead, w.AirPressure)
+            : new BurstContext(burst, elapsed, craftVelocity, craftVelocity, Vec.Zero, AirAt(burst, elapsed),
+                               AirPressureRatio: AirPressureAt(burst, elapsed));
         _partHits.Clear();
         _struckParts.Clear();
         BlastDamage.Costs(context, CollectionsMarshal.AsSpan(_partScratch), munition, _fragmentDice, _partShares,

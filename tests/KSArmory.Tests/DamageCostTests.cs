@@ -19,10 +19,11 @@ public class DamageCostTests
 
     private static double Cost(MunitionProfile munition, DamageablePart part, double3 burst,
                                double3 warheadVelocity, double3 nose, double3 partVelocity, int seed = 7,
-                               double3 fuzeLead = default)
+                               double3 fuzeLead = default, double pressureRatio = 1.0)
     {
         List<(int, double Share)> into = [];
-        BlastDamage.Costs(new BurstContext(burst, 0.0, partVelocity, warheadVelocity, nose, 1.225, fuzeLead),
+        double air = 1.225 * pressureRatio;
+        BlastDamage.Costs(new BurstContext(burst, 0.0, partVelocity, warheadVelocity, nose, air, fuzeLead, pressureRatio),
                           [part], munition, new Random(seed), into);
         return into.Count == 0 ? 0.0 : into[0].Share;
     }
@@ -113,4 +114,49 @@ public class DamageCostTests
     [Fact]
     public void ADartsBurstCostsNothingOfItsOwn()
         => Assert.Equal(0.0, Cost(BuiltIns.CannonMk244, Fin(new double3(0.5, 0, 0)), Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero));
+
+    [Theory]
+    [InlineData(0.5)]
+    [InlineData(5.0)]
+    [InlineData(20.0)]
+    public void TheBlastInAirIsTheSeaLevelLawAtSeaLevel(double gap)
+        => Assert.Equal(BlastDamage.Share(5.0, 0.9e6, gap), BlastDamage.ShareInAir(5.0, 0.9e6, gap, 1.0));
+
+    [Fact]
+    public void ThinnerAirCarriesLessBlastAndVacuumNone()
+    {
+        double sea = BlastDamage.ShareInAir(5.0, 0.9e6, 10.0, 1.0);
+        double high = BlastDamage.ShareInAir(5.0, 0.9e6, 10.0, 0.1);
+
+        Assert.True(sea > 0.0);
+        Assert.True(high < sea);
+        Assert.Equal(0.0, BlastDamage.ShareInAir(5.0, 0.9e6, 10.0, 0.0));
+    }
+
+    /// <summary>
+    /// A 57E6's 5 kg bursting 8 m from a part with its fragments thrown the other way: at sea level the
+    /// shock alone costs it, in vacuum nothing does. Before the air was read it cost the same in both.
+    /// </summary>
+    [Fact]
+    public void InVacuumABlastOutsideItsFireballCostsNothing()
+    {
+        MunitionProfile missile = BuiltIns.Missile57E6;
+        DamageablePart part = new(0, new double3(8, 0, 0), 1.0, 0.9e6, MassKg: 200.0, PresentedAreaM2: 3.0);
+        double3 nose = new(1, 0, 0);
+
+        Assert.True(Cost(missile, part, Vec.Zero, Vec.Zero, nose, Vec.Zero) > 0.05);
+        Assert.Equal(0.0, Cost(missile, part, Vec.Zero, Vec.Zero, nose, Vec.Zero, pressureRatio: 0.0));
+    }
+
+    [Fact]
+    public void InVacuumAShellBurstingOnTheSkinStillHolesIt()
+    {
+        double3 skin = new(5.7, 0, 0);
+        double sea = Cost(BuiltIns.Cannon20Mm, Fin(new double3(5.7 + 0.2, 0, 0)), skin, Vec.Zero, Vec.Zero, Vec.Zero);
+        double space = Cost(BuiltIns.Cannon20Mm, Fin(new double3(5.7 + 0.2, 0, 0)), skin, Vec.Zero, Vec.Zero, Vec.Zero,
+                            pressureRatio: 0.0);
+
+        Assert.True(space >= 1.0);
+        Assert.Equal(sea, space, 1);
+    }
 }
