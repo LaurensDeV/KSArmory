@@ -107,6 +107,10 @@ body { font-family: "IBM Plex Sans", system-ui, sans-serif; }
   text-transform: uppercase;
 }
 .md-typeset code { border-radius: 0; }
+/* An attribute name broken mid-word cannot be copied or searched for. */
+.md-typeset table:not([class]) td:first-child code { white-space: nowrap; }
+/* On a phone the table scrolls sideways rather than squeezing the prose into a sliver. */
+.md-typeset table:not([class]) td:last-child { min-width: 16rem; }
 
 /* The home page's title, for a screen reader and the tab: the lockup under it says it to everyone else. */
 .md-typeset h1.ks-offscreen {
