@@ -548,8 +548,8 @@ internal sealed class Slug : IProjectile
                 Vec.Len(t.PositionEcl + t.VelocityEcl * backdate - PositionEcl));
         }
 
-        // Touching does not wait for the fuze; only its reach does. A shell runs into anything in its
-        // way before it has armed, as it runs into the ground, and until then its proximity fuse is dead.
+        // A shell runs into anything in its way before it has armed, as it runs into the ground; until
+        // then its proximity fuse is dead and what it runs into stops it as a dud.
         double trigger = Age >= munition.FuseArmSeconds ? munition.FuseRadius : 0.0;
 
         {
@@ -596,7 +596,7 @@ internal sealed class Slug : IProjectile
                 // Negative: the world sample is end-of-step, so the caller advances the world
                 // backward by this much to place the burst.
                 DetonationElapsedInFrame = elapsedInFrame + soonest - frameSeconds;
-                State = RoundState.Detonated;
+                State = Age - h + soonest >= munition.FuseArmSeconds ? RoundState.Detonated : RoundState.Dud;
                 return;
             }
         }
@@ -702,7 +702,7 @@ internal sealed class Slug : IProjectile
                 MissDistance = 0.0;
                 HitGround = true;
                 DetonationElapsedInFrame = elapsedInFrame + h * f - frameSeconds;
-                State = RoundState.Detonated;
+                State = Age - h + (h * f) >= munition.FuseArmSeconds ? RoundState.Detonated : RoundState.Dud;
 
                 // What it stopped against is the ground where it crossed, so that is what the
                 // measurements report rather than the frame's first sample.

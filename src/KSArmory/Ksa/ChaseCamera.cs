@@ -341,10 +341,10 @@ internal sealed class ChaseCamera : IViewPose
                 Aim = null;
                 PassOverEverythingFlying(system);
 
-                // An expiry is not a burst: nothing went off, so there is nothing to hold on.
-                if (spent.State == RoundState.Expired)
+                // An expiry or a dud is not a burst: nothing went off, so there is nothing to hold on.
+                if (spent.State is RoundState.Expired or RoundState.Dud)
                 {
-                    Log.Info("chase: the round expired, nothing to hold on");
+                    Log.Info($"chase: the round ended {spent.State}, nothing to hold on");
                     Release();
                     return;
                 }

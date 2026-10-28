@@ -248,7 +248,7 @@ A motor with more than one stage lists the extra stages as `<Stage>` children. `
 | `ChargeKg` | number | `20` | Explosive charge in kg. Lethal radius, blast radius and fireball size are all worked out from it, by the cube root: doubling the charge multiplies the reach by 1.26. |
 | `MaxChargeKg` | number | `0` | Top of the yield slider in the panel. `0` uses the slider's own maximum. |
 | `FuseRadius` | number | `15` | Proximity fuse distance, m. `0` means no proximity fuse. |
-| `FuseArmSeconds` | number | `0.6` | Time after release before the proximity fuse works. The round still explodes if it hits something earlier. |
+| `FuseArmSeconds` | number | `0.6` | Time after release before the warhead can go off. A shell, bomb or rocket that hits something or the ground earlier stops there as a dud: what it hit takes the impact, but nothing explodes. Before it arms a missile stops only on the ground, also as a dud. |
 | `TimedFuse` | `true` or `false` | `false` | For flak: also burst at the flight time the gun's aiming solution asked for. The proximity fuse still works. |
 | `HitsTerrain` | `true` or `false` | `false` | A shell, bomb or rocket stops at the ground. Missiles always do. Costs a terrain lookup per round per frame. |
 | `BurstHeightMetres` | number | `0` | Air burst: go off this high above the ground on the way down. `0` bursts on impact. Needs `HitsTerrain`. |

@@ -3181,12 +3181,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                             _airVelocityAt ??= AirVelocityIntoFrame));
 
             // Not "no longer flying": a shot-down round is reaped above, a frame later.
-            if (round.State is RoundState.Detonated or RoundState.Expired) RoundEnded?.Invoke(round);
+            if (round.State is RoundState.Detonated or RoundState.Expired or RoundState.Dud) RoundEnded?.Invoke(round);
 
             switch (round.State)
             {
                 case RoundState.Detonated:
                     Detonate(round);
+                    DropRound(i);
+                    break;
+                case RoundState.Dud:
+                    Dud(round);
                     DropRound(i);
                     break;
                 case RoundState.Expired:
@@ -3568,6 +3572,68 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                 round.Munition.ChargeKg, EffectBody,
                                 double.IsFinite(_ground.Height) ? _ground.Height : null);
         }
+    }
+
+    // A round stopped before its fuze armed: the hit, and no blast, flash or cloud.
+    private void Dud(IProjectile round)
+    {
+        string what = round.StruckBody switch
+        {
+            Vehicle v => KsaWorld.DisplayName(v),
+            IProjectile => "a round in the air",
+            _ => "the ground",
+        };
+        Announce($"{RoundLabel.For(round.Tube)} struck {what} {round.Age:F2} s out, before its fuze armed at "
+                 + $"{round.Munition.FuseArmSeconds:F2} s: a dud");
+
+        if (round.StruckBody is IProjectile { State: RoundState.Flying } other) other.ShootDown();
+        if (round.StruckBody is not Vehicle struck || !KsaWorld.IsAlive(struck)) return;
+
+        BulletHoles.Strike(struck, round);
+        if (ReferenceEquals(struck, Platform)) return;
+        if (_policy.ProtectControlledVehicle && ReferenceEquals(struck, KsaWorld.ControlledVehicle)) return;
+
+        StrikeInert(struck, round.PositionEcl, round.DetonationElapsedInFrame);
+    }
+
+    // The part a dud struck pays one share, as a strike does; nothing near it is touched.
+    private void StrikeInert(Vehicle v, double3 at, double elapsed)
+    {
+        if (_pendingKills.Contains(v)) return;
+
+        if (!_config.DamageIndividualParts || !KsaWorld.CanQueuePartFailures
+            || !KsaWorld.TryCollectDamageableParts(v, KsaWorld.PositionEcl(v), _partScratch, _partHandles))
+        {
+            QueueWholeCraft(v);
+            return;
+        }
+
+        if (StruckPart(v, at, elapsed) is not { } index) return;
+
+        Part part = _partHandles[index];
+        if (!PartHealth.World.Hit(part, 1.0, _config.DamageScale))
+        {
+            Announce($"hit {part.Id} on {KsaWorld.DisplayName(v)}: {PartHealth.World.Of(part):P0} left");
+            return;
+        }
+
+        // KSA's own fragment guard, asked rather than reproduced.
+        if (KsaWorld.LosingThatManyPartsIsFatal(1, _partHandles.Count))
+        {
+            QueueWholeCraft(v);
+            return;
+        }
+
+        if (!_pendingPartKills.TryGetValue(v, out List<Part>? queued))
+        {
+            queued = [];
+            _pendingPartKills[v] = queued;
+        }
+
+        if (queued.Contains(part)) return;
+
+        queued.Add(part);
+        Announce($"1 part(s) broken off {KsaWorld.DisplayName(v)}");
     }
 
     // Measurement only: the burst carried by the platform's velocity (the effects) against the

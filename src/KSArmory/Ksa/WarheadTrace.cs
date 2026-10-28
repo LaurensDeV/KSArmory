@@ -542,6 +542,7 @@ internal sealed class WarheadTrace
         RoundState.Detonated => round is Slug { HitGround: true } ? "landed" : "burst",
         RoundState.Expired => "expired in the air",
         RoundState.ShotDown => "was shot down",
+        RoundState.Dud => "struck something before it armed",
         _ => "stopped",
     };
 }

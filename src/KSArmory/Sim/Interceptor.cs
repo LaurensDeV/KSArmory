@@ -13,6 +13,12 @@ internal enum RoundState
     /// warhead never fired, so nothing is owed a blast at the wreck.
     /// </summary>
     ShotDown,
+
+    /// <summary>
+    /// Stopped by something it met before its fuze armed (<see cref="MunitionProfile.FuseArmSeconds"/>):
+    /// what it struck takes the hit, and its warhead never fires.
+    /// </summary>
+    Dud,
 }
 
 /// <summary>
@@ -538,7 +544,7 @@ internal sealed class Interceptor : IProjectile
                 MissDistance = double.PositiveInfinity;
                 HitGround = true;
                 DetonationElapsedInFrame = elapsedInFrame + h * f - frameSeconds;
-                State = RoundState.Detonated;
+                State = Age - h + (h * f) >= munition.FuseArmSeconds ? RoundState.Detonated : RoundState.Dud;
                 return;
             }
         }

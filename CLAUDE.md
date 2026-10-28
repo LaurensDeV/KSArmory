@@ -2176,10 +2176,13 @@ Four rules hold that together:
 - **A round names what it struck.** Fire control decides what to shoot at; it does not decide
   what a shell in the air passes through. Scoring a strike on a bystander against the *target's*
   lethal range destroys something the round never reached.
-- **Touching does not wait for the fuze to arm.** Arming delays how far the proximity fuse reaches,
-  never whether a shell runs into something, the way the ground has always stopped one. The 5"/54
-  arms 363 m out, and a tank stack 180 m from the mount was flown straight through while the ground
-  behind it stopped every shell. The mount itself is never a contact candidate.
+- **Touching does not wait for the fuze to arm, and before it arms a touch is a dud.** A shell runs
+  into what is in its way whatever the fuze says -- the 5"/54 arms 363 m out, and a tank stack 180 m
+  from the mount was once flown straight through -- but until it arms it stops there as
+  `RoundState.Dud`: the struck part pays one share (`WeaponSystem.StrikeInert`) and nothing explodes,
+  which is what an arming delay is for. A missile meeting the ground early is a dud too; one meeting a
+  craft early still passes it, since a missile asks no hull test. The mount itself is never a contact
+  candidate.
 
 **A round can be shot down, and that needed a path of its own rather than a wider blast.** A round
 is not a `Vehicle`, so none of the machinery above reaches one: `ContactCandidates` collects craft,

@@ -4,9 +4,9 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>
-/// A shell runs into what is in its way whether or not its fuze has armed; only the proximity fuse's
-/// reach waits. The 5"/54 arms 363 m out, and a tank stack 180 m from the mount was flown straight
-/// through while the ground behind it stopped every shell.
+/// A shell runs into what is in its way whether or not its fuze has armed, and before it has armed it
+/// stops there as a dud. The 5"/54 arms 363 m out, and a tank stack 180 m from the mount was flown
+/// straight through while the ground behind it stopped every shell.
 /// </summary>
 public class UnarmedStrikeTests
 {
@@ -31,7 +31,7 @@ public class UnarmedStrikeTests
     }
 
     [Fact]
-    public void AShellStrikesACraftItReachesBeforeItsFuzeArms()
+    public void AShellStopsAsADudOnACraftItReachesBeforeItsFuzeArms()
     {
         Assert.True(180.0 / Shell.LaunchSpeed < Shell.FuseArmSeconds,
                     "the craft should be inside the arming distance, or this proves nothing");
@@ -39,7 +39,7 @@ public class UnarmedStrikeTests
         object tanks = new();
         Slug slug = Fire(new TargetState(new double3(180, 0, 0), Vec.Zero, 3.0, tanks));
 
-        Assert.Equal(RoundState.Detonated, slug.State);
+        Assert.Equal(RoundState.Dud, slug.State);
         Assert.Same(tanks, slug.StruckBody);
         Assert.InRange(slug.PositionEcl.X, 170.0, 180.0);
     }
