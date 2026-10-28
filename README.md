@@ -34,9 +34,9 @@ KSArmory adds eleven weapons, three sights (one of them, the YAL-1, also a laser
 
 **Pantsir-S1 Point Defence System.** A Russian short-range air-defence vehicle on an 8×8 truck chassis. It carries twelve 57E6 missiles in two pods of six, two twin-barrel 2A38M 30 mm cannon, a spinning 1RS1 search radar and a 1TPP1 electro-optical director on the turret roof that you can look through. The missiles reach from 1.2 km to 20 km. They are command-guided: the vehicle tracks the target and steers each missile, so a missile is lost if the vehicle loses the track. The cannon cover 200 m to 4 km. The pods refill 12 seconds after the last missile leaves, and the cannon 20 seconds after they run dry. The Pantsir stacks on a 3 m node and has its own command module, so a craft made of nothing but the Pantsir can be built and launched.
 
-**Weapon Mount.** An empty mount that attaches to any surface. Click any missile, the B61 or a rocket pod onto it, and it becomes the launcher that store brings: an ejector rack or a launch rail. It fires nothing itself.
+**Weapon Mount.** An empty mount that attaches to any surface. Click any missile, the B61, a rocket pod or the LITENING pod onto it, and it becomes the launcher that store brings: an ejector rack or a launch rail. It fires nothing itself.
 
-**Ejector Rack.** Not a part of its own: the rack the B61 and the rocket pods hang from, and what an empty Weapon Mount looks like. When it releases the B61, two arms push the bomb down out of the rack. A rocket pod stays on the rack and fires its rockets from their tubes.
+**Ejector Rack.** Not a part of its own: the rack the B61, the rocket pods and the LITENING pod hang from, and what an empty Weapon Mount looks like. When it releases the B61, two arms push the bomb down out of the rack. A rocket pod or the LITENING pod stays on the rack.
 
 **Launch Rail.** Not a part of its own: the rail every missile brings with it. It is the ejector rack's housing with a channel along its underside in place of hooks and arms, and the missile slides forward along it under its own motor.
 

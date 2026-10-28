@@ -66,8 +66,8 @@ MOUNTS_TITLE = "Racks and rails"
 MOUNTS_FOLDER = "weapons/racks-and-rails"
 MOUNTS = [
     ("KSArmory_Prefab_WeaponsRail", "Ejector Rack", "Carriage",
-     "Hangs from the [Ejector Rack]({link}) it brings."),
-    ("KSArmory_Prefab_LaunchRail", "Launch Rail", "LaunchRail", "Slides off the [Launch Rail]({link}) it brings."),
+     "Hangs from an [Ejector Rack]({link}), which appears with it once it is attached."),
+    ("KSArmory_Prefab_LaunchRail", "Launch Rail", "LaunchRail", "Slides off a [Launch Rail]({link}), which appears with it once it is attached."),
 ]
 
 
@@ -318,7 +318,7 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
                      for _, name, marker, line in MOUNTS if marker}
     carried_by: dict[str, list[str]] = {}
     for _, root, _ in family_files():
-        for e in root.iter("Launcher"):
+        for e in root:
             if (marker := e.get("CarriageMarker")) in carriage_page and e.get("PartId") not in hidden_parts():
                 carried_by.setdefault(marker, []).append(names.get(e.get("PartId"), e.get("PartId")))
     # Across every family: the Pantsir's roof director names a sensor Sensors.xml defines.
@@ -443,7 +443,7 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
             *front_matter(name, plain(blurb or name), f"models/{slug(model)}-card.png"),
             *VIEWER_SCRIPTS, "", f"# {name}", "", relink(blurb or "", ROOT / "README.md", page), "",
             viewer(model, name), "",
-            *([f"The stores that bring one: {', '.join(stores)}.", ""] if stores else [])])
+            *([f"The stores that come with one: {', '.join(stores)}.", ""] if stores else [])])
         mounts.append({"name": name, "part": model, "family": MOUNTS_TITLE, "page": page, "id": anchor(name),
                        "href": f"/{MOUNTS_FOLDER}/{anchor(name)}/", "kinds": "mount", "reach": None, "warhead": None})
     weapons += mounts
