@@ -318,6 +318,10 @@ internal sealed partial class Ui
                     + "A moving warhead's band arrives tilted forward.");
                 ImGui.SliderFloat("Spray half-width (deg)", ref _munition.SprayHalfWidthDeg, 1f, 90f);
             }
+
+            ImGui.SliderFloat("Ignition chance", ref _munition.IgnitionChance, 0f, 1f);
+            Tip("The chance each fragment or strike sets fire to a part holding propellant, in air. "
+                + "A burning part loses its health over 20 to 100 seconds and then breaks.");
             if (_munition.HitsTerrain)
             {
                 ImGui.SliderFloat("Burst height (m)", ref _munition.BurstHeightMetres, 0f, 10000f,

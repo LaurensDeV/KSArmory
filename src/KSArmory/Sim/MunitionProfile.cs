@@ -506,6 +506,12 @@ public sealed class MunitionProfile
     public float SprayHalfWidthDeg = 10f;
 
     /// <summary>
+    /// The chance each fragment or strike lights a part holding propellant (<see cref="PartFire"/>):
+    /// about 0.35 for an incendiary round, 0.08 for a steel fragment, zero for none.
+    /// </summary>
+    public float IgnitionChance;
+
+    /// <summary>
     /// Whether the ground stops this round, and so whether it ends by landing
     /// (<see cref="RoundReach"/>). A missile meets the ground through <see cref="Interceptor.Ground"/>
     /// whatever this says.

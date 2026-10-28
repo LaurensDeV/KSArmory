@@ -12,6 +12,9 @@
 
     FuseRadius="2.5" is ours, not the real round's: a real 20 mm round has to hit.
 
+    IgnitionChance="0.35" is the M197's M56 HEI incendiary fill; the Phalanx's APDS carries none, and
+    shares it until the two rounds are split (docs/DAMAGE-PLAN.md, step 4).
+
     MaxFlightSeconds="2.5": a shell takes 2.1 s to reach the gun's 1486 m range, so it is removed just
     after. Longer costs frame time: the gun fires 75 rounds a second, so every extra second of life is
     75 more shells to step and draw. TracerBurnSeconds="2.2" ends the glow just before the shell is
@@ -21,7 +24,7 @@
             MinRange="100" MaxRange="1486"
             LaunchSpeed="1100" BoostSeconds="0" BoostAccel="0" MaxFlightSeconds="2.5"
             MassKg="0.102" CalibreMm="20" DragCoefficient="0.3"
-            FuseRadius="2.5" FuseArmSeconds="0.03" ChargeKg="0.05"
+            FuseRadius="2.5" FuseArmSeconds="0.03" ChargeKg="0.05" IgnitionChance="0.35"
             TracerEvery="4" TracerBurnSeconds="2.2" />
 
   <!--
@@ -53,7 +56,7 @@
             MassKg="31.75" CalibreMm="127" DragCoefficient="0.306"
             TimedFuse="true" FuseRadius="12" FuseArmSeconds="0.45" ChargeKg="3.5"
             FragmentCount="1500" FragmentMassGrams="10" FragmentSpeed="1000"
-            SprayAngleDeg="80" SprayHalfWidthDeg="30"
+            SprayAngleDeg="80" SprayHalfWidthDeg="30" IgnitionChance="0.08"
             HitsTerrain="true" />
 
   <!--

@@ -167,6 +167,66 @@
     </ParticleEmitter>
 
     <!--
+      A part on fire: small flame particles thrown out of the hole with the craft's own speed, which the
+      drag then takes off them, so off a moving craft they stream back as a tongue and off one standing
+      still they rise. Under air's density, so buoyancy lifts them at a g. Ksa/PartFires.cs places it on
+      the skin every frame and sizes the particles from the part. The black smoke child does the same,
+      slower and longer.
+    -->
+    <ParticleEmitter Id="KSArmoryPartFire" Drag="4" Density="0.5">
+        <MaxParticles Value="192" />
+        <Mesh Id="ParticleSphere"/>
+        <Renderer>SimpleColor</Renderer>
+        <Updaters>SimpleMovement</Updaters>
+        <Updaters>ShrinkOverLifetime</Updaters>
+        <Updaters>HueShift</Updaters>
+        <Updaters>ModelMatrix</Updaters>
+        <Updaters>Age</Updaters>
+        <SpawnMode>Endless</SpawnMode>
+        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+        <EmitterSize Value="0.1"/>
+        <EmitterExtents X="0.08" Y="0" Z="0"/>
+        <SpawnRate Value="200"/>
+        <Force X="0" Y="0" Z="0" />
+        <InheritVelocity Value="true"/>
+        <ParticleColor X="10" Y="3.6" Z="0.8" W="1"/>
+        <ParticleColorShift X="0.15" Y="0.35" Z="0"/>
+        <ParticleLifespan X="0.5" Y="0.9"/>
+        <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
+        <ParticleSize X="0.15" Y="0.4"/>
+        <ParticleVelocity X="0.8" Y="0.8" Z="0.8"/>
+        <ParticleVelocityShift Value="0.6"/>
+        <ParticleExtra X="0.5" Y="0" Z="0" W="0"/>
+
+        <ParticleEmitters Drag="2" Density="0.9">
+            <MaxParticles Value="96" />
+            <Mesh Id="Plane"/>
+            <Renderer>Billboard</Renderer>
+            <MaterialId Value="KSArmoryFlakMaterial"/>
+            <Updaters>SimpleMovement</Updaters>
+            <Updaters>GrowOverLifetime</Updaters>
+            <!-- W is the grow ratio: without it the curve runs to zero and the smoke implodes. -->
+            <EmitterExtra W="4.0"/>
+            <Updaters>ModelMatrix</Updaters>
+            <Updaters>Age</Updaters>
+            <SpawnMode>Endless</SpawnMode>
+            <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+            <EmitterSize Value="0.2"/>
+            <EmitterExtents X="0.1" Y="0" Z="0"/>
+            <SpawnRate Value="24"/>
+            <Force X="0" Y="0" Z="0" />
+            <InheritVelocity Value="true"/>
+            <ParticleColor X="1" Y="1" Z="1" W="0.6"/>
+            <ParticleLifespan X="3.0" Y="5.0"/>
+            <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
+            <ParticleSize X="0.4" Y="0.9"/>
+            <ParticleVelocity X="0.5" Y="0.5" Z="0.5"/>
+            <ParticleVelocityShift Value="0.8"/>
+            <ParticleExtra X="0.8" Y="0" Z="0" W="0"/>
+        </ParticleEmitters>
+    </ParticleEmitter>
+
+    <!--
       A chaff cartridge blooming: a faint grey-silver cloud tens of metres across within a second,
       which is nearly invisible in life. One burst where the dipoles stopped in the air; the sprite is
       the gun's smoke, kept thin. Density a hair over air's, so it settles as slowly as chaff does.

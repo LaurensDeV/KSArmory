@@ -252,6 +252,7 @@ public static class PackReader
             FragmentSpeed = r.Number("FragmentSpeed", 1800f),
             SprayAngleDeg = r.Number("SprayAngleDeg", 90f),
             SprayHalfWidthDeg = r.Number("SprayHalfWidthDeg", 10f),
+            IgnitionChance = r.Number("IgnitionChance", 0f),
             HitsTerrain = r.Flag("HitsTerrain", false),
             BurstHeightMetres = r.Number("BurstHeightMetres", 0f),
             ChuteSinkMetresPerSecond = r.Number("ChuteSinkMetresPerSecond", 0f),

@@ -1,6 +1,6 @@
 # Damage: how a hit becomes a broken part
 
-**Part record, part plan.** Step 1 is built and flown (2026-10-28, below). Steps 2–5 are not built.
+**Part record, part plan.** Step 1 is built and flown (2026-10-28, below). Steps 2 and 3 are built and flown (2026-10-28), the fire's look still being judged. Steps 4 and 5 are not built.
 
 ## Why every weapon used to kill outright
 
@@ -112,37 +112,70 @@ The 20 mm and 30 mm rounds are unchanged in step 1 and throw no fragments.
   rounds burst 11–13 m over the defending Pantsir and cost it 2–5% of one part.
 - **Not exercised**: a missile's fragments on a round in the air, because no interceptor fuzed.
 
-## Step 2: damage that is not a broken part (not built)
+## Step 2: damage that is not a broken part (built)
 
 KSA has no partial-damage state: a part is whole or removed (read off the decompiled 2026.10.19.5638
-source). What a mod can write instead:
+source). `Ksa/DamagedEngines.cs` writes what a hurt engine can still do (`Sim/EngineDamage.cs`)
+through the engine's own levers, in `AttitudeHook`'s window:
 
-- **Engine.** Scale `Combustor.Config.CombustionPressureMax` for thrust lost. Set `Gimbal.AxisY/Z.MaxAngle`
-  to 0 to freeze the gimbal. Call `EngineController.SetIsActive(false)` below about 0.2 health.
-- **Tank.** The holes `BulletHoles` makes already leak (`Leaks.cs`). They now survive long enough to,
-  since the struck tank no longer breaks on the hit that made the hole. Cutting a tank off from the
-  engines goes through `InputEvents.TankPropellantUseChangeBuffer`.
-- **The player can undo an engine or tank switch from the UI**, so a damaged state needs a mod-side
-  record that re-applies it from `AttitudeHook`'s window.
+| Health | Effect | Lever |
+| --- | --- | --- |
+| above 0.8 | none | |
+| 0.8 to 0.2 | thrust falls linearly to nothing | `Combustor.Config.CombustionPressureMax` (or a thermal core's `ChamberPressureMax`) times the share. Chamber pressure is throttle times that maximum, so this is a throttle ceiling the engine's model already handles |
+| below 0.5 | gimbal holds centred | `Gimbal.AxisY/Z.MaxAngle` set to 0 |
+| 0.2 and below | shut down | `EngineController.SetIsActive(false)`, sent again whenever the player relights it |
 
-## Step 3: fire (not built)
+After each write, each engine's cached `VacuumData` and `SeaLevelData` and the gimbal controllers'
+static data are re-derived, as `PartTree.RecomputeRocketControls` does on a structural change.
+Solid motors and antimatter cores are only shut down. Nothing is saved, which matches the health it
+follows.
 
-**Ignition.** Each hit on a part holding propellant may start a fire:
-- incendiary or HEI: about 0.35
-- a steel fragment: about 0.08
-- no air: none, unless the tank holds oxidiser
+Tanks need nothing new. The holes `BulletHoles` makes already leak through `Leaks.cs`, and a struck
+tank no longer breaks on the hit that holed it.
 
-A fire costs about 0.02 health a second, so a burning part fails in 20–100 s (estimate). That is the
-"goes down a minute later" kill.
+## Step 3: fire (built)
 
-**Drawing it needs no new shader**:
-- **Flame.** A pooled flame emitter re-anchored to the part each frame through
-  `KsaWorld.TryDrawnPartPointEcl`, as `DecoyEffects` does a flare.
-- **Smoke.** A `PlumeSmoke.Strand` for the trail, given a colour parameter so it can be dark.
-- **Light.** Point lights through `LightDebug.Lights`, as `Fireball.cs` adds its one.
-- **Ignition.** KSA's own `SmallFire` preset for the moment it catches.
+**Ignition** (`Sim/PartFire.cs`):
+- **Per hit.** Each fragment or strike on a part holding propellant has the munition's
+  `IgnitionChance` of lighting it.
+  - The 20 mm and 30 mm rounds use 0.35, the incendiary figure.
+  - Every fragmenting warhead uses 0.08, for steel fragments.
+- **Only in air.** It needs more than KSA's own 100 Pa floor at the craft.
+- **Burning.** The fire costs its part a rate drawn between 0.01 and 0.05 of its health per second, so
+  20–100 s from whole. It goes out when the air or the tank runs out.
+- **Going up at once.** A fifth of fires (`FlashoverChance`, an estimate) skip burning: the tank's
+  vapour space lights and the part breaks on the spot, whatever the damage scale. KSA's failure queue
+  then explodes it by the propellant still in it.
 
-Cap it at 12–16 fires, which is the budget the flare cores and leak streams already keep.
+**Drawn** (`Ksa/PartFires.cs`), as a flare is:
+- **Flame.** A pooled `KSArmoryPartFire` flame placed on the part's box every frame and sized from it.
+  Its particles live long enough to stream off a moving craft, with a black billboard smoke child.
+- **Smoke.** A strand of the booster smoke renderer, laid dark through the colour parameter
+  `PlumeSmoke.Lay` now takes.
+- **Cap.** At most twelve flames, the flare cores' budget. Past that a fire still smokes and burns.
+- **No light yet.** `Fireball` owns the only light the mod pushes, through the tail of `LightDebug.Lights`,
+  and a second owner there needs its bookkeeping shared first.
+
+**Flown 2026-10-28**, a Phalanx against a parked 575 t stock rocket 800 m out, and `gunnery`:
+- **Fires.** Single 20 mm strikes lit 3 m tanks. One burned 18 s before the tank broke off, and one
+  went up at once. Fires are lit only on parts that survive the hit.
+- **Engine damage.** It wrote and logged thrust shares from 71% to 97% on the stock rocket's engines and
+  RCS blocks. No exception in KSA's log.
+- **The look.** The first flame sat inside the tank and read as a jumping ball. It now sits on the skin
+  where the ray from the burst meets it and streams out of it. Seen once, small, in a gap between
+  boosters, so whether it reads well is still open.
+
+**Ideas from players, not built:**
+- **A burning leak.** A holed tank on fire draws its leak stream as flame rather than liquid, the
+  *Project Hail Mary* shot. `Shaders/KSArmoryLeak.comp` already draws every stream; it would need a
+  burning flag per stream.
+- **Cryogenic vapour.** A tank holding a cryogenic propellant vents white vapour where the stream
+  boils off. The tank's moles say what it holds.
+- **A pressure-vessel breach, not a barrel.** Today's stream is liquid falling out of a hole under the
+  mod's own 0.2 bar, so it reads as water from a drum. A flight tank holds a few bar, which throws a
+  fast jet that atomises into spray and, for a cryogen, flashes to vapour at the hole. That means
+  raising the tank pressure in `Sim/TankLeak.cs`, which was kept low on purpose (CLAUDE.md has why), or
+  drawing a burst of spray and vapour at the moment of the hit, apart from the steady stream.
 
 ## Step 4: the gun rounds split (not built)
 

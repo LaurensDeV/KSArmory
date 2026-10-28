@@ -79,6 +79,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private readonly List<Part> _partHandles = [];
     private readonly List<int> _failedParts = [];
     private readonly List<(int Index, double Share)> _partShares = [];
+    private readonly List<(int Index, int Hits)> _partHits = [];
+    private readonly List<int> _flashedOver = [];
+    private double3 _igniteBurst;
+    private double _igniteElapsed;
 
     // How the warhead going off now was moving and pointing, and the air round it; null for a burst
     // with no round, whose fragments then leave at the craft's own velocity, every way alike.
@@ -3940,7 +3944,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         BurstContext context = _warhead is { } w
             ? new BurstContext(burst, elapsed, craftVelocity, w.VelocityEcl, w.Nose, w.AirKgPerM3, w.FuzeLead)
             : new BurstContext(burst, elapsed, craftVelocity, craftVelocity, Vec.Zero, AirAt(burst));
-        BlastDamage.Costs(context, CollectionsMarshal.AsSpan(_partScratch), munition, _fragmentDice, _partShares);
+        _partHits.Clear();
+        BlastDamage.Costs(context, CollectionsMarshal.AsSpan(_partScratch), munition, _fragmentDice, _partShares,
+                          _partHits);
 
         // A shell that struck this craft also pays the part it hit for what its own mass carried in.
         if (confirmed && _warhead is { } shell && munition.MassKg > 0f
@@ -3954,8 +3960,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                     munition.MassKg, Vec.Len(shell.VelocityEcl - craftVelocity),
                     PartToughness.Joules(struck.MassKg, struck.CrashTolerancePascals));
                 _partShares.Add((struckIndex, impact));
+                _partHits.Add((struckIndex, 1));
             }
         }
+
 
         double worst = 1.0;
         foreach ((int index, double share) in _partShares)
@@ -3968,6 +3976,18 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             {
                 worst = Math.Min(worst, PartHealth.World.Of(_partHandles[index]));
             }
+        }
+
+        // After the breaks: a part already breaking off has nothing left to burn.
+        _flashedOver.Clear();
+        (_igniteBurst, _igniteElapsed) = (burst, elapsed);
+        Ignite(v, munition);
+
+        // A tank gone up breaks whatever was left of it, at any damage scale.
+        foreach (int index in _flashedOver)
+        {
+            PartHealth.World.Hit(_partHandles[index], 1.0, 1.0);
+            if (!_failedParts.Contains(index)) _failedParts.Add(index);
         }
 
         // Before the craft's fate is decided: the dents are for a craft that survives.
@@ -3993,7 +4013,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         {
             if (_partShares.Count == 0) return false;
 
-            Announce($"damaged {_partShares.Count} part(s) on {KsaWorld.DisplayName(v)}, the worst left at {worst:P0}");
+            // A gun's splash grazes every craft near each shell: said only for the one it was aimed at.
+            string damaged = $"damaged {_partShares.Count} part(s) on {KsaWorld.DisplayName(v)}, the worst left at {worst:P0}";
+            if (confirmed) Announce(damaged);
+            else Log.Debug(damaged);
             return true;
         }
 
@@ -4025,6 +4048,31 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         Announce($"{added} part(s) broken off {KsaWorld.DisplayName(v)}");
         return true;
+    }
+
+    // Fragments and a strike on a part holding propellant may set it burning (PartFire).
+    private void Ignite(Vehicle v, MunitionProfile munition)
+    {
+        if (!(munition.IgnitionChance > 0f)) return;
+
+        foreach ((int index, int hits) in _partHits)
+        {
+            Part part = _partHandles[index];
+            if (_failedParts.Contains(index) || PartFire.World.IsBurning(part) || !PartFires.CanBurn(part)) continue;
+            if (!PartFire.World.TryIgnite(part, hits, munition.IgnitionChance, _fragmentDice)) continue;
+
+            if (_fragmentDice.NextDouble() < PartFire.FlashoverChance)
+            {
+                PartFire.World.PutOut(part);
+                if (!_flashedOver.Contains(index)) _flashedOver.Add(index);
+                Announce($"{part.Id} on {KsaWorld.DisplayName(v)} went up");
+                continue;
+            }
+
+            PartFires.Pin(part, v, InFrame.AtBurst(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v), _igniteElapsed) - _igniteBurst,
+                          InFrame.AtBurst(_partScratch[index].PositionEcl, KsaWorld.VelocityEcl(v), _igniteElapsed) - _igniteBurst);
+            Announce($"{part.Id} on {KsaWorld.DisplayName(v)} is on fire");
+        }
     }
 
     // The part nearest a strike, or null for a craft with no part to charge.

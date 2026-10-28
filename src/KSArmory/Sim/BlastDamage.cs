@@ -323,7 +323,7 @@ internal static class BlastDamage
     /// the other were not there.</para>
     /// </summary>
     public static void Costs(in BurstContext burst, ReadOnlySpan<DamageablePart> parts, MunitionProfile munition,
-                             Random dice, List<(int Index, double Share)> into)
+                             Random dice, List<(int Index, double Share)> into, List<(int Index, int Hits)>? hits = null)
     {
         ArgumentNullException.ThrowIfNull(munition);
         ArgumentNullException.ThrowIfNull(dice);
@@ -351,8 +351,9 @@ internal static class BlastDamage
             FragmentLoad load = Fragmentation.OnPart(spray, burst.BurstEcl + burst.FuzeLeadEcl, burst.NoseAxis,
                                                      burst.WarheadVelocityEcl - burst.PartVelocityEcl,
                                                      centre, part.AreaM2, burst.AirKgPerM3);
-            int hits = Fragmentation.Hits(load.ExpectedHits, dice);
-            cost += PartToughness.FragmentShare(hits, load.JoulesPerHit(spray.MassKg), joules);
+            int struck = Fragmentation.Hits(load.ExpectedHits, dice);
+            cost += PartToughness.FragmentShare(struck, load.JoulesPerHit(spray.MassKg), joules);
+            if (struck > 0) hits?.Add((part.Index, struck));
 
             if (cost > 0.0) into.Add((part.Index, cost));
         }

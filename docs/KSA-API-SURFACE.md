@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-339 types and 905 members across 12 assemblies.
+345 types and 916 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -842,6 +842,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `System.Collections.Generic.List`1<KSA.CloudLayerReference> Layers`
 
+### KSA.Combustor
+
+- `KSA.CombustorConfig Config`
+
+### KSA.CombustorConfig
+
+- `float CombustionPressureMax`
+
 ### KSA.ConicalTankTemplate
 
 - `KSA.DistanceReference Length`
@@ -931,6 +939,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.EngineController
 
+- `KSA.RocketControllerData SeaLevelData`
 - `KSA.RocketControllerData VacuumData`
 - `KSA.RocketCore[] Cores`
 - `bool get_IsActive()`
@@ -1092,9 +1101,18 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void CreateDraggableZoomableViewport(Brutal.Numerics.float2, ref Brutal.Numerics.float2, ref Brutal.Numerics.float2)`
 - `void ResetView()`
 
+### KSA.Gimbal
+
+- `KSA.GimbalAxis AxisY`
+- `KSA.GimbalAxis AxisZ`
+
+### KSA.GimbalAxis
+
+- `float MaxAngle`
+
 ### KSA.GimbalController
 
-*referenced as a type only*
+- `void RecomputeStaticData()`
 
 ### KSA.GizmosRenderer
 
@@ -1743,10 +1761,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.float3 ThrustMax`
 - `KSA.RocketControllerData ComputeFromCores(System.ReadOnlySpan`1<KSA.RocketCore>, float, float)`
 - `float MassFlowRateMax`
+- `void ComputeFromCores(System.ReadOnlySpan`1<KSA.RocketCore>, float, float, float, ref KSA.RocketControllerData, ref KSA.RocketControllerData)`
 
 ### KSA.RocketCore
 
-*referenced as a type only*
+- `void RecomputeDesignConditions()`
 
 ### KSA.ScreenshotCapture
 
@@ -1855,6 +1874,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.TextureReference Get()`
 - `int get_BindlessHandle()`
+
+### KSA.ThermalCore
+
+- `KSA.ThermalCoreConfig Config`
+
+### KSA.ThermalCoreConfig
+
+- `float ChamberPressureMax`
 
 ### KSA.ThrusterController
 

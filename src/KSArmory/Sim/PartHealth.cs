@@ -51,6 +51,15 @@ internal sealed class PartHealth
         return taken.Value >= 1.0 - Rounding;
     }
 
+    /// <summary>Every part something has cost, with what is left of it.</summary>
+    public IEnumerable<(object Part, double Health)> Damaged()
+    {
+        foreach (KeyValuePair<object, StrongBox<double>> entry in _taken)
+        {
+            if (entry.Value.Value > 0.0) yield return (entry.Key, Of(entry.Key));
+        }
+    }
+
     // Ten hits at a tenth sum to 0.9999999999999999, and must break the part.
     private const double Rounding = 1.0e-9;
 }

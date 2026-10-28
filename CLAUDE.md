@@ -390,6 +390,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/LeakStream.cs` | a hole's stream, **flown parcel by parcel** (`LeakJet`) in a frame riding with the craft but not turning with it, under the pull the craft feels reversed — so a throttle change bends it from the hole outward and a turn swings it, where an arc solved for the acceleration of the moment re-bends whole in a frame; thinning as it speeds up (`r ∝ 1/√v`) and whole for about thirty diameters before it is drops |
 | `Sim/PartHealth.cs` | what is left of each part, from one down to nothing — a hit costs its share times `Config.DamageScale`, never more than a whole share at once, and a load short of breaking is not forgotten |
 | `Sim/Fragmentation.cs` | **what kills past a few metres** — a warhead's fragments thrown in a band about its nose, tilted forward by its own speed against the target, thinning as the square of the range and counted on a part as a Poisson draw; a part outside the band takes nothing however close, which is why a missile's kill probability is not one. And where a fuze matched to its warhead fires, since bursting at the nearest point throws the band ahead of a fast pass |
+| `Sim/EngineDamage.cs` | what a hurt engine can still do from what is left of its part — **its thrust capped as a lower throttle would cap it**, whole above 0.8 and nothing at 0.2, the gimbal gone below 0.5, and at 0.2 shut down |
+| `Sim/PartFire.cs` | parts on fire — lit by a hit on a part holding propellant at the munition's `IgnitionChance` per fragment or strike, burning it out in 20–100 s, **a fifth going up at once** rather than burning |
 | `Sim/PartToughness.cs` | how much energy breaks a part — **its mass to the two thirds**, so size buys toughness where KSA's tolerance reads only density — and what a burst's intercepted share, a fragment or a shell's own impact pays against it; a round in the air is a fraction as tough, since one fragment through its warhead or motor ends it |
 | `Sim/TargetAllocation.cs` | what one craft's weapons have in the air **between them** — the unit that over-commits is the craft, not the weapon |
 | `Sim/RoundReach.cs` | whether a round the ground stops can still get to it — **the reaper for a store that will never arrive**, because a long fall is long rather than stuck |
@@ -603,6 +605,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/OpticalHead.cs` | **one director** — its own sensor, its own aim, no weapon involved |
 | `Ksa/OpticalHeads.cs` | one head per director fitted, crewed with the craft and followed across a split, and handed its craft's picture |
 | `Ksa/TravelSweeps.cs` | sweeps each gun's travel against its own craft with the engine's part ray casts — **50 rays and 1 ms a frame across every mount**, the craft on the panel first, and only once a craft has kept its shape for 60 frames, so a break-up is swept once. Other mounts are left out, since their barrels move |
+| `Ksa/DamagedEngines.cs` | `EngineDamage` written through KSA's own levers in `AttitudeHook`'s window — a combustor's or thermal core's `ChamberPressureMax`, the gimbal's `MaxAngle`, `SetIsActive(false)` again whenever the player relights it — and the engine's cached performance re-derived after, since nothing structural changed. Not saved, as the health it follows is not |
+| `Ksa/PartFires.cs` | each fire's burn charged to its part on the simulated clock and the part broken through the engine's failure queue when it runs out, put out when the air or the tank runs out — and drawn as a flare is: a pooled flame placed on the part every frame, **at most twelve**, and a strand of dark booster smoke |
 | `Ksa/StoreMass.cs` | a launcher or dispenser part made lighter by what it has fired, through KSA's own per-part mass slot and in `AttitudeHook`'s window — **scaled where the part declares it, never moved to the tube**, because the bus's mass sits on its thruster ring on purpose. Not saved, which matches a magazine |
 | `Ksa/Countermeasures.cs` | every dispenser fitted and every decoy in the air — **stepped after the airborne sample and before any round**, so a seeker reads a decoy as it reads a craft, at the end of the step it integrates |
 | `Ksa/InstalledPacks.cs` | reads those folders and registers what is in them — **what lets a pack be assets only**; this mod's own folder it reads earlier, through `CoreDefinitions` |
@@ -760,7 +764,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 905 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 916 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1383,7 +1387,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from about 770,000 lines to the files
-defining the 339 types this mod actually uses.
+defining the 345 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 34 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 16 MB —
