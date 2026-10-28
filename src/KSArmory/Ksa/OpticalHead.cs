@@ -153,6 +153,8 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
     // Where the head is actually looking, in the director's own part frame.
     private readonly PointingDrive _drive = new();
+    private readonly StowTuck _stow = new();
+    private const double StowSettledRad = 0.0087;
 
     // The drives' clock: the engine's step carries the display's frame pacing, three times as long
     // on alternate frames.
@@ -226,12 +228,21 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
         // AimPartFrame first: it is what works out how hard the cursor is commanding, and the
         // rate below is that command.
         double3 aim = AimPartFrame();
+        double step = _driveStep.Next(dt);
 
-        _drive.Update(_driveStep.Next(dt), aim, Profile.SlewRateRad * _mouseRate);
+        // A parked pod tucks its windows into the nose once it has reached its rest, and untucks
+        // before it may slew anywhere else.
+        bool parked = _aimed == Aimed.Rest && Vec.AngleBetween(_drive.Direction, aim) < StowSettledRad;
+        _stow.Step(step, parked, Profile.StowTuckRad, Profile.SlewRateRad);
 
-        // The travel again, on what the drive reached: the shortest rotation between two legal
-        // directions can pass through the mast.
-        _drive.Hold(OpticGeometry.ClampToTravel(Profile, Mount, _drive.Direction));
+        if (_stow.DriveFree)
+        {
+            _drive.Update(step, aim, Profile.SlewRateRad * _mouseRate);
+
+            // The travel again, on what the drive reached: the shortest rotation between two legal
+            // directions can pass through the mast.
+            _drive.Hold(OpticGeometry.ClampToTravel(Profile, Mount, _drive.Direction));
+        }
 
         // The shell whatever the head's latch says: a frozen head still has a roll the window sits at.
         if (RollPart is { } shell && _rollWorks
@@ -252,7 +263,7 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
 
         if (OpticPart is not { } head || !_driveWorks) return;
 
-        if (!OpticParts.TryApplyAim(head, Profile, Mount, AimWhenDrawn))
+        if (!OpticParts.TryApplyAim(head, Profile, Mount, AimWhenDrawn, _stow.Rad))
         {
             _driveWorks = false;
             Log.Warn("optic: the engine refused the head's transform; it is frozen where it stopped");

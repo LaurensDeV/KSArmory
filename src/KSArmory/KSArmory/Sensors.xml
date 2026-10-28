@@ -63,6 +63,8 @@
     within it, so its travel is one number, how far the tilt carries the sight off the centreline.
     LITENING III publishes a nod of +45 to -150 degrees; MaxOffBoresightDeg="147" is where the slot's
     slanted floor stops the line of sight from the ball's centre, so the shell binds before that 150.
+    StowTuckDeg="135": parked, it nods on past looking down until its windows face up and aft inside the
+    nose, as a stowed pod shows a blank ball.
 
     EyeForward="0.200" is the ball's radius, so the eye sits on the glass. SlewRateDeg="140":
     a roll-nod head slews faster than an az-el head of the same mass, which is most of why pods are
@@ -73,7 +75,7 @@
   <Optic PartId="KSArmory_Prefab_Litening" DisplayName="LITENING" Sensor="Litening" Gimbal="RollNod"
          BaseMarker="Litening_Body" RollMarker="Litening_Roll" HeadMarker="Litening_Head"
          HeadPivot="0.41000, 0.88000, 0.00000" EyeForward="0.200"
-         SlewRateDeg="140" MaxOffBoresightDeg="147" KeyholeDeg="4" CarriageMarker="Carriage"
+         SlewRateDeg="140" MaxOffBoresightDeg="147" KeyholeDeg="4" StowTuckDeg="135" CarriageMarker="Carriage"
          MaxMagnification="53" HasLaser="true" />
 
   <!--

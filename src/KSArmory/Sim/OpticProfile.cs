@@ -142,10 +142,18 @@ public sealed class OpticProfile
     public float KeyholeDeg = 4f;
 
     /// <summary>
+    /// How far past its rest a <see cref="GimbalKind.RollNod"/> ball nods once parked and settled,
+    /// so its windows face into the nose rather than out of its slot. Off at zero, as a mast head.
+    /// </summary>
+    public float StowTuckDeg;
+
+    /// <summary>
     /// A pod's own carriage, every subpart whose Id holds this, shown only while the part is attached
     /// to something -- as <see cref="LauncherProfile.CarriageMarker"/> does for a store.
     /// </summary>
     public string? CarriageMarker { get; init; }
+
+    public double StowTuckRad => double.DegreesToRadians(StowTuckDeg);
 
     /// <summary>
     /// How far the optics wind in, against the engine's 50° view. The zoom steps through the

@@ -115,8 +115,8 @@ internal static class OpticParts
     /// <para>False when the engine refuses the write, which the caller latches.</para>
     /// </summary>
     public static bool TryApplyAim(Part head, OpticProfile profile, MountFrame mount,
-                                   double3 aimPartFrame)
-        => TryApplyPose(head, OpticGeometry.Pose(profile, mount, aimPartFrame), "head");
+                                   double3 aimPartFrame, double tuckRad = 0.0)
+        => TryApplyPose(head, OpticGeometry.Pose(profile, mount, aimPartFrame, tuckRad), "head");
 
     /// <summary>
     /// Turns the outer roll gimbal to the roll the head's aim implies.

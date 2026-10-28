@@ -11,7 +11,7 @@ ignored.
 
 `docs/WEAPON-PACKS.md` is the same surface written for the author, with the reasons attached.
 
-**Definition schema 1.** 14 elements, 219 attributes, 15 entry-point lines.
+**Definition schema 1.** 14 elements, 220 attributes, 15 entry-point lines.
 
 ## Entry point
 
@@ -222,6 +222,7 @@ to build; widening it to take a profile type would put that back.
 | `MaxElevationDeg` | number | `85` |
 | `MaxOffBoresightDeg` | number | `135` |
 | `KeyholeDeg` | number | `4` |
+| `StowTuckDeg` | number | `0` |
 | `CarriageMarker` | text | *none* |
 | `MaxMagnification` | number | `16` |
 | `HasLaser` | true or false | `false` |

@@ -427,6 +427,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/ActuatorLinkage.cs` | a cylinder on the traverse and a rod on the cannon, posed from the elevation — drawn only |
 | `Sim/GunRotor.cs` | a rotary cannon's barrel cluster, spun up to a barrel per round while it fires and run down after — drawn only |
 | `Sim/PointingDrive.cs` | a head that points rather than trains — two degrees of freedom, no axes of its own |
+| `Sim/StowTuck.cs` | a parked roll-nod ball nodding on until its windows face into the nose — **and back before the head may slew** |
 | `Sim/Ejector.cs` | an ejector's push as a stroke — **the store accelerated evenly over the arms' travel**, leaving at the ejection speed as they reach the end, and the arms drawn on the same motion, so they stay on it the whole way |
 | `Sim/FireGeometry.cs` | launch direction and round-body orientation |
 | `Sim/BodyAttitude.cs` | which way a round points, and how a released store noses over |
@@ -2684,7 +2685,9 @@ the side the nod tilts towards: half a turn out and the sight looks through the 
 there is no roll angle at all, and near it a target crossing the nose asks for unbounded roll rate
 — the same singularity an alt-az telescope has at zenith. `KeyholeDeg` holds the command out of
 that cone, which is also why a pod parks looking *out of its mounting face* rather than along the
-host: `OpticGeometry.RestAim`, because the mast head's rest direction is the pod's keyhole.
+host: `OpticGeometry.RestAim`, because the mast head's rest direction is the pod's keyhole. Once
+settled there a pod nods on by `OpticProfile.StowTuckDeg` (`Sim/StowTuck.cs`), past its travel, so its
+windows face into the nose as a stowed pod's do, and untucks before it slews anywhere else.
 
 **A rolling nose turns the scene in the focal plane, and the picture is derotated.** Half a turn of
 roll and the image is upside down; every pod of the class counters it, optically with a K-mirror or

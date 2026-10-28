@@ -2162,6 +2162,9 @@ maps are all unproven paths.
       spinning the nose. This is the alt-az-at-zenith singularity and is expected, not a fault.
 - [ ] Looking aft and down it says **at the nod stop** at 147°, where the slot's slanted floor
       meets the sightline from the ball's centre.
+- [ ] **Parked, the ball goes blank.** With nothing to look at it turns to look down through the
+      slot, then nods on until its windows face up and aft inside the nose. Given a target it nods
+      back before it slews, about a second at 140°/s.
 - [ ] **Derotation.** Roll the aircraft, or track a target right round the pod: the picture keeps
       the airframe at the top rather than turning with the nose.
 - [ ] The pod stows looking **out of its mounting face** — straight down under a wing — rather
