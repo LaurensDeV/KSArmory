@@ -8,9 +8,10 @@ KSArmory looks for a folder called `KSArmory/` inside every enabled mod and read
 in it. Installing a pack is the same as installing any other mod, and uninstalling it removes its
 weapons.
 
-The [example mod](https://github.com/LaurensDeV/KSArmory-example-mod) is a complete pack you can copy:
-a Mk 82 bomb rack with its art and definitions. It also carries a working copy of every weapon
-KSArmory ships, so each built-in weapon doubles as an example.
+The [example mod](https://github.com/LaurensDeV/KSArmory-example-mod) is a pack to start from. Its
+own weapon, a Mk 82 bomb rack, is the smallest complete pack: one part, its art and the definitions
+in the Quick start below. It also carries a generated copy of every weapon KSArmory ships, for
+reference.
 
 Coming from Kerbal Space Program? Read [Coming from KSP modding](FROM-KSP-MODDING.md) first. There
 is no `PartModule` here, and that explains the layout below.
