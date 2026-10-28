@@ -3510,22 +3510,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (!seduced && (round.StruckBody ?? round.TargetRef) is Vehicle intended && KsaWorld.IsAlive(intended))
         {
             double lethalRange = judged.LethalRadius + KsaWorld.MeanRadius(intended);
-            if (round.MissDistance <= lethalRange)
-            {
-                // Said, or an immune target looks like a miss.
-                if (ReferenceEquals(intended, Platform))
-                {
-                    Announce($"hit on {KsaWorld.DisplayName(intended)} ignored - it is now the system's own platform");
-                }
-                else if (_policy.ProtectControlledVehicle && ReferenceEquals(intended, KsaWorld.ControlledVehicle))
-                {
-                    Announce($"hit on {KsaWorld.DisplayName(intended)} ignored - you are flying it (untick 'Never target the vehicle I'm flying')");
-                }
-                else
-                {
-                    Damage(intended, burst, elapsed, judged, confirmed: true);
-                }
-            }
+            // Whoever it is, the craft that fired and the one being flown included: protecting the flown
+            // craft is a choice about what to aim at, not an immunity to what a round does.
+            if (round.MissDistance <= lethalRange) Damage(intended, burst, elapsed, judged, confirmed: true);
         }
 
         // Rounds in the air pay as parts do, off the airborne list: KSA holds no state for them, so the
@@ -3551,7 +3538,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             Announce($"intercepted {contact.DisplayName} at {(struck ? round.MissDistance : Math.Max(gap, 0.0)):F0} m");
         }
 
-        Splash(burst, elapsed, judged);
+        Splash(burst, elapsed, judged, spareOwn: false);
 
         // Sized off the charge, as the damage radii are.
         if (_config.DrawExplosions)
@@ -3631,9 +3618,6 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (round.StruckBody is not Vehicle struck || !KsaWorld.IsAlive(struck)) return;
 
         BulletHoles.Strike(struck, round);
-        if (ReferenceEquals(struck, Platform)) return;
-        if (_policy.ProtectControlledVehicle && ReferenceEquals(struck, KsaWorld.ControlledVehicle)) return;
-
         StrikeInert(struck, round.PositionEcl, round.DetonationElapsedInFrame,
                     round.Munition.MassKg, Vec.Len(round.VelocityEcl - KsaWorld.VelocityEcl(struck)));
     }
@@ -3724,7 +3708,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     }
 
     // Shared by a round's detonation and SplashAt, so a bridge burst is judged as a warhead is.
-    private void Splash(double3 burst, double elapsed, MunitionProfile munition, bool spareOwn = true)
+    private void Splash(double3 burst, double elapsed, MunitionProfile munition, bool spareOwn)
     {
         IReadOnlyList<Vehicle> caught = KsaWorld.Vehicles;
 
@@ -3732,7 +3716,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         {
             Vehicle v = caught[i];
 
-            // Never broken, but dented: a dent breaks nothing.
+            // Only a bridge burst asked to spare them: dented, never broken.
             if (spareOwn && (ReferenceEquals(v, Platform)
                              || (_policy.ProtectControlledVehicle && ReferenceEquals(v, KsaWorld.ControlledVehicle))))
             {

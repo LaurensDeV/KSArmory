@@ -126,5 +126,4 @@ shows how it handles time and control.
 
 - `Sim/WarpPolicy.cs` holding the world's speed down while rounds fly.
 - The panel's slow-motion controls.
-- The craft being flown and the craft that fired being dented and never broken by a burst.
 - `Program.ControlledVehicle` read as "the player", named in 28 files under `src/KSArmory/`.

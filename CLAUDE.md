@@ -764,7 +764,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 916 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 917 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1912,7 +1912,7 @@ mirv` flies the craft already in the save it loads.
 **A system mounts to the craft carrying the launcher part, and stays there.** It does not
 follow the player's control: a system that re-homed onto whichever craft was being flown would
 move onto the target the moment the player took its seat, and the target could then not be shot
-at, because the kill path refuses to destroy its own platform — 22 m hits register as misses.
+at, because a system never aims at its own platform.
 `PinPlatform` is how `WeaponSystems` mounts each system on creation, and nothing moves it after:
 `ResolvePlatform` returns early for a pinned platform, so without that every system would elect
 the craft being flown and they would all pile onto it.
@@ -2147,10 +2147,9 @@ craft dent what neither dents alone, and **break** what neither breaks alone, th
 failure queue behind one worker join as the kill path does. The dust and the push go on arriving
 front by front, because those add anyway. Where there is no air the front is the
 debris itself and there is no delay to model, so it lands at once. **The craft that fired and
-the one being flown are dented and never broken**: the skip that protects them is about breaking,
-and a dent breaks nothing. **The ground a blast throws them onto is another matter**: the
-protection is from the burst, so a craft the shove tips over or flings is crash-damaged by the engine
-like any other. Flown with a damaging bridge burst against the rocket on the pad: 0.3 kt dented four
+the one being flown are judged like any other**: "Never target the vehicle I'm flying" is a choice
+about what to aim at, not an immunity to what a burst does, so a craft's own warhead going off beside
+it breaks it. Only a bridge burst asked to spare them (`spare_own`) dents them alone. Flown with a damaging bridge burst against the rocket on the pad: 0.3 kt dented four
 of its five parts at 1300 m and at 1450 m, and a fifth only with a second burst beside it -- before the
 ground's reflection was in the law (`Sim/GroundReflection.cs`); with it, the same surface burst dents all
 five at 1300 m, and the same yield 300, 1000 and 3000 m up dents four, three and none. Re-flown once the blast went by the air at the burst: the same four counts, since the pad's air leaves
