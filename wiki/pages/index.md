@@ -26,6 +26,7 @@ craft. You can also add weapons of your own without writing code.</p>
 <a class="ks-button" href="/guide/using/">Using it</a>
 <a class="ks-button" href="/modding/weapon-packs/">Make your own</a>
 </div>
+<!-- listing -->
 </div>
 
 ## Every weapon

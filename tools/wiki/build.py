@@ -21,7 +21,9 @@ import re
 import shutil
 import subprocess
 import sys
+import urllib.request
 import xml.etree.ElementTree as ET
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -472,6 +474,53 @@ self.ModelViewerElement = {
 
 GALLERY_MARKER = "<!-- every weapon -->"
 PATCH_MARKER = "<!-- patch -->"
+LISTING_MARKER = "<!-- listing -->"
+
+# What Borea and ksamods.gg read: the downloads are GitHub's and SpaceDock's added together.
+CONTENT_INDEX = "https://ksamodding.github.io/content-index-releases/v1/index.json"
+LISTING_ID = "KSArmory"
+
+DOWNLOAD_ICON = ('<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5'
+                 'M5 19.5h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+                 'stroke-linejoin="round"/></svg>')
+DATE_ICON = ('<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" '
+             'stroke="currentColor" stroke-width="2"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" '
+             'stroke-width="2" stroke-linecap="round"/></svg>')
+
+
+def listing_card() -> str:
+    """KSArmory as the content index lists it, laid out as ksamods.gg lays out a mod, or nothing when the
+    index cannot be read: a site built offline is the same site without the card."""
+    try:
+        with urllib.request.urlopen(CONTENT_INDEX, timeout=30) as response:
+            index = json.load(response)
+        listing = next(entry for entry in index["listings"] if entry["id"] == LISTING_ID)
+        release = max(listing["releases"], key=lambda r: r["release_date"])
+        authored = listing["authored"]
+        downloads = int(listing["downloads"]["total"])
+        released = datetime.fromisoformat(release["release_date"].replace("Z", "+00:00"))
+    except Exception as e:  # noqa: BLE001 -- any failure leaves the card out, never the build
+        print(f"wiki: no listing card, the content index could not be read: {e}", file=sys.stderr)
+        return ""
+
+    chips = [release["loader"]["id"], f'<span class="ks-chip--mono">{html.escape(release["version"])}</span>',
+             f'{release["download"]["size"] / 1e6:.0f} MB']
+    return "\n".join([
+        '<a class="ks-listing" href="/guide/install/">',
+        '<img src="/assets/listing-icon.png" alt="" width="80" height="80">',
+        '<div class="ks-listing-body">',
+        f'<div class="ks-listing-name">{html.escape(authored["name"])} '
+        f'<span>by {html.escape(", ".join(authored["authors"]))}</span></div>',
+        '<div class="ks-listing-chips">' + "".join(f'<span class="ks-chip">{c}</span>' for c in chips) + "</div>",
+        "</div>",
+        '<div class="ks-listing-stats">',
+        f'<span title="Downloads from GitHub and SpaceDock, as the KSA content index counts them">'
+        f"{DOWNLOAD_ICON}<strong>{downloads:,}</strong></span>",
+        f'<span title="When {html.escape(release["version"])} was released">{DATE_ICON}'
+        f'<time datetime="{released.date().isoformat()}">{released.day} {released:%b %Y}</time></span>',
+        "</div>",
+        "</a>",
+    ])
 
 # Models change only with a release and the viewer only with its pinned version.
 # The guide was at /players/ before it was renamed; links to it are already out there.
@@ -513,7 +562,7 @@ def models() -> None:
     subprocess.run(["node", str(here / "stills.mjs"), str(DOCS)], check=True)
 
 
-def assemble(with_models: bool) -> None:
+def assemble(with_models: bool, with_listing: bool = True) -> None:
     if DOCS.exists():
         shutil.rmtree(DOCS)
     shutil.copytree(WIKI / "pages", DOCS)
@@ -522,6 +571,7 @@ def assemble(with_models: bool) -> None:
     shutil.copy(ROOT / "branding/mark.svg", DOCS / "assets/mark.svg")
     shutil.copy(ROOT / "branding/mark-light.svg", DOCS / "assets/mark-light.svg")
     shutil.copy(ROOT / "branding/favicon.svg", DOCS / "assets/favicon.svg")
+    shutil.copy(ROOT / "listing/icon.png", DOCS / "assets/listing-icon.png")
     (DOCS / "assets/3d/config.js").write_text(VIEWER_CONFIG)
     (DOCS / "_headers").write_text(HEADERS)
     (DOCS / "_redirects").write_text(REDIRECTS)
@@ -555,7 +605,9 @@ def assemble(with_models: bool) -> None:
         sys.exit(f"wiki: wiki/pages/index.md has lost the line {GALLERY_MARKER!r} the gallery is written at")
     # Inline rather than an <img>: its lettering is set on a circle in the site's own fonts.
     patch = (ROOT / "branding/patch.svg").read_text().replace('<svg ', '<svg aria-label="KSArmory mission patch" ', 1)
-    home.write_text(home.read_text().replace(GALLERY_MARKER, gallery(weapons)).replace(PATCH_MARKER, patch))
+    card = listing_card() if with_listing else ""
+    home.write_text(home.read_text().replace(GALLERY_MARKER, gallery(weapons)).replace(PATCH_MARKER, patch)
+                    .replace(LISTING_MARKER, card))
 
     for src, page, _ in DOC_PAGES:
         write(page, relink((ROOT / src).read_text(), ROOT / src, page))
@@ -598,7 +650,7 @@ def main() -> int:
         # Its own folder: assembled where the site is, it would strip the models from a preview being served.
         global DOCS
         DOCS = BUILD / "check"
-        assemble(with_models=False)
+        assemble(with_models=False, with_listing=False)
         return 0
     assemble(with_models=True)
     zensical = shutil.which("zensical")

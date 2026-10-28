@@ -159,6 +159,47 @@ body { font-family: "IBM Plex Sans", system-ui, sans-serif; }
   text-transform: uppercase;
 }
 .md-typeset .ks-button:hover, .md-typeset .ks-button--primary { background: var(--ks-accent); color: #171717; }
+
+/* The mod as ksamods.gg lists it: the thumbnail, who made it, what it needs, and how many have it. */
+.md-typeset a.ks-listing {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  max-width: 42rem;
+  padding: .8rem;
+  border: 1px solid var(--ks-line);
+  background: var(--ks-raised);
+  color: var(--ks-ink);
+  text-decoration: none;
+}
+.md-typeset a.ks-listing:hover { border-color: var(--ks-accent); }
+.ks-listing img { width: 4rem; height: 4rem; object-fit: cover; display: block; }
+.ks-listing-name { font-weight: 600; font-size: .9rem; }
+.ks-listing-name span { font-weight: 400; color: var(--ks-muted); margin-left: .3em; }
+.ks-listing-chips { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .4rem; }
+.ks-chip {
+  font-size: .62rem;
+  padding: .1em .6em;
+  border: 1px solid var(--ks-line);
+  background: var(--ks-ground);
+  color: var(--ks-muted);
+}
+.ks-chip--mono { font-family: "IBM Plex Mono", monospace; color: var(--ks-ink); }
+.ks-listing-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: .3rem;
+  font-size: .72rem;
+  color: var(--ks-muted);
+  white-space: nowrap;
+}
+.ks-listing-stats span { display: inline-flex; align-items: center; gap: .3em; }
+.ks-listing-stats strong { color: var(--ks-ink); font-size: .85rem; }
+.ks-listing-stats svg { width: 1em; height: 1em; }
+
 @media (max-width: 60em) {
   .ks-hero { grid-template-columns: minmax(0, 1fr); }
   .ks-patch { display: none; }
@@ -167,6 +208,8 @@ body { font-family: "IBM Plex Sans", system-ui, sans-serif; }
   .ks-lockup { gap: 1rem; }
   .ks-lockup img { width: clamp(3rem, 15vw, 4.5rem); height: auto; }
   .ks-tagline { letter-spacing: .14em; }
+  .md-typeset a.ks-listing { grid-template-columns: auto minmax(0, 1fr); }
+  .ks-listing-stats { grid-column: 2; flex-direction: row; align-items: center; gap: .8rem; }
 }
 
 /* Every weapon at once. */
