@@ -29,7 +29,7 @@ public class DamageCostTests
 
     /// <summary>The overpressure law alone breaks the tank; its size is what saves it now.</summary>
     [Fact]
-    public void A20MmBurstOnATanksSkinDentsItAndBreaksAFin()
+    public void A20MmBurstOnATanksSkinMarksItAndOneOnAFinBreaksIt()
     {
         MunitionProfile shell = BuiltIns.Cannon20Mm;
         double3 skin = new(5.7, 0, 0);
@@ -37,7 +37,7 @@ public class DamageCostTests
         Assert.True(BlastDamage.Share(shell.ChargeKg, 0.9e6, 0.0) >= 1.0);
         Assert.InRange(Cost(shell, Tank(Vec.Zero), skin, Vec.Zero, Vec.Zero, Vec.Zero), 0.0, 0.2);
 
-        Assert.True(Cost(shell, Fin(new double3(5.7 + 0.5, 0, 0)), skin, Vec.Zero, Vec.Zero, Vec.Zero) >= 1.0);
+        Assert.True(Cost(shell, Fin(new double3(5.7 + 0.2, 0, 0)), skin, Vec.Zero, Vec.Zero, Vec.Zero) >= 1.0);
     }
 
     [Fact]
@@ -91,4 +91,26 @@ public class DamageCostTests
         Assert.Equal(PartToughness.Joules(1000.0, 9e6) * 4.0, PartToughness.Joules(8000.0, 9e6), 6);
         Assert.Equal(PartToughness.Joules(1000.0, 9e6) * 2.0, PartToughness.Joules(1000.0, 72e6), 6);
     }
+
+    [Fact]
+    public void ThePhalanxFiresADartAndTheM197AnIncendiaryShell()
+    {
+        LauncherProfile phalanx = Catalogue.LauncherForPart("KSArmory_Prefab_Ciws")!;
+        LauncherProfile m197 = Catalogue.LauncherForPart("KSArmory_Prefab_M197")!;
+
+        Assert.Equal("MK244", phalanx.GunMunition);
+        Assert.Equal("20MM", m197.GunMunition);
+
+        MunitionProfile dart = BuiltIns.CannonMk244;
+        Assert.Equal(0f, dart.ChargeKg);
+        Assert.Equal(0, dart.FragmentCount);
+        Assert.Equal(0f, dart.IgnitionChance);
+        Assert.Equal(0f, dart.FragmentIgnitionChance);
+        Assert.True(BuiltIns.Cannon20Mm.IgnitionChance > BuiltIns.Cannon20Mm.FragmentIgnitionChance);
+    }
+
+    /// <summary>A dart's burst costs nothing by blast or fragments: all it does is what it carries in.</summary>
+    [Fact]
+    public void ADartsBurstCostsNothingOfItsOwn()
+        => Assert.Equal(0.0, Cost(BuiltIns.CannonMk244, Fin(new double3(0.5, 0, 0)), Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero));
 }

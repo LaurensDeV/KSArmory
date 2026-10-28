@@ -31,7 +31,7 @@
             NavConstant="4" MaxLateralG="30" SeparationSeconds="0.4"
             FuseRadius="12" FuseArmSeconds="1.0" ChargeKg="1.5"
             FragmentCount="800" FragmentMassGrams="3" FragmentSpeed="1800"
-            SprayAngleDeg="85" SprayHalfWidthDeg="8" IgnitionChance="0.08" />
+            SprayAngleDeg="85" SprayHalfWidthDeg="8" FragmentIgnitionChance="0.08" />
 
   <!--
     AIM-120C-7. Length and mass are the real weapon's, and so is the 18 kg WDU-41/B warhead, of which
@@ -56,7 +56,7 @@
             NavConstant="4" MaxLateralG="40" SeparationSeconds="0.4"
             FuseRadius="14" FuseArmSeconds="1.2" ChargeKg="8.6"
             FragmentCount="4000" FragmentMassGrams="2" FragmentSpeed="2100"
-            SprayAngleDeg="85" SprayHalfWidthDeg="7" IgnitionChance="0.08" />
+            SprayAngleDeg="85" SprayHalfWidthDeg="7" FragmentIgnitionChance="0.08" />
 
   <!--
     AGM-88 HARM. Length, mass and the 66 kg WDU-21/B warhead are the real weapon's (designation-systems.net);
@@ -77,7 +77,7 @@
             NavConstant="4" MaxLateralG="20" SeparationSeconds="0.4"
             FuseRadius="16" FuseArmSeconds="1.5" ChargeKg="22"
             FragmentCount="25000" FragmentMassGrams="1.6" FragmentSpeed="1700"
-            SprayAngleDeg="80" SprayHalfWidthDeg="10" IgnitionChance="0.08">
+            SprayAngleDeg="80" SprayHalfWidthDeg="10" FragmentIgnitionChance="0.08">
     <Stage Seconds="18.0" Accel="26" />
   </Munition>
 

@@ -1471,6 +1471,7 @@ _XML_FIELD = {"GunReferenceElevationDeg": ("GunReferenceElevationRad", "rad"),
 _CSHARP_NAME = {
     ("Munition", "AIM9J"): "Missile9J", ("Munition", "AIM120C"): "Missile120C",
     ("Munition", "AGM88"): "MissileAgm88", ("Munition", "20MM"): "Cannon20Mm",
+    ("Munition", "MK244"): "CannonMk244",
     ("Munition", "5IN54"): "Shell5In54", ("Munition", "B61"): "NukeB61",
     ("Munition", "MK21"): "ReentryVehicleMk21", ("Munition", "ZUNI"): "RocketZuni",
     ("Munition", "57E6"): "Missile57E6", ("Munition", "30MM"): "Cannon30Mm",

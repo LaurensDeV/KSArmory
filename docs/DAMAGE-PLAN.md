@@ -1,6 +1,6 @@
 # Damage: how a hit becomes a broken part
 
-**Part record, part plan.** Step 1 is built and flown (2026-10-28, below). Steps 2 and 3 are built and flown (2026-10-28), the fire's look still being judged. Steps 4 and 5 are not built.
+**Part record, part plan.** Step 1 is built and flown (2026-10-28, below). Steps 2 and 3 are built and flown (2026-10-28), the fire's look still being judged. Step 4 is built and flown (2026-10-28). Step 5 is not built.
 
 ## Why every weapon used to kill outright
 
@@ -136,10 +136,11 @@ tank no longer breaks on the hit that holed it.
 ## Step 3: fire (built)
 
 **Ignition** (`Sim/PartFire.cs`):
-- **Per hit.** Each fragment or strike on a part holding propellant has the munition's
-  `IgnitionChance` of lighting it.
-  - The 20 mm and 30 mm rounds use 0.35, the incendiary figure.
-  - Every fragmenting warhead uses 0.08, for steel fragments.
+- **Per hit.** A round striking a part holding propellant lights it at its `IgnitionChance`, and
+  each of its fragments at its `FragmentIgnitionChance`.
+  - The 20 mm and 30 mm HEI strikes use 0.35, the incendiary figure; the Phalanx's dart uses none.
+  - Every fragmenting warhead's fragments use 0.08, for steel. The M56's half-gram slivers light
+    nothing: flown with 0.35 for them, one shell lit four tanks, and with 0.02 still three.
 - **Only in air.** It needs more than KSA's own 100 Pa floor at the craft.
 - **Burning.** The fire costs its part a rate drawn between 0.01 and 0.05 of its health per second, so
   20–100 s from whole. It goes out when the air or the tank runs out.
@@ -177,17 +178,31 @@ tank no longer breaks on the hit that holed it.
   raising the tank pressure in `Sim/TankLeak.cs`, which was kept low on purpose (CLAUDE.md has why), or
   drawing a burst of spray and vapour at the moment of the hit, apart from the steady stream.
 
-## Step 4: the gun rounds split (not built)
+## Step 4: the gun rounds split (built)
 
-The Phalanx fires the Mk 149/Mk 244 APDS: a 70–105 g tungsten penetrator at 1,113 m/s with no
-explosive. The M197 fires the M56 HEI: 102 g, with 10.7 g of HE and 1.3 g of incendiary. Today both
-share the `20MM` round with a 50 g charge.
+The Phalanx and the M197 shared one `20MM` round with a 50 g charge. Now:
 
-The split would give each its own munition:
-- **APDS:** impact only, with a chance of going through into the next part on its path.
-- **HEI:** a small fragment puff, plus the fire chance from step 3.
+| Round | Fired by | What it is | In the model |
+| --- | --- | --- | --- |
+| `MK244` | Phalanx | Mk 244 ELC APDS: a tungsten dart in a sabot, 100 g in flight at 1,113 m/s, no explosive (NavWeaps) | `ChargeKg="0"`: no blast, no fragments, no fire. The parts on its path each keep half of what it carries and pass the rest on, until under 6 kJ is left. A strike draws KSA's `MetalBurst` spark |
+| `20MM` | M197, and any pack naming `KSArmory:20MM` | M56 HEI: 102 g, 10.7 g of RDX plus 1.3 g of incendiary (FM 1-140) | `ChargeKg="0.011"`, 60 half-gram fragments (an estimate), `IgnitionChance="0.35"` |
 
-`docs/CIWS-REALISM.md` has why the proximity fuse stands in for hitting at all.
+**The pass-through** (`WeaponSystem.GoesThrough`) casts the dart's path from 2 m back along it with
+`KsaWorld.TryPartsAlong`, which lists every part a straight path crosses, nearest first.
+
+**The Phalanx's ballistics change with it.** Its 12.75 mm and 100 g carry less drag than the 20 mm
+shell's, so it flies flatter.
+
+**Flown 2026-10-28:**
+- **Phalanx darts against a parked stock rocket.** Each damaged three parts in a row: the first lost
+  about a quarter of its health, the ones behind less. None lit a fire. A strike draws KSA's
+  `MetalBurst` spark.
+- **Phalanx against a 57E6 launched 1.4 km out.** 4 of 4 shot down with the flatter dart.
+- **M197 against the same rocket.** Sixteen strikes, four ignitions: two fires, two tanks gone up at
+  once.
+
+**Kept as it was:** the 2.5 m proximity fuse on both rounds. Against a round in the air it stands in for
+the hit a real one needs (`docs/CIWS-REALISM.md`).
 
 ## Step 5: blast in thin air (not built)
 

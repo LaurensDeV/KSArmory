@@ -320,8 +320,13 @@ internal sealed partial class Ui
             }
 
             ImGui.SliderFloat("Ignition chance", ref _munition.IgnitionChance, 0f, 1f);
-            Tip("The chance each fragment or strike sets fire to a part holding propellant, in air. "
+            Tip("The chance the round sets fire to a part holding propellant when it strikes it, in air. "
                 + "A burning part loses its health over 20 to 100 seconds and then breaks.");
+            if (_munition.FragmentCount > 0)
+            {
+                ImGui.SliderFloat("Fragment ignition chance", ref _munition.FragmentIgnitionChance, 0f, 1f);
+                Tip("The chance each fragment that hits a part holding propellant sets it on fire.");
+            }
             if (_munition.HitsTerrain)
             {
                 ImGui.SliderFloat("Burst height (m)", ref _munition.BurstHeightMetres, 0f, 10000f,

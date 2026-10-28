@@ -28,7 +28,7 @@
             MinRange="1200" MaxRange="20000"
             ChargeKg="5"
             FragmentCount="1500" FragmentMassGrams="6" FragmentSpeed="1500"
-            SprayAngleDeg="90" SprayHalfWidthDeg="5" IgnitionChance="0.08" />
+            SprayAngleDeg="90" SprayHalfWidthDeg="5" FragmentIgnitionChance="0.08" />
 
   <!--
     The 2A38M's 30 mm shell: the Pantsir's inner layer, for what the missiles cannot reach.

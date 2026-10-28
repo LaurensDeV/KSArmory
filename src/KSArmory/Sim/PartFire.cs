@@ -4,7 +4,8 @@ namespace KSArmory;
 /// Parts on fire, and what each costs its part per second until it breaks.
 ///
 /// <para>A fire starts on a hit to a part holding propellant, with the munition's
-/// <see cref="MunitionProfile.IgnitionChance"/> per fragment or strike, and only in air. It burns the part
+/// <see cref="MunitionProfile.IgnitionChance"/> for its strike and
+/// <see cref="MunitionProfile.FragmentIgnitionChance"/> for each fragment, and only in air. It burns the part
 /// at a rate drawn between <see cref="SlowestPerSecond"/> and <see cref="FastestPerSecond"/>, so a part
 /// on fire from whole fails in 20 to 100 s -- the aircraft-fire figures in <c>docs/DAMAGE-PLAN.md</c>.
 /// It goes out when the air does, and is forgotten when its part leaves the world.</para>
@@ -40,16 +41,16 @@ internal sealed class PartFire
     }
 
     /// <summary>
-    /// Rolls for a fire on a part that took <paramref name="hits"/>; true when one started. A part
-    /// already burning is not lit twice.
+    /// Rolls for a fire on a part at <paramref name="chance"/>; true when one started. A part already
+    /// burning is not lit twice.
     /// </summary>
-    public bool TryIgnite(object part, int hits, double perHit, Random dice)
+    public bool TryIgnite(object part, double chance, Random dice)
     {
         ArgumentNullException.ThrowIfNull(part);
         ArgumentNullException.ThrowIfNull(dice);
 
         if (_burning.ContainsKey(part)) return false;
-        if (dice.NextDouble() >= IgnitionChance(hits, perHit)) return false;
+        if (!(chance > 0.0) || dice.NextDouble() >= chance) return false;
 
         _burning[part] = SlowestPerSecond + (dice.NextDouble() * (FastestPerSecond - SlowestPerSecond));
         return true;

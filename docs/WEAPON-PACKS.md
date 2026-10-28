@@ -150,7 +150,7 @@ Built-in names you can use:
 
 | | |
 | --- | --- |
-| Munitions | `57E6`, `30MM`, `AIM9J`, `AIM120C`, `AGM88`, `20MM`, `5IN54`, `B61`, `MK21`, `ZUNI` |
+| Munitions | `57E6`, `30MM`, `AIM9J`, `AIM120C`, `AGM88`, `20MM`, `MK244`, `5IN54`, `B61`, `MK21`, `ZUNI` |
 | Sensors | `1RS1`, `AIM9SEEK`, `AIM120SEEK`, `AGM88SEEK`, `VPS2`, `MK68`, `TSU`, `EO`, `Litening`, `Irst`, `Yal1BeamDirector`, `BOMBSIGHT`, `MIRVBUS`, `ZUNISIGHT` |
 | Decoys | `MJU7` (flare), `RR170` (chaff) |
 
@@ -252,7 +252,8 @@ A motor with more than one stage lists the extra stages as `<Stage>` children. `
 | `FragmentSpeed` | number | `1800` | How fast a fragment leaves the warhead, m/s. |
 | `SprayAngleDeg` | number | `90` | The middle of the fragment band, in degrees from the nose. `90` is straight out of the side. |
 | `SprayHalfWidthDeg` | number | `10` | Half the band's width either side of `SprayAngleDeg`. |
-| `IgnitionChance` | number | `0` | From 0 to 1: the chance each fragment or strike sets fire to a part holding propellant, in air. About `0.35` for an incendiary round, `0.08` for steel fragments. |
+| `IgnitionChance` | number | `0` | From 0 to 1: the chance the round sets fire to a part holding propellant when it strikes it, in air. About `0.35` for an incendiary filling. |
+| `FragmentIgnitionChance` | number | `0` | From 0 to 1: the same for each of its fragments that hits such a part. About `0.08` for a warhead's steel fragments. |
 | `FuseRadius` | number | `15` | Proximity fuse distance, m. `0` means no proximity fuse. |
 | `FuseArmSeconds` | number | `0.6` | Time after release before the warhead can go off. A shell, bomb or rocket that hits something or the ground earlier stops there as a dud: what it hit takes the impact, but nothing explodes. Before it arms a missile stops only on the ground, also as a dud. |
 | `TimedFuse` | `true` or `false` | `false` | For flak: also burst at the flight time the gun's aiming solution asked for. The proximity fuse still works. |

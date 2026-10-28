@@ -391,7 +391,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/PartHealth.cs` | what is left of each part, from one down to nothing — a hit costs its share times `Config.DamageScale`, never more than a whole share at once, and a load short of breaking is not forgotten |
 | `Sim/Fragmentation.cs` | **what kills past a few metres** — a warhead's fragments thrown in a band about its nose, tilted forward by its own speed against the target, thinning as the square of the range and counted on a part as a Poisson draw; a part outside the band takes nothing however close, which is why a missile's kill probability is not one. And where a fuze matched to its warhead fires, since bursting at the nearest point throws the band ahead of a fast pass |
 | `Sim/EngineDamage.cs` | what a hurt engine can still do from what is left of its part — **its thrust capped as a lower throttle would cap it**, whole above 0.8 and nothing at 0.2, the gimbal gone below 0.5, and at 0.2 shut down |
-| `Sim/PartFire.cs` | parts on fire — lit by a hit on a part holding propellant at the munition's `IgnitionChance` per fragment or strike, burning it out in 20–100 s, **a fifth going up at once** rather than burning |
+| `Sim/PartFire.cs` | parts on fire — lit by a hit on a part holding propellant — the munition's `IgnitionChance` for its own strike and `FragmentIgnitionChance` for each fragment — burning it out in 20–100 s, **a fifth going up at once** rather than burning |
 | `Sim/PartToughness.cs` | how much energy breaks a part — **its mass to the two thirds**, so size buys toughness where KSA's tolerance reads only density — and what a burst's intercepted share, a fragment or a shell's own impact pays against it; a round in the air is a fraction as tough, since one fragment through its warhead or motor ends it |
 | `Sim/TargetAllocation.cs` | what one craft's weapons have in the air **between them** — the unit that over-commits is the craft, not the weapon |
 | `Sim/RoundReach.cs` | whether a round the ground stops can still get to it — **the reaper for a store that will never arrive**, because a long fall is long rather than stuck |
@@ -745,7 +745,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `src/KSArmory/KSArmory/Weapons.xml` | **empty on purpose** — where the Pantsir used to be, so an install unzipped over an older one does not keep the old file and register it twice |
 | `src/KSArmory/KSArmory/Rails.xml` | the AIM-9J, AIM-120C and AGM-88 as players fit them, each bringing an ejector and a slide-off launch rail and showing the one its `CarriageMarker` names, and the shipped LAU-7, LAU-128 and LAU-118 rails with their pylons built in (hidden, kept for saves); their rounds and their seekers, the same way |
 | `src/KSArmory/KSArmory/Rockets.xml` | the LAU-10 and the six-round pod, their Zuni and their sight |
-| `src/KSArmory/KSArmory/Guns.xml` | the Phalanx, the 5"/54 Mk 42 and the M197, their two rounds and their three sets |
+| `src/KSArmory/KSArmory/Guns.xml` | the Phalanx, the 5"/54 Mk 42 and the M197, their three rounds — the Phalanx's tungsten dart, the M197's incendiary shell, the 5"/54's — and their three sets |
 | `src/KSArmory/KSArmory/Sensors.xml` | the EO director, the LITENING pod and the IRST, with their three sensors |
 | `src/KSArmory/KSArmory/Countermeasures.xml` | the two AN/ALE-47 dispensers and the flares and chaff they throw |
 | `src/KSArmory/KSArmory/DirectedEnergy.xml` | the YAL-1 beam director, its laser and its sensor |

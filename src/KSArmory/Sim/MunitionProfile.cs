@@ -506,10 +506,13 @@ public sealed class MunitionProfile
     public float SprayHalfWidthDeg = 10f;
 
     /// <summary>
-    /// The chance each fragment or strike lights a part holding propellant (<see cref="PartFire"/>):
-    /// about 0.35 for an incendiary round, 0.08 for a steel fragment, zero for none.
+    /// The chance the round itself lights a part holding propellant when it strikes it
+    /// (<see cref="PartFire"/>): about 0.35 for an incendiary filling, zero for a dart.
     /// </summary>
     public float IgnitionChance;
+
+    /// <summary>The chance each of its fragments lights such a part: about 0.08 for a warhead's steel.</summary>
+    public float FragmentIgnitionChance;
 
     /// <summary>
     /// Whether the ground stops this round, and so whether it ends by landing

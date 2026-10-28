@@ -27,7 +27,7 @@
             MassKg="48.5" CalibreMm="127" DragCoefficient="0.3"
             FuseRadius="3" FuseArmSeconds="0.3" ChargeKg="6.8"
             FragmentCount="2500" FragmentMassGrams="5" FragmentSpeed="1400"
-            SprayAngleDeg="90" SprayHalfWidthDeg="30" IgnitionChance="0.08"
+            SprayAngleDeg="90" SprayHalfWidthDeg="30" FragmentIgnitionChance="0.08"
             HitsTerrain="true" />
 
   <!--

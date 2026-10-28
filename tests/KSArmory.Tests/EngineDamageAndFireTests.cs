@@ -36,7 +36,7 @@ public class EngineDamageAndFireTests
     {
         PartFire fires = new();
         object part = new();
-        Assert.True(fires.TryIgnite(part, 1, 1.0, new Random(3)));
+        Assert.True(fires.TryIgnite(part, 1.0, new Random(3)));
 
         double perSecond = fires.Cost(part, 1.0);
         Assert.InRange(1.0 / perSecond, 20.0, 100.0);
@@ -50,8 +50,8 @@ public class EngineDamageAndFireTests
         object part = new();
         Random dice = new(5);
 
-        Assert.True(fires.TryIgnite(part, 1, 1.0, dice));
-        Assert.False(fires.TryIgnite(part, 1, 1.0, dice));
+        Assert.True(fires.TryIgnite(part, 1.0, dice));
+        Assert.False(fires.TryIgnite(part, 1.0, dice));
 
         fires.PutOut(part);
         Assert.False(fires.IsBurning(part));

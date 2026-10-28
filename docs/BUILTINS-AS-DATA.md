@@ -31,7 +31,7 @@ AIM-9J, AIM-120C and AGM-88 parts that bring their own rail, beside the LAU-7, L
 | --- | --- | --- | --- |
 | `Pantsir` | `Pantsir.xml` | Launcher6 launcher, its roof `<Optic>` | 57E6, 30MM, 1RS1 |
 | `Rails` | `Rails.xml` | LAU-7, LAU-128, LAU-118 | AIM9J, AIM120C, AGM88 + their seekers |
-| `Guns` | `Guns.xml` | CIWS, Mk 42, M197 | 20MM, 5IN54, VPS2, MK68, TSU |
+| `Guns` | `Guns.xml` | CIWS, Mk 42, M197 | 20MM, MK244, 5IN54, VPS2, MK68, TSU |
 | `Sensors` | `Sensors.xml` | EO director, LITENING, IRST | EO, pod sensor, IR search sensor |
 | `Countermeasures` | `Countermeasures.xml` | ALE-47 flare, ALE-47 chaff | MJU-7, RR-170 |
 | `DirectedEnergy` | `DirectedEnergy.xml` | YAL-1 optic + beam launcher | beam-director sensor |

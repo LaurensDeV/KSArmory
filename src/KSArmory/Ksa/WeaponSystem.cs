@@ -80,6 +80,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private readonly List<int> _failedParts = [];
     private readonly List<(int Index, double Share)> _partShares = [];
     private readonly List<(int Index, int Hits)> _partHits = [];
+    private readonly HashSet<int> _struckParts = [];
     private readonly List<int> _flashedOver = [];
     private double3 _igniteBurst;
     private double _igniteElapsed;
@@ -3544,8 +3545,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             double cost = RoundCost(other, contact, burst, elapsed, judged, struck ? round : null);
             if (!(cost > 0.0) || !PartHealth.World.Hit(other, cost, _config.DamageScale)) continue;
 
+            // A strike is the fuse's own separation; the splash is measured off the airborne sample.
             other.ShootDown();
-            Announce($"intercepted {contact.DisplayName} at {Math.Max(gap, 0.0):F0} m");
+            Announce($"intercepted {contact.DisplayName} at {(struck ? round.MissDistance : Math.Max(gap, 0.0)):F0} m");
         }
 
         Splash(burst, elapsed, judged);
@@ -3945,25 +3947,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             ? new BurstContext(burst, elapsed, craftVelocity, w.VelocityEcl, w.Nose, w.AirKgPerM3, w.FuzeLead)
             : new BurstContext(burst, elapsed, craftVelocity, craftVelocity, Vec.Zero, AirAt(burst));
         _partHits.Clear();
+        _struckParts.Clear();
         BlastDamage.Costs(context, CollectionsMarshal.AsSpan(_partScratch), munition, _fragmentDice, _partShares,
                           _partHits);
 
         // A shell that struck this craft also pays the part it hit for what its own mass carried in.
-        if (confirmed && _warhead is { } shell && munition.MassKg > 0f
-            && StruckPart(v, burst, elapsed) is { } struckIndex)
+        if (confirmed && _warhead is { } shell && munition.MassKg > 0f)
         {
-            DamageablePart struck = _partScratch[struckIndex];
-            double gap = BlastSweep.SurfaceGap(struck.PositionEcl, craftVelocity, elapsed, burst, struck.RadiusMetres);
-            if (gap <= 0.0)
-            {
-                double impact = PartToughness.KineticShare(
-                    munition.MassKg, Vec.Len(shell.VelocityEcl - craftVelocity),
-                    PartToughness.Joules(struck.MassKg, struck.CrashTolerancePascals));
-                _partShares.Add((struckIndex, impact));
-                _partHits.Add((struckIndex, 1));
-            }
+            if (munition.ChargeKg <= 0f) GoesThrough(v, burst, elapsed, craftVelocity, shell.VelocityEcl, munition);
+            else StrikesSkin(v, burst, elapsed, craftVelocity, shell.VelocityEcl, munition);
         }
-
 
         double worst = 1.0;
         foreach ((int index, double share) in _partShares)
@@ -4050,16 +4043,81 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         return true;
     }
 
-    // Fragments and a strike on a part holding propellant may set it burning (PartFire).
+    // A shell bursting on the skin: the part nearest the burst, if the burst was on it.
+    private void StrikesSkin(Vehicle v, double3 burst, double elapsed, double3 craftVelocity, double3 shellVelocity,
+                             MunitionProfile munition)
+    {
+        if (StruckPart(v, burst, elapsed) is not { } index) return;
+
+        DamageablePart struck = _partScratch[index];
+        double gap = BlastSweep.SurfaceGap(struck.PositionEcl, craftVelocity, elapsed, burst, struck.RadiusMetres);
+        if (gap > 0.0) return;
+
+        double impact = PartToughness.KineticShare(munition.MassKg, Vec.Len(shellVelocity - craftVelocity),
+                                                   PartToughness.Joules(struck.MassKg, struck.CrashTolerancePascals));
+        _partShares.Add((index, impact));
+        _struckParts.Add(index);
+    }
+
+    // A dart that does not burst: each part on its path keeps its share of what is left and passes the
+    // rest on, until there is too little to matter.
+    private void GoesThrough(Vehicle v, double3 burst, double elapsed, double3 craftVelocity, double3 shellVelocity,
+                             MunitionProfile munition)
+    {
+        double3 travel = shellVelocity - craftVelocity;
+        double speed = Vec.Len(travel);
+        if (!(speed > 0.0)) return;
+
+        // From a little back along the path, so the part it struck is the first crossed.
+        double3 start = burst - (travel / speed * BackAlongPathMetres);
+        double3 separation = InFrame.AtBurst(KsaWorld.PositionEcl(v), craftVelocity, elapsed) - start;
+        if (!KsaWorld.TryPartsAlong(v, separation, travel, ThroughMetres, _along) || _along.Count == 0)
+        {
+            StrikesSkin(v, burst, elapsed, craftVelocity, shellVelocity, munition);
+            return;
+        }
+
+        double energy = 0.5 * munition.MassKg * speed * speed;
+        foreach ((Part crossed, _) in _along)
+        {
+            int index = _partHandles.IndexOf(crossed);
+            if (index < 0) continue;
+
+            DamageablePart part = _partScratch[index];
+            double kept = PartToughness.KineticCoupling * energy;
+            _partShares.Add((index, kept / PartToughness.Joules(part.MassKg, part.CrashTolerancePascals)));
+            _struckParts.Add(index);
+
+            energy -= kept;
+            if (energy < LeftoverJoules) break;
+        }
+    }
+
+    private const double BackAlongPathMetres = 2.0;
+    private const double ThroughMetres = 30.0;
+
+    // A tenth of a 20 mm round's: past this a dart has nothing left to break anything with.
+    private const double LeftoverJoules = 6000.0;
+
+    private readonly List<(Part Part, double Metres)> _along = [];
+
+    // A strike or fragments on a part holding propellant may set it burning (PartFire).
     private void Ignite(Vehicle v, MunitionProfile munition)
     {
-        if (!(munition.IgnitionChance > 0f)) return;
+        if (!(munition.IgnitionChance > 0f) && !(munition.FragmentIgnitionChance > 0f)) return;
 
-        foreach ((int index, int hits) in _partHits)
+        _igniting.Clear();
+        foreach ((int index, int hits) in _partHits) _igniting[index] = hits;
+        foreach (int index in _struckParts) _igniting.TryAdd(index, 0);
+
+        foreach ((int index, int fragments) in _igniting)
         {
             Part part = _partHandles[index];
             if (_failedParts.Contains(index) || PartFire.World.IsBurning(part) || !PartFires.CanBurn(part)) continue;
-            if (!PartFire.World.TryIgnite(part, hits, munition.IgnitionChance, _fragmentDice)) continue;
+
+            double spared = (1.0 - PartFire.IgnitionChance(fragments, munition.FragmentIgnitionChance))
+                            * (_struckParts.Contains(index) ? 1.0 - Math.Clamp(munition.IgnitionChance, 0f, 1f) : 1.0);
+            if (!PartFire.World.TryIgnite(part, 1.0 - spared, _fragmentDice)) continue;
 
             if (_fragmentDice.NextDouble() < PartFire.FlashoverChance)
             {
@@ -4074,6 +4132,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             Announce($"{part.Id} on {KsaWorld.DisplayName(v)} is on fire");
         }
     }
+
+    private readonly Dictionary<int, int> _igniting = [];
 
     // The part nearest a strike, or null for a craft with no part to charge.
     private int? StruckPart(Vehicle v, double3 burst, double elapsed)

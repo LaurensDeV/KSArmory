@@ -316,6 +316,48 @@ internal static partial class KsaWorld
     }
 
     /// <summary>
+    /// Every part a straight path crosses, nearest first, each once: what a dart that does not burst goes
+    /// on through. <paramref name="separation"/> is the craft's centre less the path's start, and
+    /// <paramref name="travel"/> its direction against the craft; only crossings within
+    /// <paramref name="reachMetres"/> count. False for a craft that cannot be cast against.
+    /// </summary>
+    public static bool TryPartsAlong(Vehicle v, double3 separation, double3 travel, double reachMetres,
+                                     List<(Part Part, double Metres)> into)
+    {
+        into.Clear();
+
+        double length = Vec.Len(travel);
+        if (!IsAlive(v) || !(length > 0.0) || !Vec.IsFinite(separation)) return false;
+
+        try
+        {
+            double4x4 asmb2Start = v.GetMatrixAsmb2Ego(separation);
+            Ray ray = new() { Origin = double3.Zero, Direction = travel / length };
+
+            foreach (Part part in v.Parts.Parts)
+            {
+                if (part.IsAttachedInternal) continue;
+                if (!part.RayCastEgo(in asmb2Start, ray, out double near, out _, out _, out _,
+                                     out _, out _, out Part? struck, out _)
+                    || struck is null || near < 0.0 || near > reachMetres)
+                {
+                    continue;
+                }
+
+                into.Add((part, near));
+            }
+
+            into.Sort(static (a, b) => a.Metres.CompareTo(b.Metres));
+            return true;
+        }
+        catch
+        {
+            into.Clear();
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Where a point in a sub-part's own frame is drawn, in Ecl: through the matrix the engine draws the
     /// part with for the main camera, and back, since a craft's drawn place and its analytic one are
     /// metres apart on the ground. For a particle emitter, which takes Ecl.
