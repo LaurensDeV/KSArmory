@@ -662,10 +662,14 @@ internal static class Leaks
         }
 
         double3 exit = default, velocity = default;
+        double3 normalTip = default;
         bool flowing = jet.Flowing
                        && KsaWorld.TryDrawnPartPointEcl(hole.SubPart, hole.Local, out double3 at)
                        && KsaWorld.TryDrawnPartPointEcl(hole.SubPart, hole.CameFrom, out double3 cameFrom)
-                       && Outward(at, cameFrom, jet.Outlet.JetSpeed, jet.InsetMetres, centre, out exit, out velocity);
+                       && (Vec.Len2(hole.Normal) <= 0.0
+                           || KsaWorld.TryDrawnPartPointEcl(hole.SubPart, hole.Local + hole.Normal, out normalTip))
+                       && Outward(at, cameFrom, normalTip, jet.Outlet.JetSpeed, jet.InsetMetres, centre, out exit,
+                                  out velocity);
 
         jet.Jet.Step(dt, exit, velocity, Vec.IsFinite(pull) ? pull : Vec.Zero, flowing);
         if (!flowing && jet.Jet.Empty) return false;
@@ -719,12 +723,20 @@ internal static class Leaks
         }
     }
 
-    // Where a stream leaves the hull, relative to the craft's centre, and how fast: out along the way
-    // the shell came in, from the skin as the dents have left it.
-    private static bool Outward(double3 at, double3 cameFrom, double jetSpeed, double inset, double3 centre,
-                                out double3 exit, out double3 velocity)
+    // Where a stream leaves the hull, relative to the craft's centre, and how fast: square to the skin,
+    // as liquid leaves a hole, turned to the side the shell came from; back along the shell's path where
+    // the skin's normal was not read. From the skin as the dents have left it.
+    private static bool Outward(double3 at, double3 cameFrom, double3 normalTip, double jetSpeed, double inset,
+                                double3 centre, out double3 exit, out double3 velocity)
     {
-        double3 outward = Vec.Unit(cameFrom - at);
+        double3 back = Vec.Unit(cameFrom - at);
+        double3 outward = back;
+        if (Vec.Len2(normalTip) > 0.0)
+        {
+            double3 normal = Vec.Unit(normalTip - at);
+            if (Vec.IsFinite(normal)) outward = Vec.Dot(normal, back) < 0.0 ? -normal : normal;
+        }
+
         exit = at - (outward * inset) - centre;
         velocity = outward * jetSpeed;
         return Vec.IsFinite(exit) && Vec.IsFinite(velocity);

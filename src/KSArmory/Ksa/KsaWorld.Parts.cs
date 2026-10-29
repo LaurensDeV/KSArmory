@@ -127,16 +127,17 @@ internal static partial class KsaWorld
     /// <summary>
     /// Where a round's path meets a craft's mesh, as the sub-part it struck, the point in that
     /// sub-part's own frame — the engine's <c>RayCastEgo</c> answers in exactly that frame — and
-    /// where the cast started in the same frame, which is the path the round came in along.
+    /// where the cast started in the same frame, which is the path the round came in along, and the
+    /// mesh's normal there, in that frame too (zero where none was read).
     /// <paramref name="separation"/> is the craft's centre less the round, both at the instant it
     /// struck, and the cast starts <paramref name="castFromMetres"/> back along
     /// <paramref name="travel"/>, the round's velocity relative to the craft.
     /// </summary>
     public static bool TryHullHit(Vehicle v, double3 separation, double3 travel, double castFromMetres,
-                                  out Part? subPart, out double3 local, out double3 cameFrom)
+                                  out Part? subPart, out double3 local, out double3 cameFrom, out double3 normal)
     {
         subPart = null;
-        local = cameFrom = default;
+        local = cameFrom = normal = default;
 
         double length = Vec.Len(travel);
         if (!IsAlive(v) || !(length > 0.0) || !Vec.IsFinite(separation)) return false;
@@ -150,7 +151,7 @@ internal static partial class KsaWorld
             double nearest = double.MaxValue;
             foreach (Part part in v.Parts.Parts)
             {
-                if (!part.RayCastEgo(in asmb2Round, ray, out double near, out _, out double3 at, out _,
+                if (!part.RayCastEgo(in asmb2Round, ray, out double near, out _, out double3 at, out double3 facing,
                                      out _, out _, out Part? struck, out _)
                     || struck is null || near < 0.0 || near >= nearest)
                 {
@@ -160,6 +161,7 @@ internal static partial class KsaWorld
                 nearest = near;
                 subPart = struck;
                 local = at;
+                normal = facing;
             }
 
             if (subPart is null) return false;

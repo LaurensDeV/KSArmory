@@ -13,11 +13,12 @@ namespace KSArmory;
 internal static class BulletHoles
 {
     /// <summary>
-    /// One mark: the sub-part struck, the point in its frame, where the cast came from, its radii, and for a
-    /// paintball hit the paint's hue from 0 to 1 -- negative for a real hole, which tanks leak through.
+    /// One mark: the sub-part struck, the point in its frame, where the cast came from, its radii, for a
+    /// paintball hit the paint's hue from 0 to 1 -- negative for a real hole, which tanks leak through --
+    /// and the skin's normal there in the sub-part's frame, zero where the cast read none.
     /// </summary>
     internal readonly record struct Hole(Part SubPart, double3 Local, double3 CameFrom, float Core, float Scorch, float Seed,
-                                         float Paint = -1f)
+                                         float Paint = -1f, double3 Normal = default)
     {
         public bool IsPaint => Paint >= 0f;
     }
@@ -58,7 +59,7 @@ internal static class BulletHoles
         double3 travel = round.VelocityEcl - KsaWorld.VelocityEcl(craft);
 
         if (!KsaWorld.TryHullHit(craft, separation, travel, CastFromMetres, out Part? subPart, out double3 local,
-                                   out double3 cameFrom)
+                                   out double3 cameFrom, out double3 normal)
             || subPart is null)
         {
             Log.Debug(() => $"no hole: {KsaWorld.DisplayName(craft)}'s mesh was not met along the shell's path");
@@ -70,12 +71,12 @@ internal static class BulletHoles
         {
             AddPaint(new Hole(subPart, local, cameFrom, 0f,
                               (float)Paintball.SplatRadius(round.Munition.ChargeKg, round.Munition.CalibreMm),
-                              _made++ % 97, paint));
+                              _made++ % 97, paint, normal));
             return;
         }
 
         if (_holes.Count >= MaxHoles) _holes.RemoveAt(0);
-        _holes.Add(new Hole(subPart, local, cameFrom, (float)core, (float)scorch, _made++ % 97, paint));
+        _holes.Add(new Hole(subPart, local, cameFrom, (float)core, (float)scorch, _made++ % 97, paint, normal));
         Log.Debug(() => $"hole in {subPart.Id} on {KsaWorld.DisplayName(craft)}, {core:F2}/{scorch:F2} m; {_holes.Count} held");
     }
 
@@ -91,13 +92,13 @@ internal static class BulletHoles
         double3 separation = craftAt - burstEcl;
 
         if (!KsaWorld.TryHullHit(craft, separation, separation, 0.0, out Part? subPart, out double3 local,
-                                 out double3 cameFrom)
+                                 out double3 cameFrom, out double3 normal)
             || subPart is null)
         {
             return;
         }
 
-        AddPaint(new Hole(subPart, local, cameFrom, 0f, (float)radiusMetres, _made++ % 97, paint));
+        AddPaint(new Hole(subPart, local, cameFrom, 0f, (float)radiusMetres, _made++ % 97, paint, normal));
     }
 
     // How many of the newest marks a new splat is checked against for one to grow instead.
