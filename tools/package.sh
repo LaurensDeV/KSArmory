@@ -56,7 +56,7 @@ for path in "$BUILD"/*/; do
     dir="$(basename "$path")"
 
     mkdir -p "$STAGE/$dir"
-    cp "$path"/* "$STAGE/$dir/"
+    cp -R "$path"/. "$STAGE/$dir/"
 done
 
 # Refuse to ship debug symbols even if the build somehow produced them.
