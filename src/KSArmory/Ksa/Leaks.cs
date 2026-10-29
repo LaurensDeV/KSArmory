@@ -137,6 +137,7 @@ internal static class Leaks
     private static readonly List<Tank> _gone = [];
     private static readonly List<(Vehicle Craft, Outlet Outlet)> _biggest = [];
     private static readonly List<Outlet> _outlets = [];
+    private static readonly List<(BulletHoles.Hole Hole, BulletHoles.Hole First, double3 At)> _openings = [];
     private static readonly double[] _scratch = new double[TankLeak.Samples];
     private static double _sinceMeasured;
     private static bool _warned;
@@ -276,6 +277,8 @@ internal static class Leaks
             if (liquid.StorageTemperature < CryogenKelvin) cryogen += held;
         }
 
+        if (!(mass > 0.0)) return MeasureGas(craft, tank, holes, states, step);
+
         _leaking.TryGetValue(tank, out Leak? was);
         if (was is not null && double.IsFinite(was.ExpectedKg) && !was.Told)
         {
@@ -315,50 +318,13 @@ internal static class Leaks
                             + $"(felt {felt} in the craft's), taken as {form.Described}, surface at {surface:F2}");
         }
 
-        // The holes inside the liquid's shape, then those close together as one opening each.
-        _inside.Clear();
-        foreach (BulletHoles.Hole hole in holes)
-        {
-            if (!KsaWorld.TryPartToVehicleAsmb(hole.SubPart, out double4x4 subToVehicle)) continue;
-
-            double3 at = form.FromPart(hole.Local.Transform(subToVehicle).Transform(vehicleToTank));
-            if (form.Holds(at)) _inside.Add(hole);
-        }
-
-        _mergeAt.Clear();
-        _mergeRadius.Clear();
-        _mergeSkin.Clear();
-        _skins.Clear();
-        foreach (BulletHoles.Hole hole in _inside)
-        {
-            int skin = _skins.IndexOf(hole.SubPart);
-            if (skin < 0) { skin = _skins.Count; _skins.Add(hole.SubPart); }
-            _mergeAt.Add(hole.Local);
-            _mergeRadius.Add(hole.Core);
-            _mergeSkin.Add(skin);
-        }
-
-        int[] lead = HoleMerge.Groups(_mergeAt, _mergeRadius, _mergeSkin);
+        Openings(form, holes, vehicleToTank);
 
         double flow = 0.0;
         int leaking = 0;
         _outlets.Clear();
-        for (int i = 0; i < _inside.Count; i++)
+        foreach ((BulletHoles.Hole hole, BulletHoles.Hole first, double3 at) in _openings)
         {
-            if (lead[i] != i) continue;
-
-            BulletHoles.Hole first = _inside[i];
-            (double3 local, double radius) = HoleMerge.Opening(_mergeAt, _mergeRadius, lead, i);
-            BulletHoles.Hole hole = first with
-            {
-                Local = local,
-                CameFrom = first.CameFrom + (local - first.Local),
-                Core = (float)radius,
-            };
-
-            if (!KsaWorld.TryPartToVehicleAsmb(hole.SubPart, out double4x4 subToVehicle)) continue;
-            double3 at = form.FromPart(hole.Local.Transform(subToVehicle).Transform(vehicleToTank));
-
             double depth = surface - Vec.Dot(at, up);
             if (was is null) Log.Debug(() => $"leak geometry: hole at {at} in the tank's frame, {Vec.Dot(at, up):F2} up, {depth:F2} under the surface");
             double kgPerSecond = TankLeak.FlowKgPerSecond(depth, pull, density, hole.Core, fill);
@@ -406,6 +372,111 @@ internal static class Leaks
         was.Outlets.AddRange(_outlets);
         if (!was.Told) was.ExpectedKg = mass - taken;
         return true;
+    }
+
+    // A tank holding a gas, which KSA keeps at its storage temperature and a pressure from what is left:
+    // every hole inside the shape vents, choked while the tank is at twice the air outside. Not drawn,
+    // since a gas is not seen.
+    private static bool MeasureGas(Vehicle craft, Tank tank, List<BulletHoles.Hole> holes,
+                                   ReadOnlySpan<MoleState> states, double step)
+    {
+        Mole? gas = null;
+        double held = 0.0;
+        foreach (Mole mole in tank.Moles)
+        {
+            if (mole.Gas is null || !(mole.ContainerVolume > 0f)) continue;
+
+            gas = mole;
+            held = states[mole.StatesIdx].Mass;
+            break;
+        }
+
+        if (gas?.Gas is not { } phase || !(held > 0.0)) return false;
+        if (!KsaWorld.TryPartToVehicleAsmb(tank.Parent, out double4x4 tankToVehicle)) return false;
+        double4x4.Invert(tankToVehicle, out double4x4 vehicleToTank);
+
+        double pascals = gas.GetPressure((float)held);
+        double outside = craft.Parent is Celestial body ? KsaWorld.AtmosphericPressureAt(body, craft.GetPositionEcl()) : 0.0;
+
+        Openings(_forms.GetValue(tank, static t => FormOf(t)), holes, vehicleToTank);
+
+        double flow = 0.0;
+        foreach ((BulletHoles.Hole hole, _, _) in _openings)
+        {
+            flow += TankLeak.GasFlowKgPerSecond(pascals, outside, phase.StorageTemperature, phase.SpecificGasConstant,
+                                                hole.Core);
+        }
+
+        if (!(flow > 0.0)) return false;
+
+        double taken = TankLeak.GasDrawn(held, flow, step);
+        if (!_owed.TryGetValue(craft, out Dictionary<Mole, float>? owed))
+        {
+            _owed[craft] = owed = new Dictionary<Mole, float>(ReferenceEqualityComparer.Instance);
+        }
+
+        owed[gas] = (float)Math.Min(owed.GetValueOrDefault(gas) + taken, held);
+
+        if (!_leaking.TryGetValue(tank, out Leak? was))
+        {
+            Log.Info($"gas tank on {KsaWorld.DisplayName(craft)} venting {phase.Name} at {flow:F2} kg/s through "
+                     + $"{_openings.Count} opening(s), {pascals / 1.0e5:F1} bar against {outside / 1.0e5:F2} outside, "
+                     + $"{held:F1} kg left");
+            _leaking[tank] = was = new Leak { Craft = craft, Told = true };
+        }
+
+        was.Craft = craft;
+        was.KgPerSecond = flow;
+        was.Leaking = _openings.Count;
+        was.Outlets.Clear();
+        return true;
+    }
+
+    // The holes inside the tank's shape, those close together as one opening each: the opening, the
+    // first hole of it, which its stream is kept under, and where it is in the tank's frame.
+    private static void Openings(Form form, List<BulletHoles.Hole> holes, double4x4 vehicleToTank)
+    {
+        _inside.Clear();
+        foreach (BulletHoles.Hole hole in holes)
+        {
+            if (!KsaWorld.TryPartToVehicleAsmb(hole.SubPart, out double4x4 subToVehicle)) continue;
+
+            double3 at = form.FromPart(hole.Local.Transform(subToVehicle).Transform(vehicleToTank));
+            if (form.Holds(at)) _inside.Add(hole);
+        }
+
+        _mergeAt.Clear();
+        _mergeRadius.Clear();
+        _mergeSkin.Clear();
+        _skins.Clear();
+        foreach (BulletHoles.Hole hole in _inside)
+        {
+            int skin = _skins.IndexOf(hole.SubPart);
+            if (skin < 0) { skin = _skins.Count; _skins.Add(hole.SubPart); }
+            _mergeAt.Add(hole.Local);
+            _mergeRadius.Add(hole.Core);
+            _mergeSkin.Add(skin);
+        }
+
+        int[] lead = HoleMerge.Groups(_mergeAt, _mergeRadius, _mergeSkin);
+
+        _openings.Clear();
+        for (int i = 0; i < _inside.Count; i++)
+        {
+            if (lead[i] != i) continue;
+
+            BulletHoles.Hole first = _inside[i];
+            (double3 local, double radius) = HoleMerge.Opening(_mergeAt, _mergeRadius, lead, i);
+            BulletHoles.Hole hole = first with
+            {
+                Local = local,
+                CameFrom = first.CameFrom + (local - first.Local),
+                Core = (float)radius,
+            };
+
+            if (!KsaWorld.TryPartToVehicleAsmb(hole.SubPart, out double4x4 subToVehicle)) continue;
+            _openings.Add((hole, first, form.FromPart(hole.Local.Transform(subToVehicle).Transform(vehicleToTank))));
+        }
     }
 
     // How far behind the skin as drawn a stream starts, so it appears from the hole rather than over

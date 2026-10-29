@@ -220,13 +220,13 @@ hull), and the coat counts as the newest mark. First flown as separate splats, a
 colour is the shooter's team's, or its craft's on no team, hashed so it is the
 same every session; it is not the team colour the panel shows.
 
-## Waiting on KSA: tank pressure and walls
+## Tank pressure and walls: shipped in KSA 2026.10.25.5707
 
-KSA's revision 5704, announced and unreleased on 2026-10-28, gives tanks a rated pressure from their wall
-material and thickness, and lets them hold gas. That is what four guesses here stand in for: the leak's
-fixed 0.2 bar, a gas tank that leaks nothing, toughness from mass with no penetration law, and the
-one-in-five tank going up. `docs/BLOCKED-ON-KSA.md`, *A tank's pressure and its walls*, has what each
-would become and what to check when it ships.
+KSA now gives tanks a rated pressure from their wall material and thickness, and lets them hold gas at a
+pressure. A holed gas tank vents by it (`TankLeak.GasFlowKgPerSecond`). Three guesses still stand: the
+liquid leak's fixed 0.2 bar, since KSA gives a liquid no pressure, toughness from mass with no penetration
+law, and the one-in-five tank going up; the rating is what the last two would read. `docs/BLOCKED-ON-KSA.md`,
+*A tank's pressure and its walls*, has the API.
 
 ## Step 4: the gun rounds split (built)
 

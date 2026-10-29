@@ -222,4 +222,73 @@ public class TankLeakTests
         Assert.True(Vec.Dot(hole, Up) > Surface(Standing, Up, 0.3));
         Assert.True(Vec.Dot(hole, Side) < Surface(Standing, Side, 0.3));
     }
+
+    private const double AirR = 287.05;
+    private const double Room = 293.15;
+
+    [Fact]
+    public void AChokedVentMatchesTheTextbookMassFluxForAir()
+    {
+        const double radius = 0.01;
+        double kgPerSecond = TankLeak.GasFlowKgPerSecond(1.0e6, 0.0, Room, AirR, radius);
+        double flux = kgPerSecond / (TankLeak.GasDischargeCoefficient * Math.PI * radius * radius);
+
+        // 0.0404 P / sqrt(T), in SI, is the standard choked flux of air.
+        Assert.InRange(flux, 0.0404 * 1.0e6 / Math.Sqrt(Room) * 0.995, 0.0404 * 1.0e6 / Math.Sqrt(Room) * 1.005);
+    }
+
+    [Fact]
+    public void AChokedVentDoesNotCareWhatAirItVentsInto()
+    {
+        double intoVacuum = TankLeak.GasFlowKgPerSecond(1.0e6, 0.0, Room, AirR, 0.01);
+        double intoSeaLevel = TankLeak.GasFlowKgPerSecond(1.0e6, 101_325.0, Room, AirR, 0.01);
+
+        Assert.Equal(intoVacuum, intoSeaLevel, 9);
+    }
+
+    [Fact]
+    public void TheFlowIsContinuousWhereTheThroatStopsBeingSonic()
+    {
+        double critical = Math.Pow(2.0 / (TankLeak.GasGamma + 1.0), TankLeak.GasGamma / (TankLeak.GasGamma - 1.0));
+        double tank = 200_000.0;
+
+        double justChoked = TankLeak.GasFlowKgPerSecond(tank, tank * critical * 0.9999, Room, AirR, 0.01);
+        double justNot = TankLeak.GasFlowKgPerSecond(tank, tank * critical * 1.0001, Room, AirR, 0.01);
+
+        Assert.Equal(justChoked, justNot, justChoked * 1e-3);
+    }
+
+    [Fact]
+    public void NothingVentsIntoAirAtTheTanksOwnPressure()
+    {
+        Assert.Equal(0.0, TankLeak.GasFlowKgPerSecond(101_325.0, 101_325.0, Room, AirR, 0.01));
+        Assert.Equal(0.0, TankLeak.GasFlowKgPerSecond(90_000.0, 101_325.0, Room, AirR, 0.01));
+    }
+
+    [Fact]
+    public void AChokedJetLeavesAtTheSpeedOfSoundInTheThroat()
+    {
+        double speed = TankLeak.GasJetSpeed(1.0e6, 0.0, Room, AirR);
+
+        // a* = sqrt(2 gamma R T / (gamma + 1)), 313 m/s for air at 20 C.
+        Assert.InRange(speed, 313.0, 313.6);
+    }
+
+    // The step varies, as a simulation-speed change does: a draw linear in the step would differ.
+    [Fact]
+    public void ADrawTakenInManyStepsAgreesWithOneTakenInOne()
+    {
+        const double mass = 50.0;
+        double rate = TankLeak.GasFlowKgPerSecond(2.0e7, 0.0, Room, 4124.0, 0.02) / mass;
+
+        double left = mass;
+        foreach (double step in new[] { 0.01, 0.05, 0.02, 0.12, 0.3, 0.5 })
+        {
+            left -= TankLeak.GasDrawn(left, rate * left, step);
+        }
+
+        double inOne = mass - TankLeak.GasDrawn(mass, rate * mass, 1.0);
+        Assert.Equal(inOne, left, 1e-9);
+        Assert.True(left > 0.0);
+    }
 }
