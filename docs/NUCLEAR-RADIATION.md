@@ -3,21 +3,26 @@
 **A record of how the bursts' radiation is modelled, and not yet flown.** KSA 2026.10.19.5638 added
 radiation: a dose rate at a craft from belts, the star and cosmic rays, read on its **Radiation**
 gauge in mSv/h (bottom right, above Telemetry), and a **Magnetospheres** overlay in the map view's
-Map View window. It has no accumulated dose and nothing is harmed by it. This mod adds its bursts to
+Map View window. Since 2026.10.25.5707 crew also accumulate a dose through the same rates: sickness at
+1 Sv, which stops warp and sets the world to 1x, death at 4 Sv, retirement past a lifetime 0.6 Sv. This mod adds its bursts to
 that same reading, so what it changes is what the gauge and the overlay show.
 
 ## Where it reaches the game
 
-- **`Ksa/DoseRateHook.cs`** postfixes `Radiation.ComputeDoseRate`, which only the gauge calls, and
-  adds `Radioactivity.DoseRateAt` to it. The gauge's six digits run to 999.999 mSv/h, so anything
+- **`Ksa/DoseRateHook.cs`** postfixes `Radiation.ComputeDoseRates`, which the gauge and the crew dose
+  both read, and adds `Radioactivity.DoseRateAt` to its cosmic share, the most penetrating channel KSA
+  shields: a hull passes about 70% of it. Crew credited from an orbit average at warp do not see a ground
+  burst, since the average is not a dose rate at a point. The gauge's six digits run to 999.999 mSv/h, so anything
   hotter than about 1 Sv/h pegs it.
 - **`Ksa/Radioactivity.cs`** writes a burst above the air into the body's own
   `MagnetosphereReference.Belts`. KSA's gauge, its orbit average and its overlay then read it as
   they read a natural belt. It only does this for a field KSA already gives belts, because KSA gives
   none to a field too weak to trap, and it merges every burst's share into one belt per field
   because the overlay draws at most four. KSA re-averages an orbit only when the orbit changes, so
-  each re-write clears `Program._orbitDoseAverageCache` by reflection. If that fails, the average
-  catches up on the next burn.
+  each re-write clears the gauge's and every craft's orbit-average cache by reflection. If that fails,
+  the averages catch up on the next burn. The belt is all electrons (`ProtonFraction` 0), as Core declares
+  Earth's outer belt, so a hull stops most of it. If it lands outside every natural belt, KSA scales it
+  by a storm's outer-belt factor in place of the real outer belt.
 
 Each burst is held in the body's fixed frame, as the ground it lies on, so no epoch rule from
 `FRAMES-AND-EPOCHS.md` arises. The prompt flash is the exception and is held in `Cce`, because it
