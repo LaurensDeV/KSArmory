@@ -21,8 +21,10 @@ that same reading, so what it changes is what the gauge and the overlay show.
   because the overlay draws at most four. KSA re-averages an orbit only when the orbit changes, so
   each re-write clears the gauge's and every craft's orbit-average cache by reflection. If that fails,
   the averages catch up on the next burn. The belt is all electrons (`ProtonFraction` 0), as Core declares
-  Earth's outer belt, so a hull stops most of it. If it lands outside every natural belt, KSA scales it
-  by a storm's outer-belt factor in place of the real outer belt.
+  Earth's outer belt, so a hull stops most of it. KSA storm-scales whichever belt has the largest L, so
+  `DoseRateHook` hands `Radiation.ComputeBeltDoseRate` the natural belts alone and adds a burst's after
+  at a scale of one. The Magnetospheres overlay builds its volume in one private pass and still scales a
+  burst's belt beyond the natural ones in place of the outer belt, during a storm only.
 
 Each burst is held in the body's fixed frame, as the ground it lies on, so no epoch rule from
 `FRAMES-AND-EPOCHS.md` arises. The prompt flash is the exception and is held in `Cce`, because it

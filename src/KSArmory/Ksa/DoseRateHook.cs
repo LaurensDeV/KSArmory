@@ -38,10 +38,78 @@ internal static class DoseRateHook
 
             Installed = true;
             Log.Info("radiation: bursts reach KSA's dose gauge and crew, via Radiation.ComputeDoseRates");
+
+            InstallBeltSplit(_harmony);
         }
         catch (Exception e)
         {
             Log.Warn($"radiation: could not hook KSA's dose rate; its gauge and crew will not feel bursts ({e.Message})");
+        }
+    }
+
+    // KSA storm-scales whichever belt has the largest L, so a burst's belt above the natural outer one
+    // would take that belt's storm. The original sees only the natural belts, and ours are added after.
+    private static void InstallBeltSplit(Harmony harmony)
+    {
+        try
+        {
+            MethodInfo? target = AccessTools.Method(typeof(Radiation), nameof(Radiation.ComputeBeltDoseRate),
+                                                    [typeof(List<RadiationBeltReference>), typeof(double),
+                                                     typeof(double), typeof(double), typeof(double)]);
+            if (target is null)
+            {
+                Log.Warn("radiation: KSA has no Radiation.ComputeBeltDoseRate to hook; a burst's belt above the "
+                         + "natural ones takes their storm scaling");
+                return;
+            }
+
+            const BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Static;
+            harmony.Patch(target,
+                          prefix: new HarmonyMethod(typeof(DoseRateHook).GetMethod(nameof(BeforeBelts), Private)!),
+                          postfix: new HarmonyMethod(typeof(DoseRateHook).GetMethod(nameof(AfterBelts), Private)!));
+            Log.Info("radiation: storms scale a body's own outer belt, not a burst's, via Radiation.ComputeBeltDoseRate");
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"radiation: could not split a burst's belts from the natural ones ({e.Message})");
+        }
+    }
+
+    [ThreadStatic] private static bool _ownBelts;
+
+    private static void BeforeBelts(ref List<RadiationBeltReference> belts, ref List<RadiationBeltReference>? __state)
+    {
+        __state = null;
+        try
+        {
+            if (_ownBelts || !Radioactivity.TrySplitBelts(belts, out List<RadiationBeltReference>? natural,
+                                                          out List<RadiationBeltReference>? ours)) return;
+
+            belts = natural;
+            __state = ours;
+        }
+        catch
+        {
+        }
+    }
+
+    // A burst's belts on their own, at a storm scale of one: alone, the largest L is theirs.
+    private static void AfterBelts(ref BeltDoseRate __result, double l, double sinLatitude, double mirrorAltitude,
+                                   List<RadiationBeltReference>? __state)
+    {
+        if (__state is null) return;
+
+        _ownBelts = true;
+        try
+        {
+            __result += Radiation.ComputeBeltDoseRate(__state, l, sinLatitude, mirrorAltitude, 1.0);
+        }
+        catch
+        {
+        }
+        finally
+        {
+            _ownBelts = false;
         }
     }
 
