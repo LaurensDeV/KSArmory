@@ -7,13 +7,15 @@
 // written once whatever the number. Measured across the path rather than round the point, because
 // the burst dents the skin half a metre in and a sphere about the undented point never reaches it.
 //
-// Bindings follow ComputePipelineWrapper's order: the storage image, the depth it samples, then the
-// storage buffer of holes.
+// Bindings follow ComputePipelineWrapper's order: the storage image, the depth it samples, the image
+// it samples, then the storage buffer of holes.
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
 layout (set = 1, binding = 0, Rgba16f) uniform image2D sceneColor;
 layout (set = 1, binding = 1) uniform sampler2D sceneDepth;
+// KSA's pre-pass normal, w exactly one on terrain and clutter; the pass's own layer when Flags.x is 0.
+layout (set = 1, binding = 2) uniform sampler2D prePassNormal;
 
 struct Hole
 {
@@ -24,7 +26,7 @@ struct Hole
     vec4 Rect;          // the pixels it can reach: first x, first y, last x, last y
 };
 
-layout (std430, set = 1, binding = 2) readonly buffer Holes
+layout (std430, set = 1, binding = 3) readonly buffer Holes
 {
     Hole holes[];
 };
@@ -33,6 +35,7 @@ layout (push_constant) uniform PushConstants
 {
     mat4 InvViewProj;        // clip -> camera-relative world
     ivec4 FirstCountOrigin;  // first hole, how many, the dispatch's first pixel
+    ivec4 Flags;             // x 1 where prePassNormal can be read
 } pc;
 
 // A bit a hole, for every hole a view can paint: CloudPass.MostHolesPainted, rounded up to a word.
@@ -55,6 +58,28 @@ vec3 WorldAt(vec2 uv, float deviceZ)
     vec4 clip = vec4(uv * 2.0 - 1.0, deviceZ, 1.0);
     vec4 p = pc.InvViewProj * clip;
     return p.xyz / p.w;
+}
+
+// The surface's normal from the depth beside it, each axis from the nearer neighbour so an edge
+// does not bend it, turned toward the camera.
+vec3 SurfaceNormal(ivec2 at, ivec2 size, vec3 p)
+{
+    vec3 side[4];
+    ivec2 offsets[4] = ivec2[4](ivec2(1, 0), ivec2(-1, 0), ivec2(0, 1), ivec2(0, -1));
+    for (int k = 0; k < 4; k++)
+    {
+        ivec2 q = clamp(at + offsets[k], ivec2(0), size - 1);
+        float z = texelFetch(sceneDepth, q, 0).r;
+        side[k] = z > 0.0 ? WorldAt((vec2(q) + 0.5) / vec2(size), z) - p : vec3(1.0e30);
+    }
+
+    vec3 dx = dot(side[0], side[0]) < dot(side[1], side[1]) ? side[0] : -side[1];
+    vec3 dy = dot(side[2], side[2]) < dot(side[3], side[3]) ? side[2] : -side[3];
+    vec3 n = cross(dx, dy);
+    if (!(dot(n, n) > 0.0) || any(isinf(n)) || any(isnan(n))) return normalize(-p);
+
+    n = normalize(n);
+    return dot(n, p) > 0.0 ? -n : n;
 }
 
 float Hash(vec3 p)
@@ -85,7 +110,7 @@ vec3 PaintColour(float hue)
 
 // A paintball's splat: a ragged blob of the shooter's colour, flecks of spatter past it, lit by the hull
 // under it so it reads as paint on the skin rather than a light.
-vec3 Splat(Hole h, vec3 flat3, float r, vec2 circle, float footprint, vec3 seed, vec3 was)
+vec3 Splat(Hole h, vec3 flat3, float r, vec2 circle, float footprint, vec3 seed, float facing, vec3 was)
 {
     float size = h.CentreScorch.w;
     vec3 colour = PaintColour(h.CoreSeed.z);
@@ -103,11 +128,13 @@ vec3 Splat(Hole h, vec3 flat3, float r, vec2 circle, float footprint, vec3 seed,
     float flecked = step(0.55 + 0.4 * (r / size), Hash(vec3(cell, seed.z + 3.0)));
     float fleck = flecked * (1.0 - smoothstep(0.12, 0.2, length(inCell))) * step(edge, r);
 
-    return mix(was, coat, clamp(blob + fleck, 0.0, 1.0) * 0.95);
+    // Spray reaches what faces it: nothing on a surface turned away, thinning to nothing edge-on.
+    float wetted = smoothstep(0.0, 0.25, facing);
+    return mix(was, coat, clamp(blob + fleck, 0.0, 1.0) * 0.95 * wetted);
 }
 
 // One hole's mark over the colour so far, at a surface point p a pixel footprint across.
-vec3 Mark(Hole h, vec3 p, float footprint, vec3 was)
+vec3 Mark(Hole h, vec3 p, vec3 normal, bool ground, float footprint, vec3 was)
 {
     float scorch = h.CentreScorch.w;
     vec3 d = p - h.CentreScorch.xyz;
@@ -130,7 +157,10 @@ vec3 Mark(Hole h, vec3 p, float footprint, vec3 was)
     float angle = atan(circle.y, circle.x);
     vec3 seed = vec3(h.CoreSeed.y * 13.7, h.CoreSeed.y * 7.1, h.CoreSeed.y * 3.3);
 
-    if (h.CoreSeed.z >= 0.0) return Splat(h, vec3(flat2, 0.0), r, circle, footprint, seed, was);
+    // A craft's splat is on the craft: the ground its spray reaches past it is not painted.
+    if (h.CoreSeed.z >= 0.0 && ground) return was;
+    if (h.CoreSeed.z >= 0.0)
+        return Splat(h, vec3(flat2, 0.0), r, circle, footprint, seed, dot(normal, -h.InwardReach.xyz), was);
 
     // The hole's own outline, ragged at two scales so it is never a circle.
     float edge = core * (0.62 + 0.38 * Noise(vec3(circle * 2.2, 0.0) + seed)
@@ -213,6 +243,9 @@ void main()
     // What one pixel spans here, so the edges are a pixel soft at any range.
     float footprint = max(length(WorldAt(uv + vec2(1.0 / float(size.x), 0.0), deviceZ) - p), 1.0e-5);
 
+    vec3 normal = SurfaceNormal(at, size, p);
+    bool ground = pc.Flags.x == 1 && texelFetch(prePassNormal, at, 0).w == 1.0;
+
     vec4 was = imageLoad(sceneColor, at);
     vec3 c = was.rgb;
 
@@ -223,7 +256,7 @@ void main()
         {
             int b = findLSB(bits);
             bits &= bits - 1u;
-            c = Mark(holes[first + (w * 32) + b], p, footprint, c);
+            c = Mark(holes[first + (w * 32) + b], p, normal, ground, footprint, c);
         }
     }
 

@@ -14,7 +14,8 @@ namespace KSArmory;
 /// exporters in one tagged region — <c>UpdatePlanetMaps</c>, between the barriers that make the
 /// offscreen target readable — and <see cref="PlanetRenderer.ProcessExporter"/> is the public
 /// method it calls there. A postfix on it renders this mod's map in the same breath as the game's,
-/// which is the only way to be sure a render pass may begin.</para>
+/// which is the only way to be sure a render pass may begin -- and paints the paintball splats there,
+/// after the opaque scene and before anything translucent (<see cref="CloudPass.RecordEarly"/>).</para>
 ///
 /// <para>The target is <c>public</c>, so <see cref="PinTheSignature"/> keeps it in this assembly's
 /// metadata and a KSA change to it is a build error rather than a map that silently stops
@@ -95,6 +96,8 @@ internal static class PlanetMapHook
     private static void AfterProcessExporter(CommandBuffer commandBuffer, Celestial nearbyCelestial,
                                              IViewport viewport, int frameIndex)
     {
+        CloudPass.RecordEarly(commandBuffer, viewport, frameIndex);
+
         if (_map?.Invoke() is not { Ready: true } map) return;
         if (nearbyCelestial is null) return;
 

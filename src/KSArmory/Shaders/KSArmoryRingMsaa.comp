@@ -1,0 +1,6 @@
+#version 450
+
+// Paintball splats into every sample of KSA's multisampled scene: Content/KSArmoryRing.glsl.
+
+#define RING_MSAA
+#include "Content/KSArmoryRing.glsl"
