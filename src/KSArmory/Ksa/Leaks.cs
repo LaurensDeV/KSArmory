@@ -33,14 +33,14 @@ internal static class Leaks
 
         /// <summary>A tank on fire: the stream burns as it leaves.</summary>
         Burning = 1,
-
-        /// <summary>A tank holding mostly a cryogen: it boils off the hole as white vapour.</summary>
-        Vapour = 2,
     }
 
-    /// <summary>One stream to draw: the first <paramref name="Count"/> of its points, in Ecl, how thick it leaves, a seed, and how it is drawn.</summary>
+    /// <summary>
+    /// One stream to draw: the first <paramref name="Count"/> of its points, in Ecl, how thick it leaves, a
+    /// seed, how it is drawn, and how thick the white fog round it is -- the tank's cryogen share by mass.
+    /// </summary>
     public readonly record struct Stream(LeakStream.Point[] Points, int Count, double ExitRadius, float Seed,
-                                         Look Look = Look.Liquid);
+                                         Look Look = Look.Liquid, float Fog = 0f);
 
     // Stored colder than this, a liquid boils off at the hole: liquid oxygen (90 K), methane (111 K) and
     // hydrogen (20 K) do, kerosene does not. NIST's line for a cryogen, 123 K, rounded down.
@@ -74,7 +74,10 @@ internal static class Leaks
     private const double MeasureSeconds = 0.1;
 
     // One hole a tank is running out of, and how fast.
-    private readonly record struct Outlet(BulletHoles.Hole Hole, double KgPerSecond, double JetSpeed, double CryoShare);
+    // Hole is the opening as it leaks, holes close together merged (HoleMerge); Key is the first of them,
+    // which its stream is kept under however many join it.
+    private readonly record struct Outlet(BulletHoles.Hole Hole, double KgPerSecond, double JetSpeed, double CryoShare,
+                                          BulletHoles.Hole Key);
 
     private sealed class Leak
     {
@@ -112,6 +115,11 @@ internal static class Leaks
     // followed with TankLeak.SettleSeconds of lag, so a thruster's pulse does not slosh it end to end.
     private static readonly ConditionalWeakTable<Tank, StrongBox<double3>> _settled = new();
     private static readonly Dictionary<Tank, List<BulletHoles.Hole>> _byTank = new(ReferenceEqualityComparer.Instance);
+    private static readonly List<BulletHoles.Hole> _inside = [];
+    private static readonly List<double3> _mergeAt = [];
+    private static readonly List<double> _mergeRadius = [];
+    private static readonly List<int> _mergeSkin = [];
+    private static readonly List<Part> _skins = [];
     private static readonly Dictionary<Tank, Leak> _leaking = new(ReferenceEqualityComparer.Instance);
     private static readonly Dictionary<Vehicle, Dictionary<Mole, float>> _owed = new(ReferenceEqualityComparer.Instance);
     private static readonly List<Stream> _streams = [];
@@ -208,7 +216,7 @@ internal static class Leaks
 
         foreach (BulletHoles.Hole hole in BulletHoles.All)
         {
-            if (!KsaWorld.TryTankOf(hole.SubPart, out Tank? tank)) continue;
+            if (hole.IsPaint || !KsaWorld.TryTankOf(hole.SubPart, out Tank? tank)) continue;
 
             if (!_byTank.TryGetValue(tank, out List<BulletHoles.Hole>? list)) _byTank[tank] = list = [];
             list.Add(hole);
@@ -307,15 +315,49 @@ internal static class Leaks
                             + $"(felt {felt} in the craft's), taken as {form.Described}, surface at {surface:F2}");
         }
 
-        double flow = 0.0;
-        int leaking = 0;
-        _outlets.Clear();
+        // The holes inside the liquid's shape, then those close together as one opening each.
+        _inside.Clear();
         foreach (BulletHoles.Hole hole in holes)
         {
             if (!KsaWorld.TryPartToVehicleAsmb(hole.SubPart, out double4x4 subToVehicle)) continue;
 
             double3 at = form.FromPart(hole.Local.Transform(subToVehicle).Transform(vehicleToTank));
-            if (!form.Holds(at)) continue;
+            if (form.Holds(at)) _inside.Add(hole);
+        }
+
+        _mergeAt.Clear();
+        _mergeRadius.Clear();
+        _mergeSkin.Clear();
+        _skins.Clear();
+        foreach (BulletHoles.Hole hole in _inside)
+        {
+            int skin = _skins.IndexOf(hole.SubPart);
+            if (skin < 0) { skin = _skins.Count; _skins.Add(hole.SubPart); }
+            _mergeAt.Add(hole.Local);
+            _mergeRadius.Add(hole.Core);
+            _mergeSkin.Add(skin);
+        }
+
+        int[] lead = HoleMerge.Groups(_mergeAt, _mergeRadius, _mergeSkin);
+
+        double flow = 0.0;
+        int leaking = 0;
+        _outlets.Clear();
+        for (int i = 0; i < _inside.Count; i++)
+        {
+            if (lead[i] != i) continue;
+
+            BulletHoles.Hole first = _inside[i];
+            (double3 local, double radius) = HoleMerge.Opening(_mergeAt, _mergeRadius, lead, i);
+            BulletHoles.Hole hole = first with
+            {
+                Local = local,
+                CameFrom = first.CameFrom + (local - first.Local),
+                Core = (float)radius,
+            };
+
+            if (!KsaWorld.TryPartToVehicleAsmb(hole.SubPart, out double4x4 subToVehicle)) continue;
+            double3 at = form.FromPart(hole.Local.Transform(subToVehicle).Transform(vehicleToTank));
 
             double depth = surface - Vec.Dot(at, up);
             if (was is null) Log.Debug(() => $"leak geometry: hole at {at} in the tank's frame, {Vec.Dot(at, up):F2} up, {depth:F2} under the surface");
@@ -324,7 +366,7 @@ internal static class Leaks
 
             flow += kgPerSecond;
             leaking++;
-            _outlets.Add(new Outlet(hole, kgPerSecond, TankLeak.JetSpeed(depth, pull, density), cryogen / mass));
+            _outlets.Add(new Outlet(hole, kgPerSecond, TankLeak.JetSpeed(depth, pull, density), cryogen / mass, first));
         }
 
         if (!(flow > 0.0)) return false;
@@ -334,8 +376,8 @@ internal static class Leaks
 
         if (was is null)
         {
-            Log.Info($"tank on {KsaWorld.DisplayName(craft)} leaking {flow:F1} kg/s through {leaking} of its "
-                     + $"{holes.Count} hole(s), {mass:F0} kg left");
+            Log.Info($"tank on {KsaWorld.DisplayName(craft)} leaking {flow:F1} kg/s through {leaking} opening(s) "
+                     + $"from {holes.Count} hole(s), {mass:F0} kg left");
             was = new Leak { Craft = craft };
             _leaking[tank] = was;
         }
@@ -498,10 +540,10 @@ internal static class Leaks
         for (int i = 0; i < _biggest.Count && i < MostStreams; i++)
         {
             (Vehicle craft, Outlet outlet) = _biggest[i];
-            if (!_jets.TryGetValue(outlet.Hole, out JetState? jet))
+            if (!_jets.TryGetValue(outlet.Key, out JetState? jet))
             {
                 jet = new JetState { Jet = new LeakJet(), Craft = craft, Seed = (_jetsMade++ % 97) * 7.31f };
-                _jets[outlet.Hole] = jet;
+                _jets[outlet.Key] = jet;
             }
 
             jet.Craft = craft;
@@ -515,7 +557,7 @@ internal static class Leaks
         {
             try
             {
-                if (!Fly(hole, jet, dt)) _spent.Add(hole);
+                if (!Fly(jet, dt)) _spent.Add(hole);
             }
             catch
             {
@@ -527,8 +569,11 @@ internal static class Leaks
     }
 
     // Moves one jet on and adds what it draws. False once it has nothing left to draw.
-    private static bool Fly(BulletHoles.Hole hole, JetState jet, double dt)
+    private static bool Fly(JetState jet, double dt)
     {
+        // The opening as it leaks, holes merged into it, rather than the one hole the stream is kept under.
+        BulletHoles.Hole hole = jet.Outlet.Hole;
+
         if (!KsaWorld.TryDrawnCentreEcl(jet.Craft, out double3 centre)) return false;
 
         // Relative to the craft's centre, in axes that do not turn with it: there a free parcel's
@@ -558,9 +603,9 @@ internal static class Leaks
         int count = jet.Jet.Draw(exit, exitRadius, flowing, jet.Points);
         for (int i = 0; i < count; i++) jet.Points[i] = jet.Points[i] with { Position = jet.Points[i].Position + centre };
 
-        Look look = PartFire.World.IsBurning(hole.SubPart.FullPart) ? Look.Burning
-                    : jet.Outlet.CryoShare >= 0.5 ? Look.Vapour
-                    : Look.Liquid;
+        // A cryogen leaks as liquid boiling inside the fog it chills out of the air; a fire burns the fog away.
+        Look look = PartFire.World.IsBurning(hole.SubPart.FullPart) ? Look.Burning : Look.Liquid;
+        float fog = look == Look.Burning ? 0f : (float)Math.Clamp(jet.Outlet.CryoShare, 0.0, 1.0);
 
         if (flowing && !jet.Breached)
         {
@@ -568,7 +613,7 @@ internal static class Leaks
             Breach(jet.Craft, exit + centre, velocity, jet.Outlet.CryoShare >= 0.5, look == Look.Burning);
         }
 
-        if (count >= 2) _streams.Add(new Stream(jet.Points, count, exitRadius, jet.Seed, look));
+        if (count >= 2) _streams.Add(new Stream(jet.Points, count, exitRadius, jet.Seed, look, fog));
         return true;
     }
 

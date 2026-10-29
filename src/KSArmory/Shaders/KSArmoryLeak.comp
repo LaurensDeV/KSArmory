@@ -2,8 +2,8 @@
 
 // The streams leaking tanks throw: a thin rope of liquid along each stream's arc, dark at its edges
 // and lit through its middle as a tube of liquid is, with a glint along it; whole for its first few
-// tens of diameters and then drops. A stream from a tank on fire burns instead, and one from a cryogen
-// boils off as white vapour, both widening as they go (Flow.w, Leaks.Look). Everything that moves -- the beads it swells into, its sway, its
+// tens of diameters and then drops. A stream from a tank on fire burns instead, and one from a tank
+// holding cryogen is wrapped in white fog as thick as its share of the tank (Flow.w). Everything that moves -- the beads it swells into, its sway, its
 // drops -- is keyed on when the liquid at that point left the hole, so it travels down the stream
 // with the liquid. One dispatch over every stream on screen: the segments arrive projected,
 // in pixels, from CloudPass, and each workgroup first gathers the ones reaching its tile.
@@ -21,7 +21,8 @@ struct Segment
     vec4 Head;  // x, y in pixels, device depth, metres along the stream from the hole
     vec4 Tail;  // x, y in pixels, device depth, metres along the stream from the hole
     vec4 Look;  // half-width in pixels at the head and at the tail, metres it runs whole, a seed
-    vec4 Flow;  // seconds the liquid has been out at the head and at the tail, the jet's radius in metres, the look
+    vec4 Flow;  // seconds the liquid has been out at the head and at the tail, the jet's radius in metres,
+                // and two if it burns plus its fog share (CloudPass.FlowLook)
 };
 
 layout (std430, set = 1, binding = 2) readonly buffer Segments
@@ -50,16 +51,17 @@ const float DropsPerSecond = 17.0;
 // Never drawn under this many pixels wide, so a stream reads at range as a thread rather than vanishing.
 const float LeastHalfWidth = 1.0;
 
-// Leaks.Look.
-const float Burning = 1.0;
-const float Vapour = 2.0;
+// How far a burning stream and a fully cryogenic one's fog spread by the end of the whole length, in
+// their own widths. CloudPass.Spread widens the segments by the same so the tiles cover them.
+const float FlameSpread = 3.0;
+const float FogSpread = 6.0;
 
 // A flame's colour before bloom: far over one, so it glows.
 const vec3 FlameColour = vec3(6.0, 2.2, 0.5);
 
-// Vapour in full sun, in the scene's units: as bright as a sunlit grey round (CloudPass.BallColour at
+// Fog in full sun, in the scene's units: as bright as a sunlit grey round (CloudPass.BallColour at
 // Config.BallRoundBrightness), a little whiter. By night it keeps a tenth, lit by whatever is behind it.
-const vec3 SunlitVapour = vec3(1.35, 1.4, 1.5);
+const vec3 SunlitFog = vec3(1.35, 1.4, 1.5);
 
 shared int tileCount;
 shared int tileList[MostPerTile];
@@ -116,8 +118,9 @@ void main()
     float cover = 0.0;
     float side = 0.0;
     float glint = 0.0;
-    float look = 0.0;
+    float burns = 0.0;
     float spent = 0.0;
+    float fogCover = 0.0;
     for (int k = 0; k < n; k++)
     {
         Segment s = segments[first + tileList[k]];
@@ -138,9 +141,12 @@ void main()
         // Beads: the jet swelling and narrowing, more as it runs.
         float bead = 1.0 + (0.12 + 0.18 * grown) * sin(6.2831853 * BeadsPerSecond * left + seed)
                          + 0.15 * (Noise(left * 7.0 + seed) - 0.5);
-        // A burning or boiling stream arrives already widened (CloudPass.Spread).
-        float kind = s.Flow.w;
-        float trueHalf = mix(s.Look.x, s.Look.y, t) * bead;
+        // Arrives widened to its flame or fog (CloudPass.Spread); the rope is that width taken back off.
+        float burning = s.Flow.w >= 2.0 ? 1.0 : 0.0;
+        float fog = clamp(s.Flow.w - 2.0 * burning, 0.0, 1.0);
+        float widened = burning > 0.5 ? 1.0 + FlameSpread * grown : 1.0 + FogSpread * grown * fog;
+        float outerHalf = max(mix(s.Look.x, s.Look.y, t) * bead, LeastHalfWidth);
+        float trueHalf = mix(s.Look.x, s.Look.y, t) * bead / widened;
         float halfW = max(trueHalf, LeastHalfWidth);
 
         // Sway: the stream wandering from side to side, from nothing at the hole.
@@ -150,7 +156,7 @@ void main()
         vec2 centreline = a + ab * t + across * sway;
         float lateral = dot(p - centreline, across);
         float d = length(p - centreline);
-        if (d > halfW + 1.5) continue;
+        if (d > outerHalf + 1.5) continue;
 
         // Depth varies linearly across the screen along a line, so it can be interpolated in pixels.
         float z = mix(s.Head.z, s.Tail.z, t);
@@ -158,14 +164,19 @@ void main()
 
         // A thread drawn wider than it is shows as lighter than a real stream would.
         float c = (1.0 - smoothstep(halfW - 0.5, halfW + 0.5, d)) * mix(0.55, 1.0, clamp(trueHalf, 0.0, 1.0));
+        float soft = 1.0 - clamp(d / outerHalf, 0.0, 1.0);
+        float flicker = 0.75 + 0.5 * Noise(left * 11.0 + seed + lateral * 0.3);
 
-        // Flame and vapour have soft edges and thin out along the stream rather than breaking into drops.
-        if (kind > 0.5)
+        // The fog round a cold stream, soft-edged and thinning over three of its whole lengths.
+        if (burning < 0.5 && fog > 0.0)
         {
-            float soft = 1.0 - clamp(d / halfW, 0.0, 1.0);
-            float reach = kind == Burning ? 1.5 : 3.0;
-            c = soft * soft * (1.0 - smoothstep(0.0, whole * reach, along))
-                * (0.75 + 0.5 * Noise(left * 11.0 + seed + lateral * 0.3));
+            fogCover = max(fogCover, soft * soft * fog * (1.0 - smoothstep(0.0, whole * 3.0, along)) * flicker);
+        }
+
+        // Flame has soft edges and burns out along the stream rather than breaking into drops.
+        if (burning > 0.5)
+        {
+            c = soft * soft * (1.0 - smoothstep(0.0, whole * 1.5, along)) * flicker;
         }
         // Past its whole length the rope is drops, each its own size, falling with the liquid.
         else if (along > whole)
@@ -183,29 +194,35 @@ void main()
             cover = c;
             side = clamp(lateral / halfW, -1.0, 1.0);
             glint = 0.55 + 0.9 * Noise(left * 23.0 + seed * 5.0);
-            look = kind;
+            burns = burning;
             spent = clamp(along / max(whole, 1.0e-3), 0.0, 1.0);
         }
     }
 
-    if (cover <= 0.0) return;
+    if (cover <= 0.0 && fogCover <= 0.0) return;
 
     vec4 was = imageLoad(sceneColor, at);
     float lum = dot(was.rgb, vec3(0.2126, 0.7152, 0.0722));
 
     // Burning: light added, yellow at the hole and redder as it burns out.
-    if (look == Burning)
+    if (burns > 0.5)
     {
         vec3 flame = FlameColour * mix(vec3(1.0, 1.1, 1.4), vec3(0.8, 0.45, 0.2), spent) * glint;
         imageStore(sceneColor, at, vec4(was.rgb + flame * cover, was.a));
         return;
     }
 
-    // Vapour: a white veil over what is behind it, lit by the light already there.
-    if (look == Vapour)
+    // Fog first, a white veil lit by the day, and the rope of liquid through it.
+    if (fogCover > 0.0)
     {
-        vec3 veil = max(SunlitVapour * max(pc.Daylight, 0.1), vec3(lum * 1.2));
-        imageStore(sceneColor, at, vec4(mix(was.rgb, veil, cover * 0.7), was.a));
+        vec3 veil = max(SunlitFog * max(pc.Daylight, 0.1), vec3(lum * 1.2));
+        was.rgb = mix(was.rgb, veil, fogCover * 0.7);
+        lum = dot(was.rgb, vec3(0.2126, 0.7152, 0.0722));
+    }
+
+    if (cover <= 0.0)
+    {
+        imageStore(sceneColor, at, was);
         return;
     }
 
