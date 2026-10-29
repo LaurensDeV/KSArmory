@@ -4,8 +4,6 @@ Adds working weapon systems to Kitten Space Agency. Every launcher searches, tra
 
 Every part has a page with a 3D model you can turn around on **[ksarmory.com](https://ksarmory.com)**, along with the install guide and how to use it.
 
-**Requires [StarMap](https://github.com/StarMapLoader/StarMap/releases) 0.4.8 or newer.** Older StarMap versions do not start on current KSA builds.
-
 ### Air defence
 
 ![The Pantsir-S1 point defence system](images/card-pantsir.png)
