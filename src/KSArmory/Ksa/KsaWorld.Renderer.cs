@@ -67,18 +67,6 @@ internal static partial class KsaWorld
 
     private static bool _warnedAboutWeather;
 
-    // The renderer's accumulated full-resolution result, which it ping-pongs between two images
-    // and a flag. Private, so reflected; missing, and the jittered low-resolution pair stands in.
-    private static FieldInfo?[]? _settled;
-
-    private static FieldInfo? _writesFlipNext;
-
-    private static readonly string[] SettledNames =
-    [
-        "_upscaledCloudColorFlipTarget", "_upscaledCloudColorFlopTarget",
-        "_upscaledDistanceFlipTarget", "_upscaledDistanceFlopTarget",
-    ];
-
     /// <summary>
     /// KSA's own weather clouds as they were drawn this frame: their light with transmittance in
     /// alpha, and how far each pixel's cloud is from the camera. False when the player has clouds
@@ -134,38 +122,25 @@ internal static partial class KsaWorld
         }
     }
 
-    // The accumulated pair, which holds still where the jittered low-resolution pair crawls.
-    // PerformUpscaling flips the flag after writing, so this frame's is the one it no longer names.
-    private static bool TrySettledWeather(object clouds, out KSA.Rendering.RenderImage? colour,
+    // The accumulated pair, which holds still where the jittered low-resolution pair crawls. The
+    // engine flips the flag after writing, so this frame's is the one it no longer names. The getters
+    // throw while the main view has no cloud resources, and the low-resolution pair then stands in.
+    private static bool TrySettledWeather(KSA.Atmosphere.Rendering.CloudRenderer clouds,
+                                          out KSA.Rendering.RenderImage? colour,
                                           out KSA.Rendering.RenderImage? distance)
     {
-        colour = null;
-        distance = null;
-
-        if (_settled is null)
+        try
         {
-            Type type = clouds.GetType();
-            const BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
+            bool flip = clouds.IsUpscaledHistoryInFlip();
 
-            _settled = [.. SettledNames.Select(n => type.GetField(n, Private))];
-            _writesFlipNext = type.GetField("writeHistoryToFlip", Private);
-
-            if (_settled.Any(f => f?.FieldType != typeof(KSA.Rendering.RenderImage))
-                || _writesFlipNext?.FieldType != typeof(bool))
-            {
-                Log.Warn("weather clouds: the renderer's accumulated images did not resolve; "
-                         + "reading its jittered low-resolution ones, whose edges crawl");
-                _settled = [];
-            }
+            colour = flip ? clouds.GetUpscaledCloudColorFlipTarget() : clouds.GetUpscaledCloudColorFlopTarget();
+            distance = flip ? clouds.GetUpscaledDistanceFlipTarget() : clouds.GetUpscaledDistanceFlopTarget();
         }
-
-        if (_settled.Length != 4 || _writesFlipNext is null) return false;
-
-        bool flipIsNext = (bool)_writesFlipNext.GetValue(clouds)!;
-        int written = flipIsNext ? 1 : 0;
-
-        colour = _settled[written]!.GetValue(clouds) as KSA.Rendering.RenderImage;
-        distance = _settled[2 + written]!.GetValue(clouds) as KSA.Rendering.RenderImage;
+        catch (InvalidOperationException)
+        {
+            colour = null;
+            distance = null;
+        }
 
         return colour is not null && distance is not null;
     }

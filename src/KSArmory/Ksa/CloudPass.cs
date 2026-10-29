@@ -397,8 +397,8 @@ internal static class CloudPass
                 return;
             }
 
-            // The weather is the main view's: KSA renders its clouds for that one alone, and their
-            // images laid over a camera window would hide its burst behind somebody else's sky.
+            // The weather read is the main view's, whose cloud images are the only ones KSA hands out,
+            // so a camera window's burst is drawn in front of that window's own clouds.
             RenderImage? weatherColour = null;
             RenderImage? weatherDistance = null;
             bool weather = ReferenceEquals(viewport, Program.MainViewport)

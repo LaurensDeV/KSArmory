@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-346 types and 931 members across 12 assemblies.
+348 types and 939 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -713,6 +713,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.Rendering.RenderImage GetLowResolutionCloudColorTarget()`
 - `KSA.Rendering.RenderImage GetLowResolutionCloudDistanceTarget()`
+- `KSA.Rendering.RenderImage GetUpscaledCloudColorFlipTarget()`
+- `KSA.Rendering.RenderImage GetUpscaledCloudColorFlopTarget()`
+- `KSA.Rendering.RenderImage GetUpscaledDistanceFlipTarget()`
+- `KSA.Rendering.RenderImage GetUpscaledDistanceFlopTarget()`
+- `bool IsUpscaledHistoryInFlip()`
 
 ### KSA.Atmosphere.Rendering.CloudShadowRenderData
 
@@ -937,6 +942,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `double InMeters()`
 - `double op_Implicit(KSA.DistanceReference)`
+
+### KSA.DoseRates
+
+- `KSA.SievertsPerSecond get_Cosmic()`
+- `void set_Cosmic(KSA.SievertsPerSecond)`
 
 ### KSA.Double3Ex
 
@@ -1418,12 +1428,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.double4x4 MatrixAsmb2Ego(ref Brutal.Numerics.double4x4)`
 - `Brutal.Numerics.doubleQuat get_Asmb2ParentAsmb()`
 - `Brutal.Numerics.doubleQuat get_Asmb2VehicleAsmb()`
+- `Connector[] Connectors`
 - `KSA.ModuleList Modules`
 - `KSA.Part TreeParent`
 - `KSA.Part get_FullPart()`
 - `KSA.PartTemplate Template`
 - `KSA.PartTree Tree`
-- `System.Collections.Generic.List`1<Connector> Connectors`
 - `System.ReadOnlySpan`1<KSA.Part> get_SubParts()`
 - `System.ValueTuple`2<Brutal.Numerics.double3, Brutal.Numerics.double3> get_BoundingBoxPartAsmb()`
 - `System.ValueTuple`2<Brutal.Numerics.double3, Brutal.Numerics.double3> get_BoundingBoxVehicleAsmb()`
@@ -1571,7 +1581,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.PlanetRenderer
 
-- `Brutal.Numerics.float4x4 GetRenderBillboardMatrix(KSA.Camera)`
 - `Brutal.Numerics.float4x4 GetRenderTextureMatrix(KSA.Camera)`
 - `void ProcessExporter(Brutal.VulkanApi.CommandBuffer, KSA.Celestial, KSA.IViewport, int)`
 
@@ -1642,12 +1651,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Radiation
 
-- `double ComputeDoseRate(KSA.IParentBody, Brutal.Numerics.double3, Brutal.Numerics.double3)`
+- `KSA.DoseRates ComputeDoseRates(KSA.IParentBody, Brutal.Numerics.double3, Brutal.Numerics.double3, double)`
 - `double ComputeL(Brutal.Numerics.double3, double, ref double)`
 
 ### KSA.RadiationBeltReference
 
-- `void .ctor(double, double, double)`
+- `void .ctor(double, double, double, double)`
 
 ### KSA.Ray
 
@@ -1664,7 +1673,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Rendering.ComputePipelineWrapper
 
-- `void .ctor(System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, KSA.ShaderReference, System.Span`1<Brutal.VulkanApi.VkDescriptorSetLayout>, System.Span`1<Brutal.VulkanApi.VkPushConstantRange>, int, Core.Renderer, string, Brutal.VulkanApi.VkSampler, Brutal.VulkanApi.VkSampler, Brutal.VulkanApi.VkShaderStageFlags, System.Span`1<Brutal.VulkanApi.VkImageView>, System.Span`1<Brutal.VulkanApi.VkBuffer>, System.Nullable`1<Brutal.VulkanApi.VkSpecializationInfo>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<Brutal.VulkanApi.VkBuffer>, System.Span`1<KSA.Rendering.IRenderImage>, Brutal.VulkanApi.VkSampler, System.Span`1<Brutal.VulkanApi.VkBuffer>, System.Span`1<Brutal.ByteSize>, System.Nullable`1<Brutal.ShaderCApi.CompileOptions>, bool)`
+- `void .ctor(System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, KSA.ShaderReference, System.Span`1<Brutal.VulkanApi.VkDescriptorSetLayout>, System.Span`1<Brutal.VulkanApi.VkPushConstantRange>, int, Core.Renderer, string, Brutal.VulkanApi.VkSampler, Brutal.VulkanApi.VkSampler, Brutal.VulkanApi.VkShaderStageFlags, System.Span`1<Brutal.VulkanApi.VkImageView>, System.Span`1<Brutal.VulkanApi.VkBuffer>, System.Nullable`1<Brutal.VulkanApi.VkSpecializationInfo>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<KSA.Rendering.IRenderImage>, System.Span`1<Brutal.VulkanApi.VkBuffer>, System.Span`1<KSA.Rendering.IRenderImage>, Brutal.VulkanApi.VkSampler, System.Span`1<Brutal.VulkanApi.VkBuffer>, System.Span`1<Brutal.ByteSize>, System.Nullable`1<Brutal.ShaderCApi.CompileOptions>, bool, KSA.Rendering.ComputePipelineWrapper, bool)`
 - `void BindPipeline<1>(Brutal.VulkanApi.CommandBuffer, int, System.Span`1<Brutal.VulkanApi.VkDescriptorSet>, System.Span`1<Brutal.ByteSize32>, !!0)`
 
 ### KSA.Rendering.IRenderImage
@@ -1821,6 +1830,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.ShapesUnlock
 
 *referenced as a type only*
+
+### KSA.SievertsPerSecond
+
+- `KSA.SievertsPerSecond op_Addition(KSA.SievertsPerSecond, KSA.SievertsPerSecond)`
+- `void .ctor(double)`
 
 ### KSA.SimSpeed
 

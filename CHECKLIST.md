@@ -123,6 +123,30 @@ Four things changed shape and need watching, worst first:
 
 Also unflown on this build: everything the previous retarget listed as unwatched, and the turret.
 
+**Retargeted to KSA `2026.10.25.5707` — one member gone, two silent breaks, and crew radiation.**
+`PlanetRenderer.GetRenderBillboardMatrix` is gone; it returned the identity, which the planet map now passes
+itself. `Radiation.ComputeDoseRate` now returns `SievertsPerSecond` and **nothing calls it**: the gauge and
+the new crew dose read `ComputeDoseRates`, so the hook moved there and a burst now doses kittens (sickness
+at 1 Sv, death at 4). The cloud renderer's settled history went per viewport and its private fields with
+it; public getters replace the reflection. The mod's belts are now all electrons and every orbit-average
+cache is cleared on a re-write. Every other contract in the upgrade skill reads the same, and no XML
+element or attribute the mod writes moved. Findings left open:
+
+- [ ] **`head-on`** on 5707, with the log's `built for KSA 2026.10.25.5707, running 2026.10.25.5707 - reporting on`.
+- [ ] **The planet map renders**, and the weather clouds sit in front of and behind a burst as before
+      (the accumulated pair, not the crawling one — no `accumulated images did not resolve` warning).
+- [ ] **A burst moves the Radiation gauge**, and a crewed craft in fallout accumulates dose. Sickness
+      sets the world to 1x through KSA's own `SetSimulationSpeed`, which `WarpPolicy` will read as the
+      player overriding it — watch for a stand-down line during a salvo.
+- [ ] **A fireball's light double-lights the ground beyond ~3 km.** Terrain and clutter now go into KSA's
+      light pre-pass (`PrePassRenderer.cs:269-288`), so `KSArmoryFireLight.comp`'s test that a pixel is
+      a craft or structure (depth matches the pre-pass's) passes on the ground too, which already lights
+      itself in the forward pass. Not fixed: the pass needs another way to tell terrain from a craft.
+- [ ] **KSA's aurora green changed** from (0.3, 1, 0.45) to (0.3, 1, 0.15); `KSArmoryCloud.comp` still
+      draws a burst's aurora with the old one. Cosmetic, not changed here.
+- [ ] **A burst belt outside every natural one takes the storm scaling** meant for the outer belt (KSA
+      scales the belt with the largest L). Not changed here.
+
 **Retargeted to KSA `2026.10.19.5638` — eight assemblies renamed, no member moved, and not yet
 flown.** `Brutal.Core.Numerics`, `Common`, `Strings` and five siblings lost their `Core.` (`Common`
 became `Brutal.Core`); the types and namespaces are identical, so only the references moved, and a mod

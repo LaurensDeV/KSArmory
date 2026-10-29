@@ -7,8 +7,8 @@ namespace KSArmory;
 /// <summary>
 /// Rides the main view behind a round in flight, holds on the burst, and gives the view back.
 ///
-/// <para>The main view rather than a second one, because a secondary viewport draws no clouds,
-/// ocean or clustered lights. See <c>docs/BLOCKED-ON-KSA.md</c>, which also has why the camera
+/// <para>The main view rather than a second one, because a secondary viewport draws no ocean
+/// or clustered lights. See <c>docs/BLOCKED-ON-KSA.md</c>, which also has why the camera
 /// keeps following its craft throughout.</para>
 /// </summary>
 internal sealed class ChaseCamera : IViewPose

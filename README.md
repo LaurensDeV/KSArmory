@@ -82,7 +82,7 @@ You can also add weapons without changing this mod. A *weapon pack* is an ordina
 
 KSArmory's own weapons are defined the same way, one file per family in its `KSArmory/` folder: `Pantsir.xml`, `Rails.xml`, `Rockets.xml`, `Guns.xml`, `Sensors.xml`, `Countermeasures.xml`, `DirectedEnergy.xml` and `Strategic.xml`. You can switch any family off under **KSArmory > Built-in weapons**. The change takes effect the next time the game starts. A switched-off family's parts disappear from the editor but still load on saved craft as plain structure. Its rounds, sensors and decoys stay available to packs, and a pack can then define its own weapon on that family's part.
 
-> Built against KSA build `2026.10.19.5638`. KSA is pre-release and has no official code-modding
+> Built against KSA build `2026.10.25.5707`. KSA is pre-release and has no official code-modding
 > API. This mod uses the community [StarMap](https://github.com/StarMapLoader/StarMap) loader and
 > may need updating when the game updates. The community
 > [wiki](https://kittenspaceagency.wiki.gg/) is a useful reference for the game itself.
@@ -101,7 +101,7 @@ KSArmory's own weapons are defined the same way, one file per family in its `KSA
 
 You need:
 
-- Kitten Space Agency, build `2026.10.19.5638`. Other builds may not work until the mod is updated.
+- Kitten Space Agency, build `2026.10.25.5707`. Other builds may not work until the mod is updated.
 - [StarMap](https://github.com/StarMapLoader/StarMap/releases) 0.4.8 or newer, the community mod loader. KSArmory does not run without it. Older StarMap versions do not start on KSA `2026.10.19.5638`.
 
 Windows and Linux use the same download.

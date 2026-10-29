@@ -9,7 +9,7 @@ non-null `Following` is the working combination, and a crash in that state is an
 docs are evidence about the engine — only the corpus is.
 
 The claims were re-checked against each build named below; the line numbers were not, and most
-cite 2026.8.22.5348 (against 2026.10.19.5638, `Program.cs` sits about 300 lines later and `Camera.cs`
+cite 2026.8.22.5348 (against 2026.10.19.5638, `Program.cs` sat about 300 lines later and `Camera.cs`
 about 9 earlier). A citation is a pointer to grep near, not a proof.
 
 ---
@@ -21,7 +21,7 @@ about 9 earlier). A citation is a pointer to grep near, not a proof.
 Grounded **only** in the decompiled engine at
 `../ksa-game-assemblies/current/src`.
 All citations are relative to that root. Nothing here is taken from any mod's own code or docs.
-Build: **2026.10.19.5638**. Line numbers move on every KSA update, so a citation that does not land
+Build: **2026.10.25.5707**. Line numbers move on every KSA update, so a citation that does not land
 on what it claims means this file is behind the corpus, not that the corpus is wrong.
 
 > **Its citations and its viewport sections are against 2026.8.22.5348, and section 2 in particular
@@ -37,7 +37,9 @@ on what it claims means this file is behind the corpus, not that the corpus is w
 > build adds one: a save whose camera followed something no longer in the system now follows the first
 > craft, or the home body, where it used to follow nothing. One claim the later build adds to: a mouse button other than the left
 > can now be bound to an input action, and `Program.OnMouseButton` dispatches that binding before
-> the controller sees the press.
+> the controller sees the press. 2026.10.25.5707 left `Camera.cs`, `FixedController.cs` and `Viewport.cs`
+> alone and kept `Program.OnFrame`'s order; what it adds is clouds in a secondary viewport
+> (`ViewportOptionFlags.RenderClouds`), so the table below listing none is history.
 > 2026.9.4.5400 replaced the `Viewport` class with `IViewport` / `ViewportBase` /
 > `GameViewport` and moved the list into `ViewportRegistry` — so every `Viewport.cs:N` citation
 > below points at a file that no longer exists, and the claims naming `Program.Viewports`,

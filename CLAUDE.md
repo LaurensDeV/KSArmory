@@ -249,7 +249,7 @@ parses as it is.
 ## Environment
 
 - **KSA install**: `/mnt/c/Program Files/Kitten Space Agency` (Windows game, WSL dev)
-- **KSA build these notes were taken against**: `2026.10.19.5638`
+- **KSA build these notes were taken against**: `2026.10.25.5707`
 - The system `dotnet` is 8.0 and **cannot build this** — the mod targets **net10.0**
   (`error NETSDK1045`). A .NET 10 SDK is installed at `~/.dotnet`.
   **Use `tools/build.sh` / `tools/test.sh`**, which source `tools/env.sh` to fix PATH. Bare
@@ -688,7 +688,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/CloudPassHook.cs` | a place the mod patches the game, and the first in the renderer — **an ordinary prefix on a public method**, because `SunbloomRenderer.Render` hands over the command buffer at the one instant the scene colour is storage-writable, the depth is sampled, and bloom and the tonemap are both still to come |
 | `Ksa/CloudPassCost.cs` | what that pass costs the GPU, read back out of KSA's own profiler — **the whole frame is sampled beside it**, because 2 ms on a 30 ms frame and 2 ms on an 8 ms one are different answers |
 | `Ksa/Radioactivity.cs` | every burst's radiation still in the world, body-fixed as the ground it lies on — and **a burst above the air written into KSA's own belts**, one merged belt per field, so the gauge's orbit average and the map's Magnetospheres overlay show it too; only into a field KSA already gives belts |
-| `Ksa/DoseRateHook.cs` | a place the mod patches the game: **a postfix on `Radiation.ComputeDoseRate`**, which only KSA's Radiation gauge calls, adding the bursts to its reading; a patch that does not apply leaves the gauge reading KSA's sources alone |
+| `Ksa/DoseRateHook.cs` | a place the mod patches the game: **a postfix on `Radiation.ComputeDoseRates`**, which KSA's Radiation gauge and its crew dose both read, adding the bursts to its cosmic share, the most penetrating it shields — **so fallout can sicken and kill kittens**, and sickness drops the world to 1x; a patch that does not apply leaves both on KSA's sources alone |
 | `Ksa/BurstSound.cs` | a nuclear burst's two sounds, both recorded at ANNIE: the **equipment picking up the flash** at the instant of the burst, and the bang, arriving when it actually would — **each burst's front followed live to the camera**, so seven seconds behind the flash where a cloud is watched from and a minute for 50 Mt 37 km overhead, **as loud as the pressure there** and not at all under 50 Pa or where there is no air, and **slower and deeper by the cube root of the yield** above ANNIE's 16 kt and never faster, with **Core's own close crack** under it near the burst, since the recording's was lost to 10.7 km of air |
 | `Ksa/BurstFlash.cs` | the view going white for a moment when a burst goes off in front of you, and the glare round the ball for **as long as it burns** — **the model, not the drawing**: `CloudPass` writes it into the scene image, because KSA wraps its whole UI pass in `if (DrawUI)` and both F2 and a screenshot clear that |
 | `Ksa/CloudWatch.cs` | a camera pinned on a standing cloud — **the measurement needed it**, because what the pass costs is set by how much of the screen it marches and a camera the operator can move makes every number one about where somebody stood. The pose is also the one worth watching from, which is not a coincidence: a mushroom is a side-on silhouette |
@@ -768,7 +768,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 931 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 939 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1391,7 +1391,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from about 770,000 lines to the files
-defining the 346 types this mod actually uses.
+defining the 348 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 34 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 16 MB —
@@ -2489,8 +2489,8 @@ default (`Config.DrawOverlays`, under **Settings → Display → World overlay**
 subparts and are unaffected.
 
 **An optical head drives the main view or a camera window, and since 2026.10.7.5541 both draw a
-planet.** A window draws terrain and sky but still no clouds, ocean or clustered lights
-(`docs/BLOCKED-ON-KSA.md`), so `Ksa/SightCamera.cs` borrowing the player's view is still the full
+planet.** A window draws terrain, sky and, since 2026.10.25.5707, clouds, but still no ocean or clustered
+lights (`docs/BLOCKED-ON-KSA.md`), so `Ksa/SightCamera.cs` borrowing the player's view is still the full
 picture. A window is how a site is watched while flying something else: **every head with one
 drives it, whichever craft the panel shows**, one head per window, and the magnification is taken
 against the engine's default 50°. `KsaWorld.TryLookFromViewport` derives the window camera's

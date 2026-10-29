@@ -6,9 +6,8 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// Adds this mod's bursts to KSA's own dose rate, which is what its Radiation gauge reads. A postfix on
-/// <c>Radiation.ComputeDoseRate</c>, called only by that gauge; a patch that does not apply leaves the
-/// gauge reading KSA's sources alone.
+/// Adds this mod's bursts to KSA's own dose rates, which its Radiation gauge and its crew dose both read.
+/// A postfix on <c>Radiation.ComputeDoseRates</c>; a patch that does not apply leaves both on KSA's sources alone.
 /// </summary>
 internal static class DoseRateHook
 {
@@ -24,25 +23,25 @@ internal static class DoseRateHook
 
         try
         {
-            MethodInfo? target = AccessTools.Method(typeof(Radiation), nameof(Radiation.ComputeDoseRate),
-                                                    [typeof(IParentBody), typeof(double3), typeof(double3)]);
+            MethodInfo? target = AccessTools.Method(typeof(Radiation), nameof(Radiation.ComputeDoseRates),
+                                                    [typeof(IParentBody), typeof(double3), typeof(double3), typeof(double)]);
             if (target is null)
             {
-                Log.Warn("radiation: KSA has no Radiation.ComputeDoseRate to hook; its gauge will not show bursts");
+                Log.Warn("radiation: KSA has no Radiation.ComputeDoseRates to hook; its gauge and crew will not feel bursts");
                 return;
             }
 
-            MethodInfo postfix = typeof(DoseRateHook).GetMethod(nameof(AfterDoseRate),
+            MethodInfo postfix = typeof(DoseRateHook).GetMethod(nameof(AfterDoseRates),
                                                                 BindingFlags.NonPublic | BindingFlags.Static)!;
             _harmony = new Harmony(HarmonyId);
             _harmony.Patch(target, postfix: new HarmonyMethod(postfix));
 
             Installed = true;
-            Log.Info("radiation: bursts reach KSA's dose gauge, via Radiation.ComputeDoseRate");
+            Log.Info("radiation: bursts reach KSA's dose gauge and crew, via Radiation.ComputeDoseRates");
         }
         catch (Exception e)
         {
-            Log.Warn($"radiation: could not hook KSA's dose rate; its gauge will not show bursts ({e.Message})");
+            Log.Warn($"radiation: could not hook KSA's dose rate; its gauge and crew will not feel bursts ({e.Message})");
         }
     }
 
@@ -61,12 +60,14 @@ internal static class DoseRateHook
         Installed = false;
     }
 
-    // Inside the engine's gauge update: nothing here may throw.
-    private static void AfterDoseRate(double3 positionEcl, ref double __result)
+    // Inside the engine's gauge and crew updates: nothing here may throw. Gamma goes in the cosmic share,
+    // the most penetrating one KSA shields: a hull passes about 70% of it.
+    private static void AfterDoseRates(double3 positionEcl, ref DoseRates __result)
     {
         try
         {
-            __result += Radioactivity.DoseRateAt(positionEcl);
+            double burst = Radioactivity.DoseRateAt(positionEcl);
+            if (burst > 0.0) __result = __result with { Cosmic = __result.Cosmic + new SievertsPerSecond(burst) };
         }
         catch
         {
@@ -74,6 +75,6 @@ internal static class DoseRateHook
     }
 
     // Never called: puts the patched method in docs/KSA-API-SURFACE.md, so a signature change is a build error.
-    private static double PinTheSignature(IParentBody parent)
-        => Radiation.ComputeDoseRate(parent, double3.Zero, double3.Zero);
+    private static DoseRates PinTheSignature(IParentBody parent)
+        => Radiation.ComputeDoseRates(parent, double3.Zero, double3.Zero, double.NaN);
 }

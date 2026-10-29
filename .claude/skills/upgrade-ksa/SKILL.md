@@ -60,7 +60,7 @@ Do not push yet if you want to inspect the diff first — it is local either way
 ./tools/ksa-api-diff.sh ../ksa-game-assemblies
 ```
 
-This reads `docs/KSA-API-SURFACE.md` — the 931 members this mod genuinely binds to, extracted
+This reads `docs/KSA-API-SURFACE.md` — the 939 members this mod genuinely binds to, extracted
 from the compiled assembly's metadata — against the new corpus, and answers two questions:
 
 **Missing members.** Mechanical and precise. Each one is a break you must fix. `MOVED` means it
@@ -117,6 +117,9 @@ claim still holds.
 | A non-Auto throttle is capped at `0.9 × MaxGLoad × g` | `FlightComputer.cs` (`SolveGLoadThrottleCap`) | It coincides with `IcbmProgram.StructuralMarginFraction`; a different factor makes the engine and the ballistic computer's caps disagree. |
 | A part tree's derived data is rebuilt once a frame by `PartTree.FlushDirtyDerived`, before the vehicle solvers, or on `EnsureDerived`; `SequenceList.Sequences` does not ask for it | `PartTree.cs`, `Program.cs` (`PrepareFrame`) | `LauncherSeparation` reads a staging list from before a split. It calls `EnsureDerived(DerivedData.Sequences)` for this reason. |
 | `ResetCachedPosMatrixValues` also marks the tree's `PartTreeRenderData` dirty, and part matrices are packed to `float` per term and multiplied there | `Part.cs`, `PartTreeRenderData.cs` | A subpart write without the reset is never drawn, not just drawn stale; and a round far from its launcher shivers however close the camera is. |
+| The gauge and the crew dose read `Radiation.ComputeDoseRates`, and its `Cosmic` share is the one a hull stops least | `Program.cs` (`UpdateDoseGauges`), `Vehicle.cs` (`ComputeCrewDoseRates`), `RadiationShield.cs` | `DoseRateHook` postfixes it; a gauge or crew path that moves to another call drops the bursts silently, with the hook still reporting installed. |
+| Orbit dose averages are cached until the orbit, the sun's direction or the field state moves, in `Program` and on every `Vehicle` | `OrbitDoseAverageCache.cs`, `Program.cs`, `Vehicle.cs` | `Radioactivity.ForgetOrbitAverage` clears each by reflection; a new cache holder keeps dosing on a belt that has gone, or misses one that arrived. |
+| The light pre-pass holds craft and structures, and since 5707 terrain and clutter too | `PrePassRenderer.cs` | `KSArmoryFireLight.comp` tells what to light by depth matching the pre-pass's. |
 
 Add a row whenever a fix depends on the engine *doing* something rather than *declaring* it.
 

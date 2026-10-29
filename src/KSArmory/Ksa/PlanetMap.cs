@@ -101,7 +101,7 @@ internal sealed class PlanetMap : IDisposable
 
             PlanetViewportData.PushConstData data = new()
             {
-                MeshMatrix = planets.GetRenderBillboardMatrix(camera),
+                MeshMatrix = float4x4.Identity,
                 TextureMatrix = planets.GetRenderTextureMatrix(camera),
             };
 
