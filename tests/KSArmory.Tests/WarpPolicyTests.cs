@@ -252,6 +252,38 @@ public class WarpPolicyTests
         Assert.False(policy.Holding);
     }
 
+    // KSA's radiation sickness stops warp and sets 1x itself, on whatever frame a kitten crosses 1 Sv:
+    // here the frame straight after the request, before it was seen to land.
+    [Fact]
+    public void ASpeedDroppedBelowTheRequestBySomethingElseIsNotAbandonedOver()
+    {
+        var policy = new WarpPolicy();
+
+        WarpDecision held = policy.Decide(StepAt(600.0), 600.0, roundsInFlight: true, enabled: true);
+        Assert.Equal(WarpAction.Slow, held.Action);
+
+        for (int i = 0; i < WarpPolicy.FramesAwaitingWrite * 4; i++)
+        {
+            WarpDecision d = policy.Decide(StepAt(1.0), 1.0, roundsInFlight: true, enabled: true);
+            Assert.NotEqual(WarpAction.Abandon, d.Action);
+        }
+
+        Assert.True(policy.Holding);
+    }
+
+    [Fact]
+    public void ASpeedDroppedBelowTheRequestIsNotRaisedAgainWhenTheRoundsLand()
+    {
+        var policy = new WarpPolicy();
+
+        policy.Decide(StepAt(600.0), 600.0, roundsInFlight: true, enabled: true);
+        policy.Decide(StepAt(1.0), 1.0, roundsInFlight: true, enabled: true);
+
+        WarpDecision back = policy.Decide(StepAt(1.0), 1.0, roundsInFlight: false, enabled: true);
+
+        Assert.Equal(WarpAction.None, back.Action);
+    }
+
     [Fact]
     public void ItDoesNotAbandonWhileTheWriteIsStillLanding()
     {
