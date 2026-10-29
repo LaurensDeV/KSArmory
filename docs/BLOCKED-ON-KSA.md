@@ -53,6 +53,8 @@ happen rather than a member that moved.
   gets a centre of its own; see *A floating craft's waterline depends on where it is* below
 - [ ] **A kitten can walk on a vehicle** — `IsGroundSurfaceFor` accepts something other than a
   static handle; see *Walking on a craft* below
+- [ ] **Tanks have a pressure, and hold gas** -- announced for revision 5704, unreleased on 2026-10-28;
+  see *A tank's pressure and its walls* below
 - [ ] **KSA's destroy runs warm the first time it is called** -- its assemblies compiled ahead
   (ReadyToRun), or a debris split that no longer does first-time work -- **delete
   `JitWarmup.EngineTypes` the day it does**; see the entry below
@@ -121,6 +123,35 @@ submits its draw in consecutive statements; `KSA.Rendering.PostProcessing` is an
 pass and a tone curve.
 
 ---
+
+## A tank's pressure and its walls
+
+**Announced, not shipped.** KSA's changelog for revision 5704, unreleased on 2026-10-28: *"Added gas
+storage to tanks. A tank's rated pressure comes from its wall material's strength and thickness and a gas
+fills a tank on its own."* Nothing below has been read off a build; it is what the mod would take up, and
+what each piece replaces. Read the tank API in the decompiled corpus before building on any of it.
+
+**What the mod does without it.** KSA has no tank pressure today, so `Sim/TankLeak.cs` holds every tank
+at its own 0.2 bar, kept low so the depth of a hole and the pull the craft feels still decide a leak. A
+part's toughness against a hit is guessed from its mass to the two thirds (`Sim/PartToughness.cs`),
+because nothing says how thick its wall is, and there is no penetration law because without a wall
+every fragment perforates. A tank going up at once is a flat one fire in five (`PartFire.FlashoverChance`).
+`docs/DAMAGE-PLAN.md` has each.
+
+**What it would unblock**, most visible first:
+- **A leak driven by the tank's own pressure**: a fast jet that atomises, where today's stream pours --
+  the pressure-vessel breach a player asked for.
+- **A holed gas tank venting**: pressurant or a gaseous propellant hissing out as a jet, where today a
+  leak counts only liquid and a gas tank leaks nothing. And a liquid tank going on venting its ullage
+  once the level falls below the hole.
+- **Toughness and penetration from the wall**: material and thickness against a fragment's or a dart's
+  energy, so a thick tank shrugs off what a thin skin does not.
+- **A tank bursting on a hit**: a vessel at its rated pressure holed past what its wall holds, in place of
+  the one-in-five guess.
+
+**When it lands**: run `.claude/skills/upgrade-ksa/`, then read how a tank reports its pressure, its gas
+and its wall, and check `Ksa/Leaks.cs`, which reads a tank's moles and their liquid phase, against the
+new storage.
 
 ## The first kill of a session pays for KSA's destroy running cold
 
