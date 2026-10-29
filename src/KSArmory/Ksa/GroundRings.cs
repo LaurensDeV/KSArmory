@@ -71,6 +71,15 @@ internal static class GroundRings
         return true;
     }
 
+    /// <summary>
+    /// A paintball splat already anchored to a body, its rays reaching <paramref name="radius"/>: told
+    /// apart from a ring by its colour's alpha, minus one less its seed.
+    /// </summary>
+    public static void AddSplat(object body, double3 anchor, double radius, float3 colour, float seed)
+    {
+        if (radius > 0.0) _rings.Add(new Ring(body, anchor, radius, 0.0, new float4(colour, -1f - seed), 0));
+    }
+
     public static bool TryAt(int index, out double3 centreEcl, out double3 up, out double radius,
                              out double inner, out float4 colour, out int dashes)
         => TryAt(index, out centreEcl, out up, out radius, out inner, out colour, out dashes, out _, out _);

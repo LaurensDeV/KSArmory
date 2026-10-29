@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-345 types and 917 members across 12 assemblies.
+346 types and 931 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -84,6 +84,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### Brutal.ImGuiApi.ImColor8
 
 - `Brutal.ImGuiApi.ImColor8 op_Implicit(ref uint)`
+- `Brutal.Numerics.float4 AsFloat4()`
 - `void .ctor(byte, byte, byte, byte)`
 
 ### Brutal.ImGuiApi.ImDrawFlags
@@ -112,6 +113,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### Brutal.ImGuiApi.ImGui
 
+- `Brutal.ImGuiApi.ImColor8 GetColorU32(Brutal.ImGuiApi.ImGuiCol, float)`
 - `Brutal.ImGuiApi.ImDrawListPtr GetBackgroundDrawList(Brutal.ImGuiApi.ImGuiViewportPtr)`
 - `Brutal.ImGuiApi.ImDrawListPtr GetForegroundDrawList(Brutal.ImGuiApi.ImGuiViewportPtr)`
 - `Brutal.ImGuiApi.ImDrawListPtr GetWindowDrawList()`
@@ -128,6 +130,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.float2 GetMousePos()`
 - `bool Begin(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiWindowFlags)`
 - `bool Begin(Brutal.ImGuiApi.ImString, ref bool, Brutal.ImGuiApi.ImGuiWindowFlags)`
+- `bool BeginChild(Brutal.ImGuiApi.ImString, ref System.Nullable`1<Brutal.Numerics.float2>, Brutal.ImGuiApi.ImGuiChildFlags, Brutal.ImGuiApi.ImGuiWindowFlags)`
 - `bool BeginCombo(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiComboFlags)`
 - `bool BeginItemTooltip()`
 - `bool BeginMainMenuBar()`
@@ -144,6 +147,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool InputText(Brutal.ImGuiApi.ImString, System.ReadOnlySpan`1<byte>, Brutal.ImGuiApi.ImGuiInputTextFlags, Brutal.ImGuiApi.ImGuiInputTextCallback, Brutal.Pointers.Ptr)`
 - `bool InputTextMultiline(Brutal.ImGuiApi.ImString, System.ReadOnlySpan`1<byte>, ref System.Nullable`1<Brutal.Numerics.float2>, Brutal.ImGuiApi.ImGuiInputTextFlags, Brutal.ImGuiApi.ImGuiInputTextCallback, Brutal.Pointers.Ptr)`
 - `bool InputTextWithHint(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImString, System.ReadOnlySpan`1<byte>, Brutal.ImGuiApi.ImGuiInputTextFlags, Brutal.ImGuiApi.ImGuiInputTextCallback, Brutal.Pointers.Ptr)`
+- `bool IsItemActive()`
 - `bool IsItemClicked(Brutal.ImGuiApi.ImGuiMouseButton)`
 - `bool IsItemHovered(Brutal.ImGuiApi.ImGuiHoveredFlags)`
 - `bool IsMouseClicked(Brutal.ImGuiApi.ImGuiMouseButton, bool)`
@@ -159,17 +163,20 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `bool SliderInt(Brutal.ImGuiApi.ImString, ref int, int, int, Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiSliderFlags)`
 - `bool SmallButton(Brutal.ImGuiApi.ImString)`
 - `bool TableNextColumn()`
+- `bool TableSetColumnIndex(int)`
 - `bool TreeNode(Brutal.ImGuiApi.ImString)`
 - `bool TreeNodeEx(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiTreeNodeFlags)`
 - `float GetCursorPosX()`
 - `float GetFontSize()`
 - `float GetFrameHeight()`
+- `float GetFrameHeightWithSpacing()`
 - `float GetTextLineHeight()`
 - `uint ColorConvertFloat4ToU32(ref Brutal.Numerics.float4)`
 - `void BeginDisabled(bool)`
 - `void CloseCurrentPopup()`
 - `void Dummy(ref Brutal.Numerics.float2)`
 - `void End()`
+- `void EndChild()`
 - `void EndCombo()`
 - `void EndDisabled()`
 - `void EndMainMenuBar()`
@@ -180,6 +187,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void EndTable()`
 - `void EndTooltip()`
 - `void Image(Brutal.ImGuiApi.ImTextureRef, ref Brutal.Numerics.float2, ref System.Nullable`1<Brutal.Numerics.float2>, ref System.Nullable`1<Brutal.Numerics.float2>)`
+- `void Indent(float)`
 - `void OpenPopup(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiPopupFlags)`
 - `void PopID()`
 - `void PopItemFlag()`
@@ -207,13 +215,21 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void SetNextWindowPos(ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImGuiCond, ref System.Nullable`1<Brutal.Numerics.float2>)`
 - `void SetNextWindowSize(ref Brutal.Numerics.float2, Brutal.ImGuiApi.ImGuiCond)`
 - `void SetTooltip(Brutal.ImGuiApi.ImString)`
+- `void Spacing()`
+- `void TableHeadersRow()`
 - `void TableNextRow(Brutal.ImGuiApi.ImGuiTableRowFlags, float)`
 - `void TableSetupColumn(Brutal.ImGuiApi.ImString, Brutal.ImGuiApi.ImGuiTableColumnFlags, float, Brutal.ImGuiApi.ImGuiID)`
+- `void TableSetupScrollFreeze(int, int)`
 - `void Text(Brutal.ImGuiApi.ImString)`
 - `void TextColored(ref Brutal.Numerics.float4, Brutal.ImGuiApi.ImString)`
 - `void TextDisabled(Brutal.ImGuiApi.ImString)`
 - `void TextWrapped(Brutal.ImGuiApi.ImString)`
 - `void TreePop()`
+- `void Unindent(float)`
+
+### Brutal.ImGuiApi.ImGuiChildFlags
+
+*referenced as a type only*
 
 ### Brutal.ImGuiApi.ImGuiCol
 
@@ -276,6 +292,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `ref Brutal.Numerics.float2 get_FramePadding()`
 - `ref Brutal.Numerics.float2 get_ItemSpacing()`
+- `ref float get_ScrollbarSize()`
 
 ### Brutal.ImGuiApi.ImGuiStyleVar
 
@@ -492,6 +509,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float X`
 - `float Y`
 - `float Z`
+- `void .ctor(Brutal.Numerics.float3, float)`
 - `void .ctor(float, float, float, float)`
 
 ### Brutal.Numerics.float4x4

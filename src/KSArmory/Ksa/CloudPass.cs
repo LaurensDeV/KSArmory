@@ -1084,7 +1084,7 @@ internal static class CloudPass
         public float4 CentreScorch;    // the hole, camera-relative, and the soot's radius
         public float4 InwardReach;     // the way the shell went in, and how far along it the mark reaches
         public float4 SideShare;       // a direction square to that, fixed to the part, and the soot's share
-        public float4 CoreSeed;        // the hole's radius and its pattern's seed
+        public float4 CoreSeed;        // the hole's radius, its pattern's seed, and a paint splat's hue (negative for none)
         public float4 Rect;            // the pixels it can reach: first x, first y, last x, last y
     }
 
@@ -1158,7 +1158,8 @@ internal static class CloudPass
         for (int i = 0; i < _holesInView.Count && count < MostHolesPainted; i++)
         {
             BulletHoles.Placed hole = _holesInView[i];
-            double soot = Math.Min(hole.Scorch, SootInCores * hole.Core);
+            // A paint splat has no core to bound it; its radius is the splash's.
+            double soot = hole.Paint >= 0f ? hole.Scorch : Math.Min(hole.Scorch, SootInCores * hole.Core);
             double reach = Math.Max(soot, HoleReachMetres);
             if (!HoleRect(camera, hole.Centre, Math.Sqrt((soot * soot) + (reach * reach)), width, height,
                           out int x0, out int y0, out int x1, out int y1)) continue;
@@ -1169,7 +1170,7 @@ internal static class CloudPass
                 CentreScorch = new float4((float)hole.Centre.X, (float)hole.Centre.Y, (float)hole.Centre.Z, (float)soot),
                 InwardReach = new float4((float)hole.Inward.X, (float)hole.Inward.Y, (float)hole.Inward.Z, (float)reach),
                 SideShare = new float4((float)hole.Side.X, (float)hole.Side.Y, (float)hole.Side.Z, 1f),
-                CoreSeed = new float4(hole.Core, hole.Seed, 0f, 0f),
+                CoreSeed = new float4(hole.Core, hole.Seed, hole.Paint, 0f),
                 Rect = new float4(x0, y0, x1, y1),
             };
 
@@ -1382,18 +1383,18 @@ internal static class CloudPass
     private static int _streamCpuFrames;
     private static long _streamLoggedAt = long.MinValue / 2;
 
-    // A burning stream spreads to three times its width over its whole length, and a boiling one to six;
-    // widened here so the patch dispatched and the tiles gathered cover it.
-    private static double Spread(Leaks.Look look, double alongMetres, double wholeMetres)
+    // A burning stream spreads to three times its width over its whole length, and a cryogen's fog to six
+    // times its share; widened here so the patch dispatched and the tiles gathered cover it. The shader
+    // takes the same back off for the rope (FlameSpread, FogSpread).
+    private static double Spread(Leaks.Stream stream, double alongMetres, double wholeMetres)
     {
         double grown = wholeMetres > 0.0 ? Math.Clamp(alongMetres / wholeMetres, 0.0, 1.0) : 1.0;
-        return look switch
-        {
-            Leaks.Look.Burning => 1.0 + (3.0 * grown),
-            Leaks.Look.Vapour => 1.0 + (6.0 * grown),
-            _ => 1.0,
-        };
+        return stream.Look == Leaks.Look.Burning ? 1.0 + (3.0 * grown) : 1.0 + (6.0 * grown * stream.Fog);
     }
+
+    // Two if it burns, plus its fog share: one float, since every other lane of the segment is spoken for.
+    private static float FlowLook(Leaks.Stream stream)
+        => (stream.Look == Leaks.Look.Burning ? 2f : 0f) + Math.Clamp(stream.Fog, 0f, 1f);
 
     // THE LEAKS' STREAMS: KSArmoryLeak.comp. One dispatch over the patch of screen they cover.
     private static void Streams(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
@@ -1460,7 +1461,7 @@ internal static class CloudPass
             {
                 _clip[i] = camera.EgoToClipDouble(_arc[i].Position);
                 _across[i] = PixelsAcross(camera, _arc[i].Position, _arc[i].Radius, width, height)
-                             * Spread(stream.Look, _arc[i].AlongMetres, whole);
+                             * Spread(stream, _arc[i].AlongMetres, whole);
             }
 
             for (int i = 1; i < points; i++)
@@ -1481,7 +1482,7 @@ internal static class CloudPass
                     Tail = new float4((float)tx, (float)ty, (float)(t.Z / t.W), (float)_arc[i].AlongMetres),
                     Look = new float4((float)headWidth, (float)tailWidth, whole, stream.Seed),
                     Flow = new float4((float)_arc[i - 1].OutSeconds, (float)_arc[i].OutSeconds,
-                                      (float)stream.ExitRadius, (float)stream.Look),
+                                      (float)stream.ExitRadius, FlowLook(stream)),
                 };
 
                 int reach = (int)Math.Ceiling(Math.Max(headWidth, tailWidth)) + 2;

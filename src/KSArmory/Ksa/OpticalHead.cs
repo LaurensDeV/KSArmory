@@ -456,7 +456,8 @@ internal sealed class OpticalHead(Config config, OpticConfig policy) : IOpticalH
     // parts are not damaged one by one.
     private void Burn(Vehicle platform, Vehicle craft, Part part, double3 eye, double3 at, double range, double dt)
     {
-        if (!(dt > 0.0) || _burntThrough.Contains(part)) return;
+        // Paintball: the beam still lases and is seen, and burns nothing.
+        if (_config.Paintball || !(dt > 0.0) || _burntThrough.Contains(part)) return;
 
         double share = Beam.HealthPerSecond(Profile.Beam!, range, KsaWorld.AirDensityRatioAt(platform, eye),
                                             KsaWorld.AirDensityRatioAt(platform, at)) * dt;

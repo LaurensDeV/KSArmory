@@ -12,8 +12,15 @@ namespace KSArmory;
 /// </summary>
 internal static class BulletHoles
 {
-    /// <summary>One hole: the sub-part struck, the point in its frame, where the cast came from, and its radii.</summary>
-    internal readonly record struct Hole(Part SubPart, double3 Local, double3 CameFrom, float Core, float Scorch, float Seed);
+    /// <summary>
+    /// One mark: the sub-part struck, the point in its frame, where the cast came from, its radii, and for a
+    /// paintball hit the paint's hue from 0 to 1 -- negative for a real hole, which tanks leak through.
+    /// </summary>
+    internal readonly record struct Hole(Part SubPart, double3 Local, double3 CameFrom, float Core, float Scorch, float Seed,
+                                         float Paint = -1f)
+    {
+        public bool IsPaint => Paint >= 0f;
+    }
 
     /// <summary>The most holes kept in the world; the oldest go first.</summary>
     public const int MaxHoles = 400;
@@ -41,7 +48,7 @@ internal static class BulletHoles
     /// relative to the craft at the instant it struck. Nothing for a craft with no mesh to cast
     /// against.
     /// </summary>
-    public static void Strike(Vehicle craft, IProjectile round)
+    public static void Strike(Vehicle craft, IProjectile round, float paint = -1f)
     {
         if (!Enabled || !KsaWorld.IsAlive(craft)) return;
 
@@ -59,10 +66,81 @@ internal static class BulletHoles
         }
 
         (double core, double scorch) = HoleLook.RadiiFor(round.Munition.CalibreMm, round.Munition.ChargeKg);
+        if (paint >= 0f)
+        {
+            AddPaint(new Hole(subPart, local, cameFrom, 0f,
+                              (float)Paintball.SplatRadius(round.Munition.ChargeKg, round.Munition.CalibreMm),
+                              _made++ % 97, paint));
+            return;
+        }
 
         if (_holes.Count >= MaxHoles) _holes.RemoveAt(0);
-        _holes.Add(new Hole(subPart, local, cameFrom, (float)core, (float)scorch, _made++ % 97));
+        _holes.Add(new Hole(subPart, local, cameFrom, (float)core, (float)scorch, _made++ % 97, paint));
         Log.Debug(() => $"hole in {subPart.Id} on {KsaWorld.DisplayName(craft)}, {core:F2}/{scorch:F2} m; {_holes.Count} held");
+    }
+
+    /// <summary>
+    /// A paint splat where a burst's spray first meets <paramref name="craft"/>, on the line from the burst
+    /// to its centre, both at the burst's instant. Nothing for a craft with no mesh on that line.
+    /// </summary>
+    public static void Splat(Vehicle craft, double3 burstEcl, double intoFrame, double radiusMetres, float paint)
+    {
+        if (!Enabled || !KsaWorld.IsAlive(craft)) return;
+
+        double3 craftAt = KsaWorld.PositionEcl(craft) + (KsaWorld.VelocityEcl(craft) * intoFrame);
+        double3 separation = craftAt - burstEcl;
+
+        if (!KsaWorld.TryHullHit(craft, separation, separation, 0.0, out Part? subPart, out double3 local,
+                                 out double3 cameFrom)
+            || subPart is null)
+        {
+            return;
+        }
+
+        AddPaint(new Hole(subPart, local, cameFrom, 0f, (float)radiusMetres, _made++ % 97, paint));
+    }
+
+    // How many of the newest marks a new splat is checked against for one to grow instead.
+    private const int PaintLookBack = 96;
+
+    // A coat grows by area to at most this many times the largest splat that went into it, or this many metres.
+    private const float CoatGrowth = 6f;
+    private const float WidestCoatMetres = 4f;
+
+    // Paint on paint thickens one coat: a splat overlapping one of its own colour on the same part grows
+    // it by its area, at their area-weighted middle, and the coat counts as the newest mark. Kept as
+    // separate splats, a gun's stream fills the store in seconds and the oldest paint is dropped.
+    private static void AddPaint(Hole splat)
+    {
+        int oldest = Math.Max(0, _holes.Count - PaintLookBack);
+        for (int i = _holes.Count - 1; i >= oldest; i--)
+        {
+            Hole coat = _holes[i];
+            if (!coat.IsPaint || !ReferenceEquals(coat.SubPart, splat.SubPart)
+                || Math.Abs(coat.Paint - splat.Paint) > 1e-4f
+                || Vec.Len(coat.Local - splat.Local) > coat.Scorch + splat.Scorch)
+            {
+                continue;
+            }
+
+            double a = coat.Scorch * coat.Scorch, b = splat.Scorch * splat.Scorch;
+            double3 middle = ((coat.Local * a) + (splat.Local * b)) / (a + b);
+            float limit = Math.Min(Math.Max(coat.Core, splat.Scorch) * CoatGrowth, WidestCoatMetres);
+            float grown = (float)Math.Min(Math.Sqrt(a + b), Math.Max(limit, coat.Scorch));
+
+            _holes.RemoveAt(i);
+            _holes.Add(coat with
+            {
+                Local = middle,
+                CameFrom = coat.CameFrom + (middle - coat.Local),
+                Scorch = grown,
+                Core = Math.Max(coat.Core, splat.Scorch),
+            });
+            return;
+        }
+
+        if (_holes.Count >= MaxHoles) _holes.RemoveAt(0);
+        _holes.Add(splat with { Core = splat.Scorch });
     }
 
     /// <summary>
@@ -70,7 +148,7 @@ internal static class BulletHoles
     /// with the hull rather than with the camera.
     /// </summary>
     public readonly record struct Placed(double Range, double3 Centre, double3 Inward, double3 Side,
-                                         float Core, float Scorch, float Seed);
+                                         float Core, float Scorch, float Seed, float Paint);
 
     /// <summary>
     /// Asked once per craft carrying holes: whether any hole on it could reach a pixel of this view,
@@ -133,7 +211,7 @@ internal static class BulletHoles
             double3 side = Vec.Unit(offset - (inward * Vec.Dot(offset, inward)));
             if (!Vec.IsFinite(side) || Vec.Len2(side) < 0.5) continue;
 
-            into.Add(new Placed(Vec.Len(centreEgo), centreEgo, inward, side, hole.Core, hole.Scorch, hole.Seed));
+            into.Add(new Placed(Vec.Len(centreEgo), centreEgo, inward, side, hole.Core, hole.Scorch, hole.Seed, hole.Paint));
         }
     }
 

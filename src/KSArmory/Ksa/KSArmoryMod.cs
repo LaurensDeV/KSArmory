@@ -383,6 +383,7 @@ public sealed class KSArmoryMod
 
         NuclearClouds.Clear();
         BulletHoles.Clear();
+        GroundSplats.Clear();
         Leaks.Clear();
         StoreMass.Clear();
         PartFires.Clear();
@@ -511,6 +512,7 @@ public sealed class KSArmoryMod
 
             // Outside the overlay switch: a sight the operator aims with, not a diagnostic.
             GroundRings.BeginFrame();
+            GroundSplats.Paint();
             BulletHoles.Enabled = _config.BulletHoles;
             Leaks.Enabled = _config.TankLeaks;
             BulletHoles.Prune();

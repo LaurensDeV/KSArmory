@@ -170,11 +170,13 @@ tank no longer breaks on the hit that holed it.
 - **A burning leak.** A holed tank on fire draws its leak stream as flame rather than liquid, the
   *Project Hail Mary* shot. The stream is emissive orange, yellow at the hole and redder as it burns
   out over one and a half times its whole length. It spreads to three times its width.
-- **Cryogenic vapour.** A tank more than half of whose liquid by mass is stored below 120 K boils off
-  the hole as a white veil rather than a rope of liquid. That covers liquid oxygen at 90 K, methane at
-  111 K and hydrogen at 20 K. The veil spreads to six times its width and fades over three times its
-  whole length. KSA's stock tanks hold oxidiser and fuel together and are mostly oxygen by mass, so
-  theirs is vapour.
+- **Cryogenic fog.** A leak from a tank holding a cryogen is still the rope of liquid, wrapped in white
+  fog: what that cold chills out of the air round it, the way a real liquid-oxygen leak pours boiling
+  inside its own cloud. The cryogens are liquid oxygen at 90 K, methane at 111 K and hydrogen at 20 K, all
+  stored below 120 K. The fog is as thick as the tank's cryogen share by mass, spreads to six times the
+  stream's width, fades over three of its whole lengths, and is lit by daylight. KSA's stock tanks are
+  mostly cryogen, so theirs is thick; kerosene, hydrazine or peroxide pour a bare rope. The first version
+  drew the whole stream as vapour, so no stock tank ever showed liquid, which the player caught.
 - **A pressure-vessel breach.** The moment a hole starts leaking, `KSArmoryBreach` throws a burst of
   spray out of it at 25 m/s on top of the craft's own speed. Drag stops and spreads it. A cryogen's is
   1.8 times the size and lives three times as long. Into a tank already burning at the hole the spray catches
@@ -185,8 +187,11 @@ All three are picked in `Leaks.Fly`: the stream's `Look` rides in `Flow.w` to `S
 and `CloudPass.Spread` widens it before the patch is sized. The tank's own pressure is still the mod's
 0.2 bar, kept for the reason CLAUDE.md gives, so the steady stream's speed is unchanged.
 
-**Next, from the player who asked for them:** holes close together merged into one opening. Holes a
-hand-width apart feed one jet and tear into each other, where today each draws its own thread.
+**Holes close together merge into one opening** (`Sim/HoleMerge.cs`, built, not yet flown). Holes on
+the same sub-part nearer than twice their radii together, or 15 cm, are one opening: their whole area at
+its area-weighted middle, chaining along a row of hits. So a burst leaks as one jet rather than a bundle
+of threads, and the flow is what the holes let through between them. The stream is kept under the group's
+first hole, so a later hit joining it does not restart it.
 
 **Flown 2026-10-28**, the M197 against a parked small rocket at quarter speed:
 - **A cold breach.** One shell holed its lower tank below the liquid: a white breach puff, then a steady
@@ -196,6 +201,32 @@ hand-width apart feed one jet and tear into each other, where today each draws i
   came out black. It is now lit by daylight, as the grey gun rounds are.
 - **Brightness.** The fire's particles were drawn at ten times full brightness and read white after the
   tone map. They are now at four, with the breach flame at five, which is not yet re-flown.
+
+## Paintball
+
+The damage slider's far left (`Config.Paintball`). A hit marks what it struck with the shooter's paint
+and harms nothing: no part damage, no dents or push, no fire, leak or engine damage, nothing destroyed,
+no round in the air shot down, and the beam still lases without burning. A shell's strike leaves a
+splat where it struck; a burst leaves one on every craft inside its lethal reach, where its spray first
+meets the hull, and a burst of paint in place of the explosion and its cloud. The splats are hull marks
+like bullet holes, held on the part and drawn by the same pass, with a hue in place of the hole and
+skipped by the leaks. A round going off on or over the ground leaves a splat there too
+(`Ksa/GroundSplats.cs`, painted by the ring pass): a few metres for a shell, and for a nuclear charge
+about 1.3 times its lethal radius to the tips of its splash rays, several hundred metres for a B61.
+**Paint on paint grows one coat**: a splat overlapping one of the same colour on the same part, or on the
+same patch of ground, grows it by its area, up to six times the largest splat in it (4 m at most on a
+hull), and the coat counts as the newest mark. First flown as separate splats, a Phalanx's stream put
+1,313 on three craft in a minute, filled the 400 marks kept, and the oldest paint vanished. The
+colour is the shooter's team's, or its craft's on no team, hashed so it is the
+same every session; it is not the team colour the panel shows.
+
+## Waiting on KSA: tank pressure and walls
+
+KSA's revision 5704, announced and unreleased on 2026-10-28, gives tanks a rated pressure from their wall
+material and thickness, and lets them hold gas. That is what four guesses here stand in for: the leak's
+fixed 0.2 bar, a gas tank that leaks nothing, toughness from mass with no penetration law, and the
+one-in-five tank going up. `docs/BLOCKED-ON-KSA.md`, *A tank's pressure and its walls*, has what each
+would become and what to check when it ships.
 
 ## Step 4: the gun rounds split (built)
 

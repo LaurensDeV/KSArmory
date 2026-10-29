@@ -3503,7 +3503,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         double elapsed = round.DetonationElapsedInFrame;
 
         // A hole on whatever hull it touched, whoever's: it is paint.
-        if (round.StruckBody is Vehicle holed) BulletHoles.Strike(holed, round);
+        if (round.StruckBody is Vehicle holed) BulletHoles.Strike(holed, round, _config.Paintball ? PaintHue : -1f);
+
+        // Paintball: what the burst reached is marked and nothing is harmed, so none of what follows runs.
+        if (_config.Paintball)
+        {
+            PaintSplash(round, burst, elapsed);
+            return;
+        }
 
         // What it met, else what it was aimed at, on the fuse's separation. Not for a round a decoy
         // took, whose miss distance is to the decoy; the splash still judges what it burst beside.
@@ -3602,6 +3609,53 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private readonly DamageablePart[] _roundPart = new DamageablePart[1];
     private readonly List<(int Index, double Share)> _roundShares = [];
 
+    // The shooter's paint: its team's colour, or its own craft's where it is on none.
+    private float PaintHue => Paintball.HueFor(Team ?? (Platform is { } craft ? KsaWorld.DisplayName(craft) : Profile.DisplayName));
+
+    // A paintball burst: a splat on every craft inside its lethal reach, where its spray first meets
+    // the hull, and a puff of paint where it went off in place of the explosion and its cloud.
+    private void PaintSplash(IProjectile round, double3 burst, double elapsed)
+    {
+        MunitionProfile munition = round.Munition;
+        float hue = PaintHue;
+        double reach = Math.Max(munition.LethalRadius, munition.FuseRadius);
+        double radius = Paintball.SplatRadius(munition.ChargeKg, munition.CalibreMm);
+
+        IReadOnlyList<Vehicle> world = KsaWorld.Vehicles;
+        for (int i = 0; i < world.Count; i++)
+        {
+            Vehicle v = world[i];
+            if (ReferenceEquals(v, round.StruckBody)) continue;
+
+            double gap = BlastSweep.SurfaceGap(KsaWorld.PositionEcl(v), KsaWorld.VelocityEcl(v), elapsed, burst,
+                                               KsaWorld.MeanRadius(v));
+            if (gap > reach) continue;
+
+            BulletHoles.Splat(v, burst, elapsed, radius, hue);
+            Announce($"paint on {KsaWorld.DisplayName(v)} at {Math.Max(gap, 0.0):F0} m");
+        }
+
+        if (round.StruckBody is Vehicle struck) Announce($"paint on {KsaWorld.DisplayName(struck)}");
+
+        // On the ground under it, where it went off on or near it: a nuclear charge's hundreds of metres,
+        // a shell's few. The rays reach 1.6 times the blob.
+        bool nuclear = munition.ChargeKg >= MushroomCloud.ThresholdKg;
+        double height = double.IsFinite(_ground.Height) ? Math.Max(_ground.Height, 0.0) : double.PositiveInfinity;
+        double groundRadius = nuclear ? 1.3 * munition.LethalRadius : 3.0 * radius;
+        if (height < (nuclear ? munition.LethalRadius : 2.0 * radius) && (EffectBody ?? Detonation.BodyFor(Platform)) is { } body)
+        {
+            double3 atSample = BlastSweep.GroundAtSample(burst, KsaWorld.GroundVelocityAt(body, burst), elapsed);
+            double3 up = Vec.Unit(atSample - body.GetPositionEcl());
+            GroundSplats.Add(atSample - (up * height), groundRadius, hue);
+        }
+
+        if (_config.DrawExplosions)
+        {
+            PaintBurst.Throw(DrawnBurstEcl(round, burst), munition.ChargeKg, hue,
+                             round.TargetRef as Vehicle ?? Platform, EffectBody);
+        }
+    }
+
     // A round stopped before its fuze armed: the hit, and no blast, flash or cloud.
     private void Dud(IProjectile round)
     {
@@ -3617,7 +3671,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (round.StruckBody is IProjectile { State: RoundState.Flying } other) other.ShootDown();
         if (round.StruckBody is not Vehicle struck || !KsaWorld.IsAlive(struck)) return;
 
-        BulletHoles.Strike(struck, round);
+        BulletHoles.Strike(struck, round, _config.Paintball ? PaintHue : -1f);
+        if (_config.Paintball) return;
+
         StrikeInert(struck, round.PositionEcl, round.DetonationElapsedInFrame,
                     round.Munition.MassKg, Vec.Len(round.VelocityEcl - KsaWorld.VelocityEcl(struck)));
     }
