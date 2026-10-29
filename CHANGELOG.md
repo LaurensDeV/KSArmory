@@ -1,3 +1,35 @@
+## [0.10.0](https://github.com/LaurensDeV/KSArmory/compare/v0.9.9...v0.10.0) (2026-10-29)
+
+### Features
+
+* **damage:** break parts by fragments and size, not by a radius ([cc01811](https://github.com/LaurensDeV/KSArmory/commit/cc01811919f2bf81253a9bade53027c1a98bc3cc))
+* **damage:** carry a conventional blast by the air it went off in ([2774d8a](https://github.com/LaurensDeV/KSArmory/commit/2774d8a6f3ab7b37069df408bcb465eb0c9af80f))
+* **damage:** hurt engines lose thrust, and hit tanks can catch fire ([81aef29](https://github.com/LaurensDeV/KSArmory/commit/81aef2909b71cf6a0c430b3a7fbcbc47ace95658))
+* **damage:** let a burst hurt the craft that fired it and the one flown ([8b594f8](https://github.com/LaurensDeV/KSArmory/commit/8b594f8d7b1e89929085818f1bf2fe45f96d7695))
+* **guns:** fire a tungsten dart from the Phalanx and HEI from the M197 ([4b3315b](https://github.com/LaurensDeV/KSArmory/commit/4b3315beb944db26380dbb9cb829deae332485c2))
+* **leaks:** burn a burning tank's leak, boil a cryogen's, spray it out ([047ea11](https://github.com/LaurensDeV/KSArmory/commit/047ea1166b5e1cfeb9bd6fe9b953d1d486aabdbd))
+* **leaks:** merge close holes into one leak, pour cryogens as liquid ([dc54da0](https://github.com/LaurensDeV/KSArmory/commit/dc54da0fdcc4bb9b6ae585fb77fa73b2e3437f74))
+* **leaks:** vent a holed gas tank by its own pressure ([ce55d70](https://github.com/LaurensDeV/KSArmory/commit/ce55d70bcd8300a57e653a39000f8bbfa26aaa36))
+* **model:** rebuild the LITENING pod and hang it on the ejector ([3e977dd](https://github.com/LaurensDeV/KSArmory/commit/3e977dd98216462590c4300b5caeed1bb4b411f9))
+* **optic:** tuck a parked pod's windows into its nose ([ca0e78c](https://github.com/LaurensDeV/KSArmory/commit/ca0e78c4d017016edbcb5684ae6aa02f3fd76aca))
+* **paintball:** mark hits with paint and harm nothing ([3300740](https://github.com/LaurensDeV/KSArmory/commit/3300740577e86a4b5e19cc6454a02fc9d5983ae7))
+* **ui:** tidy the panel, the settings and the Teams window ([1c1c5ba](https://github.com/LaurensDeV/KSArmory/commit/1c1c5ba03021372e2c9b5be35d2beaff835f0319))
+
+### Fixes
+
+* **paintball:** paint only what a splat's spray actually reaches ([6d23898](https://github.com/LaurensDeV/KSArmory/commit/6d238989eeed70cbd2ee1032f132cf6cf962d616))
+* **radiation:** fill a burst's belt with electrons and clear crew caches ([766f7b9](https://github.com/LaurensDeV/KSArmory/commit/766f7b9e484e09609f970483141b58bdd578e3a1))
+* **radiation:** storm-scale a body's own outer belt, not a burst's ([233129c](https://github.com/LaurensDeV/KSArmory/commit/233129c83554264abb9ee8b6fcf9d967f008fc82))
+* **rounds:** a round that hits something before its fuze arms is a dud ([877bd65](https://github.com/LaurensDeV/KSArmory/commit/877bd65d9198720e8bdcdcdd9d95430524e818e2))
+* **visuals:** draw a burst's aurora in its body's own colours ([4322fd4](https://github.com/LaurensDeV/KSArmory/commit/4322fd4efb7c30c326e90b3e6bfdcf7fe5e5e89c))
+* **visuals:** stop a fireball lighting the ground twice past 3 km ([66acef2](https://github.com/LaurensDeV/KSArmory/commit/66acef210ffbe0ba86542360d4f069a91a7226a5))
+* **warp:** keep rounds in the air when something else lowers the speed ([e4a2f10](https://github.com/LaurensDeV/KSArmory/commit/e4a2f1072903f343f213b0e20e2d383bc43b1afe))
+
+### Build and packaging
+
+* **ksa:** retarget 2026.10.25.5707 ([8e754ad](https://github.com/LaurensDeV/KSArmory/commit/8e754ad270359d31144d36bdd812fd6b823df8be))
+* **package:** copy asset folders whole, subfolders included ([8a11d35](https://github.com/LaurensDeV/KSArmory/commit/8a11d35f0e5039b81acc8566d89961f6d0bb51e5))
+
 ## [0.9.9](https://github.com/LaurensDeV/KSArmory/compare/v0.9.8...v0.9.9) (2026-10-27)
 
 ### Features
