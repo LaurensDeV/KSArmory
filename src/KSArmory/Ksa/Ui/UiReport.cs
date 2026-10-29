@@ -17,14 +17,9 @@ internal partial class Ui
     private long _logBytes;
 
     // Pinned to the bottom, so the buttons do not move as the list above changes height.
+    // Below the list's scrolling region, which stops FooterSpacing and a button short of the bottom.
     private void DrawReportFooter()
     {
-        float footer = ImGui.GetFrameHeight() + Spacing;
-        float slack = ImGui.GetContentRegionAvail().Y - footer;
-
-        // Only ever pushes down; a short window scrolls rather than overlapping the list.
-        if (slack > 0f) ImGui.Dummy(new float2(0f, slack));
-
         ImGui.Separator();
 
         // Both report buttons or neither: feedback left open on an unsupported build becomes the
@@ -34,7 +29,7 @@ internal partial class Ui
     }
 
     // Roughly the separator plus the spacing either side of it.
-    private const float Spacing = 12f;
+    private const float FooterSpacing = 12f;
 
     private void DrawReportButtons()
     {

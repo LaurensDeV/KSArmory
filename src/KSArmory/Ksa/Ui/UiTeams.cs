@@ -19,93 +19,123 @@ internal sealed partial class Ui
                           + "everything on a team follows that team's rules.");
         ImGui.Separator();
 
-        for (int i = 0; i < teams.Count; i++)
+        if (teams.Count >= 2) DrawRelationGrid(teams);
+
+        // One row a team: its rules across, so ten teams are ten rows rather than thirty.
+        if (ImGui.BeginTable("##teamrules", 6, ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.RowBg))
         {
-            string team = teams[i];
-            ImGui.PushID(i);
+            ImGui.TableSetupColumn("Team", ImGuiTableColumnFlags.WidthStretch);
+            ImGui.TableSetupColumn("Craft");
+            ImGui.TableSetupColumn("Unknown");
+            ImGui.TableSetupColumn("Neutrals");
+            ImGui.TableSetupColumn("Spare friends");
+            ImGui.TableSetupColumn("##remove");
+            ImGui.TableHeadersRow();
 
-            bool open = ImGui.TreeNodeEx($"##team", ImGuiTreeNodeFlags.DefaultOpen);
-            ImGui.SameLine();
-            ImGui.TextColored(TeamColour(i), team);
-            ImGui.SameLine();
-            ImGui.TextDisabled(Members(team));
-            ImGui.SameLine();
-            if (ImGui.SmallButton("Remove")) removed = team;
-            Tip("Takes every craft off this team, and this team out of every other's relations.");
-
-            if (open)
+            for (int i = 0; i < teams.Count; i++)
             {
-                DrawRelations(team, teams);
-                DrawTeamRules(_config.RulesFor(team));
-                ImGui.TreePop();
+                ImGui.PushID(i);
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.TextColored(TeamColour(i), teams[i]);
+                ImGui.TableNextColumn();
+                ImGui.TextDisabled(Members(teams[i]));
+                DrawTeamRules(_config.RulesFor(teams[i]));
+                ImGui.TableNextColumn();
+                if (ImGui.SmallButton("Remove")) removed = teams[i];
+                Tip("Takes every craft off this team, and this team out of every other's relations.");
+                ImGui.PopID();
             }
 
+            ImGui.PushID("noteam");
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.TextColored(Grey, "No team");
+            Tip("Every craft with no flag. It sees every other craft as unknown.");
+            ImGui.TableNextColumn();
+            ImGui.TextDisabled(Members(null));
+            DrawTeamRules(_config.NoTeamRules);
+            ImGui.TableNextColumn();
             ImGui.PopID();
+
+            ImGui.EndTable();
         }
 
-        // After the loop, so the list is not shortened under the index walking it.
+        // After the table, so the list is not shortened under the index walking it.
         if (removed is not null) ForgetTeam(removed);
 
-        ImGui.PushID("noteam");
-        if (ImGui.TreeNodeEx("##none", teams.Count == 0 ? ImGuiTreeNodeFlags.DefaultOpen : ImGuiTreeNodeFlags.None))
-        {
-            ImGui.SameLine();
-            ImGui.TextColored(Grey, $"No team  {Members(null)}");
-            ImGui.TextDisabled("  sees every other craft as unknown");
-            DrawTeamRules(_config.NoTeamRules);
-            ImGui.TreePop();
-        }
-        else
-        {
-            ImGui.SameLine();
-            ImGui.TextColored(Grey, $"No team  {Members(null)}");
-        }
-        ImGui.PopID();
-
         ImGui.Separator();
-        if (TextField("Add team", ref _newTeamEntry) && Teams.Declare(teams, _newTeamEntry) is not null)
-        {
-            _newTeamEntry = string.Empty;
-        }
+        bool entered = TextField("##addteam", ref _newTeamEntry, "New team name");
+        ImGui.SameLine();
+        bool clicked = ImGui.Button("Add team");
         Tip("A craft with nothing of this mod's fitted -- a drone, an airliner -- has no flag and is "
             + "on no team, whatever it is called.");
+        if ((entered || clicked) && Teams.Declare(teams, _newTeamEntry) is not null) _newTeamEntry = string.Empty;
     }
 
-    // What this team makes of each other team: one button each, stepping hostile, allied, neutral.
-    private void DrawRelations(string team, List<string> teams)
+    // What each team makes of each other, read along its row: one cell a pair, clicked to step
+    // hostile, allied, neutral. One way, since each team decides for itself.
+    private void DrawRelationGrid(List<string> teams)
     {
-        if (teams.Count < 2) return;
+        ImGui.TextDisabled("How each row sees each column -- click a cell to change it.");
 
-        TeamRules rules = _config.RulesFor(team);
-        ImGui.TextDisabled("  sees");
-
-        for (int j = 0; j < teams.Count; j++)
+        // Scrolling across once there are too many teams, so its height has to be given: a scrolling table
+        // given none takes the rest of the window, and the rules below it with it.
+        float height = ((teams.Count + 1) * ImGui.GetFrameHeightWithSpacing()) + ImGui.GetStyle().ScrollbarSize;
+        if (!ImGui.BeginTable("##relations", teams.Count + 1,
+                              ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.Borders | ImGuiTableFlags.ScrollX,
+                              new float2?(new float2(0f, height)), 0f))
         {
-            string other = teams[j];
-            if (string.Equals(other, team, StringComparison.OrdinalIgnoreCase)) continue;
-
-            Allegiance now = rules.Towards(other);
-
-            ImGui.SameLine();
-            ImGui.PushID(j);
-            ImGui.PushStyleColor(ImGuiCol.Text, AllegianceColour(now));
-            if (ImGui.SmallButton($"{other}: {Word(now)}")) rules.Set(other, Next(now));
-            ImGui.PopStyleColor();
-            ImGui.PopID();
+            return;
         }
 
-        Tip("Click to step hostile, allied, neutral. One way: each team decides for itself.");
+        ImGui.TableSetupColumn("##sees");
+        for (int j = 0; j < teams.Count; j++) ImGui.TableSetupColumn(teams[j]);
+        ImGui.TableSetupScrollFreeze(1, 1);
+        ImGui.TableHeadersRow();
+
+        for (int i = 0; i < teams.Count; i++)
+        {
+            TeamRules rules = _config.RulesFor(teams[i]);
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.TextColored(TeamColour(i), teams[i]);
+
+            for (int j = 0; j < teams.Count; j++)
+            {
+                ImGui.TableNextColumn();
+                if (i == j)
+                {
+                    ImGui.TextDisabled("-");
+                    continue;
+                }
+
+                Allegiance now = rules.Towards(teams[j]);
+                ImGui.PushID((i * teams.Count) + j);
+                ImGui.PushStyleColor(ImGuiCol.Text, AllegianceColour(now));
+                if (ImGui.SmallButton(Word(now))) rules.Set(teams[j], Next(now));
+                ImGui.PopStyleColor();
+                ImGui.PopID();
+                Tip($"How {teams[i]} sees {teams[j]}. Click to step hostile, allied, neutral.");
+            }
+        }
+
+        ImGui.EndTable();
+        ImGui.Spacing();
     }
 
+    // Three cells of the rules table.
     private void DrawTeamRules(TeamRules rules)
     {
-        ImGui.Checkbox("Fire on unknown craft", ref rules.EngageUnknown);
-        Tip("Craft on no team. On by default, so a world with no teams set up still fights.");
-        ImGui.SameLine();
-        ImGui.Checkbox("Fire on neutrals", ref rules.EngageNeutral);
-        ImGui.SameLine();
-        ImGui.Checkbox("Never fire on friendlies", ref rules.ProtectFriendly);
-        Tip("Its own team and its allies. Leave it on outside a test range.");
+        ImGui.TableNextColumn();
+        ImGui.Checkbox("##unknown", ref rules.EngageUnknown);
+        Tip("Fire on craft on no team. On by default, so a world with no teams set up still fights.");
+        ImGui.TableNextColumn();
+        ImGui.Checkbox("##neutral", ref rules.EngageNeutral);
+        Tip("Fire on teams this one sees as neutral.");
+        ImGui.TableNextColumn();
+        ImGui.Checkbox("##friendly", ref rules.ProtectFriendly);
+        Tip("Never fire on its own team or its allies. Leave it on outside a test range.");
     }
 
     private string Members(string? team)

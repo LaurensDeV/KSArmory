@@ -65,14 +65,22 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         return true;
     }
 
-    private enum PaneGroup { Session, Debug }
+    // Switcher: toggled from the craft switcher's first heading rather than the row of pane buttons.
+    private enum PaneGroup { Session, Debug, Switcher }
 
     // A class so Open is shared with the button that toggles it.
-    private sealed class Pane(string title, Action body, PaneGroup group)
+    private sealed class Pane(string title, Action body, PaneGroup group, float2 size, Icon? icon = null)
     {
         public readonly string Title = title;
         public readonly Action Body = body;
         public readonly PaneGroup Group = group;
+
+        // What it opens at the first time; ImGui fits an unsized window to all it holds, which for the
+        // Teams window, every team unfolded, is most of the screen.
+        public readonly float2 Size = size;
+
+        // Drawn as this icon with the title as its tooltip, in place of a labelled button.
+        public readonly Icon? Icon = icon;
 
         public bool Open;
     }
@@ -82,15 +90,15 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     // Lazy because every Body is an instance method. Listed in button order.
     private Pane[] Panes => _panes ??=
     [
-        new("KSArmory settings", DrawSettingsPane, PaneGroup.Session),
+        new("KSArmory settings", DrawSettingsPane, PaneGroup.Session, new float2(440f, 520f), Icon.Cog),
 
-        new("Teams", DrawTeamsWindow, PaneGroup.Session),
+        new("Teams", DrawTeamsWindow, PaneGroup.Switcher, new float2(460f, 440f), Icon.TeamSettings),
 
         // Its own button, not a fold in settings: it is reached during an engagement.
-        new("Debug tools", DrawDebugPane, PaneGroup.Session),
+        new("Debug tools", DrawDebugPane, PaneGroup.Session, new float2(400f, 480f)),
 
-        new("Test targets", DrawTestTargets, PaneGroup.Debug),
-        new("Log", DrawLog, PaneGroup.Debug),
+        new("Test targets", DrawTestTargets, PaneGroup.Debug, new float2(380f, 420f)),
+        new("Log", DrawLog, PaneGroup.Debug, new float2(640f, 380f)),
     ];
 
     /// <summary>
@@ -251,11 +259,20 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
 
         if (Visible)
         {
-            // ###id so a version bump does not move the window.
+            // ###id so a version bump does not move the window. Sized at first: fitted to its first frame
+            // it is as short as an empty list, since the craft are surveyed a second later.
+            ImGui.SetNextWindowSize(new float2(400f, 230f), ImGuiCond.FirstUseEver);
             if (ImGui.Begin($"KSArmory {Build.Version}###KSArmory", ref Visible))
             {
-                DrawSystemList();
-                ImGui.Separator();
+                // The list scrolls inside what the footer leaves, so the footer's buttons never scroll away.
+                float footer = ImGui.GetFrameHeight() + FooterSpacing;
+                if (ImGui.BeginChild("##list", new float2?(new float2(0f, -footer)), ImGuiChildFlags.None,
+                                     ImGuiWindowFlags.None))
+                {
+                    DrawSystemList();
+                }
+                ImGui.EndChild();
+
                 DrawReportFooter();
             }
 
@@ -320,6 +337,8 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         if (_systems.Count == 0)
         {
             ImGui.TextColored(Grey, "No weapons or sensors on any craft.");
+            ImGui.SameLine();
+            DrawTeamsToggle();
             return;
         }
 
@@ -336,6 +355,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         IReadOnlyList<string> teams = _config.TeamNames;
 
         // Declared teams in order, then the rest: no team, or one no longer declared.
+        bool toggled = false;
         for (int group = 0; group <= teams.Count; group++)
         {
             bool headed = false;
@@ -352,6 +372,13 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                     if (group < teams.Count) ImGui.TextColored(TeamColour(group), teams[group]);
                     else ImGui.TextColored(Grey, "No team");
                     headed = true;
+
+                    // The Teams window's own button, on the first heading: it is about these groups.
+                    if (!toggled && ImGui.TableSetColumnIndex(5))
+                    {
+                        DrawTeamsToggle();
+                        toggled = true;
+                    }
                 }
 
                 ImGui.PushID(i);
@@ -658,7 +685,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private static readonly ImColor8 OffInk = new(140, 140, 150, 255);
     private static readonly ImColor8 Lens = new(24, 26, 32, 255);
 
-    private enum Icon { Shield, Camera, Flag, Missile }
+    private enum Icon { Shield, Camera, Flag, Missile, Cog, TeamSettings }
 
     // Drawn rather than typed: KSA's fonts carry basic Latin only and a symbol renders as a box.
     private static bool IconButton(string id, Icon icon, ImColor8 ink, bool lit)
@@ -669,11 +696,26 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         bool clicked = ImGui.Button(id, new float2?(new float2(side, side)));
         if (lit) ImGui.PopStyleColor();
 
-        DrawIcon(ImGui.GetWindowDrawList(), icon, ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), ink);
+        DrawIcon(ImGui.GetWindowDrawList(), icon, ImGui.GetItemRectMin(), ImGui.GetItemRectMax(), ink, ButtonFace(lit));
         return clicked;
     }
 
-    private static void DrawIcon(ImDrawListPtr draw, Icon icon, float2 min, float2 max, ImColor8 ink)
+    // The button as it was just drawn, made solid over the window, so a gap cut in an icon reads as empty.
+    private static ImColor8 ButtonFace(bool lit)
+    {
+        float4 face = ImGui.IsItemActive() ? ImGui.GetColorU32(ImGuiCol.ButtonActive, 1f).AsFloat4()
+                      : ImGui.IsItemHovered(default) ? ImGui.GetColorU32(ImGuiCol.ButtonHovered, 1f).AsFloat4()
+                      : lit ? LitButton
+                      : ImGui.GetColorU32(ImGuiCol.Button, 1f).AsFloat4();
+        float4 under = ImGui.GetColorU32(ImGuiCol.WindowBg, 1f).AsFloat4();
+
+        float a = face.W;
+        static byte Byte(float v) => (byte)Math.Clamp((int)Math.Round(v * 255f), 0, 255);
+        return new ImColor8(Byte((face.X * a) + (under.X * (1f - a))), Byte((face.Y * a) + (under.Y * (1f - a))),
+                            Byte((face.Z * a) + (under.Z * (1f - a))), 255);
+    }
+
+    private static void DrawIcon(ImDrawListPtr draw, Icon icon, float2 min, float2 max, ImColor8 ink, ImColor8 gap)
     {
         float w = max.X - min.X;
         float h = max.Y - min.Y;
@@ -697,6 +739,27 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                 draw.AddTriangleFilled(P(0.3f, 0.18f), P(0.78f, 0.34f), P(0.3f, 0.5f), ink);
                 break;
 
+            case Icon.Cog:
+                Cog(draw, P(0.5f, 0.5f), h, ink);
+                break;
+
+            case Icon.TeamSettings:
+            {
+                // The cog, with a craft's team flag cut into its lower right, a gap of button round it.
+                Cog(draw, P(0.44f, 0.44f), h * 0.92f, ink);
+
+                float2 foot = P(0.60f, 0.92f), top = P(0.60f, 0.40f);
+                float2 tip = P(0.94f, 0.53f), lower = P(0.60f, 0.66f);
+                float cut = 0.07f * h;
+                draw.AddLine(foot, top - new float2(0f, cut), gap, 1.5f + (2f * cut));
+                draw.AddTriangleFilled(top, tip, lower, gap);
+                draw.AddTriangle(top, tip, lower, gap, 2f * cut);
+
+                draw.AddLine(foot, top, ink, 1.5f);
+                draw.AddTriangleFilled(top, tip, lower, ink);
+                break;
+            }
+
             case Icon.Missile:
                 draw.AddQuadFilled(P(0.20f, 0.70f), P(0.28f, 0.78f), P(0.70f, 0.36f), P(0.62f, 0.28f), ink);
                 draw.AddTriangleFilled(P(0.62f, 0.28f), P(0.70f, 0.36f), P(0.84f, 0.14f), ink);
@@ -704,6 +767,23 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                 draw.AddTriangleFilled(P(0.24f, 0.74f), P(0.40f, 0.84f), P(0.32f, 0.66f), ink);
                 break;
         }
+    }
+
+    // Eight teeth round a disc with a dark hub, sized to a button of height h.
+    private static void Cog(ImDrawListPtr draw, float2 c, float h, ImColor8 ink)
+    {
+        float body = 0.25f * h, tooth = 0.37f * h, half = 0.075f * h;
+        draw.AddCircleFilled(c, body, ink);
+        for (int i = 0; i < 8; i++)
+        {
+            double a = i * Math.PI / 4.0;
+            float2 along = new((float)Math.Cos(a), (float)Math.Sin(a));
+            float2 side = new(-along.Y, along.X);
+            draw.AddQuadFilled(c + (along * body) - (side * half), c + (along * tooth) - (side * half),
+                               c + (along * tooth) + (side * half), c + (along * body) + (side * half), ink);
+        }
+
+        draw.AddCircleFilled(c, 0.1f * h, Lens);
     }
 
     private void DrawManageWindow()
@@ -809,6 +889,26 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         _ => null,
     };
 
+    // Pushed to the right edge of what is left of the line.
+    private void DrawTeamsToggle()
+    {
+        foreach (Pane pane in Panes)
+        {
+            if (pane.Group != PaneGroup.Switcher) continue;
+
+            float side = ImGui.GetFrameHeight();
+            float room = ImGui.GetContentRegionAvail().X;
+            if (room > side) ImGui.SetCursorPosX(ImGui.GetCursorPosX() + room - side);
+
+            bool open = pane.Open;
+            if (IconButton($"##{pane.Title}", pane.Icon ?? Icon.TeamSettings, open ? ChaseInk : OffInk, lit: open))
+            {
+                pane.Open = !open;
+            }
+            Tip(pane.Title);
+        }
+    }
+
     private void DrawPaneToggles()
     {
         DrawPaneGroup(null, PaneGroup.Session);
@@ -829,6 +929,13 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             // Read once: the button toggles pane.Open, and re-reading would unbalance the colour push.
             bool open = pane.Open;
 
+            if (pane.Icon is { } icon)
+            {
+                if (IconButton($"##{pane.Title}", icon, open ? ChaseInk : OffInk, lit: open)) pane.Open = !open;
+                Tip(pane.Title);
+                continue;
+            }
+
             if (open) ImGui.PushStyleColor(ImGuiCol.Button, new float4(0.20f, 0.45f, 0.25f, 1f));
             if (ImGui.Button(open ? $"{pane.Title} (open)" : pane.Title)) pane.Open = !open;
             if (open) ImGui.PopStyleColor();
@@ -842,6 +949,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             Pane pane = Panes[i];
             if (!pane.Open) continue;
 
+            ImGui.SetNextWindowSize(pane.Size, ImGuiCond.FirstUseEver);
             if (ImGui.Begin(pane.Title, ref pane.Open)) pane.Body();
             ImGui.End();
         }
@@ -910,11 +1018,10 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             ? ImGui.InputText(label, buffer, ImGuiInputTextFlags.EnterReturnsTrue)
             : ImGui.InputTextWithHint(label, hint, buffer, ImGuiInputTextFlags.EnterReturnsTrue);
 
-        if (!entered) return false;
-
+        // Every frame, not only on Enter: a button beside the field reads what has been typed so far.
         int end = buffer.IndexOf((byte)0);
         value = System.Text.Encoding.UTF8.GetString(buffer[..(end < 0 ? buffer.Length : end)]);
-        return true;
+        return entered;
     }
 
     // Wrapped, because a bare tooltip is not and runs off the screen.
