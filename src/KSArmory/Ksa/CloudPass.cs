@@ -186,6 +186,17 @@ internal static class CloudPass
         public float4 Shape;        // cap centre, cap radius, cap tube, stem radius
     }
 
+    private static readonly AuroraReference DefaultAurora = new();
+
+    // The colours KSA draws the body's own aurora in, or its defaults where it gives the body none.
+    private static (float Green, float Red) AuroraColours(object? body)
+    {
+        AuroraReference aurora = (body as Celestial)?.BodyTemplate?.GetAurora() ?? DefaultAurora;
+
+        return (Aurora.PackColour(aurora.Green.R, aurora.Green.G, aurora.Green.B),
+                Aurora.PackColour(aurora.Red.R, aurora.Red.G, aurora.Red.B));
+    }
+
     // A unit vector in two floats. Both directions here are unit, and packing them is what keeps
     // the whole push constant at 128 bytes -- Vulkan's guaranteed minimum, and KSA's own volumetric
     // shader takes four, so there is no evidence of headroom to borrow.
@@ -567,16 +578,19 @@ internal static class CloudPass
                 double3 dipole = dipoleEcl - camera.PositionEcl;
                 if (!Vec.IsFinite(foot) || !Vec.IsFinite(dipole)) continue;
 
+                (float green, float red) = AuroraColours(camera.NearbyCelestial);
+                float2 east = OctahedralPack(eastEcl);
+
                 _sky.Add((SkyDispatch.Aurora, nits, new Push
                 {
                     InvViewProj = camera.VPInv.viewProjection,
-                    AgeStrengthWind = new float4((float)dipole.X, (float)dipole.Y, (float)dipole.Z, 0f),
+                    AgeStrengthWind = new float4((float)dipole.X, (float)dipole.Y, (float)dipole.Z, green),
                     CentreRadius = new float4((float)foot.X, (float)foot.Y, (float)foot.Z, -(float)nits),
                     FireSun = new float4((float)Aurora.BottomAltitude(KsaWorld.BodyAirOf(camera.NearbyCelestial)),
                                          (float)Aurora.TopAltitude(KsaWorld.BodyAirOf(camera.NearbyCelestial)),
                                          SkyDispatch.Aurora,
                                          (float)sinLatitude),
-                    Shape = new float4((float)eastEcl.X, (float)eastEcl.Y, (float)eastEcl.Z, (float)age),
+                    Shape = new float4(east.X, east.Y, red, (float)age),
                 }));
             }
 

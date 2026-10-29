@@ -67,4 +67,22 @@ internal static class Aurora
 
         return PeakBrightness * Math.Pow(yieldKt / 1000.0, 0.25) * arriving * fading * ending;
     }
+
+    /// <summary>
+    /// A colour in one float, eight bits a channel as an integer under 2^24, so it survives the push
+    /// constant exactly; channels are clamped to 0-1, which is the range KSA's aurora colours keep.
+    /// </summary>
+    public static float PackColour(double r, double g, double b)
+    {
+        static int Channel(double c) => double.IsFinite(c) ? (int)Math.Round(Math.Clamp(c, 0.0, 1.0) * 255.0) : 0;
+
+        return (Channel(r) << 16) | (Channel(g) << 8) | Channel(b);
+    }
+
+    /// <summary>The shader's unpacking of <see cref="PackColour"/>, restated so a test can hold the two together.</summary>
+    public static double3 UnpackColour(float packed)
+    {
+        int u = (int)packed;
+        return new double3((u >> 16) & 255, (u >> 8) & 255, u & 255) / 255.0;
+    }
 }

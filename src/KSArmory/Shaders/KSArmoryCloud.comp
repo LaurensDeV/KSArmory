@@ -1196,13 +1196,16 @@ const float AuroraRayMean = 0.218;
 // KSA draws its aurora at a fraction of the screen and averages frames; a footprint four times a pixel's
 // stands in for both, so rays show from a few hundred kilometres and are bands from a thousand.
 const float AuroraTexelScale = 4.0;
-// KSA's AuroraReference defaults, which every body it gives an aurora uses.
-const vec3 AuroraGreen = vec3(0.3, 1.0, 0.45);
-const vec3 AuroraRed = vec3(1.0, 0.15, 0.25);
+// The body's own aurora colours, each packed by Aurora.PackColour.
+vec3 UnpackColour(float packed)
+{
+    uint u = uint(packed);
+    return vec3((u >> 16) & 255u, (u >> 8) & 255u, u & 255u) / 255.0;
+}
 
 // KSA's GetAuroraBandColor, heights in its kilometres over its 95 km border (Aurora.ReachScaleHeights
 // stretches them to the body's air): arc, diffuse glow and how far into a ray this is.
-vec3 AuroraColour(float rel, float arc, float diffuse, float ray, float edgeHalf)
+vec3 AuroraColour(float rel, float arc, float diffuse, float ray, float edgeHalf, vec3 auroraGreen, vec3 auroraRed)
 {
     float lowerEdge = smoothstep(7.5 - edgeHalf, 7.5 + edgeHalf, rel);
     float topFade = smoothstep(405.0, 255.0, rel);
@@ -1217,7 +1220,7 @@ vec3 AuroraColour(float rel, float arc, float diffuse, float ray, float edgeHalf
         green += arc * exp(-aboveGreen / greenScale);
         red += arc * 0.1 * (1.0 + ray) * smoothstep(15.0, redBase, rel) * exp(-max(rel - redBase, 0.0) / 80.0);
     }
-    return (lowerEdge * green * AuroraGreen + red * AuroraRed) * topFade;
+    return (lowerEdge * green * auroraGreen + red * auroraRed) * topFade;
 }
 
 // Where a field line through the point comes down to the lower border: across the arcs (m, toward the
@@ -1278,7 +1281,9 @@ void DrawAurora(ivec2 at, ivec2 size)
     vec3 dipole = pc.AgeStrengthWind.xyz;
     vec3 foot = pc.CentreRadius.xyz;
     vec3 up = normalize(foot - dipole);
-    vec3 east = normalize(pc.Shape.xyz);
+    vec3 east = OctahedralUnpack(pc.Shape.xy);
+    vec3 auroraGreen = UnpackColour(pc.AgeStrengthWind.w);
+    vec3 auroraRed = UnpackColour(pc.Shape.z);
     vec3 north = cross(up, east);
     float nits = -pc.CentreRadius.w;
     float age = pc.Shape.w;
@@ -1375,7 +1380,7 @@ void DrawAurora(ivec2 at, ivec2 size)
         float offset = across / AuroraHalfWidth;
         float diffuse = exp(-offset * offset) * ends;
         float edgeHalf = max(7.5, 0.75 * t * texelAngle / 1000.0 / km);
-        if (i > 0) light += AuroraColour(rel, 0.0, AuroraDiffuse * diffuse, 0.0, edgeHalf) * (darkness * dt);
+        if (i > 0) light += AuroraColour(rel, 0.0, AuroraDiffuse * diffuse, 0.0, edgeHalf, auroraGreen, auroraRed) * (darkness * dt);
 
         for (int k = 0; k < 2; k++)
         {
@@ -1423,7 +1428,7 @@ void DrawAurora(ivec2 at, ivec2 size)
                     float ray = mix(rayN * rayN * rayN, AuroraRayMean, rayFade);
 
                     float arc = (k == 0 ? 1.0 : AuroraSecondArc) * patchEnds * patches * (0.35 + 0.9 * ray);
-                    light += AuroraColour(hRel, arc, 0.0, ray, max(7.5, 0.75 * tc * texelAngle / 1000.0 / km))
+                    light += AuroraColour(hRel, arc, 0.0, ray, max(7.5, 0.75 * tc * texelAngle / 1000.0 / km), auroraGreen, auroraRed)
                              * (through * darkness);
                 }
             }

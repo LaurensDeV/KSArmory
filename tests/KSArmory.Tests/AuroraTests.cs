@@ -138,4 +138,36 @@ public class AuroraTests(ITestOutputHelper output)
         Assert.Equal(0.0, Aurora.Strength(1000.0, Aurora.LifeSeconds));
         Assert.True(Aurora.Strength(4000.0, 10.0) > Aurora.Strength(1000.0, 10.0));
     }
+
+    [Theory]
+    [InlineData(0.3, 1.0, 0.15)]
+    [InlineData(1.0, 0.15, 0.25)]
+    [InlineData(1.0, 0.0, 0.07)]
+    [InlineData(0.0, 0.0, 0.0)]
+    [InlineData(1.0, 1.0, 1.0)]
+    public void AColourSurvivesItsOneFloatToWithinAnEighthBit(double r, double g, double b)
+    {
+        double3 back = Aurora.UnpackColour(Aurora.PackColour(r, g, b));
+
+        Assert.InRange(back.X, r - 0.5 / 255.0, r + 0.5 / 255.0);
+        Assert.InRange(back.Y, g - 0.5 / 255.0, g + 0.5 / 255.0);
+        Assert.InRange(back.Z, b - 0.5 / 255.0, b + 0.5 / 255.0);
+    }
+
+    [Fact]
+    public void TheWhitestColourIsStillAnIntegerAFloatHoldsExactly()
+    {
+        float white = Aurora.PackColour(1.0, 1.0, 1.0);
+
+        Assert.Equal(16_777_215f, white);
+        Assert.Equal(16_777_215, (int)white);
+    }
+
+    [Fact]
+    public void AChannelOutsideItsRangeIsClampedRatherThanSpillingIntoTheNext()
+    {
+        double3 back = Aurora.UnpackColour(Aurora.PackColour(2.0, -1.0, double.NaN));
+
+        Assert.Equal(new double3(1.0, 0.0, 0.0), back);
+    }
 }
