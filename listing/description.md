@@ -1,27 +1,79 @@
-Adds working weapon systems to Kitten Space Agency. Every launcher searches, tracks, decides and shoots on its own, and the rounds are simulated by the mod rather than by the vehicle physics, so guidance runs at sub-frame accuracy and cannot corrupt a save.
+![KSArmory: weapon systems for Kitten Space Agency](images/banner.png)
 
-### Launchers
+Adds working weapon systems to Kitten Space Agency. Every launcher searches, tracks, decides and shoots on its own. The mod simulates the rounds itself instead of using the vehicle physics, so guidance and fuzes run at sub-frame accuracy and cannot corrupt a save.
 
-![Two missiles on rails surface-attached either side of a rocket on the pad](images/rails.jpg)
+Every part has a page with a 3D model you can turn around on **[ksarmory.com](https://ksarmory.com)**, along with the install guide and how to use it.
 
-A **Pantsir-S1** on an 8x8 chassis: search radar, twelve proportional-navigation interceptors in two pods of six, twin cannon, and a turret that traverses and elevates. A **Mk 15 Phalanx CIWS** that stacks on any 3 m node and carries no missiles at all. Three rails that surface-attach to anything: **LAU-7** with an AIM-9J, **LAU-128** with an AIM-120C, and **LAU-118** with an AGM-88 HARM, which homes on radar emissions and cannot engage an aircraft. A **B61 rack** that neither aims nor fires - it lets a bomb go and the ground does the rest.
+**Requires [StarMap](https://github.com/StarMapLoader/StarMap/releases) 0.4.8 or newer.** Older StarMap versions do not start on current KSA builds.
 
-![The mod's parts in the editor's part list](images/parts.png)
+### Air defence
 
-### Sights
+![The Pantsir-S1 point defence system](images/card-pantsir.png)
 
-An **electro-optical director** on a mast and a **Rafael LITENING pod** whose whole nose rolls about its centreline while the sight nods within it. Both drive the main view, magnify by rewriting the field of view, and work on a craft carrying no weapons at all - a hull with one director on it is an observation post.
+The **Pantsir-S1** is a complete air-defence vehicle on an 8x8 chassis: a spinning search radar, twelve command-guided missiles in two pods of six, twin 30 mm cannon, and an electro-optical director on the turret roof that you can look through. The turret traverses and the pods elevate. It has its own command module, so the Pantsir alone is a craft you can build and launch.
 
-### Fire control
+### Guns
 
-Threat classification is by closest point of approach rather than closing speed, so targets passing by are engageable and not only ones flying straight at you. IFF is per installation, so two sites can be on opposite sides. A radar can be told to go silent, which is a trade rather than a free defence: a silent set cannot be homed on and cannot see. Rounds can themselves be shot down.
+![The Mk 15 Phalanx CIWS, the 5"/54 Mk 42 mount and the M197 chin turret](images/sheet-guns.png)
 
-### Ballistic computer
+- **Mk 15 Phalanx CIWS**: a six-barrel 20 mm rotary cannon with its own radar, 4,500 rounds a minute. Stacks on any 3 m node.
+- **5"/54 Mk 42**: a five-inch naval gun, 40 rounds a minute out to 15.7 km. Its shells burst on a timed fuze at the predicted meeting point, so they do not have to hit.
+- **M197 chin turret**: a three-barrel 20 mm cannon that hangs under a nose and traverses 110 degrees either way.
 
-Aim a multiple-warhead ballistic missile at a point on any body and it flies itself: ascent, guided cutoff on velocity-to-be-gained, post-boost trim, and a warhead bus that releases each round along the same line. It picks up from wherever the vehicle already is - on the pad, mid-ascent, or in orbit, where it also decides *when* to leave.
+### Missiles
 
-### Effects
+![The AIM-9J Sidewinder, AIM-120C AMRAAM and AGM-88 HARM](images/sheet-missiles.png)
+
+Attach a missile to a wing, a hull or the empty Weapon Mount and it brings its own launch rail. It slides off under its own motor.
+
+- **AIM-9J Sidewinder**: infrared-guided, 400 m to 14 km. Keeps guiding after launch on its own seeker.
+- **AIM-120C AMRAAM**: radar-guided, about Mach 4, out to 105 km.
+- **AGM-88 HARM**: homes on radar transmissions, out to 148 km. It can only engage a craft whose radar is switched on, and if that radar goes quiet, a missile already in the air flies on to where the signal was last heard.
+
+### Rocket pods
+
+![The LAU-10 Zuni pod and the six-round Zuni pod](images/sheet-rockets.png)
+
+The **LAU-10** carries four unguided Zuni 5-inch rockets, and the **six-round pod** carries six. No lock is needed: each press fires one rocket, and a sight draws where it will land. Models and textures by **Mallikas**, who also made the Mk 42 and the M197.
+
+### Sights and sensors
+
+![The EO director, the LITENING targeting pod and the infrared search and track sensor](images/sheet-sensors.png)
+
+- **EO Director**: an electro-optical sight on a mast. Watch through it in a camera window or the main view. It needs no weapon on the craft, so a hull with one director on it is an observation post.
+- **Rafael LITENING pod**: the whole nose rolls about the pod's axis while the sensor ball nods inside it. It has TV and thermal modes, zooms to a 1 degree field of view, and carries a laser designator.
+- **IRST**: a passive heat sensor. It sends nothing out, so it cannot be detected or homed on, and it finds targets for the sights.
+
+### Directed energy
+
+![The YAL-1 nose turret](images/card-yal1.png)
+
+The **YAL-1 nose turret** is the Airborne Laser's 1.5 m telescope in a rotating nose. It stacks on a 3 m node, tracks a target and holds a 1 MW beam on whichever part it is aimed at. At 100 km a part burns through in a few seconds.
+
+### Nuclear weapons
+
+![The B61 bomb and the Heavy MIRV Bus](images/sheet-nuclear.png)
+
+- **B61**: a guided nuclear bomb on the ejector rack it brings. Designate a point inside the reach ring the sight draws and it steers onto it as it falls. Yield from 0.3 kt to 340 kt.
+- **Heavy MIRV Bus**: the top stage of a ballistic missile, carrying seven reentry vehicles. Click your targets on the map and the ballistic computer flies the whole rocket: ascent, guided cutoff, post-boost trim, and the release of each warhead. It picks up from wherever the vehicle already is, on the pad, mid-ascent or in orbit.
 
 ![A nuclear fireball over open ground, its shock front bending the sky around it](images/nuclear-burst.jpg)
 
-Detonations, nuclear fireballs and mushroom clouds standing in the world, motor plumes and smoke trails, tracers, muzzle flashes and spatialised gunfire, all through the engine's own renderers.
+A burst behaves differently at every altitude, from a surface burst's mushroom cloud to the aurora and glowing debris of one above the atmosphere, with blast, heat, fallout and radiation that KSA's own dose gauge reads.
+
+### Countermeasures
+
+Two **AN/ALE-47** dispensers, one of flares and one of chaff. They attach to any surface and throw decoys to pull a missile's seeker off the craft carrying them. Fire them by hand or let them fire automatically when a missile comes for you.
+
+### Fire control and damage
+
+- Threats are judged by closest point of approach, so targets flying past can be engaged, not only ones flying straight at you.
+- Teams with their own rules of engagement, so two sites can be on opposite sides.
+- A radar can go silent, but a silent radar cannot see either.
+- Rounds in the air can be shot down.
+- Damage is per part: fragments, blast and impacts wear each part's health down, tanks leak from the holes, and parts catch fire.
+- A paintball mode marks hits with each team's paint instead of breaking anything.
+
+### Weapon packs
+
+You can add weapons without writing code. A weapon pack is an ordinary KSA mod with a folder of definition files, and KSArmory's own weapons are defined the same way. Any built-in family can be switched off. See [the pack guide](https://ksarmory.com/modding/weapon-packs/).
