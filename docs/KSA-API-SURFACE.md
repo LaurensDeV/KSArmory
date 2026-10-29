@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-348 types and 939 members across 12 assemblies.
+361 types and 960 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -29,6 +29,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void Wait()`
 
 ## Brutal.Core
+
+### Brutal.Bool32
+
+- `bool op_Implicit(Brutal.Bool32)`
 
 ### Brutal.ByteSize
 
@@ -540,6 +544,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### Brutal.VulkanApi.PhysicalDevice
+
+*referenced as a type only*
+
 ### Brutal.VulkanApi.VkAccessFlags2
 
 *referenced as a type only*
@@ -590,6 +598,18 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### Brutal.VulkanApi.VkInstance
+
+*referenced as a type only*
+
+### Brutal.VulkanApi.VkInstance+FunctionTable
+
+*referenced as a type only*
+
+### Brutal.VulkanApi.VkInstanceExtensions
+
+- `Brutal.VulkanApi.VkPhysicalDeviceFeatures GetFeatures(Brutal.VulkanApi.VulkanHandleWrapper`2<Brutal.VulkanApi.VkPhysicalDevice, FunctionTable>)`
+
 ### Brutal.VulkanApi.VkMemoryBarrier2
 
 - `Brutal.VulkanApi.VkAccessFlags2 DstAccessMask`
@@ -601,6 +621,14 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### Brutal.VulkanApi.VkMemoryPropertyFlags
 
 *referenced as a type only*
+
+### Brutal.VulkanApi.VkPhysicalDevice
+
+*referenced as a type only*
+
+### Brutal.VulkanApi.VkPhysicalDeviceFeatures
+
+- `Brutal.Bool32 ShaderStorageImageMultisample`
 
 ### Brutal.VulkanApi.VkPipelineStageFlags2
 
@@ -635,6 +663,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.ByteSize64 Size`
 - `int ConstantID`
 - `void .ctor()`
+
+### Brutal.VulkanApi.VulkanHandleWrapper`2
+
+*referenced as a type only*
 
 ## Brutal.Vulkan.Abstractions
 
@@ -704,6 +736,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.AstronomicalTemplate
 
+- `KSA.AuroraReference GetAurora()`
 - `KSA.CloudsReference CloudsReference`
 - `KSA.HapkeScatteringReference ScatteringReference`
 - `KSA.MagnetosphereReference MagnetosphereReference`
@@ -743,6 +776,16 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.AttitudeControlSystem
 
 *referenced as a type only*
+
+### KSA.AuroraReference
+
+- `KSA.ColorRgbReference Green`
+- `KSA.ColorRgbReference Red`
+- `void .ctor()`
+
+### KSA.BeltDoseRate
+
+- `KSA.BeltDoseRate op_Addition(KSA.BeltDoseRate, KSA.BeltDoseRate)`
 
 ### KSA.BoundingBoxCdA
 
@@ -864,6 +907,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.CloudsReference
 
 - `System.Collections.Generic.List`1<KSA.CloudLayerReference> Layers`
+
+### KSA.ColorRgbReference
+
+- `float B`
+- `float G`
+- `float R`
 
 ### KSA.Combustor
 
@@ -1121,6 +1170,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `bool Particles`
 
+### KSA.Gas
+
+- `float StorageTemperature`
+- `float get_SpecificGasConstant()`
+
 ### KSA.GenericImGuiViewport
 
 - `Brutal.Numerics.float2 GetPan()`
@@ -1376,8 +1430,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Mole
 
+- `KSA.Gas get_Gas()`
 - `KSA.Liquid get_Liquid()`
 - `float ConsumeStored(ref KSA.MoleState, float)`
+- `float ContainerVolume`
+- `float GetPressure(float)`
 
 ### KSA.MoleGlobalState
 
@@ -1651,6 +1708,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Radiation
 
+- `KSA.BeltDoseRate ComputeBeltDoseRate(System.Collections.Generic.List`1<KSA.RadiationBeltReference>, double, double, double, double)`
 - `KSA.DoseRates ComputeDoseRates(KSA.IParentBody, Brutal.Numerics.double3, Brutal.Numerics.double3, double)`
 - `double ComputeL(Brutal.Numerics.double3, double, ref double)`
 
@@ -1686,7 +1744,9 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Rendering.ImageBarrierInfo+Presets
 
+- `KSA.Rendering.ImageBarrierInfo ColorAttachmentWrite`
 - `KSA.Rendering.ImageBarrierInfo SampledReadC`
+- `KSA.Rendering.ImageBarrierInfo SampledReadVfc`
 - `KSA.Rendering.ImageBarrierInfo StorageReadWriteC`
 
 ### KSA.Rendering.Lighting.ClusteredLightSystem
@@ -1777,6 +1837,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.VulkanApi.VkExtent2D get_Extent()`
 - `KSA.Rendering.RenderImage get_ColorImage()`
+- `KSA.Rendering.RenderImage get_ColorMsaa()`
 - `KSA.Rendering.RenderImage get_DepthImage()`
 
 ### KSA.Rendering.Water.Data.OceanReference
@@ -1893,6 +1954,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `double MaxGLoad`
 - `double PeakGLoad`
 - `double get_GLoadFraction()`
+
+### KSA.SubstancePhase
+
+- `string Name`
 
 ### KSA.SunbloomRenderer
 

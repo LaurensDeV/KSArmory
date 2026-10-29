@@ -135,17 +135,22 @@ element or attribute the mod writes moved. Findings left open:
 - [ ] **`head-on`** on 5707, with the log's `built for KSA 2026.10.25.5707, running 2026.10.25.5707 - reporting on`.
 - [ ] **The planet map renders**, and the weather clouds sit in front of and behind a burst as before
       (the accumulated pair, not the crawling one — no `accumulated images did not resolve` warning).
-- [ ] **A burst moves the Radiation gauge**, and a crewed craft in fallout accumulates dose. Sickness
-      sets the world to 1x through KSA's own `SetSimulationSpeed`, which `WarpPolicy` will read as the
-      player overriding it — watch for a stand-down line during a salvo.
-- [ ] **A fireball's light double-lights the ground beyond ~3 km.** Terrain and clutter now go into KSA's
-      light pre-pass (`PrePassRenderer.cs:269-288`), so `KSArmoryFireLight.comp`'s test that a pixel is
-      a craft or structure (depth matches the pre-pass's) passes on the ground too, which already lights
-      itself in the forward pass. Not fixed: the pass needs another way to tell terrain from a craft.
-- [ ] **KSA's aurora green changed** from (0.3, 1, 0.45) to (0.3, 1, 0.15); `KSArmoryCloud.comp` still
-      draws a burst's aurora with the old one. Cosmetic, not changed here.
-- [ ] **A burst belt outside every natural one takes the storm scaling** meant for the outer belt (KSA
-      scales the belt with the largest L). Not changed here.
+- [ ] **A burst moves the Radiation gauge**, and a crewed craft in fallout accumulates dose.
+- [ ] **Sickness during a salvo keeps the rounds.** KSA sets 1x itself when a kitten crosses 1 Sv; landing
+      while `WarpPolicy` awaited its own write, that read as a refused write and abandoned every round.
+      A speed below the request now counts as landed (`WarpPolicyTests`); unflown.
+- [ ] **A fireball's light does not double-light the ground beyond ~3 km.** Terrain and clutter now go into
+      KSA's light pre-pass and still light themselves forward; `KSArmoryFireLight.comp` now skips a pixel
+      whose pre-pass normal has w exactly 1, which only they write. Unflown: a burst at night beside the
+      pad, the pad lit, the ground round it no brighter than with the pass off.
+- [ ] **A burst's aurora takes its body's own colours.** KSA's default green changed and three bodies now
+      declare their own; the pass reads `GetAurora()` per body and packs both colours into the push
+      constant. Unflown: Earth's aurora a deeper green than before.
+- [ ] **A storm scales Earth's outer belt, not a burst's above it.** A patch on
+      `ComputeBeltDoseRate` gives the engine the natural belts alone and adds the burst's at a scale of one.
+      The map overlay still scales the burst's, during a storm only. Unflown.
+- [ ] **A holed gas tank vents.** 5707 stores gas at a pressure; a holed tank holding one vents at choked
+      flow and logs `gas tank ... venting`. Unflown, and no stock craft carries a gas tank: fill one in the editor.
 
 **Retargeted to KSA `2026.10.19.5638` — eight assemblies renamed, no member moved, and not yet
 flown.** `Brutal.Core.Numerics`, `Common`, `Strings` and five siblings lost their `Core.` (`Common`

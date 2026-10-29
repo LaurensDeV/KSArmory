@@ -54,7 +54,7 @@ happen rather than a member that moved.
   gets a centre of its own; see *A floating craft's waterline depends on where it is* below
 - [ ] **A kitten can walk on a vehicle** — `IsGroundSurfaceFor` accepts something other than a
   static handle; see *Walking on a craft* below
-- [x] **Tanks have a pressure, and hold gas** -- **arrived in 2026.10.25.5707, not yet taken up**: a rated
+- [x] **Tanks have a pressure, and hold gas** -- **arrived in 2026.10.25.5707; gas venting taken up**: a rated
   pressure off the wall material, and gas stored in a rated tank; see *A tank's pressure and its walls* below
 - [ ] **KSA's destroy runs warm the first time it is called** -- its assemblies compiled ahead
   (ReadyToRun), or a debris split that no longer does first-time work -- **delete
@@ -141,7 +141,8 @@ wall material's yield stress over a safety factor of two and thin-wall hoop and 
 (`Tank.cs:80`). `Tank.CanHold` (`:788`) takes a gas only into a rated tank, as a single-reactant mix, and a
 gas mole's `ContainerPressure` and `GetPressure(mass)` (`Mole.cs:15`, `:85`) give its pressure. Liquids are
 still unpressurised, and KSA itself bursts nothing on `RatedPressure` yet. `Ksa/Leaks.cs`'s write path still
-mirrors `Vehicle.DepleteConsumables`; it skips non-liquid moles, so a holed gas tank still leaks nothing.
+mirrors `Vehicle.DepleteConsumables`, and since this build a holed gas tank vents by that pressure
+(`TankLeak.GasFlowKgPerSecond`).
 
 **What the mod does without it.** KSA has no tank pressure today, so `Sim/TankLeak.cs` holds every tank
 at its own 0.2 bar, kept low so the depth of a hole and the pull the craft feels still decide a leak. A
@@ -153,16 +154,16 @@ every fragment perforates. A tank going up at once is a flat one fire in five (`
 **What it would unblock**, most visible first:
 - **A leak driven by the tank's own pressure**: a fast jet that atomises, where today's stream pours --
   the pressure-vessel breach a player asked for.
-- **A holed gas tank venting**: pressurant or a gaseous propellant hissing out as a jet, where today a
-  leak counts only liquid and a gas tank leaks nothing. And a liquid tank going on venting its ullage
-  once the level falls below the hole.
+- ~~**A holed gas tank venting**~~ -- **built on 5707**, choked flow at `Mole.GetPressure`, not drawn. A
+  liquid tank venting its ullage once the level falls below the hole is not, since KSA puts no gas over a
+  liquid.
 - **Toughness and penetration from the wall**: material and thickness against a fragment's or a dart's
   energy, so a thick tank shrugs off what a thin skin does not.
 - **A tank bursting on a hit**: a vessel at its rated pressure holed past what its wall holds, in place of
   the one-in-five guess.
 
-**To take it up**: a gas leak as choked flow at `Mole.GetPressure`, and a burst or toughness read off
-`Tank.RatedPressure`; the 0.2 bar stays the liquid model, since KSA still gives a liquid no pressure.
+**Still to take up**: a burst or toughness read off `Tank.RatedPressure`; the 0.2 bar stays the liquid
+model, since KSA still gives a liquid no pressure.
 
 ## The first kill of a session pays for KSA's destroy running cold
 
@@ -854,7 +855,12 @@ it out. No light flag keeps a light out of either path.
 
 **What the mod does instead.** `Shaders/KSArmoryFireLight.comp` reads what the pre-pass wrote
 (`ClusteredLightSystem._diffuseIrradianceImage`, private) and, on each pre-pass pixel the eye sees
-whose irradiance holds less than half the fireball's, adds the forward loop's diffuse term. The
+whose irradiance holds less than half the fireball's, adds the forward loop's diffuse term. Since
+2026.10.25.5707 terrain and ground clutter are drawn into the pre-pass too (`PrePassRenderer.Render`)
+while still lighting themselves forward (`Planet.frag`, `GroundClutter/Solid.frag`), so they are told
+apart by the normal's w: both write exactly one there (`PlanetDepth.frag`, `GroundClutter/SolidDepth.frag`),
+where a part or structure writes its filtered roughness (`MeshNormalIndirect.frag`,
+`StaticObjectNormalIndirect.frag`). A structure texel exactly fully rough is then left as KSA draws it. The
 pre-pass keeps a surface's normal and not its colour, so the albedo is recovered from the pixel: in
 sunlight it shows `albedo / pi x sunColor x occlusionColor x N.L`, `StaticObject.frag`'s direct term,
 and the albedo divides out. Where the sun does not reach the pixel is black and says nothing: a surface

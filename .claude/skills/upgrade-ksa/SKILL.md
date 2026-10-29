@@ -60,7 +60,7 @@ Do not push yet if you want to inspect the diff first — it is local either way
 ./tools/ksa-api-diff.sh ../ksa-game-assemblies
 ```
 
-This reads `docs/KSA-API-SURFACE.md` — the 939 members this mod genuinely binds to, extracted
+This reads `docs/KSA-API-SURFACE.md` — the 960 members this mod genuinely binds to, extracted
 from the compiled assembly's metadata — against the new corpus, and answers two questions:
 
 **Missing members.** Mechanical and precise. Each one is a break you must fix. `MOVED` means it
@@ -119,7 +119,9 @@ claim still holds.
 | `ResetCachedPosMatrixValues` also marks the tree's `PartTreeRenderData` dirty, and part matrices are packed to `float` per term and multiplied there | `Part.cs`, `PartTreeRenderData.cs` | A subpart write without the reset is never drawn, not just drawn stale; and a round far from its launcher shivers however close the camera is. |
 | The gauge and the crew dose read `Radiation.ComputeDoseRates`, and its `Cosmic` share is the one a hull stops least | `Program.cs` (`UpdateDoseGauges`), `Vehicle.cs` (`ComputeCrewDoseRates`), `RadiationShield.cs` | `DoseRateHook` postfixes it; a gauge or crew path that moves to another call drops the bursts silently, with the hook still reporting installed. |
 | Orbit dose averages are cached until the orbit, the sun's direction or the field state moves, in `Program` and on every `Vehicle` | `OrbitDoseAverageCache.cs`, `Program.cs`, `Vehicle.cs` | `Radioactivity.ForgetOrbitAverage` clears each by reflection; a new cache holder keeps dosing on a belt that has gone, or misses one that arrived. |
-| The light pre-pass holds craft and structures, and since 5707 terrain and clutter too | `PrePassRenderer.cs` | `KSArmoryFireLight.comp` tells what to light by depth matching the pre-pass's. |
+| The light pre-pass holds craft, structures, terrain and clutter, and only terrain and clutter write the normal's w as exactly one, lighting themselves forward | `PrePassRenderer.cs`, `PlanetDepth.frag`, `GroundClutter/SolidDepth.frag`, `MeshNormalIndirect.frag`, `StaticObjectNormalIndirect.frag` | `KSArmoryFireLight.comp` skips w = 1; a part writing one, or terrain writing roughness, lights the ground twice or leaves a craft dark. |
+| KSA storm-scales the belt with the largest L, by exact equality, in `ComputeBeltDoseRate` and the overlay | `Radiation.cs`, `RadiationBeltPass.cs` | `DoseRateHook` splits a burst's belts out of the call; if the rule moves, the split is pointless or wrong. |
+| A gas mole's pressure is `m/V·T·R` at its storage temperature, and `ConsumeStored` drains a gas | `Mole.cs` | `Leaks.MeasureGas` vents by it and `TankLeak.GasDrawn` assumes the held temperature. |
 
 Add a row whenever a fix depends on the engine *doing* something rather than *declaring* it.
 
