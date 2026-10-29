@@ -6,7 +6,7 @@ namespace KSArmory;
 /// <summary>
 /// Borrows the player's main view and looks through the optical head, then gives it back.
 ///
-/// <para><b>The main view is the full picture</b>: a camera window draws no clouds, ocean or
+/// <para><b>The main view is the full picture</b>: a camera window draws no ocean or
 /// clustered lights (<c>docs/BLOCKED-ON-KSA.md</c>).</para>
 ///
 /// <para><b>It follows the launcher's own craft, whatever the player was following.</b>

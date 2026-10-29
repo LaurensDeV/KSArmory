@@ -2,28 +2,29 @@
 
 If you have made parts or weapons for Kerbal Space Program, most of what you know carries over.
 This page maps KSP's modding concepts onto KSA and KSArmory, and covers the three differences that
-will trip you up.
+matter most.
 
 ## Quick map
 
 | In KSP | In KSA with KSArmory |
 | --- | --- |
-| `GameData/<Mod>/`, scanned at startup | `mods/<Mod>/` in the KSA user folder, enabled in its `manifest.toml` |
+| `GameData/<Mod>/`, scanned at startup | `mods/<Mod>/` in the KSA user folder, described by its own `mod.toml` and enabled in the user folder's `manifest.toml` |
 | `.cfg` files in `ConfigNode` format | XML files |
 | `PART { }` | `<Part>`, with a `<SubPart>` for each piece that moves |
-| `MODULE { name = X }` | nothing (see below) |
+| `MODULE { name = X }` | one of KSA's built-in modules (tank, engine, decoupler…) in the part's XML; a mod cannot add a module type (see below) |
 | module fields set per part | `<Launcher>`, `<Munition>`, `<Sensor>` and friends, in your mod's `KSArmory/` folder |
 | ModuleManager patches (`@`, `%`, `:NEEDS`) | nothing; there is no patch layer |
 | `model.mu` | `.glb` mesh atlas |
-| `PartResource` and resource flow | nothing; KSArmory counts ammunition itself, and can lighten the part as it fires |
+| `PartResource` for ammunition | not a resource; KSArmory counts ammunition itself, and can lighten the part as it fires (fuel and other substances are KSA tanks) |
 | `KSP.log` | `Logs/KSArmory.log` in the KSA user folder |
 
 ## Three differences that matter
 
-### 1. There is no PartModule
+### 1. A mod cannot add a PartModule
 
-KSA does not let a mod attach behaviour to a part. Its per-part update lists are internal, so
-"write a class, name it in the part config, let the game call it" is not possible.
+KSA's parts take their behaviour from a fixed set of built-in modules, such as tanks, engines and
+decouplers. A mod cannot add a module type of its own, because the per-part update lists are
+internal, so "write a class, name it in the part config, let the game call it" is not possible.
 
 KSArmory works the other way round. Your part is plain structure with mass and a collider.
 KSArmory looks at every craft, finds parts whose Id matches a weapon definition, and runs the
@@ -31,8 +32,8 @@ weapon itself. That is why your weapon file names a `PartId`, and why the Id in 
 the Id in your weapon file must match exactly.
 
 It also means there is no per-part config node to tweak. Every part with the same Id behaves the
-same way. Settings that differ between two launchers on one craft (auto-engage, team) are set by
-the player in KSArmory's panel.
+same way. Settings that can differ between two weapons on one craft, such as auto-engage, are set
+by the player in KSArmory's panel. The team is set per craft.
 
 ### 2. Rounds are not vessels
 
@@ -50,8 +51,8 @@ Consequences for a pack author:
 
 ### 3. Positions move fast
 
-KSP's origin is effectively fixed. KSA works in a frame centred on the Sun, and Earth moves through
-it at about 29.8 km/s. A pack author never deals with this directly, since all positions in a weapon
+KSP keeps positions small by moving its origin with the active vessel. KSA's common frame (`Ecl`) is
+centred on the solar system's barycentre, and Earth moves through it at about 29.8 km/s. A pack author never deals with this directly, since all positions in a weapon
 file are in part space. It matters if you write code against KSA: two positions sampled one frame
 apart are about 500 m apart at 60 fps. Read
 [FRAMES-AND-EPOCHS.md](FRAMES-AND-EPOCHS.md) before touching rounds, drawing or timing.

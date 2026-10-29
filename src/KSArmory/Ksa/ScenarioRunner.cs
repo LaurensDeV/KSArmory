@@ -840,6 +840,9 @@ internal sealed class ScenarioRunner
                 entry.Policy.MissilesEnabled = true;
                 entry.Policy.GunsEnabled = true;
                 entry.Policy.BeamEnabled = true;
+
+                // Whoever watches switches the camera between craft, and the one watched would be spared.
+                entry.Policy.ProtectControlledVehicle = false;
                 _config.DrawOverlays = true;
 
                 Report($"{_name}: auto-engage on, {entry.Weapon.Ammo} rounds");

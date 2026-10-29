@@ -406,7 +406,7 @@ the same frame. Composing them anywhere else reopens the question.
 ## 8. What it costs us
 
 **It would be another place this mod patches the game, and a different kind.** Ten hook classes
-patch twelve methods today (`AttitudeHook`, `PreRenderHook`, `WorldReloadHook`, `RoundBodyDrawHook`,
+patch thirteen methods today (`AttitudeHook`, `PreRenderHook`, `WorldReloadHook`, `RoundBodyDrawHook`,
 `LooseBodyDrawHook`, `CloudPassHook`, `SaveHook`, `GroundTrackHook`, `PlanetMapHook`, `DoseRateHook`),
 each a prefix or postfix, most of them with the signature tracked in `docs/KSA-API-SURFACE.md`. A decal pass has a materially different risk profile: it binds to a dozen
 render internals at once. That is a

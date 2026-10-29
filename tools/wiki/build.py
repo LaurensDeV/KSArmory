@@ -21,7 +21,9 @@ import re
 import shutil
 import subprocess
 import sys
+import urllib.request
 import xml.etree.ElementTree as ET
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -64,9 +66,14 @@ MOUNTS_TITLE = "Racks and rails"
 MOUNTS_FOLDER = "weapons/racks-and-rails"
 MOUNTS = [
     ("KSArmory_Prefab_WeaponsRail", "Ejector Rack", "Carriage",
-     "Hangs from the [Ejector Rack]({link}) it brings."),
-    ("KSArmory_Prefab_LaunchRail", "Launch Rail", "LaunchRail", "Slides off the [Launch Rail]({link}) it brings."),
+     "Hangs from an [Ejector Rack]({link}), which appears with it once it is attached."),
+    ("KSArmory_Prefab_LaunchRail", "Launch Rail", "LaunchRail", "Slides off a [Launch Rail]({link}), which appears with it once it is attached."),
 ]
+
+
+def family_label(family: str) -> str:
+    """A family as the in-game switch names it (Ksa/Ui/Ui.cs FamilyLabel): DirectedEnergy reads Directed energy."""
+    return re.sub(r"(?<=[a-z])([A-Z])", lambda m: " " + m.group(1).lower(), family)
 
 
 def folder_of(family: str) -> str:
@@ -106,6 +113,10 @@ SENSOR = csharp_defaults("SensorProfile.cs")
 OPTIC = csharp_defaults("OpticProfile.cs")
 LAUNCHER = csharp_defaults("LauncherProfile.cs")
 DISPENSER = csharp_defaults("Dispenser.cs")
+BEAM = csharp_defaults("BeamProfile.cs")
+
+# Rounds whose MaxRange is a geometric bound rather than a reach: how far one goes is set by what carries it.
+CARRIED_RANGE = {"MK21"}
 
 
 def value(element: ET.Element, name: str, defaults: dict[str, str]) -> str | None:
@@ -135,9 +146,10 @@ GUIDANCE = {"Seeker": "seeker", "AntiRadiation": "anti-radiation", "CommandLink"
 def charge(kg: float | None) -> str:
     if not kg:
         return "none"
-    for scale, unit in ((1e9, "Mt"), (1e6, "kt"), (1e3, "t")):
+    # A nuclear yield reads in kilotons from a tenth of one, as it is quoted.
+    for scale, unit in ((1e9, "Mt"), (1e5, "kt"), (1e3, "t")):
         if kg >= scale:
-            return f"{kg / scale:.3g} {unit}"
+            return f"{kg / (1e6 if unit == 'kt' else scale):.3g} {unit}"
     return f"{kg:.3g} kg" if kg >= 1 else f"{kg * 1000:.3g} g"
 
 
@@ -250,10 +262,20 @@ def round_row(m: ET.Element, shell: bool) -> str:
     # A gun's round is flown as a shell whatever its profile's guidance says, which is only the default.
     guidance = "shell" if shell else GUIDANCE.get(value(m, "Guidance", MUNITION) or "", value(m, "Guidance", MUNITION))
     low, high = number(value(m, "MinRange", MUNITION)), distance(number(value(m, "MaxRange", MUNITION)))
-    reach = f"{distance(low)} to {high}" if low else f"up to {high}"
+    reach = ("set by its carrier" if m.get("Name") in CARRIED_RANGE
+             else f"{distance(low)} to {high}" if low else f"up to {high}")
     fuse = number(value(m, "FuseRadius", MUNITION))
-    return (f"| {m.get('DisplayName')} | {guidance} | {reach} | {charge(number(value(m, 'ChargeKg', MUNITION)))} | "
-            f"{'contact' if not fuse else 'proximity, ' + distance(fuse)} |")
+    fuse_text = "contact" if not fuse else "proximity, " + distance(fuse)
+    if m.get("TimedFuse") == "true":
+        fuse_text = f"timed, with a {distance(fuse)} proximity fuse" if fuse else "timed"
+    return f"| {m.get('DisplayName')} | {guidance} | {reach} | {warhead(m)} | {fuse_text} |"
+
+
+def warhead(m: ET.Element) -> str:
+    """The charge, and how far the yield dial goes where a round has one."""
+    shipped = charge(number(value(m, "ChargeKg", MUNITION)))
+    top = number(m.get("MaxChargeKg"))
+    return f"{shipped}, adjustable to {charge(top)}" if top else shipped
 
 
 def sensor_row(s: ET.Element) -> str:
@@ -263,7 +285,7 @@ def sensor_row(s: ET.Element) -> str:
     # An infrared set's range is a ceiling; what it sees depends on how hot the contact is.
     if s.get("Infrared") == "true":
         reach = f"up to {reach}"
-    # ConeDeg is a half-angle; the field of view is twice it.
+    # ConeDeg is a half-angle; what the set or head may look into is twice it.
     return f"| {s.get('DisplayName')} | {kind} | {reach} | {2 * float(value(s, 'ConeDeg', SENSOR)):g}° |"
 
 
@@ -296,12 +318,14 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
                      for _, name, marker, line in MOUNTS if marker}
     carried_by: dict[str, list[str]] = {}
     for _, root, _ in family_files():
-        for e in root.iter("Launcher"):
+        for e in root:
             if (marker := e.get("CarriageMarker")) in carriage_page and e.get("PartId") not in hidden_parts():
                 carried_by.setdefault(marker, []).append(names.get(e.get("PartId"), e.get("PartId")))
+    # Across every family: the Pantsir's roof director names a sensor Sensors.xml defines.
+    all_sensors = {s.get("Name"): s for _, r, _ in family_files() for s in r.iter("Sensor")}
     for family, root, file_name in family_files():
         munitions = {m.get("Name"): m for m in root.iter("Munition")}
-        sensors = {s.get("Name"): s for s in root.iter("Sensor")}
+        sensors = all_sensors
         decoys = {d.get("Name"): d for d in root.iter("Decoy")}
         folder = folder_of(family)
         family_weapons = []
@@ -339,14 +363,15 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
                     if e.get("FiresBeam") == "true":
                         kinds.append("laser")
                     if e.findall("Tube"):
-                        kinds.append(value(e, "TubeArmamentLabel", LAUNCHER).strip('"').lower())
+                        plural = value(e, "TubeArmamentLabel", LAUNCHER).strip('"').lower()
+                        kinds.append(plural if len(e.findall("Tube")) > 1 else plural.rstrip("s"))
                     if e.get("GunMunition"):
                         kinds.append("gun")
                         shells.add((e.get("GunMunition") or "").split(":")[-1])
                     for key in ("Munition", "GunMunition"):
                         if (m := munitions.get((e.get(key) or "").split(":")[-1])) is not None and m not in fires:
                             fires.append(m)
-                    if (s := sensors.get((e.get("Sensor") or "").split(":")[-1])) is not None:
+                    if (s := sensors.get((e.get("Sensor") or "").split(":")[-1])) is not None and s not in sees:
                         sees.append(s)
                     tubes = len(e.findall("Tube"))
                     gun = e.get("GunMunition")
@@ -367,8 +392,12 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
                         zoom = value(e, "MaxMagnification", OPTIC)
                         gimbal = value(e, "Gimbal", OPTIC)
                         out += [f"**{e.get('DisplayName')}**: zooms to ×{zoom}, "
-                                f"{'rolling pod head' if gimbal == 'RollNod' else 'ball head on a mast'}"
+                                f"{'roll-nod head' if gimbal == 'RollNod' else 'ball head on a mast'}"
                                 f"{', laser rangefinder and designator' if e.get('HasLaser') == 'true' else ''}.", ""]
+                        if (b := e.find("Beam")) is not None:
+                            power = float(value(b, "PowerWatts", BEAM)) / 1e6
+                            out += [f"**Laser**: {power:g} MW, {float(value(b, 'ChemicalSeconds', BEAM)):g} s of "
+                                    f"lasing per load of chemicals, in {float(value(b, 'ShotSeconds', BEAM)):g} s shots.", ""]
                 elif e.tag == "Dispenser":
                     kinds.append("decoys")
                     d = decoys.get(e.get("Decoy", ""))
@@ -380,7 +409,7 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
                 out += ["| Round | Guidance | Range | Warhead | Fuse |", "| --- | --- | --- | --- | --- |",
                         *[round_row(m, m.get("Name") in shells) for m in fires], ""]
             if sees:
-                out += ["| Sensor | Type | Range | Field of view |", "| --- | --- | --- | --- |", *[sensor_row(s) for s in sees], ""]
+                out += ["| Sensor | Type | Range | Coverage |", "| --- | --- | --- | --- |", *[sensor_row(s) for s in sees], ""]
 
             pages[page] = "\n".join(out)
             first = fires[0] if fires else None
@@ -388,8 +417,9 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
                 "name": name, "part": part_id, "family": FAMILIES[family], "page": page, "id": anchor(name),
                 "href": f"/{folder}/{anchor(name)}/",
                 "kinds": ", ".join(dict.fromkeys(kinds)),
-                "reach": distance(number(value(first, "MaxRange", MUNITION))) if first is not None else None,
-                "warhead": charge(number(value(first, "ChargeKg", MUNITION))) if first is not None else None,
+                "reach": (None if first is None else "set by its carrier" if first.get("Name") in CARRIED_RANGE
+                          else distance(number(value(first, "MaxRange", MUNITION)))),
+                "warhead": warhead(first) if first is not None else None,
             })
 
         weapons += family_weapons
@@ -398,7 +428,8 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
                           f"models/{slug(family_weapons[0]['part'])}-card.png"),
             f"# {FAMILIES[family]}", "",
             f"Defined in [`{file_name}`]({REPO}/blob/{BRANCH}/src/KSArmory/KSArmory/{file_name}). The whole family "
-            f"can be switched off in game under *KSArmory → Built-in weapons → {family}*.", "",
+            f"can be switched off under *KSArmory → Built-in weapons → {family_label(family)}*; the change takes effect "
+            "when KSA next starts.", "",
             gallery(family_weapons), ""])
 
     mounts = []
@@ -412,7 +443,7 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
             *front_matter(name, plain(blurb or name), f"models/{slug(model)}-card.png"),
             *VIEWER_SCRIPTS, "", f"# {name}", "", relink(blurb or "", ROOT / "README.md", page), "",
             viewer(model, name), "",
-            *([f"The stores that bring one: {', '.join(stores)}.", ""] if stores else [])])
+            *([f"The stores that come with one: {', '.join(stores)}.", ""] if stores else [])])
         mounts.append({"name": name, "part": model, "family": MOUNTS_TITLE, "page": page, "id": anchor(name),
                        "href": f"/{MOUNTS_FOLDER}/{anchor(name)}/", "kinds": "mount", "reach": None, "warhead": None})
     weapons += mounts
@@ -443,7 +474,10 @@ def gallery(weapons: list[dict]) -> str:
     """Every weapon at once: its still, family, name and what it reaches and carries."""
     cards = []
     for w in weapons:
-        stats = " · ".join(x for x in (w["reach"], w["warhead"]) if x and x != "none") or w["kinds"]
+        # A card has room for the plain figures; the page says how a range is set or how far a yield goes.
+        reach = None if w["reach"] == "set by its carrier" else w["reach"]
+        shipped = (w["warhead"] or "").split(",")[0]
+        stats = " · ".join(x for x in (reach, shipped) if x and x != "none") or w["kinds"]
         cards.append(f'<a class="ks-card" id="{w["id"]}" href="{w["href"]}">'
                      f'<img src="/models/{slug(w["part"])}.webp" alt="{html.escape(w["name"], quote=True)}" loading="lazy">'
                      f'<span class="ks-card__body"><span class="ks-card__family">{html.escape(w["family"])}</span>'
@@ -472,6 +506,53 @@ self.ModelViewerElement = {
 
 GALLERY_MARKER = "<!-- every weapon -->"
 PATCH_MARKER = "<!-- patch -->"
+LISTING_MARKER = "<!-- listing -->"
+
+# What Borea and ksamods.gg read: the downloads are GitHub's and SpaceDock's added together.
+CONTENT_INDEX = "https://ksamodding.github.io/content-index-releases/v1/index.json"
+LISTING_ID = "KSArmory"
+
+DOWNLOAD_ICON = ('<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5'
+                 'M5 19.5h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+                 'stroke-linejoin="round"/></svg>')
+DATE_ICON = ('<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" '
+             'stroke="currentColor" stroke-width="2"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" '
+             'stroke-width="2" stroke-linecap="round"/></svg>')
+
+
+def listing_card() -> str:
+    """KSArmory as the content index lists it, laid out as ksamods.gg lays out a mod, or nothing when the
+    index cannot be read: a site built offline is the same site without the card."""
+    try:
+        with urllib.request.urlopen(CONTENT_INDEX, timeout=30) as response:
+            index = json.load(response)
+        listing = next(entry for entry in index["listings"] if entry["id"] == LISTING_ID)
+        release = max(listing["releases"], key=lambda r: r["release_date"])
+        authored = listing["authored"]
+        downloads = int(listing["downloads"]["total"])
+        released = datetime.fromisoformat(release["release_date"].replace("Z", "+00:00"))
+    except Exception as e:  # noqa: BLE001 -- any failure leaves the card out, never the build
+        print(f"wiki: no listing card, the content index could not be read: {e}", file=sys.stderr)
+        return ""
+
+    chips = [release["loader"]["id"], f'<span class="ks-chip--mono">{html.escape(release["version"])}</span>',
+             f'{release["download"]["size"] / 1e6:.0f} MB']
+    return "\n".join([
+        '<a class="ks-listing" href="/guide/install/">',
+        '<img src="/assets/listing-icon.png" alt="" width="80" height="80">',
+        '<div class="ks-listing-body">',
+        f'<div class="ks-listing-name">{html.escape(authored["name"])} '
+        f'<span>by {html.escape(", ".join(authored["authors"]))}</span></div>',
+        '<div class="ks-listing-chips">' + "".join(f'<span class="ks-chip">{c}</span>' for c in chips) + "</div>",
+        "</div>",
+        '<div class="ks-listing-stats">',
+        f'<span title="Downloads from GitHub and SpaceDock, as the KSA content index counts them">'
+        f"{DOWNLOAD_ICON}<strong>{downloads:,}</strong></span>",
+        f'<span title="When {html.escape(release["version"])} was released">{DATE_ICON}'
+        f'<time datetime="{released.date().isoformat()}">{released.day} {released:%b %Y}</time></span>',
+        "</div>",
+        "</a>",
+    ])
 
 # Models change only with a release and the viewer only with its pinned version.
 # The guide was at /players/ before it was renamed; links to it are already out there.
@@ -513,7 +594,7 @@ def models() -> None:
     subprocess.run(["node", str(here / "stills.mjs"), str(DOCS)], check=True)
 
 
-def assemble(with_models: bool) -> None:
+def assemble(with_models: bool, with_listing: bool = True) -> None:
     if DOCS.exists():
         shutil.rmtree(DOCS)
     shutil.copytree(WIKI / "pages", DOCS)
@@ -522,6 +603,7 @@ def assemble(with_models: bool) -> None:
     shutil.copy(ROOT / "branding/mark.svg", DOCS / "assets/mark.svg")
     shutil.copy(ROOT / "branding/mark-light.svg", DOCS / "assets/mark-light.svg")
     shutil.copy(ROOT / "branding/favicon.svg", DOCS / "assets/favicon.svg")
+    shutil.copy(ROOT / "listing/icon.png", DOCS / "assets/listing-icon.png")
     (DOCS / "assets/3d/config.js").write_text(VIEWER_CONFIG)
     (DOCS / "_headers").write_text(HEADERS)
     (DOCS / "_redirects").write_text(REDIRECTS)
@@ -548,14 +630,17 @@ def assemble(with_models: bool) -> None:
     write("weapons/index.md", "\n".join([
         "# Weapons", "",
         "Every weapon that comes with KSArmory. The numbers come from the same files as the current release. "
-        "You can switch off any family of weapons in game under *KSArmory → Built-in weapons*.",
+        "You can switch off any family of weapons under *KSArmory → Built-in weapons*; the change takes effect when "
+        "KSA next starts.",
         gallery(weapons), "", *weapon_table(weapons), ""]))
     home = DOCS / "index.md"
     if GALLERY_MARKER not in home.read_text():
         sys.exit(f"wiki: wiki/pages/index.md has lost the line {GALLERY_MARKER!r} the gallery is written at")
     # Inline rather than an <img>: its lettering is set on a circle in the site's own fonts.
     patch = (ROOT / "branding/patch.svg").read_text().replace('<svg ', '<svg aria-label="KSArmory mission patch" ', 1)
-    home.write_text(home.read_text().replace(GALLERY_MARKER, gallery(weapons)).replace(PATCH_MARKER, patch))
+    card = listing_card() if with_listing else ""
+    home.write_text(home.read_text().replace(GALLERY_MARKER, gallery(weapons)).replace(PATCH_MARKER, patch)
+                    .replace(LISTING_MARKER, card))
 
     for src, page, _ in DOC_PAGES:
         write(page, relink((ROOT / src).read_text(), ROOT / src, page))
@@ -598,7 +683,7 @@ def main() -> int:
         # Its own folder: assembled where the site is, it would strip the models from a preview being served.
         global DOCS
         DOCS = BUILD / "check"
-        assemble(with_models=False)
+        assemble(with_models=False, with_listing=False)
         return 0
     assemble(with_models=True)
     zensical = shutil.which("zensical")

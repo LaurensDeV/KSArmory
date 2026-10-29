@@ -57,8 +57,8 @@ public class BoresightTests
     /// head physically covers and is forbidden to look at.</para>
     ///
     /// <para>Az-el heads only. A roll-nod head's real aperture is bounded by its shell rather than
-    /// by its travel, and is measured off the mesh by <c>tools/model/import-litening.py</c>, so
-    /// its cone is answerable to that instead.</para>
+    /// by its travel, and its stop is set to where the shell binds, which
+    /// <c>tools/model/authored-optics.json</c> records.</para>
     /// </summary>
     [Fact]
     public void EveryMastDirectorCanSeeEverywhereItCanPoint()

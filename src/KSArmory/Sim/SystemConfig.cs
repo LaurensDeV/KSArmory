@@ -35,7 +35,8 @@ public sealed class SystemConfig : ISensorPolicy
 
     /// <summary>
     /// Never fire on the vehicle the player is flying. Per system, so one site can guard the player
-    /// while another treats them as a target.
+    /// while another treats them as a target. About aiming only: a burst or a stray round near that
+    /// vehicle still damages it.
     /// </summary>
     public bool ProtectControlledVehicle = true;
 

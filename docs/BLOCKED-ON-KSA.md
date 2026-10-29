@@ -8,7 +8,7 @@ Each entry cites what the decompiled corpus says, so a claim can be rechecked af
 rather than taken on trust. **Recheck this file when the game moves** — the whole point of it is
 that some of these will quietly become possible.
 
-Findings are against KSA **2026.10.19.5638**. Paths are relative to
+Findings are against KSA **2026.10.25.5707**. Paths are relative to
 `../ksa-game-assemblies/current/src`. A line number is where the member was on the build its entry was
 written against, and some have drifted since; search for the member it names.
 
@@ -19,7 +19,8 @@ will not surface any of these — none is a signature change, and most are a cal
 happen rather than a member that moved.
 
 - [x] Secondary viewport gets the planet, atmosphere and lighting passes — **partly, in
-  2026.10.7.5541**: terrain and sky, not clouds, ocean or clustered lights; see the entry below
+  2026.10.7.5541**: terrain and sky, not clouds, ocean or clustered lights; **clouds too in
+  2026.10.25.5707** (`ViewportOptionFlags.RenderClouds`); see the entry below
 - [x] A secondary viewport's terrain is shadowed by cascades fitted to its own camera, not the main one's
   — **partly, in 2026.10.13.5602**: not shadowed at all unless `PlanetRenderer.ViewportShadows` is set,
   which is the picture the entry below asked for; see it
@@ -53,13 +54,23 @@ happen rather than a member that moved.
   gets a centre of its own; see *A floating craft's waterline depends on where it is* below
 - [ ] **A kitten can walk on a vehicle** — `IsGroundSurfaceFor` accepts something other than a
   static handle; see *Walking on a craft* below
+- [x] **Tanks have a pressure, and hold gas** -- **arrived in 2026.10.25.5707; gas venting taken up**: a rated
+  pressure off the wall material, and gas stored in a rated tank; see *A tank's pressure and its walls* below
 - [ ] **KSA's destroy runs warm the first time it is called** -- its assemblies compiled ahead
   (ReadyToRun), or a debris split that no longer does first-time work -- **delete
   `JitWarmup.EngineTypes` the day it does**; see the entry below
 
+**Rechecked against 2026.10.25.5707: two entries moved, the rest is still blocked.** Tanks now carry a
+rated pressure and hold gas, and a camera window now draws clouds (`ViewportOptionFlags.RenderClouds`,
+`Program.cs:1043`), still with no ocean or clustered lights. `PhysicsStates.ComputeDrag`, `DistanceReference`
+and `UncompressedVehicleSave`'s character handling are unchanged, `IsGroundSurfaceFor` and the buoyancy's
+`MassToGeometryAsmb` did not move, `KSA.dll` is still IL-only, the volumetric trail renderer is still reached
+by reflection, StarMap did not move, and there is still no hook between applying the vehicle solvers and
+snapshotting them. Citations were re-derived only for what this paragraph cites; elsewhere they stand as below.
+
 **Rechecked against 2026.10.19.5638: one entry moved, the rest is still blocked.** KSA now declares a
 magnetic field on its bodies, which half-answers *A body's magnetic field and what its air is made of*
-below, and the mod reads it. A camera window gets a terrain depth pre-pass and the radiation belts, and still no clouds or ocean;
+below, and the mod reads it. A camera window gets a terrain depth pre-pass and the radiation belts, and still no clouds or ocean (it gets clouds in 2026.10.25.5707);
 `PhysicsStates.ComputeDrag` and the buoyancy's `MassToGeometryAsmb` are unchanged, `Program.PrepareFrame`
 and `OnFrame` are byte-identical, `DistanceReference.IsValid` still wants 100 km, `IsGroundSurfaceFor`
 still takes a static handle, and StarMap changed only its restart prompt. `KSA.dll` is still IL-only, but it and `Planet.Render.Core.dll` are the first builds shipped with the JIT optimiser on — every earlier one carried `DebuggableAttribute` with optimisation disabled — so the cold first destroy may cost less, and any frame time measured before this build was measured against a debug engine. Flown on `PBB SCALE 8` (eight rockets, cloud pass on, 239 Hz display), pad to cutoff: 138 fps against 78–86 on three 5602 runs of the same shot, and 132 against 56–60 through the ascent, where the 5602 frame was worst. The mod's own share of the frame fell with it, 2.7 ms to 1.0.
@@ -121,6 +132,38 @@ submits its draw in consecutive statements; `KSA.Rendering.PostProcessing` is an
 pass and a tone curve.
 
 ---
+
+## A tank's pressure and its walls
+
+**Arrived in 2026.10.25.5707, not yet taken up.** `AsmbTankTemplate` derives a `RatedPressure` from the
+wall material's yield stress over a safety factor of two and thin-wall hoop and dome-crown formulas
+(`AsmbTankTemplate.cs`, `TankGeometry.PressurePerWallStress`), and `Tank.RatedPressure` carries it
+(`Tank.cs:80`). `Tank.CanHold` (`:788`) takes a gas only into a rated tank, as a single-reactant mix, and a
+gas mole's `ContainerPressure` and `GetPressure(mass)` (`Mole.cs:15`, `:85`) give its pressure. Liquids are
+still unpressurised, and KSA itself bursts nothing on `RatedPressure` yet. `Ksa/Leaks.cs`'s write path still
+mirrors `Vehicle.DepleteConsumables`, and since this build a holed gas tank vents by that pressure
+(`TankLeak.GasFlowKgPerSecond`).
+
+**What the mod does without it.** KSA has no tank pressure today, so `Sim/TankLeak.cs` holds every tank
+at its own 0.2 bar, kept low so the depth of a hole and the pull the craft feels still decide a leak. A
+part's toughness against a hit is guessed from its mass to the two thirds (`Sim/PartToughness.cs`),
+because nothing says how thick its wall is, and there is no penetration law because without a wall
+every fragment perforates. A tank going up at once is a flat one fire in five (`PartFire.FlashoverChance`).
+`docs/DAMAGE-PLAN.md` has each.
+
+**What it would unblock**, most visible first:
+- **A leak driven by the tank's own pressure**: a fast jet that atomises, where today's stream pours --
+  the pressure-vessel breach a player asked for.
+- ~~**A holed gas tank venting**~~ -- **built on 5707**, choked flow at `Mole.GetPressure`, not drawn. A
+  liquid tank venting its ullage once the level falls below the hole is not, since KSA puts no gas over a
+  liquid.
+- **Toughness and penetration from the wall**: material and thickness against a fragment's or a dart's
+  energy, so a thick tank shrugs off what a thin skin does not.
+- **A tank bursting on a hit**: a vessel at its rated pressure holed past what its wall holds, in place of
+  the one-in-five guess.
+
+**Still to take up**: a burst or toughness read off `Tank.RatedPressure`; the 0.2 bar stays the liquid
+model, since KSA still gives a liquid no pressure.
 
 ## The first kill of a session pays for KSA's destroy running cold
 
@@ -367,7 +410,9 @@ work; the *picture* is wrong.
 the planet renderer and the sky for its own slot, with its own LOD off its own camera
 (`PlanetViewportData.OnFrame`) and the grey ball suppressed through
 `Camera.GetEffectiveNearbyCelestial` — still without clouds, ocean, ground clutter, volumetric
-trails or clustered lights, which stay in the main-only half of `RenderGame`. Detail textures also
+trails or clustered lights, which stay in the main-only half of `RenderGame`. **2026.10.25.5707 adds the
+clouds**, per viewport (`ViewportOptionFlags.RenderClouds`, `CloudRenderer`'s `ViewportResources`); the
+ocean, clutter, trails and clustered lights are still the main view's. Detail textures also
 stream round the main camera alone (`PlanetRenderer.OnFrame` is called for the frame viewport), so
 a window looking far from the player may see coarser ground. The director now drives a window from
 any craft (`KSArmoryMod.DriveCameraWindows`). What follows is the account against the builds before it.
@@ -810,7 +855,12 @@ it out. No light flag keeps a light out of either path.
 
 **What the mod does instead.** `Shaders/KSArmoryFireLight.comp` reads what the pre-pass wrote
 (`ClusteredLightSystem._diffuseIrradianceImage`, private) and, on each pre-pass pixel the eye sees
-whose irradiance holds less than half the fireball's, adds the forward loop's diffuse term. The
+whose irradiance holds less than half the fireball's, adds the forward loop's diffuse term. Since
+2026.10.25.5707 terrain and ground clutter are drawn into the pre-pass too (`PrePassRenderer.Render`)
+while still lighting themselves forward (`Planet.frag`, `GroundClutter/Solid.frag`), so they are told
+apart by the normal's w: both write exactly one there (`PlanetDepth.frag`, `GroundClutter/SolidDepth.frag`),
+where a part or structure writes its filtered roughness (`MeshNormalIndirect.frag`,
+`StaticObjectNormalIndirect.frag`). A structure texel exactly fully rough is then left as KSA draws it. The
 pre-pass keeps a surface's normal and not its colour, so the albedo is recovered from the pixel: in
 sunlight it shows `albedo / pi x sunColor x occlusionColor x N.L`, `StaticObject.frag`'s direct term,
 and the albedo divides out. Where the sun does not reach the pixel is black and says nothing: a surface

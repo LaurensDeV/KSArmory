@@ -10,7 +10,61 @@ namespace KSArmory;
 /// </summary>
 internal sealed partial class Ui
 {
-    private void DrawWarpHold()
+    // One slider for how hard weapons hit: paintball at its far left, a damage scale from a hundredth to
+    // ten across the middle, and at its far right the old rule, a burst in the lethal radius destroying the
+    // whole craft.
+    private void DrawDamage()
+    {
+        float position = _config.Paintball ? 0f
+                         : _config.DamageIndividualParts ? ScaleToPosition(_config.DamageScale)
+                         : 1f;
+        string shown = _config.Paintball ? "Paintball"
+                       : _config.DamageIndividualParts ? $"{_config.DamageScale:0.###}x"
+                       : "One-hit kills";
+
+        if (ImGui.SliderFloat("Damage", ref position, 0f, 1f, shown, ImGuiSliderFlags.NoInput))
+        {
+            _config.Paintball = position < PaintballBelow;
+            _config.DamageIndividualParts = position < OneHitAt;
+            if (!_config.Paintball && _config.DamageIndividualParts) _config.DamageScale = PositionToScale(position);
+        }
+        Tip("How hard weapons hit. At 1x a part breaks where the damage model says it does; at 0.1x it takes "
+            + "ten such hits, at 10x a tenth of one. Every part keeps what each hit took. At the far right, "
+            + "One-hit kills: no part damage at all, and anything inside a warhead's lethal radius is "
+            + "destroyed outright. At the far left, Paintball: a hit marks what it struck with the shooter's "
+            + "paint and harms nothing -- nothing breaks, dents, burns, leaks or is shot down.");
+
+        ImGui.Checkbox("Part health bars", ref _config.DrawPartHealth);
+        Tip($"A bar over every part of every craft within {PartHealthBars.RangeMetres / 1000.0:F0} km of the "
+            + "camera, and over any damaged part further out: green whole, red nearly gone.");
+
+        ImGui.Checkbox("Holed tanks leak", ref _config.TankLeaks);
+        Tip("A tank a shell has holed loses its liquid through every hole under the level, and a burning "
+            + "tank's leak burns. The liquid settles against the pull the craft feels, so a hole above it "
+            + "leaks nothing.");
+    }
+
+    // The slider's travel: paintball under a twentieth, a hundredth to ten on a log scale from a tenth to
+    // nine tenths, and one-hit kills past nineteen twentieths.
+    private const float PaintballBelow = 0.05f;
+    private const float OneHitAt = 0.95f;
+    private const float ScaleFrom = 0.1f, ScaleTo = 0.9f;
+    private const double LeastScale = 0.01, MostScale = 10.0;
+
+    private static float ScaleToPosition(float scale)
+    {
+        double t = Math.Log(Math.Clamp(scale, LeastScale, MostScale) / LeastScale) / Math.Log(MostScale / LeastScale);
+        return (float)(ScaleFrom + (t * (ScaleTo - ScaleFrom)));
+    }
+
+    private static float PositionToScale(float position)
+    {
+        double t = Math.Clamp((position - ScaleFrom) / (ScaleTo - ScaleFrom), 0.0, 1.0);
+        return (float)(LeastScale * Math.Pow(MostScale / LeastScale, t));
+    }
+
+    // What a player rarely needs: the world clock held for rounds, stages taken out, salvos shared, blackout.
+    private void DrawAdvancedPane()
     {
         ImGui.Checkbox("Hold timewarp down while rounds fly", ref _config.LimitWarpInFlight);
         Tip($"Above ~{MaxTrackableWarp:F0}x a round cannot be simulated. Held only while something is "
@@ -26,43 +80,14 @@ internal sealed partial class Ui
             + "the whole way down.\n\nFrame time is what buys simulation rate -- about 2 ms a vehicle, "
             + "and a rocket sheds four. The half a MIRV bus drops is never taken.");
 
-        ImGui.Checkbox("Break individual parts, not whole craft", ref _config.DamageIndividualParts);
-        Tip("On: each part is judged on its own distance from the burst and its own strength, so a weak "
-            + "part breaks further out than a dense one, and losing enough of them at once still "
-            + "destroys the craft outright. Off: inside the lethal radius the whole craft is destroyed.");
-
-        ImGui.SliderFloat("Damage scale", ref _config.DamageScale, 0.001f, 10f, "%.3fx", ImGuiSliderFlags.Logarithmic);
-        Tip("How much of a part's health one burst takes. Every part starts whole and loses what each "
-            + "burst puts on it, so a load short of breaking it is not forgotten. At 1x a fresh part breaks "
-            + "where it always has; at 0.1x it takes ten such bursts, and a shell has to strike the same "
-            + "part ten times before it breaks off -- no one hit takes more than a whole part, however "
-            + "close it burst. Parts only: with individual parts off, a burst in the "
-            + "lethal radius still destroys the craft.");
-
-        ImGui.Checkbox("Holed tanks leak", ref _config.TankLeaks);
-        Tip("On: a tank a shell has holed loses its liquid through every hole under the level, driven by a low "
-            + "tank pressure and by the depth above the hole and the pull the craft feels, and streams where it "
-            + "goes. The liquid settles against that pull, so a craft on its side drains from its lower holes and "
-            + "a hole above the level leaks nothing. Coasting in orbit the liquid floats, and every hole leaks as "
-            + "often as it is under it -- about as often as the tank is full.");
+        ImGui.Checkbox("Weapons on one craft share a target count", ref _config.ShareTargetsAcrossWeapons);
+        Tip("On: two rails on one craft will not each fire a full salvo at the same target. "
+            + "Off: each weapon counts only its own rounds.");
 
         ImGui.Checkbox("Nuclear bursts black out radar", ref _config.NuclearBlackout);
         Tip("On: a nuclear fireball ionises the air round it, and a radar cannot see through that or "
             + "out of it until it cools -- about a minute for a megatonne, seconds for a fraction of a "
             + "kilotonne. Only sets that transmit are blinded. Off: radar looks straight through a burst.");
-
-        ImGui.Checkbox("Weapons on one craft share a target count", ref _config.ShareTargetsAcrossWeapons);
-        Tip("On: two rails on one craft will not each fire a full salvo at the same target. "
-            + "Off: each weapon counts only its own rounds.");
-
-        ImGui.Checkbox("High bursts send a red wave", ref _config.RedWave);
-        Tip("On: a burst 60 km up or higher sends a faint red sphere out through the upper air for "
-            + "minutes, as Teak did -- a night sight. Off: it is not drawn.");
-
-        ImGui.Checkbox("Mushroom clouds", ref _config.NuclearClouds);
-        Tip("On: a nuclear burst leaves a cloud standing, at 6-8 ms a frame. "
-            + "Off: the burst does the same damage and leaves nothing behind.");
-
     }
 
     // Below KSA's own roller, which stops at tenths; nothing in the engine stops a hundredth.
@@ -79,11 +104,12 @@ internal sealed partial class Ui
 
     private void DrawSettingsPane()
     {
-        if (ImGui.CollapsingHeader("Display", ImGuiTreeNodeFlags.DefaultOpen)) DrawDisplayPane();
-        if (ImGui.CollapsingHeader("Sound")) DrawSoundPane();
+        ImGui.SeparatorText("Damage");
+        DrawDamage();
 
-        ImGui.SeparatorText("Weapons");
-        DrawWarpHold();
+        if (ImGui.CollapsingHeader("Display")) DrawDisplayPane();
+        if (ImGui.CollapsingHeader("Sound")) DrawSoundPane();
+        if (ImGui.CollapsingHeader("Advanced")) DrawAdvancedPane();
     }
 
     private void DrawDebugPane()
@@ -132,32 +158,8 @@ internal sealed partial class Ui
 
     private void DrawDisplayPane()
     {
-        ImGui.Checkbox("World overlay", ref _config.DrawOverlays);
-        Tip("Everything drawn in the world around a system.");
-
-
-        ImGui.Checkbox("Shell holes", ref _config.BulletHoles);
-        Tip($"On: a shell that strikes a hull leaves a hole with soot round it, painted on the hull and "
-            + $"carried with it. The newest {BulletHoles.MaxHoles} are kept, and the nearest "
-            + $"{CloudPass.MostHolesPainted} in view are painted. Off: nothing is marked.");
-
-        ImGui.SliderFloat("Rounds between tracers", ref _config.BallRoundBrightness, 0f, 8f,
-                          _config.BallRoundBrightness > 0f ? "%.1f" : "hidden");
-        Tip("How bright a gun round that is not a tracer is drawn in daylight: a faint grey streak, so "
-            + "the stream between the tracers reads. It fades with the sun, and at night only the "
-            + "tracers are seen. A tracer is 24. Zero shows only the tracers.");
-
-        if (_config.DrawOverlays)
-        {
-            ImGui.Checkbox("Only the system shown in the panel",
-                           ref _config.DrawOverlayForFocusedOnly);
-            Tip("Off: every crewed system draws its own.");
-        }
-
-        ImGui.SeparatorText("Effects");
         ImGui.Checkbox("Warhead effects", ref _config.DrawExplosions);
-        Tip("KSA's own explosion, flash and sound included -- not a debug line, so kept when the "
-            + "world overlay is off.");
+        Tip("KSA's own explosion, flash and sound included.");
 
         ImGui.Checkbox("Rocket motor plume", ref _config.MotorPlume);
         Tip("The flame at the nozzle while the motor burns.");
@@ -169,15 +171,48 @@ internal sealed partial class Ui
         ImGui.Checkbox("Rocket smoke trail", ref _config.MotorSmoke);
         Tip("Hangs for 20 minutes and drifts on the wind -- the engine's own lifetime, shared with "
             + "mushroom clouds.");
+        if (_config.MotorSmoke)
+        {
+            ImGui.SliderFloat("Smoke width", ref _config.MotorSmokeWidth, 0.1f, 4f);
+            Tip("A multiple of each round's own size. Smoke laid from now on uses it.");
+        }
 
-        ImGui.SliderFloat("Smoke width", ref _config.MotorSmokeWidth, 0.1f, 4f);
-        Tip("A multiple of each round's own size. Live: smoke laid from now on uses it.");
+        ImGui.Checkbox("Mushroom clouds", ref _config.NuclearClouds);
+        Tip("On: a nuclear burst leaves a cloud standing, at 6-8 ms a frame. "
+            + "Off: the burst does the same damage and leaves nothing behind.");
 
-        ImGui.SeparatorText("Systems");
+        ImGui.Checkbox("High bursts send a red wave", ref _config.RedWave);
+        Tip("A burst 60 km up or higher sends a faint red sphere out through the upper air for "
+            + "minutes, as Teak did -- a night sight.");
+
+        ImGui.Checkbox("Shell holes", ref _config.BulletHoles);
+        Tip($"A shell that strikes a hull leaves a hole with soot round it, carried with the hull. The newest "
+            + $"{BulletHoles.MaxHoles} are kept, and the nearest {CloudPass.MostHolesPainted} in view are painted.");
+
+        ImGui.SliderFloat("Gun round brightness", ref _config.BallRoundBrightness, 0f, 8f,
+                          _config.BallRoundBrightness > 0f ? "%.1f" : "tracers only");
+        Tip("How bright a gun round that is not a tracer is drawn in daylight: a faint grey streak, so "
+            + "the stream between the tracers reads. It fades with the sun, and at night only the "
+            + "tracers are seen. A tracer is 24.");
+
         ImGui.Checkbox("Weapons-system markers", ref _config.DrawSystemMarkers);
         Tip("Brackets over every system. Right-clicking a name in the list pins its label.");
         ImGui.Checkbox("Lock cue", ref _config.DrawLockCue);
         Tip("Brackets on what the selected weapon is engaging; they close as it locks.");
+
+        ImGui.Checkbox("World overlay", ref _config.DrawOverlays);
+        Tip("Diagnostic lines in the world around a system: its search volume, tracks, rounds and drives.");
+        if (_config.DrawOverlays) DrawOverlayDetails();
+    }
+
+    // What the world overlay draws, shown only while it is on: for working out why a system does what it does.
+    private void DrawOverlayDetails()
+    {
+        ImGui.Indent();
+
+        ImGui.Checkbox("Only the system shown in the panel", ref _config.DrawOverlayForFocusedOnly);
+        Tip("Off: every crewed system draws its own.");
+
         ImGui.Checkbox("Radar volume", ref _config.DrawRadarVolume);
         ImGui.Checkbox("Drive facing line", ref _config.DrawTurretFacing);
         Tip("Where the drives think they point, not where they are told to.");
@@ -186,14 +221,12 @@ internal sealed partial class Ui
         ImGui.SliderFloat("Cone draw length (m)", ref _config.ConeDisplayMetres, 200f, 20000f);
         Tip("Cosmetic only; detection range is set on the sensor.");
 
-        ImGui.SeparatorText("Contacts");
         ImGui.Checkbox("Tracks", ref _config.DrawTracks);
         ImGui.Checkbox("Track marker spheres", ref _config.DrawTrackMarkers);
         Tip("A large ball on each contact, scaled with range.");
         ImGui.Checkbox("Predicted pass point", ref _config.DrawClosestApproach);
         Tip("Where a threat will pass if it holds course.");
 
-        ImGui.SeparatorText("Rounds");
         ImGui.Checkbox("Rounds", ref _config.DrawMissiles);
         ImGui.Checkbox("Round tracer spheres", ref _config.DrawRoundMarkers);
 
@@ -201,11 +234,14 @@ internal sealed partial class Ui
         ImGui.Checkbox("Round bodies (off = tracers only)", ref _config.UseRoundBodies);
         if (Build.Developer) ImGui.Checkbox("Tube markers (debug)", ref _config.DrawTubeMarkers);
 
-        if (!_crewed) return;
+        if (_crewed)
+        {
+            ImGui.TextDisabled(_system.RoundBodyCount > 0 && _system.RoundBodiesWork
+                ? "  rounds have real bodies; the tracer hides them up close"
+                : "  no round bodies available - tracers are all there is");
+        }
 
-        ImGui.TextDisabled(_system.RoundBodyCount > 0 && _system.RoundBodiesWork
-            ? "  rounds have real bodies; the tracer hides them up close"
-            : "  no round bodies available - tracers are all there is");
+        ImGui.Unindent();
     }
 
     // A volume shows only while its switch is on.

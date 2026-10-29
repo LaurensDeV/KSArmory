@@ -56,15 +56,17 @@
          MinElevationDeg="-20" MaxElevationDeg="85" />
 
   <!--
-    A Rafael LITENING pod. Geometry from tools/model/import-litening.py.
+    A Rafael LITENING pod. HeadPivot is the ball's centre in the body's frame, which the asset XML
+    repeats; tools/validate-parts.py holds the two together against tools/model/authored-optics.json.
 
     Gimbal="RollNod": the whole nose turns about the pod's centreline (RollMarker) and the sight tilts
     within it, so its travel is one number, how far the tilt carries the sight off the centreline.
-    MaxOffBoresightDeg="150" is the mechanism's stop. The importer measures the nose's opening beside
-    it: the shell clears the sight to 158 degrees on its open side, so the mechanism stops first.
-    The 150 is an AselPOD-class figure; Rafael does not publish LITENING's.
+    LITENING III publishes a nod of +45 to -150 degrees; MaxOffBoresightDeg="147" is where the slot's
+    slanted floor stops the line of sight from the ball's centre, so the shell binds before that 150.
+    StowTuckDeg="135": parked, it nods on past looking down until its windows face up and aft inside the
+    nose, as a stowed pod shows a blank ball.
 
-    EyeForward="0.223" is the ball's radius, so the eye sits just outside the glass. SlewRateDeg="140":
+    EyeForward="0.200" is the ball's radius, so the eye sits on the glass. SlewRateDeg="140":
     a roll-nod head slews faster than an az-el head of the same mass, which is most of why pods are
     built this way. MaxMagnification="53": its narrow field is 1 degree (GlobalSecurity's AN/AAQ-28
     page), against the 50 degrees zoom is measured from. HasLaser="true": a rangefinder and designator,
@@ -72,8 +74,8 @@
   -->
   <Optic PartId="KSArmory_Prefab_Litening" DisplayName="LITENING" Sensor="Litening" Gimbal="RollNod"
          BaseMarker="Litening_Body" RollMarker="Litening_Roll" HeadMarker="Litening_Head"
-         HeadPivot="0.26669, 0.94282, 0.00000" EyeForward="0.223"
-         SlewRateDeg="140" MaxOffBoresightDeg="150" KeyholeDeg="4"
+         HeadPivot="0.41000, 0.88000, 0.00000" EyeForward="0.200"
+         SlewRateDeg="140" MaxOffBoresightDeg="147" KeyholeDeg="4" StowTuckDeg="135" CarriageMarker="Carriage"
          MaxMagnification="53" HasLaser="true" />
 
   <!--

@@ -95,7 +95,7 @@ unchanged. Each needs a control (`check-tunables.py`), the pack surface regenera
 
 ### Phase 3: art
 
-- [ ] **12** **A Unity-hierarchy importer**, generalising `tools/model/import-litening.py`: read the
+- [ ] **12** **A Unity-hierarchy importer**, generalising the first LITENING's importer (`tools/model/import-litening.py` in git history): read the
   source with a Blender `.mu` import add-on, flatten the transform tree into sibling subparts
   recentred on their pivots, flip into KSA's axes, write the `_VM` and `_ColPrim_` nodes, and print
   the pivots and muzzles as a block for the pack's definition file. `checkmesh.py` and `--mod-root` then gate it.

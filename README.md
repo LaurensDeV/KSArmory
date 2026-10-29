@@ -30,13 +30,13 @@ What that machinery gives any system built on it:
 
 ## What ships with it
 
-KSArmory adds eleven weapons, three sights, an infrared search sensor and two decoy dispensers.
+KSArmory adds eleven weapons, three sights (one of them, the YAL-1, also a laser weapon), an infrared search sensor, two decoy dispensers and an empty Weapon Mount.
 
 **Pantsir-S1 Point Defence System.** A Russian short-range air-defence vehicle on an 8×8 truck chassis. It carries twelve 57E6 missiles in two pods of six, two twin-barrel 2A38M 30 mm cannon, a spinning 1RS1 search radar and a 1TPP1 electro-optical director on the turret roof that you can look through. The missiles reach from 1.2 km to 20 km. They are command-guided: the vehicle tracks the target and steers each missile, so a missile is lost if the vehicle loses the track. The cannon cover 200 m to 4 km. The pods refill 12 seconds after the last missile leaves, and the cannon 20 seconds after they run dry. The Pantsir stacks on a 3 m node and has its own command module, so a craft made of nothing but the Pantsir can be built and launched.
 
-**Weapon Mount.** An empty mount that attaches to any surface. Click any missile, the B61 or a rocket pod onto it, and it becomes the launcher that store brings: an ejector rack or a launch rail. It fires nothing itself.
+**Weapon Mount.** An empty mount that attaches to any surface. Click any missile, the B61, a rocket pod or the LITENING pod onto it, and it becomes the launcher that store brings: an ejector rack or a launch rail. It fires nothing itself.
 
-**Ejector Rack.** Not a part of its own: the rack the B61 and the rocket pods bring with them, and what an empty Weapon Mount looks like. When it releases a store, two arms push it down out of the rack.
+**Ejector Rack.** Not a part of its own: the rack the B61, the rocket pods and the LITENING pod hang from, and what an empty Weapon Mount looks like. When it releases the B61, two arms push the bomb down out of the rack. A rocket pod or the LITENING pod stays on the rack.
 
 **Launch Rail.** Not a part of its own: the rail every missile brings with it. It is the ejector rack's housing with a channel along its underside in place of hooks and arms, and the missile slides forward along it under its own motor.
 
@@ -44,13 +44,13 @@ Every missile and the B61 shows on its own in the part list. Once attached, to a
 
 **AIM-9J Sidewinder.** One AIM-9J Sidewinder, an infrared-guided air-to-air missile. Nothing on its launcher moves, so you aim it by pointing the craft. The missile has its own heat-seeking head and keeps guiding after launch even if your craft loses the target. Range 400 m to 14 km. It does not reload on its own.
 
-**AIM-120C AMRAAM.** One AIM-120C-7 AMRAAM, a radar-guided air-to-air missile, aimed by pointing the craft. The motor burns for a few seconds and takes the missile to about Mach 4, then it coasts. Range 900 m to 105 km. At long range it arrives slow and turns poorly, so close shots are more reliable.
+**AIM-120C AMRAAM.** One AIM-120C-7 AMRAAM, a radar-guided air-to-air missile, aimed by pointing the craft. The motor burns for a few seconds and takes the missile to about Mach 4, then it coasts. Range 900 m to 105 km. Its seeker finds a fighter-sized target at about 40 km, and smaller targets closer. At long range it arrives slow and turns poorly, so close shots are more reliable.
 
-**AGM-88 HARM.** One AGM-88 HARM, an anti-radiation missile. It homes on radar transmissions, so it can only engage a target whose radar is switched on. It cannot be used against aircraft. If the target radar goes quiet before launch, there is nothing to lock. A missile already in the air flies on to where the signal was last heard. A boost motor and a sustainer keep it fast over its full range of 1.2 km to 148 km. It is aimed by pointing the craft.
+**AGM-88 HARM.** One AGM-88 HARM, an anti-radiation missile. It homes on radar transmissions, so it can only engage a craft whose radar is switched on, such as a radar site or an aircraft carrying a radar-guided missile. If the target radar goes quiet before launch, there is nothing to lock. A missile already in the air flies on to where the signal was last heard. A boost motor and a sustainer keep it fast over a range of 1.2 km to 148 km. Its seeker finds transmitters out to 60 km. It is aimed by pointing the craft.
 
 **LAU-10 Zuni pod.** A pod of four Zuni 5-inch unguided rockets. Like the missiles it brings its own ejector rack once attached, to a wing, a hull or a Weapon Mount, and is aimed by pointing the craft. Each press of the trigger fires one rocket, with no lock needed. The motor burns for about a second and takes the rocket past Mach 2, and it bursts on whatever it hits. A sight draws where a rocket fired now would land. Effective out to about 8 km. The pod does not reload on its own. Pod, rocket and textures by **Mallikas**.
 
-**Zuni six-round pod.** The same rockets in a larger pod of six. It is not a real launcher. Model and textures by **Mallikas**.
+**Zuni six-round pod.** Six Zuni 5-inch rockets in one pod, otherwise the same as the LAU-10. It is fictional, not modelled on a real pod. Model and textures by **Mallikas**.
 
 **Mk 15 Phalanx CIWS.** An American close-in weapon system: a six-barrel 20 mm rotary cannon with its own search and track radar. It stacks on a 3 m node. It holds 1,550 rounds, fires 4,500 a minute, and is effective to 1,486 m. The barrels elevate from -25° to +85°, and the radome moves with them so the radar stays lined up with the guns.
 
@@ -80,9 +80,9 @@ To add a weapon of your own, see [Adding a weapon system](CONTRIBUTING.md#adding
 
 You can also add weapons without changing this mod. A *weapon pack* is an ordinary KSA mod with a `KSArmory/` folder of definition files and no code. KSArmory reads that folder in every installed mod. `KSArmory-example-mod` (installed as `KSArmoryExamplePack`) is a complete example: it contains a Mk 82 bomb rack and a working copy of every weapon in KSArmory. `docs/WEAPON-PACKS.md` is the reference.
 
-KSArmory's own weapons are defined the same way, one file per family in its `KSArmory/` folder: `Pantsir.xml`, `Rails.xml`, `Rockets.xml`, `Guns.xml`, `Sensors.xml`, `Countermeasures.xml`, `DirectedEnergy.xml` and `Strategic.xml`. If you edited the old `Weapons.xml`, move your changes to the family file that now holds that weapon. You can switch any family off under **KSArmory > Built-in weapons**. The change takes effect the next time the game starts. A switched-off family's parts disappear from the editor but still load on saved craft as plain structure. Its rounds and sensors stay available to packs, and a pack can then define its own weapon on that family's part.
+KSArmory's own weapons are defined the same way, one file per family in its `KSArmory/` folder: `Pantsir.xml`, `Rails.xml`, `Rockets.xml`, `Guns.xml`, `Sensors.xml`, `Countermeasures.xml`, `DirectedEnergy.xml` and `Strategic.xml`. You can switch any family off under **KSArmory > Built-in weapons**. The change takes effect the next time the game starts. A switched-off family's parts disappear from the editor but still load on saved craft as plain structure. Its rounds, sensors and decoys stay available to packs, and a pack can then define its own weapon on that family's part.
 
-> Built against KSA build `2026.10.19.5638`. KSA is pre-release and has no official code-modding
+> Built against KSA build `2026.10.25.5707`. KSA is pre-release and has no official code-modding
 > API. This mod uses the community [StarMap](https://github.com/StarMapLoader/StarMap) loader and
 > may need updating when the game updates. The community
 > [wiki](https://kittenspaceagency.wiki.gg/) is a useful reference for the game itself.
@@ -101,8 +101,8 @@ KSArmory's own weapons are defined the same way, one file per family in its `KSA
 
 You need:
 
-- Kitten Space Agency, build `2026.10.19.5638`. Other builds may not work until the mod is updated.
-- [StarMap](https://github.com/StarMapLoader/StarMap/releases), the community mod loader. KSArmory does not run without it.
+- Kitten Space Agency, build `2026.10.25.5707`. Other builds may not work until the mod is updated.
+- [StarMap](https://github.com/StarMapLoader/StarMap/releases) 0.4.8 or newer, the community mod loader. KSArmory does not run without it. Older StarMap versions do not start on KSA `2026.10.19.5638`.
 
 Windows and Linux use the same download.
 
@@ -126,12 +126,12 @@ Windows and Linux use the same download.
    ```
 
    Copying the folder in is not enough. Without this entry the mod does not load, and nothing tells you.
-6. Start the game with StarMap: `StarMap.exe` on Windows, or `dotnet StarMap.dll` from the StarMap folder on Linux.
+6. Start the game with StarMap: `StarMap.exe` on Windows, or `dotnet StarMap.dll` from the StarMap folder on Linux (not yet tested).
 
 ### Check it worked
 
 1. Open `Logs/KSArmory.log` in the KSA user folder. (With Borea, look in the folder under `Documents`, not in Borea's instance folder.) The previous session's log is kept as `KSArmory.prev.log`.
-2. You should see a `loading (mod id: KSArmory)` line, and about 20 seconds later a `ready - Pantsir-S1, ...` line. The wait is normal: the mod waits for the game to finish loading.
+2. You should see a `loading (mod id: KSArmory)` line, and a few seconds later a `ready - ` line listing the weapons. A short wait is normal: the mod waits for the game to finish loading.
 3. In the editor, open the **Weapons** tab, build a craft with the **Pantsir-S1 Point Defence System** and launch it.
 4. Open **KSArmory > Panel** from the menu bar. The panel lists the craft and its weapons.
 
@@ -159,31 +159,31 @@ The Pantsir can control itself, so a craft made of nothing but a Pantsir can be 
 
 ### The panel
 
-Open it from **KSArmory > Panel** on the menu bar. (If you use the ModMenu mod, KSArmory is listed in its menu instead.)
+Open it from **KSArmory > Panel** on the menu bar. (If you use the ModMenu mod, KSArmory is listed in its menu instead. ModMenu must be 0.2.3 or newer on this KSA build.)
 
-The panel lists every craft that carries something from this mod, grouped by team. Each row has the craft's name (click it to fly that craft) and buttons for its weapons, auto engage (the shield), the chase camera and its team (the flag).
+The panel lists every craft that carries something from this mod, grouped by team. Each row has the craft's name (click it to fly that craft), buttons for its weapons, auto engage (the shield), the chase camera and its team (the flag), and **...**, which opens the craft's own window. That window has **FIRE** at the top and the **Components** and **Tuning** tabs below it, with **Ballistic** and the radar tab where the craft has them.
 
-Pick a weapon with the picker next to **FIRE**. The rest of the panel then shows that weapon. If you fit the same weapon twice, for example two rails, it shows as one weapon with two stations and **FIRE** uses them in turn.
+Pick a weapon with the picker next to **FIRE**. The window then shows that weapon. If you fit the same weapon twice, for example two rails, it shows as one weapon with two stations and **FIRE** uses them in turn.
 
 Weapons keep working when you fly something else. You can switch to another craft and watch a site defend itself.
 
 ### Firing
 
 1. Press **FIRE** to shoot the selected weapon. There is no master arm. A missile needs a target locked first; a gun fires wherever it is pointing; a bomb rack drops its bomb.
-2. Read the line next to **FIRE**. **Ready** means it will fire. **Holding** tells you why it won't: no lock, out of reach, still turning, out of rounds.
+2. Read the line next to **FIRE**. **Ready** means it will fire. **Holding** tells you why it won't, for example `no lock`, `drives still settling` or `out of rounds`. With auto engage on, a grey `auto:` note after **Ready** says why it is not firing on its own; **FIRE** still works.
 3. Tick **Auto engage** to let the weapon choose targets and fire by itself. It is off by default. The shield button in the craft list turns it on or off for every weapon on that craft.
 
 Under auto engage, a weapon fires at a contact that will pass within its threat radius soon, once it has held a lock for long enough. **Rounds per target** (on the weapon's component row) sets how many it fires at each one. **Threat radius**, **Threat horizon** and **Lock time** are on the **Tuning** tab. A turret waits until it has finished turning before it fires.
 
-To stop a weapon firing at the craft you are flying, tick **Never target the vehicle I'm flying**.
+**Never target the vehicle I'm flying** is on by default, so a weapon does not fire at the craft you are flying. Untick it to allow that.
 
 ### Aiming
 
-- **Shift-click** a craft or a spot on the ground to designate it. The turret follows it, **FIRE** shoots at it, and a guided bomb that is already falling steers onto it if it can still reach.
+- **Shift-click** a craft or a spot on the ground to designate it. The turret follows it. **FIRE** sends a missile at a designated craft if the radar can see it, a gun's burst goes where the gun is laid, and a guided bomb that is already falling steers onto it if it can still reach.
 - **Aim with the mouse** points the turret wherever the cursor is. It doesn't fire; auto engage or **FIRE** still does that.
 - **Fire at the mouse** makes a click on the ground fire a round at that spot. Tick it only when you want clicks to shoot.
 
-Guns are aimed to land where you point, allowing for the drop. If a spot is too far for the gun, the line next to **FIRE** says so.
+A gun-only mount (the Phalanx, the 5"/54, the M197) is aimed to land where you point, allowing for the drop. If a spot is too far for the gun, the line next to **FIRE** says so.
 
 ### Sights
 
@@ -191,7 +191,8 @@ The EO director, the LITENING pod, the YAL-1 turret and the Pantsir's roof camer
 
 - **Main view** shows the sight's picture in your main view.
 - **Camera** opens it in a separate window. You can drag that window onto another monitor.
-- **Zoom** sets the magnification.
+- **Zoom** sets the magnification while it is in the main view. A camera window has its own zoom on the picture.
+- **Map** opens a map of the ground under the sight, showing what it can see.
 - **Track** points it at what the craft's sensors are tracking.
 - **Mouse** points it at the cursor.
 - **Hand** lets you point it with sliders.
@@ -199,7 +200,7 @@ The EO director, the LITENING pod, the YAL-1 turret and the Pantsir's roof camer
 
 A sight can't find targets by itself. Fit an IRST or a radar on the same craft to give it something to look at, or shift-click a target.
 
-A sight's **Fire laser** button turns on its laser designator, which marks a spot for laser-guided weapons. The YAL-1's high-energy laser is fired with **FIRE**, like any other weapon.
+A sight's **Fire laser** button (**LASER** on its camera window) turns on its laser designator, which marks a spot for laser-guided weapons. The YAL-1's high-energy laser is fired with **FIRE**, like any other weapon.
 
 ### Bombs and the MIRV bus
 
@@ -207,7 +208,7 @@ With a B61 selected, an orange ring shows where the bomb will land if you drop i
 
 The MIRV bus is flown by its own computer, on the **Ballistic** tab:
 
-1. Designate the targets by clicking the world or KSA's ground-track map.
+1. Name the targets: tick **Designate by clicking the world** and click the ground, click KSA's ground-track map, or open **Map** and click there.
 2. Tick **Ballistic computer armed**.
 3. Launch.
 

@@ -465,6 +465,8 @@ internal sealed partial class Ui
                                 1, _fit.SalvoCapacity);
 
             ImGui.Checkbox("Never target the vehicle I'm flying", ref _policy.ProtectControlledVehicle);
+            Tip("Stops this weapon aiming at the craft you fly. It is not armour: a burst or a stray round near it, "
+                + "this weapon's own included, still damages it.");
         }
 
         if (_fit.Aims)

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Brutal.Numerics;
 using KSA;
@@ -50,6 +51,11 @@ internal static class Radioactivity
     // KSA re-averages an orbit's dose only when the orbit moves, so a belt written under a coasting craft
     // is re-written at most this often, each time telling KSA to average again.
     private const double BeltRewriteSeconds = 60.0;
+
+    // Each field's belts as KSA lists them, its own and this mod's apart; replaced whole, never edited,
+    // since the engine reads it from its dose workers.
+    private static volatile (List<RadiationBeltReference> All, List<RadiationBeltReference> Natural,
+                             List<RadiationBeltReference> Ours)[] _split = [];
 
     private static readonly List<Source> _sources = [];
     private static readonly List<Belt> _belts = [];
@@ -240,6 +246,9 @@ internal static class Radioactivity
         }
     }
 
+    // Fission debris fills a belt with beta electrons, as Core declares Earth's outer belt.
+    private const double FissionBeltProtonFraction = 0.0;
+
     // One belt per field, the shares merged by strength, because KSA draws at most four.
     private static void WriteBelts()
     {
@@ -261,31 +270,67 @@ internal static class Radioactivity
             double l = belt.Shares.Sum(s => s.Now * s.L) / total;
             double width = Math.Sqrt(belt.Shares.Sum(s => s.Now * ((s.Width * s.Width) + ((s.L - l) * (s.L - l)))) / total);
 
-            belt.Written = new RadiationBeltReference(l, width, total);
+            belt.Written = new RadiationBeltReference(l, width, total, protonFraction: FissionBeltProtonFraction);
             belt.Field.Belts.Add(belt.Written);
         }
 
+        _split = [.. _belts.Where(b => b.Written is not null)
+                           .Select(b => (b.Field.Belts,
+                                         b.Field.Belts.Where(r => !ReferenceEquals(r, b.Written)).ToList(),
+                                         new List<RadiationBeltReference> { b.Written! }))];
         ForgetOrbitAverage();
     }
 
+    /// <summary>A field's belts split into its own and this mod's; false where this mod wrote none.</summary>
+    public static bool TrySplitBelts(List<RadiationBeltReference> belts,
+                                     [NotNullWhen(true)] out List<RadiationBeltReference>? natural,
+                                     [NotNullWhen(true)] out List<RadiationBeltReference>? ours)
+    {
+        foreach ((List<RadiationBeltReference> all, List<RadiationBeltReference> n, List<RadiationBeltReference> o) in _split)
+        {
+            if (!ReferenceEquals(all, belts)) continue;
+
+            natural = n;
+            ours = o;
+            return true;
+        }
+
+        natural = null;
+        ours = null;
+        return false;
+    }
+
+    // Every orbit average KSA keeps, the gauge's and each crewed craft's: a cache holding a field's old
+    // belts goes on dosing crew at warp until the sun has moved a degree, about a day.
     private static void ForgetOrbitAverage()
     {
         if (_cacheUnreachable) return;
 
         try
         {
-            object? cache = typeof(Program).GetField("_orbitDoseAverageCache", BindingFlags.NonPublic | BindingFlags.Static)
-                                           ?.GetValue(null);
-            FieldInfo? field = cache?.GetType().GetField("_magnetosphere", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (cache is null || field is null) throw new MissingFieldException("Program._orbitDoseAverageCache._magnetosphere");
+            const BindingFlags Static = BindingFlags.NonPublic | BindingFlags.Static;
+            const BindingFlags Instance = BindingFlags.NonPublic | BindingFlags.Instance;
 
-            field.SetValue(cache, null);
+            object? gauge = typeof(Program).GetField("_orbitDoseAverageCache", Static)?.GetValue(null);
+            FieldInfo? field = gauge?.GetType().GetField("_magnetosphere", Instance);
+            FieldInfo? crew = typeof(Vehicle).GetField("_orbitDoseAverageCache", Instance);
+            if (gauge is null || field is null || crew is null)
+                throw new MissingFieldException("an OrbitDoseAverageCache._magnetosphere");
+
+            field.SetValue(gauge, null);
+            if (typeof(Program).GetField("_burnOrbitDoseAverageCache", Static)?.GetValue(null) is { } burn)
+                field.SetValue(burn, null);
+
+            foreach (Vehicle vehicle in KsaWorld.Vehicles)
+            {
+                if (crew.GetValue(vehicle) is { } cache) field.SetValue(cache, null);
+            }
         }
         catch (Exception e)
         {
             _cacheUnreachable = true;
-            Log.Warn($"radiation: KSA's orbit dose average cannot be refreshed, so it shows a filled belt only "
-                     + $"once the orbit changes ({e.Message})");
+            Log.Warn($"radiation: KSA's orbit dose averages cannot be refreshed, so the gauge and crew at warp "
+                     + $"see a filled or emptied belt only once the orbit changes ({e.Message})");
         }
     }
 
@@ -298,6 +343,7 @@ internal static class Radioactivity
             if (belt.Written is { } written) belt.Field.Belts.Remove(written);
         }
 
+        _split = [];
         if (_belts.Count > 0) ForgetOrbitAverage();
         _belts.Clear();
         _sinceBeltWrite = 0.0;

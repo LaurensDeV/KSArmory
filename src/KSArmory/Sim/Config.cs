@@ -127,7 +127,13 @@ public sealed class Config
     /// </summary>
     public bool TankLeaks = true;
 
-    /// <summary>A health bar over every part of every craft near the camera.</summary>
+    /// <summary>
+    /// Paintball: a hit marks what it struck with the shooter's paint and harms nothing -- no part damage,
+    /// no dents or push, no fire or leak, nothing destroyed, and no round in the air shot down.
+    /// </summary>
+    public bool Paintball;
+
+    /// <summary>A health bar over every part of every craft near the camera, and over any damaged part further out.</summary>
     public bool DrawPartHealth;
 
     /// <summary>

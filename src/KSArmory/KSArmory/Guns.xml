@@ -7,8 +7,12 @@
 <WeaponPack Schema="1" Family="Guns">
 
   <!--
-    The M61A2's 20 mm round, fired by both the Phalanx and the M197. LaunchSpeed, MaxRange and the
-    102 g mass are the real round's.
+    The M56 20 mm high-explosive incendiary round the M197 fires, and the name a pack reaches for as
+    KSArmory's 20 mm. The 102 g mass is the real round's (FM 1-140), and so are its 10.7 g of RDX and
+    1.3 g of incendiary, which ChargeKg rounds to 11 g; LaunchSpeed and MaxRange are the M61A2's. Its 60
+    fragments of half a gram are an estimate: a burst on the skin peppers what is beside the hole.
+    IgnitionChance="0.35" is the incendiary's figure for the tank it strikes. The slivers light nothing:
+    at even 0.02 each, one shell lit three tanks beside the one it struck.
 
     FuseRadius="2.5" is ours, not the real round's: a real 20 mm round has to hit.
 
@@ -17,15 +21,36 @@
     75 more shells to step and draw. TracerBurnSeconds="2.2" ends the glow just before the shell is
     removed, so the stream fades out rather than being cut off.
   -->
-  <Munition Name="20MM" DisplayName="M61A2 20 mm"
+  <Munition Name="20MM" DisplayName="M56 20 mm HEI"
             MinRange="100" MaxRange="1486"
             LaunchSpeed="1100" BoostSeconds="0" BoostAccel="0" MaxFlightSeconds="2.5"
             MassKg="0.102" CalibreMm="20" DragCoefficient="0.3"
-            FuseRadius="2.5" FuseArmSeconds="0.03" ChargeKg="0.05"
+            FuseRadius="2.5" FuseArmSeconds="0.03" ChargeKg="0.011"
+            FragmentCount="60" FragmentMassGrams="0.5" FragmentSpeed="1000"
+            SprayAngleDeg="90" SprayHalfWidthDeg="60"
+            IgnitionChance="0.35"
             TracerEvery="4" TracerBurnSeconds="2.2" />
 
   <!--
-    The 5"/54's anti-aircraft shell. LaunchSpeed and the 3.3 kg charge are the real round's; MaxRange is
+    The Phalanx's Mk 244 ELC: a tungsten penetrator in a sabot that falls away at the muzzle, with no
+    explosive at all (NavWeaps). The 1,113 m/s is the real round's; the 100 g in flight and its 12.75 mm
+    are the Mk 149's sub-projectile, the Mk 244's own being unpublished. ChargeKg="0" makes it a dart:
+    each part on its path keeps half of what it carries and passes the rest on, and it lights nothing.
+    BurstEffect="MetalBurst" is KSA's own collision spark, where a charge would have drawn an explosion.
+
+    FuseRadius="2.5" is ours, and against a round in the air it stands in for the hit a real one needs.
+  -->
+  <Munition Name="MK244" DisplayName="Mk 244 20 mm APDS"
+            BurstEffect="MetalBurst"
+            MinRange="100" MaxRange="1486"
+            LaunchSpeed="1113" BoostSeconds="0" BoostAccel="0" MaxFlightSeconds="2.5"
+            MassKg="0.1" CalibreMm="12.75" DragCoefficient="0.3"
+            FuseRadius="2.5" FuseArmSeconds="0.03" ChargeKg="0"
+            TracerEvery="4" TracerBurnSeconds="2.2" />
+
+  <!--
+    The 5"/54's anti-aircraft shell. LaunchSpeed and the 3.5 kg charge are the real round's (NavWeaps);
+    its 1,500 fragments of 10 g are an estimate; MaxRange is
     how far out the mount engages.
 
     TimedFuse="true": the shell bursts at the flight time the aiming solution asked for, so it does not
@@ -50,7 +75,9 @@
             MinRange="350" MaxRange="15700"
             LaunchSpeed="807.7" BoostSeconds="0" BoostAccel="0" MaxFlightSeconds="120"
             MassKg="31.75" CalibreMm="127" DragCoefficient="0.306"
-            TimedFuse="true" FuseRadius="12" FuseArmSeconds="0.45" ChargeKg="3.3"
+            TimedFuse="true" FuseRadius="12" FuseArmSeconds="0.45" ChargeKg="3.5"
+            FragmentCount="1500" FragmentMassGrams="10" FragmentSpeed="1000"
+            SprayAngleDeg="80" SprayHalfWidthDeg="30" FragmentIgnitionChance="0.08"
             HitsTerrain="true" />
 
   <!--
@@ -98,10 +125,10 @@
   -->
   <Launcher PartId="KSArmory_Prefab_Ciws" DisplayName="Mk 15 Phalanx"
             FireControlLabel="Mk 15 fire control"
-            Munition="20MM" Sensor="VPS2"
+            Munition="MK244" Sensor="VPS2"
             TurretMarker="Ciws_Turret" GunsMarker="Ciws_Guns"
             TurretPivot="0.80000, 0.00000, 0.00000" GunPivotFromTurret="1.45000, 0.00000, 0.00000"
-            GunMunition="20MM"
+            GunMunition="MK244"
             SlewRateDeg="100" ElevationRateDeg="86"
             MinElevationDeg="-25" MaxElevationDeg="85" ForwardMinElevationDeg="-25"
             SettleSeconds="0.2" SearchRadarRpm="90"

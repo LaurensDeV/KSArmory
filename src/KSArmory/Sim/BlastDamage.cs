@@ -26,8 +26,18 @@ namespace KSArmory;
 /// overpressure (<see cref="GroundReflection.GainAt"/>): one in free air, which is what the damage law
 /// is calibrated in. The law goes as the cube of the distance, so it scales the charge.
 /// </param>
+/// <param name="MassKg">The part's own dry mass, which sets how much energy breaks it (<see cref="PartToughness"/>).</param>
+/// <param name="PresentedAreaM2">
+/// The area the part shows a burst, averaged over every direction: a quarter of its box's surface
+/// (Cauchy), since a fragment's line to the part is not known to the part.
+/// </param>
 internal readonly record struct DamageablePart(
-    int Index, double3 PositionEcl, double RadiusMetres, double CrashTolerancePascals, double Reflection = 1.0);
+    int Index, double3 PositionEcl, double RadiusMetres, double CrashTolerancePascals, double Reflection = 1.0,
+    double MassKg = 0.0, double PresentedAreaM2 = 0.0)
+{
+    /// <summary>The presented area, or a sphere's half-diagonal disc halved where the box was not given.</summary>
+    public double AreaM2 => PresentedAreaM2 > 0.0 ? PresentedAreaM2 : 0.5 * Math.PI * RadiusMetres * RadiusMetres;
+}
 
 /// <summary>
 /// One front's load on one part, as <see cref="BlastDamage.Combine"/> adds it to the others reaching
@@ -36,6 +46,19 @@ internal readonly record struct DamageablePart(
 /// </summary>
 internal readonly record struct FrontLoad(double Ratio, double RealPascals, double BreakingPascals,
                                           double3 Direction, double SinceArrival, double PhaseSeconds);
+
+/// <summary>
+/// One warhead's burst as the parts around it see it: where it went off, how it was moving and which
+/// way it pointed, the craft's own velocity, and the air between.
+/// </summary>
+/// <param name="SinceSample">How far before the step's end the burst was, negative; parts are carried back by it.</param>
+/// <param name="NoseAxis">The warhead's nose, or zero for one with no attitude, whose fragments go every way.</param>
+/// <param name="AirKgPerM3">The air at the burst, which slows fragments; zero where there is none.</param>
+/// <param name="FuzeLeadEcl">Where the fragments leave from against the burst (<see cref="Fragmentation.FuzeLead"/>).</param>
+/// <param name="AirPressureRatio">The air's pressure at the burst against sea level's, which carries the blast.</param>
+internal readonly record struct BurstContext(double3 BurstEcl, double SinceSample, double3 PartVelocityEcl,
+                                             double3 WarheadVelocityEcl, double3 NoseAxis, double AirKgPerM3,
+                                             double3 FuzeLeadEcl = default, double AirPressureRatio = 1.0);
 
 /// <summary>
 /// Which parts of a craft a burst breaks.
@@ -158,6 +181,24 @@ internal static class BlastDamage
             (double real, double breaking) = RealLoad(charge, tolerance, gap);
             return breaking > 0.0 && double.IsFinite(real) ? real / breaking : 0.0;
         }
+    }
+
+    /// <summary>
+    /// <see cref="Share"/> in air of <paramref name="pressureRatio"/> times sea level's pressure, by Sachs:
+    /// the distance scaled by the cube root of the pressure and the overpressure by the pressure, against
+    /// the same breaking overpressure. Exactly <see cref="Share"/> at sea level, and nothing in vacuum.
+    /// </summary>
+    public static double ShareInAir(double chargeKg, double crashTolerancePascals, double gap, double pressureRatio)
+    {
+        if (!(pressureRatio < 1.0)) return Share(chargeKg, crashTolerancePascals, gap);
+        if (!(pressureRatio > 0.0) || !(gap <= Warhead.BlastRadius(chargeKg))) return 0.0;
+
+        double breaking = BlastWave.PeakOverpressurePascals(chargeKg, FailureRadius(chargeKg, crashTolerancePascals));
+        if (!(breaking > 0.0)) return 0.0;
+
+        double real = BlastWave.PeakOverpressurePascals(chargeKg, gap * Math.Cbrt(pressureRatio),
+                                                        BlastWave.SeaLevelPascals * pressureRatio);
+        return double.IsFinite(real) ? real / breaking : 0.0;
     }
 
     /// <summary>
@@ -284,6 +325,65 @@ internal static class BlastDamage
             {
                 failed.Add(part.Index);
             }
+        }
+    }
+
+    /// <summary>
+    /// Every part of one craft a warhead costs something, with what it costs: the blast's
+    /// <see cref="Share"/>, held under what the part's area intercepts of the charge, and the fragments
+    /// that hit it, drawn from <paramref name="dice"/>.
+    ///
+    /// <para><b>The ceiling is what stops a burst breaking every part it is near</b>: overpressure says
+    /// a fairing and a 20 t tank fail at the same distance, where the energy reaching each is set by its
+    /// size and what breaks it by its mass. A nuclear charge is judged on the pressure alone, which is
+    /// what its reach is calibrated on.</para>
+    ///
+    /// <para>Every part draws its own fragments, so parts shadowing each other are each hit as though
+    /// the other were not there.</para>
+    /// </summary>
+    public static void Costs(in BurstContext burst, ReadOnlySpan<DamageablePart> parts, MunitionProfile munition,
+                             Random dice, List<(int Index, double Share)> into, List<(int Index, int Hits)>? hits = null)
+    {
+        ArgumentNullException.ThrowIfNull(munition);
+        ArgumentNullException.ThrowIfNull(dice);
+        ArgumentNullException.ThrowIfNull(into);
+
+        FragmentSpray spray = FragmentSpray.Of(munition);
+        bool capped = munition.ChargeKg < MushroomCloud.ThresholdKg;
+
+        for (int i = 0; i < parts.Length; i++)
+        {
+            DamageablePart part = parts[i];
+
+            double3 centre = InFrame.AtBurst(part.PositionEcl, burst.PartVelocityEcl, burst.SinceSample);
+            double gap = Vec.Len(centre - burst.BurstEcl) - part.RadiusMetres;
+            double charge = munition.ChargeKg * part.Reflection;
+            double joules = PartToughness.Joules(part.MassKg, part.CrashTolerancePascals);
+
+            double cost;
+            if (capped)
+            {
+                double range = Vec.Len(centre - burst.BurstEcl);
+                double ceiling = PartToughness.BlastShareCeiling(charge, range, part.AreaM2, joules);
+
+                // Inside the fireball the products load the part whatever the air; outside, only the air's shock.
+                cost = gap <= Warhead.FireballRadius(charge)
+                    ? ceiling
+                    : Math.Min(ShareInAir(charge, part.CrashTolerancePascals, gap, burst.AirPressureRatio), ceiling);
+            }
+            else
+            {
+                cost = Share(charge, part.CrashTolerancePascals, gap);
+            }
+
+            FragmentLoad load = Fragmentation.OnPart(spray, burst.BurstEcl + burst.FuzeLeadEcl, burst.NoseAxis,
+                                                     burst.WarheadVelocityEcl - burst.PartVelocityEcl,
+                                                     centre, part.AreaM2, burst.AirKgPerM3);
+            int struck = Fragmentation.Hits(load.ExpectedHits, dice);
+            cost += PartToughness.FragmentShare(struck, load.JoulesPerHit(spray.MassKg), joules);
+            if (struck > 0) hits?.Add((part.Index, struck));
+
+            if (cost > 0.0) into.Add((part.Index, cost));
         }
     }
 

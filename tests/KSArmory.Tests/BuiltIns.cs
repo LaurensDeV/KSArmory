@@ -60,6 +60,7 @@ public static class BuiltIns
     public static LauncherProfile Mk42 => Catalogue.LauncherForPart("KSArmory_Prefab_Mk42")!;
     public static LauncherProfile M197 => Catalogue.LauncherForPart("KSArmory_Prefab_M197")!;
     public static MunitionProfile Cannon20Mm => Catalogue.MunitionNamed("20MM");
+    public static MunitionProfile CannonMk244 => Catalogue.MunitionNamed("MK244");
     public static MunitionProfile Shell5In54 => Catalogue.MunitionNamed("5IN54");
     public static SensorProfile SearchRadarVps2 => Catalogue.SensorNamed("VPS2");
     public static SensorProfile FireControlMk68 => Catalogue.SensorNamed("MK68");

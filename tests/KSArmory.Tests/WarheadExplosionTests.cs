@@ -27,7 +27,7 @@ public class WarheadExplosionTests
         Assert.Equal(WarheadExplosion.Pop, WarheadExplosion.PresetFor(BuiltIns.Cannon30Mm.ChargeKg));
         Assert.Equal(WarheadExplosion.SmallFire, WarheadExplosion.PresetFor(BuiltIns.Shell5In54.ChargeKg));
         Assert.Equal(WarheadExplosion.SmallFire, WarheadExplosion.PresetFor(BuiltIns.Missile9J.ChargeKg));
-        Assert.Equal(WarheadExplosion.Conflagration, WarheadExplosion.PresetFor(BuiltIns.Missile57E6.ChargeKg));
+        Assert.Equal(WarheadExplosion.SmallFire, WarheadExplosion.PresetFor(BuiltIns.Missile57E6.ChargeKg));
         Assert.Equal(WarheadExplosion.Conflagration, WarheadExplosion.PresetFor(BuiltIns.MissileAgm88.ChargeKg));
 
         // And a charge that grows a cloud takes this mod's own, which is that same preset without

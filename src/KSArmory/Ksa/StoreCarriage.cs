@@ -4,8 +4,8 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// The hardware a store hangs by, shown when it means something: a missile's own rail or ejector only
-/// while the missile is attached to something, and the empty Weapon Mount only while nothing is on its
+/// The hardware a store hangs by, shown when it means something: a missile's or a pod's own rail or
+/// ejector only while it is attached to something, and the empty Weapon Mount only while nothing is on its
 /// station -- the store brings the same carriage, and mates at the same origin.
 ///
 /// <para>The mod's one pass in the vehicle editor as well as in flight. A subpart's scale is honoured by
@@ -69,7 +69,8 @@ internal static class StoreCarriage
                              + (inEditor ? " (editor)" : ""));
                 }
             }
-            else if (Catalogue.LauncherForPart(id)?.CarriageMarker is { Length: > 0 } carriage)
+            else if ((Catalogue.LauncherForPart(id)?.CarriageMarker ?? Catalogue.OpticForPart(id)?.CarriageMarker)
+                     is { Length: > 0 } carriage)
             {
                 Show(part, carriage, part.TreeParent is not null, inEditor);
             }

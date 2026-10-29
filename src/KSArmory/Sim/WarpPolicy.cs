@@ -141,7 +141,9 @@ internal sealed class WarpPolicy
         {
             if (_awaitingWrite)
             {
-                if (Near(currentSpeed, _requested))
+                // Lower than asked is inside the limit too, and is something else's choice: KSA sets 1x
+                // itself when a kitten falls sick, and a write waited for there would abandon the rounds.
+                if (currentSpeed <= _requested * (1.0 + SpeedTolerance))
                 {
                     _awaitingWrite = false;
                     _settle = SettleSteps;

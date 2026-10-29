@@ -3,6 +3,7 @@
 
     ./tools/pack-api.py            # regenerate docs/PACK-API-SURFACE.md
     ./tools/pack-api.py --check    # fail if the committed file is stale (for CI)
+    ./tools/pack-api.py --fill     # write the Values column of docs/WEAPON-PACKS.md's tables
 
 The mirror of tools/api-surface.sh, pointed the other way. That one records what this mod
 depends on, because KSA moves underneath it. This records what depends on *this mod*, because
@@ -30,6 +31,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 SIM = REPO / "src" / "KSArmory" / "Sim"
 OUT = REPO / "docs" / "PACK-API-SURFACE.md"
+GUIDE = REPO / "docs" / "WEAPON-PACKS.md"
 
 # The reader's own vocabulary, in the order a pack meets it.
 ELEMENTS = [
@@ -37,6 +39,9 @@ ELEMENTS = [
     ("Sensor", "ReadSensor", "what a launcher can see"),
     ("Launcher", "ReadLauncher", "the part, and what it does with the round"),
     ("Optic", "ReadOptic", "a sighting head, needing no weapon on the craft"),
+    ("SearchSet", "ReadSearchSet", "a part that only searches"),
+    ("Decoy", "ReadDecoy", "a flare or a chaff cloud"),
+    ("Dispenser", "ReadDispenser", "a part that throws decoys"),
 ]
 
 # Children, which are read by their own helper rather than by a ReadX.
@@ -45,7 +50,27 @@ CHILDREN = [
     ("Muzzle", "public double3[] Muzzles()", "return [", "Launcher"),
     ("Stage", "public BoostStage[] Stages()", "return [", "Munition"),
     ("Provides", "public List<BuiltInComponent> Provides()", "return rows;", "Launcher"),
+    ("Beam", "public BeamProfile? Beam()", "if (b.Sound())", "Optic"),
+    ("ReleaseSpin", "public RoundSpin? ReleaseSpin()", 's._taken.Add("Nozzle")', "Launcher"),
+    ("Nozzle", 's._taken.Add("Nozzle")', "if (z.Sound())", "ReleaseSpin"),
 ]
+
+# The Values column of WEAPON-PACKS.md: what a cell may hold, said once for the author. Whether it is
+# required is the Default column's to say.
+VALUES = {
+    "Required": "text",
+    "Text": "text",
+    "Number": "number",
+    "Count": "whole number",
+    "Flag": "`true` or `false`",
+    "Angle": "degrees",
+    "Vector": "three numbers, `x, y, z`",
+    "Reference": "name",
+    "OptionalReference": "name",
+}
+
+# A table under one of these headings documents this element, not the heading's own.
+TABLE_ELEMENT = {"Gear inside the launcher part": "Provides"}
 
 # What each reader call means to somebody writing a file.
 KINDS = {
@@ -103,7 +128,12 @@ def attributes(text):
 
         seen.add(name)
         required = kind in ("Required", "Reference") or name in demanded
-        rows.append((name, kind, (default or "").strip() or fallbacks.get(name, ""), required))
+        default = (default or "").strip() or fallbacks.get(name, "")
+        # A choice whose default is a local, such as a dispenser's kind being its decoy's: its enum is
+        # the local's declared type.
+        if kind == "Choice" and "." not in default and (typed := re.search(rf"(\w+) {default} =", text)):
+            default = f"{typed.group(1)}.{default}"
+        rows.append((name, kind, default, required))
 
     return rows
 
@@ -137,7 +167,8 @@ def readable(kind, default, required):
         return "**required**"
 
     if kind == "Choice":
-        return f"`{default.split('.')[-1]}`"
+        value = default.split(".")[-1]
+        return f"`{value}`" if value[0].isupper() else "*worked out from the rest of the definition*"
 
     # Sentinels first: these name a C# fallback meaning "whatever this pack registered", which is
     # not a value an author can type and so is no default to them.
@@ -161,6 +192,83 @@ def readable(kind, default, required):
         return f"`{guided.rstrip('f')}`, or `{released.rstrip('f')}` for `None` and `Inertial`"
 
     return f"`{default.rstrip('f')}`"
+
+
+def value_kind(kind, default):
+    if kind != "Choice":
+        return VALUES[kind]
+
+    return " or ".join(f"`{v}`" for v in enum_values(default.split(".")[0]))
+
+
+def guide_rows(element_rows, fill):
+    """The guide's attribute tables with the Values column each row should have, and every fault.
+
+    A row naming several attributes takes one cell when they read alike and lists them in order when
+    they do not, so a cell is never a guess about which attribute it describes."""
+    family = {element: [element] for element in element_rows}
+    for child, _, _, parent in CHILDREN:
+        family.setdefault(parent, [parent]).append(child)
+
+    lines, faults, documented = GUIDE.read_text().split("\n"), [], set()
+    element = None
+    for i, line in enumerate(lines):
+        if heading := re.match(r"#{2,3} (.*)", line):
+            title = heading.group(1)
+            if found := re.search(r"`<(\w+)>`", title):
+                element = found.group(1) if found.group(1) in element_rows else None
+            elif line.startswith("## "):
+                element = None
+            element = TABLE_ELEMENT.get(title, element)
+            continue
+
+        if element is None or not line.startswith("| "):
+            continue
+
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if cells[0] == "Attribute":
+            if fill and "Values" not in cells:
+                lines[i] = "| Attribute | Values | " + " | ".join(cells[1:]) + " |"
+            continue
+        if set(cells[0]) <= set("- "):
+            if fill and len(cells) == 3:
+                lines[i] = "| --- | --- | --- | --- |"
+            continue
+        if cells[0].startswith("`<"):
+            if fill and len(cells) == 3:
+                lines[i] = "| " + " | ".join([cells[0], "child element", *cells[1:]]) + " |"
+            continue
+
+        kinds = {}
+        for name in re.findall(r"`(\w+)`", cells[0]):
+            for owner in family.get(element, [element]):
+                match = next((r for r in element_rows[owner] if r[0] == name), None)
+                if match:
+                    kinds[name] = value_kind(match[1], match[2])
+                    documented.add((owner, name))
+                    break
+            else:
+                faults.append(f"WEAPON-PACKS.md:{i + 1}: `{name}` is not an attribute the reader takes on <{element}>")
+
+        if not kinds:
+            continue
+        distinct = list(dict.fromkeys(kinds.values()))
+        want = distinct[0] if len(distinct) == 1 else "; ".join(kinds.values())
+
+        if fill and len(cells) == 3:
+            lines[i] = "| " + " | ".join([cells[0], want, *cells[1:]]) + " |"
+        elif len(cells) != 4:
+            faults.append(f"WEAPON-PACKS.md:{i + 1}: the table has no Values column -- run ./tools/pack-api.py --fill")
+        elif cells[1] != want:
+            faults.append(f"WEAPON-PACKS.md:{i + 1}: Values says {cells[1]!r}, the reader takes {want!r}")
+
+    for owner, rows in element_rows.items():
+        tabled = any(o == owner for o, _ in documented)
+        for name, _, _, _ in rows:
+            if tabled and (owner, name) not in documented and name not in ("Name", "PartId", "DisplayName"):
+                faults.append(f"WEAPON-PACKS.md: <{owner}> takes `{name}`, which no table documents")
+
+    return lines, faults
 
 
 def csharp(path, kinds):
@@ -191,6 +299,15 @@ def csharp(path, kinds):
     return lines
 
 
+def element_rows_of(reader):
+    rows = {}
+    for element, method, _ in ELEMENTS:
+        rows[element] = attributes(body(reader, f"private static void {method}", "if (!r.Sound())"))
+    for element, signature, closer, _ in CHILDREN:
+        rows[element] = attributes(body(reader, signature, closer))
+    return rows
+
+
 def render(seen=None):
     reader = (SIM / "PackReader.cs").read_text()
 
@@ -217,12 +334,7 @@ def render(seen=None):
         "",
     ]
 
-    element_rows = {}
-    for element, method, _ in ELEMENTS:
-        element_rows[element] = attributes(body(reader, f"private static void {method}", "if (!r.Sound())"))
-
-    for element, signature, closer, parent in CHILDREN:
-        element_rows[element] = attributes(body(reader, signature, closer))
+    element_rows = element_rows_of(reader)
 
     total = sum(len(rows) for rows in element_rows.values())
     entry = []
@@ -264,6 +376,14 @@ def main():
     check = "--check" in sys.argv
     schema = []
     rendered = render(schema)
+    lines, faults = guide_rows(element_rows_of((SIM / "PackReader.cs").read_text()), fill="--fill" in sys.argv)
+
+    if "--fill" in sys.argv:
+        GUIDE.write_text("\n".join(lines))
+        print(f"wrote the Values column of {GUIDE.relative_to(REPO)}")
+        for fault in faults:
+            print(fault, file=sys.stderr)
+        return 1 if faults else 0
 
     if not check:
         OUT.write_text(rendered)
@@ -283,7 +403,14 @@ def main():
               file=sys.stderr)
         return 1
 
-    print(f"pack API surface matches the code (schema {schema[0]})")
+    if faults:
+        for fault in faults:
+            print(fault, file=sys.stderr)
+        print(f"{GUIDE.relative_to(REPO)} disagrees with the reader; --fill rewrites the Values column.",
+              file=sys.stderr)
+        return 1
+
+    print(f"pack API surface matches the code (schema {schema[0]}), and so does {GUIDE.relative_to(REPO)}")
     return 0
 
 

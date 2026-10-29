@@ -11,7 +11,7 @@ ignored.
 
 `docs/WEAPON-PACKS.md` is the same surface written for the author, with the reasons attached.
 
-**Definition schema 1.** 8 elements, 177 attributes, 15 entry-point lines.
+**Definition schema 1.** 14 elements, 227 attributes, 15 entry-point lines.
 
 ## Entry point
 
@@ -84,6 +84,13 @@ to build; widening it to take a profile type would put that back.
 | `FuseArmSeconds` | number | `0.6` |
 | `ChargeKg` | number | `20` |
 | `MaxChargeKg` | number | `0` |
+| `FragmentCount` | whole number | `0` |
+| `FragmentMassGrams` | number | `5` |
+| `FragmentSpeed` | number | `1800` |
+| `SprayAngleDeg` | number | `90` |
+| `SprayHalfWidthDeg` | number | `10` |
+| `IgnitionChance` | number | `0` |
+| `FragmentIgnitionChance` | number | `0` |
 | `HitsTerrain` | true or false | `false` |
 | `BurstHeightMetres` | number | `0` |
 | `ChuteSinkMetresPerSecond` | number | `0` |
@@ -222,9 +229,54 @@ to build; widening it to take a profile type would put that back.
 | `MaxElevationDeg` | number | `85` |
 | `MaxOffBoresightDeg` | number | `135` |
 | `KeyholeDeg` | number | `4` |
+| `StowTuckDeg` | number | `0` |
+| `CarriageMarker` | text | *none* |
 | `MaxMagnification` | number | `16` |
 | `HasLaser` | true or false | `false` |
 | `LaserRangeMetres` | number | `20000` |
+
+### `<SearchSet>` - a part that only searches
+
+| Attribute | Reads | Default |
+| --- | --- | --- |
+| `PartId` | text, required | **required** |
+| `DisplayName` | text, required | **required** |
+| `Sensor` | name, required | **required** |
+| `HeadMarker` | text | *none* |
+| `HeadPivot` | three numbers | `0, 0, 0` |
+| `HeadTravelDeg` | number | `60` |
+| `HeadSlewDegPerSecond` | number | `90` |
+| `ScanHalfWidthDeg` | number | `45` |
+| `ScanPeriodSeconds` | number | `6` |
+| `ScanNodDeg` | number | `8` |
+| `PanelName` | text | `set.DisplayName` |
+
+### `<Decoy>` - a flare or a chaff cloud
+
+| Attribute | Reads | Default |
+| --- | --- | --- |
+| `Name` | text, required | **required** |
+| `DisplayName` | text, required | **required** |
+| `Kind` | one of `Flare`, `Chaff` | **required** |
+| `MassKg` | number | `0` |
+| `PeakSignature` | number | `0` |
+| `RiseSeconds` | number | `0` |
+| `LifeSeconds` | number | `4` |
+| `DragPerMetre` | number | `0` |
+
+### `<Dispenser>` - a part that throws decoys
+
+| Attribute | Reads | Default |
+| --- | --- | --- |
+| `PartId` | text, required | **required** |
+| `Decoy` | name, required | **required** |
+| `Kind` | one of `Flare`, `Chaff` | *worked out from the rest of the definition* |
+| `DisplayName` | text, required | **required** |
+| `Count` | whole number | `30` |
+| `SalvoSize` | whole number | `2` |
+| `SalvoIntervalSeconds` | number | `0.25` |
+| `EjectDirection` | three numbers | `new(1` |
+| `EjectSpeed` | number | `30` |
 
 ### `<Tube>` - child of `<Launcher>`
 
@@ -252,3 +304,31 @@ to build; widening it to take a profile type would put that back.
 | --- | --- | --- |
 | `Role` | one of `FireControl`, `Launcher`, `Sensor`, `Camera`, `Gun`, `Guidance`, `Countermeasures` | `Sensor` |
 | `DisplayName` | text, required | **required** |
+
+### `<Beam>` - child of `<Optic>`
+
+| Attribute | Reads | Default |
+| --- | --- | --- |
+| `PowerWatts` | number | `1.0e6` |
+| `WavelengthMetres` | number | `1.315e-6` |
+| `ApertureMetres` | number | `1.5` |
+| `JitterRad` | number | `0.2e-6` |
+| `BurnThroughJoulesPerM2` | number | `6.0e7` |
+| `ExtinctionPerMetre` | number | `2.0e-5` |
+| `ChemicalSeconds` | number | `100` |
+| `ShotSeconds` | number | `5` |
+
+### `<ReleaseSpin>` - child of `<Launcher>`
+
+| Attribute | Reads | Default |
+| --- | --- | --- |
+| `RateDegPerSecond` | number | **required** |
+| `SpinUpSeconds` | number | **required** |
+| `IgnitionSeconds` | number | `0.0` |
+
+### `<Nozzle>` - child of `<ReleaseSpin>`
+
+| Attribute | Reads | Default |
+| --- | --- | --- |
+| `Mouth` | three numbers | **required** |
+| `Exhaust` | three numbers | **required** |

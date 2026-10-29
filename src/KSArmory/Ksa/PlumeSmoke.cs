@@ -35,7 +35,7 @@ internal static class PlumeSmoke
     /// <summary>Whether the renderer was found. False means nothing of this will draw.</summary>
     public static bool Available => Resolve() is not null;
 
-    // Every segment is laid white: motor and flare trails are all that go through this renderer.
+    // White unless a caller says otherwise: a motor, a flare and a burning part all lay through here.
     private static readonly float3 Colour = new(1f, 1f, 1f);
 
     /// <summary>
@@ -75,8 +75,10 @@ internal static class PlumeSmoke
     /// 1 a segment transmits rather than scattering, which is the only way to make a bundle of
     /// overlapping segments read as dust instead of as a solid.
     /// </param>
+    /// <param name="colour">The smoke's colour; white, a booster's, where none is given.</param>
     public static void Lay(Strand strand, Celestial body, double3 positionCcf, double3 thrownCcf,
-                           float initialRadius, float expandedRadius, float density = StockDensity)
+                           float initialRadius, float expandedRadius, float density = StockDensity,
+                           float3? colour = null)
     {
 
         if (Resolve() is not { } renderer) return;
@@ -94,7 +96,7 @@ internal static class PlumeSmoke
         try
         {
             renderer.SubmitEmitter(strand.State, body, in frame, double3.Zero, along * speed,
-                                   nozzle, expandedRadius, Colour, density, StockLifetimeSeconds,
+                                   nozzle, expandedRadius, colour ?? Colour, density, StockLifetimeSeconds,
                                    isFlowing: true, isInsideAtmosphere: true);
         }
         catch (Exception e)

@@ -244,6 +244,68 @@ internal static class TankLeak
         return depth > 0.0 ? Math.Sqrt(pressure + (2.0 * feltAcceleration * depth)) : 0.0;
     }
 
+    /// <summary>A sharp-edged orifice's discharge coefficient for a gas, which contracts less than a liquid.</summary>
+    public const double GasDischargeCoefficient = 0.84;
+
+    /// <summary>
+    /// The ratio of heat capacities taken for every gas: KSA declares none, and 1.4 is the diatomic value
+    /// of nitrogen, oxygen and hydrogen. Helium's 5/3 vents 6% faster.
+    /// </summary>
+    public const double GasGamma = 1.4;
+
+    /// <summary>
+    /// What a holed gas tank vents, in kg/s: choked above the critical ratio to the air outside, 1.89 at
+    /// <see cref="GasGamma"/>, and the subsonic orifice law below it. The gas is at KSA's storage
+    /// temperature, as KSA's own <c>Mole.GetPressure</c> holds it.
+    /// </summary>
+    public static double GasFlowKgPerSecond(double pascals, double ambientPascals, double kelvin,
+                                            double specificGasConstant, double holeRadius)
+    {
+        if (!(pascals > 0.0) || !(kelvin > 0.0) || !(specificGasConstant > 0.0) || !(holeRadius > 0.0)) return 0.0;
+
+        double outside = double.IsFinite(ambientPascals) ? Math.Max(ambientPascals, 0.0) : 0.0;
+        if (outside >= pascals) return 0.0;
+
+        const double G = GasGamma;
+        double area = Math.PI * holeRadius * holeRadius;
+        double rt = specificGasConstant * kelvin;
+        double ratio = outside / pascals;
+
+        double flux = ratio <= CriticalRatio
+            ? Math.Sqrt(G / rt) * Math.Pow(2.0 / (G + 1.0), (G + 1.0) / (2.0 * (G - 1.0)))
+            : Math.Sqrt(2.0 * G / ((G - 1.0) * rt) * (Math.Pow(ratio, 2.0 / G) - Math.Pow(ratio, (G + 1.0) / G)));
+
+        return GasDischargeCoefficient * area * pascals * flux;
+    }
+
+    /// <summary>How fast the gas leaves the hole, m/s: the speed of sound at the throat while choked.</summary>
+    public static double GasJetSpeed(double pascals, double ambientPascals, double kelvin, double specificGasConstant)
+    {
+        if (!(pascals > 0.0) || !(kelvin > 0.0) || !(specificGasConstant > 0.0)) return 0.0;
+
+        const double G = GasGamma;
+        double rt = specificGasConstant * kelvin;
+        double outside = double.IsFinite(ambientPascals) ? Math.Max(ambientPascals, 0.0) : 0.0;
+        if (outside >= pascals) return 0.0;
+
+        double ratio = Math.Max(outside / pascals, CriticalRatio);
+        return Math.Sqrt(2.0 * G / (G - 1.0) * rt * (1.0 - Math.Pow(ratio, (G - 1.0) / G)));
+    }
+
+    /// <summary>
+    /// What a step takes out of a gas venting at <paramref name="kgPerSecond"/>: an exponential, because at
+    /// a held temperature its pressure, and so its flow, falls in proportion to what is left.
+    /// </summary>
+    public static double GasDrawn(double mass, double kgPerSecond, double step)
+    {
+        if (!(mass > 0.0) || !(kgPerSecond > 0.0) || !(step > 0.0)) return 0.0;
+
+        return mass * (1.0 - Math.Exp(-kgPerSecond / mass * step));
+    }
+
+    // The ambient over tank pressure below which the throat is sonic: (2/(γ+1))^(γ/(γ-1)).
+    private static readonly double CriticalRatio = Math.Pow(2.0 / (GasGamma + 1.0), GasGamma / (GasGamma - 1.0));
+
     private static double Halton(int index, int radix)
     {
         double result = 0.0, f = 1.0;

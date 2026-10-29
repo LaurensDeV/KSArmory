@@ -3,9 +3,9 @@
 // A fireball's light on the craft and structures KSA's light pre-pass left dark. That pass skips a
 // light for a subgroup of pixels when dotNL / d^2 is under 1e-7 for every lane reaching it, before the
 // light's intensity is taken into account: right for a lamp, and it drops a fireball's light beyond
-// about 3 km however bright it is. Terrain is lit by the forward loop, which has no such cut. So this
-// reads what the pre-pass wrote, and where the fireball's share is missing from it adds the forward
-// loop's diffuse term -- nowhere else, so nothing is lit twice. docs/BLOCKED-ON-KSA.md, "A bright
+// about 3 km however bright it is. Terrain and ground clutter are lit by the forward loop, which has no
+// such cut. So this reads what the pre-pass wrote, and where the fireball's share is missing from it adds
+// the forward loop's diffuse term -- nowhere else, so nothing is lit twice. docs/BLOCKED-ON-KSA.md, "A bright
 // light far away, on craft and structures", has the engine code.
 //
 // Set 2 is KSA's bindless textures, which the planet's colour map is read from.
@@ -94,9 +94,14 @@ void main()
     float scene = texelFetch(sceneDepth, pixel, 0).r;
     if (abs(scene - raw) > 1e-3 * raw) return;
 
+    // Terrain and clutter write their pre-pass normal's w as exactly one and light themselves forward;
+    // a part or structure writes its filtered roughness there, so only a fully rough texel is mistaken.
+    vec4 normalRough = texelFetch(prePassNormal, pixel, 0);
+    if (normalRough.w == 1.0) return;
+
     vec2 uv = (vec2(pixel) + 0.5) / vec2(size);
     vec3 p = WorldAt(uv, raw);
-    vec3 n = normalize(texelFetch(prePassNormal, pixel, 0).xyz);
+    vec3 n = normalize(normalRough.xyz);
 
     vec3 irradiance = FireIrradiance(p, n);
     if (Luminance(irradiance) <= 0.0) return;

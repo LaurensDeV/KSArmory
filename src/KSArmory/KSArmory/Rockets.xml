@@ -14,7 +14,8 @@
     its motor gives it, and the pod draws a sight where it will land. The motor pushes for 1.1 s at
     about 66 g, which reaches roughly 700 m/s through sea-level air.
 
-    The real rocket has a contact fuse; FuseRadius is ours. HitsTerrain stops it on the ground it meets. ChargeKg is a fragmentation warhead's explosive.
+    The real rocket has a contact fuse; FuseRadius is ours. HitsTerrain stops it on the ground it meets. ChargeKg is the Mk 63 fragmentation head's
+    6.8 kg of Comp B; its 2,500 fragments in a wide side spray are an estimate.
     The fins are folded in the tube and open as it leaves (FinMarker, FinDeploySeconds).
   -->
   <Munition Name="ZUNI" DisplayName="Zuni 5-inch rocket"
@@ -25,6 +26,8 @@
             FinDeploySeconds="0.25"
             MassKg="48.5" CalibreMm="127" DragCoefficient="0.3"
             FuseRadius="3" FuseArmSeconds="0.3" ChargeKg="6.8"
+            FragmentCount="2500" FragmentMassGrams="5" FragmentSpeed="1400"
+            SprayAngleDeg="90" SprayHalfWidthDeg="30" FragmentIgnitionChance="0.08"
             HitsTerrain="true" />
 
   <!--

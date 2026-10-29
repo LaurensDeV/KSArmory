@@ -383,8 +383,11 @@ public sealed class KSArmoryMod
 
         NuclearClouds.Clear();
         BulletHoles.Clear();
+        GroundSplats.Clear();
         Leaks.Clear();
         StoreMass.Clear();
+        PartFires.Clear();
+        DamagedEngines.Clear();
 
         // Keyed on craft DeserializeSave has destroyed; CollectTeams rebuilds it, but not while paused.
         KsaWorld.TeamRoster.Clear();
@@ -509,6 +512,7 @@ public sealed class KSArmoryMod
 
             // Outside the overlay switch: a sight the operator aims with, not a diagnostic.
             GroundRings.BeginFrame();
+            GroundSplats.Paint();
             BulletHoles.Enabled = _config.BulletHoles;
             Leaks.Enabled = _config.TankLeaks;
             BulletHoles.Prune();
@@ -848,6 +852,8 @@ public sealed class KSArmoryMod
         BurstSound.Update(_lastSimStep);
         using (_budget.Measure("fronts")) BlastArrivals.Update(_lastSimStep);
         using (_budget.Measure("leaks")) Leaks.Update(_lastSimStep);
+        using (_budget.Measure("fires")) PartFires.Update(_lastSimStep, _config, draw: true);
+        DamagedEngines.Update();
         BlastShake.Update(_lastSimStep);
         AttitudeHook.CheckShoves(_lastSimStep);
 
@@ -913,6 +919,7 @@ public sealed class KSArmoryMod
         _spinPlumes?.ReleaseAll();
         _decoyEffects?.ReleaseAll();
         _flashes?.ReleaseAll();
+        PartFires.Clear();
 
         Markers.Forget();
 

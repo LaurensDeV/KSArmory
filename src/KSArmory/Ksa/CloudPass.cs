@@ -28,6 +28,7 @@ internal static class CloudPass
     private const string ShockShaderId = "KSArmoryShockCompute";
     private const string FireLightShaderId = "KSArmoryFireLightCompute";
     private const string RingShaderId = "KSArmoryRingCompute";
+    private const string RingMsaaShaderId = "KSArmoryRingMsaaCompute";
     private const string HoleShaderId = "KSArmoryHoleCompute";
     private const string LeakShaderId = "KSArmoryLeakCompute";
     private const string TracerShaderId = "KSArmoryTracerCompute";
@@ -138,7 +139,12 @@ internal static class CloudPass
         public required RenderImage SceneCopy;
         public ComputePipelineWrapper? Shock;
         public ComputePipelineWrapper? Rings;
+        public IRenderImage? RingsNormal;
+        public ComputePipelineWrapper? RingsMsaa;
+        public IRenderImage? RingsMsaaImage;
+        public IRenderImage? RingsMsaaNormal;
         public ComputePipelineWrapper? Holes;
+        public IRenderImage? HolesNormal;
         public ComputePipelineWrapper? Leaks;
         public ComputePipelineWrapper? Tracers;
         // One beam pipeline per weather image pair it was built against, as the clouds keep theirs.
@@ -184,6 +190,17 @@ internal static class CloudPass
         public float4 CentreRadius;
         public float4 FireSun;       // fireball radius and glow, the whiteout, the scorch
         public float4 Shape;        // cap centre, cap radius, cap tube, stem radius
+    }
+
+    private static readonly AuroraReference DefaultAurora = new();
+
+    // The colours KSA draws the body's own aurora in, or its defaults where it gives the body none.
+    private static (float Green, float Red) AuroraColours(object? body)
+    {
+        AuroraReference aurora = (body as Celestial)?.BodyTemplate?.GetAurora() ?? DefaultAurora;
+
+        return (Aurora.PackColour(aurora.Green.R, aurora.Green.G, aurora.Green.B),
+                Aurora.PackColour(aurora.Red.R, aurora.Red.G, aurora.Red.B));
     }
 
     // A unit vector in two floats. Both directions here are unit, and packing them is what keeps
@@ -353,6 +370,76 @@ internal static class CloudPass
         }
     }
 
+    // Set when this frame's paintball splats went down before KSA's translucent passes, so the main
+    // view's late pass does not paint them over the exhaust and clouds again.
+    private static bool _splatsPaintedEarly;
+
+    /// <summary>
+    /// The paintball splats on the ground, painted between KSA's opaque scene and everything translucent
+    /// it draws over it -- ocean, air, clouds, exhaust, particles -- so those cover a splat, which writes
+    /// no depth for them to be judged against. The main view alone, the one KSA renders there; with MSAA
+    /// into every sample as well, since the resolve after the translucent passes would overwrite the
+    /// resolved image alone. Elsewhere the splats stay with the late pass.
+    /// </summary>
+    public static void RecordEarly(CommandBuffer commandBuffer, IViewport viewport, int frameIndex)
+    {
+        try
+        {
+            if (!ReferenceEquals(viewport, Program.MainViewport)) return;
+            if (viewport.OffscreenTarget is not { } target) return;
+            if (target.ColorImage is not { } colour || target.DepthImage is not { } depth) return;
+
+            // Multisampled, the scene is resolved again after the translucent passes, so a splat has to
+            // be in every sample too; a device that cannot write them keeps the late pass.
+            RenderImage? msaa = target.ColorMsaa;
+            if (msaa is not null && !MultisampleStorage()) return;
+            if (Program.GetRenderCamera() is not { } camera) return;
+
+            int width = (int)target.Extent.Width;
+            int height = (int)target.Extent.Height;
+            if (width <= 0 || height <= 0) return;
+
+            View view = ViewFor(viewport, colour, width, height);
+
+            Span<VkImageMemoryBarrier2> one = stackalloc VkImageMemoryBarrier2[1];
+            BarrierBatch toStorage = new(one);
+            toStorage.Add(colour, ImageBarrierInfo.Presets.StorageReadWriteC);
+            toStorage.SubmitAndFlush(commandBuffer);
+
+            int marks = 0;
+            Rings(commandBuffer, viewport, camera, view, depth, width, height, ref marks, splatsOnly: true,
+                  msaa: msaa);
+
+            // Back to where KSA left it, for the passes that read the scene next.
+            BarrierBatch toSample = new(one);
+            toSample.Add(colour, ImageBarrierInfo.Presets.SampledReadVfc);
+            toSample.SubmitAndFlush(commandBuffer);
+        }
+        catch (Exception e)
+        {
+            _splatsPaintedEarly = false;
+            Warn($"the splats could not be painted under the exhaust and clouds: {e.Message}");
+        }
+    }
+
+    private static bool? _multisampleStorage;
+
+    // Whether the device writes multisampled images from a shader: KSA gives its multisampled target
+    // storage use only then (RenderTarget.CreateColorMsaa).
+    private static bool MultisampleStorage()
+    {
+        try
+        {
+            _multisampleStorage ??= (bool)Program.GetRenderer().PhysicalDevice.GetFeatures().ShaderStorageImageMultisample;
+        }
+        catch
+        {
+            _multisampleStorage = false;
+        }
+
+        return _multisampleStorage.Value;
+    }
+
     /// <summary>
     /// Records the pass into the frame KSA is already building.
     ///
@@ -397,8 +484,8 @@ internal static class CloudPass
                 return;
             }
 
-            // The weather is the main view's: KSA renders its clouds for that one alone, and their
-            // images laid over a camera window would hide its burst behind somebody else's sky.
+            // The weather read is the main view's, whose cloud images are the only ones KSA hands out,
+            // so a camera window's burst is drawn in front of that window's own clouds.
             RenderImage? weatherColour = null;
             RenderImage? weatherDistance = null;
             bool weather = ReferenceEquals(viewport, Program.MainViewport)
@@ -567,16 +654,19 @@ internal static class CloudPass
                 double3 dipole = dipoleEcl - camera.PositionEcl;
                 if (!Vec.IsFinite(foot) || !Vec.IsFinite(dipole)) continue;
 
+                (float green, float red) = AuroraColours(camera.NearbyCelestial);
+                float2 east = OctahedralPack(eastEcl);
+
                 _sky.Add((SkyDispatch.Aurora, nits, new Push
                 {
                     InvViewProj = camera.VPInv.viewProjection,
-                    AgeStrengthWind = new float4((float)dipole.X, (float)dipole.Y, (float)dipole.Z, 0f),
+                    AgeStrengthWind = new float4((float)dipole.X, (float)dipole.Y, (float)dipole.Z, green),
                     CentreRadius = new float4((float)foot.X, (float)foot.Y, (float)foot.Z, -(float)nits),
                     FireSun = new float4((float)Aurora.BottomAltitude(KsaWorld.BodyAirOf(camera.NearbyCelestial)),
                                          (float)Aurora.TopAltitude(KsaWorld.BodyAirOf(camera.NearbyCelestial)),
                                          SkyDispatch.Aurora,
                                          (float)sinLatitude),
-                    Shape = new float4((float)eastEcl.X, (float)eastEcl.Y, (float)eastEcl.Z, (float)age),
+                    Shape = new float4(east.X, east.Y, red, (float)age),
                 }));
             }
 
@@ -988,10 +1078,21 @@ internal static class CloudPass
     // A ring's ink is a multiple of the ground under it, so where rings stack each would multiply the
     // last one's ink again; the patch they cover is copied first and every ring reads its ground there.
     private static void Rings(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
-                              IRenderImage depth, int width, int height, ref int marks)
+                              IRenderImage depth, int width, int height, ref int marks, bool splatsOnly = false,
+                              RenderImage? msaa = null)
     {
+        bool main = ReferenceEquals(viewport, Program.MainViewport);
+        bool skipSplats = !splatsOnly && main && _splatsPaintedEarly;
+        if (main) _splatsPaintedEarly = splatsOnly;
+
         if (GroundRings.Count == 0 || !GroundRings.Fresh) return;
-        if (view.Rings is null && !BuildRings(view, depth)) return;
+
+        // A splat paints the ground and nothing standing on it. KSA's pre-pass says which pixels are the
+        // ground, for the main view alone; a window, or a frame it is not valid, has the shader's
+        // geometric test, and the pass's own layer stands in so the descriptor is never empty.
+        bool prePassTrusted = TryPrePassNormal(viewport, view, out IRenderImage? prePassNormal);
+        IRenderImage normal = prePassNormal ?? view.LayerDistance;
+        if ((view.Rings is null || !ReferenceEquals(view.RingsNormal, normal)) && !BuildRings(view, depth, normal)) return;
 
         _rings.Clear();
         int left = int.MaxValue, top = int.MaxValue, right = 0, bottom = 0;
@@ -1001,6 +1102,9 @@ internal static class CloudPass
             if (!GroundRings.TryAt(i, out double3 centreEcl, out double3 up, out double radius,
                                    out double inner, out float4 colour, out int dashes,
                                    out double3 major, out double minor)) continue;
+
+            bool splat = colour.W < 0f && minor <= 0.0;
+            if (splatsOnly ? !splat : splat && skipSplats) continue;
 
             double3 centre = centreEcl - camera.PositionEcl;
             if (!Vec.IsFinite(centre)) continue;
@@ -1017,6 +1121,9 @@ internal static class CloudPass
                 Colour = colour,
                 TileWidth = new float4(tile.OriginX, tile.OriginY, RingHalfWidthPixels, dashes),
             };
+
+            // A splat has no dashes, so their slot says whether the pre-pass normal can be read.
+            if (splat) push.TileWidth.W = prePassTrusted ? 1f : 0f;
 
             // An ellipse: both directions packed into the four floats the up and the inner ring
             // take, and the short radius where the dashes go, negative to say which this is.
@@ -1062,6 +1169,32 @@ internal static class CloudPass
                 commandBuffer.Dispatch(tile.GroupsX, tile.GroupsY, 1);
                 marks++;
             }
+
+            // The same splats into every sample, reading the ground off the copy taken before any.
+            if (msaa is not null && splatsOnly)
+            {
+                if ((view.RingsMsaa is null || !ReferenceEquals(view.RingsMsaaImage, msaa)
+                                            || !ReferenceEquals(view.RingsMsaaNormal, normal))
+                    && !BuildRingsMsaa(view, msaa, depth, normal)) return;
+
+                BarrierBatch toStorage = new(one);
+                toStorage.Add(msaa, ImageBarrierInfo.Presets.StorageReadWriteC);
+                toStorage.SubmitAndFlush(commandBuffer);
+
+                for (int i = 0; i < _rings.Count; i++)
+                {
+                    Hazard(commandBuffer);
+
+                    (RingPush push, Tile tile) = _rings[i];
+                    view.RingsMsaa!.BindPipeline(commandBuffer, viewport.ShaderSlot, default, default, push);
+                    commandBuffer.Dispatch(tile.GroupsX, tile.GroupsY, 1);
+                }
+
+                // Back to an attachment, as KSA's translucent passes draw into it next.
+                BarrierBatch toAttachment = new(one);
+                toAttachment.Add(msaa, ImageBarrierInfo.Presets.ColorAttachmentWrite);
+                toAttachment.SubmitAndFlush(commandBuffer);
+            }
         }
     }
 
@@ -1075,6 +1208,10 @@ internal static class CloudPass
         public int Count;
         public int OriginX;            // the dispatch's first pixel
         public int OriginY;
+        public int PrePass;            // 1 where the pre-pass normal can be read
+        private int _pad0;
+        private int _pad1;
+        private int _pad2;
     }
 
     /// <summary>One hole as <c>KSArmoryHole.comp</c> reads it, std430.</summary>
@@ -1084,7 +1221,7 @@ internal static class CloudPass
         public float4 CentreScorch;    // the hole, camera-relative, and the soot's radius
         public float4 InwardReach;     // the way the shell went in, and how far along it the mark reaches
         public float4 SideShare;       // a direction square to that, fixed to the part, and the soot's share
-        public float4 CoreSeed;        // the hole's radius and its pattern's seed
+        public float4 CoreSeed;        // the hole's radius, its pattern's seed, and a paint splat's hue (negative for none)
         public float4 Rect;            // the pixels it can reach: first x, first y, last x, last y
     }
 
@@ -1130,7 +1267,11 @@ internal static class CloudPass
     {
         if (!BulletHoles.Enabled || BulletHoles.Count == 0) return;
         if (_holeBuffer is null && !BuildHoleBuffer()) return;
-        if (view.Holes is null && !BuildHoles(view, depth)) return;
+        // A craft's splat reaches through the craft along its spray, and the ground behind is not the
+        // craft; the pre-pass says which pixels are the ground, in the main view alone.
+        bool prePassTrusted = TryPrePassNormal(viewport, view, out IRenderImage? prePassNormal);
+        IRenderImage normal = prePassNormal ?? view.LayerDistance;
+        if ((view.Holes is null || !ReferenceEquals(view.HolesNormal, normal)) && !BuildHoles(view, depth, normal)) return;
 
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
 
@@ -1158,7 +1299,8 @@ internal static class CloudPass
         for (int i = 0; i < _holesInView.Count && count < MostHolesPainted; i++)
         {
             BulletHoles.Placed hole = _holesInView[i];
-            double soot = Math.Min(hole.Scorch, SootInCores * hole.Core);
+            // A paint splat has no core to bound it; its radius is the splash's.
+            double soot = hole.Paint >= 0f ? hole.Scorch : Math.Min(hole.Scorch, SootInCores * hole.Core);
             double reach = Math.Max(soot, HoleReachMetres);
             if (!HoleRect(camera, hole.Centre, Math.Sqrt((soot * soot) + (reach * reach)), width, height,
                           out int x0, out int y0, out int x1, out int y1)) continue;
@@ -1169,7 +1311,7 @@ internal static class CloudPass
                 CentreScorch = new float4((float)hole.Centre.X, (float)hole.Centre.Y, (float)hole.Centre.Z, (float)soot),
                 InwardReach = new float4((float)hole.Inward.X, (float)hole.Inward.Y, (float)hole.Inward.Z, (float)reach),
                 SideShare = new float4((float)hole.Side.X, (float)hole.Side.Y, (float)hole.Side.Z, 1f),
-                CoreSeed = new float4(hole.Core, hole.Seed, 0f, 0f),
+                CoreSeed = new float4(hole.Core, hole.Seed, hole.Paint, 0f),
                 Rect = new float4(x0, y0, x1, y1),
             };
 
@@ -1191,6 +1333,7 @@ internal static class CloudPass
                 Count = count,
                 OriginX = minX,
                 OriginY = minY,
+                PrePass = prePassTrusted ? 1 : 0,
             };
 
             using (commandBuffer.TagRegion(GpuTag))
@@ -1365,6 +1508,7 @@ internal static class CloudPass
         public int OriginX;            // the dispatch's first pixel
         public int OriginY;
         public float Clock;            // Leaks.Clock, which the pattern moves on
+        public float Daylight;         // TracerLook.Daylight where the camera is: what lights vapour
     }
 
     private const int StreamSegmentsPerView = Leaks.MostStreams * (LeakStream.Points - 1);
@@ -1380,6 +1524,19 @@ internal static class CloudPass
     private static double _streamCpuSeconds;
     private static int _streamCpuFrames;
     private static long _streamLoggedAt = long.MinValue / 2;
+
+    // A burning stream spreads to three times its width over its whole length, and a cryogen's fog to six
+    // times its share; widened here so the patch dispatched and the tiles gathered cover it. The shader
+    // takes the same back off for the rope (FlameSpread, FogSpread).
+    private static double Spread(Leaks.Stream stream, double alongMetres, double wholeMetres)
+    {
+        double grown = wholeMetres > 0.0 ? Math.Clamp(alongMetres / wholeMetres, 0.0, 1.0) : 1.0;
+        return stream.Look == Leaks.Look.Burning ? 1.0 + (3.0 * grown) : 1.0 + (6.0 * grown * stream.Fog);
+    }
+
+    // Two if it burns, plus its fog share: one float, since every other lane of the segment is spoken for.
+    private static float FlowLook(Leaks.Stream stream)
+        => (stream.Look == Leaks.Look.Burning ? 2f : 0f) + Math.Clamp(stream.Fog, 0f, 1f);
 
     // THE LEAKS' STREAMS: KSArmoryLeak.comp. One dispatch over the patch of screen they cover.
     private static void Streams(CommandBuffer commandBuffer, IViewport viewport, Camera camera, View view,
@@ -1445,7 +1602,8 @@ internal static class CloudPass
             for (int i = 0; i < points; i++)
             {
                 _clip[i] = camera.EgoToClipDouble(_arc[i].Position);
-                _across[i] = PixelsAcross(camera, _arc[i].Position, _arc[i].Radius, width, height);
+                _across[i] = PixelsAcross(camera, _arc[i].Position, _arc[i].Radius, width, height)
+                             * Spread(stream, _arc[i].AlongMetres, whole);
             }
 
             for (int i = 1; i < points; i++)
@@ -1466,7 +1624,7 @@ internal static class CloudPass
                     Tail = new float4((float)tx, (float)ty, (float)(t.Z / t.W), (float)_arc[i].AlongMetres),
                     Look = new float4((float)headWidth, (float)tailWidth, whole, stream.Seed),
                     Flow = new float4((float)_arc[i - 1].OutSeconds, (float)_arc[i].OutSeconds,
-                                      (float)stream.ExitRadius, 0f),
+                                      (float)stream.ExitRadius, FlowLook(stream)),
                 };
 
                 int reach = (int)Math.Ceiling(Math.Max(headWidth, tailWidth)) + 2;
@@ -1490,6 +1648,8 @@ internal static class CloudPass
             OriginX = minX,
             OriginY = minY,
             Clock = (float)KSArmory.Leaks.Clock,
+            Daylight = (float)TracerLook.Daylight(
+                camera.NearbyCelestial is { } near ? KsaWorld.SunElevationDeg(near, cameraEcl) : double.NaN),
         };
 
         using (commandBuffer.TagRegion(GpuTag))
@@ -1868,8 +2028,9 @@ internal static class CloudPass
         return true;
     }
 
-    private static bool BuildHoles(View view, IRenderImage depth)
+    private static bool BuildHoles(View view, IRenderImage depth, IRenderImage normal)
     {
+        view.Holes = null;
         if (!ModLibrary.TryGet<ShaderReference>(HoleShaderId, out var shader) || shader is null)
         {
             Warn($"no shader '{HoleShaderId}'; shell holes are not painted");
@@ -1883,9 +2044,11 @@ internal static class CloudPass
         IRenderImage[] depthTargets = [depth];
         VkPushConstantRange[] ranges = PushRanges<HolePush>();
 
+        IRenderImage[] sampled = [normal];
         VkBuffer[] buffers = [_holeBuffer!.Value.VkBuffer];
+        view.HolesNormal = normal;
         view.Holes = new ComputePipelineWrapper(
-            storageTargets, depthTargets, default, default, shader,
+            storageTargets, depthTargets, sampled, default, shader,
             default, ranges, renderer.MaxFramesInFlight, renderer,
             "KSArmory.Holes", Program.PointClampedSampler, Program.LinearClampedSampler,
             storageBuffers: buffers);
@@ -1893,8 +2056,37 @@ internal static class CloudPass
         return true;
     }
 
-    private static bool BuildRings(View view, IRenderImage depth)
+    private static bool BuildRingsMsaa(View view, RenderImage msaa, IRenderImage depth, IRenderImage normal)
     {
+        view.RingsMsaa = null;
+        if (!ModLibrary.TryGet<ShaderReference>(RingMsaaShaderId, out var shader) || shader is null)
+        {
+            Warn($"no shader '{RingMsaaShaderId}'; with MSAA a splat is painted over the exhaust and clouds");
+            return false;
+        }
+
+        Renderer renderer = Program.GetRenderer();
+
+        IRenderImage[] storageTargets = [view.SceneCopy];
+        IRenderImage[] multisampled = [msaa];
+        IRenderImage[] depthTargets = [depth];
+        IRenderImage[] sampled = [normal];
+        VkPushConstantRange[] ranges = PushRanges<RingPush>();
+
+        view.RingsMsaaImage = msaa;
+        view.RingsMsaaNormal = normal;
+        view.RingsMsaa = new ComputePipelineWrapper(
+            storageTargets, depthTargets, sampled, default, shader,
+            default, ranges, renderer.MaxFramesInFlight, renderer,
+            "KSArmory.RingsMsaa", Program.PointClampedSampler, Program.LinearClampedSampler,
+            multisampledStorageRenderTargets: multisampled);
+
+        return true;
+    }
+
+    private static bool BuildRings(View view, IRenderImage depth, IRenderImage normal)
+    {
+        view.Rings = null;
         if (!ModLibrary.TryGet<ShaderReference>(RingShaderId, out var shader) || shader is null)
         {
             Warn($"no shader '{RingShaderId}'; targeting rings will not draw");
@@ -1905,10 +2097,12 @@ internal static class CloudPass
 
         IRenderImage[] storageTargets = [view.Target, view.SceneCopy];
         IRenderImage[] depthTargets = [depth];
+        IRenderImage[] sampled = [normal];
         VkPushConstantRange[] ranges = PushRanges<RingPush>();
 
+        view.RingsNormal = normal;
         view.Rings = new ComputePipelineWrapper(
-            storageTargets, depthTargets, default, default, shader,
+            storageTargets, depthTargets, sampled, default, shader,
             default, ranges, renderer.MaxFramesInFlight, renderer,
             "KSArmory.Rings", Program.PointClampedSampler, Program.LinearClampedSampler);
 
@@ -1973,6 +2167,20 @@ internal static class CloudPass
                                    (view.Height + FireLightGroupY - 1) / FireLightGroupY, 1);
             Hazard(commandBuffer);
         }
+    }
+
+    // KSA's pre-pass normal for this view, and whether this frame's can be trusted: the main view alone,
+    // at the view's size. The image is handed back even when untrusted, so the pipeline is not rebuilt.
+    private static bool TryPrePassNormal(IViewport viewport, View view, out IRenderImage? normal)
+    {
+        normal = null;
+        if (!ReferenceEquals(viewport, Program.MainViewport)) return false;
+        if (Program.Instance?.PrePassRenderer is not { } prePass) return false;
+        if (prePass.OpaquePrePassData.Target is not { ColorImage: { } image } target) return false;
+        if (target.Extent.Width != view.Width || target.Extent.Height != view.Height) return false;
+
+        normal = image;
+        return prePass.OpaqueHasValidDepth;
     }
 
     // The pre-pass keeps a surface's normal and not its colour, so the fill takes the albedo the

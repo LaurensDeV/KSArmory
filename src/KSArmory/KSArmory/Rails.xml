@@ -18,6 +18,9 @@
     CountermeasureResistance="0.1": an early infrared seeker with no flare rejection, so it follows the
     brightest thing it sees. SeparationSeconds="0.4" carries it about 40 m clear of the craft before it
     turns. There is no FinMarker because a rail-launched missile carries its fins already deployed.
+
+    The 9J carries the AIM-9E's 4.5 kg blast-fragmentation head, not the 9L's 9.4 kg WDU-17/B
+    (designation-systems.net). Its 1.5 kg of explosive and 800 fragments of 3 g are estimates.
   -->
   <Munition Name="AIM9J" DisplayName="AIM-9J Sidewinder"
             BodyMarker="Aim9" BodyLength="3.05"
@@ -26,10 +29,13 @@
             DragK="4.2e-5"
             Guidance="Seeker" SeekerFovDeg="40" SeekerBand="Infrared" CountermeasureResistance="0.1"
             NavConstant="4" MaxLateralG="30" SeparationSeconds="0.4"
-            FuseRadius="12" FuseArmSeconds="1.0" ChargeKg="9.4" />
+            FuseRadius="12" FuseArmSeconds="1.0" ChargeKg="1.5"
+            FragmentCount="800" FragmentMassGrams="3" FragmentSpeed="1800"
+            SprayAngleDeg="85" SprayHalfWidthDeg="8" FragmentIgnitionChance="0.08" />
 
   <!--
-    AIM-120C-7. Length, mass and the 20 kg warhead are the real weapon's. It reaches much further than
+    AIM-120C-7. Length and mass are the real weapon's, and so is the 18 kg WDU-41/B warhead, of which
+    8.6 kg is explosive (one source); its 4,000 fragments of 2 g are an estimate. It reaches much further than
     the AIM-9J: it boosts to about Mach 4 and then coasts, so a shot near maximum range arrives slow and
     turns badly. MaxRange="105000" is the figure for a launch at altitude and speed; a low shot gets far
     less.
@@ -48,12 +54,15 @@
             Guidance="Seeker" SeekerFovDeg="60" SeekerBand="Radar" CountermeasureResistance="0.3"
             DopplerGateMps="40"
             NavConstant="4" MaxLateralG="40" SeparationSeconds="0.4"
-            FuseRadius="14" FuseArmSeconds="1.2" ChargeKg="20" />
+            FuseRadius="14" FuseArmSeconds="1.2" ChargeKg="8.6"
+            FragmentCount="4000" FragmentMassGrams="2" FragmentSpeed="2100"
+            SprayAngleDeg="85" SprayHalfWidthDeg="7" FragmentIgnitionChance="0.08" />
 
   <!--
-    AGM-88 HARM. Length, mass and the 66 kg warhead are the real weapon's (designation-systems.net).
+    AGM-88 HARM. Length, mass and the 66 kg WDU-21/B warhead are the real weapon's (designation-systems.net);
+    it throws about 25,000 steel fragments (weaponsystems.net). Its 22 kg of explosive is an estimate.
     Guidance="AntiRadiation": it homes on radar transmissions, so anything not transmitting is not a
-    target, however large or close. Useless against aircraft, decisive against a radar site.
+    target, however large or close: a radar site, or an aircraft whose radar is on.
 
     The real motor has two phases: BoostSeconds/BoostAccel is the boost, and the Stage is the sustainer,
     which keeps it accelerating where a coasting missile is already slowing. SeekerFovDeg="70": it finds
@@ -66,7 +75,9 @@
             DragK="3.1e-5"
             Guidance="AntiRadiation" SeekerFovDeg="70"
             NavConstant="4" MaxLateralG="20" SeparationSeconds="0.4"
-            FuseRadius="16" FuseArmSeconds="1.5" ChargeKg="66">
+            FuseRadius="16" FuseArmSeconds="1.5" ChargeKg="22"
+            FragmentCount="25000" FragmentMassGrams="1.6" FragmentSpeed="1700"
+            SprayAngleDeg="80" SprayHalfWidthDeg="10" FragmentIgnitionChance="0.08">
     <Stage Seconds="18.0" Accel="26" />
   </Munition>
 

@@ -7,8 +7,8 @@ namespace KSArmory;
 /// <summary>
 /// Rides the main view behind a round in flight, holds on the burst, and gives the view back.
 ///
-/// <para>The main view rather than a second one, because a secondary viewport draws no clouds,
-/// ocean or clustered lights. See <c>docs/BLOCKED-ON-KSA.md</c>, which also has why the camera
+/// <para>The main view rather than a second one, because a secondary viewport draws no ocean
+/// or clustered lights. See <c>docs/BLOCKED-ON-KSA.md</c>, which also has why the camera
 /// keeps following its craft throughout.</para>
 /// </summary>
 internal sealed class ChaseCamera : IViewPose
@@ -341,10 +341,10 @@ internal sealed class ChaseCamera : IViewPose
                 Aim = null;
                 PassOverEverythingFlying(system);
 
-                // An expiry is not a burst: nothing went off, so there is nothing to hold on.
-                if (spent.State == RoundState.Expired)
+                // An expiry or a dud is not a burst: nothing went off, so there is nothing to hold on.
+                if (spent.State is RoundState.Expired or RoundState.Dud)
                 {
-                    Log.Info("chase: the round expired, nothing to hold on");
+                    Log.Info($"chase: the round ended {spent.State}, nothing to hold on");
                     Release();
                     return;
                 }

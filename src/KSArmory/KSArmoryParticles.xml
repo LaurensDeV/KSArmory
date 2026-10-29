@@ -167,6 +167,155 @@
     </ParticleEmitter>
 
     <!--
+      A part on fire: small flame particles thrown out of the hole with the craft's own speed, which the
+      drag then takes off them, so off a moving craft they stream back as a tongue and off one standing
+      still they rise. Under air's density, so buoyancy lifts them at a g. Ksa/PartFires.cs places it on
+      the skin every frame and sizes the particles from the part. The black smoke child does the same,
+      slower and longer. The colour is held near four times full so overlapping particles stay orange
+      after the tone map; at ten they read white.
+    -->
+    <ParticleEmitter Id="KSArmoryPartFire" Drag="4" Density="0.5">
+        <MaxParticles Value="192" />
+        <Mesh Id="ParticleSphere"/>
+        <Renderer>SimpleColor</Renderer>
+        <Updaters>SimpleMovement</Updaters>
+        <Updaters>ShrinkOverLifetime</Updaters>
+        <Updaters>HueShift</Updaters>
+        <Updaters>ModelMatrix</Updaters>
+        <Updaters>Age</Updaters>
+        <SpawnMode>Endless</SpawnMode>
+        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+        <EmitterSize Value="0.1"/>
+        <EmitterExtents X="0.08" Y="0" Z="0"/>
+        <SpawnRate Value="200"/>
+        <Force X="0" Y="0" Z="0" />
+        <InheritVelocity Value="true"/>
+        <ParticleColor X="4" Y="1.2" Z="0.25" W="1"/>
+        <ParticleColorShift X="0.15" Y="0.35" Z="0"/>
+        <ParticleLifespan X="0.5" Y="0.9"/>
+        <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
+        <ParticleSize X="0.15" Y="0.4"/>
+        <ParticleVelocity X="0.8" Y="0.8" Z="0.8"/>
+        <ParticleVelocityShift Value="0.6"/>
+        <ParticleExtra X="0.5" Y="0" Z="0" W="0"/>
+
+        <ParticleEmitters Drag="2" Density="0.9">
+            <MaxParticles Value="96" />
+            <Mesh Id="Plane"/>
+            <Renderer>Billboard</Renderer>
+            <MaterialId Value="KSArmoryFlakMaterial"/>
+            <Updaters>SimpleMovement</Updaters>
+            <Updaters>GrowOverLifetime</Updaters>
+            <!-- W is the grow ratio: without it the curve runs to zero and the smoke implodes. -->
+            <EmitterExtra W="4.0"/>
+            <Updaters>ModelMatrix</Updaters>
+            <Updaters>Age</Updaters>
+            <SpawnMode>Endless</SpawnMode>
+            <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+            <EmitterSize Value="0.2"/>
+            <EmitterExtents X="0.1" Y="0" Z="0"/>
+            <SpawnRate Value="24"/>
+            <Force X="0" Y="0" Z="0" />
+            <InheritVelocity Value="true"/>
+            <ParticleColor X="1" Y="1" Z="1" W="0.6"/>
+            <ParticleLifespan X="3.0" Y="5.0"/>
+            <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
+            <ParticleSize X="0.4" Y="0.9"/>
+            <ParticleVelocity X="0.5" Y="0.5" Z="0.5"/>
+            <ParticleVelocityShift Value="0.8"/>
+            <ParticleExtra X="0.8" Y="0" Z="0" W="0"/>
+        </ParticleEmitters>
+    </ParticleEmitter>
+
+    <!--
+      A tank holed under pressure: what it held thrown out of the hole as a burst of spray, which the drag
+      then stops and spreads. Ksa/Leaks.cs fires it once per hole as the stream starts, with the craft's
+      speed and 25 m/s outward as its velocity, and makes it bigger and longer-lived for a cryogen.
+    -->
+    <ParticleEmitter Id="KSArmoryBreach" Drag="6" Density="1.2">
+        <MaxParticles Value="24" />
+        <Mesh Id="Plane"/>
+        <Renderer>Billboard</Renderer>
+        <MaterialId Value="KSArmorySmokeMaterial"/>
+        <Updaters>SimpleMovement</Updaters>
+        <Updaters>GrowOverLifetime</Updaters>
+        <!-- W is the grow ratio: without it the curve runs to zero and the spray implodes. -->
+        <EmitterExtra W="4.0"/>
+        <Updaters>ModelMatrix</Updaters>
+        <Updaters>Age</Updaters>
+        <SpawnMode>Burst</SpawnMode>
+        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+        <EmitterSize Value="0.1"/>
+        <SpawnRate Value="24"/>
+        <Force X="0" Y="0" Z="0" />
+        <InheritVelocity Value="true"/>
+        <ParticleColor X="1" Y="1" Z="1" W="0.8"/>
+        <ParticleLifespan X="0.8" Y="1.6"/>
+        <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
+        <ParticleSize X="0.4" Y="0.9"/>
+        <ParticleVelocity X="6" Y="6" Z="6"/>
+        <ParticleVelocityShift Value="0.7"/>
+        <ParticleExtra X="0.8" Y="0" Z="0" W="0"/>
+    </ParticleEmitter>
+
+    <!--
+      The same breach into a fire already burning at the hole: the spray catches as it leaves and flares,
+      orange and over one so it glows without the tone map clipping it white, then is gone in under a second. Ksa/Leaks.cs fires it in place of
+      KSArmoryBreach when the tank is on fire.
+    -->
+    <ParticleEmitter Id="KSArmoryBreachFlame" Drag="6" Density="0.5">
+        <MaxParticles Value="48" />
+        <Mesh Id="ParticleSphere"/>
+        <Renderer>SimpleColor</Renderer>
+        <Updaters>SimpleMovement</Updaters>
+        <Updaters>ShrinkOverLifetime</Updaters>
+        <Updaters>HueShift</Updaters>
+        <Updaters>ModelMatrix</Updaters>
+        <Updaters>Age</Updaters>
+        <SpawnMode>Burst</SpawnMode>
+        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+        <EmitterSize Value="0.1"/>
+        <SpawnRate Value="48"/>
+        <Force X="0" Y="0" Z="0" />
+        <InheritVelocity Value="true"/>
+        <ParticleColor X="5" Y="1.5" Z="0.3" W="1"/>
+        <ParticleColorShift X="0.2" Y="0.35" Z="0"/>
+        <ParticleLifespan X="0.3" Y="0.8"/>
+        <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
+        <ParticleSize X="0.3" Y="0.9"/>
+        <ParticleVelocity X="6" Y="6" Z="6"/>
+        <ParticleVelocityShift Value="0.7"/>
+        <ParticleExtra X="0.5" Y="0" Z="0" W="0"/>
+    </ParticleEmitter>
+
+    <!--
+      A paintball round going off: a burst of paint drops thrown out and slowed by the air, falling as they
+      go. Ksa/PaintBurst.cs sets the colour to the shooter's and scales it by the charge from a 20 mm round's.
+    -->
+    <ParticleEmitter Id="KSArmoryPaintBurst" Drag="3" Density="1000">
+        <MaxParticles Value="40" />
+        <Mesh Id="ParticleSphere"/>
+        <Renderer>SimpleColor</Renderer>
+        <Updaters>SimpleMovement</Updaters>
+        <Updaters>ShrinkOverLifetime</Updaters>
+        <Updaters>ModelMatrix</Updaters>
+        <Updaters>Age</Updaters>
+        <SpawnMode>Burst</SpawnMode>
+        <EmitterSpawnLogic>Sphere</EmitterSpawnLogic>
+        <EmitterSize Value="0.1"/>
+        <SpawnRate Value="40"/>
+        <Force X="0" Y="0" Z="0" />
+        <InheritVelocity Value="false"/>
+        <ParticleColor X="1" Y="0.3" Z="0.8" W="1"/>
+        <ParticleLifespan X="0.5" Y="1.2"/>
+        <ParticleSpawnLogic>ScatterFromCenter</ParticleSpawnLogic>
+        <ParticleSize X="0.08" Y="0.22"/>
+        <ParticleVelocity X="5" Y="5" Z="5"/>
+        <ParticleVelocityShift Value="0.8"/>
+        <ParticleExtra X="0.5" Y="0" Z="0" W="0"/>
+    </ParticleEmitter>
+
+    <!--
       A chaff cartridge blooming: a faint grey-silver cloud tens of metres across within a second,
       which is nearly invisible in life. One burst where the dipoles stopped in the air; the sprite is
       the gun's smoke, kept thin. Density a hair over air's, so it settles as slowly as chaff does.
@@ -547,6 +696,7 @@
     <Shader Id="KSArmorySensorCompute" Path="Shaders/KSArmorySensor.comp" />
     <Shader Id="KSArmoryFireLightCompute" Path="Shaders/KSArmoryFireLight.comp" />
     <Shader Id="KSArmoryRingCompute" Path="Shaders/KSArmoryRing.comp" />
+    <Shader Id="KSArmoryRingMsaaCompute" Path="Shaders/KSArmoryRingMsaa.comp" />
     <Shader Id="KSArmoryHoleCompute" Path="Shaders/KSArmoryHole.comp" />
     <Shader Id="KSArmoryLeakCompute" Path="Shaders/KSArmoryLeak.comp" />
     <Shader Id="KSArmoryTracerCompute" Path="Shaders/KSArmoryTracer.comp" />

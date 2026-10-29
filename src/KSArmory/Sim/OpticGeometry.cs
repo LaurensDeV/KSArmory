@@ -67,6 +67,23 @@ public static class OpticGeometry
     public static DrivePose Pose(OpticProfile profile, MountFrame mount, double3 aimPartFrame)
         => new(mount.ToPart(profile.HeadPivot), Rotation(profile, mount, aimPartFrame));
 
+    /// <summary>
+    /// The head's pose with the ball nodded <paramref name="tuckRad"/> further than its aim, about
+    /// the nod axis, away from the mount's centreline: a stowed pod's windows turned into the nose.
+    /// The roll gimbal is untouched, so it keeps the slot where the aim put it.
+    /// </summary>
+    public static DrivePose Pose(OpticProfile profile, MountFrame mount, double3 aimPartFrame, double tuckRad)
+    {
+        DrivePose pose = Pose(profile, mount, aimPartFrame);
+        if (!(tuckRad > 0.0)) return pose;
+
+        double3 across = Vec.RejectFrom(Vec.Unit(aimPartFrame), mount.Forward);
+        if (Vec.Len2(across) < 1e-12) return pose;
+
+        double3 axis = Vec.Unit(Vec.Cross(mount.Forward, Vec.Unit(across)));
+        return pose with { Rotation = doubleQuat.CreateFromAxisAngle(axis, tuckRad) * pose.Rotation };
+    }
+
     /// <summary>The head's pose on a mount that never moves.</summary>
     public static DrivePose Pose(OpticProfile profile, double3 aimPartFrame)
         => Pose(profile, MountFrame.Fixed, aimPartFrame);

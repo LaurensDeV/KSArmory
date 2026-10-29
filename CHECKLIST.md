@@ -123,6 +123,35 @@ Four things changed shape and need watching, worst first:
 
 Also unflown on this build: everything the previous retarget listed as unwatched, and the turret.
 
+**Retargeted to KSA `2026.10.25.5707` — one member gone, two silent breaks, and crew radiation.**
+`PlanetRenderer.GetRenderBillboardMatrix` is gone; it returned the identity, which the planet map now passes
+itself. `Radiation.ComputeDoseRate` now returns `SievertsPerSecond` and **nothing calls it**: the gauge and
+the new crew dose read `ComputeDoseRates`, so the hook moved there and a burst now doses kittens (sickness
+at 1 Sv, death at 4). The cloud renderer's settled history went per viewport and its private fields with
+it; public getters replace the reflection. The mod's belts are now all electrons and every orbit-average
+cache is cleared on a re-write. Every other contract in the upgrade skill reads the same, and no XML
+element or attribute the mod writes moved. Findings left open:
+
+- [ ] **`head-on`** on 5707, with the log's `built for KSA 2026.10.25.5707, running 2026.10.25.5707 - reporting on`.
+- [ ] **The planet map renders**, and the weather clouds sit in front of and behind a burst as before
+      (the accumulated pair, not the crawling one — no `accumulated images did not resolve` warning).
+- [ ] **A burst moves the Radiation gauge**, and a crewed craft in fallout accumulates dose.
+- [ ] **Sickness during a salvo keeps the rounds.** KSA sets 1x itself when a kitten crosses 1 Sv; landing
+      while `WarpPolicy` awaited its own write, that read as a refused write and abandoned every round.
+      A speed below the request now counts as landed (`WarpPolicyTests`); unflown.
+- [ ] **A fireball's light does not double-light the ground beyond ~3 km.** Terrain and clutter now go into
+      KSA's light pre-pass and still light themselves forward; `KSArmoryFireLight.comp` now skips a pixel
+      whose pre-pass normal has w exactly 1, which only they write. Unflown: a burst at night beside the
+      pad, the pad lit, the ground round it no brighter than with the pass off.
+- [ ] **A burst's aurora takes its body's own colours.** KSA's default green changed and three bodies now
+      declare their own; the pass reads `GetAurora()` per body and packs both colours into the push
+      constant. Unflown: Earth's aurora a deeper green than before.
+- [ ] **A storm scales Earth's outer belt, not a burst's above it.** A patch on
+      `ComputeBeltDoseRate` gives the engine the natural belts alone and adds the burst's at a scale of one.
+      The map overlay still scales the burst's, during a storm only. Unflown.
+- [ ] **A holed gas tank vents.** 5707 stores gas at a pressure; a holed tank holding one vents at choked
+      flow and logs `gas tank ... venting`. Unflown, and no stock craft carries a gas tank: fill one in the editor.
+
 **Retargeted to KSA `2026.10.19.5638` — eight assemblies renamed, no member moved, and not yet
 flown.** `Brutal.Core.Numerics`, `Common`, `Strings` and five siblings lost their `Core.` (`Common`
 became `Brutal.Core`); the types and namespaces are identical, so only the references moved, and a mod
@@ -2146,20 +2175,25 @@ maps are all unproven paths.
 
 - [ ] `LITENING Targeting Pod` appears under **Sensors** in the editor and surface-attaches to a
       wing or fuselage. It cannot root a craft, which is right for a store.
-- [ ] **It renders at all.** A second `<MeshAtlas>` and three `<PbrMaterial>`s alongside the
-      palette one is new; a mesh Id that does not resolve is a *silent* failure. An untextured or
-      magenta pod means the material Ids, not the geometry.
+- [ ] **It renders at all.** Its own `<MeshAtlas>` and one `<PbrMaterial>`; a mesh Id that does
+      not resolve is a *silent* failure. An untextured or magenta pod means the material Id, not the
+      geometry.
 - [ ] It reads as a Litening: 2.2 m long, the ball nearly as fat as the body, the lugs on top.
 - [ ] **The nose rolls and the ball nods.** Watch it while the head tracks a crossing target: the
       shroud and its cheeks sweep round the centreline, the ball tilts within them, and the ball
       never parts company with the shroud. That last is the one thing the tests cannot see.
-- [ ] **The recession faces the way the sight looks.** If the pod is looking out through the
-      *closed* side of the shroud, `CLOCK_DEG` in `import-litening.py` is half a turn out.
+- [ ] **The slot faces the way the sight looks.** If the pod is looking out through a cheek or
+      the closed side of the nose, the roll mesh's slot is on the wrong side of +X.
+- [ ] **It hangs on the ejector it brings, and clicks into the Weapon Mount.** The lugs sit in the
+      ejector's hooks and the sway-brace arms rest on the skin.
 - [ ] The **Camera** row says `roll-nod gimbal`, with a roll and a nod that move as it tracks.
 - [ ] Looking dead ahead it says **in the keyhole** and holds ~4° off the centreline rather than
       spinning the nose. This is the alt-az-at-zenith singularity and is expected, not a fault.
-- [ ] Looking aft and down it says **at the nod stop** at 150°, and the ball is still inside the
-      shroud there — the shell clears the sightline to 158°, so it should have 8° in hand.
+- [ ] Looking aft and down it says **at the nod stop** at 147°, where the slot's slanted floor
+      meets the sightline from the ball's centre.
+- [ ] **Parked, the ball goes blank.** With nothing to look at it turns to look down through the
+      slot, then nods on until its windows face up and aft inside the nose. Given a target it nods
+      back before it slews, about a second at 140°/s.
 - [ ] **Derotation.** Roll the aircraft, or track a target right round the pod: the picture keeps
       the airframe at the top rather than turning with the nose.
 - [ ] The pod stows looking **out of its mounting face** — straight down under a wing — rather

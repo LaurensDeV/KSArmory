@@ -5,8 +5,8 @@ using KSA;
 namespace KSArmory;
 
 /// <summary>
-/// A bar over each part showing what <see cref="PartHealth"/> says is left of it — a debugging aid,
-/// on <see cref="Config.DrawPartHealth"/>.
+/// A bar over each part showing what <see cref="PartHealth"/> says is left of it, on
+/// <see cref="Config.DrawPartHealth"/>.
 /// </summary>
 internal static class PartHealthBars
 {
