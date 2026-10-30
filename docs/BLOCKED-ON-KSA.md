@@ -539,20 +539,6 @@ every altitude law has to follow it.
 aurora, the debris held along the field and the belt a burst fills all follow KSA's own field. The file's
 field is only for a body KSA declares none on.
 
-## Drawing a shape the gizmo renderer does not have
-
-**Wanted.** A solid torus on the ground under a craft being placed, and in general any filled shape at a
-world position without attaching it to a vehicle.
-
-**The engine reason.** `GizmosRenderer` draws spheres and lines (`GizmoType` is `Sphere`, `Line`, `Num`);
-`DrawCircle`, `DrawWireBox` and `DrawCylinderSides` are line loops. `ProcGenMeshLibrary.GenerateTorus`
-can make the geometry, but drawing it means a `SimpleVkMesh` submitted inside a render pass.
-
-**No longer blocked on KSA, and not taken up.** `Ksa/CloudPassHook.cs` hands the mod a command buffer, and
-the ring pass already paints exact circles and ellipses on whatever the depth buffer holds. `CraftMover`'s
-placement marker is still `KsaWorld.DrawTorusEcl`, spheres ringed closely enough to read as a tube and
-draped onto the terrain; moving it onto the ring pass is this mod's work now.
-
 ## `IsValid()` on a distance is an astronomical-scale check
 
 **This one is not a missing feature — it is a predicate that does not mean what it is named**,

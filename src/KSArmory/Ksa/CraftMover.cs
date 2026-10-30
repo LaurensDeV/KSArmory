@@ -12,19 +12,17 @@ namespace KSArmory;
 /// </summary>
 internal sealed class CraftMover
 {
-    private static readonly float4 HoverColour = new(0.6f, 0.8f, 1.0f, 0.8f);
-    private static readonly float4 HeldColour = new(1.0f, 0.85f, 0.3f, 1f);
+    // Painted, so alpha is the brightness a ring keeps over dark ground; the lines take the colour whole.
+    private static readonly float4 HoverColour = new(0.6f, 0.8f, 1.0f, 0.05f);
+    private static readonly float4 HeldColour = new(1.0f, 0.85f, 0.3f, 0.05f);
     private static readonly float4 TargetColour = new(0.4f, 1.0f, 0.6f, 1f);
+    private static readonly float4 PaintedTarget = TargetColour with { W = 0.05f };
 
     // Smallest and largest a craft's clickable area may be, in pixels. The floor keeps a distant
     // vessel reachable when it is a couple of pixels across; the ceiling stops one filling the
     // screen from swallowing every click meant for the ground beside it.
     private const float MinPickRadius = 14f;
     private const float MaxPickRadius = 140f;
-
-    // Closer than this to where it already is and the click means "leave it". A vehicle is several
-    // metres across, so anything inside this is the same spot as far as anyone aiming is concerned.
-    private const double StayPut = 12.0;
 
     // Radius of the ring drawn where the craft would land, in metres. Fixed rather than scaled to
     // the craft: it marks a spot on the ground, and a big vessel would otherwise hide it.
@@ -36,6 +34,12 @@ internal sealed class CraftMover
 
     private Vehicle? _held;
     private Vehicle? _hovered;
+
+    // Where the held craft would land, as the UI pass last saw the pointer; the stopwatch lets F2,
+    // which stops the UI pass, take the copy away with the rings.
+    private (string Body, double Latitude, double Longitude)? _landing;
+    private readonly System.Diagnostics.Stopwatch _sinceLanding = new();
+    private const double LandingStaleSeconds = 0.5;
     private int _trace;
     private int _aimTrace;
 
@@ -49,6 +53,16 @@ internal sealed class CraftMover
     {
         _held = null;
         _hovered = null;
+        _landing = null;
+    }
+
+    /// <summary>The held craft drawn where it would land, from the part draw hook.</summary>
+    public void DrawPlacementCopy(IViewport viewport, int frameIndex)
+    {
+        if (_held is not { } held || _landing is not { } at) return;
+        if (_sinceLanding.Elapsed.TotalSeconds > LandingStaleSeconds) return;
+
+        KsaWorld.DrawPlacementCopy(held, at.Body, at.Latitude, at.Longitude, viewport, frameIndex);
     }
 
     /// <summary>Does nothing while switched off, not even reading the mouse.</summary>
@@ -141,28 +155,9 @@ internal sealed class CraftMover
     {
         if (_held is not { } craft) return;
 
-        // Pointing at the held craft means "leave it". Placing re-derives a position from the
-        // latitude and longitude and the surface rule, which is not where the craft is: on a
-        // launch pad it is metres below, so a click that should change nothing drops it.
-        if (ReferenceEquals(_hovered, craft))
-        {
-            Log.Info($"left {KsaWorld.DisplayName(craft)} where it was");
-            _held = null;
-            return;
-        }
-
-        if (!TryTarget(out double3 target, out double lat, out double lon, out string body))
+        if (!TryTarget(out _, out double lat, out double lon, out string body))
         {
             Log.Info("nothing under the cursor to set it down on");
-            return;
-        }
-
-        // Or near enough to it. The pick radius is generous, so the cursor can be a little off the
-        // craft and still mean the same thing.
-        if (Vec.Len(target - KsaWorld.PositionEcl(craft)) < StayPut)
-        {
-            Log.Info($"left {KsaWorld.DisplayName(craft)} where it was");
-            _held = null;
             return;
         }
 
@@ -175,14 +170,13 @@ internal sealed class CraftMover
         _held = null;
     }
 
-    // A craft under the pointer answers with its own footing: the ray through its middle meets the
-    // ground behind it, a vehicle-height of parallax past it.
+    // The held craft under the pointer answers with its own footing: the ray through its middle meets
+    // the ground behind it, a vehicle-height of parallax past it. Any other craft is ground like the
+    // rest, or the generous pick radius drags the landing onto whatever the craft passes near.
     private bool TryTarget(out double3 groundEcl, out double latitudeDeg, out double longitudeDeg,
                            out string bodyName)
     {
-        // The hover is already worked out this frame; asking again would project every craft
-        // twice more per frame for the same answer.
-        if (_hovered is { } over
+        if (_hovered is { } over && ReferenceEquals(over, _held)
             && KsaWorld.TryCraftSurfacePoint(over, out groundEcl, out latitudeDeg,
                                              out longitudeDeg, out bodyName))
         {
@@ -216,7 +210,11 @@ internal sealed class CraftMover
 
         DrawFootprint(_held, heldEcl, HeldColour);
 
-        if (!TryTarget(out double3 groundEcl, out _, out _, out _)) return;
+        _landing = null;
+        if (!TryTarget(out double3 groundEcl, out double latitude, out double longitude, out string body)) return;
+
+        _landing = (body, latitude, longitude);
+        _sinceLanding.Restart();
 
         // The round trip: where the marker lands, projected back, against where the pointer is.
         if (++_aimTrace % 120 == 0) Log.Debug(() => $"aim: {KsaWorld.DescribeCursorRay(groundEcl)}");
@@ -225,7 +223,7 @@ internal sealed class CraftMover
         // sloping terrain, and the line from the craft to it.
         double3 up = Up(_held, groundEcl);
 
-        KsaWorld.DrawTorusEcl(groundEcl, up, MarkerRadius, MarkerRadius * 0.14, TargetColour);
+        GroundRings.Add(groundEcl, MarkerRadius, 0.0, PaintedTarget);
         KsaWorld.DrawLineEcl(groundEcl, groundEcl + up * (MarkerRadius * 0.8), TargetColour);
         KsaWorld.DrawLineEcl(heldEcl, groundEcl, TargetColour);
     }
@@ -234,12 +232,7 @@ internal sealed class CraftMover
     // "this one" is by construction big enough to hide what it is pointing at.
     private static void DrawFootprint(Vehicle craft, double3 atEcl, float4 colour)
     {
-        double radius = Math.Max(KsaWorld.MeanRadius(craft) * 1.4, 5.0);
-        double3 up = Up(craft, atEcl);
-
-        // Dropped to the craft's base, so it lies on the ground rather than cutting through the
-        // middle of the hull.
-        KsaWorld.DrawTorusEcl(atEcl - up * (radius / 1.4), up, radius, radius * 0.10, colour);
+        GroundRings.Add(atEcl, Math.Max(KsaWorld.MeanRadius(craft) * 1.4, 5.0), 0.0, colour);
     }
 
     private static double3 Up(Vehicle craft, double3 atEcl)

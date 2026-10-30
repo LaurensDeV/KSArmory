@@ -735,7 +735,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/BallisticScenario.cs` | the ballistic one of those — designate, arm, stage, and report what the warheads did |
 | `Ksa/DropScenario.cs` | the store one — fly a craft up, let a store go, and say where it landed against the sight and against a flight off the state it actually left with |
 | `Ksa/GunneryScenario.cs` | the gun one — drones crossing past a mount one at a time, and **every shell scored where it burst**, because the first detonation says a gun can hit and nothing about how well. `ground` scores shells against a designated place instead, short or long |
-| `Ksa/CraftMover.cs` | picks a craft up and sets it down elsewhere, from the panel |
+| `Ksa/CraftMover.cs` | picks a craft up and sets it down elsewhere, from the panel -- **a copy of it drawn where it would land**, posed by the teleport's own function so the two cannot disagree |
 | `Ksa/BurstTool.cs` | click the world to set off a warhead there, from the panel |
 | `Ksa/Designator.cs` | click the world to shoot at that spot, with no target and no lock |
 | `Ksa/TargetLock.cs` | shift-click anything to lock an installation onto it |

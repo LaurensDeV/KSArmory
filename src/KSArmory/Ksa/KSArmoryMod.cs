@@ -198,6 +198,8 @@ public sealed class KSArmoryMod
 
         LooseBodyDrawHook.Install((viewport, frameIndex) =>
         {
+            _mover.DrawPlacementCopy(viewport, frameIndex);
+
             if (_roster is not { } roster) return;
 
             using (_budget.Measure("shell bodies"))
