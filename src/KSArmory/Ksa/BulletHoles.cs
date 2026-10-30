@@ -42,16 +42,20 @@ internal static class BulletHoles
     /// <summary>Every hole kept, oldest first.</summary>
     public static IReadOnlyList<Hole> All => _holes;
 
-    public static void Clear() => _holes.Clear();
+    public static void Clear()
+    {
+        _holes.Clear();
+        WallCraters.World.Clear();
+    }
 
     /// <summary>
     /// Marks where <paramref name="round"/> struck <paramref name="craft"/>, cast along its path
     /// relative to the craft at the instant it struck. Nothing for a craft with no mesh to cast
     /// against.
     /// </summary>
-    public static void Strike(Vehicle craft, IProjectile round, float paint = -1f)
+    public static Penetration Strike(Vehicle craft, IProjectile round, float paint = -1f)
     {
-        if (!Enabled || !KsaWorld.IsAlive(craft)) return;
+        if (!Enabled || !KsaWorld.IsAlive(craft)) return default;
 
         double intoFrame = round.DetonationElapsedInFrame;
         double3 craftAt = KsaWorld.PositionEcl(craft) + (KsaWorld.VelocityEcl(craft) * intoFrame);
@@ -63,7 +67,7 @@ internal static class BulletHoles
             || subPart is null)
         {
             Log.Debug(() => $"no hole: {KsaWorld.DisplayName(craft)}'s mesh was not met along the shell's path");
-            return;
+            return default;
         }
 
         (double core, double scorch) = HoleLook.RadiiFor(round.Munition.CalibreMm, round.Munition.ChargeKg);
@@ -72,22 +76,41 @@ internal static class BulletHoles
             AddPaint(new Hole(subPart, local, cameFrom, 0f,
                               (float)Paintball.SplatRadius(round.Munition.ChargeKg, round.Munition.CalibreMm),
                               _made++ % 97, paint, normal));
-            return;
+            return default;
         }
 
-        // A burst holes whatever it bursts on; a dart only a wall it can punch through.
-        double speed = Vec.Len(travel);
-        if (round.Munition.ChargeKg <= 0f && KsaWorld.TryTankWallOf(subPart, out TankWall wall)
-            && !wall.Perforates(0.5 * round.Munition.MassKg * speed * speed, round.Munition.CalibreMm / 1000.0))
+        // A burst holes whatever it bursts on; a dart only a wall it can punch through, what is left of it
+        // under the craters earlier darts made there.
+        Penetration verdict = default;
+        if (round.Munition.ChargeKg <= 0f && KsaWorld.TryTankWallOf(subPart, out TankWall wall))
         {
-            Log.Debug(() => $"no hole: the shell did not get through {subPart.Id}'s {wall.ThicknessMetres * 1000.0:F0} mm wall");
-            return;
+            double speed = Vec.Len(travel);
+            double joules = 0.5 * round.Munition.MassKg * speed * speed;
+            double across = round.Munition.CalibreMm / 1000.0;
+            double left = WallCraters.World.ThicknessLeft(subPart, local, across, wall.ThicknessMetres);
+            verdict = new Penetration(subPart.FullPart, wall.Perforates(joules, across, left));
+
+            if (!verdict.Through)
+            {
+                double dent = wall.DentMetres(joules, across);
+                WallCraters.World.Dent(subPart, local, across, dent);
+                Log.Debug(() => $"no hole: the shell went {dent * 1000.0:F1} mm into {subPart.Id}'s wall, "
+                                + $"{left * 1000.0:F1} of {wall.ThicknessMetres * 1000.0:F0} mm left there");
+                return verdict;
+            }
         }
 
         if (_holes.Count >= MaxHoles) _holes.RemoveAt(0);
         _holes.Add(new Hole(subPart, local, cameFrom, (float)core, (float)scorch, _made++ % 97, paint, normal));
         Log.Debug(() => $"hole in {subPart.Id} on {KsaWorld.DisplayName(craft)}, {core:F2}/{scorch:F2} m; {_holes.Count} held");
+        return verdict;
     }
+
+    /// <summary>
+    /// Whether a dart got through the tank wall it struck: the tank's part, or null where it struck no tank
+    /// or was not a dart.
+    /// </summary>
+    public readonly record struct Penetration(Part? Tank, bool Through);
 
     /// <summary>
     /// A paint splat where a burst's spray first meets <paramref name="craft"/>, on the line from the burst

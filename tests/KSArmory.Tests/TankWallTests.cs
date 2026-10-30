@@ -70,7 +70,54 @@ public class TankWallTests
     }
 
     [Fact]
-    public void FragmentsThatCannotGetThroughATanksWallNeitherHitItNorCostIt()
+    public void AHitThatStopsGoesAsDeepAsItsEnergyWouldPunch()
+    {
+        double joules = 0.5 * Thick.PlugJoules(0.02);
+        double dent = Thick.DentMetres(joules, 0.02);
+
+        Assert.Equal(Thick.ThicknessMetres / Math.Sqrt(2.0), dent, 9);
+        Assert.False(Thick.Perforates(joules, 0.02, dent * 1.01));
+        Assert.True(Thick.Perforates(joules, 0.02, dent * 0.99));
+    }
+
+    // A tenth of the energy to go through, so about three hits at one spot before the fourth gets through.
+    [Fact]
+    public void RepeatedHitsOnOneSpotGetThroughAWallOneHitCannot()
+    {
+        WallCraters craters = new();
+        object skin = new();
+        double3 spot = new(0.1, 0.2, 0.3);
+        double across = 0.02;
+        double joules = 0.1 * Thick.PlugJoules(across);
+
+        int hits = 0;
+        while (!Thick.Perforates(joules, across, craters.ThicknessLeft(skin, spot, across, Thick.ThicknessMetres)))
+        {
+            craters.Dent(skin, spot, across, Thick.DentMetres(joules, across));
+            hits++;
+            Assert.True(hits < 10);
+        }
+
+        Assert.InRange(hits, 2, 4);
+        Assert.Equal(Thick.ThicknessMetres, craters.ThicknessLeft(skin, spot + new double3(0.05, 0, 0), across,
+                                                                    Thick.ThicknessMetres), 9);
+    }
+
+    [Fact]
+    public void ASkinKeepsItsDeepestCratersWhenFull()
+    {
+        WallCraters craters = new();
+        object skin = new();
+        for (int i = 0; i < WallCraters.MostPerSkin; i++) craters.Dent(skin, new double3(i, 0, 0), 0.02, 0.01);
+
+        craters.Dent(skin, new double3(-100, 0, 0), 0.02, 0.05);
+
+        Assert.Equal(0.035, craters.ThicknessLeft(skin, new double3(-100, 0, 0), 0.02, 0.085), 9);
+        Assert.Equal(0.085, craters.ThicknessLeft(skin, new double3(0, 0, 0), 0.02, 0.085), 9);
+    }
+
+    [Fact]
+    public void FragmentsThatStopInATanksWallLightNothingAndCostOnlyTheDent()
     {
         MunitionProfile amraam = Catalogue.MunitionNamed("AIM120C");
         double3 nose = new(1, 0, 0);
@@ -90,6 +137,6 @@ public class TankWallTests
 
         Assert.NotEmpty(open);
         Assert.Empty(armoured);
-        Assert.True(armouredShares.Sum(s => s.Share) < openShares.Sum(s => s.Share));
+        Assert.InRange(armouredShares.Sum(s => s.Share), double.Epsilon, openShares.Sum(s => s.Share) * 0.5);
     }
 }

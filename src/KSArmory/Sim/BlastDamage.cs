@@ -31,7 +31,7 @@ namespace KSArmory;
 /// The area the part shows a burst, averaged over every direction: a quarter of its box's surface
 /// (Cauchy), since a fragment's line to the part is not known to the part.
 /// </param>
-/// <param name="Wall">A tank's wall, which a fragment that cannot get through leaves alone; none on any other part.</param>
+/// <param name="Wall">A tank's wall, which a fragment that cannot get through only dents; none on any other part.</param>
 internal readonly record struct DamageablePart(
     int Index, double3 PositionEcl, double RadiusMetres, double CrashTolerancePascals, double Reflection = 1.0,
     double MassKg = 0.0, double PresentedAreaM2 = 0.0, TankWall Wall = default)
@@ -382,9 +382,13 @@ internal static class BlastDamage
                                                      centre, part.AreaM2, burst.AirKgPerM3);
             int struck = Fragmentation.Hits(load.ExpectedHits, dice);
             double perHit = load.JoulesPerHit(spray.MassKg);
-            if (!part.Wall.Perforates(perHit, TankWall.FragmentDiameterMetres(spray.MassKg))) struck = 0;
-            cost += PartToughness.FragmentShare(struck, perHit, joules);
-            if (struck > 0) hits?.Add((part.Index, struck));
+            double across = TankWall.FragmentDiameterMetres(spray.MassKg);
+
+            // One that stops in a tank's wall costs the share of the wall it got through, and reaches nothing inside.
+            bool through = part.Wall.Perforates(perHit, across);
+            double reached = through ? 1.0 : part.Wall.DentMetres(perHit, across) / part.Wall.ThicknessMetres;
+            cost += PartToughness.FragmentShare(struck, perHit, joules) * reached;
+            if (through && struck > 0) hits?.Add((part.Index, struck));
 
             if (cost > 0.0) into.Add((part.Index, cost));
         }

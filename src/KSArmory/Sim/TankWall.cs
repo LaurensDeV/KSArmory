@@ -18,12 +18,28 @@ internal readonly record struct TankWall(double ThicknessMetres, double YieldPas
     public bool Known => ThicknessMetres > 0.0 && YieldPascals > 0.0;
 
     /// <summary>Work to shear a plug of this diameter out of the wall, at a shear strength of yield over √3.</summary>
-    public double PlugJoules(double diameterMetres) =>
-        0.5 * Math.PI * diameterMetres * ThicknessMetres * ThicknessMetres * YieldPascals / Math.Sqrt(3.0);
+    public double PlugJoules(double diameterMetres) => PlugJoules(diameterMetres, ThicknessMetres);
+
+    /// <summary>The same through only <paramref name="thicknessMetres"/> of it, as is left under a crater.</summary>
+    public double PlugJoules(double diameterMetres, double thicknessMetres) =>
+        0.5 * Math.PI * diameterMetres * thicknessMetres * thicknessMetres * YieldPascals / Math.Sqrt(3.0);
 
     /// <summary>Whether a hit carrying this much energy through this diameter gets through; always, with no wall known.</summary>
-    public bool Perforates(double joules, double diameterMetres) =>
-        !Known || !(diameterMetres > 0.0) || joules > PlugJoules(diameterMetres);
+    public bool Perforates(double joules, double diameterMetres) => Perforates(joules, diameterMetres, ThicknessMetres);
+
+    /// <summary>The same against only <paramref name="thicknessMetres"/> of wall.</summary>
+    public bool Perforates(double joules, double diameterMetres, double thicknessMetres) =>
+        !Known || !(diameterMetres > 0.0) || joules > PlugJoules(diameterMetres, thicknessMetres);
+
+    /// <summary>
+    /// How deep a hit that does not get through goes: the thickness whose plug its energy would just
+    /// shear, since the plug's work grows as the square of the thickness.
+    /// </summary>
+    public double DentMetres(double joules, double diameterMetres)
+    {
+        if (!Known || !(diameterMetres > 0.0) || !(joules > 0.0)) return 0.0;
+        return Math.Sqrt(joules / PlugJoules(diameterMetres, 1.0));
+    }
 
     /// <summary>
     /// The pressure difference the wall holds with a hole of this radius through it: the hoop stress

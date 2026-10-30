@@ -46,7 +46,8 @@ judged on overpressure alone, which is what its reach is calibrated on.
 - **A penetration law on tanks alone.** Above a gram, any fragment perforates 2 mm of 2024-T3 -- THOR puts
   the ballistic limit of a 2 g cube at about 160 m/s (JESTR 2014, table 1) -- so a part with no wall KSA
   declares takes every hit. A tank's wall stops what cannot shear a plug its own size out of it
-  (`Sim/TankWall.cs`).
+  (`Sim/TankWall.cs`): a stopped fragment costs the share of the wall it got through, and a stopped dart
+  leaves a crater a later one at the same spot meets less wall under (`Sim/WallCraters.cs`).
 - **The presented area** is a quarter of the part's box surface, its average over every direction
   (Cauchy).
 - **Shadowing is ignored.** Each part draws its own fragments, so a part behind another is hit as

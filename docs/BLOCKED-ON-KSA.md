@@ -76,8 +76,9 @@ still unpressurised, and KSA itself bursts nothing on `RatedPressure` yet. `Ksa/
 mirrors `Vehicle.DepleteConsumables`, and since this build a holed gas tank vents by that pressure
 (`TankLeak.GasFlowKgPerSecond`).
 
-**What the mod does with it** (`Sim/TankWall.cs`, not yet flown). A dart or a fragment holes a tank only
-with more energy than shearing a plug its own size out of the wall; a burst holes it regardless. A holed gas
+**What the mod does with it** (`Sim/TankWall.cs`, flown 2026-10-30). A dart or a fragment holes a tank only
+with more energy than shearing a plug its own size out of what is left of the wall there; a dart that stops
+dents it (`Sim/WallCraters.cs`), so hits on one spot add up, and a burst holes it regardless. A holed gas
 tank bursts where its pressure beats the hoop stress a through-crack of the opening's radius stands, read
 off the wall's thickness and yield against `Tank.RatedPressure`, with one aluminium-like toughness since KSA
 declares none. Fragments still make no holes, so only a shell's opening can burst a tank.

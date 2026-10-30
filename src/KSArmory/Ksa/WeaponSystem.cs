@@ -3503,7 +3503,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         double elapsed = round.DetonationElapsedInFrame;
 
         // A hole on whatever hull it touched, whoever's: it is paint.
-        if (round.StruckBody is Vehicle holed) BulletHoles.Strike(holed, round, _config.Paintball ? PaintHue : -1f);
+        _penetration = round.StruckBody is Vehicle holed
+            ? BulletHoles.Strike(holed, round, _config.Paintball ? PaintHue : -1f)
+            : default;
 
         // Paintball: what the burst reached is marked and nothing is harmed, so none of what follows runs.
         if (_config.Paintball)
@@ -3521,6 +3523,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // craft is a choice about what to aim at, not an immunity to what a round does.
             if (round.MissDistance <= lethalRange) Damage(intended, burst, elapsed, judged, confirmed: true);
         }
+
+        _penetration = default;
 
         // Rounds in the air pay as parts do, off the airborne list: KSA holds no state for them, so the
         // ledger is keyed on the round. Nobody flies a round, and the own salvo was filtered out.
@@ -4141,7 +4145,12 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             if (index < 0) continue;
 
             DamageablePart part = _partScratch[index];
-            if (!part.Wall.Perforates(energy, munition.CalibreMm / 1000.0))
+
+            // The tank the strike was cast against was judged there, craters and all; one behind it on its wall alone.
+            bool through = ReferenceEquals(crossed, _penetration.Tank)
+                ? _penetration.Through
+                : part.Wall.Perforates(energy, munition.CalibreMm / 1000.0);
+            if (!through)
             {
                 // Stopped by a tank's wall: the wall takes the blow, and nothing reaches what it holds.
                 _partShares.Add((index, PartToughness.KineticCoupling * energy
@@ -4165,6 +4174,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private const double LeftoverJoules = 6000.0;
 
     private readonly List<(Part Part, double Metres)> _along = [];
+
+    // What BulletHoles.Strike found of the round bursting now, for the damage that follows it.
+    private BulletHoles.Penetration _penetration;
 
     // A strike or fragments on a part holding propellant may set it burning (PartFire).
     private void Ignite(Vehicle v, MunitionProfile munition)
