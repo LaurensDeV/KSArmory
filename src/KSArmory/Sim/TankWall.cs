@@ -7,10 +7,12 @@ namespace KSArmory;
 internal readonly record struct TankWall(double ThicknessMetres, double YieldPascals, double RatedPascals)
 {
     /// <summary>
-    /// Plane-strain fracture toughness over yield, squared over pi: about 25 MPa√m over 415 MPa for
-    /// 2014-T6, every Core tank's wall. KSA declares no toughness, so every material is taken as that one.
+    /// Plane-stress fracture toughness over yield, squared over pi, since a tank's wall is thin sheet:
+    /// 58.0 MPa√m over 524 MPa for 1.5 mm 2014-T6 at 77 K, transverse, the weaker way (Orange 1967,
+    /// NASA TN D-4017, tables I and II). Every Core tank is 2014; KSA declares no toughness, so every
+    /// material is taken as it.
     /// </summary>
-    public const double CrackLengthMetres = 0.0012;
+    public const double CrackLengthMetres = 0.0039;
 
     /// <summary>A fragment taken as a steel sphere, for the size of the hole it would punch.</summary>
     public const double FragmentDensityKgPerM3 = 7850.0;

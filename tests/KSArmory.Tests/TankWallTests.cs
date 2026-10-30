@@ -53,6 +53,14 @@ public class TankWallTests
         Assert.False(Thin.Bursts(full, 101_325.0, 0.003));
     }
 
+    // NASA TM X-52063: 0.8 mm walls loaded to yield took 5.6 mm spheres as plain holes below the speed
+    // at which the liquid behind them ran a crack; a plane-strain crack length burst them on the puncture.
+    [Fact]
+    public void APunctureInAWallLoadedToYieldDoesNotRunOnItsOwn()
+    {
+        Assert.False(Thin.Bursts(2.0 * Thin.RatedPascals, 0.0, 0.0028));
+    }
+
     [Fact]
     public void AQuarterFullTankVentsThroughTheSameHole()
     {
