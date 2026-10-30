@@ -224,7 +224,8 @@ watched while flying something else.
 sky for its own slot, with its own LOD off its own camera (`PlanetViewportData.OnFrame`), and
 `Camera.GetEffectiveNearbyCelestial` keeps the grey distant sphere out of it; 2026.10.19.5638 added a
 terrain depth pre-pass and the radiation belts; 2026.10.25.5707 the clouds
-(`ViewportOptionFlags.RenderClouds`, `CloudRenderer`'s `ViewportResources`). Since 2026.10.13.5602 its
+(`ViewportOptionFlags.RenderClouds`, `CloudRenderer`'s `ViewportResources`), seen in a director's window on
+5707. Since 2026.10.13.5602 its
 terrain is drawn **unshadowed** unless `PlanetRenderer.ViewportShadows` is set (default false), where it
 was shadowed through cascades fitted to the main camera and moved whenever that camera did; the shadow
 maps are still built for the main view alone.
