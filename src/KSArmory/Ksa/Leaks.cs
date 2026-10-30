@@ -547,7 +547,7 @@ internal static class Leaks
             return new Form
             {
                 Points = TankLeak.FillPoints(holds),
-                Holds = p => fitted.Contains(p, TankLeak.SkinShare),
+                Holds = p => fitted.EnvelopeContains(p, TankLeak.SkinShare),
                 Described = $"its own shape fitted to its box, {fitted}",
                 Origin = centre + (x * (0.5 * (lowX + highX) - (0.5 * (low + high)))),
                 AxisX = x,
