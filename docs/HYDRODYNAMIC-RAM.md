@@ -1,6 +1,7 @@
 # Hydrodynamic ram
 
-**A plan, not a record.** Nothing here is built. What a fast round does to a tank full of liquid, why the
+**Part built, part plan.** The first version is built and flown (`Sim/HydroRam.cs`, *What is built* below);
+what is left is at the end. What a fast round does to a tank full of liquid, why the
 mod's damage gets it wrong today, the model to build, how to calibrate it, and what it costs. Researched and
 then reviewed twice, once for the physics and once for the code; what each review changed is folded in.
 
@@ -162,6 +163,41 @@ and after, and benchmark `SurfaceHeight` and `FillPoints` headlessly.
    after `Costs`; the energy passed on after the liquid; the nested `FrameBudget` measures.
 5. **Fly it**: a full tank and an empty one under the same Phalanx burst, then the M197, LOX against LH₂, and
    the `ram` and `damage` measures before and after.
+
+## What is built
+
+`Sim/HydroRam.cs`, called from `WeaponSystem.Ram` for the tank a round struck: a dart through its wall
+(`GoesThrough`) and a shell bursting on its skin (`StrikesSkin`, half the charge into the liquid).
+
+- **The crack** is a critical speed, `CrackingSpeed`: table I's 1,463 m/s for a 5.56 mm steel sphere through
+  a 0.794 mm 2014-T6 wall loaded to yield, times `(W/W₀)^0.27` (the 1.588 mm wall's 1,768 m/s), the size —
+  `(D₀/D)^0.5` above the tests' sphere by Bless's `V²D/W`, `^1.4` below by table I's 3.2 mm spheres — a load
+  factor running from 1 at yield to 1.85 unloaded (7075's pair), `(ρ/1000)^−0.1` for the liquid (nitrogen
+  against water), mass per area to the −0.75 down to 0.6 (tungsten's 884 m/s, which it reproduces within 3%),
+  and the damage scale as its square root. Above 5.56 mm the size term is an extrapolation from Bless's trend,
+  not from table I.
+- **The cavity** is `CavityPascals`, the energy balance above with `χ` 0.7, the liquid taken as stiff against
+  the wall's give, and the result judged with the 3 bar load against `TankWall.HoldsPascals` of the round's
+  hole.
+- **The liquid at hit time** is `Leaks.TryLiquidPath`: the cached shape, the settled acceleration stepped
+  over the simulated time since it was last read, and the wet length of the path marched through the tank.
+- **The tank's skin pays no energy share** for a dart; the liquid takes what `DepositedShare` says, and the
+  parts behind are passed what is left.
+
+**Flown at 1x, 2026-10-30**, the Phalanx at 800 m against the `CIWS` save's rocket, full and emptied:
+- Full: darts arrived at 925 m/s against 1,389 m/s to crack a 3 m tank, and none cracked it; each crossed
+  about 3 m of liquid, gave it 55% of its energy, and raised the full tank 1.71 bar over its 3 bar load,
+  past the 3.99 bar its 15 mm hole holds. Ten splits.
+- Emptied: no ram, 60 holes, and the tanks stayed on.
+
+## Still to build
+
+- **Fragments**, one ram per tank per burst after `BlastDamage.Costs`, on the merged opening.
+- **Duds**, which go through `StrikeInert` and are never rammed.
+- **A tank behind another part**: only the tank the strike's ray met is rammed.
+- **The exit wall**, judged with the exit speed and a yawed round's longer hole.
+- **The nested `ram` and `damage` measures in `FrameBudget`**: a flight's `fire` bucket mixes the ram with
+  the kill it causes, so the ram's own cost is still an estimate.
 
 ## What it leaves out
 

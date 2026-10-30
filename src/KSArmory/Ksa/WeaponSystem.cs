@@ -82,6 +82,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private readonly List<(int Index, int Hits)> _partHits = [];
     private readonly HashSet<int> _struckParts = [];
     private readonly List<int> _flashedOver = [];
+
+    // Tanks the liquid behind a hole split this burst (HydroRam).
+    private readonly List<int> _rammed = [];
     private double3 _igniteBurst;
     private double _igniteElapsed;
 
@@ -4009,6 +4012,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                                AirPressureRatio: AirPressureAt(burst, elapsed));
         _partHits.Clear();
         _struckParts.Clear();
+        _rammed.Clear();
         BlastDamage.Costs(context, CollectionsMarshal.AsSpan(_partScratch), munition, _fragmentDice, _partShares,
                           _partHits);
 
@@ -4030,6 +4034,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             {
                 worst = Math.Min(worst, PartHealth.World.Of(_partHandles[index]));
             }
+        }
+
+        // A tank split by its liquid breaks whatever was left of it, before anything is lit.
+        foreach (int index in _rammed)
+        {
+            PartHealth.World.Hit(_partHandles[index], 1.0, 1.0);
+            if (!_failedParts.Contains(index)) _failedParts.Add(index);
         }
 
         // After the breaks: a part already breaking off has nothing left to burn.
@@ -4114,10 +4125,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         double gap = BlastSweep.SurfaceGap(struck.PositionEcl, craftVelocity, elapsed, burst, struck.RadiusMetres);
         if (gap > 0.0) return;
 
-        double impact = PartToughness.KineticShare(munition.MassKg, Vec.Len(shellVelocity - craftVelocity),
+        double speed = Vec.Len(shellVelocity - craftVelocity);
+        double impact = PartToughness.KineticShare(munition.MassKg, speed,
                                                    PartToughness.Joules(struck.MassKg, struck.CrashTolerancePascals));
         _partShares.Add((index, impact));
         _struckParts.Add(index);
+
+        // Half the charge faces the liquid behind the skin it burst on.
+        if (ReferenceEquals(_partHandles[index], _penetration.Tank))
+        {
+            Ram(v, index, munition, speed, 0.5 * munition.ChargeKg * PartToughness.TntJoulesPerKg);
+        }
     }
 
     // A dart that does not burst: each part on its path keeps its share of what is left and passes the
@@ -4158,6 +4176,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
                 break;
             }
 
+            // Through the tank it struck, the liquid is what takes the energy and what does the damage: a dry
+            // tank is only holed.
+            if (ReferenceEquals(crossed, _penetration.Tank))
+            {
+                _struckParts.Add(index);
+                energy *= 1.0 - Ram(v, index, munition, Math.Sqrt(2.0 * energy / munition.MassKg), 0.0);
+                if (energy < LeftoverJoules) break;
+                continue;
+            }
+
             double kept = PartToughness.KineticCoupling * energy;
             _partShares.Add((index, kept / PartToughness.Joules(part.MassKg, part.CrashTolerancePascals)));
             _struckParts.Add(index);
@@ -4165,6 +4193,47 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             energy -= kept;
             if (energy < LeftoverJoules) break;
         }
+    }
+
+    // The liquid behind the hole a round made in the tank it struck: whether its push cracks the wall there
+    // or the cavity it opens bursts the tank. The share of the round's energy the liquid took.
+    private double Ram(Vehicle v, int index, MunitionProfile munition, double speed, double chargeJoules)
+    {
+        if (_penetration is not { Through: true, Skin: { } skin } struck) return 0.0;
+        if (!KsaWorld.TryTankOf(skin, out Tank? tank) || !KsaWorld.TryTankWall(tank, out TankWall wall)) return 0.0;
+        if (!Leaks.TryLiquidPath(tank, skin, struck.Local, struck.Direction, out Leaks.LiquidPath liquid)) return 0.0;
+        if (!(liquid.WetMetres > 0.0)) return 0.0;
+
+        double across = munition.CalibreMm / 1000.0;
+        double taken = HydroRam.DepositedShare(munition.MassKg, across, liquid.DensityKgPerM3, liquid.WetMetres);
+        double loaded = wall.RatedPascals > 0.0 ? HydroRam.OperatingPascals / (2.0 * wall.RatedPascals) : 0.0;
+        double cracking = HydroRam.CrackingSpeed(wall.ThicknessMetres, across, munition.MassKg, loaded,
+                                                 liquid.DensityKgPerM3, _config.DamageScale);
+
+        double outside = v.Parent is Celestial body ? KsaWorld.AtmosphericPressureAt(body, KsaWorld.PositionEcl(v)) : 0.0;
+        double cavity = HydroRam.CavityShare * ((taken * 0.5 * munition.MassKg * speed * speed) + chargeJoules);
+        double rise = HydroRam.CavityPascals(cavity, liquid.TankM3, (1.0 - liquid.Fill) * liquid.TankM3,
+                                             outside + HydroRam.OperatingPascals, liquid.RadiusMetres,
+                                             wall.ThicknessMetres);
+        double hole = HoleLook.RadiiFor(munition.CalibreMm, munition.ChargeKg).Core;
+
+        bool cracks = speed > cracking;
+        bool bursts = wall.Bursts(outside + HydroRam.OperatingPascals + rise, outside, hole);
+        Log.Debug(() => $"ram in {skin.Id} on {KsaWorld.DisplayName(v)}: {liquid.WetMetres:F2} m wet of a {liquid.Fill:P0} "
+                        + $"full tank, {taken:P0} taken; {speed:F0} m/s against {cracking:F0} to crack, "
+                        + $"{HydroRam.OperatingPascals / 1.0e5:F1} bar load and {rise / 1.0e5:F2} risen against "
+                        + $"{wall.HoldsPascals(hole) / 1.0e5:F2} held");
+
+        if (cracks || bursts)
+        {
+            if (!_rammed.Contains(index)) _rammed.Add(index);
+            Log.Info($"ram split {skin.FullPart.Id} on {KsaWorld.DisplayName(v)}: "
+                     + (cracks ? $"cracked at {speed:F0} m/s, past {cracking:F0}"
+                               : $"burst, its {HydroRam.OperatingPascals / 1.0e5:F1} bar load and {rise / 1.0e5:F2} risen past "
+                                 + $"{wall.HoldsPascals(hole) / 1.0e5:F2} held"));
+        }
+
+        return taken;
     }
 
     private const double BackAlongPathMetres = 2.0;

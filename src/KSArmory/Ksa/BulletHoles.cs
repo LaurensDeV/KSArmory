@@ -55,8 +55,8 @@ internal static class BulletHoles
     /// </summary>
     public static Penetration Strike(Vehicle craft, IProjectile round, float paint = -1f)
     {
-        // A dart's verdict is damage and is judged with the holes switched off; only the marks go with them.
-        bool judged = round.Munition.ChargeKg <= 0f && paint < 0f;
+        // The verdict is damage and is judged with the holes switched off; only the marks go with them.
+        bool judged = paint < 0f;
         if ((!Enabled && !judged) || !KsaWorld.IsAlive(craft)) return default;
 
         double intoFrame = round.DetonationElapsedInFrame;
@@ -91,7 +91,8 @@ internal static class BulletHoles
             double joules = 0.5 * round.Munition.MassKg * speed * speed;
             double across = round.Munition.CalibreMm / 1000.0;
             double left = WallCraters.World.ThicknessLeft(subPart, local, across, wall.ThicknessMetres);
-            verdict = new Penetration(subPart.FullPart, wall.Perforates(joules, across, left));
+            bool through = round.Munition.ChargeKg > 0f || wall.Perforates(joules, across, left);
+            verdict = new Penetration(subPart.FullPart, through, subPart, local, local - cameFrom);
 
             if (!verdict.Through)
             {
@@ -112,10 +113,11 @@ internal static class BulletHoles
     }
 
     /// <summary>
-    /// Whether a dart got through the tank wall it struck: the tank's part, or null where it struck no tank
-    /// or was not a dart.
+    /// Whether a round got through the tank wall it struck — a burst always does — and where: the skin it
+    /// struck, the point in that skin's frame and the way it was going there. A null tank where it struck none.
     /// </summary>
-    public readonly record struct Penetration(Part? Tank, bool Through);
+    public readonly record struct Penetration(Part? Tank, bool Through, Part? Skin = null, double3 Local = default,
+                                              double3 Direction = default);
 
     /// <summary>
     /// A paint splat where a burst's spray first meets <paramref name="craft"/>, on the line from the burst
