@@ -1,72 +1,170 @@
 # Hydrodynamic ram
 
 **A plan, not a record.** Nothing here is built. What a fast round does to a tank full of liquid, why the
-mod's damage gets it wrong today, and the order to build it in.
+mod's damage gets it wrong today, the model to build, how to calibrate it, and what it costs. Researched and
+then reviewed twice, once for the physics and once for the code; what each review changed is folded in.
 
 ## What is wrong now
 
-A tank part pays for a dart or a shell the way any part does: a share of its toughness out of the round's
-energy (`Sim/PartToughness.cs`, `KineticCoupling` 0.5). That share does not know whether the tank is full or
-empty. So an empty Core 3 m tank breaks off after about four Phalanx darts, which it should not: four holes
-of 15 mm in a 4 mm skin leave the structure nearly whole. And a full one breaks for the same reason, an
-energy share, when what actually fails a full tank is the liquid.
+A tank part pays for a round the way any part does: a share of its toughness out of the round's energy
+(`Sim/PartToughness.cs`, `KineticCoupling` 0.5), blind to whether the tank is full. So an empty Core 3 m tank
+breaks off after about four Phalanx darts — four 15 mm holes that leave a real tank structurally whole —
+and a full one breaks for the same reason rather than the real one, which is the liquid.
 
-The wall model itself is sound (`Sim/TankWall.cs`): every gun round in the mod perforates a Core tank's
-4 mm of 2014 aluminium by a margin of hundreds, and a holed gas tank bursts or vents by its pressure. What
-is missing is everything that happens after a round is inside a tank of liquid.
+## What the tests say
 
-## The physics
+Marked **read** where the research or a review read the source itself; the rest are leads.
 
-A round entering liquid is slowed hard, because liquid is about a thousand times denser than air. Its
-energy goes into the liquid in phases (as the aircraft-survivability literature describes them; to be
-checked against Ball, *The Fundamentals of Aircraft Combat Survivability*, ch. 5):
+- **Phases** (Varas, Zaera & López-Puente 2009, *Int J Impact Eng* 36:363, read): a **shock** falling off as
+  the inverse of distance and loading the entry wall; **drag**, accelerating the liquid gradually; a
+  **cavity** that grows, collapses and pulses; and **exit** through a wall the liquid has already loaded.
+- **Drag** (Varas, read): `V(x) = V0·exp(−βx)`, `β = ρ·Cd·A/(2m)`, `Cd` 0.4 for a sphere at 600–900 m/s,
+  within 10%. Tumbling raised the load up to fivefold (Lundstrom & Stull, via Varas's thesis).
+- **Rupture is local** (Stepka, Dengler & Morse 1964, NASA TM X-52063, read twice): fracture began 27–40 µs
+  after impact, and a 0.6 ft³ tank and a 15.1 ft³ one gave the same result. Tank volume does not enter.
+- **"Prestressed" in that report means at the 0.2% yield strength.** Pre-loaded to yield, a water-filled
+  0.8 mm 7075-T6 tank fractured from a 5.6 mm steel sphere at 1,006 m/s; unloaded, some walls held at nearly
+  twice that. Doubling the wall raised the critical speed only 9–48%; 3.2 mm spheres of carbide and steel did
+  not fracture loaded walls even at 2,190 m/s; and at a fixed size the projectile's density mattered
+  (carbide 869, steel 1,006, aluminium 1,524 m/s). **So `V²·D/W` is not one constant** — the size effect is
+  stronger than linear in `D` and the wall weaker than `1/W` — and Bless's correlation (A-10 tank replica, via
+  Varas's thesis) is a trend, not a law.
+- **The liquid** (NASA, read): liquid nitrogen needed more speed than water but broke brittle and completely,
+  with the walls at yield; LH₂ was expected to need considerably more. LOX against aluminium showed no
+  reaction; **against titanium it burned whenever the wall was holed**. Aluminium 2014 and 2219 get stronger
+  and tougher at cryogenic temperatures, not more brittle.
+- **Partly full** (Varas thesis, read): the wall bulges only below the level; a gas-only tank never fractured
+  from ram in NASA's tests, only from tearing.
+- **HE in liquid** is much worse than impact (Lundstrom & Anderson 1989, via the thesis). An 11 g charge's
+  free bubble is about 0.35 m in **radius** at one atmosphere and 0.6 m at 0.2 bar (Cole–Swift, recalled).
 
-1. **Shock.** At entry, a pressure pulse of roughly `ρ_liquid · c_liquid · v` — the water-hammer pressure;
-   for liquid oxygen at 1,100 m/s, on the order of a gigapascal at the entry point — falling off quickly
-   with distance. It loads the entry wall locally and is over in microseconds.
-2. **Drag.** The round decelerates as `v(x) = v0 · exp(−x / λ)`, with `λ = 2m / (ρ · Cd · A)`: for a 100 g,
-   12.75 mm dart in liquid oxygen at a cavitating drag coefficient near 1, about 1.4 m, so it leaves a
-   3 m tank with about 1% of its energy. Nearly all of it goes into the liquid.
-3. **Cavity.** That energy opens a cavity behind the round, which pushes the liquid out against every wall.
-   This is the phase that splits tanks: the walls are loaded as a pressure vessel, all at once.
-4. **Exit.** If the round reaches the far wall it exits through a wall already loaded from inside, which
-   tears far more easily than the entry did.
+## The fracture rule underneath is wrong for thin sheet
 
-The cavity's push is what scales with the tank. A first model: a pressure rise of
-`Δp ≈ η · E_deposited / V_liquid` over the liquid, with `η` a coupling of order 0.1–0.3 to be fitted to
-tests. That `Δp` against `TankWall.HoldsPascals` of the largest opening — the entry hole, with what the
-exit has torn — says whether the tank splits, with the code that already exists.
+**Found by the physics review, and it reaches the shipped gas-tank burst rule.** `TankWall`'s crack length is
+`(K_IC/σ_y)²/π` from a plane-strain toughness; a 4 mm sheet is in plane stress, whose toughness `K_c` is
+several times higher — for 2014-T6 thin sheet perhaps 60–100 MPa√m against `K_IC` 25 (recalled, to be looked
+up), a crack length of 7–18 mm rather than 1.2. With 1.2 mm the rule fractures NASA's loaded panels on any
+puncture, where NASA saw plain holes below the critical speed. **The 1.2 mm committed in `462c84c0` moved the
+gas-burst rule the wrong way**; the first job is to refit it.
 
-## What the model needs
+## The model, as revised
 
-- **Where the hit is against the liquid.** `Ksa/Leaks.cs` already knows the level and the felt
-  acceleration; a ram needs the path's length below the surface, which is a ray through the tank's shape
-  (`Sim/TankLeak.cs` `TankShape`) against the surface plane. Above the surface, no ram, which is also what
-  makes an empty tank safe.
-- **The energy into the liquid** over that path, from `λ` and the round's mass, speed and calibre — all on
-  `MunitionProfile`.
-- **The wall's capacity**, `TankWall` as it stands, scaled by `Config.DamageScale` as it already is.
-- **An exploding shell** that bursts inside the liquid deposits its charge's energy there too, as a
-  bubble rather than a cavity — larger, and worth a separate coupling.
+**1. Local fracture at the holes — the term that splits tanks.** The liquid loads the wall round a hole with
+`σ_ram = κ · ρ_liquid · v^a · D^b / W^c`, `v` the round's speed at that wall — the impact speed at entry, what
+the drag left at exit — and the wall fractures if the hoop stress it carries plus `σ_ram` exceeds the
+**thin-sheet** fracture stress `σ_c` at that hole's radius. The exponents and `κ` are fitted, with `σ_c`,
+to NASA's Table I together: the loaded and unloaded pair, the thickness series, the size series, and liquid
+nitrogen against water. A two-point fit of the simplest form already gives `κ ≤ 0.024` and
+`σ_c ≥ 1.33 σ_y` — and with that, one dart into LOX loads a 4 mm 2014 wall to about 110 MPa against 550, and
+nothing splits; with the first draft's `κ` 0.04, every LOX tank split from one dart. The fit decides the
+outcome, which is why it comes before any code.
+
+- **The exit wall** is where real tanks fail: a yawed round's exit hole is about a body length long (`a`
+  far larger, `σ_c` lower) through a wall the liquid has pre-loaded. It gets its own judgement, with the
+  exit speed and the exit hole.
+- **The prestress is the tank's own pressure.** At the mod's 0.2 bar a 3 m tank's skin carries 3.6% of its
+  yield by KSA's rating (twice the thin-wall `pR/t`, because KSA rates the tank at its doubled radius); at a
+  real flight tank's 2–4 bar, about 27%. **Decision for the author**: keep the leak's 0.2 bar and give the
+  ram a separate operating pressure, or run the ram at 0.2 bar.
+
+**2. The cavity against the ullage and the walls — the term that bursts a nearly full tank.** An energy
+balance, not a volume: `χ·E_dep` equals the adiabatic work on the ullage gas,
+`p₀V₀/(γ−1)·[(V₀/V₁)^(γ−1) − 1]`, plus the elastic energy of the liquid and the wall,
+`½·Δp²·V/K_eff`, `1/K_eff = 1/K_liquid + 2R(1 − ν/2)/(t·E)`. Finite at any fill: the full tank's bound is
+`Δp = √(2χE·K_eff/V)`. For one dart into a 30 m³ tank that is about 0.1 bar at 10% ullage and 3.7 bar at 1% or
+full — comparable to what a holed Core wall holds, so near-full tanks are genuinely marginal. `χ` for drag
+deposit is 0.6–0.9 rather than an explosion bubble's 0.45, to be fitted. In a saturated cryogen the cavity
+fills with vapour at the ullage pressure.
+
+**Above the surface, nothing** — what makes an empty tank survive. **Coasting**, the liquid floats, and a
+round meets it on a share of its path equal to the fill.
+
+**The energy share stops applying to a tank's skin**, and the energy `GoesThrough` passes on is what the
+liquid left, not what the skin's share left — otherwise the parts behind the tank are paid twice.
+
+**An HE shell bursting on a wall with liquid behind it is the worst case and the commonest**: every
+contact-fused M197 and 30 mm round bursts on the skin. Its charge's `χ·E_HE` goes into term 2 and its
+burst loads term 1 at the skin. The first draft said it did nothing.
+
+**Fragments**: one ram per tank per burst. `BlastDamage.Costs` already returns the fragments that got
+through each wall; it also returns the joules per hit, and the ram runs in `Ksa/` after it, with no tank
+state entering `Sim/`'s burst sweep. A fragment of 1.6–6 g gives up its energy over 8–13 cm of liquid. Term 1
+is judged on the **merged** opening of the burst's holes (`Sim/HoleMerge.cs`), since a fragment pattern's
+holes link up; which hits are below the level is the share of the tank's burst-facing area that is wetted.
+Fragments make no recorded holes today, so a burst leaves no leak; that is its own step.
+
+## Where it goes in the code
+
+Found by the code review; the first draft's hook missed most of these.
+
+- **Every crossed part with a wall, not only the first one struck.** `WeaponSystem.GoesThrough` runs the
+  ram for each part along the path (`KsaWorld.TryPartsAlong`) that has a `Wall`, entering at that part's own
+  near point in the burst-instant frame `GoesThrough` already builds (`InFrame.AtBurst`); `Penetration`'s
+  hull point is used only for the part it names. A tank behind a raceway is then judged.
+- **HE shells** (`StrikesSkin`) and **duds** (`StrikeInert`, which today throws the strike's verdict away)
+  each get the ram, the first with its charge.
+- **Not on a drawing switch.** `BulletHoles.Strike` returns no verdict while bullet holes are off — a
+  setting, or `CloudPass` switching them off when the hole shader is missing — so **the tank-wall
+  penetration and the craters shipped in `88ab2706` already turn off with the hole drawing**. The verdict has
+  to be worked out whether or not a hole is kept. The same for `Config.TankLeaks`: the liquid's level is read
+  whether or not leaks are drawn.
+- **The liquid at hit time**: `Leaks.TryLiquid` sharing the cached shape and settled acceleration, with a
+  simulated-time stamp so a tank never holed settles on read rather than holding its first seed.
+- **The split** goes into `_failedParts` as a flashover does — `PartHealth.Hit(part, 1, 1)` and the fire put
+  out — and through `ApplyPendingKills`, never applied from the hit. No double failure with `Leaks.Burst`,
+  which bursts gas tanks only. The fragment guard is asked by `Leaks` and `Damage` against different part
+  totals; a merged failure event can break more than the guard allows. That exists today and is worth fixing
+  alongside.
+- **No ram with `DamageIndividualParts` off**, where a hit is a whole-craft kill; paintball does nothing.
+- The ram takes the hit point and the path in the tank's own frame, never ecliptic positions, so its
+  invariance test is a rigid shift and rotation; the entry point is never built from `round.PositionEcl`
+  against a part's end-of-step position.
+
+## Performance
+
+**Nothing here is measured yet.** Estimates from reading the code.
+
+| Step | Cost | How often |
+|---|---|---|
+| `TryCollectDamageableParts`, a wall read by reflection per part, `Costs` over every part | 10–50 µs on a 50-part craft | **already paid per hit** |
+| Hull ray casts (`TryHullHit`, `TryPartsAlong`), each over every part | unmeasured | already paid per hit |
+| Reading the tank's shape (`FormOf`, ~400 candidate points on a Core tank) | 20–100 µs | once per tank, cached |
+| The liquid's surface (`SurfaceHeight`: 256 points and a full sort) | 3–8 µs; ~0.5 µs with a quickselect or Leaks' own 0.1 s surface | per hit |
+| Mass, matrices, felt acceleration, chord, the two closed forms | 2–4 µs | per hit |
+
+**New per hit about 5–12 µs warm, a one-off ~100 µs the first time a tank is struck; with what each hit already
+costs, about 0.15 ms a frame at the worst realistic rate** — four Phalanx mounts hitting, five hits a frame —
+and more under warp, where hits per frame scale up. Fragments add at most one ram per tank per burst.
+
+Cheap to take on the way: cache the tank wall per part rather than reflecting every hit, and stop the
+per-call closures (`_settled.GetValue` with a capturing lambda, the `Log.Debug` lambdas in `Strike`, the
+`damaged` string built whether or not it is logged).
+
+**How to measure**: the `fire` bucket also holds the gun-lay solves and cannot resolve a tenth of a
+millisecond, so add nested `ram` and `damage` measures to `FrameBudget`, fly `gunnery` at a tank stack before
+and after, and benchmark `SurfaceHeight` and `FillPoints` headlessly.
 
 ## The order of work
 
-1. `Sim/HydroRam.cs`: the deposit along a path (`λ`, exit speed) and the pressure rise, in closed form and
-   tested headlessly. Invariance test as every `Sim/` entry point has: the frame cannot enter, since
-   everything is relative to the tank.
-2. Calibrate `η` against published tests (to find and check: Varas et al. 2009, *Int. J. Impact Eng.*,
-   spheres into water-filled aluminium tubes at 600–900 m/s; Disimile et al. on partially filled tanks).
-   Write the fit and its sources into this file.
-3. `Ksa/`: when `BulletHoles.Strike` reports a dart through a tank, ask `Leaks` for the depth below the
-   surface, run the ram, and split the tank through the part-failure queue if it bursts. The tank's
-   energy share stops applying to a tank skin; the part behind it still pays what the round has left.
-4. Fly it with the `TANK BURST` saves' approach: one tank full of liquid, one empty, the same Phalanx burst.
-   The full one should split after few hits and the empty one hold.
+0. **Fix what the reviews found in shipped code**: the tank-wall verdict worked out with the hole drawing off;
+   the thin-sheet crack length refitted from a sourced `K_c` for 2014-T6 sheet, with the gas-burst tests
+   re-checked against it; the wall read cached per part.
+1. **Fit** `σ_c`, `κ` and the exponents to NASA's Table I, and `χ`; write the fits and sources here. Tests that
+   pin NASA's loaded panels fracturing above the critical speed and holding below it, and the unloaded ones
+   holding at twice it.
+2. **`Sim/HydroRam.cs`**: the deposit along a path, term 1 at entry and exit, term 2's energy balance, and a
+   ray's chord through a `TankShape` cut at the surface — closed forms, tested headlessly, with the
+   invariance test, and a path above the surface and an empty tank giving nothing.
+3. **`Leaks.TryLiquid`**, time-stamped.
+4. **`Ksa/`**: every crossed walled part in `GoesThrough`, `StrikesSkin` and `StrikeInert`; the fragment ram
+   after `Costs`; the energy passed on after the liquid; the nested `FrameBudget` measures.
+5. **Fly it**: a full tank and an empty one under the same Phalanx burst, then the M197, LOX against LH₂, and
+   the `ram` and `damage` measures before and after.
 
 ## What it leaves out
 
-- A tank's internal structure — baffles, a common bulkhead — which in a real tank stops much of the
-  cavity's push reaching the far wall.
-- The ullage gas as a cushion: a nearly full tank rams harder than a three-quarters one, since there is
-  less gas to compress. A first model can take the fill as a factor and leave the rest.
-- Cryogenic boil-off from the holed tank, which would make a liquid-oxygen leak a spray rather than a stream.
+- A tank's internal structure — baffles, a common bulkhead — which stops much of the cavity's push.
+- The titanium-and-LOX fire: Core's tanks are aluminium, but a pack's titanium tank would want it.
+- Cryogenic boil-off from a holed tank, which would make a LOX leak a spray rather than a stream.
+- Tumbling as anything but a range of drag: a tumbling dart is broadside to the liquid, five or six times its
+  nose area.
