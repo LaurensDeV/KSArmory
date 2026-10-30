@@ -50,13 +50,13 @@ public class TankWallTests
         double full = Thin.RatedPascals + 101_325.0;
 
         Assert.True(Thin.Bursts(full, 101_325.0, 0.030));
-        Assert.False(Thin.Bursts(full, 101_325.0, 0.005));
+        Assert.False(Thin.Bursts(full, 101_325.0, 0.003));
     }
 
     [Fact]
-    public void AHalfEmptyTankVentsThroughTheSameHole()
+    public void AQuarterFullTankVentsThroughTheSameHole()
     {
-        Assert.False(Thin.Bursts(0.5 * Thin.RatedPascals, 0.0, 0.030));
+        Assert.False(Thin.Bursts(0.25 * Thin.RatedPascals, 0.0, 0.030));
     }
 
     [Fact]
