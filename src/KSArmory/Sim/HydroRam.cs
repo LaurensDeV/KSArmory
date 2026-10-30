@@ -45,6 +45,12 @@ internal static class HydroRam
     /// </summary>
     public const double OperatingPascals = 3.0e5;
 
+    /// <summary>
+    /// How wide a round's hole in the far wall is, in calibres: it has tumbled in the liquid and leaves
+    /// broadside, its length across. Three is a guess at a shell's or a dart's length, not a measurement.
+    /// </summary>
+    public const double TumbledCalibres = 3.0;
+
     /// <summary>A round's drag in liquid: between a nose-on dart's 0.3 and a tumbling one's 1.</summary>
     public const double DragCoefficient = 0.6;
 
@@ -75,6 +81,21 @@ internal static class HydroRam
 
         return ReferenceSpeed * Math.Pow(wallMetres / ReferenceWallMetres, WallExponent) * size * heavy * load
                * liquid * strength;
+    }
+
+    /// <summary>
+    /// Whether the far wall cracks as a round leaves at <paramref name="leavingSpeed"/>: tumbled, so broadside,
+    /// through a wall the cavity has loaded to <paramref name="loadedShare"/> of its yield. Nothing where the
+    /// round has too little left to leave.
+    /// </summary>
+    public static bool ExitCracks(TankWall wall, double massKg, double diameterMetres, double leavingSpeed,
+                                  double loadedShare, double liquidKgPerM3, double damageScale = 1.0)
+    {
+        double broadside = TumbledCalibres * diameterMetres;
+        if (!wall.Known || !wall.Perforates(0.5 * massKg * leavingSpeed * leavingSpeed, broadside)) return false;
+
+        return leavingSpeed > CrackingSpeed(wall.ThicknessMetres, broadside, massKg, loadedShare, liquidKgPerM3,
+                                            damageScale);
     }
 
     /// <summary>The share of a round's energy a path this long through liquid takes off it.</summary>

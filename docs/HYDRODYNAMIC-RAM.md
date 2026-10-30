@@ -190,14 +190,27 @@ and after, and benchmark `SurfaceHeight` and `FillPoints` headlessly.
   past the 3.99 bar its 15 mm hole holds. Ten splits.
 - Emptied: no ram, 60 holes, and the tanks stayed on.
 
+**Then the rest, flown the same night**:
+- **Tanks behind another part**: `KsaWorld.TryPartsAlong` keeps where it enters each part, so a dart rams every
+  tank on its path, losing speed through each — flown, one dart into three tanks at 925, 623 and 415 m/s.
+- **The exit wall** (`HydroRam.ExitCracks`): the round leaves tumbled, `TumbledCalibres` 3 across — a guess,
+  not a measurement — through a wall the cavity has loaded on top of the 3 bar. Flown, Phalanx darts cracked
+  the far walls of 3 m tanks at about 620 m/s through walls loaded to 92% of yield.
+- **Fragments** (`WeaponSystem.RamFragments`): `BlastDamage.Costs` hands back the joules per fragment for each
+  wall they got through, and each tank is rammed once, entered on its side facing the burst and heading for
+  its middle, with every fragment's energy in the cavity. Flown, a 5"/54 burst sent 208 to 743 fragments into
+  each of a rocket's 80% full LOX tanks and raised them about 20 bar.
+- **Duds**: a shell struck before its fuze armed is judged as a dart, with a dart's hole; flown, a 5"/54
+  dud at 250 m cracked a full LOX tank going in at 793 m/s.
+- **An HE shell bursting on a tank's skin**: half its charge into the cavity, and its own crack at entry;
+  flown, a 5"/54 shell cracked a tank going in at 647 m/s against 391.
+
 ## Still to build
 
-- **Fragments**, one ram per tank per burst after `BlastDamage.Costs`, on the merged opening.
-- **Duds**, which go through `StrikeInert` and are never rammed.
-- **A tank behind another part**: only the tank the strike's ray met is rammed.
-- **The exit wall**, judged with the exit speed and a yawed round's longer hole.
 - **The nested `ram` and `damage` measures in `FrameBudget`**: a flight's `fire` bucket mixes the ram with
   the kill it causes, so the ram's own cost is still an estimate.
+- **Fragments' wetted share**: a tank's fragments are all counted wet when the line from the burst to its
+  middle is; a burst level with a half-full tank's surface is all or nothing.
 
 ## What it leaves out
 

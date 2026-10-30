@@ -45,6 +45,24 @@ public class HydroRamTests
         Assert.Equal(2.0 * whole, HydroRam.CrackingSpeed(0.004, 0.02, 0.102, 0.5, 1146.0, damageScale: 0.25), 6);
     }
 
+    // Core's 4 mm of 2014, rated as KSA rates a 3 m tank.
+    private static readonly TankWall Core = new(0.004, 418.8e6, 2.79e5);
+
+    [Fact]
+    public void ARoundTooSlowToLeaveCracksNoFarWall()
+    {
+        Assert.False(HydroRam.ExitCracks(Core, 0.1, 0.01275, 5.0, 1.0, 1146.0));
+    }
+
+    [Fact]
+    public void TheFarWallCracksSlowerThanTheNearOneForTheSameRound()
+    {
+        double near = HydroRam.CrackingSpeed(Core.ThicknessMetres, 0.02, 0.102, 0.54, 1146.0);
+        double leaving = 0.9 * near;
+
+        Assert.True(HydroRam.ExitCracks(Core, 0.102, 0.02, leaving, 0.9, 1146.0));
+    }
+
     [Fact]
     public void LiquidHydrogenTakesLessOffARoundThanLiquidOxygen()
     {

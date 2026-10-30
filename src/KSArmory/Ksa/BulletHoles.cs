@@ -50,10 +50,11 @@ internal static class BulletHoles
 
     /// <summary>
     /// Marks where <paramref name="round"/> struck <paramref name="craft"/>, cast along its path
-    /// relative to the craft at the instant it struck, and judges whether a dart got through the tank
-    /// wall it met — that, with the marks switched off too. Nothing for a craft with no mesh to cast against.
+    /// relative to the craft at the instant it struck, and judges whether it got through the tank wall it
+    /// met — that, with the marks switched off too. <paramref name="inert"/> is a shell that struck before its
+    /// fuze armed, judged as a dart. Nothing for a craft with no mesh to cast against.
     /// </summary>
-    public static Penetration Strike(Vehicle craft, IProjectile round, float paint = -1f)
+    public static Penetration Strike(Vehicle craft, IProjectile round, float paint = -1f, bool inert = false)
     {
         // The verdict is damage and is judged with the holes switched off; only the marks go with them.
         bool judged = paint < 0f;
@@ -72,7 +73,7 @@ internal static class BulletHoles
             return default;
         }
 
-        (double core, double scorch) = HoleLook.RadiiFor(round.Munition.CalibreMm, round.Munition.ChargeKg);
+        (double core, double scorch) = HoleLook.RadiiFor(round.Munition.CalibreMm, inert ? 0.0 : round.Munition.ChargeKg);
         if (paint >= 0f)
         {
 
@@ -91,7 +92,7 @@ internal static class BulletHoles
             double joules = 0.5 * round.Munition.MassKg * speed * speed;
             double across = round.Munition.CalibreMm / 1000.0;
             double left = WallCraters.World.ThicknessLeft(subPart, local, across, wall.ThicknessMetres);
-            bool through = round.Munition.ChargeKg > 0f || wall.Perforates(joules, across, left);
+            bool through = (round.Munition.ChargeKg > 0f && !inert) || wall.Perforates(joules, across, left);
             verdict = new Penetration(subPart.FullPart, through, subPart, local, local - cameFrom);
 
             if (!verdict.Through)

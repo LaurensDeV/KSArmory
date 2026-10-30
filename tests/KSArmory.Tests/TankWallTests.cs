@@ -134,17 +134,21 @@ public class TankWallTests
         DamageablePart part = new(0, new double3(0, 10, 0), 2.0, 9e6, MassKg: 1500.0, PresentedAreaM2: 6.0);
 
         List<(int, int Hits)> open = [];
-        BlastDamage.Costs(burst, [part], amraam, new Random(7), [], open);
+        List<(int, double JoulesPerHit)> openJoules = [];
+        BlastDamage.Costs(burst, [part], amraam, new Random(7), [], open, openJoules);
 
         List<(int, double Share)> armouredShares = [];
         List<(int, int Hits)> armoured = [];
+        List<(int, double JoulesPerHit)> armouredJoules = [];
         BlastDamage.Costs(burst, [part with { Wall = new TankWall(1.0, 500e6, 0.0) }], amraam, new Random(7),
-                          armouredShares, armoured);
+                          armouredShares, armoured, armouredJoules);
         List<(int, double Share)> openShares = [];
         BlastDamage.Costs(burst, [part], amraam, new Random(7), openShares);
 
         Assert.NotEmpty(open);
         Assert.Empty(armoured);
+        Assert.True(openJoules.Count == 1 && openJoules[0].JoulesPerHit > 0.0);
+        Assert.Empty(armouredJoules);
         Assert.InRange(armouredShares.Sum(s => s.Share), double.Epsilon, openShares.Sum(s => s.Share) * 0.5);
     }
 }

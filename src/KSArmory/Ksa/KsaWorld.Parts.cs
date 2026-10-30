@@ -373,13 +373,19 @@ internal static partial class KsaWorld
     }
 
     /// <summary>
+    /// Where a straight path crosses one part: how far along, and where it enters, in the frame of the
+    /// sub-part it meets first, with the path's start in that frame too, as <see cref="TryHullHit"/> gives them.
+    /// </summary>
+    public readonly record struct Crossing(Part Part, double Metres, Part Skin, double3 Local, double3 CameFrom);
+
+    /// <summary>
     /// Every part a straight path crosses, nearest first, each once: what a dart that does not burst goes
     /// on through. <paramref name="separation"/> is the craft's centre less the path's start, and
     /// <paramref name="travel"/> its direction against the craft; only crossings within
     /// <paramref name="reachMetres"/> count. False for a craft that cannot be cast against.
     /// </summary>
     public static bool TryPartsAlong(Vehicle v, double3 separation, double3 travel, double reachMetres,
-                                     List<(Part Part, double Metres)> into)
+                                     List<Crossing> into)
     {
         into.Clear();
 
@@ -394,14 +400,15 @@ internal static partial class KsaWorld
             foreach (Part part in v.Parts.Parts)
             {
                 if (part.IsAttachedInternal) continue;
-                if (!part.RayCastEgo(in asmb2Start, ray, out double near, out _, out _, out _,
+                if (!part.RayCastEgo(in asmb2Start, ray, out double near, out _, out double3 at, out _,
                                      out _, out _, out Part? struck, out _)
                     || struck is null || near < 0.0 || near > reachMetres)
                 {
                     continue;
                 }
 
-                into.Add((part, near));
+                double4x4.Invert(struck.MatrixAsmb2Ego(in asmb2Start), out double4x4 toLocal);
+                into.Add(new Crossing(part, near, struck, at, ray.Origin.Transform(toLocal)));
             }
 
             into.Sort(static (a, b) => a.Metres.CompareTo(b.Metres));

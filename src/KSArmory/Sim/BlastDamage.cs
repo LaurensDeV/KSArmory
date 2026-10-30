@@ -343,7 +343,8 @@ internal static class BlastDamage
     /// the other were not there.</para>
     /// </summary>
     public static void Costs(in BurstContext burst, ReadOnlySpan<DamageablePart> parts, MunitionProfile munition,
-                             Random dice, List<(int Index, double Share)> into, List<(int Index, int Hits)>? hits = null)
+                             Random dice, List<(int Index, double Share)> into, List<(int Index, int Hits)>? hits = null,
+                             List<(int Index, double JoulesPerHit)>? fragmentJoules = null)
     {
         ArgumentNullException.ThrowIfNull(munition);
         ArgumentNullException.ThrowIfNull(dice);
@@ -388,7 +389,11 @@ internal static class BlastDamage
             bool through = part.Wall.Perforates(perHit, across);
             double reached = through ? 1.0 : part.Wall.DentMetres(perHit, across) / part.Wall.ThicknessMetres;
             cost += PartToughness.FragmentShare(struck, perHit, joules) * reached;
-            if (through && struck > 0) hits?.Add((part.Index, struck));
+            if (through && struck > 0)
+            {
+                hits?.Add((part.Index, struck));
+                fragmentJoules?.Add((part.Index, perHit));
+            }
 
             if (cost > 0.0) into.Add((part.Index, cost));
         }
