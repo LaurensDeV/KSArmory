@@ -38,14 +38,15 @@ Marked **read** where the research or a review read the source itself; the rest 
 - **HE in liquid** is much worse than impact (Lundstrom & Anderson 1989, via the thesis). An 11 g charge's
   free bubble is about 0.35 m in **radius** at one atmosphere and 0.6 m at 0.2 bar (Cole–Swift, recalled).
 
-## The fracture rule underneath is wrong for thin sheet
+## The fracture rule underneath is thin sheet's
 
-**Found by the physics review, and it reaches the shipped gas-tank burst rule.** `TankWall`'s crack length is
-`(K_IC/σ_y)²/π` from a plane-strain toughness; a 4 mm sheet is in plane stress, whose toughness `K_c` is
-several times higher — for 2014-T6 thin sheet perhaps 60–100 MPa√m against `K_IC` 25 (recalled, to be looked
-up), a crack length of 7–18 mm rather than 1.2. With 1.2 mm the rule fractures NASA's loaded panels on any
-puncture, where NASA saw plain holes below the critical speed. **The 1.2 mm committed in `462c84c0` moved the
-gas-burst rule the wrong way**; the first job is to refit it.
+**Found by the physics review, and fixed.** `TankWall`'s crack length came from a plane-strain toughness, but a
+tank's wall is thin sheet, in plane stress, several times tougher. With the plane-strain 1.2 mm the rule
+fractured NASA's loaded panels on any puncture, where NASA saw plain holes. It is now 3.9 mm, from Orange
+1967 (NASA TN D-4017, read): 1.5 mm 2014-T6 sheet at 77 K, `K_c` 58.0 MPa√m transverse and 70.7
+longitudinal, over a 0.2% yield of 524 and 518 MPa — the transverse figure, the weaker. Core's sheet is
+4 mm, a little thicker than the tested 1.5, where `K_c` falls somewhat; and the ram's own fit below may want
+the effective dynamic fracture stress rather than this static one.
 
 ## The model, as revised
 
@@ -62,10 +63,12 @@ outcome, which is why it comes before any code.
 - **The exit wall** is where real tanks fail: a yawed round's exit hole is about a body length long (`a`
   far larger, `σ_c` lower) through a wall the liquid has pre-loaded. It gets its own judgement, with the
   exit speed and the exit hole.
-- **The prestress is the tank's own pressure.** At the mod's 0.2 bar a 3 m tank's skin carries 3.6% of its
-  yield by KSA's rating (twice the thin-wall `pR/t`, because KSA rates the tank at its doubled radius); at a
-  real flight tank's 2–4 bar, about 27%. **Decision for the author**: keep the leak's 0.2 bar and give the
-  ram a separate operating pressure, or run the ram at 0.2 bar.
+- **The prestress is the tank's own pressure** — **decided: a separate operating pressure of a flight
+  tank's 2–4 bar for the ram**, while the leak keeps its 0.2 bar so a hole's depth still decides a leak. At
+  0.2 bar a 3 m tank's skin carries 3.6% of its yield by KSA's rating (twice the thin-wall `pR/t`, because
+  KSA rates the tank at its doubled radius); at 2–4 bar about 27%, and that load is what lets a ram split a
+  tank. Both numbers are the mod's because KSA gives a liquid no pressure; the day it does, the ram and the
+  leak read the game's (`docs/BLOCKED-ON-KSA.md`, *A tank's pressure and its walls*).
 
 **2. The cavity against the ullage and the walls — the term that bursts a nearly full tank.** An energy
 balance, not a volume: `χ·E_dep` equals the adiabatic work on the ullage gas,
@@ -103,10 +106,10 @@ Found by the code review; the first draft's hook missed most of these.
   hull point is used only for the part it names. A tank behind a raceway is then judged.
 - **HE shells** (`StrikesSkin`) and **duds** (`StrikeInert`, which today throws the strike's verdict away)
   each get the ram, the first with its charge.
-- **Not on a drawing switch.** `BulletHoles.Strike` returns no verdict while bullet holes are off — a
-  setting, or `CloudPass` switching them off when the hole shader is missing — so **the tank-wall
-  penetration and the craters shipped in `88ab2706` already turn off with the hole drawing**. The verdict has
-  to be worked out whether or not a hole is kept. The same for `Config.TankLeaks`: the liquid's level is read
+- **Not on a drawing switch.** `BulletHoles.Strike` returned no verdict while bullet holes were off — a
+  setting, or `CloudPass` switching them off when the hole shader is missing — so the tank-wall penetration
+  and the craters turned off with the hole drawing. Fixed: a dart's verdict is judged either way, and only
+  the marks go with the switch. The same for `Config.TankLeaks`: the liquid's level is read
   whether or not leaks are drawn.
 - **The liquid at hit time**: `Leaks.TryLiquid` sharing the cached shape and settled acceleration, with a
   simulated-time stamp so a tank never holed settles on read rather than holding its first seed.
@@ -146,9 +149,8 @@ and after, and benchmark `SurfaceHeight` and `FillPoints` headlessly.
 
 ## The order of work
 
-0. **Fix what the reviews found in shipped code**: the tank-wall verdict worked out with the hole drawing off;
-   the thin-sheet crack length refitted from a sourced `K_c` for 2014-T6 sheet, with the gas-burst tests
-   re-checked against it; the wall read cached per part.
+0. **Fix what the reviews found in shipped code**: ~~the tank-wall verdict worked out with the hole drawing
+   off~~ (done); ~~the thin-sheet crack length~~ (done, 3.9 mm); the wall read cached per part (not yet).
 1. **Fit** `σ_c`, `κ` and the exponents to NASA's Table I, and `χ`; write the fits and sources here. Tests that
    pin NASA's loaded panels fracturing above the critical speed and holding below it, and the unloaded ones
    holding at twice it.

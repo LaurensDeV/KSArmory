@@ -44,8 +44,9 @@ happen rather than a member that moved.
   gets a centre of its own; see *A floating craft's waterline depends on where it is* below
 - [ ] **A kitten can walk on a vehicle** — `IsGroundSurfaceFor` accepts something other than a
   static handle; see *Walking on a craft* below
-- [ ] **KSA bursts a tank on `RatedPressure`, or gives a liquid a pressure** — the rated pressure and
-  stored gas arrived in 2026.10.25.5707 and gas venting is built; see *A tank's pressure and its walls* below
+- [ ] **KSA bursts a tank on `RatedPressure`, or gives a liquid a pressure** — the rated pressure and stored
+  gas arrived in 2026.10.25.5707 and gas venting is built; for a liquid the mod would rather read the game's
+  bar values than its own 0.2 bar leak and 2–4 bar ram prestress. See *A tank's pressure and its walls* below
 - [ ] **KSA's destroy runs warm the first time it is called** -- its assemblies compiled ahead
   (ReadyToRun), or a debris split that no longer does first-time work -- **delete
   `JitWarmup.EngineTypes` the day it does**; see the entry below
@@ -88,6 +89,12 @@ its own 0.2 bar, low enough that the depth of a hole and the pull the craft feel
 liquid tank going up is still a flat one fire in five (`PartFire.FlashoverChance`). A part's toughness
 against a hit stays its mass to the two thirds (`Sim/PartToughness.cs`); the wall decides only whether a hit
 gets through. KSA itself bursts nothing on `RatedPressure`.
+
+**Waiting on KSA: a liquid tank's pressure.** Because a liquid has none in KSA, the mod invents two: the
+leak's 0.2 bar above, and a flight tank's 2–4 bar of operating pressure for the planned hydrodynamic ram's
+prestress (`docs/HYDRODYNAMIC-RAM.md`) — the load in the skin that lets a round's push through the liquid
+split a tank. **We would rather model the actual bar values the game gives**: the pressure a tank is run at,
+and how it changes as the tank drains or is topped up. Both of the mod's numbers go the day KSA has them.
 
 ## The first kill of a session pays for KSA's destroy running cold
 
