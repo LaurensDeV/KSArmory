@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
@@ -249,19 +250,26 @@ internal static partial class KsaWorld
     /// </summary>
     public static bool TryTankWall(Tank tank, out TankWall wall)
     {
-        wall = default;
+        wall = _walls.GetValue(tank, static t => new StrongBox<TankWall>(ReadWall(t))).Value.Scaled(WallDamageScale);
+        return wall.Known;
+    }
 
+    // Read once a tank: every hit asks for the wall of every part on the craft, and reading one is a
+    // reflected field and a substance lookup. A template does not change under a tank.
+    private static readonly ConditionalWeakTable<Tank, StrongBox<TankWall>> _walls = new();
+
+    private static TankWall ReadWall(Tank tank)
+    {
         try
         {
-            if (TankTemplateField?.GetValue(tank) is not AsmbTankTemplate template) return false;
-            if (WallThicknessOf(template) is not { } thickness) return false;
+            if (TankTemplateField?.GetValue(tank) is not AsmbTankTemplate template) return default;
+            if (WallThicknessOf(template) is not { } thickness) return default;
 
-            wall = new TankWall(thickness, template.GetWallYieldStrength(), tank.RatedPressure).Scaled(WallDamageScale);
-            return wall.Known;
+            return new TankWall(thickness, template.GetWallYieldStrength(), tank.RatedPressure);
         }
         catch
         {
-            return false;
+            return default;
         }
     }
 
@@ -272,8 +280,12 @@ internal static partial class KsaWorld
     public static bool TryTankWallOf(Part part, out TankWall wall)
     {
         wall = default;
-        return TryTankOf(part, out Tank? tank) && TryTankWall(tank, out wall);
+        Tank? tank = _tankOf.GetValue(part, static p => new StrongBox<Tank?>(TryTankOf(p, out Tank? t) ? t : null)).Value;
+        return tank is not null && TryTankWall(tank, out wall);
     }
+
+    // Which tank a part carries, or none, kept with the part: a part's modules are fixed when it is built.
+    private static readonly ConditionalWeakTable<Part, StrongBox<Tank?>> _tankOf = new();
 
     // Read as the distance it is, never through DistanceReference.IsValid(), which wants 100 km.
     private static double? WallThicknessOf(AsmbTankTemplate template)
