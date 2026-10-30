@@ -395,6 +395,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/PartFire.cs` | parts on fire — lit by a hit on a part holding propellant — the munition's `IgnitionChance` for its own strike and `FragmentIgnitionChance` for each fragment — burning it out in 20–100 s, **a fifth going up at once** rather than burning |
 | `Sim/Paintball.cs` | **paintball**: a hit marks what it struck with the shooter's paint and harms nothing (`Config.Paintball`, the damage slider's far left) -- one hue a team, stable across sessions, and a splat a hand across for a shell and metres for a warhead |
 | `Sim/PartToughness.cs` | how much energy breaks a part — **its mass to the two thirds**, so size buys toughness where KSA's tolerance reads only density — and what a burst's intercepted share, a fragment or a shell's own impact pays against it; a round in the air is a fraction as tough, since one fragment through its warhead or motor ends it |
+| `Sim/TankWall.cs` | a tank's wall as KSA declares it -- thickness, yield, rating -- and **what gets through it**: a dart or a fragment holes it only with more energy than shearing a plug of its own size out, and a holed gas tank **bursts** where its pressure beats the hoop stress a through-crack of the hole's radius stands, one aluminium-like toughness for every material since KSA declares none. The wall is divided by `Config.DamageScale`, so a tenth of the damage is a wall ten times as strong. A tank KSA declares no wall for stops nothing and never bursts |
 | `Sim/TargetAllocation.cs` | what one craft's weapons have in the air **between them** — the unit that over-commits is the craft, not the weapon |
 | `Sim/RoundReach.cs` | whether a round the ground stops can still get to it — **the reaper for a store that will never arrive**, because a long fall is long rather than stuck |
 | `Sim/PointGravity.cs` | **the pull every round, store and decoy is flown with** — the inverse square aimed where the body was at the round's own instant, plus the body's own fall toward its primary; a contact's acceleration leaves the fall out, as the ground frame does |
@@ -769,7 +770,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 960 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 967 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1393,7 +1394,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from about 770,000 lines to the files
-defining the 361 types this mod actually uses.
+defining the 362 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 34 RocketWerkz
 first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 16 MB —

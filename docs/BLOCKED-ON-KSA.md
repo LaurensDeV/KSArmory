@@ -67,7 +67,7 @@ moved most of the render path.
 
 ## A tank's pressure and its walls
 
-**Arrived in 2026.10.25.5707; venting is taken up, the walls are not.** `AsmbTankTemplate` derives a `RatedPressure` from the
+**Arrived in 2026.10.25.5707, and taken up.** `AsmbTankTemplate` derives a `RatedPressure` from the
 wall material's yield stress over a safety factor of two and thin-wall hoop and dome-crown formulas
 (`AsmbTankTemplate.cs`, `TankGeometry.PressurePerWallStress`), and `Tank.RatedPressure` carries it
 (`Tank.cs:80`). `Tank.CanHold` (`:788`) takes a gas only into a rated tank, as a single-reactant mix, and a
@@ -76,26 +76,17 @@ still unpressurised, and KSA itself bursts nothing on `RatedPressure` yet. `Ksa/
 mirrors `Vehicle.DepleteConsumables`, and since this build a holed gas tank vents by that pressure
 (`TankLeak.GasFlowKgPerSecond`).
 
-**What the mod does without it.** KSA has no tank pressure today, so `Sim/TankLeak.cs` holds every tank
-at its own 0.2 bar, kept low so the depth of a hole and the pull the craft feels still decide a leak. A
-part's toughness against a hit is guessed from its mass to the two thirds (`Sim/PartToughness.cs`),
-because nothing says how thick its wall is, and there is no penetration law because without a wall
-every fragment perforates. A tank going up at once is a flat one fire in five (`PartFire.FlashoverChance`).
-`docs/DAMAGE-PLAN.md` has each.
+**What the mod does with it** (`Sim/TankWall.cs`, not yet flown). A dart or a fragment holes a tank only
+with more energy than shearing a plug its own size out of the wall; a burst holes it regardless. A holed gas
+tank bursts where its pressure beats the hoop stress a through-crack of the opening's radius stands, read
+off the wall's thickness and yield against `Tank.RatedPressure`, with one aluminium-like toughness since KSA
+declares none. Fragments still make no holes, so only a shell's opening can burst a tank.
 
-**What it would unblock**, most visible first:
-- **A leak driven by the tank's own pressure**: a fast jet that atomises, where today's stream pours --
-  the pressure-vessel breach a player asked for.
-- ~~**A holed gas tank venting**~~ -- **built on 5707**, choked flow at `Mole.GetPressure`, not drawn. A
-  liquid tank venting its ullage once the level falls below the hole is not, since KSA puts no gas over a
-  liquid.
-- **Toughness and penetration from the wall**: material and thickness against a fragment's or a dart's
-  energy, so a thick tank shrugs off what a thin skin does not.
-- **A tank bursting on a hit**: a vessel at its rated pressure holed past what its wall holds, in place of
-  the one-in-five guess.
-
-**Still to take up**: a burst or toughness read off `Tank.RatedPressure`; the 0.2 bar stays the liquid
-model, since KSA still gives a liquid no pressure.
+**What is still a guess.** A liquid has no pressure in KSA, so `Sim/TankLeak.cs` holds every liquid tank at
+its own 0.2 bar, low enough that the depth of a hole and the pull the craft feels still decide a leak, and a
+liquid tank going up is still a flat one fire in five (`PartFire.FlashoverChance`). A part's toughness
+against a hit stays its mass to the two thirds (`Sim/PartToughness.cs`); the wall decides only whether a hit
+gets through. KSA itself bursts nothing on `RatedPressure`.
 
 ## The first kill of a session pays for KSA's destroy running cold
 

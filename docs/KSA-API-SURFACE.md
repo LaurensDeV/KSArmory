@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-361 types and 960 members across 12 assemblies.
+362 types and 967 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -712,7 +712,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.AsmbTankTemplate
 
-*referenced as a type only*
+- `float GetWallYieldStrength()`
 
 ### KSA.AsmbTransformTemplate
 
@@ -1586,6 +1586,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `VehicleDents Dents`
 - `float get_EngineThrottleMin()`
 - `int get_Count()`
+- `void ComposeRenderData(ref Brutal.Numerics.double4x4, bool, KSA.IViewport, int)`
 - `void EnsureDerived(KSA.DerivedData)`
 - `void RecomputeAllDerivedData()`
 - `void RecomputeTotalFillFraction()`
@@ -1943,6 +1944,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.StateVectors
 
+- `Brutal.Numerics.double3 PositionCci`
 - `KSA.UniverseTime StateTime`
 
 ### KSA.StellarBody
@@ -1966,6 +1968,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.Tank
 
 - `System.Collections.Generic.List`1<KSA.Mole> Moles`
+- `float RatedPressure`
 - `float StorageVolume`
 
 ### KSA.TextureReference
@@ -2042,6 +2045,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.doubleQuat get_Body2Cce()`
 - `Brutal.Numerics.doubleQuat get_Helm2Body()`
 - `Brutal.Numerics.float3 get_BoundingBoxHalfExtentsAsmb()`
+- `InitialKinematicState GetInitialKinematicStateForLocation(KSA.Celestial, KSA.UniverseTime, double, double, Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.double3, Brutal.Numerics.byte4)`
 - `KSA.FlightComputer get_FlightComputer()`
 - `KSA.FlightPlan get_FlightPlan()`
 - `KSA.IParentBody get_Parent()`
@@ -2077,6 +2081,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void UpdateAfterPartTreeModification()`
 - `void UpdateRenderData(KSA.IViewport, int)`
 - `void set_ShowGroundTrack(bool)`
+
+### KSA.Vehicle+InitialKinematicState
+
+- `Brutal.Numerics.doubleQuat Body2Cce`
+- `KSA.Orbit Orbit`
 
 ### KSA.VehicleDestructionCause
 

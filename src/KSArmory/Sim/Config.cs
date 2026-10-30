@@ -110,7 +110,8 @@ public sealed class Config
     /// <summary>
     /// How much of a part's health a burst takes, as a multiple of its <see cref="BlastDamage.Share"/>
     /// (<see cref="PartHealth"/>): at one a fresh part breaks where the sweep breaks it, at a tenth the
-    /// burst has to land ten times. No one hit costs more than a whole share.
+    /// burst has to land ten times. No one hit costs more than a whole share. A tank's wall is divided by it
+    /// too (<see cref="TankWall.Scaled"/>), so what gets through one and what bursts one follow the same slider.
     /// </summary>
     public float DamageScale = 1f;
 

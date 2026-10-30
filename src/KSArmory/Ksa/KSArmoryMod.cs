@@ -517,6 +517,7 @@ public sealed class KSArmoryMod
             GroundSplats.Paint();
             BulletHoles.Enabled = _config.BulletHoles;
             Leaks.Enabled = _config.TankLeaks;
+            KsaWorld.WallDamageScale = _config.DamageScale;
             BulletHoles.Prune();
             ShellTracers.BallBrightness = _config.BallRoundBrightness;
             foreach (WeaponSystems.Entry e in _roster.All)

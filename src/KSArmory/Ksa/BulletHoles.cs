@@ -75,6 +75,15 @@ internal static class BulletHoles
             return;
         }
 
+        // A burst holes whatever it bursts on; a dart only a wall it can punch through.
+        double speed = Vec.Len(travel);
+        if (round.Munition.ChargeKg <= 0f && KsaWorld.TryTankWallOf(subPart, out TankWall wall)
+            && !wall.Perforates(0.5 * round.Munition.MassKg * speed * speed, round.Munition.CalibreMm / 1000.0))
+        {
+            Log.Debug(() => $"no hole: the shell did not get through {subPart.Id}'s {wall.ThicknessMetres * 1000.0:F0} mm wall");
+            return;
+        }
+
         if (_holes.Count >= MaxHoles) _holes.RemoveAt(0);
         _holes.Add(new Hole(subPart, local, cameFrom, (float)core, (float)scorch, _made++ % 97, paint, normal));
         Log.Debug(() => $"hole in {subPart.Id} on {KsaWorld.DisplayName(craft)}, {core:F2}/{scorch:F2} m; {_holes.Count} held");

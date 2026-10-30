@@ -4141,6 +4141,14 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             if (index < 0) continue;
 
             DamageablePart part = _partScratch[index];
+            if (!part.Wall.Perforates(energy, munition.CalibreMm / 1000.0))
+            {
+                // Stopped by a tank's wall: the wall takes the blow, and nothing reaches what it holds.
+                _partShares.Add((index, PartToughness.KineticCoupling * energy
+                                        / PartToughness.Joules(part.MassKg, part.CrashTolerancePascals)));
+                break;
+            }
+
             double kept = PartToughness.KineticCoupling * energy;
             _partShares.Add((index, kept / PartToughness.Joules(part.MassKg, part.CrashTolerancePascals)));
             _struckParts.Add(index);

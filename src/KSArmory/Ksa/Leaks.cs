@@ -142,6 +142,11 @@ internal static class Leaks
     private static double _sinceMeasured;
     private static bool _warned;
 
+    // Gas tanks whose wall gave way this measurement, broken together per craft; and every part already
+    // sent, since the failure lands on a later frame and the holes are still there until it does.
+    private static readonly Dictionary<Vehicle, List<Part>> _bursting = new(ReferenceEqualityComparer.Instance);
+    private static readonly HashSet<Part> _burst = new(ReferenceEqualityComparer.Instance);
+
     /// <summary>How many tanks are leaking now.</summary>
     public static int Count => _leaking.Count;
 
@@ -184,6 +189,8 @@ internal static class Leaks
         _jets.Clear();
         _leaking.Clear();
         _owed.Clear();
+        _bursting.Clear();
+        _burst.Clear();
         _sinceMeasured = 0.0;
     }
 
@@ -258,6 +265,31 @@ internal static class Leaks
         }
 
         foreach (Tank tank in _gone) _byTank.Remove(tank);
+
+        if (_bursting.Count > 0) Burst();
+    }
+
+    private static void Burst()
+    {
+        KsaWorld.WaitForVehicleSolvers();
+
+        foreach ((Vehicle craft, List<Part> parts) in _bursting)
+        {
+            if (!KsaWorld.IsAlive(craft)) continue;
+
+            foreach (Part part in parts) PartHealth.World.Hit(part, 1.0, 1.0);
+
+            if (KsaWorld.LosingThatManyPartsIsFatal(parts.Count, KsaWorld.PartCount(craft)))
+            {
+                Log.Info($"a bursting tank destroyed {KsaWorld.DisplayName(craft)}");
+                KsaWorld.Destroy(craft, blastSeverity: 50f);
+                continue;
+            }
+
+            KsaWorld.TryQueuePartFailure(craft, parts);
+        }
+
+        _bursting.Clear();
     }
 
     // One tank's level, flow and debt. False when nothing runs out of it.
@@ -399,6 +431,23 @@ internal static class Leaks
         double outside = craft.Parent is Celestial body ? KsaWorld.AtmosphericPressureAt(body, craft.GetPositionEcl()) : 0.0;
 
         Openings(_forms.GetValue(tank, static t => FormOf(t)), holes, vehicleToTank);
+
+        if (KsaWorld.TryTankWall(tank, out TankWall wall) && !_burst.Contains(tank.Parent.FullPart))
+        {
+            foreach ((BulletHoles.Hole hole, _, _) in _openings)
+            {
+                if (!wall.Bursts(pascals, outside, hole.Core)) continue;
+
+                Part part = tank.Parent.FullPart;
+                _burst.Add(part);
+                if (!_bursting.TryGetValue(craft, out List<Part>? parts)) _bursting[craft] = parts = [];
+                parts.Add(part);
+                Log.Info($"gas tank {part.Id} on {KsaWorld.DisplayName(craft)} burst: {pascals / 1.0e5:F1} bar "
+                         + $"through a {hole.Core * 2000.0:F0} mm opening, which its wall holds to "
+                         + $"{wall.HoldsPascals(hole.Core) / 1.0e5:F1} bar");
+                return false;
+            }
+        }
 
         double flow = 0.0;
         foreach ((BulletHoles.Hole hole, _, _) in _openings)

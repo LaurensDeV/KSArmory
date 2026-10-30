@@ -211,26 +211,23 @@ internal static partial class KsaWorld
         {
             if (TankTemplateField?.GetValue(tank) is not AsmbTankTemplate template) return false;
 
-            double wall;
             switch (template)
             {
                 case SphericalTankTemplate sphere:
                     outside = TankShape.Sphere(sphere.OuterRadius);
-                    wall = sphere.WallThickness;
                     break;
                 case CylindricalTankTemplate cylinder:
                     outside = TankShape.Conical(cylinder.Length, cylinder.OuterRadius, cylinder.OuterRadius,
                                                 cylinder.DomeHeightFraction);
-                    wall = cylinder.WallThickness;
                     break;
                 case ConicalTankTemplate cone:
                     outside = TankShape.Conical(cone.Length, cone.RadiusBase, cone.RadiusTop, cone.DomeHeightFraction);
-                    wall = cone.WallThickness;
                     break;
                 default:
                     return false;
             }
 
+            if (WallThicknessOf(template) is not { } wall) return false;
             inside = outside.Inside(wall);
             origin = template.LocationAsmb;
             floatQuat paf2Asmb = template.GetPaf2Asmb();
@@ -244,6 +241,52 @@ internal static partial class KsaWorld
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// A tank's wall: its template's thickness and the material's yield, and the rating KSA works out from
+    /// them, scaled by <see cref="WallDamageScale"/>. False for a tank of a shape this does not know, or one whose material declares no strength.
+    /// </summary>
+    public static bool TryTankWall(Tank tank, out TankWall wall)
+    {
+        wall = default;
+
+        try
+        {
+            if (TankTemplateField?.GetValue(tank) is not AsmbTankTemplate template) return false;
+            if (WallThicknessOf(template) is not { } thickness) return false;
+
+            wall = new TankWall(thickness, template.GetWallYieldStrength(), tank.RatedPressure).Scaled(WallDamageScale);
+            return wall.Known;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>The session's <see cref="Config.DamageScale"/>, which every tank wall read is weakened by.</summary>
+    public static double WallDamageScale { get; set; } = 1.0;
+
+    /// <summary>The wall of the tank a part carries, if it carries one KSA declares a wall for.</summary>
+    public static bool TryTankWallOf(Part part, out TankWall wall)
+    {
+        wall = default;
+        return TryTankOf(part, out Tank? tank) && TryTankWall(tank, out wall);
+    }
+
+    // Read as the distance it is, never through DistanceReference.IsValid(), which wants 100 km.
+    private static double? WallThicknessOf(AsmbTankTemplate template)
+    {
+        double metres = template switch
+        {
+            SphericalTankTemplate sphere => sphere.WallThickness,
+            CylindricalTankTemplate cylinder => cylinder.WallThickness,
+            ConicalTankTemplate cone => cone.WallThickness,
+            _ => double.NaN,
+        };
+
+        return double.IsFinite(metres) && metres >= 0.0 ? metres : null;
     }
 
     private static FieldInfo? TankTemplateField
@@ -705,8 +748,9 @@ internal static partial class KsaWorld
                 double area = 0.5 * ((size.X * size.Y) + (size.Y * size.Z) + (size.Z * size.X));
                 if (!double.IsFinite(area) || area < 0.0) area = 0.0;
 
+                TryTankWallOf(part, out TankWall wall);
                 into.Add(new DamageablePart(handles.Count, ecl, radius, part.CrashTolerancePascals,
-                                            MassKg: part.ComputeSubtreeInertMass(), PresentedAreaM2: area));
+                                            MassKg: part.ComputeSubtreeInertMass(), PresentedAreaM2: area, Wall: wall));
                 handles.Add(part);
             }
 
