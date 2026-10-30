@@ -368,10 +368,18 @@ carries, how many, what the fuse does.
 - **A mod cannot register a module type** to be drawn for in the first place. See *Custom part
   modules* above.
 - **A saved craft has nowhere to put it.** `PartTree` (`KSA/KSA/PartTree.cs`) keeps a typed
-  `ModuleStateful<…>.StateList` field per module type the engine knows. **On 5638 it also carries a
-  `ModuleList Modules` and a `ModuleStateList States` keyed on the module's `Type`** (`KSA/ModuleStateList.cs`),
-  which is the shape a mod's module would need; whether a mod type can reach it through the part XML
-  and the vehicle file is not yet read. Until it is, per-part mod state is taken not to ride the vehicle file.
+  `ModuleStateful<…>.StateList` field per module type the engine knows. **Since 5638 it carries a
+  `ModuleList Modules` and a `ModuleStateList States` keyed on the module's `Type`**, which is open to any
+  type — but both ends that feed it are closed. `ModuleList.CreateModules` (`KSA/KSA/ModuleList.cs:115`) is
+  a fixed list of `X.CreateComponents` calls; the XML element map for `PartInstance.Components` is built
+  in `XmlHelper`'s static constructor from `Assembly.GetExecutingAssembly()` alone (`XmlHelper.cs:21`), and
+  the part-file and universe-save serializers are built from it before any mod loads
+  (`XmlHelper.cs:43`, `GameSaves.cs:135`). A save entry with no matching module is dropped with a warning
+  (`PartTree.cs:376`); an unknown element is dropped silently. `PartInstance` has no free-form field.
+  So per-part mod state rides a vehicle file only by patching: a postfix on `ModuleList.CreateModules`
+  adding the module, its `SaveData` type appended to `XmlHelper.AttributeOverrides` before the craft-file
+  serializer is built (`VehicleSaves.cs:181`, which may or may not be after StarMap's earliest hook —
+  unchecked) and the universe one replaced, and a postfix on `VehicleEditor.DrawPartUi` for the window.
 
 **What is not blocked, and why it is still not built.** The editor itself is readable:
 `Program.Editor` is a public static (`KSA/KSA/Program.cs:228`) and `VehicleEditor.Selected`,
@@ -448,11 +456,21 @@ under a particular point. Nothing here has been built into the mod: `KsaWorld` r
 against terrain alone, because a pad modelled as a thicker planet swung the bearing from the mount
 through 168° between two adjacent pixels at the pad's edge.
 
-**What would unblock the rest.** A raycast against static geometry. The pieces exist —
-`StaticObject.CollisionShape` is a public `TypedIndex` and `ConstraintSim.UnlockShapes()` hands out
-the Bepu `Shapes` registry — but nothing here has tried it, and the engine's own per-triangle path
-is `Part.RayCastEgo` against `Ray.RaycastWatertight` (`KSA/KSA/Part.cs:2625`, `:2692`), which takes
-a `Part` and not a landmark.
+**Placing a craft already stands it on the pad.** `Vehicle.TeleportToLocation`, which Move craft with
+mouse uses, goes through `GetInitialKinematicStateForLocation` (`Vehicle.cs:4322`), and that adds
+`GroundOffset + SurfaceHeight` inside an `IsLaunchPad` landmark's `FootprintRadius` (the private
+`GetLaunchPadHeightAtDirCcf`, `Vehicle.cs:4296`). What is wrong is the marker and the cursor, which say the
+terrain.
+
+**Not blocked on KSA, and not taken up.** No engine raycast reaches a structure from afar: nothing calls
+Bepu's `Simulation.RayCast`, and the pad's collider exists only while a vehicle is within 300 m of it, in
+bubble coordinates (`ConstraintSim.cs:585`). But the meshes are public: `StaticObject.Template.Models[i].Mesh`
+is a `MeshReference` whose `PositionCompare` (`MeshReference.cs:55`) is the de-indexed triangle list
+`Ray.RaycastWatertight` takes, as `Part.RayCastEgo` uses it. The pose is the landmark's
+(`LocationReference.GetAxesCcf`: assembly X up, Y east, Z north) at its terrain height plus `GroundOffset`,
+and placed objects are found by walking `BodyTemplate.Locations` as the engine does. So the cursor can stop on
+the pad: a bounding-sphere reject per landmark, then the mesh test; or the flat top disc alone, which is the
+model placement already uses.
 
 ## A bright light far away, on craft and structures
 
