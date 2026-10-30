@@ -110,9 +110,9 @@ which takes the destroy to 23. The rest is not compilation -- with all of `KSA.d
 at **21.9 ms** -- so it is first-time work inside the debris split that only the engine can do earlier
 or cheaper. The frame went from 44-45 ms to 33-34, flown twice with `gunnery:2`.
 
-**The engine has been built with the JIT optimiser on since 2026.10.19.5638** — every earlier build
-carried `DebuggableAttribute` with optimisation off, so any frame time measured before it was against a
-debug engine — but `KSA.dll` is still IL-only, and the 28 ms above has not been re-measured on it.
+**Re-measured on 2026.10.25.5707, still worth keeping.** The engine has been built with the JIT optimiser
+on since 2026.10.19.5638, but `KSA.dll` is still IL-only. Flown once each with `gunnery:2`, `fire` worst on
+the first kill against the second: **31.1 ms against 5.6** with `EngineTypes`, **46.8 against 5.2** without.
 
 **When to delete `EngineTypes`.** When KSA ships its assemblies compiled ahead, or its first destroy
 costs what a later one does. The check: comment out the `EngineTypes` loop, fly
