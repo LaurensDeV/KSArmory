@@ -50,12 +50,14 @@ internal static class BulletHoles
 
     /// <summary>
     /// Marks where <paramref name="round"/> struck <paramref name="craft"/>, cast along its path
-    /// relative to the craft at the instant it struck. Nothing for a craft with no mesh to cast
-    /// against.
+    /// relative to the craft at the instant it struck, and judges whether a dart got through the tank
+    /// wall it met — that, with the marks switched off too. Nothing for a craft with no mesh to cast against.
     /// </summary>
     public static Penetration Strike(Vehicle craft, IProjectile round, float paint = -1f)
     {
-        if (!Enabled || !KsaWorld.IsAlive(craft)) return default;
+        // A dart's verdict is damage and is judged with the holes switched off; only the marks go with them.
+        bool judged = round.Munition.ChargeKg <= 0f && paint < 0f;
+        if ((!Enabled && !judged) || !KsaWorld.IsAlive(craft)) return default;
 
         double intoFrame = round.DetonationElapsedInFrame;
         double3 craftAt = KsaWorld.PositionEcl(craft) + (KsaWorld.VelocityEcl(craft) * intoFrame);
@@ -73,6 +75,7 @@ internal static class BulletHoles
         (double core, double scorch) = HoleLook.RadiiFor(round.Munition.CalibreMm, round.Munition.ChargeKg);
         if (paint >= 0f)
         {
+
             AddPaint(new Hole(subPart, local, cameFrom, 0f,
                               (float)Paintball.SplatRadius(round.Munition.ChargeKg, round.Munition.CalibreMm),
                               _made++ % 97, paint, normal));
@@ -82,7 +85,7 @@ internal static class BulletHoles
         // A burst holes whatever it bursts on; a dart only a wall it can punch through, what is left of it
         // under the craters earlier darts made there.
         Penetration verdict = default;
-        if (round.Munition.ChargeKg <= 0f && KsaWorld.TryTankWallOf(subPart, out TankWall wall))
+        if (judged && KsaWorld.TryTankWallOf(subPart, out TankWall wall))
         {
             double speed = Vec.Len(travel);
             double joules = 0.5 * round.Munition.MassKg * speed * speed;
@@ -99,6 +102,8 @@ internal static class BulletHoles
                 return verdict;
             }
         }
+
+        if (!Enabled) return verdict;
 
         if (_holes.Count >= MaxHoles) _holes.RemoveAt(0);
         _holes.Add(new Hole(subPart, local, cameFrom, (float)core, (float)scorch, _made++ % 97, paint, normal));
