@@ -6,10 +6,16 @@ namespace KSArmory.Tests;
 public class HoleLookTests
 {
     [Fact]
-    public void TheHoleIsOneAndAHalfCalibres()
+    public void AShellsHoleIsOneAndAHalfCalibresInRadius()
     {
         Assert.Equal(0.030, HoleLook.RadiiFor(20.0, 0.05).Core, 9);
         Assert.Equal(0.1905, HoleLook.RadiiFor(127.0, 3.3).Core, 9);
+    }
+
+    [Fact]
+    public void ADartsHoleIsLittleWiderThanTheDart()
+    {
+        Assert.Equal(0.6 * 0.01275, HoleLook.RadiiFor(12.75, 0.0).Core, 9);
     }
 
     /// <summary>The soot follows the charge by its cube root, as every other radius of a burst does.</summary>
