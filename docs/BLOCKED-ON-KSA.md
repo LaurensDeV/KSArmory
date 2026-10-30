@@ -28,23 +28,13 @@ happen rather than a member that moved.
   in 2026.10.7.5541**: the field is still the frame camera's, but `Camera.GetEffectiveNearbyCelestial`
   resolves one for any camera, and the planet and atmosphere passes read that
 - [x] Wheel, suspension or steering module exists
-- [x] ~~Partial or component damage exists alongside `DestroyVehicleFromEvent`~~ — **arrived in
-  2026.9.4.5400, and taken up**: a burst breaks parts one by one through
-  `KsaWorld.TryQueuePartFailure`, which writes the engine's `PartFailureEvent` (`Sim/BlastDamage.cs`)
-- [x] Per-mod vehicle library path, or a way to register saved craft
-- [x] `UncompressedVehicleSave.Load` honours `Character`, making a kitten launchable
-- [x] A character attachment's pose survives the frame, so a mod can aim one
 - [x] Custom part modules can be registered without patching
 - [x] Public accessor for the volumetric trail renderer
-- [x] A post-processing or full-screen shader hook a mod can register into
+- [x] **A hook that hands a mod the frame's command buffer** — the day it exists, `Ksa/CloudPassHook.cs`'s
+  prefix on `SunbloomRenderer.Render` can go
 - [x] **A hook between applying the vehicle solvers and snapshotting them** — delete `Ksa/AttitudeHook.cs`'s patch the day this exists
 - [x] **A menu-bar hook a mod can register into** — delete `Ksa/Ui/ModMenuEntry.cs` the day this exists
 - [x] **`DistanceReference.IsValid()` stops requiring 100 km** — go back to `IsValid()` on the atmosphere and the ocean the day it does
-- [x] ~~A high vehicle in a `Ccf` bubble led from inside the radius gets its fictitious forces~~ —
-  **arrived in 2026.9.10.5438, and taken up**: `tools/shot-report.py --frame-check` now counts a
-  `Ccf` probe on an unsplit bus only when its off-gravity reads over 1 m/s. Read back over every
-  night on disk, that flags the five shots the fault ruined and none of the 37 sound post-fix shots
-  the frame-only gate re-flew, whose largest push was 0.20 m/s. See the entry below
 - [ ] **`PhysicsStates.ComputeDrag` is still a body-fixed drag box over the mass, with no lift, no
   Mach term and no restoring torque** — RocketWerkz are working on aerodynamics. The day this
   changes, the gun's lead is leading on yesterday's physics; see the entry below. And
@@ -54,8 +44,8 @@ happen rather than a member that moved.
   gets a centre of its own; see *A floating craft's waterline depends on where it is* below
 - [ ] **A kitten can walk on a vehicle** — `IsGroundSurfaceFor` accepts something other than a
   static handle; see *Walking on a craft* below
-- [x] **Tanks have a pressure, and hold gas** -- **arrived in 2026.10.25.5707; gas venting taken up**: a rated
-  pressure off the wall material, and gas stored in a rated tank; see *A tank's pressure and its walls* below
+- [ ] **KSA bursts a tank on `RatedPressure`, or gives a liquid a pressure** — the rated pressure and
+  stored gas arrived in 2026.10.25.5707 and gas venting is built; see *A tank's pressure and its walls* below
 - [ ] **KSA's destroy runs warm the first time it is called** -- its assemblies compiled ahead
   (ReadyToRun), or a debris split that no longer does first-time work -- **delete
   `JitWarmup.EngineTypes` the day it does**; see the entry below
@@ -68,74 +58,16 @@ and `UncompressedVehicleSave`'s character handling are unchanged, `IsGroundSurfa
 by reflection, StarMap did not move, and there is still no hook between applying the vehicle solvers and
 snapshotting them. Citations were re-derived only for what this paragraph cites; elsewhere they stand as below.
 
-**Rechecked against 2026.10.19.5638: one entry moved, the rest is still blocked.** KSA now declares a
-magnetic field on its bodies, which half-answers *A body's magnetic field and what its air is made of*
-below, and the mod reads it. A camera window gets a terrain depth pre-pass and the radiation belts, and still no clouds or ocean (it gets clouds in 2026.10.25.5707);
-`PhysicsStates.ComputeDrag` and the buoyancy's `MassToGeometryAsmb` are unchanged, `Program.PrepareFrame`
-and `OnFrame` are byte-identical, `DistanceReference.IsValid` still wants 100 km, `IsGroundSurfaceFor`
-still takes a static handle, and StarMap changed only its restart prompt. `KSA.dll` is still IL-only, but it and `Planet.Render.Core.dll` are the first builds shipped with the JIT optimiser on — every earlier one carried `DebuggableAttribute` with optimisation disabled — so the cold first destroy may cost less, and any frame time measured before this build was measured against a debug engine. Flown on `PBB SCALE 8` (eight rockets, cloud pass on, 239 Hz display), pad to cutoff: 138 fps against 78–86 on three 5602 runs of the same shot, and 132 against 56–60 through the ascent, where the 5602 frame was worst. The mod's own share of the frame fell with it, 2.7 ms to 1.0.
-Citations were not re-derived for this build; where the text above and below gives no other, they are
-against 2026.10.13.5602.
-
-**Rechecked against 2026.10.13.5602: one entry moved, the rest is still blocked.** A camera window's
-terrain is now drawn unshadowed rather than through the main view's cascades. `PhysicsStates.cs`,
-`PhysicsEnvironment.cs`, `ConstraintSim.cs` and `NarrowPhaseCallbacks.cs` are unchanged, `Program.cs`'s
-viewport path moved by line shifts and a trail-shadow pass, `KSA.dll` is still IL-only, StarMap did
-not move, and there is still no public accessor for the trail renderer. Citations were re-derived
-only where this build moved what they cite; elsewhere they are against 2026.10.10.5554.
-
-**Rechecked against 2026.10.7.5541: everything open is still blocked except the camera window,
-which now draws terrain and a sky.** A secondary viewport is created with `RenderTerrain`
-(`Program.cs:952`) and runs the planet renderer and `RenderAtmosphereOnly` for its own slot
-(`Program.cs:4471-4574`), and the atmosphere LUTs are per viewport. Clouds, the ocean, ground clutter,
-volumetric trails and the clustered light pre-pass are still the main view's. `ComputeDrag` is
-byte-identical; a long-step RK8 integrator was added for vehicles outside the physics radius, where
-there is no drag. There is no new StarMap hook, and `KSA.dll` is still not ReadyToRun.
-
-**Rechecked against 2026.9.22.5482: all twelve open items still blocked, and the explosion volumes
-below now draw over an airless body.** `TryToPutOnRails` also returns a vehicle to rails from any
-bubble frame now, which closes the rails half of the fictitious-forces entry. `ComputeDrag` is
-unchanged. There is no new StarMap hook.
-
-**Against 2026.9.10.5438: the fictitious forces arrived, and partial damage moved again.** A part's crash tolerance is now derived from its collider volume against a
-9 MPa base at 330 kg/m³ and clamped to 0.1–100 MPa (`PartStructuralLimits.cs:8-39`,
-`Part.cs:843-858`), and every queued failure and every `DestroyVehicleFromEvent` now spawns an
-engine explosion (`PartFailureEvent.cs:38-67`, `Universe.cs:1909-1917`).
-
-**The explosion system that came with it is public, and nothing below was written knowing it.**
-`ExplosionFlashSystem.Spawn` places a point light that every viewport draws
-(`ExplosionFlashSystem.cs:26`, `:73-91`; eight slots shared with the engine), and
-`ExplosionSystem.SpawnPreset` fires a declared `<Explosion>` — emitters, volumes, a flash and a
-sound — from an anchor with no vehicle (`ExplosionSystem.cs:217`, `:471-476`). Its volumes draw
-through the volumetric trail renderer, over the camera's nearby body with or without air, behind
-their own `Graphics.Explosions` setting (`ExplosionVolumeManager.cs:24`, `:41`,
-`VolumetricTrailRenderer.cs:294`, `PlanetTransparenciesRenderer.cs:316-326`), and
-its intensity clamps at 100x of 5e10 J, so a nuclear cloud would still be authored rather than
-scaled.
-
-**Re-derived against 2026.9.22.5482:** the citations into `Program.cs` in the secondary-viewport
-and attitude-command entries, the plume gate in `Vehicle.cs` and `RocketNozzle.cs`, the raycast in
-`Part.cs`, and those in this header. The secondary-viewport entry's list of what such a window does
-and does not render was rechecked against it and holds.
-
-The other line numbers below are against **2026.8.22.5348** and have not been re-derived: 2026.9.4.5400
-replaced the `Viewport` class with `IViewport` / `ViewportBase` / `GameViewport` and moved the list
-into `ViewportRegistry`, which moved most of the render path. The *claims* were rechecked against
-the new corpus; only the citations are stale. Lighting is still a per-viewport choice —
-`IViewport.LightMode` is a `ViewportLightMode` (renamed from `EViewportLightMode`), set to
-`Clustered` for the main viewport and `None` for the thumbnail one — but that is the pass a
-secondary viewport was already getting some of. `OnFrameCelestials` still resolves one camera through `GetCamera()`
-and still calls `_planetRenderer.OnFrame(FrameViewport, ...)`, so the planet, atmosphere and ocean
-passes remain the frame viewport's alone and the first two entries stand. `UncompressedVehicleSave.cs`
-does not mention `Character` at all; `KittenRenderable` writes an attachment's transform and
-submits its draw in consecutive statements; `KSA.Rendering.PostProcessing` is an anti-aliasing
-pass and a tone curve.
+Earlier builds' recheck notes are in this file's git history. Where an entry gives no build for a
+citation, it was written against **2026.8.22.5348** and only its claim, not its line numbers, has been
+rechecked since: 2026.9.4.5400 replaced `Viewport` with `IViewport` / `ViewportBase` / `GameViewport` and
+moved most of the render path.
 
 ---
 
 ## A tank's pressure and its walls
 
-**Arrived in 2026.10.25.5707, not yet taken up.** `AsmbTankTemplate` derives a `RatedPressure` from the
+**Arrived in 2026.10.25.5707; venting is taken up, the walls are not.** `AsmbTankTemplate` derives a `RatedPressure` from the
 wall material's yield stress over a safety factor of two and thin-wall hoop and dome-crown formulas
 (`AsmbTankTemplate.cs`, `TankGeometry.PressurePerWallStress`), and `Tank.RatedPressure` carries it
 (`Tank.cs:80`). `Tank.CanHold` (`:788`) takes a gas only into a rated tank, as a single-reactant mix, and a
@@ -177,6 +109,10 @@ this mod's assembly, which takes its detonation to 2.6 ms, and `EngineTypes`, th
 which takes the destroy to 23. The rest is not compilation -- with all of `KSA.dll` compiled it stayed
 at **21.9 ms** -- so it is first-time work inside the debris split that only the engine can do earlier
 or cheaper. The frame went from 44-45 ms to 33-34, flown twice with `gunnery:2`.
+
+**The engine has been built with the JIT optimiser on since 2026.10.19.5638** — every earlier build
+carried `DebuggableAttribute` with optimisation off, so any frame time measured before it was against a
+debug engine — but `KSA.dll` is still IL-only, and the 28 ms above has not been re-measured on it.
 
 **When to delete `EngineTypes`.** When KSA ships its assemblies compiled ahead, or its first destroy
 costs what a later one does. The check: comment out the `EngineTypes` loop, fly
@@ -234,80 +170,6 @@ it from the track and miss more, especially against a target that manoeuvres.
 
 ---
 
-## A physics bubble that spans the near-surface radius strips a high vehicle's fictitious forces
-
-**Fixed in 2026.9.10.5438**, which carries revision 5429 — *"Fixed fictitious forces not being
-applied to a vehicle above the physics radius but in a CCF-based bubble led by another vehicle
-inside the radius."* That is the first of the three fixes proposed below: `ComputeDerivatives` now
-applies the centrifugal term to every member of a `Ccf` bubble, and Coriolis to every member not in
-contact, keyed on the bubble's frame rather than on `InPhysicsRadius` (`PhysicsStates.cs:869-882`).
-The rails half followed in 2026.9.22.5482: `TryToPutOnRails` returns a vehicle to rails from any
-bubble frame, not only `Cci` (`:818-839`), so such a vehicle is propagated again. The
-merge and split gates were rewritten per cluster in the same build (`PhysicsBubble.cs:340-358`), so
-how a bubble that size forms may have moved too. Everything below describes 2026.9.7.5402.
-
-**What this costs:** roughly one shot in thirty loses every warhead it has, by 3 to 113 km. On the
-eight nights carrying the diagnostic, 3.0% of flights carry **99.1% of the total summed miss**. It is
-the largest single accuracy defect this mod has, and none of it is the mod's arithmetic.
-
-**The inconsistency.** `PhysicsBubble` takes its frame from its **heaviest member** — a whole-bubble
-property — while the two rules that depend on that frame are **per vehicle**:
-
-* `PhysicsStates.ComputeDerivatives` puts the rotating-frame terms `-2ω×v` and `-ω×(ω×r)` inside
-  `if (environment.InPhysicsRadius)`;
-* `PhysicsStates.TryToPutOnRails` restores a coasting vehicle only through its
-  `else if (Origin.BubFrame.IsCci())` branch, so a rotating bubble has no path back to rails.
-
-`PhysicsStates.GetDesiredBubFrame` returns `Ccf` when the bubble **origin** sits inside the parent's
-near-surface radius, and `PhysicsBubble` sorts `_vehicleStates` by descending mass to choose that
-origin. So a bubble containing something heavy on the ground is rotating for **every** member,
-including one far above `InPhysicsRadius` — which is then advanced in a rotating frame with the
-rotating-frame accelerations switched off.
-
-**Measured, four craft, one world.** 2026-09-10, a 13-vehicle bubble anchored on a landed craft at
-~5 km swallowed four upper stages at ~1,380 km. Spurious acceleration implied by each craft's own
-off-gravity, divided by its share of frames off rails:
-
-| frames off rails | implied rate |
-| --- | --- |
-| 17% | 0.447 m/s² |
-| 24% | 0.439 m/s² |
-| 93% | 0.431 m/s² |
-| 100% | 0.428 m/s² |
-
-`2ω×v + ω×(ω×r)` at 2.9 km/s predicts **0.42 m/s²**. Four independent craft across a 6× spread of
-exposure, 93% of it cross-track, which is `ω×v` on a near-polar arc. The vehicles ended 3.4-4.4 km
-from an aim point their guidance had solved to within 6 m.
-
-**How a bubble that size forms.** `PairFreeFlight.ComputeApproach` sets `nearContact` when
-`centerDistance <= 5·combinedRadius + 2`, and `nearContact` merges unconditionally.
-`ComputeMergeStateCore` then sets a multi-member bubble's `EnvelopeRadius` to the distance from its
-leader to its furthest member — so the instant any high vehicle joins a bubble holding a landed one,
-the envelope becomes hundreds of kilometres and its reach five times that, and it takes the world in
-a frame or two. `ComputeMergeStateCore` also forces `IsRailsCoasting = false` for any multi-member
-bubble, so it cannot split again.
-
-**What a mod can and cannot do.** Nothing here is reachable: a mod chooses neither a bubble's
-membership, nor its origin, nor its frame. `SetOnRails(true)` can be written, but any commanded
-actuator undoes it on the same sub-step, and in these flights the engine's own actuator flags read
-**0%** — the vehicles went off rails through a term neither flag names. Keeping the world small
-helps and is already done (spent stages are removed rather than shed as debris) but does not
-prevent it.
-
-**What would fix it upstream**, in decreasing order of how much this mod would notice: apply the
-fictitious-force terms to every member of a rotating bubble rather than only those inside
-`InPhysicsRadius`; or choose the bubble frame from the member being integrated rather than from the
-heaviest; or refuse a merge that would span the near-surface radius at all.
-
-**Bubble physics is recent and may still be in progress**, so this entry may describe a half-built
-feature rather than a settled design. It is written to be checkable either way: the four-craft
-agreement with prediction to three digits is the part worth keeping whatever the code does next.
-
-Detection is possible from a mod and is built — `tools/shot-report.py --frame-check` counts coast
-probes reporting a rotating frame, and since the fix also a push over 1 m/s, on a vehicle that has
-not yet staged, and separates 4 ruined shots from 114 sound ones across 118 with no false positive. `ACCURACY-PLAN.md` 3bv, 3ci and 3cn have the
-flown accounts.
-
 ## A menu bar a mod can add to
 
 **Delete the workaround the moment this changes.** `src/KSArmory/Ksa/Ui/ModMenuEntry.cs` exists
@@ -339,252 +201,50 @@ is still ImGui behaviour rather than a supported hook, which is why the floating
 of callbacks, or an asset type. Then both the copied attribute and the `BeginMainMenuBar` append
 go, and the panel opens from a menu the game itself put there.
 
-## Full-screen post-processing shaders
+## Full-screen passes inside KSA's frame
 
-**Wanted.** A gunner's sight that actually looks through optics — desaturation, a vignette, grain,
-thermal false-colour. Also the whole class of damage and blast effects that live on the framebuffer
-rather than in the world.
+**Solved by patching — recorded so the trade stays a deliberate one.** KSA has no post-processing chain
+a mod can join (`KSA.Rendering.PostProcessing` is `Cmaa2Renderer` and `HableFilmicToneCurve`, wired into
+`Program`) and no StarMap hook carries a command buffer. `Ksa/CloudPassHook.cs` prefixes the public
+`SunbloomRenderer.Render`, which hands over the command buffer while the scene colour is
+storage-writable, the depth is sampled and bloom and the tonemap are still to come; every compute pass
+the mod has — cloud, shock, tracers, rings, holes, leaks, beams, the sensor look, the flash — records
+there. A patch that does not apply leaves those effects undrawn and nothing else.
 
-**The engine reason.** `KSA.Rendering.PostProcessing` contains `Cmaa2Renderer` and
-`HableFilmicToneCurve` and nothing else: an anti-aliasing pass and a tone curve, both wired
-directly into `Program`. There is no chain to append to, no asset type for a shader, and nothing
-in the namespace a mod can register with. Searching the corpus for `GlobalPostShader` or any
-equivalent returns nothing, so the extension point does not exist to be called.
+**What would unblock it properly**, and let the patch go: any hook that hands a mod the frame's command
+buffer at a stated point in the render. AMPW's ShaderExtensions (`<GlobalPostShader>`, on tsholmes'
+KittenExtensions) is the community's other route, and taking it would mean two framework dependencies.
 
-**It is nonetheless being done, by patching.** AMPW's **ShaderExtensions** adds `<ShaderEx>`,
-`<PostProcessingShader>`, `<GlobalPostShader>` and `<ImGuiShader>` asset types to KSA, built on
-tsholmes' **KittenExtensions**. His **KSAGEffects** then declares a fragment shader with
+## A camera window: no ocean, clutter, trails or clustered lights
 
-```xml
-<GlobalPostShader Id="GEffectFrag" Path="Shaders/GEffectShader.frag" RenderPassId="256" SubpassId="0">
-  <GEffectBuffer Id="GEffectBuffer" Size="1" />
-</GlobalPostShader>
-```
+**Wanted.** A director's camera window drawing the same picture as the main view, so a site can be
+watched while flying something else.
 
-and the shader reads the framebuffer as a genuine Vulkan **subpass input**
-(`layout(set = 1, binding = 0, input_attachment_index = 0) uniform subpassInput Source`), with a
-uniform buffer the mod fills each frame.
+**What a window draws now.** Since 2026.10.7.5541 a secondary viewport runs the planet renderer and the
+sky for its own slot, with its own LOD off its own camera (`PlanetViewportData.OnFrame`), and
+`Camera.GetEffectiveNearbyCelestial` keeps the grey distant sphere out of it; 2026.10.19.5638 added a
+terrain depth pre-pass and the radiation belts; 2026.10.25.5707 the clouds
+(`ViewportOptionFlags.RenderClouds`, `CloudRenderer`'s `ViewportResources`). Since 2026.10.13.5602 its
+terrain is drawn **unshadowed** unless `PlanetRenderer.ViewportShadows` is set (default false), where it
+was shadowed through cascades fitted to the main camera and moved whenever that camera did; the shadow
+maps are still built for the main view alone.
 
-**So this is blocked on KSA only in the sense that doing it natively is impossible.** Taking it
-would mean depending on two third-party framework mods, which is a different decision from a
-missing engine feature — this mod currently requires only StarMap. Recorded here so the trade is a
-deliberate one.
+**What it still does not.** The ocean, ground clutter, volumetric trails and the clustered light pre-pass
+stay in the main-only half of `RenderGame`, and detail textures stream round the main camera alone
+(`PlanetRenderer.OnFrame` is called for the frame viewport), so a window looking far from the player may
+see coarser ground. `Ksa/SightCamera.cs` borrowing the main view is still the full picture.
 
-## Secondary viewport: its terrain's shadows follow the main camera
+**Don't build a second renderer for it.** One was built and flown before 5541: a second
+`PlanetRenderer` bound to a window's target drew no terrain and made the main view's flicker, because
+the terrain mesh belongs to the `Celestial` (`PlanetRenderer.GetMesh`, `GenerateMeshData` writes
+`cubeMesh.Mesh`'s own buffers) and was regenerated every frame for one camera.
 
-**Wanted.** A director's camera window whose ground holds still while the player looks around.
-
-**What happens.** Turning the main camera makes the terrain in a camera window flicker and shift,
-in every sensor mode including colour, so the mod's own pass is not involved. Seen from play on
-2026.10.7.5541.
-
-**Why.** The sun's shadow maps are built once a frame, for the main view:
-`SunShadowSystem.UpdateUniforms(RenderedViewport, ...)` and
-`_cascadedShadowSystem.UpdateUniforms(RenderedViewport.GetCamera(), ...)` run with
-`_frameViewport = MainViewport` (`Program.cs:4331-4333` on 2026.10.10.5554). `PlanetRenderer.Render` binds the same
-sun-shadow and cascade sets for whatever viewport it is drawing (`PlanetRenderer.cs:2016-2027`), so
-a window's terrain is shadowed through cascades fitted to another camera's frustum, and they move
-whenever that camera does. Part meshes are spared: `SuperMeshRenderSystem` reads `UseShadows` per
-view (`:208`), which no secondary viewport has.
-
-**Why a mod cannot fix it.** It would mean a second shadow render per window, through cascade and
-shadow systems that hold one set of uniforms per frame and are constructed by `Program`.
-
-**What would unblock it.** Cascades per viewport, or the planet pass honouring `UseShadows` the way
-the part pass does — an unshadowed window is a better picture than one whose shadows move.
-
-**Partly lifted in 2026.10.13.5602, not yet looked at**: `PlanetRenderer.Render` binds the shadowed
-cloud, sun and cascade sets only for the main view or when the public static
-`PlanetRenderer.ViewportShadows` is set (default false), and the unshadowed sets otherwise
-(`PlanetRenderer.cs:2017-2031`); the shadow maps are still built for the main view alone
-(`Program.cs:4417-4418`). So a window's terrain should hold still and carry no shadows. Per-viewport
-cascades would still be the whole fix.
-
-## Secondary viewport: no sky, clouds, atmosphere or terrain
-
-**Wanted.** The launcher's electro-optical head drives a second camera window, so the sight can be
-watched while flying something else. The head, the tracking, the reticule and the camera write all
-work; the *picture* is wrong.
-
-**Partly lifted in 2026.10.7.5541, and taken up — not yet flown**: a secondary viewport now runs
-the planet renderer and the sky for its own slot, with its own LOD off its own camera
-(`PlanetViewportData.OnFrame`) and the grey ball suppressed through
-`Camera.GetEffectiveNearbyCelestial` — still without clouds, ocean, ground clutter, volumetric
-trails or clustered lights, which stay in the main-only half of `RenderGame`. **2026.10.25.5707 adds the
-clouds**, per viewport (`ViewportOptionFlags.RenderClouds`, `CloudRenderer`'s `ViewportResources`); the
-ocean, clutter, trails and clustered lights are still the main view's. Detail textures also
-stream round the main camera alone (`PlanetRenderer.OnFrame` is called for the frame viewport), so
-a window looking far from the player may see coarser ground. The director now drives a window from
-any craft (`KSArmoryMod.DriveCameraWindows`). What follows is the account against the builds before it.
-
-**What happens.** A secondary viewport shows a raw starfield above a hard horizon and a
-featureless grey ball, where the main view at the same position shows sky, clouds and terrain.
-
-**Why.** Secondary viewports go through `Program.RenderViewport` (`KSA/KSA/Program.cs:4633-4806`),
-a much shorter path than the main one. The loop that calls it ends at `Program.cs:4609`, and the
-next statement is `_renderedViewport = MainViewport` (`:4611`) — so every pass after it is pinned
-to the main view whatever else is open: the planet renderer, the light and shadow passes, the
-ocean (`:4785`), and `_planetTransparenciesRenderer.Render` (`:4794`), the sole call site of the
-atmosphere and cloud compute passes anywhere in the game.
-
-**`ViewportOptionFlags.RenderAtmosphere` is set on all four secondary viewports and does not mean
-this** (`Program.cs:949`). Inside `RenderViewport` it gates one call, `_sunbloomRenderer.Render`
-(`:4501-4511`), and nothing else. The flag is the first thing that looks like the fix and is not.
-
-Two details explain the exact image:
-
-- The starfield is drawn because stars *are* in the reduced path (`Program.cs:4460-4471`).
-- The grey ball is not terrain. It is `StaticCelestial.RenderSphere` → `DistantSphereRenderer`, a
-  sphere scaled to `MeanRadius` with no heightfield. It appears because
-  `Camera.NearbyCelestial` is only ever assigned inside `OnFrameCelestials`
-  (`Program.cs:2698-2723`), which runs for the frame viewport — always the main one. The check
-  that suppresses the planet you are standing on
-  compares `camera.NearbyCelestial == orbiter` (`StaticCelestialDistanceRendering.cs:416`), and a
-  secondary camera's is permanently `null`, so it never matches. The same `null` zeroes that
-  viewport's lighting data.
-
-**Why a mod cannot fix it.** `PlanetTransparenciesRenderer`, `OceanRenderer` and
-`OverallBloomRenderer` are constructed holding `Program._offscreenTarget`
-(`Program.cs:1161, 1180, 1189`), which *is* `MainViewport.OffscreenTarget` — attached as a
-shared target at `Program.cs:1523`. The `IViewport` they accept per call only selects a shader
-dynamic offset; the image they write into was baked into their descriptor sets at construction.
-
-**Redirecting them is not the blocker, though, and an earlier version of this entry said it was.**
-`PlanetRenderer`'s constructor is public and takes an `IRenderPassInfo`
-(`PlanetRenderer.cs:462`); `PlanetTransparenciesRenderer.RebuildFrameResources(RenderTarget,
-RenderTarget, RenderTarget)` is public (`:304`); every dependency is reachable
-(`Program.GetRenderer`, `GetCloudShadowsRenderer`, `SunShadowSystem`,
-`Instance.TextureSystem`); and `Renderer.ComputeCommandBufferPool` and `TrySubmitFrame` are public
-too. A second set bound to a leased secondary viewport's own `OffscreenTarget` is reachable in
-principle.
-
-**The blocker is that nothing lets a mod record into the frame.** Every StarMap hook takes
-`(double currentPlayerTime, double dtPlayer)` and no more — `BeforeMain`, `BeforeGui`, `AfterGui`,
-`AfterOnFrame`, `AllModsLoaded`, `ImmediateLoad`, `Unload`. The passes must be recorded between
-`BeginRendering` and `EndRendering` on the target, inside the private `Program.RenderGame`. Two
-further costs sit behind that even if it were patched: `SunShadowSystem` and
-`_cascadedShadowSystem` fit their cascades to the frame camera, so a second view's terrain would
-carry the first view's shadows, and the whole thing roughly doubles the heaviest GPU work in the
-frame. **The failure mode is what settles it** — a mis-set descriptor in a hand-built pass is a
-device-lost, where both patches this mod already carries degrade to a log line or a build error.
-
-**What would unblock it**, roughly easiest first:
-
-1. Assign `Camera.NearbyCelestial` per camera rather than only for the frame viewport. On its own
-   this removes the wrong grey sphere. Cheap.
-2. Array the atmosphere and cloud LUTs by viewport as well as by planet. There is already a
-   pattern for this in the codebase — `SunbloomRenderer`'s buffers are sized by the viewport
-   count, which is `ViewportRegistry.MAX_VIEWPORTS` and a viewport's own `ShaderSlot` since
-   2026.9.4.5400.
-3. Let the transparency, ocean and bloom renderers take their render target per call, or hold one
-   set per viewport.
-4. Run the planet, atmosphere and lighting passes inside the per-viewport loop.
-
-**The architecture already supports per-viewport wherever it was designed to** — `_lightingData`
-is indexed by `viewport.Index`, and the sunbloom buffers by viewport count. This is unfinished
-rather than impossible.
-
-**Workaround in the mod, and it is the shipped default.** `Ksa/SightCamera.cs` takes over the
-*main* viewport instead — fully public API, full render quality, borrowed while the optic is
-selected and handed straight back when it is not. The panel still offers a secondary window, for
-watching a site while flying something else, and warns there that the picture is wrong. Whichever
-of these entries unblocks first, that option stops needing the warning.
-
-**What the secondary window *does* get is worth knowing, because it decides what it is good for.**
-`RenderViewport` draws stars and the Milky Way, the distant-sphere pass, vehicles, part models,
-static objects, the translucency pass, orbit lines and gizmos, then composites through that
-viewport's own CMAA2 and tonemap. So craft, rounds and their trails all draw normally and the
-sight tracks them properly; it is the *ground* that is missing. A pod watching an aircraft, a
-missile or something in orbit is usable. One watching a target on the ground is not.
-
-**Confirmed in flight**, and the picture is the proof: a pod on the pad shows the launch complex
-and nothing else — the pad is a `StaticObject`, which `RenderViewport` does draw
-(`StaticObjectRenderer.WriteCommands`), while the field it stands in is terrain, which it does
-not. So "the ground" appearing is not evidence the block has lifted; only a hillside away from a
-structure is.
-
-## A second renderer was built and flown, and it does not work — the mesh is the reason
-
-**Do not try this again without reading this section.** The retargeting argument above is sound as
-far as it goes: `PlanetRenderer`'s constructor is public and takes an `IRenderPassInfo`, a
-`RenderTarget` is one, every viewport past the main one owns its own, and both injection points
-exist — a prefix on the private `Program.RenderViewport` for the work Vulkan forbids inside a
-render pass, and one on the public `StaticObjectRenderer.WriteCommands` for the draw, which is
-called between `BeginRendering` and `EndRendering` on the right target. All of that was built, and
-the log says so: *both render hooks are in*, *a second planet renderer is up on Camera 3
-(500x500)*, no exception.
-
-**It produced no terrain in the window and made the main view's ground and trees flicker.**
-
-The reason is a level below the render targets. `PlanetRenderer.GetMesh` is
-`celestial.GetLodMesh(_meshLodIndex)`, and `GenerateMeshData` dispatches a compute pass that writes
-into `cubeMesh.Mesh`'s own vertex and index buffers (`PlanetRenderer.cs:2131`, `:1782-1800`). **The
-terrain mesh belongs to the `Celestial`, not to the renderer** — there is exactly one per body, and
-it is regenerated every frame for one camera. A second renderer does not get its own; it writes the
-same buffers with a different camera's LOD and a different texture anchor, and the two alternate.
-
-So the engine is not merely *unfinished* per-viewport, as the list above implies: below the target
-binding it is **single-camera by construction**, and a per-viewport render needs per-viewport
-terrain mesh state that does not exist to be allocated. That does not change what would unblock it
-— it adds to it. Item 4 has to bring the mesh with it.
-
-The whole arm was removed rather than shipped off: it broke the main view, which is a worse thing
-than the window it was trying to fill, and it cost three assembly references and a third Harmony
-patch to do it.
-
-**A synthetic-vision overlay was then built and also dropped, and that one worked.** It projected
-the height field `TerrainMapScan` already samples through the head's own camera and drew it as a
-grid of ImGui polylines — safe by construction, since it touches no render pass and cannot flicker
-anything. It was removed because it is not worth its keep rather than because it failed: wire on
-the glass occludes nothing, so a craft behind a hill still draws in front of it, and a square a
-couple of kilometres across fades to nothing well short of a horizon. **The lesson for anyone
-reaching for this again is that the drawing was never the hard part** — a sight that cannot hide
-what is behind terrain is not much more use than no terrain at all, and only the engine can give
-depth.
-
-
----
-
-## Driving the main camera: set CameraRotation, do not unfollow
-
-**Not blocked** — recorded because getting it wrong is a crash, in engine code, with nothing in
-the message pointing at the cause, and because the obvious reading of it is backwards.
-
-`FixedController.OnFrame` runs only when the camera it drives is following something, and then:
-
-```csharp
-double3 cameraRotation = CameraRotation;                       // public field, defaults to zero
-double3 vector2 = double3.Cross(cameraRotation, vector).Normalized();
-...
-Camera.PositionEcl = following.GetPositionEcl() + CameraOffset;
-```
-
-So Fixed mode is **"follow this, but sit at an offset from it and look along a direction the
-caller supplies"** — `CameraOffset` and `CameraRotation` are the entire interface, and the offset
-is measured from the followed craft rather than from the world. A camera in Fixed mode *should* be
-following something.
-
-It divides by zero only because `CameraRotation` defaults to the zero vector, and crossing that
-with anything and normalising is a division by zero length. **Set `CameraRotation` before setting
-the mode**, and keep it set every frame.
-
-The tempting misreading is that Fixed and following are an illegal pair, and that the fix is
-`Camera.Unfollow(changeControl: false)` first. That does stop the crash, and it is wrong: the
-camera then has nothing to be offset from, the view has to be restored by re-attaching a follow,
-and *any* other thing in the game that attaches one — a jump-to-vehicle key, a scene teardown —
-puts the camera back into the fatal pair with the rotation still zero.
-
-`KsaWorld.TryLookFromMainViewport` does it the supported way. `TryLookFromViewport` unfollows,
-because a secondary viewport's camera genuinely follows nothing and has nothing to offset from.
-
-There is a second way to divide by zero here, and it is easier to hit: the controller crosses
-`CameraRotation` with the reference frame's **+Z**, so a view pointing *along* that axis — the
-local zenith under `Surface` — fails the same way. A round launched vertically points exactly
-there. `docs/KSA-CAMERAS.md` has the full account of this and every other controller.
+**What would unblock the rest.** The ocean, clutter and lighting passes run per viewport as the planet and
+cloud passes now are, and shadow cascades fitted per viewport.
 
 ## Commanding a vehicle's attitude from a mod hook
 
-**Solved by patching, like the post-processing entry above — recorded so the trade stays a
+**Solved by patching, like the full-screen passes entry above — recorded so the trade stays a
 deliberate one, and so it can be given up the day KSA offers a hook.**
 
 **Wanted.** To point somebody else's rocket, which is the whole of `Ksa/VehicleCommand.cs` and
@@ -679,57 +339,19 @@ renderer, of the shape `Program.VolumetricExhaustRenderer` already has.
 
 **Outstanding with RocketWerkz.** blackrack (KSA graphics programmer) suggested the XML tag.
 
-## A thermal or FLIR channel on the optical head
+## A thermal picture that knows what is hot
 
-**Wanted.** The optical head showing a heat picture rather than a daylight one — engines and
-exhaust bright against a cold sky, the way a real electro-optical turret is used at night.
+**Wanted.** A director's thermal channel showing a hot engine bright against a cold sky **because it is
+hot**.
 
-**Split it in two, because only one half is blocked.**
+**What the mod does instead.** `Shaders/KSArmorySensor.comp` makes white-hot and black-hot off the scene's
+brightness with the sky read cold — a look, not a temperature. A screen-space pass reads the composited
+colour and has no idea what any pixel was, so anything dark in daylight stays dark in thermal. The hot
+things that matter here are ones the mod simulates — motors, fireballs, flares — and their positions and
+intensities are known, so compositing them as bright sources is open to it without any engine change.
 
-*The look* — false colour, white-hot palette, grain, edge lift — is a screen-space remap of the
-image that is already there, and it is reachable today through AMPW's ShaderExtensions
-`<GlobalPostShader>`; see the post-processing entry above for what that costs. It is what most
-games ship and call thermal.
-
-*The physics* — a hot engine bright against cold sky **because it is hot** — is not. A post-process
-subpass reads the composited colour image and has no idea what any pixel was, so anything dark in
-daylight stays dark in "thermal". Real thermal needs per-object temperature reaching the shader,
-which means a replacement material shader or a second render target. ShaderExtensions' `<ShaderEx>`
-adds bindings to *existing* fragment shaders and is the only plausible route; whether it can carry
-per-object data that KSA never computes is **unverified**.
-
-**A weapons mod can cheat well here.** The hot things in these scenes are the ones this mod already
-simulates: burning motors and fireballs, both of which it knows the position and intensity of.
-False colour underneath, with genuine bright sources composited at the motor and burst positions,
-covers most of what makes a FLIR picture readable here without any per-object temperature at all.
-
-**Post-processing is full-screen only, and that scope works here.** `<PostProcessingShader>` and
-`<GlobalPostShader>` differ only in whether they run before or after ImGui; both are full-screen,
-and ShaderExtensions' README is explicit that "the shaders only target the main window, any other
-windows are ignored". There is no per-viewport post-process.
-
-That is fine here, because `OpticConfig.Viewport` can be the **main** viewport — and should
-be anyway, since a secondary one draws no planet, terrain or atmosphere (see the entry above). With
-the optic on the main view, full-screen *is* the right scope: while you are looking through the
-sight, the main view is the sight.
-
-Two constraints that come with it:
-
-- **A post shader cannot be turned off.** It runs every frame at its stage forever. The documented
-  answer is to pass an amount through a uniform and return the source colour unchanged at zero,
-  which is a one-line early-out and costs a full-screen pass of nothing.
-- **RenderPassId is a bare integer with no registry.** Ordering is only defined for unique
-  renderpass/subpass combinations, and two mods that pick the same number get undefined execution
-  order rather than an error. AMPW's g-effects already occupies 254, 255 and 256.
-
-**What would unblock the physics half.** A public render-target or material/shader hook. Failing that, nothing:
-of the effects a weapons mod normally spends shaders on, this is the only one that applies here.
-Explosions and smoke already go through KSA's XML particle system, and there are no scorch decals
-to draw because kills are binary. Gun tracers are drawn in the mod's own compute pass
-(`Shaders/KSArmoryTracer.comp`), which the prefix on `SunbloomRenderer.Render` made possible.
-
-**Not blocking the optical head itself.** Main-viewport takeover, HUD symbology and zoom all sit on
-`Ksa/Sight.cs` painting over the existing camera, and none of them need a shader.
+**What would unblock the physics.** A per-object temperature reaching a shader: a material hook or a second
+render target. KSA computes no such temperature today.
 
 ## Configuring a part in the vehicle editor
 
@@ -901,38 +523,17 @@ field is only for a body KSA declares none on.
 
 ## Drawing a shape the gizmo renderer does not have
 
-**Wanted.** A solid torus on the ground under a craft being placed, and in general any shape worth
-looking at drawn at a world position — a marker, a volume, a footprint — without attaching it to a
-vehicle.
+**Wanted.** A solid torus on the ground under a craft being placed, and in general any filled shape at a
+world position without attaching it to a vehicle.
 
-**Why it is blocked.** `GizmosRenderer` draws two things. `Render` is `RenderSpheres` then
-`RenderLines`, and `GizmoType` has exactly `Sphere`, `Line`, `Num`. Everything else it offers is
-built from those: `DrawCircle` is twelve line segments, `DrawWireBox` and `DrawCylinderSides` are
-line loops. There is no filled polygon in it at all.
+**The engine reason.** `GizmosRenderer` draws spheres and lines (`GizmoType` is `Sphere`, `Line`, `Num`);
+`DrawCircle`, `DrawWireBox` and `DrawCylinderSides` are line loops. `ProcGenMeshLibrary.GenerateTorus`
+can make the geometry, but drawing it means a `SimpleVkMesh` submitted inside a render pass.
 
-The engine can *generate* the geometry — `ProcGenMeshLibrary.GenerateTorus` writes positions,
-indices, normals and UVs, alongside sphere, cube and plane generators. What it cannot do from a mod
-is *draw* it: arbitrary geometry has to be uploaded as a `SimpleVkMesh` and submitted inside a
-render pass, and **no StarMap hook carries a command buffer** — its seven method attributes are
-plain prefixes and postfixes on methods that take none. Patching a private render method with
-Harmony would work and is not worth it: a private method sits outside the API surface
-`ksa-api-diff.sh` checks, so it breaks silently on a KSA update that passes every other gate, and
-an exception inside the render pass takes the game down with nothing pointing at the mod.
-
-**What is possible today, and what it costs.** Real geometry reaches the screen through the asset
-pipeline: a mesh in `Meshes/KSArmory_MeshAtlas.glb`, declared as a `<SubPart>`, positioned by
-writing its transform each frame — which is exactly how the round bodies work, out to a measured
-79.5 km from the launcher. So a real torus is available, at the cost of art, XML, transform code,
-and living on a vehicle's part tree, which is awkward for a marker that should exist whether or not
-a launcher does.
-
-Meanwhile `KsaWorld.DrawTorusEcl` rings solid spheres closely enough to read as a tube, and drapes
-each one onto the terrain under it.
-
-**What would unblock it.** A gizmo primitive with a filled surface, or any hook that hands a mod a
-command buffer.
-
----
+**No longer blocked on KSA, and not taken up.** `Ksa/CloudPassHook.cs` hands the mod a command buffer, and
+the ring pass already paints exact circles and ellipses on whatever the depth buffer holds. `CraftMover`'s
+placement marker is still `KsaWorld.DrawTorusEcl`, spheres ringed closely enough to read as a tube and
+draped onto the terrain; moving it onto the ring pass is this mod's work now.
 
 ## `IsValid()` on a distance is an astronomical-scale check
 
