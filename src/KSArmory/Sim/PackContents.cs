@@ -22,6 +22,8 @@ public sealed class PackContents
     public IReadOnlyList<SearchSetProfile> SearchSets { get; init; } = [];
     public IReadOnlyList<DecoyProfile> Decoys { get; init; } = [];
     public IReadOnlyList<DispenserProfile> Dispensers { get; init; } = [];
+    public IReadOnlyList<ArmourMaterial> ArmourMaterials { get; init; } = [];
+    public IReadOnlyList<ArmourProfile> Armour { get; init; } = [];
 
     /// <summary>
     /// One per launcher, standalone director, search set and dispenser, minted rather than written. A part
@@ -34,5 +36,5 @@ public sealed class PackContents
 
     /// <summary>How many definitions came through.</summary>
     public int Accepted => Munitions.Count + Sensors.Count + Launchers.Count + Optics.Count + SearchSets.Count
-                          + Decoys.Count + Dispensers.Count;
+                          + Decoys.Count + Dispensers.Count + ArmourMaterials.Count + Armour.Count;
 }

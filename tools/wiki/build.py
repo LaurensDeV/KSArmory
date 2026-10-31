@@ -53,6 +53,7 @@ FAMILIES = {
     "Countermeasures": "Countermeasures",
     "DirectedEnergy": "Directed energy",
     "Strategic": "Nuclear weapons",
+    "Armour": "Armour",
 }
 
 # A family's folder, where its file's name no longer says what it holds.

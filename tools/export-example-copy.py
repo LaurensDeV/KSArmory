@@ -55,6 +55,7 @@ SHOWS = {
                       "`FiresBeam` and no round",
     "Strategic": "a store that falls (`HitsTerrain`, a tail kit, a bomb sight) and a ballistic bus: "
                  "`Guidance`, trim, hops and `<ReleaseSpin>`",
+    "Armour": "`<ArmourMaterial>` and `<Armour>`: what a plate is made of, and a plate as a part of its own",
 }
 
 FAMILY = re.compile(r'(<WeaponPack\b[^>]*?)\s+Family="([^"]*)"')

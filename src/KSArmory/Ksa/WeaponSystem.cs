@@ -3699,7 +3699,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return;
         }
 
-        if (StruckPart(v, at, elapsed) is not { } index) return;
+        if (StruckPart(v, at, elapsed, hit.Struck) is not { } index) return;
 
         Part part = _partHandles[index];
         DamageablePart struckPart = _partScratch[index];
@@ -4024,13 +4024,15 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _partShares.Clear();
         double3 craftVelocity = KsaWorld.VelocityEcl(v);
         BurstContext context = _warhead is { } w
-            ? new BurstContext(burst, elapsed, craftVelocity, w.VelocityEcl, w.Nose, w.AirKgPerM3, w.FuzeLead, w.AirPressure)
+            ? new BurstContext(burst, elapsed, craftVelocity, w.VelocityEcl, w.Nose, w.AirKgPerM3, w.FuzeLead, w.AirPressure,
+                               _config.DamageScale)
             : new BurstContext(burst, elapsed, craftVelocity, craftVelocity, Vec.Zero, AirAt(burst, elapsed),
-                               AirPressureRatio: AirPressureAt(burst, elapsed));
+                               AirPressureRatio: AirPressureAt(burst, elapsed), DamageScale: _config.DamageScale);
         _partHits.Clear();
         _struckParts.Clear();
         _rammed.Clear();
         _fragmentJoules.Clear();
+        Shield(v, burst, elapsed, craftVelocity);
         BlastDamage.Costs(context, CollectionsMarshal.AsSpan(_partScratch), munition, _fragmentDice, _partShares,
                           _partHits, _fragmentJoules);
         RamFragments(v, burst, elapsed, craftVelocity, munition);
@@ -4138,7 +4140,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private void StrikesSkin(Vehicle v, double3 burst, double elapsed, double3 craftVelocity, double3 shellVelocity,
                              MunitionProfile munition)
     {
-        if (StruckPart(v, burst, elapsed) is not { } index) return;
+        if (StruckPart(v, burst, elapsed, _penetration.Struck) is not { } index) return;
 
         DamageablePart struck = _partScratch[index];
         double gap = BlastSweep.SurfaceGap(struck.PositionEcl, craftVelocity, elapsed, burst, struck.RadiusMetres);
@@ -4157,8 +4159,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         }
     }
 
-    // A dart that does not burst: each part on its path keeps its share of what is left and passes the
-    // rest on, until there is too little to matter.
+    // A dart that does not burst, walked through the parts on its path (Penetrator.Walk): plates by Lambert's
+    // law, tanks by their wall and liquid, anything else keeping its share, until there is too little to matter.
     private void GoesThrough(Vehicle v, double3 burst, double elapsed, double3 craftVelocity, double3 shellVelocity,
                              MunitionProfile munition)
     {
@@ -4175,48 +4177,66 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return;
         }
 
-        double energy = 0.5 * munition.MassKg * speed * speed;
         double across = munition.CalibreMm / 1000.0;
+        _crossings.Clear();
+        _crossingEntries.Clear();
         foreach (KsaWorld.Crossing crossing in _along)
         {
-            Part crossed = crossing.Part;
-            int index = _partHandles.IndexOf(crossed);
+            int index = _partHandles.IndexOf(crossing.Part);
             if (index < 0) continue;
 
             DamageablePart part = _partScratch[index];
+            double3 path = crossing.Local - crossing.CameFrom;
 
-            // The tank the strike was cast against was judged there, craters and all; one behind it on its wall alone.
-            bool struck = ReferenceEquals(crossed, _penetration.Tank);
-            bool through = struck ? _penetration.Through : part.Wall.Perforates(energy, across);
-            if (!through)
+            // The part the strike's own cast met was judged there, craters and all; one behind it is judged here.
+            bool struck = ReferenceEquals(crossing.Part, _penetration.Struck) && (part.Wall.Known || part.Layer.Known);
+            BulletHoles.Penetration entry = struck && part.Wall.Known
+                ? _penetration
+                : new BulletHoles.Penetration(part.Wall.Known ? crossing.Part : null, true, crossing.Skin, crossing.Local,
+                                              path, crossing.Part);
+            double thickness = part.Layer.Known ? part.Layer.ThicknessMetres : part.Wall.ThicknessMetres;
+            double left = thickness > 0.0
+                ? WallCraters.World.ThicknessLeft(crossing.Skin, crossing.Local, across, thickness)
+                : 0.0;
+
+            _crossings.Add(new LayerCrossing(index, PartToughness.Joules(part.MassKg, part.CrashTolerancePascals),
+                                             part.Wall, part.Layer, KsaWorld.CosObliquity(path, crossing.Normal), left,
+                                             struck ? _penetration.Through : null));
+            _crossingEntries.Add(entry);
+        }
+
+        (_walking, _walkingRound) = (v, munition);
+        Penetrator.Walk(CollectionsMarshal.AsSpan(_crossings), munition.MassKg, across,
+                        ArmourLayer.LengthOverDiameter(munition), speed, _config.DamageScale, LeftoverJoules, RamCrossingCallback,
+                        _walked);
+
+        foreach (CrossingResult result in _walked)
+        {
+            if (result.Share > 0.0) _partShares.Add((result.Index, result.Share));
+            if (result.Struck) _struckParts.Add(result.Index);
+
+            // The strike's own crossing was dented where it was judged.
+            if (result.DentMetres > 0.0 && _crossings[result.Ordinal].Judged is null)
             {
-                // Stopped by a tank's wall: the wall takes the blow, and nothing reaches what it holds.
-                _partShares.Add((index, PartToughness.KineticCoupling * energy
-                                        / PartToughness.Joules(part.MassKg, part.CrashTolerancePascals)));
-                break;
+                BulletHoles.Penetration at = _crossingEntries[result.Ordinal];
+                if (at.Skin is { } skin) WallCraters.World.Dent(skin, at.Local, across, result.DentMetres);
             }
-
-            // Through a tank, the liquid is what takes the energy and what does the damage: a dry tank is only
-            // holed.
-            if (part.Wall.Known)
-            {
-                BulletHoles.Penetration entry = struck
-                    ? _penetration
-                    : new BulletHoles.Penetration(crossed, true, crossing.Skin, crossing.Local, crossing.Local - crossing.CameFrom);
-                _struckParts.Add(index);
-                energy *= 1.0 - RamRound(v, index, entry, munition, Math.Sqrt(2.0 * energy / munition.MassKg), 0.0);
-                if (energy < LeftoverJoules) break;
-                continue;
-            }
-
-            double kept = PartToughness.KineticCoupling * energy;
-            _partShares.Add((index, kept / PartToughness.Joules(part.MassKg, part.CrashTolerancePascals)));
-            _struckParts.Add(index);
-
-            energy -= kept;
-            if (energy < LeftoverJoules) break;
         }
     }
+
+    // A tank the walk reached, rammed from where the path entered it.
+    private double RamCrossing(int ordinal, double speed) =>
+        _walking is { } v && _walkingRound is { } munition
+            ? RamRound(v, _crossings[ordinal].Index, _crossingEntries[ordinal], munition, speed, 0.0)
+            : 0.0;
+
+    private readonly List<LayerCrossing> _crossings = [];
+    private readonly List<BulletHoles.Penetration> _crossingEntries = [];
+    private readonly List<CrossingResult> _walked = [];
+    private Vehicle? _walking;
+    private MunitionProfile? _walkingRound;
+    private Func<int, double, double>? _ramCrossingCallback;
+    private Func<int, double, double> RamCrossingCallback => _ramCrossingCallback ??= RamCrossing;
 
     private double RamRound(Vehicle v, int index, BulletHoles.Penetration hit, MunitionProfile munition, double speed,
                             double chargeJoules, bool inert = false) =>
@@ -4273,6 +4293,40 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
         return taken;
     }
+
+    // Which plate stands between a burst and each part, cast against the craft's plates alone, so a craft carrying
+    // none pays nothing. One line to each part's middle, so a plate covers a part all or nothing.
+    private void Shield(Vehicle v, double3 burst, double elapsed, double3 craftVelocity)
+    {
+        _plates.Clear();
+        for (int i = 0; i < _partScratch.Count; i++)
+        {
+            if (_partScratch[i].Layer.Known) _plates.Add(_partHandles[i]);
+        }
+
+        if (_plates.Count == 0) return;
+
+        double3 centre = InFrame.AtBurst(KsaWorld.PositionEcl(v), craftVelocity, elapsed);
+        for (int i = 0; i < _partScratch.Count; i++)
+        {
+            DamageablePart part = _partScratch[i];
+            if (part.Layer.Known) continue;
+
+            double3 travel = InFrame.AtBurst(part.PositionEcl, craftVelocity, elapsed) - burst;
+            if (!KsaWorld.TryNearestAmong(v, centre - burst, travel, Vec.Len(travel), _plates, out KsaWorld.Crossing plate))
+            {
+                continue;
+            }
+
+            _partScratch[i] = part with
+            {
+                Shield = KsaWorld.ArmourLayerOf(plate.Part),
+                ShieldCosObliquity = KsaWorld.CosObliquity(plate.Local - plate.CameFrom, plate.Normal),
+            };
+        }
+    }
+
+    private readonly List<Part> _plates = [];
 
     // A warhead's fragments into each tank they got through, as one ram a tank: entered on the side facing
     // the burst, heading for the tank's middle, since a fragment carries no path of its own.
@@ -4355,8 +4409,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     private readonly Dictionary<int, int> _igniting = [];
 
-    // The part nearest a strike, or null for a craft with no part to charge.
-    private int? StruckPart(Vehicle v, double3 burst, double elapsed)
+    // The part a strike's hull cast met, where the cast met one the damage counts; otherwise the part
+    // nearest the strike, or null for a craft with no part to charge.
+    private int? StruckPart(Vehicle v, double3 burst, double elapsed, Part? struck)
+    {
+        if (struck is not null && _partHandles.IndexOf(struck) is >= 0 and var cast) return cast;
+
+        return NearestPart(v, burst, elapsed);
+    }
+
+    private int? NearestPart(Vehicle v, double3 burst, double elapsed)
     {
         double3 velocity = KsaWorld.VelocityEcl(v);
         int? nearest = null;

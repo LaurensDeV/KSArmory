@@ -32,9 +32,13 @@ namespace KSArmory;
 /// (Cauchy), since a fragment's line to the part is not known to the part.
 /// </param>
 /// <param name="Wall">A tank's wall, which a fragment that cannot get through only dents; none on any other part.</param>
+/// <param name="Layer">The armour the part is, if it is a plate; none on any other part.</param>
+/// <param name="Shield">The plate between the burst and the part, which a fragment has to get through first; none
+/// where no plate stands in the way, or on a craft carrying none.</param>
 internal readonly record struct DamageablePart(
     int Index, double3 PositionEcl, double RadiusMetres, double CrashTolerancePascals, double Reflection = 1.0,
-    double MassKg = 0.0, double PresentedAreaM2 = 0.0, TankWall Wall = default)
+    double MassKg = 0.0, double PresentedAreaM2 = 0.0, TankWall Wall = default, ArmourLayer Layer = default,
+    ArmourLayer Shield = default, double ShieldCosObliquity = 1.0)
 {
     /// <summary>The presented area, or a sphere's half-diagonal disc halved where the box was not given.</summary>
     public double AreaM2 => PresentedAreaM2 > 0.0 ? PresentedAreaM2 : 0.5 * Math.PI * RadiusMetres * RadiusMetres;
@@ -59,7 +63,8 @@ internal readonly record struct FrontLoad(double Ratio, double RealPascals, doub
 /// <param name="AirPressureRatio">The air's pressure at the burst against sea level's, which carries the blast.</param>
 internal readonly record struct BurstContext(double3 BurstEcl, double SinceSample, double3 PartVelocityEcl,
                                              double3 WarheadVelocityEcl, double3 NoseAxis, double AirKgPerM3,
-                                             double3 FuzeLeadEcl = default, double AirPressureRatio = 1.0);
+                                             double3 FuzeLeadEcl = default, double AirPressureRatio = 1.0,
+                                             double DamageScale = 1.0);
 
 /// <summary>
 /// Which parts of a craft a burst breaks.
@@ -384,6 +389,15 @@ internal static class BlastDamage
             int struck = Fragmentation.Hits(load.ExpectedHits, dice);
             double perHit = load.JoulesPerHit(spray.MassKg);
             double across = TankWall.FragmentDiameterMetres(spray.MassKg);
+            if (part.Shield.Known && struck > 0)
+            {
+                // A fragment is taken as long as it is wide, a guess no source gives.
+                double speed = Math.Sqrt(2.0 * perHit / spray.MassKg);
+                double left = part.Shield.ResidualSpeed(speed, spray.MassKg, across, 1.0, part.ShieldCosObliquity,
+                                                        part.Shield.ThicknessMetres, burst.DamageScale);
+                perHit = 0.5 * spray.MassKg * left * left;
+                if (!(left > 0.0)) struck = 0;
+            }
 
             // One that stops in a tank's wall costs the share of the wall it got through, and reaches nothing inside.
             bool through = part.Wall.Perforates(perHit, across);

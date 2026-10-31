@@ -2072,6 +2072,23 @@
     open rack with nothing on it reads as broken, and the editor runs no fire control at all. The
     seat clears the 30-inch hooks by the round's own radius.
   -->
+  <!-- Core's 2 m plate, 90 mm thick, scaled to 25 mm with its back face on the surface it is bolted to. -->
+  <Part Id="KSArmory_Prefab_ArmourPlateTest">
+    <SubPart Id="KSArmory_ArmourPlateTest_Slab" InstanceOf="CoreStructuralA_Subpart_Plate2WA">
+      <Transform>
+        <Position X="0.01250" />
+        <Scale X="0.27778" Y="1.00000" Z="1.00000" />
+      </Transform>
+    </SubPart>
+
+    <Connector Id="_apConnectorBase">
+      <Transform>
+        <Position X="0.00000" />
+        <Rotation Z="3.14159" />
+      </Transform>
+    </Connector>
+  </Part>
+
   <Part Id="KSArmory_Prefab_NukeRack">
 
     <SubPart Id="KSArmory_NukeRack_Beam" InstanceOf="KSArmory_B61Rack_SubPart" />

@@ -11,7 +11,7 @@ ignored.
 
 `docs/WEAPON-PACKS.md` is the same surface written for the author, with the reasons attached.
 
-**Definition schema 1.** 14 elements, 227 attributes, 15 entry-point lines.
+**Definition schema 1.** 16 elements, 235 attributes, 15 entry-point lines.
 
 ## Entry point
 
@@ -277,6 +277,24 @@ to build; widening it to take a profile type would put that back.
 | `SalvoIntervalSeconds` | number | `0.25` |
 | `EjectDirection` | three numbers | `new(1` |
 | `EjectSpeed` | number | `30` |
+
+### `<ArmourMaterial>` - what an armour plate is made of
+
+| Attribute | Reads | Default |
+| --- | --- | --- |
+| `Name` | text, required | **required** |
+| `DisplayName` | text, required | **required** |
+| `DensityKgPerM3` | number | `0` |
+| `LambertCoefficient` | number | `0` |
+| `ResistanceMPa` | number | `0` |
+
+### `<Armour>` - a part that is an armour plate
+
+| Attribute | Reads | Default |
+| --- | --- | --- |
+| `PartId` | text, required | **required** |
+| `Material` | name, required | **required** |
+| `ThicknessMm` | number | `0` |
 
 ### `<Tube>` - child of `<Launcher>`
 

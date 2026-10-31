@@ -37,6 +37,42 @@
   <EditorTagDef Id="Sensors" RootPartWhitelist="true" FaceSnapTargetWhitelist="true"
                 DiameterFilterlist="true" />
 
+  <!-- Plates a craft wears; beside Weapons, since a craft with no armament may still be armoured. -->
+  <EditorTagDef Id="Armour" RootPartWhitelist="true" FaceSnapTargetWhitelist="true"
+                DiameterFilterlist="true" />
+
+  <!--
+    A test plate: Core's 2 m structural plate scaled to 25 mm, of rolled steel (KSArmory/Armour.xml), so the
+    penetration law can be flown before the plate family's art exists. 3.14 m2 x 25 mm x 7,850 kg/m3.
+  -->
+  <PartGameData Id="KSArmory_Prefab_ArmourPlateTest" DisplayName="Armour plate (test), 25 mm steel, 2 m">
+    <EditorTag Value="Armour" />
+    <EditorTag Value="Radial" />
+    <Diameter M="2" />
+
+    <Connector Id="_apConnectorBase">
+      <Flags>ToSurface</Flags>
+    </Connector>
+
+    <SolidCuboidMass>
+      <Mass Kg="617" />
+      <LocationAsmb X="0.0125" />
+      <LengthX M="0.025" />
+      <LengthY M="2" />
+      <LengthZ M="2" />
+    </SolidCuboidMass>
+
+    <Collider Id="KSArmory_ArmourPlateTestCollider">
+      <Box Id="KSArmory_ArmourPlateTestBox">
+        <LocationAsmb X="0.0125" Y="0" Z="0" />
+        <Collider2Asmb X="0" Y="0" Z="0" />
+        <LengthX M="0.025" />
+        <LengthY M="2" />
+        <LengthZ M="2" />
+      </Box>
+    </Collider>
+  </PartGameData>
+
   <PartGameData Id="KSArmory_Prefab_Launcher6" DisplayName="Pantsir-S1 Point Defence System">
     <EditorTag Value="Weapons" />
 

@@ -13,6 +13,8 @@ public static class Catalogue
     private static readonly List<SearchSetProfile> _searchSets = [];
     private static readonly List<DecoyProfile> _decoys = [];
     private static readonly List<DispenserProfile> _dispensers = [];
+    private static readonly List<ArmourMaterial> _armourMaterials = [];
+    private static readonly List<ArmourProfile> _armour = [];
     private static readonly List<ComponentProfile> _components = [];
 
     public static IReadOnlyList<LauncherProfile> Launchers => _launchers;
@@ -22,6 +24,8 @@ public static class Catalogue
     public static IReadOnlyList<SearchSetProfile> SearchSets => _searchSets;
     public static IReadOnlyList<DecoyProfile> Decoys => _decoys;
     public static IReadOnlyList<DispenserProfile> Dispensers => _dispensers;
+    public static IReadOnlyList<ArmourMaterial> ArmourMaterials => _armourMaterials;
+    public static IReadOnlyList<ArmourProfile> Armour => _armour;
 
     /// <summary>
     /// The parts recognised on a craft the mod did not design. Separate from
@@ -50,7 +54,8 @@ public static class Catalogue
 
     private static bool Claimed(string partId)
         => LauncherForPart(partId) is not null || OpticForPart(partId) is not null
-        || SearchSetForPart(partId) is not null || DispenserForPart(partId) is not null;
+        || SearchSetForPart(partId) is not null || DispenserForPart(partId) is not null
+        || ArmourForPart(partId) is not null;
 
     internal static void Disable(IEnumerable<string> launcherParts, IEnumerable<string> parts)
     {
@@ -87,7 +92,7 @@ public static class Catalogue
     /// the same silence as a pack's, and has never had anything to report it.</para>
     /// </summary>
     internal static IReadOnlyList<PackFault> Audit(IPartCatalogue parts)
-        => PackAudit.Run(_launchers, _optics, _searchSets, _dispensers, parts,
+        => PackAudit.Run(_launchers, _optics, _searchSets, _dispensers, _armour, parts,
                          partId => _packOf.GetValueOrDefault(partId, PackReader.BuiltInSource));
 
     /// <summary>Shut the door. Called once the roster is about to be built.</summary>
@@ -120,6 +125,25 @@ public static class Catalogue
         registered += Merge(pack.Munitions, _munitions, m => m.Name, "Munition", pack.Source, faults, refused);
         registered += Merge(pack.Sensors, _sensors, s => s.Name, "Sensor", pack.Source, faults, refused);
         registered += Merge(pack.Decoys, _decoys, d => d.Name, "Decoy", pack.Source, faults, refused);
+        registered += Merge(pack.ArmourMaterials, _armourMaterials, m => m.Name, "ArmourMaterial", pack.Source, faults,
+                            refused);
+
+        // A plate of a material that lost a collision would be made of somebody else's.
+        foreach (ArmourProfile plate in pack.Armour)
+        {
+            if (refused.Contains(plate.Material))
+            {
+                faults.Add(new PackFault(pack.Source, "Armour", plate.PartId,
+                                         $"names '{plate.Material}', which something else already claims"));
+                refused.Add(plate.PartId);
+                continue;
+            }
+
+            if (Merge([plate], _armour, a => a.PartId, "Armour", pack.Source, faults, refused) == 0) continue;
+
+            registered++;
+            _packOf.TryAdd(plate.PartId, pack.Source);
+        }
         registered += Merge(pack.Optics, _optics, o => o.PartId, "Optic", pack.Source, faults, refused);
         foreach (OpticProfile head in pack.Optics) _packOf.TryAdd(head.PartId, pack.Source);
         registered += Merge(pack.SearchSets, _searchSets, x => x.PartId, "SearchSet", pack.Source, faults, refused);
@@ -280,6 +304,32 @@ public static class Catalogue
         }
 
         return null;
+    }
+
+    /// <summary>The armour plate a part Id names, or null if it names none.</summary>
+    public static ArmourProfile? ArmourForPart(string? partId)
+    {
+        if (string.IsNullOrEmpty(partId)) return null;
+
+        foreach (ArmourProfile a in _armour)
+        {
+            if (a.PartId == partId) return a;
+        }
+
+        return null;
+    }
+
+    /// <summary>The layer a part carries as an armour plate, or none.</summary>
+    internal static ArmourLayer ArmourLayerForPart(string? partId)
+    {
+        if (ArmourForPart(partId) is not { } plate) return default;
+
+        foreach (ArmourMaterial m in _armourMaterials)
+        {
+            if (m.Name == plate.Material) return new ArmourLayer(m, plate.ThicknessMm / 1000.0);
+        }
+
+        return default;
     }
 
     /// <summary>The dispenser a part Id names, or null if it names none.</summary>

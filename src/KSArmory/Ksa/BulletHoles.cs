@@ -61,7 +61,7 @@ internal static class BulletHoles
         if ((!Enabled && !judged) || !KsaWorld.IsAlive(craft)) return default;
 
         double intoFrame = round.DetonationElapsedInFrame;
-        double3 craftAt = KsaWorld.PositionEcl(craft) + (KsaWorld.VelocityEcl(craft) * intoFrame);
+        double3 craftAt = InFrame.AtBurst(KsaWorld.PositionEcl(craft), KsaWorld.VelocityEcl(craft), intoFrame);
         double3 separation = craftAt - round.PositionEcl;
         double3 travel = round.VelocityEcl - KsaWorld.VelocityEcl(craft);
 
@@ -85,7 +85,7 @@ internal static class BulletHoles
 
         // A burst holes whatever it bursts on; a dart only a wall it can punch through, what is left of it
         // under the craters earlier darts made there.
-        Penetration verdict = default;
+        Penetration verdict = judged ? new Penetration(null, false, Struck: subPart.FullPart) : default;
         if (judged && KsaWorld.TryTankWallOf(subPart, out TankWall wall))
         {
             double speed = Vec.Len(travel);
@@ -93,7 +93,7 @@ internal static class BulletHoles
             double across = round.Munition.CalibreMm / 1000.0;
             double left = WallCraters.World.ThicknessLeft(subPart, local, across, wall.ThicknessMetres);
             bool through = (round.Munition.ChargeKg > 0f && !inert) || wall.Perforates(joules, across, left);
-            verdict = new Penetration(subPart.FullPart, through, subPart, local, local - cameFrom);
+            verdict = new Penetration(subPart.FullPart, through, subPart, local, local - cameFrom, subPart.FullPart);
 
             if (!verdict.Through)
             {
@@ -101,6 +101,30 @@ internal static class BulletHoles
                 WallCraters.World.Dent(subPart, local, across, dent);
                 Log.Debug(() => $"no hole: the shell went {dent * 1000.0:F1} mm into {subPart.Id}'s wall, "
                                 + $"{left * 1000.0:F1} of {wall.ThicknessMetres * 1000.0:F0} mm left there");
+                return verdict;
+            }
+        }
+        else if (judged && KsaWorld.ArmourLayerOf(subPart) is { Known: true } plate)
+        {
+            // A plate: a burst holes it only where its casing can, a solid round by Lambert's law at its slope.
+            MunitionProfile m = round.Munition;
+            double speed = Vec.Len(travel);
+            double across = m.CalibreMm / 1000.0;
+            double lengths = ArmourLayer.LengthOverDiameter(m);
+            double cos = KsaWorld.CosObliquity(local - cameFrom, normal);
+            double left = WallCraters.World.ThicknessLeft(subPart, local, across, plate.ThicknessMetres);
+            bool bursts = m.ChargeKg > 0f && !inert;
+            bool through = bursts
+                ? (plate with { ThicknessMetres = left }).HoledByShellBurst(across)
+                : speed > plate.BallisticLimit(m.MassKg, across, lengths, cos, left, KsaWorld.WallDamageScale);
+            verdict = new Penetration(null, through, subPart, local, local - cameFrom, subPart.FullPart);
+
+            if (!through)
+            {
+                double dent = bursts ? 0.0 : plate.DentMetres(speed, m.MassKg, across, lengths, cos, KsaWorld.WallDamageScale);
+                WallCraters.World.Dent(subPart, local, across, dent);
+                Log.Debug(() => $"no hole: {(bursts ? "the shell burst on" : $"the round went {dent * 1000.0:F1} mm into")} "
+                                + $"{subPart.Id}, {left * 1000.0:F1} of {plate.ThicknessMetres * 1000.0:F0} mm left there");
                 return verdict;
             }
         }
@@ -114,11 +138,12 @@ internal static class BulletHoles
     }
 
     /// <summary>
-    /// Whether a round got through the tank wall it struck — a burst always does — and where: the skin it
-    /// struck, the point in that skin's frame and the way it was going there. A null tank where it struck none.
+    /// The part a round's path met first, and if it was a tank, whether the round got through its wall — a burst
+    /// always does — and where: the skin it struck, the point in that skin's frame and the way it was going there.
+    /// A null tank where it struck none; a null part struck where the cast met nothing.
     /// </summary>
     public readonly record struct Penetration(Part? Tank, bool Through, Part? Skin = null, double3 Local = default,
-                                              double3 Direction = default);
+                                              double3 Direction = default, Part? Struck = null);
 
     /// <summary>
     /// A paint splat where a burst's spray first meets <paramref name="craft"/>, on the line from the burst

@@ -178,7 +178,7 @@ the file is still read. (KSArmory's own files carry a
 `Family` attribute, which is refused on a pack.)
 
 Inside it you can put any number of `<Munition>`, `<Sensor>`, `<Decoy>`, `<Launcher>`, `<Optic>`,
-`<SearchSet>` and `<Dispenser>` elements, in any order. Any other element is refused and logged.
+`<SearchSet>`, `<Dispenser>`, `<ArmourMaterial>` and `<Armour>` elements, in any order. Any other element is refused and logged.
 
 ## `<Munition>`: a round
 
@@ -521,6 +521,28 @@ decoy. Every dispenser of the same kind on a craft fires when the button is pres
 | `SalvoSize`, `SalvoIntervalSeconds` | whole number; number | `2`, `0.25` | Decoys thrown per press, and the time between them. |
 | `EjectDirection` | three numbers, `x, y, z` | `1, 0, 0` | Direction they leave in, part space. |
 | `EjectSpeed` | number | `30` | Ejection speed, m/s. |
+
+## `<ArmourMaterial>`: what a plate is made of
+
+**Required:** `Name`, `DisplayName`, and a `DensityKgPerM3` and `LambertCoefficient` above zero. A round
+against a plate is judged by Lambert's ballistic limit (BRL-MR-3960); `docs/ARMOUR-PLAN.md` has the law.
+
+| Attribute | Values | Default | Meaning |
+| --- | --- | --- | --- |
+| `DensityKgPerM3` | number | required | The material's density. |
+| `LambertCoefficient` | number | required | The constant `a` in Lambert's ballistic limit, with lengths in cm, mass in g and speed in m/s: 4,000 for rolled steel armour, 1,750 for aluminium. Higher stops more. |
+| `ResistanceMPa` | number | `0` | Tate's target resistance, which decides whether a round that does not get through glances off. `0` means nothing glances. |
+
+## `<Armour>`: an armour plate part
+
+**Required:** `PartId`, `Material`, and a `ThicknessMm` above zero. A plate gets no row in the panel and does
+not make a craft a weapons system. Its mass is the part's own, from its part definition; make it the plate's
+area times its thickness times the material's density.
+
+| Attribute | Values | Default | Meaning |
+| --- | --- | --- | --- |
+| `Material` | name | required | The `<ArmourMaterial>` it is made of. |
+| `ThicknessMm` | number | required | The plate's thickness, square to its face. |
 
 ## Your own effects
 

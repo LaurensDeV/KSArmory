@@ -89,6 +89,12 @@ class Assets:
             for mesh in gltf["meshes"]:
                 self.mesh_atlas.setdefault(mesh["name"], len(self.atlases) - 1)
 
+    def drawable(self) -> list[str]:
+        """Every part and view with art of this mod's: one assembled wholly from Core's kit has none to draw."""
+        own = [p for p, part in self.parts.items()
+               if not all(sub.get("InstanceOf", "").startswith("Core") for sub in part.findall("SubPart"))]
+        return [*own, *VIEWS]
+
     def placements(self, part_id: str) -> list[tuple[str, str, str, bool, list, list, list]]:
         """(subpart id, mesh, material, glass, position, rotation, scale) for every subpart shown."""
         base, marker = VIEWS.get(part_id, (part_id, None))
@@ -247,7 +253,7 @@ def assemble(assets: Assets, part_id: str) -> bytes:
 def check(assets: Assets) -> list[str]:
     """Every part resolves, and stands on its mounting face or hangs from it, never lies on its side."""
     faults = []
-    for part_id in [*assets.parts, *VIEWS]:
+    for part_id in assets.drawable():
         if not assets.placements(part_id):
             faults.append(f"{part_id}: no subpart would be shown")
             continue
@@ -278,9 +284,10 @@ def main() -> int:
         parser.error("an output directory, or --check")
 
     args.out.mkdir(parents=True, exist_ok=True)
-    for part_id in [*assets.parts, *VIEWS]:
+    drawable = assets.drawable()
+    for part_id in drawable:
         (args.out / f"{slug(part_id)}.glb").write_bytes(assemble(assets, part_id))
-    print(f"models: {len(assets.parts) + len(VIEWS)} models written to {args.out}")
+    print(f"models: {len(drawable)} models written to {args.out}")
     return 0
 
 
