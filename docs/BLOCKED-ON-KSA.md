@@ -397,7 +397,8 @@ is a flight decision the panel already covers and already persists. The day a ra
 than one kind of round, that is an editor decision and this becomes worth solving.
 
 **What would unblock it.** An extensible per-part blob in the vehicle save that survives a
-round trip, or a registerable module type — either one makes the rest follow.
+round trip, or a registerable module type — either one makes the rest follow. It would also turn the planned family of armour
+plates (`docs/ARMOUR-PLAN.md`) — a part per thickness — into one plate with a thickness setting.
 
 ## Filtering the part picker by mod or manufacturer
 
