@@ -694,6 +694,10 @@ float CapChord(vec3 leaned, vec3 sun, vec3 up, float radius)
     return chord * smoothstep(0.0, 0.2 * across, chord);
 }
 
+// How much of the light on the ground under a cloud is the direct sun its shadow takes away; the
+// rest is the sky, which still reaches it.
+layout (constant_id = 40) const float GroundShadowDepth = 0.65;
+
 // The cloud's bulk with no erosion, for the shadow march: up to 192 evaluations a pixel, where an
 // fBm each paid for detail the falloff then smooths away.
 float Bulk(vec3 leaned, vec3 up)
@@ -823,10 +827,16 @@ float Inflow(vec3 flat_, vec2 q, float capH, float ringR, float tubeR, float ste
            * smoothstep(0.42, 0.68, streak);
 }
 
-float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float wet)
+// How far the folds between the billows are darkened, of the sun and of the sky, and the coarse
+// noise's value under which a sample counts as in one; the band averages 0.47.
+layout (constant_id = 37) const float FoldDepth = 0.55;
+const float FoldLevel = 0.50;
+
+float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float wet, out float folds)
 {
     fireMask = 0.0;
     wet = 0.0;
+    folds = 0.0;
 
     vec3 world = Unlean(leaned, up, radius);
     float y = dot(world, up);
@@ -898,6 +908,10 @@ float Density(vec3 leaned, vec3 up, float radius, out float fireMask, out float 
     // ONE octave, not an fBm: a second four-octave fBm here cost 2.6 ms a frame for detail the
     // falloff then softens away.
     float fine = Noise(world * (78.0 / max(radius, 1.0)) + vec3(around, 0.0, boil * 1.6));
+
+    // Where the coarse band pulls the surface in is a fold between billows, which the sun taps cannot
+    // see: they read the noise-free bulk.
+    folds = clamp((FoldLevel - coarse) * 3.5, 0.0, 1.0);
 
     // EACH FEATURE CARRIES ITS OWN SCALE, for the erosion and the falloff: off the cap's tube radius,
     // a stem a fifth of the cap is eroded wider than itself and its density capped at a third.
@@ -1051,6 +1065,25 @@ float Phase(float cosTheta, float g)
     float d = 1.0 + gg - 2.0 * g * cosTheta;
     return (1.0 - gg) / (12.566371 * max(d * sqrt(max(d, 1e-4)), 1e-4));
 }
+
+// Forward with a little back: the side facing the sun keeps some light as well as the silver lining.
+// Mean cosine 0.29. Spread scales both, so a higher order of scattering is broader.
+const float PhaseForwardG = 0.5;
+const float PhaseBackG = -0.2;
+const float PhaseBackShare = 0.3;
+
+float CloudPhase(float cosTheta, float spread)
+{
+    return mix(Phase(cosTheta, PhaseForwardG * spread), Phase(cosTheta, PhaseBackG * spread), PhaseBackShare);
+}
+
+// Each order of multiple scattering keeps this share of the one before (Wrenninge's octaves).
+layout (constant_id = 38) const float OctaveShare = 0.5;
+
+// Powder: thin cloud has had few chances to scatter light toward the eye, so with the sun behind the
+// viewer its edges read darker. How strongly, and how fast density fills it in.
+layout (constant_id = 39) const float PowderStrength = 0.75;
+const float PowderFill = 3.0;
 
 // THE RING OF DUST. The blast front drives a wind along the ground behind it that lifts the surface
 // into a low wall, densest at the front and climbing and thinning behind it -- the dust that races
@@ -2022,13 +2055,62 @@ void main()
     // the global block and the burst is in the push constant, so this is a subtraction. That freed
     // the float the whiteout needed in a block with nothing spare.
     vec3 sun = normalize(global.lighting.sunPosition.xyz - toCentre);
-    float forward = Phase(dot(dir, sun), 0.3);
+    float cosSun = dot(dir, sun);
+    float forward = Phase(cosSun, 0.3);
+    float powderShare = PowderStrength * clamp(0.5 - 0.5 * cosSun, 0.0, 1.0);
+
+    // Each order's phase, once a ray: the angle to the sun does not change along it.
+    vec4 octavePhase = vec4(CloudPhase(cosSun, 1.0), CloudPhase(cosSun, 0.5),
+                            CloudPhase(cosSun, 0.25), CloudPhase(cosSun, 0.125));
 
     // THE GROUND'S OWN LIGHT, up onto the cloud: sunlight off the terrain and the deck under it,
     // scattered evenly. It is what lights the underside of a cap in its own shadow, and the only
     // light there is for one high enough that KSA's sky above it is black -- a megatonne-class
     // anvil drew as a lit rim round a hole without it.
     float earthshine = GroundAlbedo * max(dot(up, sun), 0.0) * SunGain / 12.566371;
+
+    // THE CLOUD'S SHADOW on whatever the scene has under this pixel: a multiply on the scene, so it
+    // goes into the layer's alpha alone.
+    float shadowLets = 1.0;
+    float sunUp = dot(sun, up);
+    if (deviceZ > 0.0 && GroundShadowDepth > 0.0 && sunUp > 0.0)
+    {
+        vec3 shaded = dir * sceneT - toCentre;
+        float b = dot(shaded, sun);
+        float disc = b * b - (dot(shaded, shaded) - radius * radius);
+
+        if (disc > 0.0 && -b + sqrt(disc) > 0.0)
+        {
+            float s0 = max(-b - sqrt(disc), 0.0);
+            float s1 = -b + sqrt(disc);
+
+            // Through the noise-free bulk, which falls off over the tube's own radius as the drawn cloud
+            // does: the dome's closed-form chord is opaque nearly to its rim, and drew a hard disc.
+            // Jittered per frame, and the history averages the taps.
+            const int ShadowSteps = 6;
+            float ds = (s1 - s0) / float(ShadowSteps);
+            float spin = fract(Hash(vec3(vec2(at), 1.0)) + float(global.camera.frame % 256) * 0.6180340);
+            float bulk = 0.0;
+            for (int k = 0; k < ShadowSteps; k++)
+            {
+                bulk += Bulk(Unlean(shaded + sun * (s0 + (float(k) + spin) * ds), up, radius), up);
+            }
+
+            float depth = bulk * ds * CapShadowDensity * 0.010;
+
+            // Broken up as the cloud is, off the billow noise where the ray crosses the cap.
+            vec3 capAt = (shaded + sun * max((pc.Shape.x - dot(shaded, up)) / sunUp, 0.0)) / max(pc.Shape.z, 1.0);
+            float billows = 0.65 * Noise(capAt * 1.5) + 0.35 * Noise(capAt * 4.0 + vec3(3.1, 7.7, 1.3));
+            depth *= max(1.8 * billows - 0.35, 0.0);
+
+            float daylight = clamp(dot(global.lighting.occlusionColor.rgb, vec3(0.2126, 0.7152, 0.0722)), 0.0, 1.0);
+            vec3 sunFromGround = normalize(global.lighting.sunPosition.xyz - dir * sceneT);
+            float shade = GroundShadowDepth * (1.0 - exp(-depth)) * smoothstep(0.0, 0.08, sunUp) * daylight
+                          * WeatherShadow(dir * sceneT, sunFromGround);
+
+            shadowLets = 1.0 - shade * clamp(pc.AgeStrengthWind.y, 0.0, 1.0);
+        }
+    }
 
     float along = dot(toCentre, dir);
     float perpSq = dot(toCentre, toCentre) - along * along;
@@ -2082,7 +2164,8 @@ void main()
 
         float fireMask;
         float wet;
-        float density = Density(world, up, radius, fireMask, wet);
+        float folds;
+        float density = Density(world, up, radius, fireMask, wet, folds);
         vec3 leaned = world;
 
         // The white-hot ball where it is, smooth-edged and opaque, whatever the cloud round it is.
@@ -2114,10 +2197,25 @@ void main()
             toSun += CapChord(leaned, sun, up, radius) * CapShadowDensity * underCap;
         }
 
-        // TWO LOBES. The first is direct light surviving the path to this sample; the second is a
-        // cheap stand-in for multiple scattering, which is why a real cloud is bright in its middle:
-        // a single exponential over a path through the cap is zero however much light falls on it.
-        float sunlight = exp(-toSun * 0.010) + 0.45 * exp(-toSun * 0.0025);
+        // Four orders of scattering, each through half the depth with a broader phase: a single
+        // exponential over a path through the cap is zero however much light falls on it. Normalised
+        // to 1.45 in open sun, which the lighting was set against.
+        float sunlight = 0.0;
+        float sunScatter = 0.0;
+        float octaveWeight = 1.0;
+        float octaveDepth = 0.010;
+        float octaveTotal = 0.0;
+        for (int o = 0; o < 4; o++)
+        {
+            float reaching = octaveWeight * exp(-toSun * octaveDepth);
+            sunlight += reaching;
+            sunScatter += reaching * octavePhase[o];
+            octaveTotal += octaveWeight;
+            octaveWeight *= OctaveShare;
+            octaveDepth *= 0.5;
+        }
+        sunlight *= 1.45 / octaveTotal;
+        sunScatter *= (1.45 / octaveTotal) * mix(1.0, 1.0 - exp(-density * PowderFill), powderShare);
         float fireShare = 0.0;
 
         // Sun through the cloud, plus a sky ambient. The ambient is not flat: the sky is brighter
@@ -2190,12 +2288,13 @@ void main()
         // UNDER KSA'S WEATHER, which the ground beside it is already shaded by: lit as though in full
         // sun, a cloud under an overcast was the brightest thing in a grey scene.
         float weatherLets = WeatherShadow(camRelative, normalize(global.lighting.sunPosition.xyz - camRelative));
-        vec3 lit = albedo * sunlight * weatherLets * forward * SunGain * sunReaching + sky * albedo;
+        vec3 lit = albedo * sunScatter * weatherLets * SunGain * sunReaching + sky * albedo;
 
         // And what the deck takes from the sun it gives back as its own grey glow, from all over:
         // an overcast is a bright ceiling, not a lid. Without it a cloud under one went near black.
         lit += albedo * (1.0 - weatherLets) * DeckGlow * sunReaching;
         lit += albedo * earthshine * sunReaching;
+        lit *= 1.0 - FoldDepth * folds * (1.0 - inBall);
 
         // THE BURST LIGHTING THE CLOUD IT IS INSIDE. For the couple of seconds the ball is
         // incandescent it is by far the brightest thing in the scene, and the young cloud is
@@ -2435,7 +2534,7 @@ void main()
         violet = VioletColour * violetNow * exp(-missSq / (spread * spread)) * through;
     }
 
-    if (transmittance > 0.999 && ringShows > 0.999 && dot(violet, violet) < 1.0e-8) return;
+    if (transmittance > 0.999 && ringShows > 0.999 && dot(violet, violet) < 1.0e-8 && shadowLets > 0.999) return;
 
     // Aerial perspective: what is between the eye and the cloud, washing it toward the sky with
     // range. Without it a cloud two kilometres off is as crisp as one at arm's length, which is the
@@ -2547,11 +2646,16 @@ void main()
     // where the cloud lets the background through: an aura round the fire rather than a wash over
     // it. Added over the fire, violet on orange came out pink.
     float aura = mix(1.0, sceneShows, 0.85);
-    StoreLayerColor(vec4(under.rgb + violet * aura * strength, under.a));
+    StoreLayerColor(vec4(under.rgb + violet * aura * strength, under.a * shadowLets));
 
     float anyWeight = depthWeight + ringDepthWeight;
     if (strength * (1.0 - sceneShows * ringShows) > 0.02 && anyWeight > 0.0)
     {
         StoreLayerDistance(vec4((depthSum + ringDepthSum) / anyWeight));
+    }
+    else if (shadowLets < 0.98 && imageLoad(layerDistance, at).r <= 0.0)
+    {
+        // A shadow alone is on the ground, and is reprojected from there.
+        StoreLayerDistance(vec4(sceneT));
     }
 }
