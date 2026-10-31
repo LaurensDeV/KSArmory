@@ -1107,35 +1107,40 @@ layout (constant_id = 25) const float DustSeconds = 14.0;
 const float DustLifeSeconds = 60.0;
 layout (constant_id = 34) const int DustSteps = 32;
 
-// How coarse a grid the cloud is marched on: one pixel of every square this many across, the
-// resolve's history filling in the rest. Two is a third of the cost and flickers: the block's value
-// changes every frame as the marched pixel turns, and the resolve's history does not hide it --
-// eight times the pixels moving by more than 4 of 255 between frames, at 0.02x. A paused frame
-// cannot show it, because the turn follows the frame counter and that stops with the world.
+// How coarse a grid the cloud is marched on: one pixel of every square this many across, turning
+// every frame, the resolve's history filling in the rest. A paused frame cannot show what that
+// does, because the turn follows the frame counter and that stops with the world.
 layout (constant_id = 36) const int MarchScale = 1;
 
-// The pixels this invocation writes the cloud layer for: itself, or its square of the coarse grid.
+// The pixel this invocation marches, and the square of the coarse grid it clears.
+ivec2 marchedAt = ivec2(0);
 ivec2 blockOrigin = ivec2(0);
 int blockSize = 1;
 ivec2 layerSize = ivec2(0);
 
+// Only the pixel marched holds this frame's cloud. Copied across its square, the resolve's clamp saw
+// one value where it needed nine and threw the history away every frame, which was the flicker.
 void StoreLayerColor(vec4 value)
 {
-    for (int y = 0; y < blockSize; y++)
-        for (int x = 0; x < blockSize; x++)
-        {
-            ivec2 p = blockOrigin + ivec2(x, y);
-            if (p.x < layerSize.x && p.y < layerSize.y) imageStore(layerColor, p, value);
-        }
+    imageStore(layerColor, marchedAt, value);
 }
 
 void StoreLayerDistance(vec4 value)
 {
+    imageStore(layerDistance, marchedAt, value);
+}
+
+// The first cloud's clear. The rest of the square is marked with a negative alpha as having no
+// sample this frame, which KSArmoryCloudResolve.comp keeps its history for.
+void ClearLayer()
+{
     for (int y = 0; y < blockSize; y++)
         for (int x = 0; x < blockSize; x++)
         {
             ivec2 p = blockOrigin + ivec2(x, y);
-            if (p.x < layerSize.x && p.y < layerSize.y) imageStore(layerDistance, p, value);
+            if (p.x >= layerSize.x || p.y >= layerSize.y) continue;
+            imageStore(layerColor, p, p == marchedAt ? vec4(0.0, 0.0, 0.0, 1.0) : vec4(0.0, 0.0, 0.0, -1.0));
+            imageStore(layerDistance, p, vec4(0.0));
         }
 }
 
@@ -1748,8 +1753,7 @@ void main()
         at += ivec2(pc.FireSun.xy);
     }
 
-    // A cloud marched on the coarse grid marches one pixel of its square and writes the square; which
-    // pixel turns every frame, so the resolve's history sees each of them in turn.
+    // A cloud marched on the coarse grid marches one pixel of its square, turning every frame.
     layerSize = size;
     blockOrigin = at;
     if (MarchScale > 1 && pc.AgeStrengthWind.y > 0.0 && pc.CentreRadius.w > 0.0)
@@ -1760,8 +1764,11 @@ void main()
         at = min(blockOrigin + ivec2(turn == 1 || turn == 2 ? 1 : 0, turn == 1 || turn == 3 ? 1 : 0),
                  size - 1);
     }
+    marchedAt = at;
 
-    if (at.x >= size.x || at.y >= size.y) return;
+    // The origin, not the marched pixel, which the clamp keeps inside: a square past the edge would
+    // otherwise write a neighbour's pixel.
+    if (blockOrigin.x >= size.x || blockOrigin.y >= size.y) return;
 
     // A LAYER A HIGH BURST LIT, on a dispatch of its own that the negative bound marks.
     if (pc.CentreRadius.w < 0.0)
@@ -1873,11 +1880,7 @@ void main()
 
     // The first cloud clears the layer for the frame, everywhere, before anything below can turn
     // the pixel away: the layer is read whole by the resolve.
-    if (wantsCloud && firstCloud)
-    {
-        StoreLayerColor(vec4(0.0, 0.0, 0.0, 1.0));
-        StoreLayerDistance(vec4(0.0));
-    }
+    if (wantsCloud && firstCloud) ClearLayer();
 
     vec2 uv = (vec2(at) + 0.5) / vec2(size);
 
