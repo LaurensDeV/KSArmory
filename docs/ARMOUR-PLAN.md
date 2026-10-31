@@ -1,6 +1,7 @@
 # Armour
 
-**A plan, not a record.** Nothing here is built. How a player protects a craft at a cost, what KSA lets a mod
+**Part built, part plan.** Everything that needs no new art is built and flown (*What is built*, at the
+end); the plate family's art, armoured tank variants and the panel's armour rows are not. How a player protects a craft at a cost, what KSA lets a mod
 do towards it, the law a hit is judged by, and the order to build it in. Researched from this codebase, the
 decompiled game and another game's combat mod (*the reference mod*), then reviewed twice — once for the
 ballistics and the balance, once against the code — and revised; what each review changed is folded in.
@@ -161,3 +162,29 @@ what it costs today, and `Costs` with no layers must match today's output bit fo
   balance; armour areas guessed from bounding boxes that differ between the editor and flight; random
   ricochets; a slider to pick a material from a list; armour that adds no mass, which it shipped with for a
   time.
+
+## What is built
+
+Flown on 2026-10-31 against a 2 m LOX tank with a test plate on each side, the Phalanx at 800 m.
+
+- **The law** (`Sim/ArmourLayer.cs`): Lambert's limit as BRL-MR-3960 p. 70 gives it, reproducing the report's
+  worked example to every printed digit; its residual with Lambert's own `A` and `p`; Rosenberg's glance with
+  a hydrodynamic penetration speed; the dent of a round that stops. Materials (`KSArmory/Armour.xml`): rolled
+  steel and aluminium on the report's constants, titanium's `a` derived from a 1.2 mass efficiency. A round
+  that states no drawn body is taken four calibres long, and a fragment as long as it is wide — guesses.
+- **The walk** (`Sim/Penetrator.cs`), with `GoesThrough` gathering the crossings: every part on the path gets
+  its slope and its craters.
+- **The part charged is the part the ray hit**, falling back to the nearest where the cast met nothing it
+  can charge.
+- **An exploding shell** bursts on a plate and holes only one thinner than 0.635 calibres of steel
+  equivalent; there is no delay fuze, since no shipped round has one.
+- **The pack reader**: `<ArmourMaterial>` and `<Armour>`, refused when misspelt, a plate's material resolved
+  across a pack's files, no component row.
+- **Fragment shadowing**: on a craft carrying plates only, each other part is cast to from the burst against
+  the plates alone, and a fragment reaches it with Lambert–Jonas's residual or not at all.
+- **The test plate**: Core's 2 m structural plate scaled to 25 mm, 617 kg.
+
+What flying it showed: every dart met a plate first and got through it, as the law says at 928 m/s against
+25 mm's 744; behind it a full tank was entered at 631 m/s and raised 4.12 bar, where the same tank bare was
+entered at 892 m/s and raised 5.83. Both burst, since a flight tank's 3 bar load and either rise pass the
+5.99 bar a dart's hole holds; a plate near 45 mm thick would stop the dart outright.
