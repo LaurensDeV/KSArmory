@@ -437,6 +437,35 @@ chord, and starts each ray on a per-pixel hash moved every frame by the golden r
 samples remove it — these are last frame's. Interleaved gradient noise was tried for the dither and
 reverted, before the march had a history to resolve it; it is not recorded as tried since.
 
+### 9b. Lighting and the ground shadow, after Volumetric-Explosion-FX — built, flown once
+
+Read off [warnix91/Volumetric-Explosion-FX](https://github.com/warnix91/Volumetric-Explosion-FX)'s
+`NukeVolume.shader` and `NukeShadow.shader` and rebuilt in this march's terms. Flown 2026-10-31 on
+one 20 kt surface burst at 25 s, Atacama, sun 45 deg up, old and new shaders on the same paused frame:
+
+- **Folds** (`FoldDepth`): the coarse billow band is handed out of `Density`, and where it pulls
+  the surface in the sun and the sky are darkened. The sun taps read the noise-free bulk, so the
+  billows never shaded each other; with this the cap has relief and the crown is no longer blown out.
+- **Four orders of scattering** (`OctaveShare`) on a two-lobe phase (mean cosine 0.29, the single
+  lobe's 0.3), normalised to the old 1.45 in open sun, and **powder** (`PowderStrength`) with the sun
+  behind the viewer.
+- **The shadow on the ground** (`GroundShadowDepth`), in the layer's alpha: 6 jittered taps of the
+  noise-free bulk along the sun ray, broken up with two octaves of noise. The dome's closed-form
+  chord was tried first and is not in: it is opaque nearly to its rim and drew a hard disc.
+- **Cost**, against `dev`'s shaders on the same frames, twice each and agreeing to 0.01 ms: 3.09
+  against 3.34 ms with the cloud burning at 6 s from 4.5 km, 2.88 against 3.07 mature at 25 s from
+  15 km, 1.93 against 1.99 from above with the shadow in frame. Only once each order's phase was
+  taken once a ray and the shadow cut from 12 taps to 6: per sample the phases were 0.13 ms dearer,
+  and 12 taps 0.10 ms from above.
+
+A burning-phase rework was built after this and taken out: hard billows with big lumps, the march
+doubled while it burns, fire across the whole tube, the glare hidden behind the cloud. It cost
+2.1 ms a frame over the first ten seconds (3.2 to 5.3) and was not judged to look better for it.
+- **The half-resolution grid**: only the marched pixel is written and the rest of its square marked
+  with a negative alpha; the resolve keeps their history, clamped to the real samples within a
+  square. Flickering pixels at 0.02x, the scene's own stars included: 20,632 at full resolution,
+  26,779 at `MarchScale` 2 before, 20,378 and 23,067 after on two runs. Still off.
+
 ### 10. Water bursts — the surface and the deep built; the shallow one is not
 
 `Sim/BurstSetting.cs` sorts every burst into land, the sea's surface, or under it. On the sea the
