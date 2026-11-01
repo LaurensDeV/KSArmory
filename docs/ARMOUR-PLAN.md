@@ -198,7 +198,8 @@ Answered from the decompiled game (2026.10.25.5707) and the code, 2026-11-01.
   written with the craft (`Part.GetReferenceWithChildren`) and mass grows as its cube (`InertMass.Rescale`,
   `Tank.SetScale`), so a scaled plate is thicker by the same factor — which the mod does not read yet: it judges
   the definition's thickness, and a scaled tank's wall and liquid in its mesh's units. It cannot stand in for a thickness, since
-  size and thickness move together: the family still needs a part per thickness, but no part per size.
+  size and thickness move together: one part spans 0.5x to 2x of both, so a 2 m 25 mm plate is also every plate
+  from 1 m at 12.5 mm to 4 m at 50 mm, and a family is a few thickness-to-size ratios, not a grid of the two.
 - **KSA has no lift, and nothing points to it arriving.** No wing, lift, aerofoil or control-surface type
   exists; drag is still the craft's bounding box (`VehicleProperties.RecomputeAerodynamicProperties`). A plate
   inside the box costs no drag, and one standing proud of it costs it on the face it widens.
