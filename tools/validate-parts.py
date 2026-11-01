@@ -1878,6 +1878,56 @@ def check_registered_part_ids():
     return problems, checked
 
 
+def check_armour_plates(definition_roots=None, gamedata_paths=None, material_roots=()):
+    """Verifies each armour plate's part data agrees with its definition.
+
+    A plate's thickness and material are in the definition, its mass in the part data and its
+    thickness again in its name, and nothing at run time compares them: a plate declared light
+    stops rounds for nothing. A plate's area is its mesh's, so the mass is held between half its
+    mass box's face -- a triangle -- and all of it, times the thickness and the density.
+    """
+    roots = definition_roots if definition_roots is not None else _definition_files()
+    gamedata = [ET.parse(path).getroot() for path in gamedata_paths or [MOD / "KSArmoryGameData.xml"]]
+    density = {m.get("Name"): float(m.get("DensityKgPerM3")) for root in [*material_roots, *roots]
+               for m in root.iter("ArmourMaterial")}
+    data = {d.get("Id"): d for root in gamedata for d in root.iter("PartGameData")}
+
+    problems = checked = 0
+    for plate in (a for root in roots for a in root.iter("Armour")):
+        part, thickness = plate.get("PartId"), float(plate.get("ThicknessMm")) / 1000.0
+        checked += 1
+        found = data.get(part)
+        box = None if found is None else found.find("SolidCuboidMass")
+        if found is None:
+            print(f"  ARMOUR {part} -- declared by nothing checked here: armour on somebody else's part "
+                  f"carries none of its mass", file=sys.stderr)
+            problems += 1
+            continue
+        if box is None or plate.get("Material") not in density:
+            print(f"  ARMOUR {part} -- no SolidCuboidMass, or a material no file defines", file=sys.stderr)
+            problems += 1
+            continue
+
+        sides = sorted(float(box.find(f"Length{axis}").get("M")) for axis in "XYZ")
+        mass = float(box.find("Mass").get("Kg"))
+        full = sides[1] * sides[2] * thickness * density[plate.get("Material")]
+        mm = f"{float(plate.get('ThicknessMm')):g} mm"
+
+        if abs(sides[0] - thickness) > 1e-6:
+            print(f"  ARMOUR {part} -- its mass box is {sides[0] * 1000:g} mm thin, its definition {mm}",
+                  file=sys.stderr)
+            problems += 1
+        if not 0.5 * full <= mass <= full * 1.001:
+            print(f"  ARMOUR {part} -- {mass:g} kg, where {mm} of its material over its face weighs "
+                  f"{0.5 * full:.0f} to {full:.0f} kg", file=sys.stderr)
+            problems += 1
+        if mm not in (found.get("DisplayName") or ""):
+            print(f"  ARMOUR {part} -- its name does not say {mm}", file=sys.stderr)
+            problems += 1
+
+    return problems, checked
+
+
 # Stacking parts left unsized, each with why. Anything added here nests into the tank it sits on.
 UNSIZED_STACK_CONNECTORS = {
 }
@@ -2131,6 +2181,18 @@ def validate_pack(root, core_subparts, core_materials, core_substances):
     problems += p
     checked += c
 
+    definitions = []
+    for path in sorted((root / "KSArmory").glob("*.xml")):
+        try:
+            definitions.append(ET.parse(path).getroot())
+        except ET.ParseError:
+            pass
+    if any(True for d in definitions for _ in d.iter("Armour")):
+        print("checking every armour plate's mass and thickness against its definition")
+        p, c = check_armour_plates(definitions, gamedata_paths, _definition_files())
+        problems += p
+        checked += c
+
     return problems, checked
 
 
@@ -2197,6 +2259,11 @@ def main():
 
     print("checking every registered PartId is declared in the XML")
     p, c = check_registered_part_ids()
+    problems += p
+    checked += c
+
+    print("checking every armour plate's mass and thickness against its definition")
+    p, c = check_armour_plates()
     problems += p
     checked += c
 
