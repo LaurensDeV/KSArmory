@@ -53,8 +53,8 @@ happen rather than a member that moved.
 
 **Rechecked against 2026.10.25.5707: two entries moved, the rest is still blocked.** Tanks now carry a
 rated pressure and hold gas, and a camera window now draws clouds (`ViewportOptionFlags.RenderClouds`,
-`Program.cs:1043`), still with no ocean or clustered lights. `PhysicsStates.ComputeDrag`, `DistanceReference`
-and `UncompressedVehicleSave`'s character handling are unchanged, `IsGroundSurfaceFor` and the buoyancy's
+`Program.cs:1043`), still with no ocean or clustered lights. `PhysicsStates.ComputeDrag` and `DistanceReference`
+are unchanged, `IsGroundSurfaceFor` and the buoyancy's
 `MassToGeometryAsmb` did not move, `KSA.dll` is still IL-only, the volumetric trail renderer is still reached
 by reflection, StarMap did not move, and there is still no hook between applying the vehicle solvers and
 snapshotting them. Citations were re-derived only for what this paragraph cites; elsewhere they stand as below.
