@@ -398,7 +398,10 @@ than one kind of round, that is an editor decision and this becomes worth solvin
 
 **What would unblock it.** An extensible per-part blob in the vehicle save that survives a
 round trip, or a registerable module type — either one makes the rest follow. It would also turn the planned family of armour
-plates (`docs/ARMOUR-PLAN.md`) — a part per thickness — into one plate with a thickness setting.
+plates (`docs/ARMOUR-PLAN.md`) — a part per thickness — into one plate with a thickness setting. The
+editor's scale gizmo is the one per-part setting KSA does save (`Part.Scale`, written as the part's
+`Transform`, 0.5x to 2x), and it is uniform: a plate scaled to 2x is twice as thick as well as four times the
+area, so it cannot stand in for a thickness.
 
 ## Filtering the part picker by mod or manufacturer
 

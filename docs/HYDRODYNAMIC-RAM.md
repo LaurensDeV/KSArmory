@@ -151,7 +151,7 @@ and after, and benchmark `SurfaceHeight` and `FillPoints` headlessly.
 ## The order of work
 
 0. **Fix what the reviews found in shipped code**: ~~the tank-wall verdict worked out with the hole drawing
-   off~~ (done); ~~the thin-sheet crack length~~ (done, 3.9 mm); the wall read cached per part (not yet).
+   off~~ (done); ~~the thin-sheet crack length~~ (done, 3.9 mm); ~~the wall read cached per part~~ (done).
 1. **Fit** `σ_c`, `κ` and the exponents to NASA's Table I, and `χ`; write the fits and sources here. Tests that
    pin NASA's loaded panels fracturing above the critical speed and holding below it, and the unloaded ones
    holding at twice it.

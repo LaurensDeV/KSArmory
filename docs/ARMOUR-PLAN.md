@@ -188,3 +188,29 @@ What flying it showed: every dart met a plate first and got through it, as the l
 25 mm's 744; behind it a full tank was entered at 631 m/s and raised 4.12 bar, where the same tank bare was
 entered at 892 m/s and raised 5.83. Both burst, since a flight tank's 3 bar load and either rise pass the
 5.99 bar a dart's hole holds; a plate near 45 mm thick would stop the dart outright.
+
+## Questions answered since
+
+Answered from the decompiled game (2026.10.25.5707) and the code, 2026-11-01.
+
+- **The editor scales parts, and saves it.** `VehicleEditor.UpdateSelectedScale` sets `Part.Scale` from 0.5x to
+  2x, uniformly and in steps of a quarter metre of diameter (`ScaleBoundsFor`, `QuantizeScale`). The scale is
+  written with the craft (`Part.GetReferenceWithChildren`) and mass grows as its cube (`InertMass.Rescale`,
+  `Tank.SetScale`), so a scaled plate is thicker by the same factor — which the mod does not read yet: it judges
+  the definition's thickness, and a scaled tank's wall and liquid in its mesh's units. It cannot stand in for a thickness, since
+  size and thickness move together: the family still needs a part per thickness, but no part per size.
+- **KSA has no lift, and nothing points to it arriving.** No wing, lift, aerofoil or control-surface type
+  exists; drag is still the craft's bounding box (`VehicleProperties.RecomputeAerodynamicProperties`). A plate
+  inside the box costs no drag, and one standing proud of it costs it on the face it widens.
+- **No part variants.** There is no switch or option mechanism on a part, and the save's module data is
+  registered from KSA's own assembly alone (`XmlHelper`), so a mod's per-part data would need the serializer
+  patched (`docs/BLOCKED-ON-KSA.md`, *Configuring a part in the vehicle editor*).
+- **A plate is not invulnerable to a burst on its face.** At the strongest tolerance KSA derives, a 5"/54
+  shell's 3.5 kg bursting on the 2 m plate can cost it more than its whole health at 25 mm and at 50 mm, and a
+  20 mm HEI's 11 g about 2%; a plate would have to weigh some 11 t to shrug off the 5"/54
+  (`ArmourLayerTests`).
+- **Armour on somebody else's part** weighs nothing, since the definition carries no mass.
+  `validate-parts.py` checks a plate's mass box against its definition, in this mod and in a pack, and that a
+  pack's plate is its own part.
+- **How much the guessed lengths matter.** The limit goes as `(L/D)^0.15`, so the four calibres taken for a
+  round with no drawn body moves it 11% if the truth is half or twice that.

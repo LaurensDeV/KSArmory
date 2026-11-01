@@ -537,7 +537,10 @@ against a plate is judged by Lambert's ballistic limit (BRL-MR-3960); `docs/ARMO
 
 **Required:** `PartId`, `Material`, and a `ThicknessMm` above zero. A plate gets no row in the panel and does
 not make a craft a weapons system. Its mass is the part's own, from its part definition; make it the plate's
-area times its thickness times the material's density.
+area times its thickness times the material's density. `validate-parts.py --mod-root` checks that: the
+part's `SolidCuboidMass` is the thickness thin, its mass is between half and all of its face times the
+thickness and density, its name states the thickness, and the part is one the pack declares — a plate on
+somebody else's part would stop rounds and weigh nothing.
 
 | Attribute | Values | Default | Meaning |
 | --- | --- | --- | --- |
@@ -680,8 +683,8 @@ behaviour:
   sliding rail, tubes that move on their own, or a radar aimed separately from the turret. The visual
   parts above (recoil, rams, feeds, rotary barrels, ejector arms, a spinning search array) and the
   sight and search-set heads are supported.
-- Armour and penetration. Parts take damage individually and keep it between hits, but every part
-  takes damage the same way. A pack can set the size of a charge, not what a part is made of.
+- What a part other than a plate or a tank is made of. A plate's material and thickness are a pack's,
+  and a tank's wall is KSA's; every other part takes damage by its mass and crash tolerance alone.
 
 These need changes to KSArmory itself. See [MODULARITY.md](MODULARITY.md),
 [EXTENSIBILITY.md](EXTENSIBILITY.md) and, for porting from a KSP weapon mod,
