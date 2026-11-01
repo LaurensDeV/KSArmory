@@ -121,4 +121,18 @@ public class ArmourLayerTests
         Assert.Equal(0.0, default(ArmourLayer).BallisticLimit(0.1, 0.01, 4.0, 1.0, 0.01));
         Assert.True(default(ArmourLayer).HoledByShellBurst(0.02));
     }
+
+    // The strongest a derived crash tolerance can be, 8x the base, so the plate is as tough as KSA ever makes it.
+    [Theory]
+    [InlineData(617.0)]
+    [InlineData(1234.0)]
+    public void A5InchShellBurstingOnAPlateCanBreakItAndA20mmOneOnlyWearsIt(double plateKg)
+    {
+        double joules = PartToughness.Joules(plateKg, 8.0 * BlastDamage.ReferencePascals);
+
+        Assert.True(PartToughness.BlastShareCeiling(3.5, 0.0, 3.14, joules) > 1.0);
+
+        double hei = PartToughness.BlastShareCeiling(0.011, 0.0, 3.14, joules);
+        Assert.InRange(hei, 0.005, 0.05);
+    }
 }
