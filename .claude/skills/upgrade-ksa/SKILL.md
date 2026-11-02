@@ -33,6 +33,12 @@ taken up.**
     `StoreCarriage`. Check too whether a save now pairs subparts by `Key`, which would change
     CLAUDE.md's rule that a shipped part's subpart list is append-only.
   - The weapon definitions under `src/KSArmory/KSArmory/` are this mod's own format and do not move.
+  - **Tell players and pack authors how to patch.** The wiki's modding pages are generated from
+    `docs/WEAPON-PACKS.md` and `docs/FROM-KSP-MODDING.md` (`tools/wiki/build.py`). Add a section with a
+    flown example: a `Modify="Patch"` on a KSArmory part (a texture, a collider, its mass) and on a Core
+    part (a tank's `WallThickness`). Say that a patch changes every copy of a part, not one on a craft.
+    Say which of this mod's own definitions take a patch: none, unless the pack reader gains `Modify` too.
+    Map it to KSP's ModuleManager `@PART` patches in the KSP page.
 - **An aerodynamic mesh** is generated from every craft's colliders and drawn in the editor and in
   flight. It changes no forces yet. When a later build makes it change forces, `Sim/DragShape.cs`
   is a copy of drag that no longer exists. `docs/BLOCKED-ON-KSA.md` has the check.
