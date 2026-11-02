@@ -50,6 +50,10 @@ Its three checks are `CHECKLIST.md` §17.
 
 ### 1. The spike: does saving work, end to end
 
+**Build it against the build after 5707**, not this one: RocketWerkz have announced that build moves part
+data into `Modify`/`Key` XML, which rewrites the loader this step hooks. The engine claims below are 5707's and
+are rechecked first.
+
 The one unknown. Two halves, and the second is the gate:
 
 - **`[StarMapBeforeMain]`**: add the element to the override.
