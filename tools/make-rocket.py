@@ -45,7 +45,7 @@ CORE = KSA_DIR / "Content" / "Core"
 ENGINE = "CorePropulsionA_Prefab_Engine"
 TANK = "CoreFuelTankA_Prefab_"
 BUS_DECOUPLER = "CoreCouplingA_Prefab_Decoupler3WA"
-BRIDGE_3W2W = "CoreFairingA_Prefab_InterstageBridge3W2WB"
+BRIDGE_3W2W = "CoreFairingA_Prefab_InterstageBridge3W2WA"
 RADIAL_DECOUPLER = "CoreStructuralA_Prefab_RadialDecouplerLargeA"
 
 # The bus's base, where GeoSat FAT has it. Any constant would do; this one makes a regenerated
@@ -61,11 +61,11 @@ BOOSTER_RADIUS = 3.3335
 # Plates by (stage diameter, engine count, engine connector size): plate, its top connector, its
 # rim connector (where an interstage hangs), and the engine connectors in symmetry order.
 PLATES = {
-    (3, 1, 1): ("CoreStructuralA_Prefab_EnginePlateLowProfile3WB", 0, 2, [1]),
-    (3, 1, 2): ("CoreStructuralA_Prefab_EnginePlateLowProfile3WA", 0, 2, [1]),
-    (3, 3, 1): ("CoreStructuralA_Prefab_EnginePlateLowProfile3WD", 0, 4, [3, 1, 2]),
-    (3, 4, 1): ("CoreStructuralA_Prefab_EnginePlateLowProfile3WC", 0, 5, [2, 4, 1, 3]),
-    (2, 1, 1): ("CoreStructuralA_Prefab_EnginePlateLowProfile2WA", 0, 2, [1]),
+    (3, 1, 1): ("CoreStructuralA_Prefab_EnginePlate1WSingle3WA", 0, 2, [1]),
+    (3, 1, 2): ("CoreStructuralA_Prefab_EnginePlate2WSingle3WA", 0, 2, [1]),
+    (3, 3, 1): ("CoreStructuralA_Prefab_EnginePlate1WTriple3WA", 0, 4, [3, 1, 2]),
+    (3, 4, 1): ("CoreStructuralA_Prefab_EnginePlate1WQuad3WA", 0, 5, [2, 4, 1, 3]),
+    (2, 1, 1): ("CoreStructuralA_Prefab_EnginePlate1WSingle2WA", 0, 2, [1]),
 }
 # Interstages by diameter: the decoupler joint is the top connector (index 1), as in GeoSat FAT.
 INTERSTAGES = {3: "CoreFairingA_Prefab_Interstage3W3HA", 2: "CoreFairingA_Prefab_Interstage2W2HA"}
@@ -694,7 +694,7 @@ class Rocket:
             d2 = d1.attach(Node(lib, "CorePropulsionC_Prefab_SRBDSegmentLargeA", rot), 0, 1)
             petal1 = d2.attach(Node(lib, "CoreFairingA_Prefab_InterstageBridgePetal1WHalfWA", rot), 0, 1)
             seg_c = petal1.attach(Node(lib, "CorePropulsionA_Prefab_SRBCSegmentLargeA", rot), 0, 1)
-            nose = seg_c.attach(Node(lib, "CoreFairingA_Prefab_NoseconeD", rot), 0, 0)
+            nose = seg_c.attach(Node(lib, "CoreFairingA_Prefab_Nosecone05WBallisticA", rot), 0, 0)
             booster = [rd, seg, motor, petal2, d1, d2, petal1, seg_c, nose]
             for i, part in enumerate(booster):
                 sets.setdefault(i, []).append(part)
