@@ -121,9 +121,15 @@ jobs:
         if: env.HAVE_KEY == 'true'
         run: ./tools/validate-parts.py --offline
 
-      - name: Check the mesh
+      # Every atlas, not just the shared one: this mod ships sixteen, and naming one meant the
+      # other fifteen were released unchecked.
+      - name: Check the meshes
         if: env.HAVE_KEY == 'true'
-        run: ./tools/model/checkmesh.py src/KSArmory/Meshes/KSArmory_MeshAtlas.glb
+        run: |
+          shopt -s nullglob
+          atlases=(src/KSArmory/Meshes/*.glb)
+          (( ${#atlases[@]} )) || { echo "no meshes yet"; exit 0; }
+          ./tools/model/checkmesh.py "${atlases[@]}" --near-max 0
 
       - name: Package
         if: env.HAVE_KEY == 'true'
