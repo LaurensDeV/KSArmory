@@ -416,7 +416,7 @@ internal static class BurstSound
         try
         {
             SoundReference? crack = ModLibrary.Get<SoundBehavior>(CoreBangId) is MultiSound core
-                                        ? core.Sounds.OfType<SoundReference>()
+                                        ? core.Sounds.Select(r => r.Value).OfType<SoundReference>()
                                               .FirstOrDefault(l => l.SpatialSoundData?.Ref == CrackSpatialId)
                                         : null;
             if (crack is null)
