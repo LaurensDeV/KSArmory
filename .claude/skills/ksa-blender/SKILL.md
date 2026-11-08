@@ -136,7 +136,7 @@ copied in as exported, and so is the targeting pod since it was rebuilt to it. I
 satisfied none of it and needed an import tool to bake, reframe, recentre and clock it. The difference
 is entirely this table, and it is far cheaper to get right in Blender than to correct afterwards.
 
-A part that loads but renders nothing is nearly always a name mismatch — `<Mesh Id="…">` must be the
+A part that loads but renders nothing is nearly always a name mismatch — `<Mesh Ref="…">` must be the
 atlas name exactly. Silent in game; caught by `./tools/validate-parts.py`.
 
 ### Node name == mesh name is not something you can just set

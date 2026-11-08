@@ -11,10 +11,12 @@ tool it names exists; the skill is the order and the traps.
 
 ## 0. Whose game is it
 
-**The bridge reaches any running KSA**, including one the user is playing. Before any command:
+**The bridge reaches any running KSA**, including one the user is playing. Before any command, ask
+the bridge itself — `mcp__ksa__ksa_status` says whether a game is up and what is in its world in one
+call. Only when no MCP client is attached:
 
 ```bash
-tasklist.exe | grep -iE 'starmap|kittenspace'
+tasklist.exe | grep -iE 'starmap|kittenspace'   # fallback for "is it running"
 ```
 
 - **Nothing running**: a scenario launches its own game and loads its own save. Go ahead.
@@ -51,8 +53,10 @@ stale worktree over a newer install rolls `dev`'s work out of the game.
 the bridge afterwards, and `KSARMORY_SCENARIO_VERBOSE=1` for the developer detail.
 
 **A scenario overrides the session's settings for its flight** -- the shader pass, clouds,
-overlays -- and puts them back at END. While it runs, tracers are debug lines and ground rings are
-not painted unless `KSARMORY_SCENARIO_CLOUDS=1`.
+overlays -- and puts them back at END. `KSARMORY_SCENARIO_CLOUDS=1` is what turns the cloud itself
+on; rings, holes, leaks, tracers and beams are painted either way, because at `ShaderPass = 0` the
+pass skips only the cloud and those have no other route to the screen (`CloudPass.cs`, `if (tint <= 0f)`).
+So a screenshot of a ring or a tracer from an ordinary scenario is evidence, not an artefact.
 
 ## 3. A PASS is not a clean run
 
@@ -64,7 +68,7 @@ K=$(ls -t "$U"/Logs/KittenSpaceAgency.*.log | head -1)
 
 grep -E 'WARN|ERROR' "$L"                                  # the mod's own complaints
 grep -iE 'exception|Update task failed' "$K"               # the engine's; the master-server line is noise
-python3 tools/ksa-mcp/server.py cli status                 # what is actually in the world now
+python3 tools/ksa-mcp/server.py cli status                 # ...or mcp__ksa__ksa_status, preferred
 ```
 
 - **`head-on`'s PASS means the engagement ended, not that anything died.** `status` lists the
@@ -73,6 +77,10 @@ python3 tools/ksa-mcp/server.py cli status                 # what is actually in
   `KSArmory.log`.
 
 ## 4. Drive it through the bridge
+
+**Call the `mcp__ksa__*` tools where you can**: `ksa_capture` returns the image inline, while the
+shell form writes it to `tools/ksa-mcp/last/` and wipes that folder on the next call. The `cli`
+examples below are the fallback, and they show each command's arguments either way.
 
 ```bash
 S="timeout 120 python3 tools/ksa-mcp/server.py cli"
