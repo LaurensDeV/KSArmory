@@ -3,7 +3,7 @@ using Xunit;
 namespace KSArmory.Tests;
 
 /// <summary>A mod's Bodies.xml, read -- and the one this mod ships.</summary>
-[Collection("BodyCatalogue")]
+[Collection("catalogue")]
 public class BodyReaderTests
 {
     [Fact]
