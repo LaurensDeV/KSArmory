@@ -104,7 +104,7 @@ KSArmory's own weapons are defined the same way, one file per family in its `KSA
 You need:
 
 - Kitten Space Agency, build `2026.11.10.5801`. Other builds may not work until the mod is updated.
-- [StarMap](https://github.com/StarMapLoader/StarMap/releases) the community mod loader. KSArmory does not run without it. StarMap 0.5.2, the newest as this is written, does not start on KSA `2026.11.10.5801`: a StarMap release that does is needed first.
+- [StarMap](https://github.com/StarMapLoader/StarMap/releases) 0.5.3 or newer, the community mod loader. KSArmory does not run without it. Older StarMap versions do not start on KSA `2026.11.10.5801`.
 
 Windows and Linux use the same download.
 

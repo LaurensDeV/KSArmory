@@ -123,10 +123,10 @@
   <!--
     The loader's API and its Harmony, from NuGet. Compile assets only, so neither reaches the mod
     output, for the same reason as the references above: the loader has already loaded its own.
-    Lib.Harmony 2.4.3 is the 0Harmony.dll StarMap 0.5.2 ships, byte for byte.
+    Lib.Harmony 2.4.3 is the 0Harmony.dll StarMap 0.5.3 ships, byte for byte.
   -->
   <ItemGroup>
-    <PackageReference Include="StarMap.API" Version="0.5.2" IncludeAssets="compile" PrivateAssets="all" />
+    <PackageReference Include="StarMap.API" Version="0.5.3" IncludeAssets="compile" PrivateAssets="all" />
     <PackageReference Include="Lib.Harmony" Version="2.4.3" IncludeAssets="compile" PrivateAssets="all" />
   </ItemGroup>
 

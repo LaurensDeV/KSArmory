@@ -8,8 +8,8 @@ Each entry cites what the decompiled corpus says, so a claim can be rechecked af
 rather than taken on trust. **Recheck this file when the game moves** — the whole point of it is
 that some of these will quietly become possible.
 
-Findings and citations are against KSA **2026.11.10.5801**, read from the decompiled source; nothing
-in this recheck could be flown, because StarMap 0.5.2 does not start on that build. Paths are relative to
+Findings and citations are against KSA **2026.11.10.5801**, read from the decompiled source, not flown
+entry by entry. Paths are relative to
 `../ksa-game-assemblies/current/src`, and shaders to the install's `Content/Core/Shaders`. A line number is
 where the member was on the build its entry cites; search for the member it names.
 
@@ -190,8 +190,7 @@ it from the track and miss more, especially against a target that manoeuvres.
 **Partly unblocked by StarMap 0.5, and taken up.** StarMap's `IModMenuService.AddModMenuItem(label,
 onClick)` puts an item under a **Mods** menu StarMap draws itself, and `KSArmoryMod`'s constructor takes
 it: **Mods > KSArmory** toggles the panel. So the panel is always reachable, and the floating button and
-the copied ModMenu attribute are gone. Not yet seen in game: StarMap 0.5.2 does not start on
-2026.11.10.5801.
+the copied ModMenu attribute are gone. The menu item itself has not been looked at in game yet.
 
 **What is still missing.** The item is a button. The built-in families' switches need a submenu, so
 `Ui.DrawMenuBarEntry` still appends a top-level **KSArmory** menu with `ImGui.BeginMainMenuBar()`,
