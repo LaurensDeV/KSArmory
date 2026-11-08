@@ -14,6 +14,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=ksa-game-dir.sh
+source "$REPO_ROOT/tools/ksa-game-dir.sh"
 LOCK="$REPO_ROOT/ksa-assemblies.lock"
 
 DIR="${1:-}"
@@ -32,9 +34,8 @@ done
 # --game skips Import/: it is a copy, so it still matches the lock after a game update until it is
 # refreshed.
 if (( GAME )); then
-    for candidate in "${KSA_DIR:-}" "/mnt/c/Program Files/Kitten Space Agency" "C:/Program Files/Kitten Space Agency"; do
-        [[ -n "$candidate" && -f "$candidate/KSA.dll" ]] && { DIR="$candidate"; break; }
-    done
+    DIR="$(ksa_game_dir 2>/dev/null || true)"
+    [[ -n "$DIR" && -f "$DIR/KSA.dll" ]] || DIR=""
     if [[ -z "$DIR" ]]; then
         (( QUIET )) || echo "no KSA install found; nothing to compare against"
         exit 0
@@ -47,8 +48,7 @@ if [[ -z "$DIR" ]]; then
         "${KSA_DLL_DIR:-}" \
         "$REPO_ROOT/Import" \
         "$REPO_ROOT/../ksa-game-assemblies/current/dll" \
-        "/mnt/c/Program Files/Kitten Space Agency" \
-        "C:/Program Files/Kitten Space Agency"
+        "$(ksa_game_dir 2>/dev/null || true)"
     do
         [[ -n "$candidate" && -f "$candidate/KSA.dll" ]] && { DIR="$candidate"; break; }
     done

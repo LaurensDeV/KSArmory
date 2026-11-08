@@ -254,7 +254,10 @@ parses as it is.
 
 ## Environment
 
-- **KSA install**: `/mnt/c/Program Files/Kitten Space Agency` (Windows game, WSL dev)
+- **KSA install**: wherever the launcher put it -- `./tools/ksa-game-dir.sh` answers, and every
+  tool takes `KSA_DIR` to override it. On this box the Ahwoo/Neutrino launcher's library,
+  `/mnt/c/Program Files/Ahwoo/Games/Kitten Space Agency`; a hand-unpacked copy used to sit at
+  `/mnt/c/Program Files/Kitten Space Agency`, which is still tried (Windows game, WSL dev)
 - **KSA build these notes were taken against**: `2026.11.10.5801`
 - The system `dotnet` is 8.0 and **cannot build this** — the mod targets **net10.0**
   (`error NETSDK1045`). A .NET 10 SDK is installed at `~/.dotnet`.

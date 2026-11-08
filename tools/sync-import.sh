@@ -11,7 +11,9 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IMPORT_DIR="$REPO_ROOT/Import"
 
 # Default install path under WSL. Override with: KSA_DIR=/some/path ./tools/sync-import.sh
-KSA_DIR="${KSA_DIR:-/mnt/c/Program Files/Kitten Space Agency}"
+# shellcheck source=ksa-game-dir.sh
+source "$(dirname "${BASH_SOURCE[0]}")/ksa-game-dir.sh"
+KSA_DIR="${KSA_DIR:-$(ksa_game_dir || true)}"
 
 if [[ ! -d "$KSA_DIR" ]]; then
     echo "error: KSA not found at '$KSA_DIR'" >&2

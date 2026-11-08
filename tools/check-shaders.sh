@@ -11,7 +11,9 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-KSA_DIR="${KSA_DIR:-/mnt/c/Program Files/Kitten Space Agency}"
+# shellcheck source=ksa-game-dir.sh
+source "$(dirname "${BASH_SOURCE[0]}")/ksa-game-dir.sh"
+KSA_DIR="${KSA_DIR:-$(ksa_game_dir || true)}"
 LIBRARY="$KSA_DIR/Content/Core/Shaders"
 CACHE="$HOME/.cache/ksarmory/glslang"
 VERSION="16.6.0"

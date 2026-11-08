@@ -10,6 +10,8 @@
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=ksa-game-dir.sh
+source "$REPO_ROOT/tools/ksa-game-dir.sh"
 cd "$REPO_ROOT" || exit 1
 
 FAIL=0
@@ -81,13 +83,9 @@ for candidate in \
     "${KSA_DIR:-}" \
     "$REPO_ROOT/Import" \
     "$REPO_ROOT/../ksa-game-assemblies/current/dll" \
-    "C:/Program Files/Kitten Space Agency" \
-    "/c/Program Files/Kitten Space Agency" \
     "$HOME/.steam/steam/steamapps/common/Kitten Space Agency" \
-    "$HOME/.local/share/Steam/steamapps/common/Kitten Space Agency" \
     "$HOME/Games/Kitten Space Agency" \
-    "$HOME/Kitten Space Agency" \
-    "/mnt/c/Program Files/Kitten Space Agency"
+    "$(ksa_game_dir 2>/dev/null || true)"
 do
     [[ -n "$candidate" && -f "$candidate/KSA.dll" ]] && { FOUND_DLL="$candidate"; break; }
 done
