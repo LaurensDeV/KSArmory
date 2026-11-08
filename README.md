@@ -161,7 +161,7 @@ The Pantsir can control itself, so a craft made of nothing but a Pantsir can be 
 
 ### The panel
 
-Open it from **KSArmory > Panel** on the menu bar. (If you use the ModMenu mod, KSArmory is listed in its menu instead. ModMenu must be 0.2.3 or newer on this KSA build.)
+Open it from **Mods > KSArmory**, the menu StarMap adds to the game, or from **KSArmory > Panel** on the menu bar, which also holds the switches for the built-in weapon families.
 
 The panel lists every craft that carries something from this mod, grouped by team. Each row has the craft's name (click it to fly that craft), buttons for its weapons, auto engage (the shield), the chase camera and its team (the flag), and **...**, which opens the craft's own window. That window has **FIRE** at the top and the **Components** and **Tuning** tabs below it, with **Ballistic** and the radar tab where the craft has them.
 

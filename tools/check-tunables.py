@@ -61,9 +61,6 @@ EXEMPT = {
     "Config.DiagnosticIntervalSeconds":
         "the cadence of a developer instrument; the scenario runner sets it for a chase, and "
         "three seconds is what a person reads the dump at",
-    "Config.FloatingPanelButton":
-        "the one route back into a closed panel this mod controls -- the menu-bar entry is ImGui "
-        "behaviour rather than a hook -- so a switch for it is a way to strand yourself",
     "SensorProfile.BoresightSource":
         "which way the set looks is the weapon's design, not a setting",
     "SensorProfile.Emits":

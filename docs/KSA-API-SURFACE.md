@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-371 types and 972 members across 12 assemblies.
+372 types and 973 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -2217,6 +2217,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void SubmitEmitter(KSA.PlumeTrailEmitterState, KSA.Celestial, ref KSA.PlumeTrailEmitterFrame, Brutal.Numerics.double3, Brutal.Numerics.double3, float, float, Brutal.Numerics.float3, float, float, bool, bool)`
 
 ## StarMap.API
+
+### StarMap.API.Services.IModMenuService
+
+- `System.IDisposable AddModMenuItem(string, System.Action)`
 
 ### StarMap.API.StarMapAfterGuiAttribute
 

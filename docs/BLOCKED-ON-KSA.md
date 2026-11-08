@@ -34,7 +34,7 @@ happen rather than a member that moved.
 - [x] **A hook that hands a mod the frame's command buffer** — the day it exists, `Ksa/CloudPassHook.cs`'s
   prefix on `SunbloomRenderer.Render` can go
 - [x] **A hook between applying the vehicle solvers and snapshotting them** — delete `Ksa/AttitudeHook.cs`'s patch the day this exists
-- [x] **A menu-bar hook a mod can register into** — delete `Ksa/Ui/ModMenuEntry.cs` the day this exists
+- [x] **A menu a mod can add a submenu to** — StarMap's Mods menu takes a button only; the `BeginMainMenuBar` append in `Ui.DrawMenuBarEntry` goes the day it takes more
 - [x] **`DistanceReference.IsValid()` stops requiring 100 km** — go back to `IsValid()` on the atmosphere and the ocean the day it does
 - [ ] **`PhysicsStates.ComputeDrag` is still a body-fixed drag box over the mass, with no lift, no
   Mach term and no restoring torque** — RocketWerkz are working on aerodynamics. The day this
@@ -172,34 +172,19 @@ it from the track and miss more, especially against a target that manoeuvres.
 
 ## A menu bar a mod can add to
 
-**Delete the workaround the moment this changes.** `src/KSArmory/Ksa/Ui/ModMenuEntry.cs` exists
-only because of what follows, is wanted gone, and is on the recheck list above so it is looked at
-every time the game moves.
+**Partly unblocked by StarMap 0.5, and taken up.** StarMap's `IModMenuService.AddModMenuItem(label,
+onClick)` puts an item under a **Mods** menu StarMap draws itself, and `KSArmoryMod`'s constructor takes
+it: **Mods > KSArmory** toggles the panel. So the panel is always reachable, and the floating button and
+the copied ModMenu attribute are gone. Not yet seen in game: StarMap 0.5.2 does not start on
+2026.11.10.5801.
 
-**Wanted.** An entry in KSA's own menu bar, so the panel opens from where a player expects rather
-than from a floating button parked over the flight gauges.
+**What is still missing.** The item is a button. The built-in families' switches need a submenu, so
+`Ui.DrawMenuBarEntry` still appends a top-level **KSArmory** menu with `ImGui.BeginMainMenuBar()`,
+called *before* KSA's GUI pass because after it the bar has been ended for the frame. That works
+because ImGui's menu bar is immediate-mode, not because anything supports it.
 
-**The engine reason.** `Program` draws the bar inline —
-`ImGui.BeginMenu("File")`, `"Universe"`, `"View"`, `"HUD"` — with no event, no registry and no
-extension point of any kind. StarMap adds nothing either; its attributes are lifecycle hooks and
-none is menu-shaped.
-
-**What the ecosystem does instead**, and why it is unpleasant. MrJeranimo's **ModMenu** Harmony
-*transpiles* `Program.DrawMenuBar`, scans its IL for an `ImGui.EndMenu()` call and splices in its
-own `BeginMenu("Mods")`. Mods opt in with a `[ModMenuEntry]` attribute, which ModMenu matches by
-`GetType().Name` alone — so a mod copies the attribute rather than referencing anything, which is
-all `Ksa/Ui/ModMenuEntry.cs` is. It costs no dependency, but the whole arrangement stands on
-rewriting the IL of a game method in a pre-release build. `DrawMenuBar` being public buys nothing
-here: calling it draws the bar, it does not contribute to one.
-
-The mod also appends to the bar directly with `ImGui.BeginMainMenuBar()`, which works because
-ImGui's menu bar is immediate-mode. It must be called *before* KSA's GUI pass: from
-`[StarMapAfterGui]` the bar has already been ended for the frame and the call returns false. That
-is still ImGui behaviour rather than a supported hook, which is why the floating button stays.
-
-**What would unblock it.** Any public means of contributing a menu: an event on `Program`, a list
-of callbacks, or an asset type. Then both the copied attribute and the `BeginMainMenuBar` append
-go, and the panel opens from a menu the game itself put there.
+**What would unblock it.** A menu item that can hold children, from StarMap or from `Program`. Then the
+append goes and the switches move under Mods > KSArmory.
 
 ## Full-screen passes inside KSA's frame
 

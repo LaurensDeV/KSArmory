@@ -57,15 +57,6 @@ public sealed class Config
     public float MotorSmokeWidth = 1f;
 
     /// <summary>
-    /// Show the little floating button that reopens the panel.
-    ///
-    /// <para>The menu-bar entry appends to KSA's own bar, which is ImGui behaviour rather than a hook, so
-    /// this stays on by default, with <b>ModMenu</b> too: the control to restore it is inside the shut
-    /// panel.</para>
-    /// </summary>
-    public bool FloatingPanelButton = true;
-
-    /// <summary>
     /// Draw the mushroom clouds a nuclear burst leaves standing.
     ///
     /// <para>Costs about <b>6-8 ms a frame</b> while they stand (fourteen shots, 2026-09-09-walk2), so a
