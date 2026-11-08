@@ -194,6 +194,30 @@ else
     hint "running the game and rebuilding the model are WSL/Windows only; everything else works here"
 fi
 
+# Reports and never deletes, on purpose: the stale ones holding uncommitted work are the valuable
+# ones, and which way each should go -- squashed and landed, or one line in docs/ and the branch
+# deleted -- is CLAUDE.md's arm policy, not a script's call.
+head_ "Agent worktrees"
+
+stale=0
+while IFS= read -r w; do
+    [[ -n "$w" && -d "$w" ]] || continue
+    age=$(( ( $(date +%s) - $(stat -c %Y "$w") ) / 86400 ))
+    (( age > 14 )) || continue
+    dirty=$(git -C "$w" status --porcelain 2>/dev/null | wc -l)
+    ahead=$(git -C "$w" rev-list --count dev..HEAD 2>/dev/null || echo 0)
+    printf '  %-44s %3dd  %2d dirty  %2d ahead of dev\n' "$(basename "$w")" "$age" "$dirty" "$ahead"
+    stale=$(( stale + 1 ))
+done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}' | grep '/\.claude/worktrees/' || true)
+
+if (( stale )); then
+    hint "$stale older than two weeks. Clean and 0 ahead: git worktree remove."
+    hint "Otherwise land it, or write the one line in docs/ and delete the branch."
+    hint "bin/obj inside them is build output and is always free to rm -rf."
+else
+    ok "no agent worktree older than two weeks"
+fi
+
 head_ "Summary"
 
 if [[ $FAIL -eq 0 && $WARN -eq 0 ]]; then

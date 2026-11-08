@@ -25,5 +25,17 @@
       "Bash(./tools/pack-api.py --check)",
       "mcp__Blender__get_screenshot_of_area_as_image"
     ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && awk '/^build /{print \"KSA build this repo targets (ksa-assemblies.lock, the source of truth): \" $2}' ksa-assemblies.lock"
+          }
+        ]
+      }
+    ]
   }
 }
