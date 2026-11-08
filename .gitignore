@@ -41,3 +41,7 @@ StarMapConfig.json
 # The wiki's assembled pages and built site; tools/wiki/build.py writes both.
 wiki/build/
 tools/wiki/node_modules/
+
+# Scenario evidence: the logs and state scenario.sh copies out of a run so the next launch's
+# truncation cannot destroy them. Output, not content.
+runs/
