@@ -13,11 +13,12 @@ namespace KSArmory;
 internal static class BulletHoles
 {
     /// <summary>
-    /// One mark: the sub-part struck, the point in its frame, where the cast came from, its radii, and for a
-    /// paintball hit the paint's hue from 0 to 1 -- negative for a real hole, which tanks leak through.
+    /// One mark: the sub-part struck, the point in its frame, where the cast came from, its radii, for a
+    /// paintball hit the paint's hue from 0 to 1 -- negative for a real hole, which tanks leak through --
+    /// and the skin's normal there in the sub-part's frame, zero where the cast read none.
     /// </summary>
     internal readonly record struct Hole(Part SubPart, double3 Local, double3 CameFrom, float Core, float Scorch, float Seed,
-                                         float Paint = -1f)
+                                         float Paint = -1f, double3 Normal = default)
     {
         public bool IsPaint => Paint >= 0f;
     }
@@ -41,43 +42,108 @@ internal static class BulletHoles
     /// <summary>Every hole kept, oldest first.</summary>
     public static IReadOnlyList<Hole> All => _holes;
 
-    public static void Clear() => _holes.Clear();
+    public static void Clear()
+    {
+        _holes.Clear();
+        WallCraters.World.Clear();
+    }
 
     /// <summary>
     /// Marks where <paramref name="round"/> struck <paramref name="craft"/>, cast along its path
-    /// relative to the craft at the instant it struck. Nothing for a craft with no mesh to cast
-    /// against.
+    /// relative to the craft at the instant it struck, and judges whether it got through the tank wall it
+    /// met — that, with the marks switched off too. <paramref name="inert"/> is a shell that struck before its
+    /// fuze armed, judged as a dart. Nothing for a craft with no mesh to cast against.
     /// </summary>
-    public static void Strike(Vehicle craft, IProjectile round, float paint = -1f)
+    public static Penetration Strike(Vehicle craft, IProjectile round, float paint = -1f, bool inert = false)
     {
-        if (!Enabled || !KsaWorld.IsAlive(craft)) return;
+        // The verdict is damage and is judged with the holes switched off; only the marks go with them.
+        bool judged = paint < 0f;
+        if ((!Enabled && !judged) || !KsaWorld.IsAlive(craft)) return default;
 
         double intoFrame = round.DetonationElapsedInFrame;
-        double3 craftAt = KsaWorld.PositionEcl(craft) + (KsaWorld.VelocityEcl(craft) * intoFrame);
+        double3 craftAt = InFrame.AtBurst(KsaWorld.PositionEcl(craft), KsaWorld.VelocityEcl(craft), intoFrame);
         double3 separation = craftAt - round.PositionEcl;
         double3 travel = round.VelocityEcl - KsaWorld.VelocityEcl(craft);
 
         if (!KsaWorld.TryHullHit(craft, separation, travel, CastFromMetres, out Part? subPart, out double3 local,
-                                   out double3 cameFrom)
+                                   out double3 cameFrom, out double3 normal)
             || subPart is null)
         {
             Log.Debug(() => $"no hole: {KsaWorld.DisplayName(craft)}'s mesh was not met along the shell's path");
-            return;
+            return default;
         }
 
-        (double core, double scorch) = HoleLook.RadiiFor(round.Munition.CalibreMm, round.Munition.ChargeKg);
+        (double core, double scorch) = HoleLook.RadiiFor(round.Munition.CalibreMm, inert ? 0.0 : round.Munition.ChargeKg);
         if (paint >= 0f)
         {
+
             AddPaint(new Hole(subPart, local, cameFrom, 0f,
                               (float)Paintball.SplatRadius(round.Munition.ChargeKg, round.Munition.CalibreMm),
-                              _made++ % 97, paint));
-            return;
+                              _made++ % 97, paint, normal));
+            return default;
         }
 
+        // A burst holes whatever it bursts on; a dart only a wall it can punch through, what is left of it
+        // under the craters earlier darts made there.
+        Penetration verdict = judged ? new Penetration(null, false, Struck: subPart.FullPart) : default;
+        if (judged && KsaWorld.TryTankWallOf(subPart, out TankWall wall))
+        {
+            double speed = Vec.Len(travel);
+            double joules = 0.5 * round.Munition.MassKg * speed * speed;
+            double across = round.Munition.CalibreMm / 1000.0;
+            double left = WallCraters.World.ThicknessLeft(subPart, local, across, wall.ThicknessMetres);
+            bool through = (round.Munition.ChargeKg > 0f && !inert) || wall.Perforates(joules, across, left);
+            verdict = new Penetration(subPart.FullPart, through, subPart, local, local - cameFrom, subPart.FullPart);
+
+            if (!verdict.Through)
+            {
+                double dent = wall.DentMetres(joules, across);
+                WallCraters.World.Dent(subPart, local, across, dent);
+                Log.Debug(() => $"no hole: the shell went {dent * 1000.0:F1} mm into {subPart.Id}'s wall, "
+                                + $"{left * 1000.0:F1} of {wall.ThicknessMetres * 1000.0:F0} mm left there");
+                return verdict;
+            }
+        }
+        else if (judged && KsaWorld.ArmourLayerOf(subPart) is { Known: true } plate)
+        {
+            // A plate: a burst holes it only where its casing can, a solid round by Lambert's law at its slope.
+            MunitionProfile m = round.Munition;
+            double speed = Vec.Len(travel);
+            double across = m.CalibreMm / 1000.0;
+            double lengths = ArmourLayer.LengthOverDiameter(m);
+            double cos = KsaWorld.CosObliquity(local - cameFrom, normal);
+            double left = WallCraters.World.ThicknessLeft(subPart, local, across, plate.ThicknessMetres);
+            bool bursts = m.ChargeKg > 0f && !inert;
+            bool through = bursts
+                ? (plate with { ThicknessMetres = left }).HoledByShellBurst(across)
+                : speed > plate.BallisticLimit(m.MassKg, across, lengths, cos, left, KsaWorld.WallDamageScale);
+            verdict = new Penetration(null, through, subPart, local, local - cameFrom, subPart.FullPart);
+
+            if (!through)
+            {
+                double dent = bursts ? 0.0 : plate.DentMetres(speed, m.MassKg, across, lengths, cos, KsaWorld.WallDamageScale);
+                WallCraters.World.Dent(subPart, local, across, dent);
+                Log.Debug(() => $"no hole: {(bursts ? "the shell burst on" : $"the round went {dent * 1000.0:F1} mm into")} "
+                                + $"{subPart.Id}, {left * 1000.0:F1} of {plate.ThicknessMetres * 1000.0:F0} mm left there");
+                return verdict;
+            }
+        }
+
+        if (!Enabled) return verdict;
+
         if (_holes.Count >= MaxHoles) _holes.RemoveAt(0);
-        _holes.Add(new Hole(subPart, local, cameFrom, (float)core, (float)scorch, _made++ % 97, paint));
+        _holes.Add(new Hole(subPart, local, cameFrom, (float)core, (float)scorch, _made++ % 97, paint, normal));
         Log.Debug(() => $"hole in {subPart.Id} on {KsaWorld.DisplayName(craft)}, {core:F2}/{scorch:F2} m; {_holes.Count} held");
+        return verdict;
     }
+
+    /// <summary>
+    /// The part a round's path met first, and if it was a tank, whether the round got through its wall — a burst
+    /// always does — and where: the skin it struck, the point in that skin's frame and the way it was going there.
+    /// A null tank where it struck none; a null part struck where the cast met nothing.
+    /// </summary>
+    public readonly record struct Penetration(Part? Tank, bool Through, Part? Skin = null, double3 Local = default,
+                                              double3 Direction = default, Part? Struck = null);
 
     /// <summary>
     /// A paint splat where a burst's spray first meets <paramref name="craft"/>, on the line from the burst
@@ -91,13 +157,13 @@ internal static class BulletHoles
         double3 separation = craftAt - burstEcl;
 
         if (!KsaWorld.TryHullHit(craft, separation, separation, 0.0, out Part? subPart, out double3 local,
-                                 out double3 cameFrom)
+                                 out double3 cameFrom, out double3 normal)
             || subPart is null)
         {
             return;
         }
 
-        AddPaint(new Hole(subPart, local, cameFrom, 0f, (float)radiusMetres, _made++ % 97, paint));
+        AddPaint(new Hole(subPart, local, cameFrom, 0f, (float)radiusMetres, _made++ % 97, paint, normal));
     }
 
     // How many of the newest marks a new splat is checked against for one to grow instead.

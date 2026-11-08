@@ -62,25 +62,25 @@ def rotation(rx, ry, rz):
 
 
 def thruster_subparts(gamedata):
-    """Which SubPartGameData declare an attitude thruster -- found by what they are, not by name.
+    """Which subpart templates declare an attitude thruster -- found by what they are, not by name.
 
     Only a RocketThrusterController's rockets are enrolled (ThrusterController's constructor), so a
     main engine under a RocketEngineController steers nothing and is left out.
     """
     out = set()
-    for spgd in gamedata.iter("SubPartGameData"):
-        if (spgd.find(".//RocketThrusterController") is not None
-                and spgd.find(".//Combustor") is not None
-                and spgd.find(".//DeLavalNozzle") is not None):
-            out.add(spgd.get("Id"))
+    for sp in gamedata.getroot().findall("SubPart"):
+        if (sp.find(".//RocketThrusterController") is not None
+                and sp.find(".//Combustor") is not None
+                and sp.find(".//DeLavalNozzle") is not None):
+            out.add(sp.get("Id"))
     return out
 
 
 def mass_seat(gamedata, part_id):
-    for pgd in gamedata.iter("PartGameData"):
-        if pgd.get("Id") != part_id:
+    for part in gamedata.getroot().findall("Part"):
+        if part.get("Id") != part_id:
             continue
-        for mass in pgd:
+        for mass in part.findall("InertMasses/*"):
             if mass.tag.endswith("Mass"):
                 return xyz(mass.find("LocationAsmb"))
     return np.zeros(3)
@@ -89,18 +89,18 @@ def mass_seat(gamedata, part_id):
 def rings(assets, gamedata):
     """Every part carrying more than one thruster subpart, with its nozzles and its mass seat."""
     thrusters = thruster_subparts(gamedata)
-    for part in assets.iter("Part"):
+    for part in assets.getroot().findall("Part"):
         nozzles = []
-        for sp in part.iter("SubPart"):
-            if sp.get("InstanceOf") not in thrusters:
+        for sp in part.findall("SubParts/SubPart"):
+            if sp.get("Ref") not in thrusters:
                 continue
             tr = sp.find("Transform")
             rot = tr.find("Rotation") if tr is not None else None
-            nozzles.append((sp.get("Id", ""),
+            nozzles.append((sp.get("Key", ""),
                             xyz(tr.find("Position")) if tr is not None else np.zeros(3),
                             rotation(*xyz(rot))))
         if len(nozzles) > 1:
-            yield part.get("Id"), nozzles, mass_seat(gamedata, part.get("GameData", part.get("Id")))
+            yield part.get("Id"), nozzles, mass_seat(gamedata, part.get("Id"))
 
 
 def analyse(nozzles, com):

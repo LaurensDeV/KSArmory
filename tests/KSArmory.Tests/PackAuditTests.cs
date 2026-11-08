@@ -37,7 +37,7 @@ public class PackAuditTests
     private static IReadOnlyList<PackFault> Audit(IPartCatalogue library,
                                                   LauncherProfile[]? launchers = null,
                                                   OpticProfile[]? optics = null)
-        => PackAudit.Run(launchers ?? [], optics ?? [], [], [], library, _ => "TestPack");
+        => PackAudit.Run(launchers ?? [], optics ?? [], [], [], [], library, _ => "TestPack");
 
     [Fact]
     public void APartThatLoadedWithItsMarkersIntactRaisesNothing()
@@ -118,7 +118,7 @@ public class PackAuditTests
     public void TheFaultNamesThePackSoAPlayerKnowsWhoseProblemItIs()
     {
         IReadOnlyList<PackFault> faults = PackAudit.Run(
-            [Rail("Pack_Prefab_Rail")], [], [], [], new Library(), _ => "SomeonesPack");
+            [Rail("Pack_Prefab_Rail")], [], [], [], [], new Library(), _ => "SomeonesPack");
 
         Assert.Equal("SomeonesPack", faults[0].Source);
     }

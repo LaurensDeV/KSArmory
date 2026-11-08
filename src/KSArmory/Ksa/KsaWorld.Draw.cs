@@ -242,46 +242,6 @@ internal static partial class KsaWorld
         Program.GizmosRenderer.DrawSphere(ego, radiusMetres, colour);
     }
 
-    /// <summary>
-    /// A torus: a ring of solid spheres, draped onto the terrain.
-    ///
-    /// <para>Spheres, the only solid the gizmo renderer draws.</para>
-    /// </summary>
-    /// <param name="tubeRadius">Thickness of the ring itself.</param>
-    public static void DrawTorusEcl(double3 centreEcl, double3 normalEcl, double ringRadius,
-                                    double tubeRadius, float4 colour, bool drape = true)
-    {
-        if (Program.GizmosRenderer is null) return;
-        if (!Vec.IsFinite(centreEcl) || !(ringRadius > 0.0) || !(tubeRadius > 0.0)) return;
-
-        double3 up = Vec.Unit(normalEcl);
-        if (Vec.Len2(up) < 0.5) return;
-
-        double3 seed = Math.Abs(up.X) < 0.9 ? new double3(1, 0, 0) : new double3(0, 1, 0);
-        double3 a = Vec.Unit(Vec.Cross(up, seed));
-        double3 b = Vec.Unit(Vec.Cross(up, a));
-
-        // Spaced closer together than they are wide, or it beads. Bounded so a large ring cannot
-        // ask for thousands of spheres.
-        int steps = (int)Math.Clamp(Math.Ceiling(Math.Tau * ringRadius / tubeRadius), 16, 160);
-        Celestial? body = drape ? NearestCelestial(centreEcl) : null;
-
-        for (int i = 0; i < steps; i++)
-        {
-            double angle = Math.Tau * i / steps;
-            double3 at = centreEcl + ((a * Math.Cos(angle)) + (b * Math.Sin(angle))) * ringRadius;
-
-            // Each bead sits on the ground under it, so the ring follows a slope instead of
-            // burying one side and floating the other.
-            if (body is not null && TrySnapToGround(body, at, out double3 ground, out _)) at = ground;
-
-            if (TryAnchoredEgo(at, out double3 ego))
-            {
-                Program.GizmosRenderer.DrawSphere(ego, (float)tubeRadius, colour);
-            }
-        }
-    }
-
     public static void DrawLineEcl(double3 startEcl, double3 endEcl, float4 colour)
     {
         if (Program.GizmosRenderer is null) return;

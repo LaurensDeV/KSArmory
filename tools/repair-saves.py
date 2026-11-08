@@ -7,16 +7,20 @@ save's count and indexing the definition (`KSA.PartTree.Deserialize`):
     for (int i = 0; i < nextNode2.SubPartInstances?.Count; i++)
         Part part2 = nextNode.SubParts[i];
 
-So a part that has **lost** a subpart throws `IndexOutOfRangeException` on every save
-holding it, and takes the process with it -- the load runs inside `OnDrawUiFrame`, and
-nothing between there and `Main` catches it. `InstanceOf` is written into the save and
-never matched, so renaming a subpart is free and removing one is fatal.
+So a part that has **lost** a subpart threw `IndexOutOfRangeException` on every save holding it
+before 2026.11.10.5801, and since then shifts the saved state of every subpart after it.
+`InstanceOf` is written into the save and never matched, so renaming a subpart is free.
 
 This drops the surplus entries so the two lists line up again. It reads the current
 definitions out of the mod's own asset XML, so it needs no table of what changed.
 
     ./tools/repair-saves.py             # report
     ./tools/repair-saves.py --fix       # rewrite, keeping a .bak beside each
+    ./tools/repair-saves.py --fix --designs   # ...and the vehicle designs too
+
+It also renames Core parts KSA has renamed (CORE_RENAMES), in what an earlier build wrote. A save names a part by Id and drops a
+craft naming one that no longer exists, but holds its connectors by index and its pose as its own
+transform, so a part swapped for one built from the same subparts loads as it was.
 
 Adding a subpart needs no repair: the loop stops at the save's shorter count, and the
 new subpart simply starts unconfigured.
@@ -49,6 +53,52 @@ KSA_DIR = Path(os.environ.get("KSA_DIR", "/mnt/c/Program Files/Kitten Space Agen
 # the same name: both record the character, and both are resolved on load.
 KITTEN = re.compile(r'(<(?:Kitten|Vehicle)\b[^>]*?\bCharacter=")(KSArmory[^"]*)(")')
 KITTEN_NAME = re.compile(r'<(?:Kitten\b[^>]*?\bName|Vehicle\b[^>]*?\bId)="([^"]*)"')
+
+# KSA 2026.11.10.5801 renamed Core's kit, and gave two Ids to different parts. Old Id -> the part
+# built from its subparts in the same order, and how its connectors were renumbered, found by
+# mating every saved pair against the new definitions. Applied only to what an earlier build wrote.
+CORE_BUILD = (2026, 11, 10, 5801)
+CORE_RENAMES: dict[str, tuple[str, dict[int, int]]] = {
+    "CoreCouplingA_Prefab_DockingPort1WB": ("CoreCouplingA_Prefab_DockingPort1WAndrogynousA", {}),
+    "CoreElectricalA_Prefab_InlineBatteryBankA": ("CoreElectricalA_Prefab_InlineBattery1WBankV1A", {}),
+    "CoreElectricalA_Prefab_InlineBatteryBankB": ("CoreElectricalA_Prefab_InlineBattery2WBankV1A", {}),
+    "CoreElectricalA_Prefab_RadialBatteryB": ("CoreElectricalA_Prefab_RadialBatteryMediumV1A", {}),
+    "CoreElectricalA_Prefab_SolarPanelA": ("CoreElectricalA_Prefab_SolarPanelFixedSmallV1A", {}),
+    "CoreElectricalA_Prefab_SolarPanelB": ("CoreElectricalA_Prefab_SolarPanelTrackerMediumV1A", {}),
+    "CoreFairingA_Prefab_AeroshroudCC": ("CoreFairingA_Prefab_AeroshroudLargeV3A", {}),
+    "CoreFairingA_Prefab_InterstageBridge3W2WB": ("CoreFairingA_Prefab_InterstageBridge3W2WA", {}),
+    "CoreFairingA_Prefab_NoseconeA": ("CoreFairingA_Prefab_Nosecone05WBluntA", {}),
+    "CoreFairingA_Prefab_NoseconeC": ("CoreFairingA_Prefab_Nosecone2WBluntA", {}),
+    "CoreFairingA_Prefab_NoseconeD": ("CoreFairingA_Prefab_Nosecone05WBallisticA", {}),
+    "CorePropulsionB_Prefab_RCSALargeB": ("CorePropulsionB_Prefab_RCSLargeFiveHornV1A", {}),
+    "CorePropulsionB_Prefab_RCSAMediumLowB": ("CorePropulsionB_Prefab_RCSMediumTwoHornV2A", {}),
+    "CorePropulsionB_Prefab_RCSAMediumLowD": ("CorePropulsionB_Prefab_RCSMediumFourHornV2A", {}),
+    "CorePropulsionB_Prefab_RCSASmallA": ("CorePropulsionB_Prefab_RCSSmallOneHornV1A", {}),
+    "CorePropulsionB_Prefab_RCSASmallC": ("CorePropulsionB_Prefab_RCSSmallFourHornV2A", {}),
+    "CorePropulsionB_Prefab_RCSASmallE": ("CorePropulsionB_Prefab_RCSSmallFiveHornV1A", {}),
+    "CoreServiceModuleA_Prefab_SetAHeightB": ("CoreServiceModuleA_Prefab_SetA2DoubleA", {}),
+    "CoreStructuralA_Prefab_EnginePlateLowProfile2WA": ("CoreStructuralA_Prefab_EnginePlate1WSingle2WA", {}),
+    "CoreStructuralA_Prefab_EnginePlateLowProfile3WA": ("CoreStructuralA_Prefab_EnginePlate2WSingle3WA", {}),
+    "CoreStructuralA_Prefab_EnginePlateLowProfile3WB": ("CoreStructuralA_Prefab_EnginePlate1WSingle3WA", {}),
+    "CoreStructuralA_Prefab_EnginePlateLowProfile3WC": ("CoreStructuralA_Prefab_EnginePlate1WQuad3WA", {}),
+    "CoreStructuralA_Prefab_EnginePlateLowProfile3WD": ("CoreStructuralA_Prefab_EnginePlate1WTriple3WA", {}),
+    # Kept its Id and its subparts; its connectors were renumbered.
+    "CoreFuelTankA_Prefab_LF3W6HC": ("CoreFuelTankA_Prefab_LF3W6HC", {3: 2}),
+    # Its Id now names what was 3W2WB; it is the hollow bridge.
+    "CoreFairingA_Prefab_InterstageBridge3W2WA": ("CoreFairingA_Prefab_InterstageBridgeHollow3W2WA", {}),
+    # Not the same subparts, the nearest of the family: the docking ports and the 2-1 m bridge by
+    # their shared subparts, the trusses by the strut they are built from.
+    "CoreCouplingA_Prefab_DockingPort1WA": ("CoreCouplingA_Prefab_DockingPort1WAndrogynousA", {}),
+    "CoreCouplingA_Prefab_DockingPort1WC": ("CoreCouplingA_Prefab_DockingPort1WAndrogynousA", {0: 1}),
+    "CoreFairingA_Prefab_InterstageBridge2W1WB": ("CoreFairingA_Prefab_InterstageBridge2W1WA", {}),
+    "CoreStructuralA_Prefab_StrutA": ("CoreStructuralA_Prefab_StrutCubeHalfWHalfHA", {}),
+    "CoreStructuralA_Prefab_StrutB": ("CoreStructuralA_Prefab_StrutOctoHalfHA", {}),
+    "CoreStructuralA_Prefab_StrutC": ("CoreStructuralA_Prefab_StrutOctoHalfHA", {}),
+}
+# Left in a file the renames have been applied to, so a second run leaves it alone.
+CORE_MARK = "<!-- KSArmory: Core parts renamed for 2026.11.10.5801 -->"
+CORE_PART = re.compile(r'(<(?:Root)?PartRef\s+InstanceOf=")(Core[^"]*)(")')
+CONNECTOR_REF = re.compile(r'(<PartConnectorRef\s+Index=")(\d+)(")')
 
 # Every way the same assembly has been spelled across the Id renames. Matching on this
 # rather than on the literal name is what lets a save written before a rename still be
@@ -87,15 +137,13 @@ def declared_subparts() -> dict[str, list[str]]:
         except ET.ParseError as exc:
             sys.exit(f"{path}: {exc}")
 
-        for element in root.iter():
-            if not element.tag.endswith("Part"):
-                continue
+        for element in root.findall("Part"):
             part_id = element.get("Id")
-            if not part_id or not part_id.startswith("KSArmory_"):
+            if element.get("Modify") or not part_id or not part_id.startswith("KSArmory_"):
                 continue
-            subs = [s for s in element if s.tag.endswith("SubPart")]
+            subs = element.findall("SubParts/SubPart")
             if subs:
-                parts[part_id] = [canonical(s.get("InstanceOf") or s.get("Id") or "") for s in subs]
+                parts[part_id] = [canonical(s.get("Ref") or s.get("Key") or "") for s in subs]
 
     return parts
 
@@ -163,6 +211,10 @@ def inspect(save: Path, declared: dict[str, list[str]], characters: set[str],
     needing = 0
     dropped: set[int] = set()
 
+    renamed = rename_core_parts(lines) if written_before(save, CORE_BUILD) else 0
+    if renamed:
+        print(f"    {renamed} Core part(s) KSA renamed")
+
     index = 0
     while index < len(lines):
         opened = PART_OPEN.search(lines[index])
@@ -220,16 +272,55 @@ def inspect(save: Path, declared: dict[str, list[str]], characters: set[str],
         else:
             redressed = redress_kittens(lines, characters, stock)
 
-    if (dropped or redressed) and fix:
+    if (dropped or redressed or renamed) and fix:
         backup = save.with_suffix(save.suffix + ".bak")
         if not backup.exists():
             shutil.copy2(save, backup)
         kept = [line for n, line in enumerate(lines) if n not in dropped]
         with open(save, "w", encoding="utf-8", errors="surrogateescape", newline="") as handle:
             handle.write("".join(kept))
-        print(f"    rewritten ({len(dropped)} dropped, {redressed} re-dressed); original at {backup.name}")
+        print(f"    rewritten ({len(dropped)} dropped, {redressed} re-dressed, {renamed} renamed); "
+              f"original at {backup.name}")
 
-    return needing, len(dropped), wearing
+    return needing + renamed, len(dropped), wearing
+
+
+def written_before(path: Path, build: tuple[int, ...]) -> bool:
+    """Whether the build that last wrote a save or design, by its meta.toml, predates `build`."""
+    meta = path.parent / "meta.toml"
+    found = re.search(r'^version = "v?([\d.]+)"', meta.read_text(), re.M) if meta.is_file() else None
+    return found is not None and tuple(int(x) for x in found.group(1).split(".")) < build
+
+
+def rename_core_parts(lines: list[str]) -> int:
+    """Renames the parts CORE_RENAMES names, and renumbers each one's own connector references."""
+    if any(CORE_MARK in line for line in lines[:3]):
+        return 0
+
+    renamed = 0
+    for n, line in enumerate(lines):
+        part = CORE_PART.search(line)
+        if not part or part.group(2) not in CORE_RENAMES:
+            continue
+        new_id, renumber = CORE_RENAMES[part.group(2)]
+        lines[n] = line[:part.start(2)] + new_id + line[part.end(2):]
+        renamed += 1
+
+        # Its own references sit one level in; a child part's are deeper and its own business.
+        inner = len(line) - len(line.lstrip()) + 2
+        for k in range(n + 1, len(lines)):
+            depth = len(lines[k]) - len(lines[k].lstrip())
+            if depth < inner and lines[k].strip():
+                break
+            ref = CONNECTOR_REF.search(lines[k])
+            if depth == inner and ref and int(ref.group(2)) in renumber:
+                lines[k] = lines[k][:ref.start(2)] + str(renumber[int(ref.group(2))]) + lines[k][ref.end(2):]
+
+    if renamed:
+        declaration = 1 if lines and lines[0].startswith("<?xml") else 0
+        newline = "\r\n" if lines and lines[0].endswith("\r\n") else "\n"
+        lines.insert(declaration, CORE_MARK + newline)
+    return renamed
 
 
 def ksa_user_dir() -> Path:
@@ -245,6 +336,8 @@ def main() -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--fix", action="store_true", help="rewrite the saves, keeping a .bak")
     ap.add_argument("--saves", type=Path, help="a saves folder; defaults to the KSA user dir")
+    ap.add_argument("--designs", action="store_true",
+                    help="the vehicle designs beside it as well, which name parts as a save does")
     args = ap.parse_args()
 
     declared = declared_subparts()
@@ -266,11 +359,13 @@ def main() -> int:
     total_dropped = 0
     total_kittens = 0
 
-    for save in sorted(root.iterdir()):
-        universe = save / "universe.xml"
+    files = [save / "universe.xml" for save in sorted(root.iterdir())]
+    if args.designs:
+        files += [design / "vehicle.xml" for design in sorted((root.parent / "Vehicles").iterdir())]
+    for universe in files:
         if not universe.is_file():
             continue
-        print(f"  {save.name}")
+        print(f"  {universe.parent.name}")
         needing, count, kittens = inspect(universe, declared, characters, stock, args.fix)
         total_parts += needing
         total_dropped += count

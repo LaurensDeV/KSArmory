@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Armour: the materials a plate is made of, and the plates. A plate is a part a player bolts onto a craft;
+  it is not a weapon and makes no craft a weapons system. docs/ARMOUR-PLAN.md has the law and the plan.
+  Part definitions are in ../KSArmory*.xml, which KSA reads and this does not.
+-->
+<WeaponPack Schema="1" Family="Armour">
+
+  <!--
+    LambertCoefficient is a in Lambert's ballistic limit (BRL-MR-3960, p. 17 and p. 70): 4,000 for rolled
+    homogeneous armour, 1,750 for aluminium of 2.77 g/cc. ResistanceMPa is Tate's target resistance, from
+    the same report's table 9: 4,980 MPa for 1.5 inch RHA, 2,240 for 7039.
+  -->
+  <ArmourMaterial Name="RolledSteel" DisplayName="Rolled homogeneous steel"
+                  DensityKgPerM3="7850" LambertCoefficient="4000" ResistanceMPa="4980" />
+
+  <ArmourMaterial Name="Aluminium7039" DisplayName="Armour aluminium 7039"
+                  DensityKgPerM3="2770" LambertCoefficient="1750" ResistanceMPa="2240" />
+
+  <!--
+    No source gives Lambert's a for titanium. 3,110 makes Ti-6Al-4V 1.2 times rolled steel by mass against a
+    Phalanx dart, the mass efficiency against armour-piercing rounds in Fanning, TIMET 2008. Its resistance
+    is Tate's own H = Y(2/3 + ln(0.57E/Y)) at 880 MPa yield and 114 GPa modulus.
+  -->
+  <ArmourMaterial Name="Titanium64" DisplayName="Titanium 6Al-4V"
+                  DensityKgPerM3="4430" LambertCoefficient="3110" ResistanceMPa="4370" />
+
+  <!--
+    A test plate on Core's 2 m structural plate scaled to 25 mm, so the law can be flown before the plate
+    family's own art exists.
+  -->
+  <Armour PartId="KSArmory_Prefab_ArmourPlateTest" Material="RolledSteel" ThicknessMm="25" />
+
+</WeaponPack>

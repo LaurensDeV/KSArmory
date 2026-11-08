@@ -53,6 +53,7 @@ FAMILIES = {
     "Countermeasures": "Countermeasures",
     "DirectedEnergy": "Directed energy",
     "Strategic": "Nuclear weapons",
+    "Armour": "Armour",
 }
 
 # A family's folder, where its file's name no longer says what it holds.
@@ -153,16 +154,20 @@ def charge(kg: float | None) -> str:
     return f"{kg:.3g} kg" if kg >= 1 else f"{kg * 1000:.3g} g"
 
 
+def part_patches() -> list[ET.Element]:
+    """The hand-written half of each part, which KSA lays over the generated one in KSArmoryAssets.xml."""
+    root = ET.parse(MOD / "KSArmoryGameData.xml").getroot()
+    return [p for p in root.findall("Part") if p.get("Modify") == "Patch"]
+
+
 def hidden_parts() -> set[str]:
     """Parts the editor does not offer, which a player cannot build with and so gets no page."""
-    root = ET.parse(MOD / "KSArmoryGameData.xml").getroot()
-    return {p.get("Id") for p in root.iter("PartGameData")
-            if any(t.get("Value") == "Hidden" for t in p.iter("EditorTag"))}
+    return {p.get("Id") for p in part_patches()
+            if any(t.get("Ref") == "Hidden" for t in p.findall("EditorTags/EditorTag"))}
 
 
 def part_names() -> dict[str, str]:
-    root = ET.parse(MOD / "KSArmoryGameData.xml").getroot()
-    return {p.get("Id"): html.unescape(p.get("DisplayName", p.get("Id"))) for p in root.iter("PartGameData")}
+    return {p.get("Id"): html.unescape(p.get("DisplayName", p.get("Id"))) for p in part_patches()}
 
 
 

@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
@@ -127,16 +128,17 @@ internal static partial class KsaWorld
     /// <summary>
     /// Where a round's path meets a craft's mesh, as the sub-part it struck, the point in that
     /// sub-part's own frame — the engine's <c>RayCastEgo</c> answers in exactly that frame — and
-    /// where the cast started in the same frame, which is the path the round came in along.
+    /// where the cast started in the same frame, which is the path the round came in along, and the
+    /// mesh's normal there, in that frame too (zero where none was read).
     /// <paramref name="separation"/> is the craft's centre less the round, both at the instant it
     /// struck, and the cast starts <paramref name="castFromMetres"/> back along
     /// <paramref name="travel"/>, the round's velocity relative to the craft.
     /// </summary>
     public static bool TryHullHit(Vehicle v, double3 separation, double3 travel, double castFromMetres,
-                                  out Part? subPart, out double3 local, out double3 cameFrom)
+                                  out Part? subPart, out double3 local, out double3 cameFrom, out double3 normal)
     {
         subPart = null;
-        local = cameFrom = default;
+        local = cameFrom = normal = default;
 
         double length = Vec.Len(travel);
         if (!IsAlive(v) || !(length > 0.0) || !Vec.IsFinite(separation)) return false;
@@ -150,7 +152,7 @@ internal static partial class KsaWorld
             double nearest = double.MaxValue;
             foreach (Part part in v.Parts.Parts)
             {
-                if (!part.RayCastEgo(in asmb2Round, ray, out double near, out _, out double3 at, out _,
+                if (!part.RayCastEgo(in asmb2Round, ray, out double near, out _, out double3 at, out double3 facing,
                                      out _, out _, out Part? struck, out _)
                     || struck is null || near < 0.0 || near >= nearest)
                 {
@@ -160,6 +162,7 @@ internal static partial class KsaWorld
                 nearest = near;
                 subPart = struck;
                 local = at;
+                normal = facing;
             }
 
             if (subPart is null) return false;
@@ -209,26 +212,23 @@ internal static partial class KsaWorld
         {
             if (TankTemplateField?.GetValue(tank) is not AsmbTankTemplate template) return false;
 
-            double wall;
             switch (template)
             {
                 case SphericalTankTemplate sphere:
                     outside = TankShape.Sphere(sphere.OuterRadius);
-                    wall = sphere.WallThickness;
                     break;
                 case CylindricalTankTemplate cylinder:
                     outside = TankShape.Conical(cylinder.Length, cylinder.OuterRadius, cylinder.OuterRadius,
                                                 cylinder.DomeHeightFraction);
-                    wall = cylinder.WallThickness;
                     break;
                 case ConicalTankTemplate cone:
                     outside = TankShape.Conical(cone.Length, cone.RadiusBase, cone.RadiusTop, cone.DomeHeightFraction);
-                    wall = cone.WallThickness;
                     break;
                 default:
                     return false;
             }
 
+            if (WallThicknessOf(template) is not { } wall) return false;
             inside = outside.Inside(wall);
             origin = template.LocationAsmb;
             floatQuat paf2Asmb = template.GetPaf2Asmb();
@@ -242,6 +242,80 @@ internal static partial class KsaWorld
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// A tank's wall: its template's thickness and the material's yield, and the rating KSA works out from
+    /// them, scaled by <see cref="WallDamageScale"/>. False for a tank of a shape this does not know, or one whose material declares no strength.
+    /// </summary>
+    public static bool TryTankWall(Tank tank, out TankWall wall)
+    {
+        wall = _walls.GetValue(tank, static t => new StrongBox<TankWall>(ReadWall(t))).Value.Scaled(WallDamageScale);
+        return wall.Known;
+    }
+
+    // Read once a tank: every hit asks for the wall of every part on the craft, and reading one is a
+    // reflected field and a substance lookup. A template does not change under a tank.
+    private static readonly ConditionalWeakTable<Tank, StrongBox<TankWall>> _walls = new();
+
+    private static TankWall ReadWall(Tank tank)
+    {
+        try
+        {
+            if (TankTemplateField?.GetValue(tank) is not AsmbTankTemplate template) return default;
+            if (WallThicknessOf(template) is not { } thickness) return default;
+
+            return new TankWall(thickness, template.GetWallYieldStrength(), tank.RatedPressure);
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
+    /// <summary>The armour layer a part carries as a plate, or none; read once a part, as its tank is.</summary>
+    public static ArmourLayer ArmourLayerOf(Part part) =>
+        _layerOf.GetValue(part, static p => new StrongBox<ArmourLayer>(Catalogue.ArmourLayerForPart(p.FullPart.Id))).Value;
+
+    private static readonly ConditionalWeakTable<Part, StrongBox<ArmourLayer>> _layerOf = new();
+
+    /// <summary>
+    /// The cosine of the angle between a path and a surface's normal, both in one frame: one square on, and one
+    /// where the mesh gave no normal.
+    /// </summary>
+    public static double CosObliquity(double3 path, double3 normal)
+    {
+        double3 along = Vec.Unit(path), facing = Vec.Unit(normal);
+        if (Vec.Len2(along) < 0.5 || Vec.Len2(facing) < 0.5) return 1.0;
+        return Math.Clamp(Math.Abs(Vec.Dot(along, facing)), 0.0, 1.0);
+    }
+
+    /// <summary>The session's <see cref="Config.DamageScale"/>, which every tank wall read is weakened by.</summary>
+    public static double WallDamageScale { get; set; } = 1.0;
+
+    /// <summary>The wall of the tank a part carries, if it carries one KSA declares a wall for.</summary>
+    public static bool TryTankWallOf(Part part, out TankWall wall)
+    {
+        wall = default;
+        Tank? tank = _tankOf.GetValue(part, static p => new StrongBox<Tank?>(TryTankOf(p, out Tank? t) ? t : null)).Value;
+        return tank is not null && TryTankWall(tank, out wall);
+    }
+
+    // Which tank a part carries, or none, kept with the part: a part's modules are fixed when it is built.
+    private static readonly ConditionalWeakTable<Part, StrongBox<Tank?>> _tankOf = new();
+
+    // Read as the distance it is, never through DistanceReference.IsValid(), which wants 100 km.
+    private static double? WallThicknessOf(AsmbTankTemplate template)
+    {
+        double metres = template switch
+        {
+            SphericalTankTemplate sphere => sphere.WallThickness,
+            CylindricalTankTemplate cylinder => cylinder.WallThickness,
+            ConicalTankTemplate cone => cone.WallThickness,
+            _ => double.NaN,
+        };
+
+        return double.IsFinite(metres) && metres >= 0.0 ? metres : null;
     }
 
     private static FieldInfo? TankTemplateField
@@ -316,13 +390,20 @@ internal static partial class KsaWorld
     }
 
     /// <summary>
+    /// Where a straight path crosses one part: how far along, and where it enters, in the frame of the
+    /// sub-part it meets first, with the path's start in that frame too, as <see cref="TryHullHit"/> gives them.
+    /// </summary>
+    public readonly record struct Crossing(Part Part, double Metres, Part Skin, double3 Local, double3 CameFrom,
+                                           double3 Normal);
+
+    /// <summary>
     /// Every part a straight path crosses, nearest first, each once: what a dart that does not burst goes
     /// on through. <paramref name="separation"/> is the craft's centre less the path's start, and
     /// <paramref name="travel"/> its direction against the craft; only crossings within
     /// <paramref name="reachMetres"/> count. False for a craft that cannot be cast against.
     /// </summary>
     public static bool TryPartsAlong(Vehicle v, double3 separation, double3 travel, double reachMetres,
-                                     List<(Part Part, double Metres)> into)
+                                     List<Crossing> into)
     {
         into.Clear();
 
@@ -337,14 +418,15 @@ internal static partial class KsaWorld
             foreach (Part part in v.Parts.Parts)
             {
                 if (part.IsAttachedInternal) continue;
-                if (!part.RayCastEgo(in asmb2Start, ray, out double near, out _, out _, out _,
+                if (!part.RayCastEgo(in asmb2Start, ray, out double near, out _, out double3 at, out double3 facing,
                                      out _, out _, out Part? struck, out _)
                     || struck is null || near < 0.0 || near > reachMetres)
                 {
                     continue;
                 }
 
-                into.Add((part, near));
+                double4x4.Invert(struck.MatrixAsmb2Ego(in asmb2Start), out double4x4 toLocal);
+                into.Add(new Crossing(part, near, struck, at, ray.Origin.Transform(toLocal), facing));
             }
 
             into.Sort(static (a, b) => a.Metres.CompareTo(b.Metres));
@@ -353,6 +435,46 @@ internal static partial class KsaWorld
         catch
         {
             into.Clear();
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The nearest of <paramref name="among"/> a straight path from the craft's centre less
+    /// <paramref name="separation"/> meets within <paramref name="reachMetres"/>, as <see cref="TryPartsAlong"/>
+    /// would find it, casting against those parts alone.
+    /// </summary>
+    public static bool TryNearestAmong(Vehicle v, double3 separation, double3 travel, double reachMetres,
+                                       IReadOnlyList<Part> among, out Crossing crossing)
+    {
+        crossing = default;
+
+        double length = Vec.Len(travel);
+        if (!IsAlive(v) || !(length > 0.0) || !Vec.IsFinite(separation) || among.Count == 0) return false;
+
+        try
+        {
+            double4x4 asmb2Start = v.GetMatrixAsmb2Ego(separation);
+            Ray ray = new() { Origin = double3.Zero, Direction = travel / length };
+            double nearest = double.MaxValue;
+            foreach (Part part in among)
+            {
+                if (!part.RayCastEgo(in asmb2Start, ray, out double near, out _, out double3 at, out double3 facing,
+                                     out _, out _, out Part? struck, out _)
+                    || struck is null || near < 0.0 || near > reachMetres || near >= nearest)
+                {
+                    continue;
+                }
+
+                nearest = near;
+                double4x4.Invert(struck.MatrixAsmb2Ego(in asmb2Start), out double4x4 toLocal);
+                crossing = new Crossing(part, near, struck, at, ray.Origin.Transform(toLocal), facing);
+            }
+
+            return nearest < double.MaxValue;
+        }
+        catch
+        {
             return false;
         }
     }
@@ -703,8 +825,10 @@ internal static partial class KsaWorld
                 double area = 0.5 * ((size.X * size.Y) + (size.Y * size.Z) + (size.Z * size.X));
                 if (!double.IsFinite(area) || area < 0.0) area = 0.0;
 
+                TryTankWallOf(part, out TankWall wall);
                 into.Add(new DamageablePart(handles.Count, ecl, radius, part.CrashTolerancePascals,
-                                            MassKg: part.ComputeSubtreeInertMass(), PresentedAreaM2: area));
+                                            MassKg: part.ComputeSubtreeInertMass(), PresentedAreaM2: area, Wall: wall,
+                                            Layer: ArmourLayerOf(part)));
                 handles.Add(part);
             }
 

@@ -24,6 +24,7 @@ public static class PackAudit
         IReadOnlyList<OpticProfile> optics,
         IReadOnlyList<SearchSetProfile> searchSets,
         IReadOnlyList<DispenserProfile> dispensers,
+        IReadOnlyList<ArmourProfile> armour,
         IPartCatalogue parts,
         Func<string, string> sourceOf)
     {
@@ -59,6 +60,7 @@ public static class PackAudit
         }
 
         foreach (DispenserProfile dispenser in dispensers) Missing(dispenser.PartId, "Dispenser", parts, sourceOf, faults);
+        foreach (ArmourProfile plate in armour) Missing(plate.PartId, "Armour", parts, sourceOf, faults);
 
         return faults;
     }

@@ -358,24 +358,65 @@ internal static partial class KsaWorld
 
         try
         {
-            if (Universe.CurrentSystem is not { } system) return false;
+            if (BodyNamed(bodyName) is not { } body) return false;
 
-            for (int i = 0; i < system.Count; i++)
-            {
-                if (system.GetIndex(i) is not Celestial body) continue;
-                if (body.Id != bodyName) continue;
-
-                craft.TeleportToLocation(body, latitudeDeg, longitudeDeg);
-                return true;
-            }
-
-            return false;
+            craft.TeleportToLocation(body, latitudeDeg, longitudeDeg);
+            return true;
         }
         catch (Exception e)
         {
             Log.Warn($"could not place {DisplayName(craft)}: {e.Message}");
             return false;
         }
+    }
+
+    /// <summary>
+    /// Draws a copy of <paramref name="craft"/> where <see cref="TryPlaceOnSurface"/> would set it down.
+    /// <para>Posed by the function the teleport itself calls, so the copy and the landing cannot disagree.
+    /// From the part draw hook, where nothing may throw.</para>
+    /// </summary>
+    public static void DrawPlacementCopy(Vehicle craft, string bodyName, double latitudeDeg, double longitudeDeg,
+                                         IViewport viewport, int frameIndex)
+    {
+        try
+        {
+            if (!IsAlive(craft) || craft.Parts is not { } tree || BodyNamed(bodyName) is not { } body) return;
+
+            float3 half = craft.BoundingBoxHalfExtentsAsmb;
+            double3 extent = new(half.X, half.Y, half.Z);
+            double3 middle = craft.MassToGeometryAsmb;
+
+            Vehicle.InitialKinematicState pose = Vehicle.GetInitialKinematicStateForLocation(
+                body, Universe.GetElapsedTime(), latitudeDeg, longitudeDeg, middle - extent, middle + extent,
+                double3.Zero, default);
+
+            Camera camera = viewport.GetCamera();
+            double3 massEgo = camera.GetPositionEgo(body) + pose.Orbit.StateVectors.PositionCci.Transform(body.GetCci2Cce());
+            double4x4 asmb2Ego = double4x4.CreateFromQuaternion(pose.Body2Cce)
+                                 * double4x4.CreateTranslation(massEgo - craft.CenterOfMassAsmb.Transform(pose.Body2Cce));
+
+            tree.ComposeRenderData(in asmb2Ego, isEditedVehicle: false, viewport, frameIndex);
+        }
+        catch (Exception e)
+        {
+            if (_placementCopyFailed) return;
+            _placementCopyFailed = true;
+            Log.Warn($"could not draw the placement copy: {e.Message}");
+        }
+    }
+
+    private static bool _placementCopyFailed;
+
+    private static Celestial? BodyNamed(string bodyName)
+    {
+        if (Universe.CurrentSystem is not { } system) return null;
+
+        for (int i = 0; i < system.Count; i++)
+        {
+            if (system.GetIndex(i) is Celestial body && body.Id == bodyName) return body;
+        }
+
+        return null;
     }
 
     /// <summary>

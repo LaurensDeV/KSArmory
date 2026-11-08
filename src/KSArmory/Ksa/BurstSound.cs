@@ -143,7 +143,7 @@ internal static class BurstSound
             if (ModLibrary.Get<SoundBehavior>(PickupId) is not { } sound) return;
 
             SpatialAudio spatial = new(posEgo, new double3(0.0, 0.0, 0.0),
-                                       PhysicalAtmosphereReference.GetAtmosphericPressure(camera));
+                                       SoundChannels.PressureAt(camera));
             sound.Play(spatial, (float)loudness, out IChannel? channel, startPaused: false);
             _lastPickupMs = now;
             if (channel is not null) _probes.Add((channel, now, "pickup"));
@@ -368,8 +368,7 @@ internal static class BurstSound
                              : new double3(0.0, 0.0, 0.0);
         if (!Vec.IsFinite(velEgo)) velEgo = new double3(0.0, 0.0, 0.0);
 
-        // The pressure at the listener, in atmospheres, which is what the channel's low-pass reads.
-        spatial = new SpatialAudio(posEgo, velEgo, PhysicalAtmosphereReference.GetAtmosphericPressure(camera));
+        spatial = new SpatialAudio(posEgo, velEgo, SoundChannels.PressureAt(camera));
         return true;
     }
 
@@ -417,8 +416,8 @@ internal static class BurstSound
         try
         {
             SoundReference? crack = ModLibrary.Get<SoundBehavior>(CoreBangId) is MultiSound core
-                                        ? core.Sounds.OfType<SoundReference>()
-                                              .FirstOrDefault(l => l.SpatialSoundData?.Id == CrackSpatialId)
+                                        ? core.Sounds.Select(r => r.Value).OfType<SoundReference>()
+                                              .FirstOrDefault(l => l.SpatialSoundData?.Ref == CrackSpatialId)
                                         : null;
             if (crack is null)
             {

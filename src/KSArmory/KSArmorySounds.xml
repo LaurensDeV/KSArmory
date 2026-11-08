@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!--
   The mod's own sounds. Modelled on Core's Sounds.xml, which is the only documentation this format
   has.
@@ -19,7 +19,6 @@
       of kills goes quiet beside the explosions it is causing. There are only a few gun channels at
       once, so the explosions keep every other voice.
     -->
-
     <!--
       Cyclic cannon fire. Quieter and shorter-ranged than a warhead: a gun is loud where you are
       standing and a detonation is loud from the next county.
@@ -28,7 +27,6 @@
         <VolumeRange Min="25" Max="6000" />
         <TwoDRange Min="3" Max="14" />
     </SpatialSoundData>
-
     <!--
       A burst of gunfire is THREE sounds, and the engine already knows it: the barrels coming up to
       speed, steady fire for as long as the trigger is held, and the echoes arriving back off the
@@ -41,29 +39,37 @@
       Same shape as Core's DefaultEngineSoundBehavior, which is a CompoundSound for the same
       reason an engine is: it starts, it runs, it stops.
     -->
-    <Sound Id="KSArmoryCannonSpin" ChannelId="ExternalChannel" Priority="110">
-        <SoundFile Path="Sounds/KSArmory_Cannon_Spin.wav" Volume="1.0"/>
-        <SpatialSoundData Id="KSArmoryCannonSpatialData" />
+    <SoundFile Id="KSArmoryCannonSpin.File" Path="Sounds/KSArmory_Cannon_Spin.wav" Volume="1.0" />
+    <Sound Id="KSArmoryCannonSpin" Priority="110">
+        <Channel Ref="ExternalChannel" />
+        <SoundFiles>
+            <SoundFile Ref="KSArmoryCannonSpin.File" />
+        </SoundFiles>
+        <SpatialSoundData Ref="KSArmoryCannonSpatialData" />
     </Sound>
-
-    <Sound Id="KSArmoryCannonLoop" ChannelId="ExternalChannel" Priority="110">
-        <SoundFile Path="Sounds/KSArmory_Cannon_Loop.wav" Volume="1.0">
-            <Loop />
-        </SoundFile>
-        <SpatialSoundData Id="KSArmoryCannonSpatialData" />
+    <SoundFile Id="KSArmoryCannonLoop.File" Path="Sounds/KSArmory_Cannon_Loop.wav" Volume="1.0">
+        <Loop />
+    </SoundFile>
+    <Sound Id="KSArmoryCannonLoop" Priority="110">
+        <Channel Ref="ExternalChannel" />
+        <SoundFiles>
+            <SoundFile Ref="KSArmoryCannonLoop.File" />
+        </SoundFiles>
+        <SpatialSoundData Ref="KSArmoryCannonSpatialData" />
     </Sound>
-
-    <Sound Id="KSArmoryCannonTail" ChannelId="ExternalChannel" Priority="110">
-        <SoundFile Path="Sounds/KSArmory_Cannon_Tail.wav" Volume="1.0"/>
-        <SpatialSoundData Id="KSArmoryCannonSpatialData" />
+    <SoundFile Id="KSArmoryCannonTail.File" Path="Sounds/KSArmory_Cannon_Tail.wav" Volume="1.0" />
+    <Sound Id="KSArmoryCannonTail" Priority="110">
+        <Channel Ref="ExternalChannel" />
+        <SoundFiles>
+            <SoundFile Ref="KSArmoryCannonTail.File" />
+        </SoundFiles>
+        <SpatialSoundData Ref="KSArmoryCannonSpatialData" />
     </Sound>
-
     <CompoundSound Id="KSArmoryCannon">
-        <StartSound Id="KSArmoryCannonSpin" />
-        <Sound Id="KSArmoryCannonLoop" />
-        <StopSound Id="KSArmoryCannonTail" />
+        <StartSound Ref="KSArmoryCannonSpin" />
+        <Sound Ref="KSArmoryCannonLoop" />
+        <StopSound Ref="KSArmoryCannonTail" />
     </CompoundSound>
-
     <!--
       The 5"/54 Mk 42, cut by tools/mk42-sounds.py. Heard further than the Phalanx: a five-inch
       gun's gunshot carries a long way further than a 20 mm one.
@@ -72,32 +78,39 @@
         <VolumeRange Min="60" Max="12000" />
         <TwoDRange Min="4" Max="18" />
     </SpatialSoundData>
-
     <!-- One per round, pitched a little each time so forty a minute is not one sample forty times. -->
-    <Sound Id="KSArmoryMk42Gunshot" ChannelId="ExternalChannel" Priority="110">
-        <SoundFile Path="Sounds/KSArmory_Mk42_Gunshot.wav" Volume="1.0"/>
-        <SpatialSoundData Id="KSArmoryMk42SpatialData" />
+    <SoundFile Id="KSArmoryMk42Gunshot.File" Path="Sounds/KSArmory_Mk42_Gunshot.wav" Volume="1.0" />
+    <Sound Id="KSArmoryMk42Gunshot" Priority="110">
+        <Channel Ref="ExternalChannel" />
+        <SoundFiles>
+            <SoundFile Ref="KSArmoryMk42Gunshot.File" />
+        </SoundFiles>
+        <SpatialSoundData Ref="KSArmoryMk42SpatialData" />
         <Pitch Min="0.96" Max="1.04" />
     </Sound>
-
     <!-- The M197, cut by tools/m197-sounds.py. No spin-up: the recording has none. -->
-    <Sound Id="KSArmoryM197Loop" ChannelId="ExternalChannel" Priority="110">
-        <SoundFile Path="Sounds/KSArmory_M197_Loop.wav" Volume="1.0">
-            <Loop />
-        </SoundFile>
-        <SpatialSoundData Id="KSArmoryCannonSpatialData" />
+    <SoundFile Id="KSArmoryM197Loop.File" Path="Sounds/KSArmory_M197_Loop.wav" Volume="1.0">
+        <Loop />
+    </SoundFile>
+    <Sound Id="KSArmoryM197Loop" Priority="110">
+        <Channel Ref="ExternalChannel" />
+        <SoundFiles>
+            <SoundFile Ref="KSArmoryM197Loop.File" />
+        </SoundFiles>
+        <SpatialSoundData Ref="KSArmoryCannonSpatialData" />
     </Sound>
-
-    <Sound Id="KSArmoryM197Tail" ChannelId="ExternalChannel" Priority="110">
-        <SoundFile Path="Sounds/KSArmory_M197_Tail.wav" Volume="1.0"/>
-        <SpatialSoundData Id="KSArmoryCannonSpatialData" />
+    <SoundFile Id="KSArmoryM197Tail.File" Path="Sounds/KSArmory_M197_Tail.wav" Volume="1.0" />
+    <Sound Id="KSArmoryM197Tail" Priority="110">
+        <Channel Ref="ExternalChannel" />
+        <SoundFiles>
+            <SoundFile Ref="KSArmoryM197Tail.File" />
+        </SoundFiles>
+        <SpatialSoundData Ref="KSArmoryCannonSpatialData" />
     </Sound>
-
     <CompoundSound Id="KSArmoryM197">
-        <Sound Id="KSArmoryM197Loop" />
-        <StopSound Id="KSArmoryM197Tail" />
+        <Sound Ref="KSArmoryM197Loop" />
+        <StopSound Ref="KSArmoryM197Tail" />
     </CompoundSound>
-
     <!--
       A nuclear burst, cut from the Upshot-Knothole ANNIE film by tools/annie-sounds.py. The bang is
       placed at the burst and arrives with the front (Ksa/BurstSound.cs), its loudness the pressure at
@@ -112,14 +125,19 @@
         <VolumeRange Min="200000" Max="400000" />
         <TwoDRange Min="50" Max="500" />
     </SpatialSoundData>
-
-    <Sound Id="KSArmoryNuclearBang" ChannelId="ExternalChannel" Priority="123" SimSpeed="OnlyLower">
-        <SoundFile Path="Sounds/KSArmory_Nuclear_Bang.wav" Volume="1.0"/>
-        <SpatialSoundData Id="KSArmoryNuclearBangSpatialData" />
+    <SoundFile Id="KSArmoryNuclearBang.File" Path="Sounds/KSArmory_Nuclear_Bang.wav" Volume="1.0" />
+    <Sound Id="KSArmoryNuclearBang" Priority="123" SimSpeed="OnlyLower">
+        <Channel Ref="ExternalChannel" />
+        <SoundFiles>
+            <SoundFile Ref="KSArmoryNuclearBang.File" />
+        </SoundFiles>
+        <SpatialSoundData Ref="KSArmoryNuclearBangSpatialData" />
     </Sound>
-
-    <Sound Id="KSArmoryNuclearPickup" ChannelId="ExternalChannel" Priority="123" SimSpeed="OnlyLower">
-        <SoundFile Path="Sounds/KSArmory_Nuclear_Pickup.wav" Volume="1.0" TwoD="true"/>
+    <SoundFile Id="KSArmoryNuclearPickup.File" Path="Sounds/KSArmory_Nuclear_Pickup.wav" Volume="1.0" TwoD="true" />
+    <Sound Id="KSArmoryNuclearPickup" Priority="123" SimSpeed="OnlyLower">
+        <Channel Ref="ExternalChannel" />
+        <SoundFiles>
+            <SoundFile Ref="KSArmoryNuclearPickup.File" />
+        </SoundFiles>
     </Sound>
-
 </Assets>

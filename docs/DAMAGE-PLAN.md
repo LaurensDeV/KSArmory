@@ -43,8 +43,11 @@ judged on overpressure alone, which is what its reach is calibrated on.
 - **What a hit costs.** Each hit delivers `½ m v_r²`, where `v_r` is the impact speed after drag over
   the range (a 6 g cube decays over 66 m at sea level). It counts at `FragmentCoupling` = 0.5, because
   about half of a hull's presented area covers nothing a fragment can disable.
-- **No penetration law.** Above a gram, any fragment perforates 2 mm of 2024-T3. THOR puts the ballistic
-  limit of a 2 g cube at about 160 m/s (JESTR 2014, table 1).
+- **A penetration law on tanks alone.** Above a gram, any fragment perforates 2 mm of 2024-T3 -- THOR puts
+  the ballistic limit of a 2 g cube at about 160 m/s (JESTR 2014, table 1) -- so a part with no wall KSA
+  declares takes every hit. A tank's wall stops what cannot shear a plug its own size out of it
+  (`Sim/TankWall.cs`): a stopped fragment costs the share of the wall it got through, and a stopped dart
+  leaves a crater a later one at the same spot meets less wall under (`Sim/WallCraters.cs`).
 - **The presented area** is a quarter of the part's box surface, its average over every direction
   (Cauchy).
 - **Shadowing is ignored.** Each part draws its own fragments, so a part behind another is hit as
@@ -223,9 +226,10 @@ same every session; it is not the team colour the panel shows.
 ## Tank pressure and walls: shipped in KSA 2026.10.25.5707
 
 KSA now gives tanks a rated pressure from their wall material and thickness, and lets them hold gas at a
-pressure. A holed gas tank vents by it (`TankLeak.GasFlowKgPerSecond`). Three guesses still stand: the
-liquid leak's fixed 0.2 bar, since KSA gives a liquid no pressure, toughness from mass with no penetration
-law, and the one-in-five tank going up; the rating is what the last two would read. `docs/BLOCKED-ON-KSA.md`,
+pressure. A holed gas tank vents by it (`TankLeak.GasFlowKgPerSecond`), and bursts where its pressure beats what
+its holed wall holds; a tank's wall stops a dart or fragment that cannot punch through it
+(`Sim/TankWall.cs`, not yet flown). Three guesses still stand: the liquid leak's fixed 0.2 bar, since KSA
+gives a liquid no pressure, toughness from mass, and the one-in-five liquid tank going up. `docs/BLOCKED-ON-KSA.md`,
 *A tank's pressure and its walls*, has the API.
 
 ## Step 4: the gun rounds split (built)

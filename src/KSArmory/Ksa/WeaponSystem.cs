@@ -82,6 +82,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private readonly List<(int Index, int Hits)> _partHits = [];
     private readonly HashSet<int> _struckParts = [];
     private readonly List<int> _flashedOver = [];
+
+    // Tanks the liquid behind a hole split this burst (HydroRam).
+    private readonly List<int> _rammed = [];
     private double3 _igniteBurst;
     private double _igniteElapsed;
 
@@ -3503,7 +3506,9 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         double elapsed = round.DetonationElapsedInFrame;
 
         // A hole on whatever hull it touched, whoever's: it is paint.
-        if (round.StruckBody is Vehicle holed) BulletHoles.Strike(holed, round, _config.Paintball ? PaintHue : -1f);
+        _penetration = round.StruckBody is Vehicle holed
+            ? BulletHoles.Strike(holed, round, _config.Paintball ? PaintHue : -1f)
+            : default;
 
         // Paintball: what the burst reached is marked and nothing is harmed, so none of what follows runs.
         if (_config.Paintball)
@@ -3521,6 +3526,8 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             // craft is a choice about what to aim at, not an immunity to what a round does.
             if (round.MissDistance <= lethalRange) Damage(intended, burst, elapsed, judged, confirmed: true);
         }
+
+        _penetration = default;
 
         // Rounds in the air pay as parts do, off the airborne list: KSA holds no state for them, so the
         // ledger is keyed on the round. Nobody flies a round, and the own salvo was filtered out.
@@ -3671,15 +3678,17 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         if (round.StruckBody is IProjectile { State: RoundState.Flying } other) other.ShootDown();
         if (round.StruckBody is not Vehicle struck || !KsaWorld.IsAlive(struck)) return;
 
-        BulletHoles.Strike(struck, round, _config.Paintball ? PaintHue : -1f);
+        BulletHoles.Penetration hit = BulletHoles.Strike(struck, round, _config.Paintball ? PaintHue : -1f, inert: true);
         if (_config.Paintball) return;
 
-        StrikeInert(struck, round.PositionEcl, round.DetonationElapsedInFrame,
-                    round.Munition.MassKg, Vec.Len(round.VelocityEcl - KsaWorld.VelocityEcl(struck)));
+        StrikeInert(struck, round.PositionEcl, round.DetonationElapsedInFrame, round.Munition,
+                    Vec.Len(round.VelocityEcl - KsaWorld.VelocityEcl(struck)), hit);
     }
 
-    // The part a dud struck pays for the shell's impact; nothing near it is touched.
-    private void StrikeInert(Vehicle v, double3 at, double elapsed, double shellMassKg, double impactSpeed)
+    // The part a dud struck pays for the shell's impact; nothing near it is touched. A tank it went into is
+    // judged by its liquid instead, as a dart's is.
+    private void StrikeInert(Vehicle v, double3 at, double elapsed, MunitionProfile munition, double impactSpeed,
+                             BulletHoles.Penetration hit)
     {
         if (_pendingKills.Contains(v)) return;
 
@@ -3690,16 +3699,31 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return;
         }
 
-        if (StruckPart(v, at, elapsed) is not { } index) return;
+        if (StruckPart(v, at, elapsed, hit.Struck) is not { } index) return;
 
         Part part = _partHandles[index];
         DamageablePart struckPart = _partScratch[index];
-        double impact = PartToughness.KineticShare(
-            shellMassKg, impactSpeed, PartToughness.Joules(struckPart.MassKg, struckPart.CrashTolerancePascals));
-        if (!PartHealth.World.Hit(part, impact, _config.DamageScale))
+        if (hit is { Through: true, Tank: { } tank } && ReferenceEquals(tank, part))
         {
-            Announce($"hit {part.Id} on {KsaWorld.DisplayName(v)}: {PartHealth.World.Of(part):P0} left");
-            return;
+            _rammed.Clear();
+            RamRound(v, index, hit, munition, impactSpeed, 0.0, inert: true);
+            if (_rammed.Count == 0)
+            {
+                Announce($"holed {part.Id} on {KsaWorld.DisplayName(v)}");
+                return;
+            }
+
+            PartHealth.World.Hit(part, 1.0, 1.0);
+        }
+        else
+        {
+            double impact = PartToughness.KineticShare(
+                munition.MassKg, impactSpeed, PartToughness.Joules(struckPart.MassKg, struckPart.CrashTolerancePascals));
+            if (!PartHealth.World.Hit(part, impact, _config.DamageScale))
+            {
+                Announce($"hit {part.Id} on {KsaWorld.DisplayName(v)}: {PartHealth.World.Of(part):P0} left");
+                return;
+            }
         }
 
         // KSA's own fragment guard, asked rather than reproduced.
@@ -4000,13 +4024,18 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         _partShares.Clear();
         double3 craftVelocity = KsaWorld.VelocityEcl(v);
         BurstContext context = _warhead is { } w
-            ? new BurstContext(burst, elapsed, craftVelocity, w.VelocityEcl, w.Nose, w.AirKgPerM3, w.FuzeLead, w.AirPressure)
+            ? new BurstContext(burst, elapsed, craftVelocity, w.VelocityEcl, w.Nose, w.AirKgPerM3, w.FuzeLead, w.AirPressure,
+                               _config.DamageScale)
             : new BurstContext(burst, elapsed, craftVelocity, craftVelocity, Vec.Zero, AirAt(burst, elapsed),
-                               AirPressureRatio: AirPressureAt(burst, elapsed));
+                               AirPressureRatio: AirPressureAt(burst, elapsed), DamageScale: _config.DamageScale);
         _partHits.Clear();
         _struckParts.Clear();
+        _rammed.Clear();
+        _fragmentJoules.Clear();
+        Shield(v, burst, elapsed, craftVelocity);
         BlastDamage.Costs(context, CollectionsMarshal.AsSpan(_partScratch), munition, _fragmentDice, _partShares,
-                          _partHits);
+                          _partHits, _fragmentJoules);
+        RamFragments(v, burst, elapsed, craftVelocity, munition);
 
         // A shell that struck this craft also pays the part it hit for what its own mass carried in.
         if (confirmed && _warhead is { } shell && munition.MassKg > 0f)
@@ -4026,6 +4055,13 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             {
                 worst = Math.Min(worst, PartHealth.World.Of(_partHandles[index]));
             }
+        }
+
+        // A tank split by its liquid breaks whatever was left of it, before anything is lit.
+        foreach (int index in _rammed)
+        {
+            PartHealth.World.Hit(_partHandles[index], 1.0, 1.0);
+            if (!_failedParts.Contains(index)) _failedParts.Add(index);
         }
 
         // After the breaks: a part already breaking off has nothing left to burn.
@@ -4104,20 +4140,27 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     private void StrikesSkin(Vehicle v, double3 burst, double elapsed, double3 craftVelocity, double3 shellVelocity,
                              MunitionProfile munition)
     {
-        if (StruckPart(v, burst, elapsed) is not { } index) return;
+        if (StruckPart(v, burst, elapsed, _penetration.Struck) is not { } index) return;
 
         DamageablePart struck = _partScratch[index];
         double gap = BlastSweep.SurfaceGap(struck.PositionEcl, craftVelocity, elapsed, burst, struck.RadiusMetres);
         if (gap > 0.0) return;
 
-        double impact = PartToughness.KineticShare(munition.MassKg, Vec.Len(shellVelocity - craftVelocity),
+        double speed = Vec.Len(shellVelocity - craftVelocity);
+        double impact = PartToughness.KineticShare(munition.MassKg, speed,
                                                    PartToughness.Joules(struck.MassKg, struck.CrashTolerancePascals));
         _partShares.Add((index, impact));
         _struckParts.Add(index);
+
+        // Half the charge faces the liquid behind the skin it burst on.
+        if (ReferenceEquals(_partHandles[index], _penetration.Tank))
+        {
+            RamRound(v, index, _penetration, munition, speed, 0.5 * munition.ChargeKg * PartToughness.TntJoulesPerKg);
+        }
     }
 
-    // A dart that does not burst: each part on its path keeps its share of what is left and passes the
-    // rest on, until there is too little to matter.
+    // A dart that does not burst, walked through the parts on its path (Penetrator.Walk): plates by Lambert's
+    // law, tanks by their wall and liquid, anything else keeping its share, until there is too little to matter.
     private void GoesThrough(Vehicle v, double3 burst, double elapsed, double3 craftVelocity, double3 shellVelocity,
                              MunitionProfile munition)
     {
@@ -4134,21 +4177,192 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
             return;
         }
 
-        double energy = 0.5 * munition.MassKg * speed * speed;
-        foreach ((Part crossed, _) in _along)
+        double across = munition.CalibreMm / 1000.0;
+        _crossings.Clear();
+        _crossingEntries.Clear();
+        foreach (KsaWorld.Crossing crossing in _along)
         {
-            int index = _partHandles.IndexOf(crossed);
+            int index = _partHandles.IndexOf(crossing.Part);
             if (index < 0) continue;
 
             DamageablePart part = _partScratch[index];
-            double kept = PartToughness.KineticCoupling * energy;
-            _partShares.Add((index, kept / PartToughness.Joules(part.MassKg, part.CrashTolerancePascals)));
-            _struckParts.Add(index);
+            double3 path = crossing.Local - crossing.CameFrom;
 
-            energy -= kept;
-            if (energy < LeftoverJoules) break;
+            // The part the strike's own cast met was judged there, craters and all; one behind it is judged here.
+            bool struck = ReferenceEquals(crossing.Part, _penetration.Struck) && (part.Wall.Known || part.Layer.Known);
+            BulletHoles.Penetration entry = struck && part.Wall.Known
+                ? _penetration
+                : new BulletHoles.Penetration(part.Wall.Known ? crossing.Part : null, true, crossing.Skin, crossing.Local,
+                                              path, crossing.Part);
+            double thickness = part.Layer.Known ? part.Layer.ThicknessMetres : part.Wall.ThicknessMetres;
+            double left = thickness > 0.0
+                ? WallCraters.World.ThicknessLeft(crossing.Skin, crossing.Local, across, thickness)
+                : 0.0;
+
+            _crossings.Add(new LayerCrossing(index, PartToughness.Joules(part.MassKg, part.CrashTolerancePascals),
+                                             part.Wall, part.Layer, KsaWorld.CosObliquity(path, crossing.Normal), left,
+                                             struck ? _penetration.Through : null));
+            _crossingEntries.Add(entry);
+        }
+
+        (_walking, _walkingRound) = (v, munition);
+        Penetrator.Walk(CollectionsMarshal.AsSpan(_crossings), munition.MassKg, across,
+                        ArmourLayer.LengthOverDiameter(munition), speed, _config.DamageScale, LeftoverJoules, RamCrossingCallback,
+                        _walked);
+
+        foreach (CrossingResult result in _walked)
+        {
+            if (result.Share > 0.0) _partShares.Add((result.Index, result.Share));
+            if (result.Struck) _struckParts.Add(result.Index);
+
+            // The strike's own crossing was dented where it was judged.
+            if (result.DentMetres > 0.0 && _crossings[result.Ordinal].Judged is null)
+            {
+                BulletHoles.Penetration at = _crossingEntries[result.Ordinal];
+                if (at.Skin is { } skin) WallCraters.World.Dent(skin, at.Local, across, result.DentMetres);
+            }
         }
     }
+
+    // A tank the walk reached, rammed from where the path entered it.
+    private double RamCrossing(int ordinal, double speed) =>
+        _walking is { } v && _walkingRound is { } munition
+            ? RamRound(v, _crossings[ordinal].Index, _crossingEntries[ordinal], munition, speed, 0.0)
+            : 0.0;
+
+    private readonly List<LayerCrossing> _crossings = [];
+    private readonly List<BulletHoles.Penetration> _crossingEntries = [];
+    private readonly List<CrossingResult> _walked = [];
+    private Vehicle? _walking;
+    private MunitionProfile? _walkingRound;
+    private Func<int, double, double>? _ramCrossingCallback;
+    private Func<int, double, double> RamCrossingCallback => _ramCrossingCallback ??= RamCrossing;
+
+    private double RamRound(Vehicle v, int index, BulletHoles.Penetration hit, MunitionProfile munition, double speed,
+                            double chargeJoules, bool inert = false) =>
+        Ram(v, index, hit, munition.MassKg, munition.CalibreMm / 1000.0, speed,
+            HoleLook.RadiiFor(munition.CalibreMm, inert ? 0.0 : munition.ChargeKg).Core, 1, chargeJoules);
+
+    // The liquid behind a hole: whether its push cracks the wall there, whether the cavity it opens bursts
+    // the tank, and whether the far wall, loaded by both, cracks as the round leaves. The share of one
+    // round's energy the liquid took; `count` rounds alike went in together, as a warhead's fragments do.
+    private double Ram(Vehicle v, int index, BulletHoles.Penetration hit, double massKg, double across, double speed,
+                       double hole, int count, double chargeJoules)
+    {
+        if (hit is not { Through: true, Skin: { } skin } || !(massKg > 0.0) || !(speed > 0.0)) return 0.0;
+        if (!KsaWorld.TryTankOf(skin, out Tank? tank) || !KsaWorld.TryTankWall(tank, out TankWall wall)) return 0.0;
+        if (!Leaks.TryLiquidPath(tank, skin, hit.Local, hit.Direction, out Leaks.LiquidPath liquid)) return 0.0;
+        if (!(liquid.WetMetres > 0.0)) return 0.0;
+
+        double taken = HydroRam.DepositedShare(massKg, across, liquid.DensityKgPerM3, liquid.WetMetres);
+        double halfYieldPressure = 2.0 * wall.RatedPascals;
+        double loaded = halfYieldPressure > 0.0 ? HydroRam.OperatingPascals / halfYieldPressure : 0.0;
+        double cracking = HydroRam.CrackingSpeed(wall.ThicknessMetres, across, massKg, loaded,
+                                                 liquid.DensityKgPerM3, _config.DamageScale);
+
+        double outside = v.Parent is Celestial body ? KsaWorld.AtmosphericPressureAt(body, KsaWorld.PositionEcl(v)) : 0.0;
+        double cavity = HydroRam.CavityShare * ((count * taken * 0.5 * massKg * speed * speed) + chargeJoules);
+        double rise = HydroRam.CavityPascals(cavity, liquid.TankM3, (1.0 - liquid.Fill) * liquid.TankM3,
+                                             outside + HydroRam.OperatingPascals, liquid.RadiusMetres,
+                                             wall.ThicknessMetres);
+
+        // The far wall meets a round that has tumbled in the liquid, broadside, through a wall the cavity has
+        // already loaded.
+        double leaving = speed * Math.Sqrt(1.0 - taken);
+        double exitLoaded = halfYieldPressure > 0.0 ? (HydroRam.OperatingPascals + rise) / halfYieldPressure : 0.0;
+
+        bool cracks = speed > cracking;
+        bool exitCracks = HydroRam.ExitCracks(wall, massKg, across, leaving, exitLoaded, liquid.DensityKgPerM3,
+                                              _config.DamageScale);
+        bool bursts = wall.Bursts(outside + HydroRam.OperatingPascals + rise, outside, hole);
+        Log.Debug(() => $"ram in {skin.Id} on {KsaWorld.DisplayName(v)}: {count} round(s), {liquid.WetMetres:F2} m wet of a "
+                        + $"{liquid.Fill:P0} full tank, {taken:P0} taken; in at {speed:F0} m/s against {cracking:F0} to "
+                        + $"crack, out at {leaving:F0}{(exitCracks ? ", cracking it" : "")}; "
+                        + $"{HydroRam.OperatingPascals / 1.0e5:F1} bar load and {rise / 1.0e5:F2} risen against "
+                        + $"{wall.HoldsPascals(hole) / 1.0e5:F2} held");
+
+        if (cracks || exitCracks || bursts)
+        {
+            if (!_rammed.Contains(index)) _rammed.Add(index);
+            string how = cracks ? $"cracked going in at {speed:F0} m/s, past {cracking:F0}"
+                : exitCracks ? $"cracked coming out at {leaving:F0} m/s through a wall loaded to {exitLoaded:P0}"
+                : $"burst, its {HydroRam.OperatingPascals / 1.0e5:F1} bar load and {rise / 1.0e5:F2} risen past "
+                  + $"{wall.HoldsPascals(hole) / 1.0e5:F2} held";
+            Log.Info($"ram split {skin.FullPart.Id} on {KsaWorld.DisplayName(v)}: {how}");
+        }
+
+        return taken;
+    }
+
+    // Which plate stands between a burst and each part, cast against the craft's plates alone, so a craft carrying
+    // none pays nothing. One line to each part's middle, so a plate covers a part all or nothing.
+    private void Shield(Vehicle v, double3 burst, double elapsed, double3 craftVelocity)
+    {
+        _plates.Clear();
+        for (int i = 0; i < _partScratch.Count; i++)
+        {
+            if (_partScratch[i].Layer.Known) _plates.Add(_partHandles[i]);
+        }
+
+        if (_plates.Count == 0) return;
+
+        double3 centre = InFrame.AtBurst(KsaWorld.PositionEcl(v), craftVelocity, elapsed);
+        for (int i = 0; i < _partScratch.Count; i++)
+        {
+            DamageablePart part = _partScratch[i];
+            if (part.Layer.Known) continue;
+
+            double3 travel = InFrame.AtBurst(part.PositionEcl, craftVelocity, elapsed) - burst;
+            if (!KsaWorld.TryNearestAmong(v, centre - burst, travel, Vec.Len(travel), _plates, out KsaWorld.Crossing plate))
+            {
+                continue;
+            }
+
+            _partScratch[i] = part with
+            {
+                Shield = KsaWorld.ArmourLayerOf(plate.Part),
+                ShieldCosObliquity = KsaWorld.CosObliquity(plate.Local - plate.CameFrom, plate.Normal),
+            };
+        }
+    }
+
+    private readonly List<Part> _plates = [];
+
+    // A warhead's fragments into each tank they got through, as one ram a tank: entered on the side facing
+    // the burst, heading for the tank's middle, since a fragment carries no path of its own.
+    private void RamFragments(Vehicle v, double3 burst, double elapsed, double3 craftVelocity, MunitionProfile munition)
+    {
+        if (_fragmentJoules.Count == 0) return;
+
+        FragmentSpray spray = FragmentSpray.Of(munition);
+        double across = TankWall.FragmentDiameterMetres(spray.MassKg);
+        double hole = HoleLook.RadiiFor(across * 1000.0, 0.0).Core;
+        double3 centre = InFrame.AtBurst(KsaWorld.PositionEcl(v), craftVelocity, elapsed);
+
+        foreach ((int index, double joules) in _fragmentJoules)
+        {
+            DamageablePart part = _partScratch[index];
+            if (!part.Wall.Known || !(joules > 0.0)) continue;
+
+            double3 travel = InFrame.AtBurst(part.PositionEcl, craftVelocity, elapsed) - burst;
+            double reach = Vec.Len(travel) + part.RadiusMetres;
+            if (!KsaWorld.TryPartsAlong(v, centre - burst, travel, reach, _along)) continue;
+
+            int hits = 0;
+            foreach ((int struck, int count) in _partHits) if (struck == index) hits = count;
+            foreach (KsaWorld.Crossing crossing in _along)
+            {
+                if (!ReferenceEquals(crossing.Part, _partHandles[index])) continue;
+
+                BulletHoles.Penetration entry = new(crossing.Part, true, crossing.Skin, crossing.Local,
+                                                   crossing.Local - crossing.CameFrom);
+                Ram(v, index, entry, spray.MassKg, across, Math.Sqrt(2.0 * joules / spray.MassKg), hole, hits, 0.0);
+                break;
+            }
+        }
+    }
+
+    private readonly List<(int Index, double JoulesPerHit)> _fragmentJoules = [];
 
     private const double BackAlongPathMetres = 2.0;
     private const double ThroughMetres = 30.0;
@@ -4156,7 +4370,10 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
     // A tenth of a 20 mm round's: past this a dart has nothing left to break anything with.
     private const double LeftoverJoules = 6000.0;
 
-    private readonly List<(Part Part, double Metres)> _along = [];
+    private readonly List<KsaWorld.Crossing> _along = [];
+
+    // What BulletHoles.Strike found of the round bursting now, for the damage that follows it.
+    private BulletHoles.Penetration _penetration;
 
     // A strike or fragments on a part holding propellant may set it burning (PartFire).
     private void Ignite(Vehicle v, MunitionProfile munition)
@@ -4192,8 +4409,16 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
 
     private readonly Dictionary<int, int> _igniting = [];
 
-    // The part nearest a strike, or null for a craft with no part to charge.
-    private int? StruckPart(Vehicle v, double3 burst, double elapsed)
+    // The part a strike's hull cast met, where the cast met one the damage counts; otherwise the part
+    // nearest the strike, or null for a craft with no part to charge.
+    private int? StruckPart(Vehicle v, double3 burst, double elapsed, Part? struck)
+    {
+        if (struck is not null && _partHandles.IndexOf(struck) is >= 0 and var cast) return cast;
+
+        return NearestPart(v, burst, elapsed);
+    }
+
+    private int? NearestPart(Vehicle v, double3 burst, double elapsed)
     {
         double3 velocity = KsaWorld.VelocityEcl(v);
         int? nearest = null;

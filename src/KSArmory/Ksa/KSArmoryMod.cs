@@ -1,13 +1,14 @@
 using Brutal.Numerics;
 using KSA;
 using StarMap.API;
+using StarMap.API.Services;
 
 namespace KSArmory;
 
 /// <summary>
 /// StarMap entry point. StarMap loads the assembly named by mod.toml's EntryAssembly and
-/// instantiates the first type carrying <see cref="StarMapModAttribute"/>, then dispatches
-/// to the attributed methods below.
+/// instantiates the first type carrying <see cref="StarMapModAttribute"/>, handing its constructor
+/// the services it asks for, then dispatches to the attributed methods below.
 ///
 /// Frame work is wrapped so a fault degrades the mod instead of taking the game down, and
 /// repeated faults disable it rather than filling the log.
@@ -15,6 +16,24 @@ namespace KSArmory;
 [StarMapMod]
 public sealed class KSArmoryMod
 {
+    private readonly IDisposable? _modMenuItem;
+
+    /// <param name="modMenu">StarMap's Mods menu, which reopens a closed panel.</param>
+    public KSArmoryMod(IModMenuService? modMenu = null)
+    {
+        try
+        {
+            _modMenuItem = modMenu?.AddModMenuItem("KSArmory", () =>
+            {
+                if (_ui is not null) _ui.Visible = !_ui.Visible;
+            });
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"could not add KSArmory to StarMap's Mods menu: {e.Message}");
+        }
+    }
+
     private const int FaultLimit = 10;
 
     private double _lastSimSpeed = 1.0;
@@ -198,6 +217,8 @@ public sealed class KSArmoryMod
 
         LooseBodyDrawHook.Install((viewport, frameIndex) =>
         {
+            _mover.DrawPlacementCopy(viewport, frameIndex);
+
             if (_roster is not { } roster) return;
 
             using (_budget.Measure("shell bodies"))
@@ -515,6 +536,7 @@ public sealed class KSArmoryMod
             GroundSplats.Paint();
             BulletHoles.Enabled = _config.BulletHoles;
             Leaks.Enabled = _config.TankLeaks;
+            KsaWorld.WallDamageScale = _config.DamageScale;
             BulletHoles.Prune();
             ShellTracers.BallBrightness = _config.BallRoundBrightness;
             foreach (WeaponSystems.Entry e in _roster.All)
@@ -898,6 +920,8 @@ public sealed class KSArmoryMod
     [StarMapUnload]
     public void Unload()
     {
+        _modMenuItem?.Dispose();
+
         // Or unloading mid-salvo leaves the world stuck at the speed the policy wound it down to.
         if (_warp.Holding && KsaWorld.SetSimulationSpeed(_warp.HeldSpeed))
         {

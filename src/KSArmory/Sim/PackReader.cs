@@ -36,9 +36,11 @@ public static class PackReader
         string source,
         IReadOnlyList<MunitionProfile> knownMunitions,
         IReadOnlyList<SensorProfile> knownSensors,
-        IReadOnlyList<DecoyProfile>? knownDecoys = null)
+        IReadOnlyList<DecoyProfile>? knownDecoys = null,
+        IReadOnlyList<ArmourMaterial>? knownArmourMaterials = null)
     {
         knownDecoys ??= [];
+        knownArmourMaterials ??= [];
         List<PackFault> faults = [];
 
         XElement? root;
@@ -99,6 +101,8 @@ public static class PackReader
         List<SearchSetProfile> searchSets = [];
         List<DecoyProfile> decoys = [];
         List<DispenserProfile> dispensers = [];
+        List<ArmourMaterial> armourMaterials = [];
+        List<ArmourProfile> armour = [];
         List<ComponentProfile> components = [];
         List<ComponentProfile> partRows = [];
 
@@ -109,7 +113,8 @@ public static class PackReader
                 case "Munition": ReadMunition(el, source, faults, munitions); break;
                 case "Sensor": ReadSensor(el, source, faults, sensors); break;
                 case "Decoy": ReadDecoy(el, source, faults, decoys); break;
-                case "Launcher" or "Optic" or "SearchSet" or "Dispenser": break;
+                case "ArmourMaterial": ReadArmourMaterial(el, source, faults, armourMaterials); break;
+                case "Launcher" or "Optic" or "SearchSet" or "Dispenser" or "Armour": break;
                 default:
                     faults.Add(new PackFault(source, el.Name.LocalName, "",
                                              "not a definition this build knows"));
@@ -133,6 +138,9 @@ public static class PackReader
                     break;
                 case "Dispenser":
                     ReadDispenser(el, source, faults, decoys, knownDecoys, dispensers, partRows);
+                    break;
+                case "Armour":
+                    ReadArmourPlate(el, source, faults, armourMaterials, knownArmourMaterials, armour);
                     break;
             }
         }
@@ -174,6 +182,8 @@ public static class PackReader
             SearchSets = searchSets,
             Decoys = decoys,
             Dispensers = dispensers,
+            ArmourMaterials = armourMaterials,
+            Armour = armour,
             Components = components,
             Faults = faults,
         };
@@ -394,6 +404,51 @@ public static class PackReader
         if (Duplicate(decoy.Name, into, d => d.Name, r)) return;
 
         into.Add(decoy);
+    }
+
+    private static void ReadArmourMaterial(XElement el, string source, List<PackFault> faults, List<ArmourMaterial> into)
+    {
+        Reader r = new(el, source, "ArmourMaterial", faults);
+        string name = r.Required("Name");
+        r.Describe(name);
+
+        ArmourMaterial material = new()
+        {
+            Name = Qualify(source, name),
+            DisplayName = r.Required("DisplayName"),
+            DensityKgPerM3 = r.Number("DensityKgPerM3", 0f),
+            LambertCoefficient = r.Number("LambertCoefficient", 0f),
+            ResistancePascals = r.Number("ResistanceMPa", 0f) * 1.0e6f,
+        };
+        if (!(material.DensityKgPerM3 > 0f)) r.Fault("needs a DensityKgPerM3 above zero");
+        if (!(material.LambertCoefficient > 0f)) r.Fault("needs a LambertCoefficient above zero: 4000 is rolled steel armour");
+
+        if (!r.Sound()) return;
+        if (Duplicate(material.Name, into, m => m.Name, r)) return;
+
+        into.Add(material);
+    }
+
+    // A plate makes no component row: it is not a weapon, and a craft of plates is not a weapons system.
+    private static void ReadArmourPlate(XElement el, string source, List<PackFault> faults, List<ArmourMaterial> own,
+                                   IReadOnlyList<ArmourMaterial> known, List<ArmourProfile> into)
+    {
+        Reader r = new(el, source, "Armour", faults);
+        string partId = r.Required("PartId");
+        r.Describe(partId);
+
+        ArmourProfile plate = new()
+        {
+            PartId = partId,
+            Material = r.Reference("Material", own, known, m => m.Name),
+            ThicknessMm = r.Number("ThicknessMm", 0f),
+        };
+        if (!(plate.ThicknessMm > 0f)) r.Fault("needs a ThicknessMm above zero");
+
+        if (!r.Sound()) return;
+        if (Duplicate(plate.PartId, into, a => a.PartId, r)) return;
+
+        into.Add(plate);
     }
 
     // A dispenser's kind is its decoy's; stating it is allowed, and refused when the two disagree.
@@ -874,6 +929,7 @@ public static class PackReader
         {
             string definition = typeof(T) == typeof(SensorProfile) ? "Sensor"
                                 : typeof(T) == typeof(DecoyProfile) ? "Decoy"
+                                : typeof(T) == typeof(ArmourMaterial) ? "ArmourMaterial"
                                 : "Munition";
             foreach (PackFault f in faults)
             {

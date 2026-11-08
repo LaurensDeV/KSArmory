@@ -211,8 +211,8 @@ long weapon-data writes have been stopped by the classifier before.
   (`CoreDefinitionsTests.APackDefiningASwitchedOffPartMakesItAWeaponAgain`). Flown 2026-10-21: an
   assets-only pack redefining the Phalanx with a 99-round belt, Guns off, on the `CIWS` save — crewed as
   the pack's, 99 shells fired, 2 of 2 drones hit, and 2 parts hidden rather than 3.
-- **Control:** a "Built-in weapons" submenu in `Ui.DrawMenuContents` (shared by the mod's bar and
-  ModMenu), one tick per family and *All on* / *All off*, kept open on a click; a family whose tick differs from what
+- **Control:** a "Built-in weapons" submenu in `Ui.DrawMenuContents` (on the mod's own
+  menu-bar entry), one tick per family and *All on* / *All off*, kept open on a click; a family whose tick differs from what
   loaded reads "(restart to apply)" on its own item. The
   startup log and every scenario's first line name the families loaded.
 - **`KSARMORY_NO_BUILTINS=1`** (developer-only): nothing from the core files, library included; every

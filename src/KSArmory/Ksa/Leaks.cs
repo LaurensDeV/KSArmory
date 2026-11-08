@@ -97,6 +97,8 @@ internal static class Leaks
         public required double3[] Points;
         public required Func<double3, bool> Holds;
         public required string Described;
+        public double Radius;
+        public double Length;
         public double3 Origin;
         public double3 AxisX = new(1, 0, 0), AxisY = new(0, 1, 0), AxisZ = new(0, 0, 1);
 
@@ -111,9 +113,6 @@ internal static class Leaks
 
     private static readonly ConditionalWeakTable<Tank, Form> _forms = new();
 
-    // What each tank's liquid has settled to, in its craft's assembly frame: the felt acceleration
-    // followed with TankLeak.SettleSeconds of lag, so a thruster's pulse does not slosh it end to end.
-    private static readonly ConditionalWeakTable<Tank, StrongBox<double3>> _settled = new();
     private static readonly Dictionary<Tank, List<BulletHoles.Hole>> _byTank = new(ReferenceEqualityComparer.Instance);
     private static readonly List<BulletHoles.Hole> _inside = [];
     private static readonly List<double3> _mergeAt = [];
@@ -142,6 +141,94 @@ internal static class Leaks
     private static double _sinceMeasured;
     private static bool _warned;
 
+    // Simulated seconds since load, which a tank's settling is stepped on whenever it is read.
+    private static double _simSeconds;
+    private static readonly ConditionalWeakTable<Tank, Settling> _settledAt = new();
+
+    private sealed class Settling(double3 felt, double at)
+    {
+        public double3 Felt = felt;
+        public double At = at;
+    }
+
+    // What a tank's liquid has settled to, in its craft's assembly frame: the felt acceleration followed with
+    // TankLeak.SettleSeconds of lag, so a thruster's pulse does not slosh it end to end. Stepped over the time
+    // since it was last asked, so a tank read only when a round enters it settles as a measured one does.
+    private static double3 Settled(Tank tank, double3 raw)
+    {
+        if (!_settledAt.TryGetValue(tank, out Settling? settling))
+        {
+            _settledAt.Add(tank, new Settling(raw, _simSeconds));
+            return raw;
+        }
+
+        settling.Felt = TankLeak.Settle(settling.Felt, raw, _simSeconds - settling.At);
+        settling.At = _simSeconds;
+        return settling.Felt;
+    }
+
+    /// <summary>A tank's liquid as a round entering it meets it.</summary>
+    /// <param name="WetMetres">How far the round's path runs under the liquid.</param>
+    /// <param name="Fill">The liquid's share of the tank.</param>
+    public readonly record struct LiquidPath(double WetMetres, double DensityKgPerM3, double Fill, double TankM3,
+                                             double RadiusMetres);
+
+    /// <summary>
+    /// How a straight path entering <paramref name="tank"/> at <paramref name="local"/> on
+    /// <paramref name="skin"/>, along <paramref name="directionLocal"/> in the skin's frame, meets its liquid.
+    /// False for a tank holding no liquid.
+    /// </summary>
+    public static bool TryLiquidPath(Tank tank, Part skin, double3 local, double3 directionLocal, out LiquidPath path)
+    {
+        path = default;
+        try
+        {
+            if (!KsaWorld.TryCraftOf(tank.Parent, out Vehicle? craft)) return false;
+
+            ReadOnlySpan<MoleState> states = craft.Parts.Moles.States;
+            double mass = 0.0, volume = 0.0;
+            foreach (Mole mole in tank.Moles)
+            {
+                if (mole.Liquid is not { } liquid || !(liquid.StorageDensity > 0f)) continue;
+
+                double held = states[mole.StatesIdx].Mass;
+                mass += held;
+                volume += held / liquid.StorageDensity;
+            }
+
+            if (!(mass > 0.0) || !(volume > 0.0) || !(tank.StorageVolume > 0f)) return false;
+            if (!KsaWorld.TryPartToVehicleAsmb(tank.Parent, out double4x4 tankToVehicle)) return false;
+            if (!KsaWorld.TryPartToVehicleAsmb(skin, out double4x4 skinToVehicle)) return false;
+            double4x4.Invert(tankToVehicle, out double4x4 vehicleToTank);
+
+            Form form = _forms.GetValue(tank, static t => FormOf(t));
+            double3 entry = form.FromPart(local.Transform(skinToVehicle).Transform(vehicleToTank));
+            double3 ahead = form.FromPart((local + directionLocal).Transform(skinToVehicle).Transform(vehicleToTank));
+
+            double3 felt = Settled(tank, KsaWorld.FeltAccelerationAsmb(craft));
+            double fill = Math.Min(volume / tank.StorageVolume, 1.0);
+            bool floating = TankLeak.Weightless(Vec.Len(felt));
+            double3 up = floating ? Vec.Zero
+                                  : Vec.Unit(form.DirectionFromPart(felt.Transform(vehicleToTank) - Vec.Zero.Transform(vehicleToTank)));
+            double surface = floating ? 0.0 : TankLeak.SurfaceHeight(form.Points, up, fill, _scratch);
+
+            double longest = 2.0 * Math.Sqrt((form.Length * form.Length) + (4.0 * form.Radius * form.Radius));
+            double wet = HydroRam.WetPath(form.Holds, entry, ahead - entry, up, surface, floating, fill, longest);
+
+            path = new LiquidPath(wet, mass / volume, fill, tank.StorageVolume, form.Radius);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // Gas tanks whose wall gave way this measurement, broken together per craft; and every part already
+    // sent, since the failure lands on a later frame and the holes are still there until it does.
+    private static readonly Dictionary<Vehicle, List<Part>> _bursting = new(ReferenceEqualityComparer.Instance);
+    private static readonly HashSet<Part> _burst = new(ReferenceEqualityComparer.Instance);
+
     /// <summary>How many tanks are leaking now.</summary>
     public static int Count => _leaking.Count;
 
@@ -157,6 +244,8 @@ internal static class Leaks
     /// <summary>Works the leaks out every <see cref="MeasureSeconds"/> and places the streams every frame.</summary>
     public static void Update(double dt)
     {
+        if (double.IsFinite(dt) && dt > 0.0) _simSeconds += dt;
+
         if (!Enabled || BulletHoles.Count == 0)
         {
             if (_leaking.Count > 0 || _streams.Count > 0) Clear();
@@ -184,6 +273,8 @@ internal static class Leaks
         _jets.Clear();
         _leaking.Clear();
         _owed.Clear();
+        _bursting.Clear();
+        _burst.Clear();
         _sinceMeasured = 0.0;
     }
 
@@ -258,6 +349,31 @@ internal static class Leaks
         }
 
         foreach (Tank tank in _gone) _byTank.Remove(tank);
+
+        if (_bursting.Count > 0) Burst();
+    }
+
+    private static void Burst()
+    {
+        KsaWorld.WaitForVehicleSolvers();
+
+        foreach ((Vehicle craft, List<Part> parts) in _bursting)
+        {
+            if (!KsaWorld.IsAlive(craft)) continue;
+
+            foreach (Part part in parts) PartHealth.World.Hit(part, 1.0, 1.0);
+
+            if (KsaWorld.LosingThatManyPartsIsFatal(parts.Count, KsaWorld.PartCount(craft)))
+            {
+                Log.Info($"a bursting tank destroyed {KsaWorld.DisplayName(craft)}");
+                KsaWorld.Destroy(craft, blastSeverity: 50f);
+                continue;
+            }
+
+            KsaWorld.TryQueuePartFailure(craft, parts);
+        }
+
+        _bursting.Clear();
     }
 
     // One tank's level, flow and debt. False when nothing runs out of it.
@@ -298,9 +414,7 @@ internal static class Leaks
         double3[] points = form.Points;
 
         double3 raw = KsaWorld.FeltAccelerationAsmb(craft);
-        StrongBox<double3> settling = _settled.GetValue(tank, _ => new StrongBox<double3>(raw));
-        settling.Value = TankLeak.Settle(settling.Value, raw, step);
-        double3 felt = settling.Value;
+        double3 felt = Settled(tank, raw);
         double pull = Vec.Len(felt);
         double fill = Math.Min(volume / tank.StorageVolume, 1.0);
         bool floating = TankLeak.Weightless(pull);
@@ -399,6 +513,23 @@ internal static class Leaks
         double outside = craft.Parent is Celestial body ? KsaWorld.AtmosphericPressureAt(body, craft.GetPositionEcl()) : 0.0;
 
         Openings(_forms.GetValue(tank, static t => FormOf(t)), holes, vehicleToTank);
+
+        if (KsaWorld.TryTankWall(tank, out TankWall wall) && !_burst.Contains(tank.Parent.FullPart))
+        {
+            foreach ((BulletHoles.Hole hole, _, _) in _openings)
+            {
+                if (!wall.Bursts(pascals, outside, hole.Core)) continue;
+
+                Part part = tank.Parent.FullPart;
+                _burst.Add(part);
+                if (!_bursting.TryGetValue(craft, out List<Part>? parts)) _bursting[craft] = parts = [];
+                parts.Add(part);
+                Log.Info($"gas tank {part.Id} on {KsaWorld.DisplayName(craft)} burst: {pascals / 1.0e5:F1} bar "
+                         + $"through a {hole.Core * 2000.0:F0} mm opening, which its wall holds to "
+                         + $"{wall.HoldsPascals(hole.Core) / 1.0e5:F1} bar");
+                return false;
+            }
+        }
 
         double flow = 0.0;
         foreach ((BulletHoles.Hole hole, _, _) in _openings)
@@ -547,8 +678,10 @@ internal static class Leaks
             return new Form
             {
                 Points = TankLeak.FillPoints(holds),
-                Holds = p => fitted.Contains(p, TankLeak.SkinShare),
+                Holds = p => fitted.EnvelopeContains(p, TankLeak.SkinShare),
                 Described = $"its own shape fitted to its box, {fitted}",
+                Radius = fitted.Extent.Radius,
+                Length = high - low,
                 Origin = centre + (x * (0.5 * (lowX + highX) - (0.5 * (low + high)))),
                 AxisX = x,
                 AxisY = y,
@@ -561,6 +694,8 @@ internal static class Leaks
             Points = TankLeak.FillPoints(min, max),
             Holds = p => TankLeak.IsInTank(min, max, p),
             Described = $"the cylinder filling its box, {min} to {max}",
+            Radius = 0.5 * Math.Min(Math.Min(max.X - min.X, max.Y - min.Y), max.Z - min.Z),
+            Length = Math.Max(Math.Max(max.X - min.X, max.Y - min.Y), max.Z - min.Z),
         };
     }
 
@@ -662,10 +797,14 @@ internal static class Leaks
         }
 
         double3 exit = default, velocity = default;
+        double3 normalTip = default;
         bool flowing = jet.Flowing
                        && KsaWorld.TryDrawnPartPointEcl(hole.SubPart, hole.Local, out double3 at)
                        && KsaWorld.TryDrawnPartPointEcl(hole.SubPart, hole.CameFrom, out double3 cameFrom)
-                       && Outward(at, cameFrom, jet.Outlet.JetSpeed, jet.InsetMetres, centre, out exit, out velocity);
+                       && (Vec.Len2(hole.Normal) <= 0.0
+                           || KsaWorld.TryDrawnPartPointEcl(hole.SubPart, hole.Local + hole.Normal, out normalTip))
+                       && Outward(at, cameFrom, normalTip, jet.Outlet.JetSpeed, jet.InsetMetres, centre, out exit,
+                                  out velocity);
 
         jet.Jet.Step(dt, exit, velocity, Vec.IsFinite(pull) ? pull : Vec.Zero, flowing);
         if (!flowing && jet.Jet.Empty) return false;
@@ -719,12 +858,20 @@ internal static class Leaks
         }
     }
 
-    // Where a stream leaves the hull, relative to the craft's centre, and how fast: out along the way
-    // the shell came in, from the skin as the dents have left it.
-    private static bool Outward(double3 at, double3 cameFrom, double jetSpeed, double inset, double3 centre,
-                                out double3 exit, out double3 velocity)
+    // Where a stream leaves the hull, relative to the craft's centre, and how fast: square to the skin,
+    // as liquid leaves a hole, turned to the side the shell came from; back along the shell's path where
+    // the skin's normal was not read. From the skin as the dents have left it.
+    private static bool Outward(double3 at, double3 cameFrom, double3 normalTip, double jetSpeed, double inset,
+                                double3 centre, out double3 exit, out double3 velocity)
     {
-        double3 outward = Vec.Unit(cameFrom - at);
+        double3 back = Vec.Unit(cameFrom - at);
+        double3 outward = back;
+        if (Vec.Len2(normalTip) > 0.0)
+        {
+            double3 normal = Vec.Unit(normalTip - at);
+            if (Vec.IsFinite(normal)) outward = Vec.Dot(normal, back) < 0.0 ? -normal : normal;
+        }
+
         exit = at - (outward * inset) - centre;
         velocity = outward * jetSpeed;
         return Vec.IsFinite(exit) && Vec.IsFinite(velocity);

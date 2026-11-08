@@ -5,10 +5,10 @@
     ./tools/wiki/models.py --check       # resolve and place every part, write nothing
 
 An atlas is not a viewable model: its meshes sit at their own pivots, carry no material, and KSA puts
-them together from KSArmoryAssets.xml at load. This does the same: each <SubPart>'s PartModel mesh,
+them together from KSArmoryAssets.xml at load. This does the same: each placed <SubPart>'s PartModel mesh,
 looked up by mesh name with the first atlas winning, placed by the subpart's <Transform> (KSA's Euler
-rule, from tools/model/checkmesh.py, so there is one transcription), with its <PbrMaterial>'s textures
-as a glTF material. KSA ignores an atlas's own nodes, materials and vertex colours, so this does too.
+rule, from tools/model/checkmesh.py, so there is one transcription), with the <Texture>s its
+<PbrMaterial> names as a glTF material. KSA ignores an atlas's own nodes, materials and vertex colours, so this does too.
 
 Standard library only, and the textures are embedded as the PNGs they are: the CI step after this
 (gltf-transform) resizes and compresses them.
@@ -29,7 +29,7 @@ from checkmesh import euler_quaternion, read_glb  # noqa: E402
 # A round the mod parks before it is fired is <Scale 0.001>; nothing a player sees is that small.
 PARKED_SCALE = 0.01
 
-# Models of hardware that is not a part of its own: (the part carrying it, the subpart Id marker that
+# Models of hardware that is not a part of its own: (the part carrying it, the subpart Key marker that
 # selects it). A missile's launch rail is declared parked on each missile part and shown only when attached.
 VIEWS = {"KSArmory_Prefab_LaunchRail": ("KSArmory_Prefab_Aim9J", "LaunchRail")}
 
@@ -70,16 +70,20 @@ class Assets:
 
     def __init__(self) -> None:
         root = ET.parse(MOD / "KSArmoryAssets.xml").getroot()
-        self.parts = {p.get("Id"): p for p in root.findall("Part")}
-        self.materials = {m.get("Id"): {slot: m.find(slot).get("Path")
+        # A part or subpart carrying Modify is a patch over one declared elsewhere, never a declaration.
+        self.parts = {p.get("Id"): p for p in root.findall("Part") if p.get("Modify") is None}
+        textures = {t.get("Id"): t.get("Path") for t in root.findall("Texture")}
+        self.materials = {m.get("Id"): {slot: textures[m.find(slot).get("Ref")]
                                         for slot in ("Diffuse", "Normal", "AoRoughMetal") if m.find(slot) is not None}
                           for m in root.findall("PbrMaterial")}
         self.templates: dict[str, tuple[str, str, bool]] = {}
         for template in root.findall("SubPart"):
+            if template.get("Modify") is not None:
+                continue
             for tag, glass in (("PartModel", False), ("PartModelGlass", True)):
-                if (model := template.find(tag)) is not None:
-                    self.templates[template.get("Id")] = (model.find("Mesh").get("Id"),
-                                                          model.find("Material").get("Id"), glass)
+                if (model := template.find(f"Components/{tag}")) is not None:
+                    self.templates[template.get("Id")] = (model.find("Mesh").get("Ref"),
+                                                          model.find("Material").get("Ref"), glass)
 
         self.atlases = []
         self.mesh_atlas: dict[str, int] = {}
@@ -89,16 +93,22 @@ class Assets:
             for mesh in gltf["meshes"]:
                 self.mesh_atlas.setdefault(mesh["name"], len(self.atlases) - 1)
 
+    def drawable(self) -> list[str]:
+        """Every part and view with art of this mod's: one assembled wholly from Core's kit has none to draw."""
+        own = [p for p, part in self.parts.items()
+               if not all(sub.get("Ref", "").startswith("Core") for sub in part.findall("SubParts/SubPart"))]
+        return [*own, *VIEWS]
+
     def placements(self, part_id: str) -> list[tuple[str, str, str, bool, list, list, list]]:
         """(subpart id, mesh, material, glass, position, rotation, scale) for every subpart shown."""
         base, marker = VIEWS.get(part_id, (part_id, None))
         shown = []
-        for sub in self.parts[base].findall("SubPart"):
-            if marker is not None and marker not in sub.get("Id", ""):
+        for sub in self.parts[base].findall("SubParts/SubPart"):
+            if marker is not None and marker not in sub.get("Key", ""):
                 continue
-            template = sub.get("InstanceOf")
+            template = sub.get("Ref")
             if template not in self.templates:
-                raise SystemExit(f"models: {part_id} subpart {sub.get('Id')} names template '{template}', "
+                raise SystemExit(f"models: {part_id} subpart {sub.get('Key')} names template '{template}', "
                                  "which declares no PartModel")
             mesh, material, glass = self.templates[template]
             transform = sub.find("Transform")
@@ -112,7 +122,7 @@ class Assets:
                 raise SystemExit(f"models: {part_id} needs mesh '{mesh}', which no <MeshAtlas> holds")
             if material not in self.materials:
                 raise SystemExit(f"models: {part_id} needs material '{material}', which is not declared")
-            shown.append((sub.get("Id"), mesh, material, glass, vector(find("Position"), (0, 0, 0)),
+            shown.append((sub.get("Key"), mesh, material, glass, vector(find("Position"), (0, 0, 0)),
                           list(euler_quaternion(vector(find("Rotation"), (0, 0, 0)))), scale))
         return shown
 
@@ -247,7 +257,7 @@ def assemble(assets: Assets, part_id: str) -> bytes:
 def check(assets: Assets) -> list[str]:
     """Every part resolves, and stands on its mounting face or hangs from it, never lies on its side."""
     faults = []
-    for part_id in [*assets.parts, *VIEWS]:
+    for part_id in assets.drawable():
         if not assets.placements(part_id):
             faults.append(f"{part_id}: no subpart would be shown")
             continue
@@ -278,9 +288,10 @@ def main() -> int:
         parser.error("an output directory, or --check")
 
     args.out.mkdir(parents=True, exist_ok=True)
-    for part_id in [*assets.parts, *VIEWS]:
+    drawable = assets.drawable()
+    for part_id in drawable:
         (args.out / f"{slug(part_id)}.glb").write_bytes(assemble(assets, part_id))
-    print(f"models: {len(assets.parts) + len(VIEWS)} models written to {args.out}")
+    print(f"models: {len(drawable)} models written to {args.out}")
     return 0
 
 

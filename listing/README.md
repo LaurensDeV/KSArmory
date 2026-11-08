@@ -11,6 +11,9 @@ developers and ships in the archive; this folder is the store page.
 | `icon.png` | Borea's icon: square, 256–2048 px, at most 256 KiB |
 | `images/` | screenshots the description shows: PNG, or JPEG for anything photographic, at most 2048 px and 1 MiB, 16 in all |
 
+The weapon pictures are drawn from the wiki's model stills: build the wiki (`./tools/wiki/build.py`),
+then `node tools/wiki/listing-sheets.mjs wiki/build/docs` redraws them.
+
 Write an image as `![alt](images/<id>.png)`, so it previews on GitHub as written. The file name
 is its id: letters, digits, `-` and `_`. `./tools/listing.py --check` fails on a missing, oversized
 or unreferenced image.

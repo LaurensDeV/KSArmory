@@ -61,16 +61,6 @@ mapfile -t NAMES < <(grep -ohP '(?<=\$\(KsaDllDir\))[A-Za-z0-9._]+(?=\.dll)' \
     "$REPO_ROOT"/src/KSArmory/*.csproj "$REPO_ROOT"/tests/*/*.csproj | sort -u)
 [[ ${#NAMES[@]} -gt 0 ]] || { echo "error: no \$(KsaDllDir) references found in the csproj files" >&2; exit 1; }
 
-# In --game mode, compare only what the install actually ships. StarMap.API.dll comes from the
-# loader rather than the game, so demanding it here would report a KSA update on every run.
-if (( GAME )); then
-    present=()
-    for name in "${NAMES[@]}"; do
-        [[ -f "$DIR/$name.dll" ]] && present+=("$name")
-    done
-    NAMES=("${present[@]}")
-fi
-
 digests() {
     for name in "${NAMES[@]}"; do
         local path="$DIR/$name.dll"

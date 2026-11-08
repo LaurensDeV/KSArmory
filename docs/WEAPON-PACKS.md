@@ -178,7 +178,7 @@ the file is still read. (KSArmory's own files carry a
 `Family` attribute, which is refused on a pack.)
 
 Inside it you can put any number of `<Munition>`, `<Sensor>`, `<Decoy>`, `<Launcher>`, `<Optic>`,
-`<SearchSet>` and `<Dispenser>` elements, in any order. Any other element is refused and logged.
+`<SearchSet>`, `<Dispenser>`, `<ArmourMaterial>` and `<Armour>` elements, in any order. Any other element is refused and logged.
 
 ## `<Munition>`: a round
 
@@ -522,6 +522,31 @@ decoy. Every dispenser of the same kind on a craft fires when the button is pres
 | `EjectDirection` | three numbers, `x, y, z` | `1, 0, 0` | Direction they leave in, part space. |
 | `EjectSpeed` | number | `30` | Ejection speed, m/s. |
 
+## `<ArmourMaterial>`: what a plate is made of
+
+**Required:** `Name`, `DisplayName`, and a `DensityKgPerM3` and `LambertCoefficient` above zero. A round
+against a plate is judged by Lambert's ballistic limit (BRL-MR-3960); `docs/ARMOUR-PLAN.md` has the law.
+
+| Attribute | Values | Default | Meaning |
+| --- | --- | --- | --- |
+| `DensityKgPerM3` | number | required | The material's density. |
+| `LambertCoefficient` | number | required | The constant `a` in Lambert's ballistic limit, with lengths in cm, mass in g and speed in m/s: 4,000 for rolled steel armour, 1,750 for aluminium. Higher stops more. |
+| `ResistanceMPa` | number | `0` | Tate's target resistance, which decides whether a round that does not get through glances off. `0` means nothing glances. |
+
+## `<Armour>`: an armour plate part
+
+**Required:** `PartId`, `Material`, and a `ThicknessMm` above zero. A plate gets no row in the panel and does
+not make a craft a weapons system. Its mass is the part's own, from its part definition; make it the plate's
+area times its thickness times the material's density. `validate-parts.py --mod-root` checks that: the
+part's `SolidCuboidMass` is the thickness thin, its mass is between half and all of its face times the
+thickness and density, its name states the thickness, and the part is one the pack declares — a plate on
+somebody else's part would stop rounds and weigh nothing.
+
+| Attribute | Values | Default | Meaning |
+| --- | --- | --- | --- |
+| `Material` | name | required | The `<ArmourMaterial>` it is made of. |
+| `ThicknessMm` | number | required | The plate's thickness, square to its face. |
+
 ## Your own effects
 
 A burst, a motor plume and a muzzle flash are ordinary KSA assets. Declare an `<Explosion>` or a
@@ -600,8 +625,8 @@ subpart `Mk8200` so that `BodyMarker="Mk82"` matches it and nothing else.
 ## Part rules that come from KSA
 
 - **Never remove a `<SubPart>` from a part you have released.** KSA matches a saved part's subparts
-  to the current definition by position, so a removed one makes KSA drop every craft holding the part
-  when a save loads, and the next save makes that permanent. Adding subparts at the end is safe. To retire one, leave a stub in its place.
+  to the current definition by position, so after a removed one every later subpart loads with its
+  neighbour's saved state. Adding subparts at the end is safe. To retire one, leave a stub in its place.
 - **Do not rename a released `<Part>` Id.** A save refers to parts by Id, and KSA drops any craft
   that names a part that no longer exists. Treat `<SubPart>` template Ids the same way.
 - **Do not give your part instances their own names.** KSArmory recognises a part by `Part.Id`,
@@ -614,6 +639,65 @@ subpart `Mk8200` so that `BodyMarker="Mk82"` matches it and nothing else.
   launcher that a sight should fit onto.
 - **File names are case-sensitive on Linux.** A path that differs only in case works on Windows and
   fails on Linux.
+
+## Changing a part you did not write
+
+Since KSA 2026.11.10.5801 any mod can change any part, KSArmory's, Core's or another pack's, without
+copying it. Write a row with the part's `Id` and a `Modify` verb in one of your asset files:
+
+```xml
+<Assets>
+  <!-- The Phalanx at half its mass, and named so you can tell. -->
+  <Part Id="KSArmory_Prefab_Ciws" Modify="Patch" DisplayName="Mk 15 Phalanx (light)">
+    <InertMasses Modify="Replace">
+      <SolidSphereMass>
+        <Mass Kg="3100" />
+        <Radius M="1.20" />
+      </SolidSphereMass>
+    </InertMasses>
+  </Part>
+
+  <!-- Core's capsule with a 12 mm oxygen bottle, where Core's is 8.3 mm. -->
+  <Part Id="CoreCommandA_Prefab_MediumCapsuleVariantA" Modify="Patch">
+    <Components Modify="Extend">
+      <Tank Key="OxygenBottle" Modify="Patch">
+        <SphericalTank>
+          <LocationAsmb X="-0.3601690873" />
+          <Material Ref="Aluminum.2014" Phase="Solid" />
+          <OuterRadius M="0.175" />
+          <WallThickness Mm="12" />
+          <RoleAffinity>Air</RoleAffinity>
+        </SphericalTank>
+      </Tank>
+    </Components>
+  </Part>
+</Assets>
+```
+
+Flown on 2026.11.10.5801: the `CIWS` save's Phalanx craft went from 6,820.7 kg to 3,720.7 kg, and its
+Gemini 7 from 37,386.7 kg to 37,392.2 kg, with nothing in KSA's log.
+
+- **`Patch`** merges into what is there, **`Extend`** opens a list to add to or to change items in by their
+  `Key`, **`Replace`** swaps the whole element, **`Remove`** deletes it. `PatchIfExists`,
+  `ReplaceIfExists` and `RemoveIfExists` do nothing when the target is missing, where the plain forms
+  are a content error in KSA's log.
+- **A list item is found by its `Key`, or by its `Ref` when it has none, never by its position.** So
+  only keyed items can be changed one at a time: connectors, colliders and keyed components such as
+  that oxygen bottle. A part's masses take no `Key`, and putting one on makes KSA refuse the part, so a
+  mass is changed by `Replace` on the whole `<InertMasses>`, restating every mass in it. Core's fuel
+  tanks' `<Tank>` has no key either; change one with `Replace` on the part's `<Components>`.
+- **An element inside a patched item is replaced, not merged.** Patching the bottle with a
+  `<SphericalTank>` holding only `<WallThickness>` throws away its material and size, and KSA refuses the
+  capsule. Restate the whole element, as above.
+- **A patch applies after what it changes.** Mods load in the order of KSA's `manifest.toml`, and files
+  in the order of each `mod.toml`'s `assets`. List your mod after the one whose part you patch.
+- **A patch changes every copy of the part**, on every craft in every save. There is no patching one
+  craft's part.
+- **KSArmory's weapon definitions do not take `Modify`.** They are KSArmory's own format, read by its
+  own reader. To change a weapon, declare it again (see [Replacing a built-in weapon](#replacing-a-built-in-weapon)).
+
+A patch KSA cannot apply is reported in its log by file and part, and a part it refuses takes every
+craft holding it out of the save being loaded.
 
 ## Registering from code
 
@@ -658,8 +742,8 @@ behaviour:
   sliding rail, tubes that move on their own, or a radar aimed separately from the turret. The visual
   parts above (recoil, rams, feeds, rotary barrels, ejector arms, a spinning search array) and the
   sight and search-set heads are supported.
-- Armour and penetration. Parts take damage individually and keep it between hits, but every part
-  takes damage the same way. A pack can set the size of a charge, not what a part is made of.
+- What a part other than a plate or a tank is made of. A plate's material and thickness are a pack's,
+  and a tank's wall is KSA's; every other part takes damage by its mass and crash tolerance alone.
 
 These need changes to KSArmory itself. See [MODULARITY.md](MODULARITY.md),
 [EXTENSIBILITY.md](EXTENSIBILITY.md) and, for porting from a KSP weapon mod,

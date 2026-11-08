@@ -84,6 +84,28 @@ public class TankLeakTests
         Assert.False(sphere.Contains(new double3(0.7, 0.7, 0.3)));
     }
 
+    // Core's 3 m by 3 m tank as its template declares it -- a 3 m radius for the volume model, KSA's
+    // default dome -- fitted into its 3 m box, and three holes its mesh took from Phalanx darts, flown.
+    [Fact]
+    public void AHoleOnACoreTanksSkinNearItsEndIsInTheTankAndARacewayIsNot()
+    {
+        TankShape tank = TankShape.Conical(3.0, 3.0, 3.0, 1.0 / Math.Sqrt(2.0)).FitTo(3.0, 1.5);
+        double3[] holes =
+        [
+            new(-1.4404, -0.0945, -1.4938),
+            new(-1.2397, -0.1555, -1.4898),
+            new(-1.5067, 0.3874, 1.4171),
+        ];
+
+        foreach (double3 hole in holes)
+        {
+            Assert.False(tank.Contains(hole, TankLeak.SkinShare));
+            Assert.True(tank.EnvelopeContains(hole, TankLeak.SkinShare));
+        }
+
+        Assert.False(tank.EnvelopeContains(new double3(0.0, 1.7, 0.0), TankLeak.SkinShare));
+    }
+
     /// <summary>A cone narrows toward its top, and its domes end at their height past the straight.</summary>
     [Fact]
     public void AConeNarrowsAndItsDomesEnd()

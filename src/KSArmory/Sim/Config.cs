@@ -57,15 +57,6 @@ public sealed class Config
     public float MotorSmokeWidth = 1f;
 
     /// <summary>
-    /// Show the little floating button that reopens the panel.
-    ///
-    /// <para>The menu-bar entry appends to KSA's own bar, which is ImGui behaviour rather than a hook, so
-    /// this stays on by default, with <b>ModMenu</b> too: the control to restore it is inside the shut
-    /// panel.</para>
-    /// </summary>
-    public bool FloatingPanelButton = true;
-
-    /// <summary>
     /// Draw the mushroom clouds a nuclear burst leaves standing.
     ///
     /// <para>Costs about <b>6-8 ms a frame</b> while they stand (fourteen shots, 2026-09-09-walk2), so a
@@ -110,7 +101,8 @@ public sealed class Config
     /// <summary>
     /// How much of a part's health a burst takes, as a multiple of its <see cref="BlastDamage.Share"/>
     /// (<see cref="PartHealth"/>): at one a fresh part breaks where the sweep breaks it, at a tenth the
-    /// burst has to land ten times. No one hit costs more than a whole share.
+    /// burst has to land ten times. No one hit costs more than a whole share. A tank's wall is divided by it
+    /// too (<see cref="TankWall.Scaled"/>), so what gets through one and what bursts one follow the same slider.
     /// </summary>
     public float DamageScale = 1f;
 

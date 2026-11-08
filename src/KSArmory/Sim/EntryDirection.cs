@@ -20,13 +20,9 @@ internal static class EntryDirection
     {
         if (!air.HasAir || !(speed > 0.0)) return double.NaN;
 
-        // ratio(h) * v^2 = NoAuthoritySpeed^2, ratio(h) = (rho0 / reference) * exp(-h / H)
-        double atSea = air.SeaLevelDensity / Medium.ReferenceDensityKgPerM3 * speed * speed;
+        // ratio(h) * v^2 = NoAuthoritySpeed^2
         double threshold = BodyAttitude.NoAuthoritySpeed * BodyAttitude.NoAuthoritySpeed;
-        if (!(atSea > threshold)) return 0.0;
-
-        double h = air.ScaleHeightMetres * Math.Log(atSea / threshold);
-        return air.BoundaryMetres > 0.0 ? Math.Min(h, air.BoundaryMetres) : h;
+        return air.AltitudeOfDensity(threshold / (speed * speed) * Medium.ReferenceDensityKgPerM3);
     }
 
     /// <summary>

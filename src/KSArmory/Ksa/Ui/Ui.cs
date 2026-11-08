@@ -102,17 +102,13 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     ];
 
     /// <summary>
-    /// Adds a top-level <c>KSArmory</c> menu to the game's menu bar, which has no extension point:
-    /// ImGui's main menu bar appends when reopened in the same frame. Top-level rather than under
-    /// <c>Mods</c>, which ModMenu owns and splices in by transpiling <c>Program.DrawMenuBar</c>.
+    /// Adds a top-level <c>KSArmory</c> menu to the game's menu bar, for what StarMap's Mods menu cannot
+    /// hold: its item is a button, and the built-in families need a submenu.
     /// <para>Called <b>before</b> KSA's GUI pass: after it, <c>BeginMainMenuBar</c> returns false
     /// because the bar has been ended for the frame.</para>
     /// </summary>
     public void DrawMenuBarEntry()
     {
-        // ModMenu draws the entry when installed (DrawModMenu); a second would list it twice.
-        if (ModMenuPresence.Installed) return;
-
         try
         {
             if (!ImGui.BeginMainMenuBar()) return;
@@ -131,7 +127,7 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             if (_warnedMenuBar) return;
 
             _warnedMenuBar = true;
-            Log.Warn($"menu bar entry failed, use the floating button: {e.Message}");
+            Log.Warn($"menu bar entry failed, open the panel from Mods > KSArmory: {e.Message}");
         }
     }
 
@@ -184,37 +180,8 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
         return label.ToString();
     }
 
-    // Said once: a failure inside a menu build repeats every frame the menu is open.
-    private static bool _warnedModMenu;
-
-    /// <summary>
-    /// Called by ModMenu, found by the attribute's name. Static because ModMenu resolves an
-    /// instance only for a few hardcoded method names; <see cref="Current"/> is null before the first draw.
-    /// </summary>
-    [ModMenuEntry("KSArmory")]
-    public static void DrawModMenu()
-    {
-        // Unwrapped, anything thrown here lands in ModMenu's menu build instead of this log.
-        try
-        {
-            Current?.DrawMenuContents();
-        }
-        catch (Exception e)
-        {
-            if (_warnedModMenu) return;
-            _warnedModMenu = true;
-            Log.Warn($"ModMenu entry failed, so its Panel item will not work: {e.Message}. "
-                     + "Reopen from the floating KSArmory button instead.");
-        }
-    }
-
-    /// <summary>The panel ModMenu should drive.</summary>
-    internal static Ui? Current { get; private set; }
-
     public void Draw()
     {
-        Current = this;
-
         // A different hook from the simulation step, and either can run without the other.
         KsaWorld.InvalidateCensus();
 
@@ -274,18 +241,6 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
                 ImGui.EndChild();
 
                 DrawReportFooter();
-            }
-
-            ImGui.End();
-        }
-        else if (_config.FloatingPanelButton)
-        {
-            // The only route back this mod controls, so it is not suppressed where ModMenu would
-            // offer one: the setting to switch it on is inside the shut panel.
-            if (ImGui.Begin("KSArmory##reopen",
-                            ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar))
-            {
-                if (ImGui.Button("KSArmory")) Visible = true;
             }
 
             ImGui.End();

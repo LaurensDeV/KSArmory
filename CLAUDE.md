@@ -249,7 +249,7 @@ parses as it is.
 ## Environment
 
 - **KSA install**: `/mnt/c/Program Files/Kitten Space Agency` (Windows game, WSL dev)
-- **KSA build these notes were taken against**: `2026.10.25.5707`
+- **KSA build these notes were taken against**: `2026.11.10.5801`
 - The system `dotnet` is 8.0 and **cannot build this** — the mod targets **net10.0**
   (`error NETSDK1045`). A .NET 10 SDK is installed at `~/.dotnet`.
   **Use `tools/build.sh` / `tools/test.sh`**, which source `tools/env.sh` to fix PATH. Bare
@@ -385,8 +385,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/BlastShove.cs` | what that wind does to a craft, **part by part**, summed into a kick and a turn about the centre of mass — a tall rocket hit side-on tips because it is pushed hardest above its middle |
 | `Sim/ViewShake.cs` | the view thrown about as a front passes the eye — a jolt then a rattle, as hard as the real overpressure there |
 | `Sim/BlastDamage.cs` | which parts of a craft a burst breaks — **nothing here picks a part**: each is judged on its own distance and the strength the engine derived for it |
-| `Sim/HoleLook.cs` | how big a shell's mark on a hull is — the hole at one and a half calibres, the soot by the cube root of the charge |
-| `Sim/TankLeak.cs` | where the liquid in a holed tank stands and how fast it runs out — **the surface square to the acceleration the craft feels**, followed with a 1.5 s lag because liquid crossing a tank takes seconds (read raw, a coasting craft's attitude pulses settled and floated it several times a second), found by counting points spread through the tank's own shape rather than solving a tilted one: `TankShape` is KSA's one family of tank, a truncated cone with a dome each end, its kind and proportions read off the template by `KsaWorld.TryTankShape` and **fitted into the part's box**, because a template is sized to KSA's volume model and not its mesh (the stock 3 m tank's is 3 m in *radius*) while the holes are on the mesh; the plain cylinder in the box where it cannot be read, and Bernoulli's rate through each hole under it, `√(2P/ρ + 2ah)` — **only a hole inside that shape, give or take the skin**, so a raceway holed on the same part leaks nothing. KSA gives a liquid no pressure, so the tank's is the mod's, **0.2 bar and held constant**: low enough that depth and pull still double or halve a leak, where a flight tank's couple of bar would make the hole's place irrelevant, and enough that a **coasting craft** — its liquid floating, wetting the walls — leaks from any hole as often as the tank is full; **a gas tank vents by its own pressure**, which KSA now keeps (`Mole.GetPressure`) at a held temperature: choked from any hole inside the shape while it is at twice the air outside, so it decays exponentially, at a γ of 1.4 since KSA declares none |
+| `Sim/HoleLook.cs` | how big a shell's mark on a hull is — an exploding shell's hole at a radius of one and a half calibres, an inert dart's little wider than itself, the soot by the cube root of the charge |
+| `Sim/TankLeak.cs` | where the liquid in a holed tank stands and how fast it runs out — **the surface square to the acceleration the craft feels**, followed with a 1.5 s lag because liquid crossing a tank takes seconds (read raw, a coasting craft's attitude pulses settled and floated it several times a second), found by counting points spread through the tank's own shape rather than solving a tilted one: `TankShape` is KSA's one family of tank, a truncated cone with a dome each end, its kind and proportions read off the template by `KsaWorld.TryTankShape` and **fitted into the part's box**, because a template is sized to KSA's volume model and not its mesh (the stock 3 m tank's is 3 m in *radius*) while the holes are on the mesh; the plain cylinder in the box where it cannot be read, and Bernoulli's rate through each hole under it, `√(2P/ρ + 2ah)` — **only a hole inside the cylinder round that shape, give or take the skin** -- the domes are the volume model's and meet in the middle of Core's 3 m tank, whose mesh is a cylinder -- so a raceway holed on the same part leaks nothing. KSA gives a liquid no pressure, so the tank's is the mod's, **0.2 bar and held constant**: low enough that depth and pull still double or halve a leak, where a flight tank's couple of bar would make the hole's place irrelevant, and enough that a **coasting craft** — its liquid floating, wetting the walls — leaks from any hole as often as the tank is full; **a gas tank vents by its own pressure**, which KSA now keeps (`Mole.GetPressure`) at a held temperature: choked from any hole in the tank while it is at twice the air outside, so it decays exponentially, at a γ of 1.4 since KSA declares none |
 | `Sim/HoleMerge.cs` | holes in one skin close enough to tear into each other taken as one opening — **their whole area at its area-weighted middle**, nearer than twice their radii together or 15 cm, chaining along a row of hits — so a burst leaks as one jet rather than a bundle of threads, kept under its first hole so a later hit joining it does not restart the stream |
 | `Sim/LeakStream.cs` | a hole's stream, **flown parcel by parcel** (`LeakJet`) in a frame riding with the craft but not turning with it, under the pull the craft feels reversed — so a throttle change bends it from the hole outward and a turn swings it, where an arc solved for the acceleration of the moment re-bends whole in a frame; thinning as it speeds up (`r ∝ 1/√v`) and whole for about thirty diameters before it is drops |
 | `Sim/PartHealth.cs` | what is left of each part, from one down to nothing — a hit costs its share times `Config.DamageScale`, never more than a whole share at once, and a load short of breaking is not forgotten |
@@ -395,6 +395,13 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/PartFire.cs` | parts on fire — lit by a hit on a part holding propellant — the munition's `IgnitionChance` for its own strike and `FragmentIgnitionChance` for each fragment — burning it out in 20–100 s, **a fifth going up at once** rather than burning |
 | `Sim/Paintball.cs` | **paintball**: a hit marks what it struck with the shooter's paint and harms nothing (`Config.Paintball`, the damage slider's far left) -- one hue a team, stable across sessions, and a splat a hand across for a shell and metres for a warhead |
 | `Sim/PartToughness.cs` | how much energy breaks a part — **its mass to the two thirds**, so size buys toughness where KSA's tolerance reads only density — and what a burst's intercepted share, a fragment or a shell's own impact pays against it; a round in the air is a fraction as tough, since one fragment through its warhead or motor ends it |
+| `Sim/TankWall.cs` | a tank's wall as KSA declares it -- thickness, yield, rating -- and **what gets through it**: a dart or a fragment holes it only with more energy than shearing a plug of its own size out of what is left there -- one that stops dents it (`Sim/WallCraters.cs`), and a fragment that stops costs the share of the wall it got through -- and a holed gas tank **bursts** where its pressure beats the hoop stress a through-crack of the hole's radius stands, one aluminium-like toughness for every material since KSA declares none. The wall is divided by `Config.DamageScale`, so a tenth of the damage is a wall ten times as strong. A tank KSA declares no wall for stops nothing and never bursts |
+| `Sim/HydroRam.cs` | what a round entering a tank's liquid does to the tank — **the speed past which the liquid's push cracks the wall at the hole**, fitted to NASA TM X-52063's table I (2014-T6, loaded to yield, 5.56 mm spheres) and scaled by wall, size, load, liquid and mass per area; the energy the liquid takes off the round; and **the cavity's pressure rise as an energy balance** against the ullage gas and the wall's give, finite for a full tank. The wall's load is a flight tank's 3 bar, since KSA gives a liquid none; `docs/HYDRODYNAMIC-RAM.md` |
+| `Sim/ArmourMaterial.cs` | what an armour plate is made of, as the law reads it — density, **Lambert's coefficient** (4,000 rolled steel, 1,750 aluminium, BRL-MR-3960) and Tate's target resistance — read from a definition file, so a pack can add one |
+| `Sim/ArmourProfile.cs` | a part that is an armour plate: its material and thickness. **No component row**, so a craft of plates is not a weapons system |
+| `Sim/ArmourLayer.cs` | a plate's layer and what a round does against it — **Lambert's ballistic limit** with slope as `sec^0.75 θ`, the Lambert–Jonas residual with Lambert's own constants, Rosenberg's glance, the dent of a round that stops, and whether an exploding shell's casing holes it (0.635 calibres of steel, the M56's). Not a tank: nothing here bursts or rams; `docs/ARMOUR-PLAN.md` |
+| `Sim/Penetrator.cs` | **a solid round walked through the parts on its path** — a plate by Lambert's law, a tank by its wall then its liquid through a ram callback, anything else keeping its share — returning each part's share, the dents and the speed left, so spaced plates and a plate in front of a tank follow from the order alone |
+| `Sim/WallCraters.cs` | where darts that did not get through a tank's wall have thinned it -- **as deep as the hit's energy would punch**, since the plug's work grows as the thickness squared -- kept per skin in the skin's frame as the holes are, so a spot hit again needs less: a dart a tenth short of going through gets there on about the fourth hit; the shallowest goes past 32 a skin |
 | `Sim/TargetAllocation.cs` | what one craft's weapons have in the air **between them** — the unit that over-commits is the craft, not the weapon |
 | `Sim/RoundReach.cs` | whether a round the ground stops can still get to it — **the reaper for a store that will never arrive**, because a long fall is long rather than stuck |
 | `Sim/PointGravity.cs` | **the pull every round, store and decoy is flown with** — the inverse square aimed where the body was at the round's own instant, plus the body's own fall toward its primary; a contact's acceleration leaves the fall out, as the ground frame does |
@@ -414,7 +421,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/CloudFlags.cs` | the cloud dispatch's packed flag float — spray, weather, first, **dryness in sevenths** and the front's radius — **exact to 262,143 m**, because every term is an integer under 2^24 and the shader divides by powers of two with nothing added |
 | `Sim/ScorchFootprint.cs` | how far a scorch mark reaches downwind, across and upwind, in patch radii — **the shader's own constants restated**, so the box the cloud pass dispatches a mark over never crops it; `ScorchFootprintTests` compares the two |
 | `Sim/AmbientAir.cs` | the air at a point as density and pressure **against fixed physical references**, not a body's own sea level -- so a threshold calibrated in Earth's air holds on any body -- with a flag for air that could not be read, never a silent sea level |
-| `Sim/BodyAir.cs` | a body's air as numbers, **mirroring KSA's isothermal model exactly** -- `ρ(h)·H` with the declared scale height for the column, one sound speed per body -- so nothing downstream knows which planet it is on |
+| `Sim/BodyAir.cs` | a body's air as numbers, **mirroring KSA's layered model exactly** -- the column hydrostatic, `P(h)/g`, one sound speed per body, the surface's -- so nothing downstream knows which planet it is on; without a profile it is isothermal, which is what the rigs fly |
+| `Sim/AtmosphereProfile.cs` | **KSA's `PhysicalAtmosphere` restated**: temperature linear in geopotential between the declared points and held above the last, pressure hydrostatic through each layer; `KsaWorld.BodyAirOf` logs how far it lands from the engine's own density |
 | `Sim/BodyTraits.cs` | what a burst or a beam needs about a body, read from `Bodies.xml` rather than the game -- field, airglow, condensation, γ, surface, X-ray opacity, which cloud layers are too thin to stop a beam -- **the neutral answer by default**, never Earth's |
 | `Sim/BodyReader.cs` | a mod's `KSArmory/Bodies.xml` read -- text in, and **told from a weapon pack by its root**, since the pack reader would refuse it on every load |
 | `Sim/BodyCatalogue.cs` | every mod's body entries, a later mod restating a body, and the audit that finds an entry naming no body in the system |
@@ -662,7 +670,6 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Ui/UiScope.cs` | the radar scope: what the *set* holds, craft-centred and polar, on the Radar tab (Emitters for the HARM's seeker) — and what the craft's IRSTs hold, marked `IR` |
 | `Ksa/Ui/UiWeapons.cs` | the weapon switcher — which of a craft's weapons the trigger is pointed at, with each one's ammo and arm state |
 | `Ksa/Ui/UiReport.cs` | the one window behind **Report bug** and **Feedback** |
-| `Ksa/Ui/ModMenuEntry.cs` | a copied attribute so ModMenu can list this mod — **wanted gone**, see `docs/BLOCKED-ON-KSA.md` |
 | `Ksa/FeedbackClient.cs` | posts a report to the endpoint, off the frame thread |
 | `Ksa/Visuals.cs` | gizmo rendering |
 | `Ksa/Detonation.cs` | KSA's own explosion where a warhead goes off, anchored to the body rather than the target |
@@ -674,7 +681,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/BlastPuff.cs` | the dust a front throws off the face it strikes — **a sprite the colour of dirt**, because KSA's billboard is unlit and ignores the particle colour |
 | `Ksa/NuclearClouds.cs` | the mushroom clouds standing in the world — **state and the fireball only**: the shape is drawn by `Ksa/CloudPass.cs`, which reads the newest cloud off this and raymarches it |
 | `Ksa/BurstEjecta.cs` | that airless burst drawn, through the particle system — **the renderer that draws on a body with no air**, because a mushroom is buoyant and there is no cloud to draw there. One-shot emitters, so nothing has to hold or return them |
-| `Ksa/CloudPass.cs` | this mod's own compute shader, dispatched inside KSA's frame — **no renderer was ported to get there**: KSA compiles a `<Shader>` asset out of any mod's folder and `ComputePipelineWrapper` builds the descriptor sets. It also bends the view round **every blast front** strong enough to see (`Shaders/KSArmoryShock.comp`): the scene copied, then written back at an offset where a ray grazes the shock's shell, fifteen times what air does because the real one is a pixel — one copy and bend per front, so where fronts cross their bends add, for about 0.06 ms a front and nothing once the camera is inside it, where no ray can graze the shell. The pass is **the march, and the march is the cost**: 2.9 ms of a 3.3 ms pass for one 20 kt cloud from 12 km, 16 ms with the camera 500 m off and the cloud filling the screen, of which the dust ring is about 2.5, the sun taps 0.9 and the weather 0.4 -- the density's noise is the rest, and already rejected exactly before it runs. A **half-resolution grid** (`MarchScale` 2) is a third of the cost -- 16.6 ms to 4.8 up close, 3.0 to 1.1 from 12 km -- and is **off**: the marched pixel turns every frame and the history does not hide it, eight times the flickering pixels at 0.02x. A paused capture cannot show that, since the turn stops with the frame counter; measure flicker at a crawl, never paused. Fewer steps close up was tried and is not in -- the cap came out lighter and streaked. **The count follows the chord instead, at the same spacing**: a ray grazing the bound or stopped by the ground inside it took all 48 steps over a sliver, and half a ground burst's bound is under the ground -- so a full-size 0.3 kt cloud from 1.5 km went from 4.2 ms to 1.5, and from 500 m from up to 15.2 to 7.7, with the same picture to a quarter of a level and no more flicker. `cost` splits it by stage |
+| `Ksa/CloudPass.cs` | this mod's own compute shader, dispatched inside KSA's frame — **no renderer was ported to get there**: KSA compiles a `<Shader>` asset out of any mod's folder and `ComputePipelineWrapper` builds the descriptor sets. It also bends the view round **every blast front** strong enough to see (`Shaders/KSArmoryShock.comp`): the scene copied, then written back at an offset where a ray grazes the shock's shell, fifteen times what air does because the real one is a pixel — one copy and bend per front, so where fronts cross their bends add, for about 0.06 ms a front and nothing once the camera is inside it, where no ray can graze the shell. The pass is **the march, and the march is the cost**: 2.9 ms of a 3.3 ms pass for one 20 kt cloud from 12 km, 16 ms with the camera 500 m off and the cloud filling the screen, of which the dust ring is about 2.5, the sun taps 0.9 and the weather 0.4 -- the density's noise is the rest, and already rejected exactly before it runs. A **half-resolution grid** (`MarchScale` 2) is a third of the cost -- 16.6 ms to 4.8 up close, 3.0 to 1.1 from 12 km -- and is **off**: only the marched pixel of each square is written, the rest marked as unsampled for the resolve to keep, which took the flickering pixels at 0.02x from 30% more than full resolution to 0–12%, on one 20 kt cloud and not yet judged enough. A paused capture cannot show that, since the turn stops with the frame counter; measure flicker at a crawl, never paused. Fewer steps close up was tried and is not in -- the cap came out lighter and streaked. **The count follows the chord instead, at the same spacing**: a ray grazing the bound or stopped by the ground inside it took all 48 steps over a sliver, and half a ground burst's bound is under the ground -- so a full-size 0.3 kt cloud from 1.5 km went from 4.2 ms to 1.5, and from 500 m from up to 15.2 to 7.7, with the same picture to a quarter of a level and no more flicker. `cost` splits it by stage |
 | `Shaders/KSArmoryCloud.comp` | the march: every nuclear cloud into a layer this frame, jittered by the frame number, lit through KSA's own atmosphere header (`Ksa/CoreShaderInclude.cs`) |
 | `Shaders/KSArmoryCloudResolve.comp` | that layer blended with last frame's history where it now lies on screen, and composited into the scene |
 | `Shaders/KSArmoryShock.comp` | the blast front's bend in the light — two dispatches, a copy of the scene and then each pixel written back from it at an offset where the ray grazes the front's shell |
@@ -735,7 +742,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/BallisticScenario.cs` | the ballistic one of those — designate, arm, stage, and report what the warheads did |
 | `Ksa/DropScenario.cs` | the store one — fly a craft up, let a store go, and say where it landed against the sight and against a flight off the state it actually left with |
 | `Ksa/GunneryScenario.cs` | the gun one — drones crossing past a mount one at a time, and **every shell scored where it burst**, because the first detonation says a gun can hit and nothing about how well. `ground` scores shells against a designated place instead, short or long |
-| `Ksa/CraftMover.cs` | picks a craft up and sets it down elsewhere, from the panel |
+| `Ksa/CraftMover.cs` | picks a craft up and sets it down elsewhere, from the panel -- **a copy of it drawn where it would land**, posed by the teleport's own function so the two cannot disagree |
 | `Ksa/BurstTool.cs` | click the world to set off a warhead there, from the panel |
 | `Ksa/Designator.cs` | click the world to shoot at that spot, with no target and no lock |
 | `Ksa/TargetLock.cs` | shift-click anything to lock an installation onto it |
@@ -752,6 +759,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `src/KSArmory/KSArmory/Rockets.xml` | the LAU-10 and the six-round pod, their Zuni and their sight |
 | `src/KSArmory/KSArmory/Guns.xml` | the Phalanx, the 5"/54 Mk 42 and the M197, their three rounds — the Phalanx's tungsten dart, the M197's incendiary shell, the 5"/54's — and their three sets |
 | `src/KSArmory/KSArmory/Sensors.xml` | the EO director, the LITENING pod and the IRST, with their three sensors |
+| `src/KSArmory/KSArmory/Armour.xml` | the armour materials — rolled steel, 7039 aluminium, titanium 6Al-4V, each number's source beside it — and the test plate, Core's 2 m structural plate scaled to 25 mm |
 | `src/KSArmory/KSArmory/Countermeasures.xml` | the two AN/ALE-47 dispensers and the flares and chaff they throw |
 | `src/KSArmory/KSArmory/DirectedEnergy.xml` | the YAL-1 beam director, its laser and its sensor |
 | `src/KSArmory/KSArmory/Strategic.xml` | the B61 on the ejector launcher, the shipped B61 rack (hidden, kept for saves), the Heavy MIRV Bus, their B61 and Mk 21, the bombsight and the bus's designation set |
@@ -769,7 +777,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 960 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 973 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -803,6 +811,9 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/NUCLEAR-NEXT.md` | **a backlog, mostly built** — what the burst still needed, ranked: the first second, where every signature that reads as *nuclear* lives, and the last minute, where a real cloud drifts and spreads rather than fading where it stood |
 | `docs/VISUAL-TESTING.md` | **half built** — how an agent sees what the mod draws from a terminal: what the screenshot loop cost the night the burst was built, and a ranked route to a live session with an MCP bridge, shader hot reload and same-instant controls |
 | `docs/DAMAGE-PLAN.md` | **part record, part plan** — how a hit becomes damage: fragments, the blast held to what a part intercepts, toughness by size, a shell's impact, and the calibration; then what is left to build — damage to engines and tanks, fire and its effects, and the gun rounds split |
+| `docs/ARMOUR-PLAN.md` | **a plan, not a record** — armour plate parts a player bolts on at a cost in mass, why parts rather than a per-part setting KSA cannot save, the Lambert–Zukas law a hit is judged by and why not plug shear alone, and the order to build it in, after two reviews |
+| `docs/ARMOUR-SETTING.md` | **a plan, not a record** — a plate's material and thickness set in the editor's part window and saved with the craft by KSA's own serializers, after a spike that proves the save; reviewed three times, with the part-per-shape fallback if the spike fails |
+| `docs/HYDRODYNAMIC-RAM.md` | **a plan, not a record** — what a fast round does to a tank full of liquid, why the energy-share damage gets a full tank and an empty one both wrong, and the order to build a ram model in |
 | `docs/DAMAGE-DECALS.md` | **a plan, not a record** — how a decal is projected onto a hull, a hillside or a rock out of the depth buffer, read off gatOS's implementation and re-verified here, and what a burn mark on a craft would cost |
 | `docs/FROM-KSP-MODDING.md` | the concept map for anyone arriving from KSP part modding |
 | `docs/MODULARITY.md` | how far the profile/registry split actually generalises, and the test gaps to close before widening it |
@@ -824,10 +835,11 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `tools/wiki/models.py` | one viewable `.glb` per part for the wiki, **assembled as KSA assembles it** -- mesh by name with the first atlas winning, the XML's transforms through `checkmesh.euler_quaternion`, the `PbrMaterial` as a glTF material, stood on its mounting face -- or, for a store, what it hangs from, and a pod or turret carried under a hull, hung under it; standard library only, `--check` in check-all |
 | `tools/wiki/compress.mjs` | those models to WebP textures at 1024 and meshopt geometry, normal maps lossless: 27 MB to 4.5 MB; its npm packages are pinned in `tools/wiki/package-lock.json` |
 | `tools/wiki/stills.mjs` | a still of every model, drawn by the same viewer at the same camera in headless Chromium -- the gallery's pictures and each viewer's poster, so a still and its model cannot disagree -- and from them a 1200x630 card per weapon and one for the site, **the picture Discord shows for a link** |
+| `tools/wiki/listing-sheets.mjs` | **the store listing's pictures, from the wiki's stills** -- a sheet per family with each weapon named, and the Pantsir's, the YAL-1's and the site's link cards copied, into `listing/images/`; run after a wiki build |
 | `wiki/` | the site's config, `mkdocs.yml` as Zensical reads it, `overrides/main.html` (the link-preview tags every page carries), the home page and the brand's stylesheet (`pages/assets/ksarmory.css`: `branding/`'s palette in both schemes, its fonts served from the site); everything else is generated into `wiki/build/` |
 | `tools/pack-api.py` | records the API a weapon pack binds to, and fails when it moves -- and that `docs/WEAPON-PACKS.md`'s tables name only attributes the reader takes, with the Values it parses (`--fill` writes that column) — **the mirror of `api-surface.sh`**, because a pack lives in somebody else's repository and never builds here |
 | `tools/check-studies.py` | which tests are tagged out of the push loop, as a committed record — **it cannot tell a mis-tag from a real one**, and does not try: it puts the change in the author's own diff, where a human can still ask |
-| `tools/repair-saves.py` | realigns saves written before a part lost a subpart |
+| `tools/repair-saves.py` | realigns saves written before a part lost a subpart, and **renames the Core parts KSA renamed** (`CORE_RENAMES`, 2026.11.10.5801), connectors renumbered where they moved, in saves and designs an earlier build wrote |
 | `tools/make-rocket.py` | a rocket design carrying the MIRV bus, from a few stages on a command line -- **part positions from the parts' own connectors**, checked against GeoSat FAT to 1.5 mm, and the game's staging and fuel grouping; written into the player's design library and turned into a scenario save with the bridge's `spawn`, `control`, `remove` and `save` |
 | `tools/make-scaling-save.py` | a save carrying N copies of one rocket, for pricing how the vehicle solver scales |
 | `tools/model/` | the headless Blender generators, and the checkers over what they export — which need neither Blender nor the game |
@@ -970,15 +982,15 @@ part is now hidden from the editor and kept for saves, and its mesh comes from t
    atlas, so an authored mount's travel is swept in Blender. Between them they catch the defects
    that are invisible in a preview render and obvious in game.
 2. **Declare the part.** A `<SubPart>` per moving assembly plus a `<Part>` in
-   `KSArmoryAssets.xml`, and a `<PartGameData>` with its colliders and mass.
+   `KSArmoryAssets.xml`, and a `<Part Modify="Patch">` in `KSArmoryGameData.xml` with its colliders
+   and mass (`docs/KSA-MODDING-NOTES.md` has the format).
 
-   **A shipped part's subpart list is append-only.** KSA pairs a saved part with its current
-   definition positionally, bounding the loop by the save and indexing the definition
-   (`PartTree.Deserialize`), so removing a `<SubPart>` throws `IndexOutOfRangeException` for every
-   craft holding that part. `CelestialSystem.DeserializeSave` catches it and **drops the craft** with
-   an on-screen alert, and the next save makes that permanent. Adding is free. Leave a stub to hold
-   the count, or repair the saves with `tools/repair-saves.py`;
-   `docs/KSA-MODDING-NOTES.md` has the loop.
+   **A shipped part's subpart list is append-only.** KSA pairs a saved part's subpart state with its
+   current definition positionally (`PartTree.Deserialize`). Since 2026.11.10.5801 the loop is bounded
+   by both lengths, so a removed `<SubPart>` no longer throws: the saved state past the end is dropped
+   with a warning, and **everything after a removed middle entry lands on the wrong subpart**. Read
+   from the source, not yet flown. Adding at the end is free. Leave a stub to hold the count, or
+   repair the saves with `tools/repair-saves.py`; `docs/KSA-MODDING-NOTES.md` has the loop.
 
    **Nor is a shipped `<Part>` Id renameable.** A save names it (`PartRef InstanceOf`), and
    `CelestialSystem.DeserializeSave` drops any craft naming a part that no longer exists, with an
@@ -1331,7 +1343,7 @@ CI with a **read-only deploy key** held in the `KSA_ASSEMBLIES_KEY` secret. Keep
 licensed copy privately is fine; publishing it is not. `tools/sync-assemblies.sh` refreshes the
 mirror after a KSA update, refusing if a csproj references something it does not know to copy.
 It mirrors the whole SDK by default — see *The mirror is a general KSA SDK* below for why, and
-for the `--subset` flag that narrows it to the sixteen assemblies this repository alone references.
+for the `--subset` flag that narrows it to the fourteen assemblies this repository alone references.
 
 `Directory.Build.props` resolves the folder in tiers, first match wins: `KSA_DLL_DIR` (what CI
 sets), then `Import/`, then a sibling `ksa-game-assemblies` checkout, then the game install — so
@@ -1354,9 +1366,7 @@ The version check is deliberately *not* wired into `build.sh`: a network call on
 slow, breaks offline, and would be the first thing anyone disabled.
 
 That check deliberately looks at the *install*, not at whatever the build resolved: `Import/` is
-a copy, so it still matches the lock after a game update and would report all-clear. It also
-compares only what the install ships — `StarMap.API.dll` comes from the loader, and would
-otherwise report a KSA update every single run.
+a copy, so it still matches the lock after a game update and would report all-clear.
 
 The assemblies exist in two places that drift apart silently: your `Import/`, and the
 private repo CI compiles against. Update one and not the other and CI is building the mod
@@ -1392,11 +1402,12 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from about 770,000 lines to the files
-defining the 361 types this mod actually uses.
+defining the 372 types this mod actually uses.
 
-**The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 34 RocketWerkz
-first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 16 MB —
-so any KSA mod can build against it. `sync-assemblies.sh --subset` narrows it to the minimal set.
+**The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
+first-party assemblies plus the game-shipped third-party — 41 in total —
+so any KSA mod can build against it. The loader is not in it: `StarMap.API` and `Lib.Harmony`
+are NuGet packages, which a mod references directly. `sync-assemblies.sh --subset` narrows it to the minimal set.
 Per-mod pinning still comes from that mod's own `ksa-assemblies.lock`, which covers only what it
 references, so the drift check stays exact without the mirror being narrow.
 

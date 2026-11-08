@@ -113,9 +113,9 @@ internal static class CloudLayers
         BodyTraits traits = BodyCatalogue.For(body.Id);
         foreach (CloudLayerReference reference in body.BodyTemplate.CloudsReference?.Layers ?? [])
         {
-            if (traits.IsThinCloud(reference.Id))
+            if (traits.IsThinCloud(reference.Key))
             {
-                Log.Info($"clouds: {body.Id} {reference.Id} is thin cloud; a beam passes through it");
+                Log.Info($"clouds: {body.Id} {reference.Key} is thin cloud; a beam passes through it");
                 continue;
             }
 
@@ -126,8 +126,8 @@ internal static class CloudLayers
             Layer layer = new(reference, bottom, top);
             layers.Add(layer);
 
-            string? path = reference.VolumetricCloud.Texture?.Get()?.ModPath;
-            string name = $"{body.Id} {reference.Id}";
+            string? path = reference.VolumetricCloud.Texture?.Value?.ModPath;
+            string name = $"{body.Id} {reference.Key}";
             if (string.IsNullOrEmpty(path))
             {
                 Log.Info($"clouds: {name} names no coverage map; it will not stop a beam");

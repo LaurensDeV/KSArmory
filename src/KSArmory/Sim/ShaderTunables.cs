@@ -65,6 +65,10 @@ public static class ShaderTunables
         new("BallRadiance", 33, 0.45),
         new("DustSteps", 34, 32.0, Integer: true),
         new(MarchScale, 36, 1.0, Integer: true),
+        new("FoldDepth", 37, 0.55),
+        new("OctaveShare", 38, 0.5),
+        new("PowderStrength", 39, 0.75),
+        new("GroundShadowDepth", 40, 0.65),
     ];
 
     private static readonly Dictionary<string, double> Overrides = new(StringComparer.OrdinalIgnoreCase);

@@ -58,9 +58,6 @@ internal static class RedWave
     /// </summary>
     public static double RedAltitude(BodyAir air)
     {
-        if (!air.HasAir) return 0.0;
-
-        double ratio = air.SeaLevelDensity / (RedSurvivesBelow * AmbientAir.ReferenceDensityKgPerM3);
-        return ratio > 1.0 ? Math.Min(air.ScaleHeightMetres * Math.Log(ratio), air.BoundaryMetres) : 0.0;
+        return air.AltitudeOfDensity(RedSurvivesBelow * AmbientAir.ReferenceDensityKgPerM3);
     }
 }

@@ -28,15 +28,17 @@ public static class PackFiles
             List<MunitionProfile> munitions = [.. Catalogue.Munitions];
             List<SensorProfile> sensors = [.. Catalogue.Sensors];
             List<DecoyProfile> decoys = [.. Catalogue.Decoys];
+            List<ArmourMaterial> materials = [.. Catalogue.ArmourMaterials];
             for (int j = 0; j < declared.Count; j++)
             {
                 if (j == i) continue;
                 munitions.AddRange(declared[j].Munitions);
                 sensors.AddRange(declared[j].Sensors);
                 decoys.AddRange(declared[j].Decoys);
+                materials.AddRange(declared[j].ArmourMaterials);
             }
 
-            read.Add((ordered[i].FileName, PackReader.Read(ordered[i].Text, source, munitions, sensors, decoys)));
+            read.Add((ordered[i].FileName, PackReader.Read(ordered[i].Text, source, munitions, sensors, decoys, materials)));
         }
 
         return read;

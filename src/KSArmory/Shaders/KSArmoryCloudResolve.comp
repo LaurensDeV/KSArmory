@@ -47,6 +47,10 @@ layout (push_constant) uniform PushConstants
 // the dither's grain into a smooth volume; much less and a cloud that is still rising smears.
 layout (constant_id = 17) const float NewShare = 0.125;
 
+// The march's coarse grid, as KSArmoryCloud.comp declares it. Above one, a pixel with a negative
+// alpha had no sample this frame and keeps its history, clamped to the samples within a square.
+layout (constant_id = 36) const int MarchScale = 1;
+
 // Where no cloud is under a pixel, its history is reprojected as if it were this far: far enough
 // that only the camera's turn moves it, which is what a pixel just off a cloud's edge wants.
 const float NoCloudMetres = 1.0e6;
@@ -65,33 +69,48 @@ void main()
     if (at.x >= size.x || at.y >= size.y) return;
 
     vec4 current = imageLoad(layerColor, at);
+    bool sampled = current.a >= 0.0;
 
     // The neighbourhood's range, which is all the history may be. A cloud that has moved on leaves
     // history behind it; clamped to what is here now, that history cannot outlive it by more than a
     // few frames, where unclamped it trails a ghost.
-    vec4 lo = current;
-    vec4 hi = current;
+    vec4 lo = vec4(1.0e30);
+    vec4 hi = vec4(-1.0e30);
+    vec4 sum = vec4(0.0);
+    float count = 0.0;
     float nearest = 0.0;
+    int reach = max(MarchScale, 1);
 
-    for (int y = -1; y <= 1; y++)
+    for (int y = -reach; y <= reach; y++)
     {
-        for (int x = -1; x <= 1; x++)
+        for (int x = -reach; x <= reach; x++)
         {
             ivec2 p = clamp(at + ivec2(x, y), ivec2(0), size - 1);
             vec4 n = imageLoad(layerColor, p);
+            if (n.a < 0.0) continue;
+
             lo = min(lo, n);
             hi = max(hi, n);
+            sum += n;
+            count += 1.0;
 
             float d = imageLoad(layerDistance, p).r;
             if (d > 0.0 && (nearest <= 0.0 || d < nearest)) nearest = d;
         }
     }
 
+    vec4 around = count > 0.0 ? sum / count : vec4(0.0, 0.0, 0.0, 1.0);
+    if (count <= 0.0)
+    {
+        lo = around;
+        hi = around;
+    }
+
     float own = imageLoad(layerDistance, at).r;
     float distance = own > 0.0 ? own : (nearest > 0.0 ? nearest : NoCloudMetres);
 
     vec2 uv = (vec2(at) + 0.5) / vec2(size);
-    vec4 resolved = current;
+    vec4 resolved = sampled ? current : around;
 
     // A perspective matrix has zeros in places, but never a whole zero column.
     if (pc.Reproject[0] != vec4(0.0) || pc.Reproject[1] != vec4(0.0))
@@ -106,7 +125,7 @@ void main()
             if (all(greaterThanEqual(then, vec2(0.0))) && all(lessThanEqual(then, vec2(1.0))))
             {
                 vec4 history = clamp(HistoryAt(then, size), lo, hi);
-                resolved = mix(history, current, NewShare);
+                resolved = sampled ? mix(history, current, NewShare) : history;
             }
         }
     }

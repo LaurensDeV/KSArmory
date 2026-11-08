@@ -42,6 +42,8 @@ ELEMENTS = [
     ("SearchSet", "ReadSearchSet", "a part that only searches"),
     ("Decoy", "ReadDecoy", "a flare or a chaff cloud"),
     ("Dispenser", "ReadDispenser", "a part that throws decoys"),
+    ("ArmourMaterial", "ReadArmourMaterial", "what an armour plate is made of"),
+    ("Armour", "ReadArmourPlate", "a part that is an armour plate"),
 ]
 
 # Children, which are read by their own helper rather than by a ReadX.

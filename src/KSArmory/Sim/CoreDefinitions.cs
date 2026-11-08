@@ -46,7 +46,8 @@ public static class CoreDefinitions
         => read.Launchers.Select(l => l.PartId)
                .Concat(read.Optics.Select(o => o.PartId))
                .Concat(read.SearchSets.Select(s => s.PartId))
-               .Concat(read.Dispensers.Select(d => d.PartId));
+               .Concat(read.Dispensers.Select(d => d.PartId))
+               .Concat(read.Armour.Select(a => a.PartId));
 
     private static PackContents LibraryOnly(PackContents read)
     {
@@ -59,6 +60,7 @@ public static class CoreDefinitions
             Munitions = read.Munitions,
             Sensors = read.Sensors,
             Decoys = read.Decoys,
+            ArmourMaterials = read.ArmourMaterials,
             Faults = read.Faults,
         };
     }

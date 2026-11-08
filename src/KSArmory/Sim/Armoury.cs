@@ -36,7 +36,8 @@ public static class Armoury
     /// and it is what keeps two packs' identically named rounds apart.</param>
     public static PackResult Register(string definitions, string source)
         => Catalogue.Register(
-            PackReader.Read(definitions, source, Catalogue.Munitions, Catalogue.Sensors, Catalogue.Decoys));
+            PackReader.Read(definitions, source, Catalogue.Munitions, Catalogue.Sensors, Catalogue.Decoys,
+                            Catalogue.ArmourMaterials));
 
     /// <summary>
     /// Several definition texts read as one unit, as a pack's folder is: a launcher may name a round

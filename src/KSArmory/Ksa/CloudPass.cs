@@ -2246,7 +2246,7 @@ internal static class CloudPass
     {
         try
         {
-            if (body?.BodyTemplate.DiffuseReference?.Get() is { } map)
+            if (body?.BodyTemplate.DiffuseReference?.Value is { } map)
             {
                 return new float4(map.BindlessHandle, Program.Instance.TextureSystem.SamplerClampHandle, 0f, 0f);
             }

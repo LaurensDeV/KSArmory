@@ -27,6 +27,7 @@ Python 3 standard library only. KSA_DIR overrides the game install, as for valid
 """
 
 import argparse
+import copy
 import datetime
 import math
 import os
@@ -44,7 +45,7 @@ CORE = KSA_DIR / "Content" / "Core"
 ENGINE = "CorePropulsionA_Prefab_Engine"
 TANK = "CoreFuelTankA_Prefab_"
 BUS_DECOUPLER = "CoreCouplingA_Prefab_Decoupler3WA"
-BRIDGE_3W2W = "CoreFairingA_Prefab_InterstageBridge3W2WB"
+BRIDGE_3W2W = "CoreFairingA_Prefab_InterstageBridge3W2WA"
 RADIAL_DECOUPLER = "CoreStructuralA_Prefab_RadialDecouplerLargeA"
 
 # The bus's base, where GeoSat FAT has it. Any constant would do; this one makes a regenerated
@@ -60,11 +61,11 @@ BOOSTER_RADIUS = 3.3335
 # Plates by (stage diameter, engine count, engine connector size): plate, its top connector, its
 # rim connector (where an interstage hangs), and the engine connectors in symmetry order.
 PLATES = {
-    (3, 1, 1): ("CoreStructuralA_Prefab_EnginePlateLowProfile3WB", 0, 2, [1]),
-    (3, 1, 2): ("CoreStructuralA_Prefab_EnginePlateLowProfile3WA", 0, 2, [1]),
-    (3, 3, 1): ("CoreStructuralA_Prefab_EnginePlateLowProfile3WD", 0, 4, [3, 1, 2]),
-    (3, 4, 1): ("CoreStructuralA_Prefab_EnginePlateLowProfile3WC", 0, 5, [2, 4, 1, 3]),
-    (2, 1, 1): ("CoreStructuralA_Prefab_EnginePlateLowProfile2WA", 0, 2, [1]),
+    (3, 1, 1): ("CoreStructuralA_Prefab_EnginePlate1WSingle3WA", 0, 2, [1]),
+    (3, 1, 2): ("CoreStructuralA_Prefab_EnginePlate2WSingle3WA", 0, 2, [1]),
+    (3, 3, 1): ("CoreStructuralA_Prefab_EnginePlate1WTriple3WA", 0, 4, [3, 1, 2]),
+    (3, 4, 1): ("CoreStructuralA_Prefab_EnginePlate1WQuad3WA", 0, 5, [2, 4, 1, 3]),
+    (2, 1, 1): ("CoreStructuralA_Prefab_EnginePlate1WSingle2WA", 0, 2, [1]),
 }
 # Interstages by diameter: the decoupler joint is the top connector (index 1), as in GeoSat FAT.
 INTERSTAGES = {3: "CoreFairingA_Prefab_Interstage3W3HA", 2: "CoreFairingA_Prefab_Interstage2W2HA"}
@@ -184,12 +185,12 @@ def triple(el, default=0.0):
 class Connector:
     def __init__(self, el):
         t = el.find("Transform")
-        self.id = el.get("Id")
+        self.id = el.get("Key")
         self.pos = triple(t.find("Position") if t is not None else None)
         self.rot = triple(t.find("Rotation") if t is not None else None)
         scale = t.find("Scale") if t is not None else None
         self.size = float(scale.get("X", 1)) if scale is not None else 1.0
-        self.flags = ""
+        self.flags = el.findtext("Flags") or ""
 
     def normal(self):
         return rotate(quat_xyz(*self.rot), (1.0, 0.0, 0.0))
@@ -199,13 +200,121 @@ class PartDef:
     def __init__(self, el, source):
         self.id = el.get("Id")
         self.source = source
-        self.connectors = [Connector(c) for c in el.findall("Connector")]
-        self.subparts = [s.get("InstanceOf") for s in el.findall("SubPart")]
-        self.subpart_names = [s.get("Id") for s in el.findall("SubPart")]
-        self.game = None
+        self.connectors = [Connector(c) for c in el.findall("Connectors/Connector")]
+        self.subparts = [s.get("Ref") for s in el.findall("SubParts/SubPart")]
+        self.subpart_names = [s.get("Key") for s in el.findall("SubParts/SubPart")]
+        self.game = el
 
     def index(self, connector_id):
         return next(i for i, c in enumerate(self.connectors) if c.id == connector_id)
+
+
+def _fresh(el):
+    out = copy.deepcopy(el)
+    for e in out.iter():
+        e.attrib.pop("Modify", None)
+    return out
+
+
+def _merge_attributes(target, patch, row=False, matched=None):
+    for name, value in patch.attrib.items():
+        if name == "Modify" or name == matched or (row and name in ("Id", "Parent", "Abstract")):
+            continue
+        target.set(name, value)
+
+
+def _identity(el):
+    return ("Key", el.get("Key")) if el.get("Key") else ("Ref", el.get("Ref"))
+
+
+def _apply_record(target, patch):
+    """KSA's ChildMerge: a child without Modify replaces its namesake, Patch merges into it, Extend
+    appends to a list whose items are found by Key, or by Ref when they have none."""
+    for child in patch:
+        verb = child.get("Modify")
+        found = target.find(child.tag)
+        if verb is None:
+            if found is None:
+                target.append(_fresh(child))
+            else:
+                target[list(target).index(found)] = _fresh(child)
+        elif verb == "Replace":
+            target[list(target).index(found)] = _fresh(child)
+        elif verb == "Remove":
+            target.remove(found)
+        elif verb == "Patch":
+            _patch_into(found, child)
+        else:
+            if found is None:
+                found = ET.SubElement(target, child.tag)
+            _extend_into(found, child)
+
+
+def _patch_into(target, patch, matched=None):
+    _merge_attributes(target, patch, matched=matched)
+    if len(patch):
+        _apply_record(target, patch)
+    elif (patch.text or "").strip():
+        target.text = patch.text
+
+
+def _extend_into(container, extend, matched=None):
+    _merge_attributes(container, extend, matched=matched)
+    for item in extend:
+        verb = item.get("Modify")
+        if verb is None:
+            container.append(_fresh(item))
+            continue
+        name, value = _identity(item)
+        hit = next(e for e in container
+                   if not (name == "Ref" and e.get("Key"))
+                   and (e.get(name) or "").lower() == (value or "").lower())
+        if verb == "Patch":
+            _patch_into(hit, item, name)
+        elif verb == "Extend":
+            _extend_into(hit, item, name)
+        elif verb == "Replace":
+            fresh = _fresh(item)
+            fresh.set(name, hit.get(name))
+            container[list(container).index(hit)] = fresh
+        else:
+            container.remove(hit)
+
+
+def flatten(rows):
+    """Each (tag, Id) laid out as KSA's ContentPrePass resolves it: the defining row, over its Parent's
+    flattened row when it names one, then every Modify="Patch" row in load order."""
+    defining, patches = {}, {}
+    for el in rows:
+        key = (el.tag, el.get("Id"))
+        if el.get("Modify") == "Patch":
+            patches.setdefault(key, []).append(el)
+        elif el.get("Modify") is None:
+            defining[key] = el
+    flat = {}
+
+    def resolve(key):
+        if key in flat:
+            return flat[key]
+        row = defining[key]
+        parent = row.get("Parent")
+        if parent:
+            out = copy.deepcopy(resolve((key[0], parent)))
+            _merge_attributes(out, row, row=True)
+            _apply_record(out, row)
+            out.set("Id", key[1])
+        else:
+            out = _fresh(row)
+        out.attrib.pop("Parent", None)
+        for patch in patches.get(key, []):
+            _merge_attributes(out, patch, row=True)
+            _apply_record(out, patch)
+        flat[key] = out
+        return out
+
+    for key in defining:
+        resolve(key)
+    return flat
 
 
 class Library:
@@ -217,30 +326,25 @@ class Library:
         files = sorted(core.glob("*.xml")) + sorted(mod.glob("KSArmory*.xml"))
         if not any(core.glob("*Assets.xml")):
             sys.exit(f"no part definitions under {core}; set KSA_DIR to the game install")
-        game = {}
+        rows, source = [], {}
         for path in files:
             try:
                 root = ET.parse(path).getroot()
             except ET.ParseError:
                 continue
             for el in root:
-                if el.tag == "Part" and el.get("Id"):
-                    self.parts[el.get("Id")] = PartDef(el, path.name)
-                elif el.tag == "SubPart" and el.get("Id"):
-                    self.subpart_ids.add(el.get("Id"))
-            for el in root.iter("PartGameData"):
-                game[el.get("Id")] = el
-            for el in root.iter("SubPartGameData"):
-                self.subpart_game[el.get("Id")] = el
-        for pid, part in self.parts.items():
-            part.game = game.get(pid)
-            if part.game is None:
+                if el.tag in ("Part", "SubPart") and el.get("Id"):
+                    rows.append(el)
+                    if el.get("Modify") is None:
+                        source[(el.tag, el.get("Id"))] = path.name
+        for (tag, eid), el in flatten(rows).items():
+            if el.get("Abstract", "").lower() == "true":
                 continue
-            for gc in part.game.findall("Connector"):
-                flags = gc.find("Flags")
-                for c in part.connectors:
-                    if c.id == gc.get("Id") and flags is not None:
-                        c.flags = flags.text or ""
+            if tag == "Part":
+                self.parts[eid] = PartDef(el, source[(tag, eid)])
+            else:
+                self.subpart_ids.add(eid)
+                self.subpart_game[eid] = el
 
     def get(self, pid):
         if pid not in self.parts:
@@ -249,20 +353,20 @@ class Library:
 
     def decoupler_index(self, pid):
         g = self.get(pid).game
-        dec = g.find("Decoupler") if g is not None else None
-        return self.get(pid).index(dec.get("ConnectorId")) if dec is not None else None
+        dec = g.find("Components/Decoupler/Connector")
+        return self.get(pid).index(dec.get("KeyRef")) if dec is not None else None
 
     def diameter(self, pid):
-        d = self.get(pid).game.find("Diameter")
+        d = self.get(pid).game.find("Diameters/Diameter")
         return int(round(metres(d))) if d is not None else None
 
     def engine_controller(self, pid):
-        c = self.get(pid).game.find("RocketEngineController")
-        return c.get("Id") if c is not None else None
+        c = self.get(pid).game.find("RocketEngineControllers/RocketEngineController")
+        return c.get("Key") if c is not None else None
 
     def declared_mass(self, pid):
         g = self.get(pid).game
-        m = g.find("SolidSphereMass/Mass") if g is not None else None
+        m = g.find("InertMasses/SolidSphereMass/Mass")
         return float(m.get("Kg")) if m is not None else 0.0
 
     def bell_below_origin(self, pid):
@@ -287,7 +391,7 @@ class Library:
 
     def tank(self, pid):
         """(propellant kg when full of hydrolox, structure kg), off KSA's own tank geometry."""
-        t = self.get(pid).game.find("Tank/CylindricalTank")
+        t = self.get(pid).game.find("Components/Tank/CylindricalTank")
         length, r = metres(t.find("Length")), metres(t.find("OuterRadius"))
         w = metres(t.find("WallThickness"))
         h = r / math.sqrt(2.0)
@@ -563,10 +667,10 @@ class Rocket:
         bus.modules.append(("ControlData", {"LocalInstanceId": "0", "VehicleName": self.name}, None))
         for i, sub in enumerate(lib.get(pid).subparts):
             game = lib.subpart_game.get(sub)
-            thrusters = game.findall("RocketThrusterController") if game is not None else []
+            thrusters = game.findall("RocketThrusterControllers/RocketThrusterController") if game is not None else []
             if thrusters:
                 bus.subpart_modules[i] = [("ThrusterController",
-                                           {"InstanceOf": th.get("Id"), "ActiveInStage": "true"},
+                                           {"InstanceOf": th.get("Key"), "ActiveInStage": "true"},
                                            None) for th in thrusters]
         self.bus_decoupler = dec
 
@@ -590,7 +694,7 @@ class Rocket:
             d2 = d1.attach(Node(lib, "CorePropulsionC_Prefab_SRBDSegmentLargeA", rot), 0, 1)
             petal1 = d2.attach(Node(lib, "CoreFairingA_Prefab_InterstageBridgePetal1WHalfWA", rot), 0, 1)
             seg_c = petal1.attach(Node(lib, "CorePropulsionA_Prefab_SRBCSegmentLargeA", rot), 0, 1)
-            nose = seg_c.attach(Node(lib, "CoreFairingA_Prefab_NoseconeD", rot), 0, 0)
+            nose = seg_c.attach(Node(lib, "CoreFairingA_Prefab_Nosecone05WBallisticA", rot), 0, 0)
             booster = [rd, seg, motor, petal2, d1, d2, petal1, seg_c, nose]
             for i, part in enumerate(booster):
                 sets.setdefault(i, []).append(part)

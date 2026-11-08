@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copies the KSA game assemblies and the StarMap API into ./Import, which the mod and the
+# Copies the KSA game assemblies into ./Import, which the mod and the
 # api-dump tool compile against. Import/ is gitignored: these are the game's binaries.
 #
 # Re-run this after a KSA update -- the game's API is pre-release and moves between builds.
@@ -43,19 +43,8 @@ for pattern in 'KSA.dll' 'Brutal.*.dll' 'BepuPhysics.dll' 'BepuUtilities.dll' \
 done
 shopt -u nullglob
 
-# StarMap.API.dll ships with the StarMap loader, not with the game.
-if [[ -n "${STARMAP_DIR:-}" && -f "$STARMAP_DIR/StarMap.API.dll" ]]; then
-    echo "syncing StarMap API from $STARMAP_DIR"
-    cp "$STARMAP_DIR"/StarMap.API.dll "$IMPORT_DIR/"
-    cp "$STARMAP_DIR"/0Harmony.dll "$IMPORT_DIR/" 2>/dev/null || true
-elif [[ ! -f "$IMPORT_DIR/StarMap.API.dll" ]]; then
-    echo
-    echo "warning: StarMap.API.dll is missing from Import/." >&2
-    echo "         Download a StarMap release from" >&2
-    echo "         https://github.com/StarMapLoader/StarMap/releases" >&2
-    echo "         and either copy StarMap.API.dll into Import/, or re-run with" >&2
-    echo "         STARMAP_DIR=/path/to/starmap ./tools/sync-import.sh" >&2
-fi
+# The loader's assemblies come from NuGet; a copy left here from before would only mislead.
+rm -f "$IMPORT_DIR/StarMap.API.dll" "$IMPORT_DIR/0Harmony.dll"
 
 echo "done: $(find "$IMPORT_DIR" -name '*.dll' | wc -l) assemblies in Import/"
 

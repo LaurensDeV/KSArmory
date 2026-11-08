@@ -30,7 +30,7 @@ What that machinery gives any system built on it:
 
 ## What ships with it
 
-KSArmory adds eleven weapons, three sights (one of them, the YAL-1, also a laser weapon), an infrared search sensor, two decoy dispensers and an empty Weapon Mount.
+KSArmory adds eleven weapons, three sights (one of them, the YAL-1, also a laser weapon), an infrared search sensor, two decoy dispensers, an empty Weapon Mount and a test armour plate.
 
 **Pantsir-S1 Point Defence System.** A Russian short-range air-defence vehicle on an 8×8 truck chassis. It carries twelve 57E6 missiles in two pods of six, two twin-barrel 2A38M 30 mm cannon, a spinning 1RS1 search radar and a 1TPP1 electro-optical director on the turret roof that you can look through. The missiles reach from 1.2 km to 20 km. They are command-guided: the vehicle tracks the target and steers each missile, so a missile is lost if the vehicle loses the track. The cannon cover 200 m to 4 km. The pods refill 12 seconds after the last missile leaves, and the cannon 20 seconds after they run dry. The Pantsir stacks on a 3 m node and has its own command module, so a craft made of nothing but the Pantsir can be built and launched.
 
@@ -82,10 +82,12 @@ You can also add weapons without changing this mod. A *weapon pack* is an ordina
 
 KSArmory's own weapons are defined the same way, one file per family in its `KSArmory/` folder: `Pantsir.xml`, `Rails.xml`, `Rockets.xml`, `Guns.xml`, `Sensors.xml`, `Countermeasures.xml`, `DirectedEnergy.xml` and `Strategic.xml`. You can switch any family off under **KSArmory > Built-in weapons**. The change takes effect the next time the game starts. A switched-off family's parts disappear from the editor but still load on saved craft as plain structure. Its rounds, sensors and decoys stay available to packs, and a pack can then define its own weapon on that family's part.
 
-> Built against KSA build `2026.10.25.5707`. KSA is pre-release and has no official code-modding
+> Built against KSA build `2026.11.10.5801`. KSA is pre-release and has no official code-modding
 > API. This mod uses the community [StarMap](https://github.com/StarMapLoader/StarMap) loader and
 > may need updating when the game updates. The community
 > [wiki](https://kittenspaceagency.wiki.gg/) is a useful reference for the game itself.
+
+**Armour plate (test), 25 mm steel, 2 m.** A 2 m disc of rolled steel armour, 25 mm thick and 617 kg, that attaches to any surface to protect what is behind it. A round that hits it is judged by its speed, size and mass and the angle it strikes at: it stops, glances off, or goes through slowed, and a plate that stops a round is dented, so hits on one spot add up. Fragments from a warhead have to get through it before they reach a part behind it. It uses Core's structural plate as its model until armour of its own is made.
 
 ## Install
 
@@ -101,8 +103,8 @@ KSArmory's own weapons are defined the same way, one file per family in its `KSA
 
 You need:
 
-- Kitten Space Agency, build `2026.10.25.5707`. Other builds may not work until the mod is updated.
-- [StarMap](https://github.com/StarMapLoader/StarMap/releases) 0.4.8 or newer, the community mod loader. KSArmory does not run without it. Older StarMap versions do not start on KSA `2026.10.19.5638`.
+- Kitten Space Agency, build `2026.11.10.5801`. Other builds may not work until the mod is updated.
+- [StarMap](https://github.com/StarMapLoader/StarMap/releases) 0.5.3 or newer, the community mod loader. KSArmory does not run without it. Older StarMap versions do not start on KSA `2026.11.10.5801`.
 
 Windows and Linux use the same download.
 
@@ -159,7 +161,7 @@ The Pantsir can control itself, so a craft made of nothing but a Pantsir can be 
 
 ### The panel
 
-Open it from **KSArmory > Panel** on the menu bar. (If you use the ModMenu mod, KSArmory is listed in its menu instead. ModMenu must be 0.2.3 or newer on this KSA build.)
+Open it from **Mods > KSArmory**, the menu StarMap adds to the game, or from **KSArmory > Panel** on the menu bar, which also holds the switches for the built-in weapon families.
 
 The panel lists every craft that carries something from this mod, grouped by team. Each row has the craft's name (click it to fly that craft), buttons for its weapons, auto engage (the shield), the chase camera and its team (the flag), and **...**, which opens the craft's own window. That window has **FIRE** at the top and the **Components** and **Tuning** tabs below it, with **Ballistic** and the radar tab where the craft has them.
 
@@ -371,8 +373,7 @@ curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0 --ins
 `Import/` is gitignored — it holds the game's own binaries, which are not redistributable.
 `sync-import.sh` reads them from your install (override with `KSA_DIR=...`).
 
-`StarMap.API.dll` comes from a StarMap release rather than the game; drop it into `Import/` or
-pass `STARMAP_DIR=...`.
+The loader's `StarMap.API` and `Lib.Harmony` are NuGet packages and restore with the build.
 
 ## How it works
 

@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Brutal.ImGuiApi;
 using Brutal.Numerics;
 using KSA;
@@ -470,7 +471,7 @@ internal static partial class KsaWorld
 
             double above = 0.0;
 
-            if (body.GetAtmosphereReference()?.Physical is { } air && air.Height > 0.0)
+            if (body.GetPhysicalAtmosphere() is { } air && air.Height > 0.0)
             {
                 above = air.Height;
             }
@@ -551,7 +552,7 @@ internal static partial class KsaWorld
     {
         try
         {
-            return body.GetAtmosphereReference()?.Physical is { } air && air.Height > 0.0;
+            return body.GetPhysicalAtmosphere() is { } air && air.Height > 0.0;
         }
         catch
         {
@@ -604,18 +605,54 @@ internal static partial class KsaWorld
 
         try
         {
-            // KSA's own IsValid() is an astronomical-scale check on the scale height and is false for
-            // every real atmosphere (MediumDensityRatioAt), so the terms are checked instead.
-            if (body.GetAtmosphereReference()?.Physical is not { } air) return BodyAir.Airless(gravity, radius, traits);
+            if (body.GetPhysicalAtmosphere() is not { } built
+                || body.GetAtmosphereReference()?.Physical is not { } declared)
+            {
+                return BodyAir.Airless(gravity, radius, traits);
+            }
 
-            return new BodyAir(air.GetAtmosphericPressureAtAltitude(0.0), air.GetAtmosphericDensityAtAltitude(0.0),
-                               air.ScaleHeight.InMeters(), air.Height, gravity, radius, traits,
-                               Wet: body.GetOceanReference() is { } ocean && ocean.Density > 0.0);
+            if (!_profiles.TryGetValue(built, out AtmosphereProfile? layers))
+            {
+                layers = ProfileOf(body, built, declared);
+                _profiles.AddOrUpdate(built, layers);
+            }
+
+            return BodyAir.Layered(layers, built.Height, gravity, radius, traits,
+                                   wet: body.GetOceanReference() is { } ocean && ocean.Density > 0.0);
         }
         catch
         {
             return BodyAir.Airless(gravity, radius, traits);
         }
+    }
+
+    // Keyed on the built atmosphere, which KSA replaces whenever it rebuilds a body's air.
+    private static readonly ConditionalWeakTable<PhysicalAtmosphere, AtmosphereProfile> _profiles = new();
+
+    private static AtmosphereProfile ProfileOf(Celestial body, PhysicalAtmosphere built, PhysicalAtmosphereReference declared)
+    {
+        // The gravity KSA builds the profile with: its own constant, over the mean radius.
+        double radius = body.MeanRadius;
+        double gravity = KSA.Constants.GRAVITATIONAL_CONSTANT * body.Mass / (radius * radius);
+        AtmosphereProfile layers = new(radius, gravity, built.Mixture.SpecificGasConstant, declared.SeaLevelPressure,
+                                       declared.TemperatureProfile.Select(p => p.InMeters()).ToArray(),
+                                       declared.TemperatureProfile.Select(p => p.K).ToArray());
+
+        double worst = 0.0;
+        foreach (double share in (double[])[0.0, 0.03, 0.08, 0.2, 0.4, 0.9])
+        {
+            double h = share * built.Height;
+            double engine = built.ComputeDensityAtAltitude(h);
+            if (engine > 0.0) worst = Math.Max(worst, Math.Abs(layers.At(h).Density / engine - 1.0));
+        }
+
+        string line = $"air: {SafeId(body)} mirrored from {declared.TemperatureProfile.Count} point(s), "
+                      + $"{layers.SurfaceKelvin:F1} K at the surface, top {built.Height / 1000.0:F0} km, "
+                      + $"worst density error {worst:E1}";
+        if (worst > 1.0e-9) Log.Warn(line + " -- the mirror no longer matches KSA's model");
+        else Log.Info(line);
+
+        return layers;
     }
 
     /// <summary>
@@ -684,19 +721,14 @@ internal static partial class KsaWorld
                 return double.IsFinite(water) && water > 0.0 ? water : 1.0;
             }
 
-            // Not IsValid(), which requires a scale height over 100 km and is false for every real
-            // atmosphere. No physical reference is the model saying no air, so 0.0, never 1.0.
-            AtmosphereReference? atmosphere = body.GetAtmosphereReference();
-            if (atmosphere?.Physical is not { } air) return 0.0;
-
-            double seaLevel = air.SeaLevelDensity;
-            double scaleHeight = air.ScaleHeight.InMeters();
-            if (!(seaLevel > 0.0) || !(scaleHeight > 0.0)) return 0.0;
+            // No built atmosphere is the model saying no air, so 0.0, never 1.0. Clamped and cut as
+            // KSA's physics environment reads it.
+            if (body.GetPhysicalAtmosphere() is not { } air) return 0.0;
 
             if (altitude < 0.0) altitude = 0.0;
             if (altitude >= air.Height) return 0.0;
 
-            double ratio = air.GetAtmosphericDensityAtAltitude(altitude) / Medium.ReferenceDensityKgPerM3;
+            double ratio = air.ComputeDensityAtAltitude(altitude) / Medium.ReferenceDensityKgPerM3;
             return double.IsFinite(ratio) && ratio >= 0.0 ? ratio : 1.0;
         }
         catch
@@ -713,12 +745,12 @@ internal static partial class KsaWorld
     {
         try
         {
-            if (body.GetAtmosphereReference()?.Physical is not { } air) return 0f;
+            if (body.GetPhysicalAtmosphere() is not { } air) return 0f;
 
             double altitude = Math.Max(Vec.Len(positionEcl - body.GetPositionEcl()) - body.MeanRadius, 0.0);
             if (altitude >= air.Height) return 0f;
 
-            double pressure = air.GetAtmosphericPressureAtAltitude(altitude);
+            double pressure = air.ComputePressureAtAltitude(altitude);
             return double.IsFinite(pressure) && pressure > 0.0 ? (float)pressure : 0f;
         }
         catch
@@ -734,17 +766,16 @@ internal static partial class KsaWorld
     {
         try
         {
-            AtmosphereReference? atmosphere = body.GetAtmosphereReference();
-            if (atmosphere is null) return "no atmosphere reference -- vacuum";
-            if (atmosphere.Physical is not { } air) return "no physical atmosphere -- vacuum";
+            if (body.GetAtmosphereReference() is null) return "no atmosphere reference -- vacuum";
+            if (body.GetPhysicalAtmosphere() is not { } air) return "no physical atmosphere -- vacuum";
 
-            double seaLevel = air.SeaLevelDensity;
+            double seaLevel = air.ComputeDensityAtAltitude(0.0);
             double top = air.Height;
             double radius = Vec.Len(positionEcl - body.GetPositionEcl());
             double altitude = radius - body.MeanRadius;
 
-            return $"valid={air.IsValid()} seaLevel={seaLevel:F4} kg/m3 "
-                 + $"scaleHeight={air.ScaleHeight.InMeters():F0} m top={top:F0} m | "
+            return $"seaLevel={seaLevel:F4} kg/m3 {air.ComputeTemperatureAtAltitude(0.0):F1} K "
+                 + $"top={top:F0} m | "
                  + $"radius={radius:F0} m meanRadius={body.MeanRadius:F0} m altitude={altitude:F0} m "
                  + $"-> {(altitude >= top ? "above the atmosphere" : "inside it")}";
         }

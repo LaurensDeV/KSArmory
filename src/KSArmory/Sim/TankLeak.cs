@@ -55,6 +55,19 @@ internal readonly record struct TankShape(double Straight, double RadiusBase, do
     }
 
     /// <summary>
+    /// Whether a point is in the cylinder round the shape, grown by <paramref name="share"/>: where a hole
+    /// on the tank's mesh can be. A template's domes are sized to its volume model, so on Core's 3 m tank
+    /// they meet in the middle while the mesh is a cylinder with near-flat ends.
+    /// </summary>
+    public bool EnvelopeContains(double3 p, double share = 0.0)
+    {
+        (double low, double high, double radius) = Extent;
+        double grow = 1.0 + share;
+        double across = Math.Sqrt((p.Y * p.Y) + (p.Z * p.Z));
+        return across <= radius * grow && Math.Abs(p.X - (0.5 * (low + high))) <= 0.5 * (high - low) * grow;
+    }
+
+    /// <summary>
     /// The same shape stretched to <paramref name="length"/> overall and <paramref name="radius"/> at its
     /// widest: along its axis and across it separately, so a sphere fitted to a long box becomes the
     /// capsule the box holds, and a cone keeps its taper and its domes their share of its length.
