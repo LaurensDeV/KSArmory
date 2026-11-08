@@ -2,7 +2,6 @@
 # Regenerate with ./tools/check-assemblies.sh <dir> --update after a KSA update,
 # and refresh the private ksa-game-assemblies repo to match - see CLAUDE.md.
 build 2026.10.25.5707
-fd77b88724f4104440df0cf979a851d35eec75ea3a7e86297d04abe47c71aff6  0Harmony.dll
 e0a1528ded4ef8efcb8002b99704cb8614b7db840d2cb39b5e45eda52d63bc68  BepuUtilities.dll
 976b038df858671f525ea7e9a4c027e8f6ff85635139f949a2d046a49f4ede9d  Brutal.Concurrency.dll
 4344eb688bf6fdc2af04a8febae95b1ab43b68337d03e5db3f1264aefbfb66ba  Brutal.Core.dll
@@ -17,4 +16,3 @@ c79bc31732ba0dc6c5fa1c40c47b7c2ca2384bc24c5efebc381e15a799425466  Brutal.ShaderC
 bc17dc81b448cb8ea57e90373d12b44fa2ef21a4a475ed7e8c3cd4d214028140  Brutal.Vulkan.Abstractions.dll
 a7acc114a016f0fb8c35a132be4ffdef61dcd69c8d0f7e132dd468b7532e006c  KSA.dll
 7b54e7934de7e7a269319732148b2311fc935e7446e5eee015e1a03d425213de  Planet.Render.Core.dll
-a69e4e67d95ce03b3bfa8e8a23906a60d2a8346e5a43f660b7df0c5c013a0a9d  StarMap.API.dll

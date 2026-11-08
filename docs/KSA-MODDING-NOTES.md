@@ -1221,6 +1221,49 @@ double mu = primary.Mu;
 double3 toPrimary = primary.GetPositionEcl() - body.GetPositionEcl();
 ```
 
+## A profiler capture the game runs by itself, for A/B timing
+
+KSA has a capture harness in `KSA.ProfilerCapture`, switched on by environment variables read once
+at startup. It loads a save, waits, records 302 frames of the in-game profiler, writes them to CSV
+and **exits the game**. Matty (RocketWerkz) pointed it out as the reliable way to A/B performance,
+and it is: the same save, the same frame count and no hand on the camera.
+
+| Variable | What it does |
+| --- | --- |
+| `KSA_PROFILE_CAPTURE` | the save to load, by name; setting it is what turns the harness on |
+| `KSA_PROFILE_CAPTURE_OUT` | the CPU CSV; default `<Documents>/My Games/Kitten Space Agency/profilerdumps/ksa_profiler_dump.csv` (`Constants.ProfilerDumpFolderPath`) |
+| `KSA_PROFILE_CAPTURE_WARMUP` | frames after the load before recording; default 300 |
+| `KSA_PROFILE_CAPTURE_GPU` | any value adds a GPU CSV, if the device has timestamp queries |
+| `KSA_PROFILE_SPIKE_MS` | separate mode, used *without* `KSA_PROFILE_CAPTURE`: one CSV per frame over this many ms, as `ksa_profiler_spike_<frame>_<us>us.csv` |
+| `KSA_PROFILE_SPIKE_OUT`, `KSA_PROFILE_SPIKE_MAX` | where those go (the dump folder by default) and how many at most (64) |
+
+Beside the CPU file it always writes `<out>_ram.csv` and, where the VRAM sampler is up,
+`<out>_vram.csv`; with the GPU on, `<out>_gpu.csv`. Every file has the columns
+`frame,wall_ts,index,parent,tag,start_us,dur_us,alloc_bytes`, one row per profiler zone, nested by
+`parent`. The log gets one summary line for RAM (fragmentation, GC pause, gen0/1/2 counts) and one
+for VRAM.
+
+The save loads 60 frames after startup, and a capture run skips the new-mods confirmation and the
+start popup, so nothing waits for a click. Mods load as usual, so this mod's own zones, such as the
+cloud pass's GPU region that `Ksa/CloudPassCost.cs` reads, appear in the CSV next to the engine's.
+
+```bat
+:: Windows
+set KSA_PROFILE_CAPTURE=MySave
+set KSA_PROFILE_CAPTURE_GPU=1
+set KSA_PROFILE_CAPTURE_OUT=C:\caps\run1.csv
+StarMap.exe
+```
+
+```bash
+# Linux
+KSA_PROFILE_CAPTURE=MySave KSA_PROFILE_CAPTURE_OUT=/tmp/run1.csv ./KSA
+```
+
+**From WSL a variable does not reach a Windows process unless `WSLENV` names it.** Use
+`WSLENV=KSA_PROFILE_CAPTURE:KSA_PROFILE_CAPTURE_GPU:KSA_PROFILE_CAPTURE_OUT/p`, where `/p` translates
+the path. Otherwise the game starts normally with nothing captured. Not yet tried here.
+
 **The failure mode is silence, and no gate in this repository can catch it.** The test project
 references no KSA assembly by design, so nothing under `Ksa/` is reachable by a unit test; the build
 is clean, `check-boundary.sh` is happy, and the API surface does not move because `Celestial` is

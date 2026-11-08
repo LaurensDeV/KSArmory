@@ -1343,7 +1343,7 @@ CI with a **read-only deploy key** held in the `KSA_ASSEMBLIES_KEY` secret. Keep
 licensed copy privately is fine; publishing it is not. `tools/sync-assemblies.sh` refreshes the
 mirror after a KSA update, refusing if a csproj references something it does not know to copy.
 It mirrors the whole SDK by default — see *The mirror is a general KSA SDK* below for why, and
-for the `--subset` flag that narrows it to the sixteen assemblies this repository alone references.
+for the `--subset` flag that narrows it to the fourteen assemblies this repository alone references.
 
 `Directory.Build.props` resolves the folder in tiers, first match wins: `KSA_DLL_DIR` (what CI
 sets), then `Import/`, then a sibling `ksa-game-assemblies` checkout, then the game install — so
@@ -1366,9 +1366,7 @@ The version check is deliberately *not* wired into `build.sh`: a network call on
 slow, breaks offline, and would be the first thing anyone disabled.
 
 That check deliberately looks at the *install*, not at whatever the build resolved: `Import/` is
-a copy, so it still matches the lock after a game update and would report all-clear. It also
-compares only what the install ships — `StarMap.API.dll` comes from the loader, and would
-otherwise report a KSA update every single run.
+a copy, so it still matches the lock after a game update and would report all-clear.
 
 The assemblies exist in two places that drift apart silently: your `Import/`, and the
 private repo CI compiles against. Update one and not the other and CI is building the mod
@@ -1407,8 +1405,9 @@ the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from about 770,00
 defining the 362 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 34 RocketWerkz
-first-party assemblies plus the loader and the game-shipped third-party — 44 in total, 16 MB —
-so any KSA mod can build against it. `sync-assemblies.sh --subset` narrows it to the minimal set.
+first-party assemblies plus the game-shipped third-party — 40 in total —
+so any KSA mod can build against it. The loader is not in it: `StarMap.API` and `Lib.Harmony`
+are NuGet packages, which a mod references directly. `sync-assemblies.sh --subset` narrows it to the minimal set.
 Per-mod pinning still comes from that mod's own `ksa-assemblies.lock`, which covers only what it
 references, so the drift check stays exact without the mirror being narrow.
 

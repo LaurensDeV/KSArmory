@@ -84,7 +84,6 @@
   -->
   <ItemGroup>
     <Reference Include="$(KsaDllDir)KSA.dll" Private="false" />
-    <Reference Include="$(KsaDllDir)StarMap.API.dll" Private="false" />
     <Reference Include="$(KsaDllDir)Brutal.Numerics.dll" Private="false" />
     <Reference Include="$(KsaDllDir)Brutal.Core.dll" Private="false" />
     <Reference Include="$(KsaDllDir)Brutal.Strings.dll" Private="false" />
@@ -117,9 +116,18 @@
       computer across the frame and every StarMap hook lands on the wrong side of it, so an
       attitude command written from one is overwritten before it is ever read - see
       docs/BLOCKED-ON-KSA.md. It ships with StarMap, so this adds no dependency a player has to
-      install. Private=false for the same reason as the rest: it is already loaded.
+      install.
     -->
-    <Reference Include="$(KsaDllDir)0Harmony.dll" Private="false" />
+  </ItemGroup>
+
+  <!--
+    The loader's API and its Harmony, from NuGet. Compile assets only, so neither reaches the mod
+    output, for the same reason as the references above: the loader has already loaded its own.
+    Lib.Harmony 2.4.3 is the 0Harmony.dll StarMap 0.5.2 ships, byte for byte.
+  -->
+  <ItemGroup>
+    <PackageReference Include="StarMap.API" Version="0.5.2" IncludeAssets="compile" PrivateAssets="all" />
+    <PackageReference Include="Lib.Harmony" Version="2.4.3" IncludeAssets="compile" PrivateAssets="all" />
   </ItemGroup>
 
   <!--

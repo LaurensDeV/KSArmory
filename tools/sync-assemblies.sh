@@ -16,17 +16,6 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 KSA_DIR="${KSA_DIR:-/mnt/c/Program Files/Kitten Space Agency}"
-# StarMap.API.dll comes from the loader, not the game. The Windows username rarely matches the
-# Linux one, so search rather than assume.
-find_starmap() {
-    [[ -n "${STARMAP_DIR:-}" ]] && { printf '%s\n' "$STARMAP_DIR"; return 0; }
-    local hit
-    hit="$(find /mnt/c/Users "$HOME" -maxdepth 4 -iname 'StarMap.API.dll' 2>/dev/null | head -1)"
-    [[ -n "$hit" ]] && { dirname "$hit"; return 0; }
-    return 1
-}
-STARMAP_DIR="$(find_starmap || true)"
-
 TARGET="${1:-}"
 if [[ -z "$TARGET" ]]; then
     echo "usage: $(basename "$0") <path to ksa-game-assemblies checkout>" >&2
@@ -36,9 +25,11 @@ fi
 
 # What to mirror.
 #
-# The default is every RocketWerkz first-party assembly plus the loader and the third-party
-# libraries the game ships, so the private repository is a general KSA SDK mirror that *any*
-# mod can build against - not just this one: 44 assemblies, about 16 MB.
+# The default is every RocketWerkz first-party assembly plus the third-party libraries the game
+# ships, so the private repository is a general KSA SDK mirror that *any* mod can build against -
+# not just this one: 40 assemblies.
+#
+# The loader is not mirrored: StarMap.API and Lib.Harmony are NuGet packages.
 #
 # Deliberately excluded: the .NET runtime (System.*, Microsoft.*), which every SDK already has.
 #
@@ -54,11 +45,8 @@ referenced="$(grep -ohP '(?<=\$\(KsaDllDir\))[A-Za-z0-9._]+(?=\.dll)' \
 # Third-party shipped alongside the game rather than pulled from NuGet, on purpose: the game is
 # pre-release and binds to the exact build it ships, so a NuGet package of the same nominal
 # version is not guaranteed to be the same assembly.
-#
-# Not all of it comes from the game. 0Harmony ships with the StarMap loader, so the search below
-# looks where the copy step does; a name found in neither is caught by the referenced-assemblies guard.
 EXTRAS=(BepuUtilities BepuPhysics MathNet.Numerics MemoryPack.Core
-        CommunityToolkit.HighPerformance Tomlet 0Harmony)
+        CommunityToolkit.HighPerformance Tomlet)
 
 ASSEMBLIES=()
 if (( SUBSET )); then
@@ -72,14 +60,8 @@ else
     done < <(find "$KSA_DIR" -maxdepth 1 -name '*.dll' 2>/dev/null | sort)
 
     for name in "${EXTRAS[@]}"; do
-        [[ -f "$KSA_DIR/$name.dll" || -f "${STARMAP_DIR:-/nonexistent}/$name.dll" ]] \
-            && ASSEMBLIES+=("$name")
+        [[ -f "$KSA_DIR/$name.dll" ]] && ASSEMBLIES+=("$name")
     done
-
-    # The loader ships separately from the game.
-    while IFS= read -r path; do
-        ASSEMBLIES+=("$(basename "$path" .dll)")
-    done < <(find "${STARMAP_DIR:-/nonexistent}" -maxdepth 1 -name 'StarMap.*.dll' 2>/dev/null | sort)
 fi
 
 [[ ${#ASSEMBLIES[@]} -gt 0 ]] || { echo "error: nothing to mirror; is $KSA_DIR a KSA install?" >&2; exit 1; }
@@ -103,11 +85,8 @@ mkdir -p "$DEST"
 copied=0
 for name in "${ASSEMBLIES[@]}"; do
     src="$KSA_DIR/$name.dll"
-    # StarMap ships its own API assembly, not the game.
-    [[ -f "$src" ]] || src="$STARMAP_DIR/$name.dll"
     if [[ ! -f "$src" ]]; then
-        echo "error: could not find $name.dll in the KSA install or StarMap" >&2
-        echo "       looked in: $KSA_DIR and $STARMAP_DIR" >&2
+        echo "error: could not find $name.dll in the KSA install at $KSA_DIR" >&2
         exit 1
     fi
     cp "$src" "$DEST/$name.dll"

@@ -1418,10 +1418,6 @@ Per-viewport picking must use `viewport.GetCamera().ScreenToEgoRay(...)` directl
   `Mod` (`ShaderReference.cs:87-98`). `ModLibrary.LoadAll` / `DoLoad` ordering is untraced, so whether
   shaders from a late-loading mod are compiled before pipelines that might reference them is unconfirmed.
   Testing it in game, or reading `KSA/KSA/ModLibrary.cs` load ordering, would settle it.
-- **Whether `0Harmony.dll` is redistributed with StarMap or expected beside it.** `StarMap.Core` uses
-  `HarmonyLib` (`ProgramPatcher.cs:3`), and `0Harmony.dll` is now in the mirrored loader DLL set
-  (`current/dll/`) and in `ksa-assemblies.lock`. Whether the loader ships it or only expects it beside
-  itself is still only settled by checking a real StarMap install directory.
 - **Exact pixel threshold at which the distant sphere replaces the sprite for the home body.**
   `num4 > 2.0` flags the sphere and `num4 > 6.0` suppresses the sprite
   (`StaticCelestialDistanceRendering.cs:434-438`); `SpriteSphereBlend` governs the crossfade

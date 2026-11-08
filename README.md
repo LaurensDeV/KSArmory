@@ -373,8 +373,7 @@ curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0 --ins
 `Import/` is gitignored — it holds the game's own binaries, which are not redistributable.
 `sync-import.sh` reads them from your install (override with `KSA_DIR=...`).
 
-`StarMap.API.dll` comes from a StarMap release rather than the game; drop it into `Import/` or
-pass `STARMAP_DIR=...`.
+The loader's `StarMap.API` and `Lib.Harmony` are NuGet packages and restore with the build.
 
 ## How it works
 
