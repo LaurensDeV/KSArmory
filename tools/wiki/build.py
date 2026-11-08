@@ -28,7 +28,7 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from models import slug  # noqa: E402
+from models import Assets, slug  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 MOD = ROOT / "src/KSArmory"
@@ -318,6 +318,8 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
     """A page per weapon and an overview per family, one entry per part for the gallery and the table, and
     every part no README paragraph describes."""
     blurbs = readme_blurbs()
+    # A part built wholly from Core's kit has no model, still or card of its own to put on a page.
+    drawn = set(Assets().drawable())
     pages, weapons, undescribed = {}, [], []
     carriage_page = {marker: (f"{MOUNTS_FOLDER}/{anchor(name)}.md", line)
                      for _, name, marker, line in MOUNTS if marker}
@@ -341,7 +343,7 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
                 parts.setdefault(element.get("PartId"), []).append(element)
 
         for part_id, elements in parts.items():
-            if part_id in hidden_parts():
+            if part_id in hidden_parts() or part_id not in drawn:
                 continue
             name = names.get(part_id, part_id)
             page = f"{folder}/{anchor(name)}.md"
@@ -427,6 +429,8 @@ def weapon_pages(names: dict[str, str]) -> tuple[dict[str, str], list[dict], lis
                 "warhead": warhead(first) if first is not None else None,
             })
 
+        if not family_weapons:
+            continue
         weapons += family_weapons
         pages[f"{folder}/index.md"] = "\n".join([
             *front_matter(FAMILIES[family], ", ".join(w["name"] for w in family_weapons) + ".",

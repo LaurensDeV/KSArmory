@@ -44,25 +44,29 @@ body{margin:0}
 .rule{height:5px;background:#edebe6;opacity:.18;margin:10px 0 14px}
 .tag{font:500 20px 'IBM Plex Mono';letter-spacing:.24em;color:#a19d94}`;
 
+const failures = [];
 const server = createServer(async (request, response) => {
   const url = new URL(request.url, 'http://localhost');
   if (url.pathname === '/') {
     response.writeHead(200, { 'content-type': 'text/html' }).end(PAGE);
     return;
   }
+  // Read before the header goes out: a 404 after a 200 throws, and takes the whole run with it.
+  const file = path.join(docs, decodeURIComponent(url.pathname));
+  let body;
   try {
-    const file = path.join(docs, decodeURIComponent(url.pathname));
-    response.writeHead(200, { 'content-type': TYPES[path.extname(file)] ?? 'application/octet-stream' })
-      .end(await readFile(file));
+    body = await readFile(file);
   } catch {
+    if (url.pathname !== '/favicon.ico') failures.push(`a request for ${url.pathname}, which is not in the build`);
     response.writeHead(404).end();
+    return;
   }
+  response.writeHead(200, { 'content-type': TYPES[path.extname(file)] ?? 'application/octet-stream' }).end(body);
 }).listen(0, '127.0.0.1');
 await new Promise((resolve) => server.once('listening', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 
 const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] });
-const failures = [];
 try {
   const page = await browser.newPage({ viewport: { width: WIDTH, height: HEIGHT } });
   page.on('pageerror', (error) => failures.push(error.message));
@@ -95,7 +99,9 @@ try {
     await card.setContent(`<!doctype html><style>${CARD_STYLE}</style>${body}`);
     await card.evaluate(async () => {
       await Promise.all([...document.fonts].map((font) => font.load()));
-      await Promise.all([...document.images].map((img) => img.decode()));
+      await Promise.all([...document.images].map((img) => img.decode().catch(() => {
+        throw new Error(`${img.getAttribute('src')} cannot be decoded`);
+      })));
     });
     await card.screenshot({ path: path.join(docs, file) });
   };
