@@ -851,6 +851,35 @@ def check_markers_select_disjoint_subparts(text):
     return problems, checked
 
 
+def check_keys_on_keyed_elements(core_dir):
+    """Verifies every `Key` sits on an element whose type takes one.
+
+    KSA refuses a part whose XML puts `Key` on an element whose type is not IKeyed, an inert mass for
+    one, and a craft holding the part is then dropped from every save. Which tags take a Key is read
+    off Core: a tag Core never keys is reported.
+    """
+    if core_dir is None:
+        return 0, 0
+    keyed = set()
+    for path in sorted(core_dir.glob("*.xml")):
+        try:
+            keyed |= {el.tag for el in ET.parse(path).getroot().iter() if el.get("Key") is not None}
+        except ET.ParseError:
+            continue
+
+    problems = checked = 0
+    for path in sorted(MOD.glob("KSArmory*.xml")):
+        for el in ET.parse(path).getroot().iter():
+            if el.get("Key") is None:
+                continue
+            checked += 1
+            if el.tag not in keyed:
+                print(f"  UNKEYABLE <{el.tag} Key=\"{el.get('Key')}\"> in {path.name} -- Core never keys a "
+                      f"<{el.tag}>, and KSA refuses the part if its type does not take one", file=sys.stderr)
+                problems += 1
+    return problems, checked
+
+
 def check_editor_tags(core_dir):
     """Verifies every <EditorTag> a part names is defined, here or by Core.
 
@@ -2275,6 +2304,11 @@ def main():
 
     print("checking every armour plate's mass and thickness against its definition")
     p, c = check_armour_plates()
+    problems += p
+    checked += c
+
+    print("checking every Key sits on an element that takes one")
+    p, c = check_keys_on_keyed_elements(None if offline else CORE)
     problems += p
     checked += c
 
