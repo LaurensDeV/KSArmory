@@ -99,10 +99,10 @@ internal static partial class KsaWorld
 
                 if (v.GetCamera() is not { } camera) continue;
 
-                // Framebuffer pixels, not viewport pixels: ScreenToEgoRay divides by the camera's
-                // own framebuffer, and a render or display scale makes those different sizes.
+                // ScreenToEgoRay divides by the camera's ScreenSize, which for the main view is the
+                // window's size and need not be the viewport's or the framebuffer's.
                 if (!CursorAim.TryToFramebuffer(cursor, v.Position, v.Width, v.Height,
-                                                camera.FramebufferSize.X, camera.FramebufferSize.Y,
+                                                (int)camera.ScreenSize.X, (int)camera.ScreenSize.Y,
                                                 out float2 local))
                 {
                     continue;

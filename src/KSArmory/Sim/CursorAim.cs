@@ -6,10 +6,11 @@ namespace KSArmory;
 /// Turning a mouse cursor into something a drive can be pointed at.
 ///
 /// <para>ImGui reports the cursor in <b>screen</b> coordinates spanning every window, while a camera's
-/// unprojection divides by <em>its own</em> framebuffer, so the cursor is offset into the viewport.</para>
+/// unprojection divides by <em>its own</em> size, so the cursor is offset into the viewport.</para>
 ///
-/// <para>The scale into framebuffer pixels is one in KSA today (<c>GameViewport.SetSize</c> resizes its
-/// cameras to the viewport's size) and kept because the unprojection is owed framebuffer pixels.</para>
+/// <para>The scale is into the size the unprojection divides by, which KSA calls the camera's
+/// <c>ScreenSize</c>: the window's size for the main view and the viewport's for any other. It is not
+/// <c>FramebufferSize</c>, which the two differ from under a render or display scale.</para>
 /// </summary>
 public static class CursorAim
 {
@@ -41,8 +42,9 @@ public static class CursorAim
     }
 
     /// <summary>
-    /// The cursor in the camera's framebuffer coordinates: offset into the viewport, then scaled
-    /// from viewport pixels into framebuffer pixels.
+    /// The cursor in the coordinates the camera unprojects against: offset into the viewport, then
+    /// scaled from viewport pixels into those. Pass the camera's <c>ScreenSize</c>, not its
+    /// <c>FramebufferSize</c>.
     /// </summary>
     /// <param name="framebufferWidth">Width the camera unprojects against, which is what matters.</param>
     /// <param name="framebufferHeight">Height the camera unprojects against.</param>
