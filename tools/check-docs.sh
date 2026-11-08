@@ -24,8 +24,9 @@ fail() {
 
 echo "Layout table covers src/"
 
-# Table rows only: searching all of CLAUDE.md passes a file that prose names while its row is missing.
-rows="$(grep '^|' CLAUDE.md || true)"
+# Table rows only: searching all of docs/LAYOUT.md passes a file that prose names while its row is
+# missing. The index lives there rather than in CLAUDE.md, which loads in full every session.
+rows="$(grep '^|' docs/LAYOUT.md || true)"
 
 missing=""
 while IFS= read -r path; do
@@ -34,7 +35,7 @@ done < <(find src/KSArmory/Sim src/KSArmory/Ksa -name '*.cs' | sed 's|src/KSArmo
 
 if [[ -n "$missing" ]]; then
     echo "$missing"
-    fail "these source files are in no row of CLAUDE.md's Layout table"
+    fail "these source files are in no row of docs/LAYOUT.md"
 fi
 
 # And a row naming a file that no longer exists, which coverage alone does not catch.
@@ -46,7 +47,7 @@ done < <(grep -oE '`(src/|tools/|docs/|tests/|Sim/|Ksa/)[A-Za-z0-9_./*-]+`' <<< 
 
 if [[ -n "$stale" ]]; then
     echo "$stale"
-    fail "CLAUDE.md's Layout table names these, and they do not exist"
+    fail "docs/LAYOUT.md names these, and they do not exist"
 fi
 
 # docs/KSA-API-SURFACE.md is generated and states its own totals on line 10.
@@ -101,6 +102,9 @@ if [[ -f ksa-assemblies.lock ]]; then
 docs/KSA-MODDING-NOTES.md
 docs/BLOCKED-ON-KSA.md
 docs/KSA-CAMERAS.md
+docs/LAYOUT.md
+docs/WEAPON-PACKS.md
+.claude/skills/upgrade-ksa/SKILL.md
 README.md"
     fi
 fi
