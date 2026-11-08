@@ -12,40 +12,6 @@ compiler and has to be read out of the decompiled sources.
 
 Read `docs/KSA-MODDING-NOTES.md` and CLAUDE.md's *After a KSA update* before starting.
 
-## Announced for the build after 2026.10.25.5707
-
-RocketWerkz have said what is coming, so check these first. **Delete this section once that build is
-taken up.**
-
-- **The asset XML format changes** (*XML Data Changes: More tools for Modders*, ahwoo.com, 2026-11-02).
-  - `PartGameData` goes. The hand-written half of a part becomes `<Part Id="..." Modify="Patch">`,
-    merged into the generated one by Id.
-  - `Modify` takes `Patch`, `Extend`, `Replace`, `Remove` and their `IfExists` forms.
-  - `Id` names only a top-level asset. Child items (colliders, connectors, a part's subparts) take
-    `Key`, unique within their parent, and point at each other with `KeyRef`. A reference to an asset
-    is `Ref`.
-  - Collections are wrapped: `<EditorTags>`, `<Diameters>`, `<Components>`, `<Connectors>`, `<Colliders>`.
-  - Textures become `<Texture Id>` assets, which a `PbrMaterial` names by `Ref`.
-  - Every `src/KSArmory/KSArmory*.xml` is rewritten, and so is everything that parses them:
-    `validate-parts.py`, `tools/wiki/models.py`, `export-example-copy.py` (it renames Ids),
-    `make-rocket.py` and `pack-api.py`.
-  - Then check whether a subpart is still found by an `Id`: the drive markers, `LauncherPart` and
-    `StoreCarriage`. Check too whether a save now pairs subparts by `Key`, which would change
-    CLAUDE.md's rule that a shipped part's subpart list is append-only.
-  - The weapon definitions under `src/KSArmory/KSArmory/` are this mod's own format and do not move.
-  - **Tell players and pack authors how to patch.** The wiki's modding pages are generated from
-    `docs/WEAPON-PACKS.md` and `docs/FROM-KSP-MODDING.md` (`tools/wiki/build.py`). Add a section with a
-    flown example: a `Modify="Patch"` on a KSArmory part (a texture, a collider, its mass) and on a Core
-    part (a tank's `WallThickness`). Say that a patch changes every copy of a part, not one on a craft.
-    Say which of this mod's own definitions take a patch: none, unless the pack reader gains `Modify` too.
-    Map it to KSP's ModuleManager `@PART` patches in the KSP page.
-- **An aerodynamic mesh** is generated from every craft's colliders and drawn in the editor and in
-  flight. It changes no forces yet. When a later build makes it change forces, `Sim/DragShape.cs`
-  is a copy of drag that no longer exists. `docs/BLOCKED-ON-KSA.md` has the check.
-- **`docs/ARMOUR-SETTING.md` step 1** hooks `XmlHelper.AttributeOverrides`, which the format change
-  probably reworks. Re-read `XmlHelper`, `VehicleSaves` and `GameSaves` in the new corpus before
-  building it.
-
 ## What you need
 
 - The new KSA build **installed** (`/mnt/c/Program Files/Kitten Space Agency`).

@@ -13,7 +13,7 @@ matter most.
 | `PART { }` | `<Part>`, with a `<SubPart>` for each piece that moves |
 | `MODULE { name = X }` | one of KSA's built-in modules (tank, engine, decoupler…) in the part's XML; a mod cannot add a module type (see below) |
 | module fields set per part | `<Launcher>`, `<Munition>`, `<Sensor>` and friends, in your mod's `KSArmory/` folder |
-| ModuleManager patches (`@`, `%`, `:NEEDS`) | nothing; there is no patch layer |
+| ModuleManager patches: `@PART[x] { }`, `@field`, `!MODULE`, `:NEEDS` | `<Part Id="x" Modify="Patch">`, the element patched by `Key`, `Modify="Remove"`, the `IfExists` verbs (see [Changing a part you did not write](WEAPON-PACKS.md#changing-a-part-you-did-not-write)) |
 | `model.mu` | `.glb` mesh atlas |
 | `PartResource` for ammunition | not a resource; KSArmory counts ammunition itself, and can lighten the part as it fires (fuel and other substances are KSA tanks) |
 | `KSP.log` | `Logs/KSArmory.log` in the KSA user folder |
