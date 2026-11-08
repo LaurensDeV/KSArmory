@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-372 types and 973 members across 12 assemblies.
+373 types and 975 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -2032,6 +2032,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.TransformDataReference`1
 
 *referenced as a type only*
+
+### KSA.TransformReference
+
+- `void .ctor()`
+- `void set_ScaleValue(Brutal.Numerics.double3)`
 
 ### KSA.UncompressedSave
 

@@ -176,6 +176,9 @@ public sealed class KSArmoryMod
         Catalogue.Freeze();
         ReportRegistrations();
 
+        // Before the editor builds its part thumbnails from the templates.
+        StoreCarriage.ParkOnTemplates();
+
         // Only now: a pack registers before KSA has loaded any part to check a profile against.
         foreach (PackFault fault in Catalogue.Audit(new DeclaredParts())) Log.Warn(fault.ToString());
 

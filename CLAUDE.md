@@ -609,7 +609,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Armaments.cs` | one coordinator per craft — **derived every frame, never pinned**, because it carries nothing a split could lose |
 | `Ksa/Radar.cs` | cone search, CPA threat model, lock |
 | `Ksa/LauncherPart.cs` | finds a registered launcher, resolves tubes and subparts |
-| `Ksa/StoreCarriage.cs` | the ejector or launch rail a store hangs by, shown when it means something: a store's own (`LauncherProfile.CarriageMarker`, which also picks which of the two a missile brings) only while it is attached, so the part list shows the store alone, and the empty Weapon Mount only while nothing is on its station -- **the mod's one pass in the vehicle editor** as well as in flight |
+| `Ksa/StoreCarriage.cs` | the ejector or launch rail a store hangs by, shown when it means something: a store's own (`LauncherProfile.CarriageMarker`, which also picks which of the two a missile brings) only while it is attached, so the part list shows the store alone -- **declared full size and parked on the template at load**, so a tool reading the part files draws it -- and the empty Weapon Mount only while nothing is on its station -- **the mod's one pass in the vehicle editor** as well as in flight |
 | `Ksa/LauncherSeparation.cs` | the decoupler on the joint holding a launcher on — **a property of the part, not the craft** |
 | `Ksa/OpticParts.cs` | finds a director on a craft, and turns its head |
 | `Ksa/OpticalHead.cs` | **one director** — its own sensor, its own aim, no weapon involved |
@@ -777,7 +777,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 973 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 975 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -1402,7 +1402,7 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from about 770,000 lines to the files
-defining the 372 types this mod actually uses.
+defining the 373 types this mod actually uses.
 
 **The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
 first-party assemblies plus the game-shipped third-party — 41 in total —
