@@ -21,7 +21,7 @@ about 9 earlier). A citation is a pointer to grep near, not a proof.
 Grounded **only** in the decompiled engine at
 `../ksa-game-assemblies/current/src`.
 All citations are relative to that root. Nothing here is taken from any mod's own code or docs.
-Build: **2026.10.25.5707**. Line numbers move on every KSA update, so a citation that does not land
+Build: **2026.11.10.5801**, citations against 2026.10.25.5707. Line numbers move on every KSA update, so a citation that does not land
 on what it claims means this file is behind the corpus, not that the corpus is wrong.
 
 > **Its citations and its viewport sections are against 2026.8.22.5348, and section 2 in particular
@@ -39,7 +39,9 @@ on what it claims means this file is behind the corpus, not that the corpus is w
 > can now be bound to an input action, and `Program.OnMouseButton` dispatches that binding before
 > the controller sees the press. 2026.10.25.5707 left `Camera.cs`, `FixedController.cs` and `Viewport.cs`
 > alone and kept `Program.OnFrame`'s order; what it adds is clouds in a secondary viewport
-> (`ViewportOptionFlags.RenderClouds`), so the table below listing none is history.
+> (`ViewportOptionFlags.RenderClouds`), so the table below listing none is history. 2026.11.10.5801
+> left `FixedController.cs` and `Viewport.cs` alone and kept `Program.OnFrame`'s order; `Camera.cs`
+> projects through a cached `ScreenSize`, written from the framebuffer size wherever that is.
 > 2026.9.4.5400 replaced the `Viewport` class with `IViewport` / `ViewportBase` /
 > `GameViewport` and moved the list into `ViewportRegistry` — so every `Viewport.cs:N` citation
 > below points at a file that no longer exists, and the claims naming `Program.Viewports`,

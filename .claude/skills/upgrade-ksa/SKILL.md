@@ -94,7 +94,7 @@ Do not push yet if you want to inspect the diff first — it is local either way
 ./tools/ksa-api-diff.sh ../ksa-game-assemblies
 ```
 
-This reads `docs/KSA-API-SURFACE.md` — the 967 members this mod genuinely binds to, extracted
+This reads `docs/KSA-API-SURFACE.md` — the 972 members this mod genuinely binds to, extracted
 from the compiled assembly's metadata — against the new corpus, and answers two questions:
 
 **Missing members.** Mechanical and precise. Each one is a break you must fix. `MOVED` means it
@@ -156,6 +156,8 @@ claim still holds.
 | The light pre-pass holds craft, structures, terrain and clutter, and only terrain and clutter write the normal's w as exactly one, lighting themselves forward | `PrePassRenderer.cs`, `PlanetDepth.frag`, `GroundClutter/SolidDepth.frag`, `MeshNormalIndirect.frag`, `StaticObjectNormalIndirect.frag` | `KSArmoryFireLight.comp` skips w = 1; a part writing one, or terrain writing roughness, lights the ground twice or leaves a craft dark. |
 | KSA storm-scales the belt with the largest L, by exact equality, in `ComputeBeltDoseRate` and the overlay | `Radiation.cs`, `RadiationBeltPass.cs` | `DoseRateHook` splits a burst's belts out of the call; if the rule moves, the split is pointless or wrong. |
 | A gas mole's pressure is `m/V·T·R` at its storage temperature, and `ConsumeStored` drains a gas | `Mole.cs` | `Leaks.MeasureGas` vents by it and `TankLeak.GasDrawn` assumes the held temperature. |
+| `SpatialAudio` takes the listener's pressure in **atmospheres**, and `Camera.ComputeAtmosphericPressure` answers in **pascals** | `SpatialAudio.cs`, `Camera.cs`, `ExplosionSoundSystem.cs` | `SoundChannels.PressureAt` converts; drop it and every sound is low-passed as though under 100,000 atmospheres. |
+| A feed wiring reaches only the core on the subpart its `SubPart=` names, compared exactly | `ConsumerFeedWiring.cs` (`Wires`), `PartTemplate.ResolveConsumerFeedPoints` | The bus's twenty thrusters each need their own wiring; one without `SubPart=` feeds none, with an error in KSA's log only. |
 
 Add a row whenever a fix depends on the engine *doing* something rather than *declaring* it.
 
@@ -189,10 +191,11 @@ What to look for, in order of how quietly it fails:
 - **A renamed or new body in `Astronomicals.xml`.** `src/KSArmory/KSArmory/Bodies.xml` is keyed by body
   Id; a renamed body silently loses its field and airglow. The game logs "names no body in this solar
   system" once the world loads -- read for it, and give any new body an entry.
-- **A different atmosphere model.** Every altitude law in the nuclear effects assumes KSA's air is
-  isothermal, `SeaLevel·exp(-h/H)` for pressure and density alike (`PhysicalAtmosphereReference`), cut
-  off at its boundary height. If `GetAtmosphericPressureAtAltitude` or `...DensityAtAltitude` stop
-  sharing that form, `Sim/BodyAir.cs` no longer mirrors the game and `BodyAirTests` will not notice.
+- **A different atmosphere model.** Since 2026.11.10.5801 KSA's air is a layered profile:
+  temperature linear in geopotential between `<TemperatureProfile>` points, pressure hydrostatic
+  through each layer (`PhysicalAtmosphere`). `Sim/AtmosphereProfile.cs` restates that arithmetic, and
+  `KsaWorld.BodyAirOf` logs once per body how far the mirror lands from the engine's own density
+  (`air: ... worst density error`, a warning past 1e-9). Read that line after an update.
 
 ## 5. Build, fix, test
 

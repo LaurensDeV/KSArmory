@@ -15,13 +15,18 @@ internal static class SoundChannels
         catch { return null; }
     }
 
-    /// <summary>The pressure at the listener, which is what decides how much of a sound survives the trip.</summary>
+    /// <summary>
+    /// The pressure at the listener in atmospheres, which is what a channel's low-pass reads; the
+    /// camera answers in pascals, and the engine's own sounds convert exactly so.
+    /// </summary>
     public static double PressureAt(Camera listener)
     {
         // The listener's, not the source's: in vacuum at the ear nothing is heard however loud it is.
-        try { return PhysicalAtmosphereReference.GetAtmosphericPressure(listener); }
+        try { return listener.ComputeAtmosphericPressure() * AtmospheresPerPascal; }
         catch { return 1.0; }
     }
+
+    private const double AtmospheresPerPascal = 9.869232667160129E-06;
 
     /// <summary>
     /// Moves a held channel if it is still playing. False means it has stopped or broken, and the

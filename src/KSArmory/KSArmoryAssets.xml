@@ -15,9 +15,7 @@
   origin sits on the ground between the wheels.
 -->
 <Assets>
-
-  <MeshAtlas Path="Meshes/KSArmory_MeshAtlas.glb" />
-
+  <MeshAtlas Id="KSArmory_MeshAtlas" Path="Meshes/KSArmory_MeshAtlas.glb" />
   <!--
     A SubPart's Id must not be a mesh's Id. The atlas registers every mesh under its glTF node
     name, so declaring a SubPart under that same name registers two different assets against one
@@ -26,70 +24,75 @@
     KSArmory_Subpart_<name>, which is the same split Core uses - LightSubPart against
     LightPartMesh. validate-parts.py fails if the two namespaces ever touch again.
   -->
-
   <!--
     One material for the whole vehicle. Every face is UV-mapped to the centre of a flat swatch
     in a 4x4 palette, so surface variety comes from UVs rather than from painted texels - see
     tools/model/palette.py. AoRoughMetal is R=occlusion, G=roughness, B=metalness, matching the
     element name, the glTF ORM convention, and Core's own default_pbr.png of (255, 180, 0).
   -->
+  <Texture Id="KSArmory_Diffuse" Path="Textures/KSArmory_Diffuse.png" Category="Vessel" />
+  <Texture Id="KSArmory_Normal" Path="Textures/KSArmory_Normal.png" Category="Vessel" />
+  <Texture Id="KSArmory_PBR" Path="Textures/KSArmory_PBR.png" Category="Vessel" />
   <PbrMaterial Id="KSArmory_Material">
-    <Diffuse Path="Textures/KSArmory_Diffuse.png" Category="Vessel" />
-    <Normal Path="Textures/KSArmory_Normal.png" Category="Vessel" />
-    <AoRoughMetal Path="Textures/KSArmory_PBR.png" Category="Vessel" />
+    <Diffuse Ref="KSArmory_Diffuse" />
+    <Normal Ref="KSArmory_Normal" />
+    <AoRoughMetal Ref="KSArmory_PBR" />
   </PbrMaterial>
-
   <!--
     The targeting pod's atlas: three bodies unwrapped into one 2048 set. Authored in Blender to the
     export contract; its .blend and the scripts that build, bake and export it are not in this repository.
   -->
-  <MeshAtlas Path="Meshes/KSArmory_Litening.glb" />
-
+  <MeshAtlas Id="KSArmory_Litening_Atlas" Path="Meshes/KSArmory_Litening.glb" />
+  <Texture Id="KSArmory_Litening_Diffuse" Path="Textures/KSArmory_Litening_Diffuse.png" Category="Vessel" />
+  <Texture Id="KSArmory_Litening_Normal" Path="Textures/KSArmory_Litening_Normal.png" Category="Vessel" />
+  <Texture Id="KSArmory_Litening_PBR" Path="Textures/KSArmory_Litening_PBR.png" Category="Vessel" />
   <PbrMaterial Id="KSArmory_Litening_Material">
-    <Diffuse Path="Textures/KSArmory_Litening_Diffuse.png" Category="Vessel" />
-    <Normal Path="Textures/KSArmory_Litening_Normal.png" Category="Vessel" />
-    <AoRoughMetal Path="Textures/KSArmory_Litening_PBR.png" Category="Vessel" />
+    <Diffuse Ref="KSArmory_Litening_Diffuse" />
+    <Normal Ref="KSArmory_Litening_Normal" />
+    <AoRoughMetal Ref="KSArmory_Litening_PBR" />
   </PbrMaterial>
-
   <!--
     The YAL-1 nose turret's atlas: three bodies unwrapped into one 2048 set. Authored in Blender;
     its .blend and the scripts that build, bake and export it are not in this repository.
   -->
-  <MeshAtlas Path="Meshes/KSArmory_Yal1.glb" />
-
+  <MeshAtlas Id="KSArmory_Yal1_Atlas" Path="Meshes/KSArmory_Yal1.glb" />
+  <Texture Id="KSArmory_Yal1_Diffuse" Path="Textures/KSArmory_Yal1_Diffuse.png" Category="Vessel" />
+  <Texture Id="KSArmory_Yal1_Normal" Path="Textures/KSArmory_Yal1_Normal.png" Category="Vessel" />
+  <Texture Id="KSArmory_Yal1_PBR" Path="Textures/KSArmory_Yal1_PBR.png" Category="Vessel" />
   <PbrMaterial Id="KSArmory_Yal1_Material">
-    <Diffuse Path="Textures/KSArmory_Yal1_Diffuse.png" Category="Vessel" />
-    <Normal Path="Textures/KSArmory_Yal1_Normal.png" Category="Vessel" />
-    <AoRoughMetal Path="Textures/KSArmory_Yal1_PBR.png" Category="Vessel" />
+    <Diffuse Ref="KSArmory_Yal1_Diffuse" />
+    <Normal Ref="KSArmory_Yal1_Normal" />
+    <AoRoughMetal Ref="KSArmory_Yal1_PBR" />
   </PbrMaterial>
-
   <!--
     The suspension rail's atlas and material. Exported in part space with its origin on the mounting
     face, node names matching mesh names, its own _VM twin, and a _ColPrim_ box carrying the collider
     (Core's convention, and where its <Collider> is taken from), so it is copied in as exported.
   -->
-  <MeshAtlas Path="Meshes/KSArmory_Rail.glb" />
-
+  <MeshAtlas Id="KSArmory_Rail_Atlas" Path="Meshes/KSArmory_Rail.glb" />
+  <Texture Id="KSArmory_Rail_Diffuse" Path="Textures/KSArmory_Rail_Diffuse.png" Category="Vessel" />
+  <Texture Id="KSArmory_Rail_Normal" Path="Textures/KSArmory_Rail_Normal.png" Category="Vessel" />
+  <Texture Id="KSArmory_Rail_PBR" Path="Textures/KSArmory_Rail_PBR.png" Category="Vessel" />
   <PbrMaterial Id="KSArmory_Rail_Material">
-    <Diffuse Path="Textures/KSArmory_Rail_Diffuse.png" Category="Vessel" />
-    <Normal Path="Textures/KSArmory_Rail_Normal.png" Category="Vessel" />
-    <AoRoughMetal Path="Textures/KSArmory_Rail_PBR.png" Category="Vessel" />
+    <Diffuse Ref="KSArmory_Rail_Diffuse" />
+    <Normal Ref="KSArmory_Rail_Normal" />
+    <AoRoughMetal Ref="KSArmory_Rail_PBR" />
   </PbrMaterial>
-
   <!--
     The AN/ALE-47 dispensers' atlas: two bodies, one per load, sharing one unwrap and one material.
     Authored to the export contract: node names match mesh names, each has its _VM twin and a
     _ColPrim_ box, so it is copied in as exported. +X is out of the mounting face, which is the
     face the cartridges leave from.
   -->
-  <MeshAtlas Path="Meshes/KSArmory_Ale47.glb" />
-
+  <MeshAtlas Id="KSArmory_Ale47_Atlas" Path="Meshes/KSArmory_Ale47.glb" />
+  <Texture Id="KSArmory_Ale47_Diffuse" Path="Textures/KSArmory_Ale47_Diffuse.png" Category="Vessel" />
+  <Texture Id="KSArmory_Ale47_Normal" Path="Textures/KSArmory_Ale47_Normal.png" Category="Vessel" />
+  <Texture Id="KSArmory_Ale47_PBR" Path="Textures/KSArmory_Ale47_PBR.png" Category="Vessel" />
   <PbrMaterial Id="KSArmory_Ale47_Material">
-    <Diffuse Path="Textures/KSArmory_Ale47_Diffuse.png" Category="Vessel" />
-    <Normal Path="Textures/KSArmory_Ale47_Normal.png" Category="Vessel" />
-    <AoRoughMetal Path="Textures/KSArmory_Ale47_PBR.png" Category="Vessel" />
+    <Diffuse Ref="KSArmory_Ale47_Diffuse" />
+    <Normal Ref="KSArmory_Ale47_Normal" />
+    <AoRoughMetal Ref="KSArmory_Ale47_PBR" />
   </PbrMaterial>
-
   <!--
     The AMRAAM's atlas and its one material.
 
@@ -101,14 +104,15 @@
     single set of maps. Three files rather than the six a material apiece would cost, and nothing
     downstream can tell — KSA takes the material from here, not from the .glb, which carries none.
   -->
-  <MeshAtlas Path="Meshes/KSArmory_Amraam.glb" />
-
+  <MeshAtlas Id="KSArmory_Amraam_Atlas" Path="Meshes/KSArmory_Amraam.glb" />
+  <Texture Id="KSArmory_Amraam_Diffuse" Path="Textures/KSArmory_Amraam_Diffuse.png" Category="Vessel" />
+  <Texture Id="KSArmory_Amraam_Normal" Path="Textures/KSArmory_Amraam_Normal.png" Category="Vessel" />
+  <Texture Id="KSArmory_Amraam_PBR" Path="Textures/KSArmory_Amraam_PBR.png" Category="Vessel" />
   <PbrMaterial Id="KSArmory_Amraam_Material">
-    <Diffuse Path="Textures/KSArmory_Amraam_Diffuse.png" Category="Vessel" />
-    <Normal Path="Textures/KSArmory_Amraam_Normal.png" Category="Vessel" />
-    <AoRoughMetal Path="Textures/KSArmory_Amraam_PBR.png" Category="Vessel" />
+    <Diffuse Ref="KSArmory_Amraam_Diffuse" />
+    <Normal Ref="KSArmory_Amraam_Normal" />
+    <AoRoughMetal Ref="KSArmory_Amraam_PBR" />
   </PbrMaterial>
-
   <!--
     The HARM's atlas and its one material.
 
@@ -120,62 +124,67 @@
     One material for both bodies. The rail and the round share a single unwrap and a single set of
     maps, which is three files rather than the six a material apiece would cost.
   -->
-  <MeshAtlas Path="Meshes/KSArmory_Harm.glb" />
-
+  <MeshAtlas Id="KSArmory_Harm_Atlas" Path="Meshes/KSArmory_Harm.glb" />
+  <Texture Id="KSArmory_Harm_Diffuse" Path="Textures/KSArmory_Harm_Diffuse.png" Category="Vessel" />
+  <Texture Id="KSArmory_Harm_Normal" Path="Textures/KSArmory_Harm_Normal.png" Category="Vessel" />
+  <Texture Id="KSArmory_Harm_PBR" Path="Textures/KSArmory_Harm_PBR.png" Category="Vessel" />
   <PbrMaterial Id="KSArmory_Harm_Material">
-    <Diffuse Path="Textures/KSArmory_Harm_Diffuse.png" Category="Vessel" />
-    <Normal Path="Textures/KSArmory_Harm_Normal.png" Category="Vessel" />
-    <AoRoughMetal Path="Textures/KSArmory_Harm_PBR.png" Category="Vessel" />
+    <Diffuse Ref="KSArmory_Harm_Diffuse" />
+    <Normal Ref="KSArmory_Harm_Normal" />
+    <AoRoughMetal Ref="KSArmory_Harm_PBR" />
   </PbrMaterial>
-
   <!--
     The Zuni's atlas and its one material: the 5-inch rocket, its fin set, the LAU-10 and the
     six-round pod, all on one unwrap Mallikas painted.
   -->
-  <MeshAtlas Path="Meshes/KSArmory_Zuni.glb" />
-
+  <MeshAtlas Id="KSArmory_Zuni_Atlas" Path="Meshes/KSArmory_Zuni.glb" />
+  <Texture Id="KSArmory_Zuni_Diffuse" Path="Textures/KSArmory_Zuni_Diffuse.png" Category="Vessel" />
+  <Texture Id="KSArmory_Zuni_Normal" Path="Textures/KSArmory_Zuni_Normal.png" Category="Vessel" />
+  <Texture Id="KSArmory_Zuni_PBR" Path="Textures/KSArmory_Zuni_PBR.png" Category="Vessel" />
   <PbrMaterial Id="KSArmory_Zuni_Material">
-    <Diffuse Path="Textures/KSArmory_Zuni_Diffuse.png" Category="Vessel" />
-    <Normal Path="Textures/KSArmory_Zuni_Normal.png" Category="Vessel" />
-    <AoRoughMetal Path="Textures/KSArmory_Zuni_PBR.png" Category="Vessel" />
+    <Diffuse Ref="KSArmory_Zuni_Diffuse" />
+    <Normal Ref="KSArmory_Zuni_Normal" />
+    <AoRoughMetal Ref="KSArmory_Zuni_PBR" />
   </PbrMaterial>
-
   <!--
     The ejector launcher's atlas: its body, one hook and one arm, each placed twice by the part, on one
     unwrap. Authored in Blender to the export contract, so it is copied in as exported.
   -->
-  <MeshAtlas Path="Meshes/KSArmory_Ejector.glb" />
-
+  <MeshAtlas Id="KSArmory_Ejector_Atlas" Path="Meshes/KSArmory_Ejector.glb" />
+  <Texture Id="KSArmory_Ejector_Diffuse" Path="Textures/KSArmory_Ejector_Diffuse.png" Category="Vessel" />
+  <Texture Id="KSArmory_Ejector_Normal" Path="Textures/KSArmory_Ejector_Normal.png" Category="Vessel" />
+  <Texture Id="KSArmory_Ejector_PBR" Path="Textures/KSArmory_Ejector_PBR.png" Category="Vessel" />
   <PbrMaterial Id="KSArmory_Ejector_Material">
-    <Diffuse Path="Textures/KSArmory_Ejector_Diffuse.png" Category="Vessel" />
-    <Normal Path="Textures/KSArmory_Ejector_Normal.png" Category="Vessel" />
-    <AoRoughMetal Path="Textures/KSArmory_Ejector_PBR.png" Category="Vessel" />
+    <Diffuse Ref="KSArmory_Ejector_Diffuse" />
+    <Normal Ref="KSArmory_Ejector_Normal" />
+    <AoRoughMetal Ref="KSArmory_Ejector_PBR" />
   </PbrMaterial>
-
   <!--
     The slide-off launch rail: the ejector's housing with no arms or hooks and a T-channel along its
     floor, which is at the ejector's, so a missile seats the same on either. Authored, copied in as exported.
   -->
-  <MeshAtlas Path="Meshes/KSArmory_LaunchRail.glb" />
-
+  <MeshAtlas Id="KSArmory_LaunchRail_Atlas" Path="Meshes/KSArmory_LaunchRail.glb" />
+  <Texture Id="KSArmory_LaunchRail_Diffuse" Path="Textures/KSArmory_LaunchRail_Diffuse.png" Category="Vessel" />
+  <Texture Id="KSArmory_LaunchRail_Normal" Path="Textures/KSArmory_LaunchRail_Normal.png" Category="Vessel" />
+  <Texture Id="KSArmory_LaunchRail_PBR" Path="Textures/KSArmory_LaunchRail_PBR.png" Category="Vessel" />
   <PbrMaterial Id="KSArmory_LaunchRail_Material">
-    <Diffuse Path="Textures/KSArmory_LaunchRail_Diffuse.png" Category="Vessel" />
-    <Normal Path="Textures/KSArmory_LaunchRail_Normal.png" Category="Vessel" />
-    <AoRoughMetal Path="Textures/KSArmory_LaunchRail_PBR.png" Category="Vessel" />
+    <Diffuse Ref="KSArmory_LaunchRail_Diffuse" />
+    <Normal Ref="KSArmory_LaunchRail_Normal" />
+    <AoRoughMetal Ref="KSArmory_LaunchRail_PBR" />
   </PbrMaterial>
-
   <!--
     The Heavy MIRV Bus atlas and its one material: the bus, its main engine, its RCS nozzle and its
     RV, an Mk 21 in outline with two spin nozzles cut into its base.
   -->
-  <MeshAtlas Path="Meshes/KSArmory_PostBoostBus.glb" />
-
+  <MeshAtlas Id="KSArmory_PostBoostBus_Atlas" Path="Meshes/KSArmory_PostBoostBus.glb" />
+  <Texture Id="KSArmory_PostBoostBus_Diffuse" Path="Textures/KSArmory_PostBoostBus_Diffuse.png" Category="Vessel" />
+  <Texture Id="KSArmory_PostBoostBus_Normal" Path="Textures/KSArmory_PostBoostBus_Normal.png" Category="Vessel" />
+  <Texture Id="KSArmory_PostBoostBus_PBR" Path="Textures/KSArmory_PostBoostBus_PBR.png" Category="Vessel" />
   <PbrMaterial Id="KSArmory_PostBoostBus_Material">
-    <Diffuse Path="Textures/KSArmory_PostBoostBus_Diffuse.png" Category="Vessel" />
-    <Normal Path="Textures/KSArmory_PostBoostBus_Normal.png" Category="Vessel" />
-    <AoRoughMetal Path="Textures/KSArmory_PostBoostBus_PBR.png" Category="Vessel" />
+    <Diffuse Ref="KSArmory_PostBoostBus_Diffuse" />
+    <Normal Ref="KSArmory_PostBoostBus_Normal" />
+    <AoRoughMetal Ref="KSArmory_PostBoostBus_PBR" />
   </PbrMaterial>
-
   <!--
     The B61-12 atlas and its one material.
 
@@ -188,14 +197,15 @@
     body and tail kit, the bare-metal sections and the joint rings are all one unwrap. That paint
     is driven from object coordinates rather than UV space, so a repack cannot smear it.
   -->
-  <MeshAtlas Path="Meshes/KSArmory_B61.glb" />
-
+  <MeshAtlas Id="KSArmory_B61_Atlas" Path="Meshes/KSArmory_B61.glb" />
+  <Texture Id="KSArmory_B61_Diffuse" Path="Textures/KSArmory_B61_Diffuse.png" Category="Vessel" />
+  <Texture Id="KSArmory_B61_Normal" Path="Textures/KSArmory_B61_Normal.png" Category="Vessel" />
+  <Texture Id="KSArmory_B61_PBR" Path="Textures/KSArmory_B61_PBR.png" Category="Vessel" />
   <PbrMaterial Id="KSArmory_B61_Material">
-    <Diffuse Path="Textures/KSArmory_B61_Diffuse.png" Category="Vessel" />
-    <Normal Path="Textures/KSArmory_B61_Normal.png" Category="Vessel" />
-    <AoRoughMetal Path="Textures/KSArmory_B61_PBR.png" Category="Vessel" />
+    <Diffuse Ref="KSArmory_B61_Diffuse" />
+    <Normal Ref="KSArmory_B61_Normal" />
+    <AoRoughMetal Ref="KSArmory_B61_PBR" />
   </PbrMaterial>
-
   <!--
     The 5"/54 Mk 42 mount's atlas: the mount, its recoiling barrel and its shell.
 
@@ -206,90 +216,99 @@
 
     Two materials in one atlas, because the shell has an unwrap and an image of its own.
   -->
-  <MeshAtlas Path="Meshes/KSArmory_Mk42.glb" />
-
+  <MeshAtlas Id="KSArmory_Mk42_Atlas" Path="Meshes/KSArmory_Mk42.glb" />
+  <Texture Id="KSArmory_Mk42_Diffuse" Path="Textures/KSArmory_Mk42_Diffuse.png" Category="Vessel" />
+  <Texture Id="KSArmory_Mk42_Normal" Path="Textures/KSArmory_Mk42_Normal.png" Category="Vessel" />
+  <Texture Id="KSArmory_Mk42_PBR" Path="Textures/KSArmory_Mk42_PBR.png" Category="Vessel" />
   <PbrMaterial Id="KSArmory_Mk42_Material">
-    <Diffuse Path="Textures/KSArmory_Mk42_Diffuse.png" Category="Vessel" />
-    <Normal Path="Textures/KSArmory_Mk42_Normal.png" Category="Vessel" />
-    <AoRoughMetal Path="Textures/KSArmory_Mk42_PBR.png" Category="Vessel" />
+    <Diffuse Ref="KSArmory_Mk42_Diffuse" />
+    <Normal Ref="KSArmory_Mk42_Normal" />
+    <AoRoughMetal Ref="KSArmory_Mk42_PBR" />
   </PbrMaterial>
-
+  <Texture Id="KSArmory_Mk42Shell_Diffuse" Path="Textures/KSArmory_Mk42Shell_Diffuse.png" Category="Vessel" />
+  <Texture Id="KSArmory_Mk42Shell_Normal" Path="Textures/KSArmory_Mk42Shell_Normal.png" Category="Vessel" />
+  <Texture Id="KSArmory_Mk42Shell_PBR" Path="Textures/KSArmory_Mk42Shell_PBR.png" Category="Vessel" />
   <PbrMaterial Id="KSArmory_Mk42Shell_Material">
-    <Diffuse Path="Textures/KSArmory_Mk42Shell_Diffuse.png" Category="Vessel" />
-    <Normal Path="Textures/KSArmory_Mk42Shell_Normal.png" Category="Vessel" />
-    <AoRoughMetal Path="Textures/KSArmory_Mk42Shell_PBR.png" Category="Vessel" />
+    <Diffuse Ref="KSArmory_Mk42Shell_Diffuse" />
+    <Normal Ref="KSArmory_Mk42Shell_Normal" />
+    <AoRoughMetal Ref="KSArmory_Mk42Shell_PBR" />
   </PbrMaterial>
-
-  <MeshAtlas Path="Meshes/KSArmory_M197.glb" />
-
+  <MeshAtlas Id="KSArmory_M197_Atlas" Path="Meshes/KSArmory_M197.glb" />
+  <Texture Id="KSArmory_M197_Diffuse" Path="Textures/KSArmory_M197_Diffuse.png" Category="Vessel" />
+  <Texture Id="KSArmory_M197_Normal" Path="Textures/KSArmory_M197_Normal.png" Category="Vessel" />
+  <Texture Id="KSArmory_M197_PBR" Path="Textures/KSArmory_M197_PBR.png" Category="Vessel" />
   <PbrMaterial Id="KSArmory_M197_Material">
-    <Diffuse Path="Textures/KSArmory_M197_Diffuse.png" Category="Vessel" />
-    <Normal Path="Textures/KSArmory_M197_Normal.png" Category="Vessel" />
-    <AoRoughMetal Path="Textures/KSArmory_M197_PBR.png" Category="Vessel" />
+    <Diffuse Ref="KSArmory_M197_Diffuse" />
+    <Normal Ref="KSArmory_M197_Normal" />
+    <AoRoughMetal Ref="KSArmory_M197_PBR" />
   </PbrMaterial>
-
   <!--
     The Mk 15 Phalanx's atlas: base, traversing cheeks, and the elevating head. Authored in Blender;
     the three bodies share one unwrap and one material.
   -->
-  <MeshAtlas Path="Meshes/KSArmory_Ciws.glb" />
-
+  <MeshAtlas Id="KSArmory_Ciws_Atlas" Path="Meshes/KSArmory_Ciws.glb" />
+  <Texture Id="KSArmory_Ciws_Diffuse" Path="Textures/KSArmory_Ciws_Diffuse.png" Category="Vessel" />
+  <Texture Id="KSArmory_Ciws_Normal" Path="Textures/KSArmory_Ciws_Normal.png" Category="Vessel" />
+  <Texture Id="KSArmory_Ciws_PBR" Path="Textures/KSArmory_Ciws_PBR.png" Category="Vessel" />
   <PbrMaterial Id="KSArmory_Ciws_Material">
-    <Diffuse Path="Textures/KSArmory_Ciws_Diffuse.png" Category="Vessel" />
-    <Normal Path="Textures/KSArmory_Ciws_Normal.png" Category="Vessel" />
-    <AoRoughMetal Path="Textures/KSArmory_Ciws_PBR.png" Category="Vessel" />
+    <Diffuse Ref="KSArmory_Ciws_Diffuse" />
+    <Normal Ref="KSArmory_Ciws_Normal" />
+    <AoRoughMetal Ref="KSArmory_Ciws_PBR" />
   </PbrMaterial>
-
   <!--
     The infrared search set's atlas: the fairing, the head that turns behind the window, and the
     window's seven panes. Authored in Blender; the three bodies share one unwrap and one material.
   -->
-  <MeshAtlas Path="Meshes/KSArmory_Irst.glb" />
-
+  <MeshAtlas Id="KSArmory_Irst_Atlas" Path="Meshes/KSArmory_Irst.glb" />
+  <Texture Id="KSArmory_Irst_Diffuse" Path="Textures/KSArmory_Irst_Diffuse.png" Category="Vessel" />
+  <Texture Id="KSArmory_Irst_Normal" Path="Textures/KSArmory_Irst_Normal.png" Category="Vessel" />
+  <Texture Id="KSArmory_Irst_PBR" Path="Textures/KSArmory_Irst_PBR.png" Category="Vessel" />
   <PbrMaterial Id="KSArmory_Irst_Material">
-    <Diffuse Path="Textures/KSArmory_Irst_Diffuse.png" Category="Vessel" />
-    <Normal Path="Textures/KSArmory_Irst_Normal.png" Category="Vessel" />
-    <AoRoughMetal Path="Textures/KSArmory_Irst_PBR.png" Category="Vessel" />
+    <Diffuse Ref="KSArmory_Irst_Diffuse" />
+    <Normal Ref="KSArmory_Irst_Normal" />
+    <AoRoughMetal Ref="KSArmory_Irst_PBR" />
   </PbrMaterial>
-
   <!-- KAMAZ-6560 8x8 chassis: wheels, hull, deck, cab, stowage. -->
   <SubPart Id="KSArmory_Chassis_SubPart">
-    <PartModel Id="KSArmory_Subpart_Chassis_Model">
-      <Mesh Id="KSArmory_Subpart_Chassis" />
-      <Material Id="KSArmory_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Chassis_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Chassis_Model">
+        <Mesh Ref="KSArmory_Subpart_Chassis" />
+        <Material Ref="KSArmory_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Chassis_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- Turret: twin 30 mm cannon, tracking array, search radar, trunnions. Traverses. -->
   <SubPart Id="KSArmory_Turret_SubPart">
-    <PartModel Id="KSArmory_Subpart_Turret_Model">
-      <Mesh Id="KSArmory_Subpart_Turret" />
-      <Material Id="KSArmory_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Turret_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Turret_Model">
+        <Mesh Ref="KSArmory_Subpart_Turret" />
+        <Material Ref="KSArmory_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Turret_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!--
     The round itself, instanced once per tube. These are hidden (scaled to nothing) until the
     mod puts one in the air, at which point it writes the body's position and orientation every
     frame from the round it is simulating. Twelve of them so a full salvo can be in flight.
   -->
   <SubPart Id="KSArmory_Missile_SubPart">
-    <PartModel Id="KSArmory_Subpart_Missile_Model">
-      <Mesh Id="KSArmory_Subpart_Missile" />
-      <Material Id="KSArmory_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Missile_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Missile_Model">
+        <Mesh Ref="KSArmory_Subpart_Missile" />
+        <Material Ref="KSArmory_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Missile_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
-    <!--
+  <!--
       The round's fins, a template of their own so the mod can scale them independently of the
       body: flat against the casing while stowed in the tube, flicked out to full span once the
       round is away. Modelled about the same origin as the body, so the two share a transform.
@@ -297,347 +316,378 @@
       The SubPart entries further down name this template with InstanceOf, and without it the game throws
       "PartTemplate is null for 'KSArmory_Fins_SubPart'" and takes the session with it.
     -->
-    <SubPart Id="KSArmory_Fins_SubPart">
-      <PartModel Id="KSArmory_Subpart_Fins_Model">
-        <Mesh Id="KSArmory_Subpart_Fins" />
-        <Material Id="KSArmory_Material" />
+  <SubPart Id="KSArmory_Fins_SubPart">
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Fins_Model">
+        <Mesh Ref="KSArmory_Subpart_Fins" />
+        <Material Ref="KSArmory_Material" />
       </PartModel>
       <MeshView>
-        <Mesh Id="KSArmory_Subpart_Fins_VM" />
+        <Mesh Ref="KSArmory_Subpart_Fins_VM" />
       </MeshView>
-    </SubPart>
-
-  <SubPart Id="KSArmory_PostBoostBus_SubPart">
-    <PartModel Id="KSArmory_Subpart_PostBoostBus_Model">
-      <Mesh Id="KSArmory_Subpart_PostBoostBus" />
-      <Material Id="KSArmory_PostBoostBus_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_PostBoostBus_VM" />
-    </MeshView>
+    </Components>
   </SubPart>
-
+  <SubPart Id="KSArmory_PostBoostBus_SubPart">
+    <Components>
+      <PartModel Key="KSArmory_Subpart_PostBoostBus_Model">
+        <Mesh Ref="KSArmory_Subpart_PostBoostBus" />
+        <Material Ref="KSArmory_PostBoostBus_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_PostBoostBus_VM" />
+      </MeshView>
+    </Components>
+  </SubPart>
   <!-- The main engine, origin on its gimbal point. Fires along its own -X. -->
   <SubPart Id="KSArmory_PostBoostEngine_SubPart">
-    <PartModel Id="KSArmory_Subpart_PostBoostEngine_Model">
-      <Mesh Id="KSArmory_Subpart_PostBoostEngine" />
-      <Material Id="KSArmory_PostBoostBus_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_PostBoostEngine_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_PostBoostEngine_Model">
+        <Mesh Ref="KSArmory_Subpart_PostBoostEngine" />
+        <Material Ref="KSArmory_PostBoostBus_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_PostBoostEngine_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- The post-boost bus's reentry vehicle, instanced seven times: centred on its own origin, nose
        along +X, with two canted spin nozzles cut into its base. -->
   <SubPart Id="KSArmory_PostBoostRv_SubPart">
-    <PartModel Id="KSArmory_Subpart_PostBoostRv_Model">
-      <Mesh Id="KSArmory_Subpart_PostBoostRv" />
-      <Material Id="KSArmory_PostBoostBus_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_PostBoostRv_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_PostBoostRv_Model">
+        <Mesh Ref="KSArmory_Subpart_PostBoostRv" />
+        <Material Ref="KSArmory_PostBoostBus_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_PostBoostRv_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- One attitude-control nozzle, instanced twenty times. Fires along its own -X. -->
   <SubPart Id="KSArmory_PostBoostRcs_SubPart">
-    <PartModel Id="KSArmory_Subpart_PostBoostRcsNozzle_Model">
-      <Mesh Id="KSArmory_Subpart_PostBoostRcsNozzle" />
-      <Material Id="KSArmory_PostBoostBus_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_PostBoostRcsNozzle_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_PostBoostRcsNozzle_Model">
+        <Mesh Ref="KSArmory_Subpart_PostBoostRcsNozzle" />
+        <Material Ref="KSArmory_PostBoostBus_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_PostBoostRcsNozzle_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- Phalanx-pattern CIWS. Base is fixed; the housing traverses and the guns elevate on it. -->
   <SubPart Id="KSArmory_CiwsBase_SubPart">
-    <PartModel Id="KSArmory_Subpart_CiwsBase_Model">
-      <Mesh Id="KSArmory_Subpart_Mk15Base" />
-      <Material Id="KSArmory_Ciws_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Mk15Base_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_CiwsBase_Model">
+        <Mesh Ref="KSArmory_Subpart_Mk15Base" />
+        <Material Ref="KSArmory_Ciws_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Mk15Base_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <SubPart Id="KSArmory_CiwsTurret_SubPart">
-    <PartModel Id="KSArmory_Subpart_CiwsTurret_Model">
-      <Mesh Id="KSArmory_Subpart_Mk15Turret" />
-      <Material Id="KSArmory_Ciws_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Mk15Turret_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_CiwsTurret_Model">
+        <Mesh Ref="KSArmory_Subpart_Mk15Turret" />
+        <Material Ref="KSArmory_Ciws_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Mk15Turret_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <SubPart Id="KSArmory_CiwsGuns_SubPart">
-    <PartModel Id="KSArmory_Subpart_CiwsGuns_Model">
-      <Mesh Id="KSArmory_Subpart_Mk15Guns" />
-      <Material Id="KSArmory_Ciws_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Mk15Guns_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_CiwsGuns_Model">
+        <Mesh Ref="KSArmory_Subpart_Mk15Guns" />
+        <Material Ref="KSArmory_Ciws_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Mk15Guns_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- LAU-7 launch rail on its pylon. Nothing on it moves. -->
   <SubPart Id="KSArmory_SidewinderRail_SubPart">
-    <PartModel Id="KSArmory_Subpart_SidewinderRail_Model">
-      <Mesh Id="KSArmory_Subpart_SidewinderRail" />
-      <Material Id="KSArmory_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_SidewinderRail_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_SidewinderRail_Model">
+        <Mesh Ref="KSArmory_Subpart_SidewinderRail" />
+        <Material Ref="KSArmory_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_SidewinderRail_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- One AIM-9J. Seated on the rail while loaded, flown by the mod once it leaves. -->
   <SubPart Id="KSArmory_Aim9_SubPart">
-    <PartModel Id="KSArmory_Subpart_Aim9_Model">
-      <Mesh Id="KSArmory_Subpart_Aim9" />
-      <Material Id="KSArmory_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Aim9_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Aim9_Model">
+        <Mesh Ref="KSArmory_Subpart_Aim9" />
+        <Material Ref="KSArmory_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Aim9_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- The optical director's flange and mast. Fixed: the head above it turns. -->
   <SubPart Id="KSArmory_OpticBase_SubPart">
-    <PartModel Id="KSArmory_Subpart_OpticBase_Model">
-      <Mesh Id="KSArmory_Subpart_OpticBase" />
-      <Material Id="KSArmory_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_OpticBase_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_OpticBase_Model">
+        <Mesh Ref="KSArmory_Subpart_OpticBase" />
+        <Material Ref="KSArmory_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_OpticBase_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!--
     The gimballed ball. Aimed freely rather than about named axes, so the mod writes its rotation
     outright every frame; its mesh is recentred on the pivot and put back by <Position> below.
   -->
   <SubPart Id="KSArmory_OpticHead_SubPart">
-    <PartModel Id="KSArmory_Subpart_OpticHead_Model">
-      <Mesh Id="KSArmory_Subpart_OpticHead" />
-      <Material Id="KSArmory_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_OpticHead_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_OpticHead_Model">
+        <Mesh Ref="KSArmory_Subpart_OpticHead" />
+        <Material Ref="KSArmory_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_OpticHead_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- AN/ALE-47 dispenser, flare and chaff loads. Nothing on either moves. -->
   <SubPart Id="KSArmory_Ale47Flare_SubPart">
-    <PartModel Id="KSArmory_Subpart_Ale47Flare_Model">
-      <Mesh Id="KSArmory_Ale47Flare" />
-      <Material Id="KSArmory_Ale47_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Ale47Flare_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Ale47Flare_Model">
+        <Mesh Ref="KSArmory_Ale47Flare" />
+        <Material Ref="KSArmory_Ale47_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Ale47Flare_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <SubPart Id="KSArmory_Ale47Chaff_SubPart">
-    <PartModel Id="KSArmory_Subpart_Ale47Chaff_Model">
-      <Mesh Id="KSArmory_Ale47Chaff" />
-      <Material Id="KSArmory_Ale47_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Ale47Chaff_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Ale47Chaff_Model">
+        <Mesh Ref="KSArmory_Ale47Chaff" />
+        <Material Ref="KSArmory_Ale47_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Ale47Chaff_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- The IRST's fairing and the bay behind its window. Fixed. -->
   <SubPart Id="KSArmory_IrstBody_SubPart">
-    <PartModel Id="KSArmory_Subpart_IrstBody_Model">
-      <Mesh Id="KSArmory_Subpart_IrstBody" />
-      <Material Id="KSArmory_Irst_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_IrstBody_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_IrstBody_Model">
+        <Mesh Ref="KSArmory_Subpart_IrstBody" />
+        <Material Ref="KSArmory_Irst_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_IrstBody_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- The sensor head, exported centred on the pivot it turns about. Drawn only. -->
   <SubPart Id="KSArmory_IrstHead_SubPart">
-    <PartModel Id="KSArmory_Subpart_IrstHead_Model">
-      <Mesh Id="KSArmory_Subpart_IrstHead" />
-      <Material Id="KSArmory_Irst_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_IrstHead_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_IrstHead_Model">
+        <Mesh Ref="KSArmory_Subpart_IrstHead" />
+        <Material Ref="KSArmory_Irst_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_IrstHead_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- The window: single-sided panes facing out, which KSA draws at a fixed 0.75 opacity. -->
   <SubPart Id="KSArmory_IrstGlass_SubPart">
-    <PartModelGlass Id="KSArmory_Subpart_IrstGlass_Model">
-      <Mesh Id="KSArmory_Subpart_IrstGlass" />
-      <Material Id="KSArmory_Irst_Material" />
-    </PartModelGlass>
+    <Components>
+      <PartModelGlass Key="KSArmory_Subpart_IrstGlass_Model">
+        <Mesh Ref="KSArmory_Subpart_IrstGlass" />
+        <Material Ref="KSArmory_Irst_Material" />
+      </PartModelGlass>
+    </Components>
   </SubPart>
-
   <!-- The suspension rail. Nothing on it moves. -->
   <SubPart Id="KSArmory_Rail_SubPart">
-    <PartModel Id="KSArmory_Subpart_Rail_Model">
-      <Mesh Id="KSArmory_Rail" />
-      <Material Id="KSArmory_Rail_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Rail_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Rail_Model">
+        <Mesh Ref="KSArmory_Rail" />
+        <Material Ref="KSArmory_Rail_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Rail_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- LAU-128 rail launcher on its pylon. Nothing on it moves. -->
   <SubPart Id="KSArmory_AmraamRail_SubPart">
-    <PartModel Id="KSArmory_Subpart_AmraamRail_Model">
-      <Mesh Id="KSArmory_Subpart_AmraamRail" />
-      <Material Id="KSArmory_Amraam_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_AmraamRail_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_AmraamRail_Model">
+        <Mesh Ref="KSArmory_Subpart_AmraamRail" />
+        <Material Ref="KSArmory_Amraam_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_AmraamRail_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- One AIM-120C-7. Seated on the rail while loaded, flown by the mod once it leaves. -->
   <SubPart Id="KSArmory_Amraam_SubPart">
-    <PartModel Id="KSArmory_Subpart_Amraam_Model">
-      <Mesh Id="KSArmory_Subpart_Amraam" />
-      <Material Id="KSArmory_Amraam_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Amraam_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Amraam_Model">
+        <Mesh Ref="KSArmory_Subpart_Amraam" />
+        <Material Ref="KSArmory_Amraam_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Amraam_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- LAU-118 rail launcher on its pylon. Nothing on it moves. -->
   <SubPart Id="KSArmory_HarmRail_SubPart">
-    <PartModel Id="KSArmory_Subpart_HarmRail_Model">
-      <Mesh Id="KSArmory_Subpart_HarmRail" />
-      <Material Id="KSArmory_Harm_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_HarmRail_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_HarmRail_Model">
+        <Mesh Ref="KSArmory_Subpart_HarmRail" />
+        <Material Ref="KSArmory_Harm_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_HarmRail_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- One AGM-88 HARM. Seated on the rail while loaded, flown by the mod once it leaves. -->
   <SubPart Id="KSArmory_Harm_SubPart">
-    <PartModel Id="KSArmory_Subpart_Harm_Model">
-      <Mesh Id="KSArmory_Subpart_Harm" />
-      <Material Id="KSArmory_Harm_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Harm_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Harm_Model">
+        <Mesh Ref="KSArmory_Subpart_Harm" />
+        <Material Ref="KSArmory_Harm_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Harm_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- LAU-10 four-round Zuni pod. Nothing on it moves. -->
   <SubPart Id="KSArmory_ZuniPod4_SubPart">
-    <PartModel Id="KSArmory_Subpart_ZuniPod4_Model">
-      <Mesh Id="KSArmory_Subpart_ZuniPod4" />
-      <Material Id="KSArmory_Zuni_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_ZuniPod4_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_ZuniPod4_Model">
+        <Mesh Ref="KSArmory_Subpart_ZuniPod4" />
+        <Material Ref="KSArmory_Zuni_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_ZuniPod4_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- Six-round Zuni pod. Nothing on it moves. -->
   <SubPart Id="KSArmory_ZuniPod6_SubPart">
-    <PartModel Id="KSArmory_Subpart_ZuniPod6_Model">
-      <Mesh Id="KSArmory_Subpart_ZuniPod6" />
-      <Material Id="KSArmory_Zuni_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_ZuniPod6_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_ZuniPod6_Model">
+        <Mesh Ref="KSArmory_Subpart_ZuniPod6" />
+        <Material Ref="KSArmory_Zuni_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_ZuniPod6_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- One Zuni, nose along +X and centred on its origin. Seated in its tube while loaded. -->
   <SubPart Id="KSArmory_ZuniRound_SubPart">
-    <PartModel Id="KSArmory_Subpart_ZuniRound_Model">
-      <Mesh Id="KSArmory_Subpart_ZuniRound" />
-      <Material Id="KSArmory_Zuni_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_ZuniRound_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_ZuniRound_Model">
+        <Mesh Ref="KSArmory_Subpart_ZuniRound" />
+        <Material Ref="KSArmory_Zuni_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_ZuniRound_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- A Zuni's four fins, about the body's origin, scaled radially by the mod: folded
        while it sits in the tube, open once it is away. -->
   <SubPart Id="KSArmory_ZuniFins_SubPart">
-    <PartModel Id="KSArmory_Subpart_ZuniFins_Model">
-      <Mesh Id="KSArmory_Subpart_ZuniFins" />
-      <Material Id="KSArmory_Zuni_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_ZuniFins_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_ZuniFins_Model">
+        <Mesh Ref="KSArmory_Subpart_ZuniFins" />
+        <Material Ref="KSArmory_Zuni_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_ZuniFins_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- The ejector's housing. Fixed. -->
   <SubPart Id="KSArmory_EjectorBody_SubPart">
-    <PartModel Id="KSArmory_Subpart_EjectorBody_Model">
-      <Mesh Id="KSArmory_Ejector_Body" />
-      <Material Id="KSArmory_Ejector_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Ejector_Body_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_EjectorBody_Model">
+        <Mesh Ref="KSArmory_Ejector_Body" />
+        <Material Ref="KSArmory_Ejector_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Ejector_Body_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- The launch rail's body. Fixed. -->
   <SubPart Id="KSArmory_LaunchRailBody_SubPart">
-    <PartModel Id="KSArmory_Subpart_LaunchRailBody_Model">
-      <Mesh Id="KSArmory_LaunchRail_Body" />
-      <Material Id="KSArmory_LaunchRail_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_LaunchRail_Body_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_LaunchRailBody_Model">
+        <Mesh Ref="KSArmory_LaunchRail_Body" />
+        <Material Ref="KSArmory_LaunchRail_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_LaunchRail_Body_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- One suspension hook, about its throat, where a lug's top bar bears. -->
   <SubPart Id="KSArmory_EjectorHook_SubPart">
-    <PartModel Id="KSArmory_Subpart_EjectorHook_Model">
-      <Mesh Id="KSArmory_Ejector_Hook" />
-      <Material Id="KSArmory_Ejector_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Ejector_Hook_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_EjectorHook_Model">
+        <Mesh Ref="KSArmory_Ejector_Hook" />
+        <Material Ref="KSArmory_Ejector_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Ejector_Hook_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- One ejector arm, about its top end. Run out of the mounting face on release. -->
   <SubPart Id="KSArmory_EjectorArm_SubPart">
-    <PartModel Id="KSArmory_Subpart_EjectorArm_Model">
-      <Mesh Id="KSArmory_Ejector_Arm" />
-      <Material Id="KSArmory_Ejector_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Ejector_Arm_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_EjectorArm_Model">
+        <Mesh Ref="KSArmory_Ejector_Arm" />
+        <Material Ref="KSArmory_Ejector_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Ejector_Arm_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!--
     MAU-12 ejector rack. Nothing on it moves. It carries both shackle sets the real rack has, 14 and
     30 inches; the B61-12 hangs from the outer pair.
   -->
   <SubPart Id="KSArmory_B61Rack_SubPart">
-    <PartModel Id="KSArmory_Subpart_B61Rack_Model">
-      <Mesh Id="KSArmory_Subpart_B61Rack" />
-      <Material Id="KSArmory_B61_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_B61Rack_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_B61Rack_Model">
+        <Mesh Ref="KSArmory_Subpart_B61Rack" />
+        <Material Ref="KSArmory_B61_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_B61Rack_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!--
     One blade of the B61-12's tail kit, instanced four times.
 
@@ -647,470 +697,476 @@
     rewrites every blade's transform each frame.
   -->
   <SubPart Id="KSArmory_B61Fin_SubPart">
-    <PartModel Id="KSArmory_Subpart_B61Fin_Model">
-      <Mesh Id="KSArmory_Subpart_B61Fin" />
-      <Material Id="KSArmory_B61_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_B61Fin_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_B61Fin_Model">
+        <Mesh Ref="KSArmory_Subpart_B61Fin" />
+        <Material Ref="KSArmory_B61_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_B61Fin_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- One B61-12. Seated on the rack while loaded, flown by the mod once it is released. -->
   <SubPart Id="KSArmory_B61_SubPart">
-    <PartModel Id="KSArmory_Subpart_B61_Model">
-      <Mesh Id="KSArmory_Subpart_B61" />
-      <Material Id="KSArmory_B61_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_B61_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_B61_Model">
+        <Mesh Ref="KSArmory_Subpart_B61" />
+        <Material Ref="KSArmory_B61_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_B61_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- The targeting pod's aft body and its lugs. Fixed: everything forward of the joint turns. -->
   <SubPart Id="KSArmory_LiteningBody_SubPart">
-    <PartModel Id="KSArmory_Subpart_LiteningBody_Model">
-      <Mesh Id="KSArmory_Subpart_LiteningBody" />
-      <Material Id="KSArmory_Litening_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_LiteningBody_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_LiteningBody_Model">
+        <Mesh Ref="KSArmory_Subpart_LiteningBody" />
+        <Material Ref="KSArmory_Litening_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_LiteningBody_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!--
     The outer roll gimbal: the nose section, its two cheeks round the ball and the slot open between
     them on the side the ball nods towards. Turns about the pod's own centreline and nothing else, so
     the mod writes it a roll and no tilt.
   -->
   <SubPart Id="KSArmory_LiteningRoll_SubPart">
-    <PartModel Id="KSArmory_Subpart_LiteningRoll_Model">
-      <Mesh Id="KSArmory_Subpart_LiteningRoll" />
-      <Material Id="KSArmory_Litening_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_LiteningRoll_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_LiteningRoll_Model">
+        <Mesh Ref="KSArmory_Subpart_LiteningRoll" />
+        <Material Ref="KSArmory_Litening_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_LiteningRoll_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!--
     The nodding ball and its two windows. Shares the roll gimbal's pivot, which is what lets it sweep
     its whole travel without fouling the cheeks: concentric bodies, so tilting one only changes where it faces.
   -->
   <SubPart Id="KSArmory_LiteningWindow_SubPart">
-    <PartModel Id="KSArmory_Subpart_LiteningWindow_Model">
-      <Mesh Id="KSArmory_Subpart_LiteningWindow" />
-      <Material Id="KSArmory_Litening_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_LiteningWindow_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_LiteningWindow_Model">
+        <Mesh Ref="KSArmory_Subpart_LiteningWindow" />
+        <Material Ref="KSArmory_Litening_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_LiteningWindow_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- The YAL-1 turret's fixed collar. Modelled with the roll axis on its own +Y, as a pod is. -->
   <SubPart Id="KSArmory_Yal1Base_SubPart">
-    <PartModel Id="KSArmory_Subpart_Yal1Base_Model">
-      <Mesh Id="KSArmory_Subpart_Yal1Base" />
-      <Material Id="KSArmory_Yal1_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Yal1Base_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Yal1Base_Model">
+        <Mesh Ref="KSArmory_Subpart_Yal1Base" />
+        <Material Ref="KSArmory_Yal1_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Yal1Base_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- The roll shell: drum, dome and the slot the ball nods along. -->
   <SubPart Id="KSArmory_Yal1Roll_SubPart">
-    <PartModel Id="KSArmory_Subpart_Yal1Roll_Model">
-      <Mesh Id="KSArmory_Subpart_Yal1Roll" />
-      <Material Id="KSArmory_Yal1_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Yal1Roll_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Yal1Roll_Model">
+        <Mesh Ref="KSArmory_Subpart_Yal1Roll" />
+        <Material Ref="KSArmory_Yal1_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Yal1Roll_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- The ball and its window, concentric with the shell's dome. -->
   <SubPart Id="KSArmory_Yal1Head_SubPart">
-    <PartModel Id="KSArmory_Subpart_Yal1Head_Model">
-      <Mesh Id="KSArmory_Subpart_Yal1Head" />
-      <Material Id="KSArmory_Yal1_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Yal1Head_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Yal1Head_Model">
+        <Mesh Ref="KSArmory_Subpart_Yal1Head" />
+        <Material Ref="KSArmory_Yal1_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Yal1Head_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- Double-sided hexagonal search array. Turns continuously on its own turntable. -->
-
   <SubPart Id="KSArmory_Radar_SubPart">
-    <PartModel Id="KSArmory_Subpart_Radar_Model">
-      <Mesh Id="KSArmory_Subpart_Radar" />
-      <Material Id="KSArmory_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Radar_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Radar_Model">
+        <Mesh Ref="KSArmory_Subpart_Radar" />
+        <Material Ref="KSArmory_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Radar_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- Twin 30 mm cannon, one each side. Pitch on their own trunnion, outboard of the pods. -->
   <SubPart Id="KSArmory_Guns_SubPart">
-    <PartModel Id="KSArmory_Subpart_Guns_Model">
-      <Mesh Id="KSArmory_Subpart_Guns" />
-      <Material Id="KSArmory_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Guns_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Guns_Model">
+        <Mesh Ref="KSArmory_Subpart_Guns" />
+        <Material Ref="KSArmory_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Guns_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- Twelve missile containers in two pods. Elevates on the turret's trunnions. -->
   <SubPart Id="KSArmory_Pods_SubPart">
-    <PartModel Id="KSArmory_Subpart_Pods_Model">
-      <Mesh Id="KSArmory_Subpart_Pods" />
-      <Material Id="KSArmory_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Pods_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Pods_Model">
+        <Mesh Ref="KSArmory_Subpart_Pods" />
+        <Material Ref="KSArmory_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Pods_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- 5"/54 Mk 42 mount. Base is fixed; the gun house traverses and the cannon elevates in it. -->
   <SubPart Id="KSArmory_Mk42Base_SubPart">
-    <PartModel Id="KSArmory_Subpart_Mk42Base_Model">
-      <Mesh Id="KSArmory_Subpart_Mk42Base" />
-      <Material Id="KSArmory_Mk42_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Mk42Base_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Mk42Base_Model">
+        <Mesh Ref="KSArmory_Subpart_Mk42Base" />
+        <Material Ref="KSArmory_Mk42_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Mk42Base_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <SubPart Id="KSArmory_Mk42Turret_SubPart">
-    <PartModel Id="KSArmory_Subpart_Mk42Turret_Model">
-      <Mesh Id="KSArmory_Subpart_Mk42Turret" />
-      <Material Id="KSArmory_Mk42_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Mk42Turret_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Mk42Turret_Model">
+        <Mesh Ref="KSArmory_Subpart_Mk42Turret" />
+        <Material Ref="KSArmory_Mk42_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Mk42Turret_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <SubPart Id="KSArmory_Mk42Cannon_SubPart">
-    <PartModel Id="KSArmory_Subpart_Mk42Cannon_Model">
-      <Mesh Id="KSArmory_Subpart_Mk42Cannon" />
-      <Material Id="KSArmory_Mk42_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Mk42Cannon_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Mk42Cannon_Model">
+        <Mesh Ref="KSArmory_Subpart_Mk42Cannon" />
+        <Material Ref="KSArmory_Mk42_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Mk42Cannon_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <SubPart Id="KSArmory_Mk42Barrel_SubPart">
-    <PartModel Id="KSArmory_Subpart_Mk42Barrel_Model">
-      <Mesh Id="KSArmory_Subpart_Mk42Barrel" />
-      <Material Id="KSArmory_Mk42_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Mk42Barrel_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Mk42Barrel_Model">
+        <Mesh Ref="KSArmory_Subpart_Mk42Barrel" />
+        <Material Ref="KSArmory_Mk42_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Mk42Barrel_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!--
     The 5"/54's shell. Declared and instanced by nothing: every shell in the air is drawn as this
     model (the munition's BodyModel), so the mount carries no subpart for any of them.
   -->
   <SubPart Id="KSArmory_Mk42Shell_SubPart">
-    <PartModel Id="KSArmory_Subpart_Mk42Shell_Model">
-      <Mesh Id="KSArmory_Subpart_Mk42Shell" />
-      <Material Id="KSArmory_Mk42Shell_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_Mk42Shell_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_Mk42Shell_Model">
+        <Mesh Ref="KSArmory_Subpart_Mk42Shell" />
+        <Material Ref="KSArmory_Mk42Shell_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_Mk42Shell_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <!-- M197 chin turret. The ring is fixed; the yoke traverses and carries everything else. -->
   <SubPart Id="KSArmory_M197Ring_SubPart">
-    <PartModel Id="KSArmory_Subpart_M197Ring_Model">
-      <Mesh Id="KSArmory_Subpart_M197Ring" />
-      <Material Id="KSArmory_M197_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_M197Ring_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_M197Ring_Model">
+        <Mesh Ref="KSArmory_Subpart_M197Ring" />
+        <Material Ref="KSArmory_M197_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_M197Ring_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <SubPart Id="KSArmory_M197Yoke_SubPart">
-    <PartModel Id="KSArmory_Subpart_M197Yoke_Model">
-      <Mesh Id="KSArmory_Subpart_M197Yoke" />
-      <Material Id="KSArmory_M197_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_M197Yoke_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_M197Yoke_Model">
+        <Mesh Ref="KSArmory_Subpart_M197Yoke" />
+        <Material Ref="KSArmory_M197_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_M197Yoke_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <SubPart Id="KSArmory_M197Gun_SubPart">
-    <PartModel Id="KSArmory_Subpart_M197Gun_Model">
-      <Mesh Id="KSArmory_Subpart_M197Gun" />
-      <Material Id="KSArmory_M197_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_M197Gun_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_M197Gun_Model">
+        <Mesh Ref="KSArmory_Subpart_M197Gun" />
+        <Material Ref="KSArmory_M197_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_M197Gun_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <SubPart Id="KSArmory_M197Cylinder_SubPart">
-    <PartModel Id="KSArmory_Subpart_M197Cylinder_Model">
-      <Mesh Id="KSArmory_Subpart_M197Cylinder" />
-      <Material Id="KSArmory_M197_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_M197Cylinder_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_M197Cylinder_Model">
+        <Mesh Ref="KSArmory_Subpart_M197Cylinder" />
+        <Material Ref="KSArmory_M197_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_M197Cylinder_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <SubPart Id="KSArmory_M197Rod_SubPart">
-    <PartModel Id="KSArmory_Subpart_M197Rod_Model">
-      <Mesh Id="KSArmory_Subpart_M197Rod" />
-      <Material Id="KSArmory_M197_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_M197Rod_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_M197Rod_Model">
+        <Mesh Ref="KSArmory_Subpart_M197Rod" />
+        <Material Ref="KSArmory_M197_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_M197Rod_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <SubPart Id="KSArmory_M197Belt_SubPart">
-    <PartModel Id="KSArmory_Subpart_M197Belt_Model">
-      <Mesh Id="KSArmory_Subpart_M197Belt" />
-      <Material Id="KSArmory_M197_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_M197Belt_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_M197Belt_Model">
+        <Mesh Ref="KSArmory_Subpart_M197Belt" />
+        <Material Ref="KSArmory_M197_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_M197Belt_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <SubPart Id="KSArmory_M197Barrels_SubPart">
-    <PartModel Id="KSArmory_Subpart_M197Barrels_Model">
-      <Mesh Id="KSArmory_Subpart_M197Barrels" />
-      <Material Id="KSArmory_M197_Material" />
-    </PartModel>
-    <MeshView>
-      <Mesh Id="KSArmory_Subpart_M197Barrels_VM" />
-    </MeshView>
+    <Components>
+      <PartModel Key="KSArmory_Subpart_M197Barrels_Model">
+        <Mesh Ref="KSArmory_Subpart_M197Barrels" />
+        <Material Ref="KSArmory_M197_Material" />
+      </PartModel>
+      <MeshView>
+        <Mesh Ref="KSArmory_Subpart_M197Barrels_VM" />
+      </MeshView>
+    </Components>
   </SubPart>
-
   <Part Id="KSArmory_Prefab_Launcher6">
-
-    <SubPart Id="KSArmory_Launcher_Chassis" InstanceOf="KSArmory_Chassis_SubPart" />
-
-    <!--
+    <SubParts>
+      <SubPart Key="KSArmory_Launcher_Chassis" Ref="KSArmory_Chassis_SubPart" />
+      <!--
       The turret mesh is exported centred on its slew axis, so this puts it back on the deck.
       KSA rotates a subpart about its own origin; without that recentring, writing the turret's
       Asmb2ParentAsmb each frame would swing it around the chassis rather than spin it in place.
       Keep this in step with TURRET_PIVOT in tools/model/pantsir.py.
     -->
-    <SubPart Id="KSArmory_Launcher_Turret" InstanceOf="KSArmory_Turret_SubPart">
-      <Transform>
-        <Position X="0.00000" Y="-1.42000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <!--
+      <SubPart Key="KSArmory_Launcher_Turret" Ref="KSArmory_Turret_SubPart">
+        <Transform>
+          <Position X="0.00000" Y="-1.42000" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <!--
       Missile pods, on the turret's trunnions. A sibling of the turret rather than a child of
       it - SubParts are placed against the Part and do not nest - so the mod composes traverse
       and elevation itself and rewrites this position every frame as the turret swings. The
       value here is only the rest pose, with the turret facing forward.
       Keep in step with POD_PIVOT in tools/model/pantsir.py.
     -->
-    <SubPart Id="KSArmory_Launcher_Pods" InstanceOf="KSArmory_Pods_SubPart">
-      <Transform>
-        <Position X="2.62000" Y="-2.05000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <!--
+      <SubPart Key="KSArmory_Launcher_Pods" Ref="KSArmory_Pods_SubPart">
+        <Transform>
+          <Position X="2.62000" Y="-2.05000" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <!--
       Cannon. Pitch about their own trunnion while riding the turret, so like the pods they get
       both rotation and position rewritten every frame.
       Keep in step with GUN_PIVOT in tools/model/pantsir.py.
     -->
-    <SubPart Id="KSArmory_Launcher_Guns" InstanceOf="KSArmory_Guns_SubPart">
-      <Transform>
-        <Position X="3.70000" Y="-1.35000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <!--
+      <SubPart Key="KSArmory_Launcher_Guns" Ref="KSArmory_Guns_SubPart">
+        <Transform>
+          <Position X="3.70000" Y="-1.35000" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <!--
       Search array. Turns continuously about its own vertical axis while riding the turret,
       so like the pods it gets both its rotation and its position rewritten every frame.
       Keep in step with RADAR_PIVOT in tools/model/pantsir.py.
     -->
-    <SubPart Id="KSArmory_Launcher_Radar" InstanceOf="KSArmory_Radar_SubPart">
-      <Transform>
-        <Position X="4.05000" Y="-2.52000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <!-- Underside attach node, at the ground plane and facing down. -->
-    <Connector Id="_adConnectorAft">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-        <Scale X="3.00000" Y="3.00000" Z="3.00000" />
-      </Transform>
-    </Connector>
-
-    <!-- Twelve rounds, parked below the vehicle and shrunk away until fired. -->
-    <SubPart Id="KSArmory_Launcher_Missile00" InstanceOf="KSArmory_Missile_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile01" InstanceOf="KSArmory_Missile_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile02" InstanceOf="KSArmory_Missile_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile03" InstanceOf="KSArmory_Missile_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile04" InstanceOf="KSArmory_Missile_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile05" InstanceOf="KSArmory_Missile_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile06" InstanceOf="KSArmory_Missile_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile07" InstanceOf="KSArmory_Missile_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile08" InstanceOf="KSArmory_Missile_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile09" InstanceOf="KSArmory_Missile_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile10" InstanceOf="KSArmory_Missile_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Missile11" InstanceOf="KSArmory_Missile_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-
-    <!-- Fin sets, one per round. Modelled about the same origin as the round body so they can
+      <SubPart Key="KSArmory_Launcher_Radar" Ref="KSArmory_Radar_SubPart">
+        <Transform>
+          <Position X="4.05000" Y="-2.52000" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <!-- Twelve rounds, parked below the vehicle and shrunk away until fired. -->
+      <SubPart Key="KSArmory_Launcher_Missile00" Ref="KSArmory_Missile_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Missile01" Ref="KSArmory_Missile_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Missile02" Ref="KSArmory_Missile_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Missile03" Ref="KSArmory_Missile_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Missile04" Ref="KSArmory_Missile_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Missile05" Ref="KSArmory_Missile_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Missile06" Ref="KSArmory_Missile_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Missile07" Ref="KSArmory_Missile_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Missile08" Ref="KSArmory_Missile_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Missile09" Ref="KSArmory_Missile_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Missile10" Ref="KSArmory_Missile_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Missile11" Ref="KSArmory_Missile_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <!-- Fin sets, one per round. Modelled about the same origin as the round body so they can
          share its transform, and scaled radially by the mod: flat against the casing while
          stowed in the tube, flicked out to full span once the round is clear. -->
-    <SubPart Id="KSArmory_Launcher_Fins00" InstanceOf="KSArmory_Fins_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins01" InstanceOf="KSArmory_Fins_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins02" InstanceOf="KSArmory_Fins_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins03" InstanceOf="KSArmory_Fins_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins04" InstanceOf="KSArmory_Fins_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins05" InstanceOf="KSArmory_Fins_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins06" InstanceOf="KSArmory_Fins_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins07" InstanceOf="KSArmory_Fins_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins08" InstanceOf="KSArmory_Fins_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins09" InstanceOf="KSArmory_Fins_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins10" InstanceOf="KSArmory_Fins_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Launcher_Fins11" InstanceOf="KSArmory_Fins_SubPart">
-      <Transform>
-        <Position X="-4.00000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-
-    <!--
+      <SubPart Key="KSArmory_Launcher_Fins00" Ref="KSArmory_Fins_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Fins01" Ref="KSArmory_Fins_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Fins02" Ref="KSArmory_Fins_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Fins03" Ref="KSArmory_Fins_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Fins04" Ref="KSArmory_Fins_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Fins05" Ref="KSArmory_Fins_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Fins06" Ref="KSArmory_Fins_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Fins07" Ref="KSArmory_Fins_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Fins08" Ref="KSArmory_Fins_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Fins09" Ref="KSArmory_Fins_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Fins10" Ref="KSArmory_Fins_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_Fins11" Ref="KSArmory_Fins_SubPart">
+        <Transform>
+          <Position X="-4.00000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <!--
       The turret's own electro-optical director, instancing the same two bodies the standalone
       part uses rather than modelling a second one. Appended last on purpose: KSA pairs a saved
       part with its definition positionally, so adding to the end is free and removing anything
@@ -1121,20 +1177,28 @@
       where either body ends up in flight; they are the rest pose, and OPTIC_MOUNT in
       tools/model/pantsir.py is what validate-parts.py checks them against.
     -->
-    <SubPart Id="KSArmory_Launcher_OpticBase" InstanceOf="KSArmory_OpticBase_SubPart">
-      <Transform>
-        <Position X="3.46000" Y="-0.60000" Z="0.44000" />
-      </Transform>
-    </SubPart>
-
-    <SubPart Id="KSArmory_Launcher_OpticHead" InstanceOf="KSArmory_OpticHead_SubPart">
-      <Transform>
-        <Position X="4.09000" Y="-0.60000" Z="0.44000" />
-      </Transform>
-    </SubPart>
-
+      <SubPart Key="KSArmory_Launcher_OpticBase" Ref="KSArmory_OpticBase_SubPart">
+        <Transform>
+          <Position X="3.46000" Y="-0.60000" Z="0.44000" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Launcher_OpticHead" Ref="KSArmory_OpticHead_SubPart">
+        <Transform>
+          <Position X="4.09000" Y="-0.60000" Z="0.44000" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <!-- Underside attach node, at the ground plane and facing down. -->
+      <Connector Key="_adConnectorAft">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+          <Scale X="3.00000" Y="3.00000" Z="3.00000" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <!--
     LAU-7 rail with one AIM-9J. The other shape a launcher takes: a part with nothing that moves,
     which attaches to the side of something else and shoots wherever that something is pointed.
@@ -1143,18 +1207,9 @@
     missile points, +Z its right.
   -->
   <Part Id="KSArmory_Prefab_SidewinderRail">
-
-    <SubPart Id="KSArmory_Rail_Beam" InstanceOf="KSArmory_SidewinderRail_SubPart" />
-
-    <!-- Attaches by the pylon's base, which is the mesh origin. -->
-    <Connector Id="_swConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
-
-    <!--
+    <SubParts>
+      <SubPart Key="KSArmory_Rail_Beam" Ref="KSArmory_SidewinderRail_SubPart" />
+      <!--
       The round, modelled where the mod will seat it rather than parked and shrunk away like the
       Pantsir's. A tube launcher hides its rounds inside the containers, so a body nobody has
       written yet is invisible either way; an open rail is empty. The editor runs no weapons system
@@ -1165,15 +1220,23 @@
       nose from +X onto the tube axis - the same values TrySeatMissile computes, so nothing moves
       when the mod takes over. Keep in step with sidewinder.py's AXIS_X and BODY_LEN.
     -->
-    <SubPart Id="KSArmory_Rail_Aim900" InstanceOf="KSArmory_Aim9_SubPart">
-      <Transform>
-        <Position X="0.40850" Y="0.00000" Z="0.00000" />
-        <Rotation Z="1.57080" />
-      </Transform>
-    </SubPart>
-
+      <SubPart Key="KSArmory_Rail_Aim900" Ref="KSArmory_Aim9_SubPart">
+        <Transform>
+          <Position X="0.40850" Y="0.00000" Z="0.00000" />
+          <Rotation Z="1.57080" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <!-- Attaches by the pylon's base, which is the mesh origin. -->
+      <Connector Key="_swConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <!--
     LAU-128 rail with one AIM-120C-7. The same shape as the LAU-7 above — a part with nothing that
     moves, attached to the side of something else, shooting wherever that something is pointed —
@@ -1183,18 +1246,9 @@
     points, +Z its right.
   -->
   <Part Id="KSArmory_Prefab_AmraamRail">
-
-    <SubPart Id="KSArmory_AmraamRail_Beam" InstanceOf="KSArmory_AmraamRail_SubPart" />
-
-    <!-- Attaches by the pylon's base, which is the mesh origin. -->
-    <Connector Id="_amConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
-
-    <!--
+    <SubParts>
+      <SubPart Key="KSArmory_AmraamRail_Beam" Ref="KSArmory_AmraamRail_SubPart" />
+      <!--
       The round, modelled where the mod will seat it rather than parked and shrunk away like the
       Pantsir's: an open rail with nothing on it reads as broken, in the editor and on the first
       frame of a flight, and neither runs a weapons system.
@@ -1204,15 +1258,23 @@
       when the mod takes over. The 0.424 is the body's radius plus the height of its hanger lug
       above the shoes it rides in; keep it in step with the Blender source and Rails.xml.
     -->
-    <SubPart Id="KSArmory_Amraam_Round00" InstanceOf="KSArmory_Amraam_SubPart">
-      <Transform>
-        <Position X="0.42400" Y="0.00000" Z="0.00000" />
-        <Rotation Z="1.57080" />
-      </Transform>
-    </SubPart>
-
+      <SubPart Key="KSArmory_Amraam_Round00" Ref="KSArmory_Amraam_SubPart">
+        <Transform>
+          <Position X="0.42400" Y="0.00000" Z="0.00000" />
+          <Rotation Z="1.57080" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <!-- Attaches by the pylon's base, which is the mesh origin. -->
+      <Connector Key="_amConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <!--
     LAU-118 rail with one AGM-88 HARM. The same shape as the two rails above — a part with nothing
     that moves, attached to the side of something else, shooting wherever that something is
@@ -1222,18 +1284,9 @@
     points, +Z its right.
   -->
   <Part Id="KSArmory_Prefab_HarmRail">
-
-    <SubPart Id="KSArmory_HarmRail_Beam" InstanceOf="KSArmory_HarmRail_SubPart" />
-
-    <!-- Attaches by the pylon's base, which is the mesh origin. -->
-    <Connector Id="_hmConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
-
-    <!--
+    <SubParts>
+      <SubPart Key="KSArmory_HarmRail_Beam" Ref="KSArmory_HarmRail_SubPart" />
+      <!--
       The round, modelled where the mod will seat it rather than parked and shrunk away like the
       Pantsir's: an open rail with nothing on it reads as broken, in the editor and on the first
       frame of a flight, and neither runs a weapons system.
@@ -1243,15 +1296,23 @@
       when the mod takes over. The 0.540 is the round's centreline standing off the rail's
       underside by its hanger lugs; keep it in step with the Blender source and Rails.xml.
     -->
-    <SubPart Id="KSArmory_Harm_Round00" InstanceOf="KSArmory_Harm_SubPart">
-      <Transform>
-        <Position X="0.54000" Y="0.00000" Z="0.00000" />
-        <Rotation Z="1.57080" />
-      </Transform>
-    </SubPart>
-
+      <SubPart Key="KSArmory_Harm_Round00" Ref="KSArmory_Harm_SubPart">
+        <Transform>
+          <Position X="0.54000" Y="0.00000" Z="0.00000" />
+          <Rotation Z="1.57080" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <!-- Attaches by the pylon's base, which is the mesh origin. -->
+      <Connector Key="_hmConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <!--
     The Weapon Mount: the ejector launcher with nothing on it, standing in for whichever launcher a store brings. A store clicks onto its station at
     this part's own origin, so the carriage the store brings lands exactly here, and
@@ -1259,69 +1320,66 @@
     its hooks at 30 inches.
   -->
   <Part Id="KSArmory_Prefab_WeaponsRail">
-
-    <SubPart Id="KSArmory_WeaponsRail_CarriageBody" InstanceOf="KSArmory_EjectorBody_SubPart" />
-    <SubPart Id="KSArmory_WeaponsRail_CarriageHookFwd" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.19000" Y="0.17780" Z="0.00000" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_WeaponsRail_CarriageHookAft" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.19000" Y="-0.17780" Z="0.00000" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_WeaponsRail_CarriageArmFwd" InstanceOf="KSArmory_EjectorArm_SubPart">
-      <Transform>
-        <Position X="0.17600" Y="0.28000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_WeaponsRail_CarriageArmAft" InstanceOf="KSArmory_EjectorArm_SubPart">
-      <Transform>
-        <Position X="0.17600" Y="-0.28000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <Connector Id="_wrConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
-
-    <!-- Mates with the hidden weapons pylon's station node, for saves holding one. -->
-    <Connector Id="_wrConnectorPylon">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-        <Scale X="0.40000" Y="0.40000" Z="0.40000" />
-      </Transform>
-    </Connector>
-
-    <!-- The station: facing out of the mounting face, where a store's own pylon node meets it. -->
-    <Connector Id="_wrConnectorStore">
-      <Transform>
-        <Position X="0.00000" />
-        <Scale X="0.40000" Y="0.40000" Z="0.40000" />
-      </Transform>
-    </Connector>
-
-    <!-- Never shown: stubs holding the subpart count for saves written while a pod hung from the rack. -->
-    <SubPart Id="KSArmory_WeaponsRail_PodHookFwd" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.19000" Y="0.38100" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_WeaponsRail_PodHookAft" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.19000" Y="-0.38100" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-
+    <SubParts>
+      <SubPart Key="KSArmory_WeaponsRail_CarriageBody" Ref="KSArmory_EjectorBody_SubPart" />
+      <SubPart Key="KSArmory_WeaponsRail_CarriageHookFwd" Ref="KSArmory_EjectorHook_SubPart">
+        <Transform>
+          <Position X="0.19000" Y="0.17780" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_WeaponsRail_CarriageHookAft" Ref="KSArmory_EjectorHook_SubPart">
+        <Transform>
+          <Position X="0.19000" Y="-0.17780" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_WeaponsRail_CarriageArmFwd" Ref="KSArmory_EjectorArm_SubPart">
+        <Transform>
+          <Position X="0.17600" Y="0.28000" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_WeaponsRail_CarriageArmAft" Ref="KSArmory_EjectorArm_SubPart">
+        <Transform>
+          <Position X="0.17600" Y="-0.28000" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <!-- Never shown: stubs holding the subpart count for saves written while a pod hung from the rack. -->
+      <SubPart Key="KSArmory_WeaponsRail_PodHookFwd" Ref="KSArmory_EjectorHook_SubPart">
+        <Transform>
+          <Position X="0.19000" Y="0.38100" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_WeaponsRail_PodHookAft" Ref="KSArmory_EjectorHook_SubPart">
+        <Transform>
+          <Position X="0.19000" Y="-0.38100" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <Connector Key="_wrConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+        </Transform>
+      </Connector>
+      <!-- Mates with the hidden weapons pylon's station node, for saves holding one. -->
+      <Connector Key="_wrConnectorPylon">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+          <Scale X="0.40000" Y="0.40000" Z="0.40000" />
+        </Transform>
+      </Connector>
+      <!-- The station: facing out of the mounting face, where a store's own pylon node meets it. -->
+      <Connector Key="_wrConnectorStore">
+        <Transform>
+          <Position X="0.00000" />
+          <Scale X="0.40000" Y="0.40000" Z="0.40000" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <!--
     LAU-10 with four Zuni rockets: a pod hung under a wing or on the side of a stack, firing
     wherever that is pointed. The warheads stand out of the muzzle, as he modelled them.
@@ -1331,114 +1389,110 @@
     launch empties put them, with the quarter turn carrying the body's nose from +X onto the tube.
   -->
   <Part Id="KSArmory_Prefab_Lau10">
-
-    <SubPart Id="KSArmory_Lau10_Body" InstanceOf="KSArmory_ZuniPod4_SubPart" />
-
-    <!-- Attaches by the rack's upper face, as a missile does. -->
-    <Connector Id="_lau10ConnectorBase">
-      <Transform>
-        <Position X="-0.19000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
-
-    <!-- Mates with the Weapon Mount's station node, a rack's depth above the lugs, as a missile's does. -->
-    <Connector Id="_lau10ConnectorPylon">
-      <Transform>
-        <Position X="-0.19000" />
-        <Rotation Z="3.14159" />
-        <Scale X="0.40000" Y="0.40000" Z="0.40000" />
-      </Transform>
-    </Connector>
-
-    <SubPart Id="KSArmory_Lau10_Zuni_Round00" InstanceOf="KSArmory_ZuniRound_SubPart">
-      <Transform>
-        <Position X="0.29882" Y="0.33809" Z="0.06841" />
-        <Rotation Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Lau10_Zuni_Round01" InstanceOf="KSArmory_ZuniRound_SubPart">
-      <Transform>
-        <Position X="0.16201" Y="0.33809" Z="-0.06841" />
-        <Rotation Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Lau10_Zuni_Round02" InstanceOf="KSArmory_ZuniRound_SubPart">
-      <Transform>
-        <Position X="0.29882" Y="0.33809" Z="-0.06840" />
-        <Rotation Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Lau10_Zuni_Round03" InstanceOf="KSArmory_ZuniRound_SubPart">
-      <Transform>
-        <Position X="0.16201" Y="0.33809" Z="0.06841" />
-        <Rotation Z="1.57080" />
-      </Transform>
-    </SubPart>
-
-    <SubPart Id="KSArmory_Lau10_Zuni_Fins00" InstanceOf="KSArmory_ZuniFins_SubPart">
-      <Transform>
-        <Position X="0.29882" Y="0.33809" Z="0.06841" />
-        <Rotation Z="1.57080" />
-        <Scale X="1.00000" Y="0.06000" Z="0.06000" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Lau10_Zuni_Fins01" InstanceOf="KSArmory_ZuniFins_SubPart">
-      <Transform>
-        <Position X="0.16201" Y="0.33809" Z="-0.06841" />
-        <Rotation Z="1.57080" />
-        <Scale X="1.00000" Y="0.06000" Z="0.06000" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Lau10_Zuni_Fins02" InstanceOf="KSArmory_ZuniFins_SubPart">
-      <Transform>
-        <Position X="0.29882" Y="0.33809" Z="-0.06840" />
-        <Rotation Z="1.57080" />
-        <Scale X="1.00000" Y="0.06000" Z="0.06000" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Lau10_Zuni_Fins03" InstanceOf="KSArmory_ZuniFins_SubPart">
-      <Transform>
-        <Position X="0.16201" Y="0.33809" Z="0.06841" />
-        <Rotation Z="1.57080" />
-        <Scale X="1.00000" Y="0.06000" Z="0.06000" />
-      </Transform>
-    </SubPart>
-
-    <!-- The ejector rack the pod brings, its top a rack's depth above the lugs, the hooks at 30 inches. -->
-    <SubPart Id="KSArmory_Lau10_CarriageBody" InstanceOf="KSArmory_EjectorBody_SubPart">
-      <Transform>
-        <Position X="-0.19000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Lau10_CarriageHookFwd" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.00000" Y="0.38100" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Lau10_CarriageHookAft" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.00000" Y="-0.38100" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Lau10_CarriageArmFwd" InstanceOf="KSArmory_EjectorArm_SubPart">
-      <Transform>
-        <Position X="-0.01400" Y="0.28000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Lau10_CarriageArmAft" InstanceOf="KSArmory_EjectorArm_SubPart">
-      <Transform>
-        <Position X="-0.01400" Y="-0.28000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-
+    <SubParts>
+      <SubPart Key="KSArmory_Lau10_Body" Ref="KSArmory_ZuniPod4_SubPart" />
+      <SubPart Key="KSArmory_Lau10_Zuni_Round00" Ref="KSArmory_ZuniRound_SubPart">
+        <Transform>
+          <Position X="0.29882" Y="0.33809" Z="0.06841" />
+          <Rotation Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Lau10_Zuni_Round01" Ref="KSArmory_ZuniRound_SubPart">
+        <Transform>
+          <Position X="0.16201" Y="0.33809" Z="-0.06841" />
+          <Rotation Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Lau10_Zuni_Round02" Ref="KSArmory_ZuniRound_SubPart">
+        <Transform>
+          <Position X="0.29882" Y="0.33809" Z="-0.06840" />
+          <Rotation Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Lau10_Zuni_Round03" Ref="KSArmory_ZuniRound_SubPart">
+        <Transform>
+          <Position X="0.16201" Y="0.33809" Z="0.06841" />
+          <Rotation Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Lau10_Zuni_Fins00" Ref="KSArmory_ZuniFins_SubPart">
+        <Transform>
+          <Position X="0.29882" Y="0.33809" Z="0.06841" />
+          <Rotation Z="1.57080" />
+          <Scale X="1.00000" Y="0.06000" Z="0.06000" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Lau10_Zuni_Fins01" Ref="KSArmory_ZuniFins_SubPart">
+        <Transform>
+          <Position X="0.16201" Y="0.33809" Z="-0.06841" />
+          <Rotation Z="1.57080" />
+          <Scale X="1.00000" Y="0.06000" Z="0.06000" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Lau10_Zuni_Fins02" Ref="KSArmory_ZuniFins_SubPart">
+        <Transform>
+          <Position X="0.29882" Y="0.33809" Z="-0.06840" />
+          <Rotation Z="1.57080" />
+          <Scale X="1.00000" Y="0.06000" Z="0.06000" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Lau10_Zuni_Fins03" Ref="KSArmory_ZuniFins_SubPart">
+        <Transform>
+          <Position X="0.16201" Y="0.33809" Z="0.06841" />
+          <Rotation Z="1.57080" />
+          <Scale X="1.00000" Y="0.06000" Z="0.06000" />
+        </Transform>
+      </SubPart>
+      <!-- The ejector rack the pod brings, its top a rack's depth above the lugs, the hooks at 30 inches. -->
+      <SubPart Key="KSArmory_Lau10_CarriageBody" Ref="KSArmory_EjectorBody_SubPart">
+        <Transform>
+          <Position X="-0.19000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Lau10_CarriageHookFwd" Ref="KSArmory_EjectorHook_SubPart">
+        <Transform>
+          <Position X="0.00000" Y="0.38100" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Lau10_CarriageHookAft" Ref="KSArmory_EjectorHook_SubPart">
+        <Transform>
+          <Position X="0.00000" Y="-0.38100" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Lau10_CarriageArmFwd" Ref="KSArmory_EjectorArm_SubPart">
+        <Transform>
+          <Position X="-0.01400" Y="0.28000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Lau10_CarriageArmAft" Ref="KSArmory_EjectorArm_SubPart">
+        <Transform>
+          <Position X="-0.01400" Y="-0.28000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <!-- Attaches by the rack's upper face, as a missile does. -->
+      <Connector Key="_lau10ConnectorBase">
+        <Transform>
+          <Position X="-0.19000" />
+          <Rotation Z="3.14159" />
+        </Transform>
+      </Connector>
+      <!-- Mates with the Weapon Mount's station node, a rack's depth above the lugs, as a missile's does. -->
+      <Connector Key="_lau10ConnectorPylon">
+        <Transform>
+          <Position X="-0.19000" />
+          <Rotation Z="3.14159" />
+          <Scale X="0.40000" Y="0.40000" Z="0.40000" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <!--
     A six-round Zuni pod, the LAU-10 stretched round a sixth tube. Not a real launcher.
 
@@ -1447,140 +1501,136 @@
     launch empties put them, with the quarter turn carrying the body's nose from +X onto the tube.
   -->
   <Part Id="KSArmory_Prefab_ZuniPod6">
-
-    <SubPart Id="KSArmory_ZuniPod6_Body" InstanceOf="KSArmory_ZuniPod6_SubPart" />
-
-    <!-- Attaches by the rack's upper face, as a missile does. -->
-    <Connector Id="_zuni6ConnectorBase">
-      <Transform>
-        <Position X="-0.19000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
-
-    <!-- Mates with the Weapon Mount's station node, a rack's depth above the lugs, as a missile's does. -->
-    <Connector Id="_zuni6ConnectorPylon">
-      <Transform>
-        <Position X="-0.19000" />
-        <Rotation Z="3.14159" />
-        <Scale X="0.45000" Y="0.45000" Z="0.45000" />
-      </Transform>
-    </Connector>
-
-    <SubPart Id="KSArmory_ZuniPod6_Zuni_Round00" InstanceOf="KSArmory_ZuniRound_SubPart">
-      <Transform>
-        <Position X="0.37281" Y="0.41311" Z="0.08002" />
-        <Rotation Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_ZuniPod6_Zuni_Round01" InstanceOf="KSArmory_ZuniRound_SubPart">
-      <Transform>
-        <Position X="0.22061" Y="0.41311" Z="-0.12947" />
-        <Rotation Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_ZuniPod6_Zuni_Round02" InstanceOf="KSArmory_ZuniRound_SubPart">
-      <Transform>
-        <Position X="0.22061" Y="0.41311" Z="0.12947" />
-        <Rotation Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_ZuniPod6_Zuni_Round03" InstanceOf="KSArmory_ZuniRound_SubPart">
-      <Transform>
-        <Position X="0.37281" Y="0.41311" Z="-0.08002" />
-        <Rotation Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_ZuniPod6_Zuni_Round04" InstanceOf="KSArmory_ZuniRound_SubPart">
-      <Transform>
-        <Position X="0.12666" Y="0.41311" Z="0.00000" />
-        <Rotation Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_ZuniPod6_Zuni_Round05" InstanceOf="KSArmory_ZuniRound_SubPart">
-      <Transform>
-        <Position X="0.26462" Y="0.41311" Z="0.00000" />
-        <Rotation Z="1.57080" />
-      </Transform>
-    </SubPart>
-
-    <SubPart Id="KSArmory_ZuniPod6_Zuni_Fins00" InstanceOf="KSArmory_ZuniFins_SubPart">
-      <Transform>
-        <Position X="0.37281" Y="0.41311" Z="0.08002" />
-        <Rotation Z="1.57080" />
-        <Scale X="1.00000" Y="0.06000" Z="0.06000" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_ZuniPod6_Zuni_Fins01" InstanceOf="KSArmory_ZuniFins_SubPart">
-      <Transform>
-        <Position X="0.22061" Y="0.41311" Z="-0.12947" />
-        <Rotation Z="1.57080" />
-        <Scale X="1.00000" Y="0.06000" Z="0.06000" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_ZuniPod6_Zuni_Fins02" InstanceOf="KSArmory_ZuniFins_SubPart">
-      <Transform>
-        <Position X="0.22061" Y="0.41311" Z="0.12947" />
-        <Rotation Z="1.57080" />
-        <Scale X="1.00000" Y="0.06000" Z="0.06000" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_ZuniPod6_Zuni_Fins03" InstanceOf="KSArmory_ZuniFins_SubPart">
-      <Transform>
-        <Position X="0.37281" Y="0.41311" Z="-0.08002" />
-        <Rotation Z="1.57080" />
-        <Scale X="1.00000" Y="0.06000" Z="0.06000" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_ZuniPod6_Zuni_Fins04" InstanceOf="KSArmory_ZuniFins_SubPart">
-      <Transform>
-        <Position X="0.12666" Y="0.41311" Z="0.00000" />
-        <Rotation Z="1.57080" />
-        <Scale X="1.00000" Y="0.06000" Z="0.06000" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_ZuniPod6_Zuni_Fins05" InstanceOf="KSArmory_ZuniFins_SubPart">
-      <Transform>
-        <Position X="0.26462" Y="0.41311" Z="0.00000" />
-        <Rotation Z="1.57080" />
-        <Scale X="1.00000" Y="0.06000" Z="0.06000" />
-      </Transform>
-    </SubPart>
-
-    <!-- The ejector rack the pod brings, its top a rack's depth above the lugs, the hooks at 30 inches. -->
-    <SubPart Id="KSArmory_ZuniPod6_CarriageBody" InstanceOf="KSArmory_EjectorBody_SubPart">
-      <Transform>
-        <Position X="-0.19000" Y="0.00000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_ZuniPod6_CarriageHookFwd" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.00000" Y="0.38100" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_ZuniPod6_CarriageHookAft" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.00000" Y="-0.38100" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_ZuniPod6_CarriageArmFwd" InstanceOf="KSArmory_EjectorArm_SubPart">
-      <Transform>
-        <Position X="-0.01400" Y="0.28000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_ZuniPod6_CarriageArmAft" InstanceOf="KSArmory_EjectorArm_SubPart">
-      <Transform>
-        <Position X="-0.01400" Y="-0.28000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-
+    <SubParts>
+      <SubPart Key="KSArmory_ZuniPod6_Body" Ref="KSArmory_ZuniPod6_SubPart" />
+      <SubPart Key="KSArmory_ZuniPod6_Zuni_Round00" Ref="KSArmory_ZuniRound_SubPart">
+        <Transform>
+          <Position X="0.37281" Y="0.41311" Z="0.08002" />
+          <Rotation Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_ZuniPod6_Zuni_Round01" Ref="KSArmory_ZuniRound_SubPart">
+        <Transform>
+          <Position X="0.22061" Y="0.41311" Z="-0.12947" />
+          <Rotation Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_ZuniPod6_Zuni_Round02" Ref="KSArmory_ZuniRound_SubPart">
+        <Transform>
+          <Position X="0.22061" Y="0.41311" Z="0.12947" />
+          <Rotation Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_ZuniPod6_Zuni_Round03" Ref="KSArmory_ZuniRound_SubPart">
+        <Transform>
+          <Position X="0.37281" Y="0.41311" Z="-0.08002" />
+          <Rotation Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_ZuniPod6_Zuni_Round04" Ref="KSArmory_ZuniRound_SubPart">
+        <Transform>
+          <Position X="0.12666" Y="0.41311" Z="0.00000" />
+          <Rotation Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_ZuniPod6_Zuni_Round05" Ref="KSArmory_ZuniRound_SubPart">
+        <Transform>
+          <Position X="0.26462" Y="0.41311" Z="0.00000" />
+          <Rotation Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_ZuniPod6_Zuni_Fins00" Ref="KSArmory_ZuniFins_SubPart">
+        <Transform>
+          <Position X="0.37281" Y="0.41311" Z="0.08002" />
+          <Rotation Z="1.57080" />
+          <Scale X="1.00000" Y="0.06000" Z="0.06000" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_ZuniPod6_Zuni_Fins01" Ref="KSArmory_ZuniFins_SubPart">
+        <Transform>
+          <Position X="0.22061" Y="0.41311" Z="-0.12947" />
+          <Rotation Z="1.57080" />
+          <Scale X="1.00000" Y="0.06000" Z="0.06000" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_ZuniPod6_Zuni_Fins02" Ref="KSArmory_ZuniFins_SubPart">
+        <Transform>
+          <Position X="0.22061" Y="0.41311" Z="0.12947" />
+          <Rotation Z="1.57080" />
+          <Scale X="1.00000" Y="0.06000" Z="0.06000" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_ZuniPod6_Zuni_Fins03" Ref="KSArmory_ZuniFins_SubPart">
+        <Transform>
+          <Position X="0.37281" Y="0.41311" Z="-0.08002" />
+          <Rotation Z="1.57080" />
+          <Scale X="1.00000" Y="0.06000" Z="0.06000" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_ZuniPod6_Zuni_Fins04" Ref="KSArmory_ZuniFins_SubPart">
+        <Transform>
+          <Position X="0.12666" Y="0.41311" Z="0.00000" />
+          <Rotation Z="1.57080" />
+          <Scale X="1.00000" Y="0.06000" Z="0.06000" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_ZuniPod6_Zuni_Fins05" Ref="KSArmory_ZuniFins_SubPart">
+        <Transform>
+          <Position X="0.26462" Y="0.41311" Z="0.00000" />
+          <Rotation Z="1.57080" />
+          <Scale X="1.00000" Y="0.06000" Z="0.06000" />
+        </Transform>
+      </SubPart>
+      <!-- The ejector rack the pod brings, its top a rack's depth above the lugs, the hooks at 30 inches. -->
+      <SubPart Key="KSArmory_ZuniPod6_CarriageBody" Ref="KSArmory_EjectorBody_SubPart">
+        <Transform>
+          <Position X="-0.19000" Y="0.00000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_ZuniPod6_CarriageHookFwd" Ref="KSArmory_EjectorHook_SubPart">
+        <Transform>
+          <Position X="0.00000" Y="0.38100" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_ZuniPod6_CarriageHookAft" Ref="KSArmory_EjectorHook_SubPart">
+        <Transform>
+          <Position X="0.00000" Y="-0.38100" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_ZuniPod6_CarriageArmFwd" Ref="KSArmory_EjectorArm_SubPart">
+        <Transform>
+          <Position X="-0.01400" Y="0.28000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_ZuniPod6_CarriageArmAft" Ref="KSArmory_EjectorArm_SubPart">
+        <Transform>
+          <Position X="-0.01400" Y="-0.28000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <!-- Attaches by the rack's upper face, as a missile does. -->
+      <Connector Key="_zuni6ConnectorBase">
+        <Transform>
+          <Position X="-0.19000" />
+          <Rotation Z="3.14159" />
+        </Transform>
+      </Connector>
+      <!-- Mates with the Weapon Mount's station node, a rack's depth above the lugs, as a missile's does. -->
+      <Connector Key="_zuni6ConnectorPylon">
+        <Transform>
+          <Position X="-0.19000" />
+          <Rotation Z="3.14159" />
+          <Scale X="0.45000" Y="0.45000" Z="0.45000" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <!--
     The stores as players pick them: each hangs from the ejector launcher, its carriage, which
     Ksa/StoreCarriage.cs shows only while the part is attached to something, so the part list shows the
@@ -1592,276 +1642,268 @@
     subparts are named so no body or fin marker selects them: "Aim9" and "B61" are both markers.
   -->
   <Part Id="KSArmory_Prefab_Aim9J">
-
-    <SubPart Id="KSArmory_Sidewinder_CarriageBody" InstanceOf="KSArmory_EjectorBody_SubPart">
-      <Transform>
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Sidewinder_CarriageHookFwd" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.19000" Y="0.17780" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Sidewinder_CarriageHookAft" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.19000" Y="-0.17780" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Sidewinder_CarriageArmFwd" InstanceOf="KSArmory_EjectorArm_SubPart">
-      <Transform>
-        <Position X="0.19100" Y="0.28000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Sidewinder_CarriageArmAft" InstanceOf="KSArmory_EjectorArm_SubPart">
-      <Transform>
-        <Position X="0.19100" Y="-0.28000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-
-    <!-- Attaches by the ejector's upper face, the mesh origin. -->
-    <Connector Id="_a9ConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
-
-    <!-- Mates with the Weapon Mount's station node, or the hidden pylon's. -->
-    <Connector Id="_a9ConnectorPylon">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-        <Scale X="0.40000" Y="0.40000" Z="0.40000" />
-      </Transform>
-    </Connector>
-
-    <SubPart Id="KSArmory_Sidewinder_Aim900" InstanceOf="KSArmory_Aim9_SubPart">
-      <Transform>
-        <Position X="0.27050" Y="0.00000" Z="0.00000" />
-        <Rotation Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Sidewinder_LaunchRailBody" InstanceOf="KSArmory_LaunchRailBody_SubPart">
-      <Transform>
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-
+    <SubParts>
+      <SubPart Key="KSArmory_Sidewinder_CarriageBody" Ref="KSArmory_EjectorBody_SubPart">
+        <Transform>
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Sidewinder_CarriageHookFwd" Ref="KSArmory_EjectorHook_SubPart">
+        <Transform>
+          <Position X="0.19000" Y="0.17780" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Sidewinder_CarriageHookAft" Ref="KSArmory_EjectorHook_SubPart">
+        <Transform>
+          <Position X="0.19000" Y="-0.17780" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Sidewinder_CarriageArmFwd" Ref="KSArmory_EjectorArm_SubPart">
+        <Transform>
+          <Position X="0.19100" Y="0.28000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Sidewinder_CarriageArmAft" Ref="KSArmory_EjectorArm_SubPart">
+        <Transform>
+          <Position X="0.19100" Y="-0.28000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Sidewinder_Aim900" Ref="KSArmory_Aim9_SubPart">
+        <Transform>
+          <Position X="0.27050" Y="0.00000" Z="0.00000" />
+          <Rotation Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Sidewinder_LaunchRailBody" Ref="KSArmory_LaunchRailBody_SubPart">
+        <Transform>
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <!-- Attaches by the ejector's upper face, the mesh origin. -->
+      <Connector Key="_a9ConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+        </Transform>
+      </Connector>
+      <!-- Mates with the Weapon Mount's station node, or the hidden pylon's. -->
+      <Connector Key="_a9ConnectorPylon">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+          <Scale X="0.40000" Y="0.40000" Z="0.40000" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <Part Id="KSArmory_Prefab_Aim120C">
-
-    <SubPart Id="KSArmory_Amraam_CarriageBody" InstanceOf="KSArmory_EjectorBody_SubPart">
-      <Transform>
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Amraam_CarriageHookFwd" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.19000" Y="0.17780" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Amraam_CarriageHookAft" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.19000" Y="-0.17780" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Amraam_CarriageArmFwd" InstanceOf="KSArmory_EjectorArm_SubPart">
-      <Transform>
-        <Position X="0.19100" Y="0.28000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Amraam_CarriageArmAft" InstanceOf="KSArmory_EjectorArm_SubPart">
-      <Transform>
-        <Position X="0.19100" Y="-0.28000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-
-    <!-- Attaches by the ejector's upper face, the mesh origin. -->
-    <Connector Id="_a120ConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
-
-    <!-- Mates with the Weapon Mount's station node, or the hidden pylon's. -->
-    <Connector Id="_a120ConnectorPylon">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-        <Scale X="0.40000" Y="0.40000" Z="0.40000" />
-      </Transform>
-    </Connector>
-
-    <SubPart Id="KSArmory_Amraam_Amraam_Round00" InstanceOf="KSArmory_Amraam_SubPart">
-      <Transform>
-        <Position X="0.29590" Y="0.00000" Z="0.00000" />
-        <Rotation Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Amraam_LaunchRailBody" InstanceOf="KSArmory_LaunchRailBody_SubPart">
-      <Transform>
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-
+    <SubParts>
+      <SubPart Key="KSArmory_Amraam_CarriageBody" Ref="KSArmory_EjectorBody_SubPart">
+        <Transform>
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Amraam_CarriageHookFwd" Ref="KSArmory_EjectorHook_SubPart">
+        <Transform>
+          <Position X="0.19000" Y="0.17780" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Amraam_CarriageHookAft" Ref="KSArmory_EjectorHook_SubPart">
+        <Transform>
+          <Position X="0.19000" Y="-0.17780" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Amraam_CarriageArmFwd" Ref="KSArmory_EjectorArm_SubPart">
+        <Transform>
+          <Position X="0.19100" Y="0.28000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Amraam_CarriageArmAft" Ref="KSArmory_EjectorArm_SubPart">
+        <Transform>
+          <Position X="0.19100" Y="-0.28000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Amraam_Amraam_Round00" Ref="KSArmory_Amraam_SubPart">
+        <Transform>
+          <Position X="0.29590" Y="0.00000" Z="0.00000" />
+          <Rotation Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Amraam_LaunchRailBody" Ref="KSArmory_LaunchRailBody_SubPart">
+        <Transform>
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <!-- Attaches by the ejector's upper face, the mesh origin. -->
+      <Connector Key="_a120ConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+        </Transform>
+      </Connector>
+      <!-- Mates with the Weapon Mount's station node, or the hidden pylon's. -->
+      <Connector Key="_a120ConnectorPylon">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+          <Scale X="0.40000" Y="0.40000" Z="0.40000" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <Part Id="KSArmory_Prefab_Agm88">
-
-    <SubPart Id="KSArmory_Harm_CarriageBody" InstanceOf="KSArmory_EjectorBody_SubPart">
-      <Transform>
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Harm_CarriageHookFwd" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.19000" Y="0.17780" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Harm_CarriageHookAft" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.19000" Y="-0.17780" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Harm_CarriageArmFwd" InstanceOf="KSArmory_EjectorArm_SubPart">
-      <Transform>
-        <Position X="0.19100" Y="0.28000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Harm_CarriageArmAft" InstanceOf="KSArmory_EjectorArm_SubPart">
-      <Transform>
-        <Position X="0.19100" Y="-0.28000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-
-    <!-- Attaches by the ejector's upper face, the mesh origin. -->
-    <Connector Id="_a88ConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
-
-    <!-- Mates with the Weapon Mount's station node, or the hidden pylon's. -->
-    <Connector Id="_a88ConnectorPylon">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-        <Scale X="0.40000" Y="0.40000" Z="0.40000" />
-      </Transform>
-    </Connector>
-
-    <SubPart Id="KSArmory_Harm_Harm_Round00" InstanceOf="KSArmory_Harm_SubPart">
-      <Transform>
-        <Position X="0.33400" Y="0.00000" Z="0.00000" />
-        <Rotation Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Harm_LaunchRailBody" InstanceOf="KSArmory_LaunchRailBody_SubPart">
-      <Transform>
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-
+    <SubParts>
+      <SubPart Key="KSArmory_Harm_CarriageBody" Ref="KSArmory_EjectorBody_SubPart">
+        <Transform>
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Harm_CarriageHookFwd" Ref="KSArmory_EjectorHook_SubPart">
+        <Transform>
+          <Position X="0.19000" Y="0.17780" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Harm_CarriageHookAft" Ref="KSArmory_EjectorHook_SubPart">
+        <Transform>
+          <Position X="0.19000" Y="-0.17780" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Harm_CarriageArmFwd" Ref="KSArmory_EjectorArm_SubPart">
+        <Transform>
+          <Position X="0.19100" Y="0.28000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Harm_CarriageArmAft" Ref="KSArmory_EjectorArm_SubPart">
+        <Transform>
+          <Position X="0.19100" Y="-0.28000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Harm_Harm_Round00" Ref="KSArmory_Harm_SubPart">
+        <Transform>
+          <Position X="0.33400" Y="0.00000" Z="0.00000" />
+          <Rotation Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Harm_LaunchRailBody" Ref="KSArmory_LaunchRailBody_SubPart">
+        <Transform>
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <!-- Attaches by the ejector's upper face, the mesh origin. -->
+      <Connector Key="_a88ConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+        </Transform>
+      </Connector>
+      <!-- Mates with the Weapon Mount's station node, or the hidden pylon's. -->
+      <Connector Key="_a88ConnectorPylon">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+          <Scale X="0.40000" Y="0.40000" Z="0.40000" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <Part Id="KSArmory_Prefab_B61">
-
-    <SubPart Id="KSArmory_Bomb_CarriageBody" InstanceOf="KSArmory_EjectorBody_SubPart">
-      <Transform>
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Bomb_CarriageHookFwd" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.19000" Y="0.38100" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Bomb_CarriageHookAft" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.19000" Y="-0.38100" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Bomb_CarriageArmFwd" InstanceOf="KSArmory_EjectorArm_SubPart">
-      <Transform>
-        <Position X="0.21200" Y="0.28000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Bomb_CarriageArmAft" InstanceOf="KSArmory_EjectorArm_SubPart">
-      <Transform>
-        <Position X="0.21200" Y="-0.28000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-
-    <!-- Attaches by the ejector's upper face, the mesh origin. -->
-    <Connector Id="_b61ConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
-
-    <!-- Mates with the Weapon Mount's station node, or the hidden pylon's. -->
-    <Connector Id="_b61ConnectorPylon">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-        <Scale X="0.40000" Y="0.40000" Z="0.40000" />
-      </Transform>
-    </Connector>
-
-    <SubPart Id="KSArmory_Bomb_B6100" InstanceOf="KSArmory_B61_SubPart">
-      <Transform>
-        <Position X="0.39300" Y="0.00000" Z="0.00000" />
-        <Rotation Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Bomb_Blade00" InstanceOf="KSArmory_B61Fin_SubPart">
-      <Transform>
-        <Position X="0.39300" Y="-1.52100" Z="0.00000" />
-        <Rotation X="0.78540" Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Bomb_Blade01" InstanceOf="KSArmory_B61Fin_SubPart">
-      <Transform>
-        <Position X="0.39300" Y="-1.52100" Z="0.00000" />
-        <Rotation X="2.35619" Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Bomb_Blade02" InstanceOf="KSArmory_B61Fin_SubPart">
-      <Transform>
-        <Position X="0.39300" Y="-1.52100" Z="0.00000" />
-        <Rotation X="3.92699" Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_Bomb_Blade03" InstanceOf="KSArmory_B61Fin_SubPart">
-      <Transform>
-        <Position X="0.39300" Y="-1.52100" Z="0.00000" />
-        <Rotation X="5.49779" Z="1.57080" />
-      </Transform>
-    </SubPart>
-
+    <SubParts>
+      <SubPart Key="KSArmory_Bomb_CarriageBody" Ref="KSArmory_EjectorBody_SubPart">
+        <Transform>
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Bomb_CarriageHookFwd" Ref="KSArmory_EjectorHook_SubPart">
+        <Transform>
+          <Position X="0.19000" Y="0.38100" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Bomb_CarriageHookAft" Ref="KSArmory_EjectorHook_SubPart">
+        <Transform>
+          <Position X="0.19000" Y="-0.38100" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Bomb_CarriageArmFwd" Ref="KSArmory_EjectorArm_SubPart">
+        <Transform>
+          <Position X="0.21200" Y="0.28000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Bomb_CarriageArmAft" Ref="KSArmory_EjectorArm_SubPart">
+        <Transform>
+          <Position X="0.21200" Y="-0.28000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Bomb_B6100" Ref="KSArmory_B61_SubPart">
+        <Transform>
+          <Position X="0.39300" Y="0.00000" Z="0.00000" />
+          <Rotation Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Bomb_Blade00" Ref="KSArmory_B61Fin_SubPart">
+        <Transform>
+          <Position X="0.39300" Y="-1.52100" Z="0.00000" />
+          <Rotation X="0.78540" Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Bomb_Blade01" Ref="KSArmory_B61Fin_SubPart">
+        <Transform>
+          <Position X="0.39300" Y="-1.52100" Z="0.00000" />
+          <Rotation X="2.35619" Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Bomb_Blade02" Ref="KSArmory_B61Fin_SubPart">
+        <Transform>
+          <Position X="0.39300" Y="-1.52100" Z="0.00000" />
+          <Rotation X="3.92699" Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Bomb_Blade03" Ref="KSArmory_B61Fin_SubPart">
+        <Transform>
+          <Position X="0.39300" Y="-1.52100" Z="0.00000" />
+          <Rotation X="5.49779" Z="1.57080" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <!-- Attaches by the ejector's upper face, the mesh origin. -->
+      <Connector Key="_b61ConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+        </Transform>
+      </Connector>
+      <!-- Mates with the Weapon Mount's station node, or the hidden pylon's. -->
+      <Connector Key="_b61ConnectorPylon">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+          <Scale X="0.40000" Y="0.40000" Z="0.40000" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <!--
     Electro-optical director, radially mounted like the rail.
 
@@ -1873,29 +1915,29 @@
     right.
   -->
   <Part Id="KSArmory_Prefab_Optic">
-
-    <SubPart Id="KSArmory_Optic_Base" InstanceOf="KSArmory_OpticBase_SubPart" />
-
-    <!--
+    <SubParts>
+      <SubPart Key="KSArmory_Optic_Base" Ref="KSArmory_OpticBase_SubPart" />
+      <!--
       The gimballed ball. Its mesh is exported recentred on the pivot so KSA turns it in place,
       and the offset comes back here.
       Keep in step with HEAD_PIVOT in tools/model/optic.py.
     -->
-    <SubPart Id="KSArmory_Optic_Head" InstanceOf="KSArmory_OpticHead_SubPart">
-      <Transform>
-        <Position X="0.63000" Y="0.00000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <!-- Attaches by the flange's underside, which is the mesh origin. -->
-    <Connector Id="_opConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
+      <SubPart Key="KSArmory_Optic_Head" Ref="KSArmory_OpticHead_SubPart">
+        <Transform>
+          <Position X="0.63000" Y="0.00000" Z="0.00000" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <!-- Attaches by the flange's underside, which is the mesh origin. -->
+      <Connector Key="_opConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <!--
     A 14-inch suspension rail: the beam a store hangs from, with a hook at each lug station. The
     weapons pylon, hidden from the editor and kept so a craft carrying one loads.
@@ -1903,29 +1945,29 @@
     Structure and nothing else: no definition names it, because it neither shoots nor sees.
   -->
   <Part Id="KSArmory_Prefab_Rail">
-
-    <SubPart Id="KSArmory_Rail_Beam" InstanceOf="KSArmory_Rail_SubPart" />
-
-    <!-- Attaches by the beam's upper face, which the export puts on the mesh origin. -->
-    <Connector Id="_rlConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
-
-    <!--
+    <SubParts>
+      <SubPart Key="KSArmory_Rail_Beam" Ref="KSArmory_Rail_SubPart" />
+    </SubParts>
+    <Connectors>
+      <!-- Attaches by the beam's upper face, which the export puts on the mesh origin. -->
+      <Connector Key="_rlConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+        </Transform>
+      </Connector>
+      <!--
       The station a pylon-free rail clicks into, on the hooks' underside. A node rather than a face,
       because a rail placed free-hand on a beam this small lands wherever the cursor touched it.
     -->
-    <Connector Id="_rlConnectorStore">
-      <Transform>
-        <Position X="0.22006" />
-        <Scale X="0.40000" Y="0.40000" Z="0.40000" />
-      </Transform>
-    </Connector>
+      <Connector Key="_rlConnectorStore">
+        <Transform>
+          <Position X="0.22006" />
+          <Scale X="0.40000" Y="0.40000" Z="0.40000" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <!--
     Rafael LITENING targeting pod, hung from the ejector it brings, as the missiles hang from theirs.
 
@@ -1937,93 +1979,89 @@
     nose points, and +Z the host's right. The origin is the carriage's upper face.
   -->
   <Part Id="KSArmory_Prefab_Litening">
-
-    <!-- Never shown: holds the subpart count for saves written while the pod hung from this rail. -->
-    <SubPart Id="KSArmory_Litening_Rail" InstanceOf="KSArmory_Rail_SubPart">
-      <Transform>
-        <Position X="0.00000" Y="-0.21750" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-
-    <!--
+    <SubParts>
+      <!-- Never shown: holds the subpart count for saves written while the pod hung from this rail. -->
+      <SubPart Key="KSArmory_Litening_Rail" Ref="KSArmory_Rail_SubPart">
+        <Transform>
+          <Position X="0.00000" Y="-0.21750" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <!--
       Modelled in part space: its skin top 0.207 below the carriage's face and its lugs centred on
       Y = 0, under the ejector's 14-inch hooks, as a missile seats on the same carriage.
     -->
-    <SubPart Id="KSArmory_Litening_Body" InstanceOf="KSArmory_LiteningBody_SubPart" />
-
-    <!--
+      <SubPart Key="KSArmory_Litening_Body" Ref="KSArmory_LiteningBody_SubPart" />
+      <!--
       Both moving bodies sit at the same pivot, the ball's centre, because they turn on the same
       bearing. Their meshes are exported recentred on it so KSA turns them in place.
 
       OpticProfile.HeadPivot is an offset from the *base*, which MountFrame reads off the engine each
       frame, which is why validate-parts.py compares head minus base rather than either alone.
     -->
-    <SubPart Id="KSArmory_Litening_Roll" InstanceOf="KSArmory_LiteningRoll_SubPart">
-      <Transform>
-        <Position X="0.41000" Y="0.88000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <SubPart Id="KSArmory_Litening_Head" InstanceOf="KSArmory_LiteningWindow_SubPart">
-      <Transform>
-        <Position X="0.41000" Y="0.88000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <!--
+      <SubPart Key="KSArmory_Litening_Roll" Ref="KSArmory_LiteningRoll_SubPart">
+        <Transform>
+          <Position X="0.41000" Y="0.88000" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Litening_Head" Ref="KSArmory_LiteningWindow_SubPart">
+        <Transform>
+          <Position X="0.41000" Y="0.88000" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <!--
       The ejector the pod hangs by, shown by Ksa/StoreCarriage.cs only while the pod is attached, so
       the part list shows the pod alone. Hooks at the lugs' 14-inch spacing, arms with their feet on
       the skin. Named so no optic marker selects them.
     -->
-    <SubPart Id="KSArmory_LtCarriage_EjectorBody" InstanceOf="KSArmory_EjectorBody_SubPart">
-      <Transform>
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_LtCarriage_HookFwd" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.19000" Y="0.17780" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_LtCarriage_HookAft" InstanceOf="KSArmory_EjectorHook_SubPart">
-      <Transform>
-        <Position X="0.19000" Y="-0.17780" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_LtCarriage_ArmFwd" InstanceOf="KSArmory_EjectorArm_SubPart">
-      <Transform>
-        <Position X="0.19100" Y="0.28000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_LtCarriage_ArmAft" InstanceOf="KSArmory_EjectorArm_SubPart">
-      <Transform>
-        <Position X="0.19100" Y="-0.28000" Z="0.00000" />
-        <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-      </Transform>
-    </SubPart>
-
-    <!-- Attaches by the ejector's upper face, the mesh origin. -->
-    <Connector Id="_ltConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
-
-    <!-- Mates with the Weapon Mount's station node, as a missile's does. -->
-    <Connector Id="_ltConnectorPylon">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-        <Scale X="0.40000" Y="0.40000" Z="0.40000" />
-      </Transform>
-    </Connector>
+      <SubPart Key="KSArmory_LtCarriage_EjectorBody" Ref="KSArmory_EjectorBody_SubPart">
+        <Transform>
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_LtCarriage_HookFwd" Ref="KSArmory_EjectorHook_SubPart">
+        <Transform>
+          <Position X="0.19000" Y="0.17780" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_LtCarriage_HookAft" Ref="KSArmory_EjectorHook_SubPart">
+        <Transform>
+          <Position X="0.19000" Y="-0.17780" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_LtCarriage_ArmFwd" Ref="KSArmory_EjectorArm_SubPart">
+        <Transform>
+          <Position X="0.19100" Y="0.28000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_LtCarriage_ArmAft" Ref="KSArmory_EjectorArm_SubPart">
+        <Transform>
+          <Position X="0.19100" Y="-0.28000" Z="0.00000" />
+          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <!-- Attaches by the ejector's upper face, the mesh origin. -->
+      <Connector Key="_ltConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+        </Transform>
+      </Connector>
+      <!-- Mates with the Weapon Mount's station node, as a missile's does. -->
+      <Connector Key="_ltConnectorPylon">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+          <Scale X="0.40000" Y="0.40000" Z="0.40000" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <!--
     The YAL-1 Airborne Laser's nose turret, which stacks on a 3 m node: a roll-nod head like the
     pod's, scaled up to a 1.5 m telescope behind a 1.8 m window.
@@ -2033,37 +2071,36 @@
     and MountFrame reads the turn back off the engine, so the head follows it with nothing in the C#.
   -->
   <Part Id="KSArmory_Prefab_Yal1Turret">
-
-    <SubPart Id="KSArmory_Yal1_Base" InstanceOf="KSArmory_Yal1Base_SubPart">
-      <Transform>
-        <Rotation Z="-1.57080" />
-      </Transform>
-    </SubPart>
-
-    <!-- Both turn about the dome's centre, 2.5 m up the axis; the mod rewrites these each frame. -->
-    <SubPart Id="KSArmory_Yal1_Roll" InstanceOf="KSArmory_Yal1Roll_SubPart">
-      <Transform>
-        <Position X="2.50000" Y="0.00000" Z="0.00000" />
-        <Rotation Z="-1.57080" />
-      </Transform>
-    </SubPart>
-
-    <SubPart Id="KSArmory_Yal1_Head" InstanceOf="KSArmory_Yal1Head_SubPart">
-      <Transform>
-        <Position X="2.50000" Y="0.00000" Z="0.00000" />
-        <Rotation Z="-1.57080" />
-      </Transform>
-    </SubPart>
-
-    <Connector Id="_yalConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation X="3.14159" Z="3.14159" />
-        <Scale X="3.00000" Y="3.00000" Z="3.00000" />
-      </Transform>
-    </Connector>
+    <SubParts>
+      <SubPart Key="KSArmory_Yal1_Base" Ref="KSArmory_Yal1Base_SubPart">
+        <Transform>
+          <Rotation Z="-1.57080" />
+        </Transform>
+      </SubPart>
+      <!-- Both turn about the dome's centre, 2.5 m up the axis; the mod rewrites these each frame. -->
+      <SubPart Key="KSArmory_Yal1_Roll" Ref="KSArmory_Yal1Roll_SubPart">
+        <Transform>
+          <Position X="2.50000" Y="0.00000" Z="0.00000" />
+          <Rotation Z="-1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Yal1_Head" Ref="KSArmory_Yal1Head_SubPart">
+        <Transform>
+          <Position X="2.50000" Y="0.00000" Z="0.00000" />
+          <Rotation Z="-1.57080" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <Connector Key="_yalConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation X="3.14159" Z="3.14159" />
+          <Scale X="3.00000" Y="3.00000" Z="3.00000" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <!--
     A MAU-12 ejector rack with a B61-12 on it, radially mounted like the rail. Hidden from the editor
     and kept for saves.
@@ -2074,75 +2111,75 @@
   -->
   <!-- Core's 2 m plate, 90 mm thick, scaled to 25 mm with its back face on the surface it is bolted to. -->
   <Part Id="KSArmory_Prefab_ArmourPlateTest">
-    <SubPart Id="KSArmory_ArmourPlateTest_Slab" InstanceOf="CoreStructuralA_Subpart_Plate2WA">
-      <Transform>
-        <Position X="0.01250" />
-        <Scale X="0.27778" Y="1.00000" Z="1.00000" />
-      </Transform>
-    </SubPart>
-
-    <Connector Id="_apConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
+    <SubParts>
+      <SubPart Key="KSArmory_ArmourPlateTest_Slab" Ref="CoreStructuralA_Subpart_Plate2WA">
+        <Transform>
+          <Position X="0.01250" />
+          <Scale X="0.27778" Y="1.00000" Z="1.00000" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <Connector Key="_apConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <Part Id="KSArmory_Prefab_NukeRack">
-
-    <SubPart Id="KSArmory_NukeRack_Beam" InstanceOf="KSArmory_B61Rack_SubPart" />
-
-    <Connector Id="_nrConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
-
-    <!--
+    <SubParts>
+      <SubPart Key="KSArmory_NukeRack_Beam" Ref="KSArmory_B61Rack_SubPart" />
+      <!--
       Position is the seated centre and the rotation is the quarter turn carrying the body mesh's
       nose from +X onto the tube axis — the same values TrySeatMissile computes, so nothing moves
       when the mod takes over. Keep in step with the B61 bomb rack in Strategic.xml.
     -->
-    <SubPart Id="KSArmory_NukeRack_B6100" InstanceOf="KSArmory_B61_SubPart">
-      <Transform>
-        <Position X="0.43510" Y="0.00000" Z="0.00000" />
-        <Rotation Z="1.57080" />
-      </Transform>
-    </SubPart>
-
-    <!--
+      <SubPart Key="KSArmory_NukeRack_B6100" Ref="KSArmory_B61_SubPart">
+        <Transform>
+          <Position X="0.43510" Y="0.00000" Z="0.00000" />
+          <Rotation Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <!--
       Its four blades. Placed and rolled by the mod every frame, so these transforms are only what
       they look like before it takes over — seated with the round, square to the rack.
     -->
-    <SubPart Id="KSArmory_NukeRack_Blade00" InstanceOf="KSArmory_B61Fin_SubPart">
-      <Transform>
-        <Position X="0.43510" Y="-1.52100" Z="0.00000" />
-        <Rotation X="0.78540" Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_NukeRack_Blade01" InstanceOf="KSArmory_B61Fin_SubPart">
-      <Transform>
-        <Position X="0.43510" Y="-1.52100" Z="0.00000" />
-        <Rotation X="2.35619" Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_NukeRack_Blade02" InstanceOf="KSArmory_B61Fin_SubPart">
-      <Transform>
-        <Position X="0.43510" Y="-1.52100" Z="0.00000" />
-        <Rotation X="3.92699" Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_NukeRack_Blade03" InstanceOf="KSArmory_B61Fin_SubPart">
-      <Transform>
-        <Position X="0.43510" Y="-1.52100" Z="0.00000" />
-        <Rotation X="5.49779" Z="1.57080" />
-      </Transform>
-    </SubPart>
-
+      <SubPart Key="KSArmory_NukeRack_Blade00" Ref="KSArmory_B61Fin_SubPart">
+        <Transform>
+          <Position X="0.43510" Y="-1.52100" Z="0.00000" />
+          <Rotation X="0.78540" Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_NukeRack_Blade01" Ref="KSArmory_B61Fin_SubPart">
+        <Transform>
+          <Position X="0.43510" Y="-1.52100" Z="0.00000" />
+          <Rotation X="2.35619" Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_NukeRack_Blade02" Ref="KSArmory_B61Fin_SubPart">
+        <Transform>
+          <Position X="0.43510" Y="-1.52100" Z="0.00000" />
+          <Rotation X="3.92699" Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_NukeRack_Blade03" Ref="KSArmory_B61Fin_SubPart">
+        <Transform>
+          <Position X="0.43510" Y="-1.52100" Z="0.00000" />
+          <Rotation X="5.49779" Z="1.57080" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <Connector Key="_nrConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <!--
     Mk 15 Phalanx, 4.6 m on a 3 m stack node.
 
@@ -2156,47 +2193,45 @@
     checks them against Guns.xml. +X is up the stack, +Y the way the gun faces at rest.
   -->
   <Part Id="KSArmory_Prefab_Ciws">
-
-    <SubPart Id="KSArmory_Ciws_Base" InstanceOf="KSArmory_CiwsBase_SubPart" />
-
-    <!--
+    <SubParts>
+      <SubPart Key="KSArmory_Ciws_Base" Ref="KSArmory_CiwsBase_SubPart" />
+      <!--
       Traverses about the stack centreline. Its mesh is exported recentred on the pivot, so KSA
       spins it in place; the offset comes back here.
     -->
-    <SubPart Id="KSArmory_Ciws_Turret" InstanceOf="KSArmory_CiwsTurret_SubPart">
-      <Transform>
-        <Position X="0.80000" Y="0.00000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <!--
+      <SubPart Key="KSArmory_Ciws_Turret" Ref="KSArmory_CiwsTurret_SubPart">
+        <Transform>
+          <Position X="0.80000" Y="0.00000" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <!--
       The whole head, meaning housing, barrels and the radome above them, swinging on the
       trunnion between the cheeks while riding the traverse. The mod rewrites both its rotation
       and its position every frame. The dome carries the track antenna, which stays boresighted
       with the barrels, so it is one rigid body with them rather than something the traverse
       holds upright while the barrels alone move.
     -->
-    <SubPart Id="KSArmory_Ciws_Guns" InstanceOf="KSArmory_CiwsGuns_SubPart">
-      <Transform>
-        <Position X="2.25000" Y="0.00000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <!--
+      <SubPart Key="KSArmory_Ciws_Guns" Ref="KSArmory_CiwsGuns_SubPart">
+        <Transform>
+          <Position X="2.25000" Y="0.00000" Z="0.00000" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <!--
       Node attach at the mounting face. No ToSurface flag: this one stacks. Scale is the node's
       size, and a part mates a tank's Internal node only if its own is no larger: without it the
       mount sinks onto that nested node, 8 cm into a 2 m tank and 24.5 cm into a 3 m one.
     -->
-    <Connector Id="_ciwsConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation X="3.14159" Z="3.14159" />
-        <Scale X="3.00000" Y="3.00000" Z="3.00000" />
-      </Transform>
-    </Connector>
-
+      <Connector Key="_ciwsConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation X="3.14159" Z="3.14159" />
+          <Scale X="3.00000" Y="3.00000" Z="3.00000" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <!--
     Heavy MIRV Bus: seven reentry vehicles on a 3 m stack node, diverting on an axial main engine
     with twenty nozzles for attitude. docs/POSTBOOST-BUS.md.
@@ -2207,187 +2242,185 @@
     +X is up the stack. The bell fires along -X, so it thrusts up the stack.
   -->
   <Part Id="KSArmory_Prefab_MirvBus">
-    <SubPart Id="KSArmory_PostBoost_Bus" InstanceOf="KSArmory_PostBoostBus_SubPart" />
-
-    <!-- Seven RVs: an 0.86 m ring and one on the axis (appended below), all parallel, because a canted release spreads
+    <SubParts>
+      <SubPart Key="KSArmory_PostBoost_Bus" Ref="KSArmory_PostBoostBus_SubPart" />
+      <!-- Seven RVs: an 0.86 m ring and one on the axis (appended below), all parallel, because a canted release spreads
          the group by an amount the bus's drifting attitude decides. Keep in step with the bus's Tubes in Strategic.xml. -->
-    <SubPart Id="KSArmory_PostBoost_Mirv_Rv00" InstanceOf="KSArmory_PostBoostRv_SubPart">
-      <Transform>
-        <Position X="2.14000" Y="0.86000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Mirv_Rv01" InstanceOf="KSArmory_PostBoostRv_SubPart">
-      <Transform>
-        <Position X="2.14000" Y="0.43000" Z="0.74478" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Mirv_Rv02" InstanceOf="KSArmory_PostBoostRv_SubPart">
-      <Transform>
-        <Position X="2.14000" Y="-0.43000" Z="0.74478" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Mirv_Rv03" InstanceOf="KSArmory_PostBoostRv_SubPart">
-      <Transform>
-        <Position X="2.14000" Y="-0.86000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Mirv_Rv04" InstanceOf="KSArmory_PostBoostRv_SubPart">
-      <Transform>
-        <Position X="2.14000" Y="-0.43000" Z="-0.74478" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Mirv_Rv05" InstanceOf="KSArmory_PostBoostRv_SubPart">
-      <Transform>
-        <Position X="2.14000" Y="0.43000" Z="-0.74478" />
-      </Transform>
-    </SubPart>
-
-    <!-- Four clusters of five: axial fore and aft for pitch, yaw and dV, two exactly tangential for roll,
+      <SubPart Key="KSArmory_PostBoost_Mirv_Rv00" Ref="KSArmory_PostBoostRv_SubPart">
+        <Transform>
+          <Position X="2.14000" Y="0.86000" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Mirv_Rv01" Ref="KSArmory_PostBoostRv_SubPart">
+        <Transform>
+          <Position X="2.14000" Y="0.43000" Z="0.74478" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Mirv_Rv02" Ref="KSArmory_PostBoostRv_SubPart">
+        <Transform>
+          <Position X="2.14000" Y="-0.43000" Z="0.74478" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Mirv_Rv03" Ref="KSArmory_PostBoostRv_SubPart">
+        <Transform>
+          <Position X="2.14000" Y="-0.86000" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Mirv_Rv04" Ref="KSArmory_PostBoostRv_SubPart">
+        <Transform>
+          <Position X="2.14000" Y="-0.43000" Z="-0.74478" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Mirv_Rv05" Ref="KSArmory_PostBoostRv_SubPart">
+        <Transform>
+          <Position X="2.14000" Y="0.43000" Z="-0.74478" />
+        </Transform>
+      </SubPart>
+      <!-- Four clusters of five: axial fore and aft for pitch, yaw and dV, two exactly tangential for roll,
          one radial for translation. KSA enrols a nozzle for a lateral axis on a thrust component over
          0.5, so a tangential bell clocked 45 degrees serves both axes where a canted one serves one. -->
-    <SubPart Id="KSArmory_PostBoost_Rcs00" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.67000" Y="1.10309" Z="1.10309" />
-        <Rotation Z="-3.14159" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Rcs01" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.37000" Y="1.10309" Z="1.10309" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Rcs02" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.52000" Y="0.99702" Z="1.20915" />
-        <Rotation Y="0.78540" Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Rcs03" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.52000" Y="1.20915" Z="0.99702" />
-        <Rotation Y="-0.78540" Z="-1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Rcs04" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.67000" Y="-1.10309" Z="1.10309" />
-        <Rotation Z="-3.14159" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Rcs05" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.37000" Y="-1.10309" Z="1.10309" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Rcs06" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.52000" Y="-1.20915" Z="0.99702" />
-        <Rotation Y="-0.78540" Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Rcs07" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.52000" Y="-0.99702" Z="1.20915" />
-        <Rotation Y="0.78540" Z="-1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Rcs08" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.67000" Y="-1.10309" Z="-1.10309" />
-        <Rotation Z="-3.14159" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Rcs09" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.37000" Y="-1.10309" Z="-1.10309" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Rcs10" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.52000" Y="-0.99702" Z="-1.20915" />
-        <Rotation Y="-0.78540" Z="-1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Rcs11" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.52000" Y="-1.20915" Z="-0.99702" />
-        <Rotation Y="0.78540" Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Rcs12" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.67000" Y="1.10309" Z="-1.10309" />
-        <Rotation Z="-3.14159" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Rcs13" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.37000" Y="1.10309" Z="-1.10309" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Rcs14" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.52000" Y="1.20915" Z="-0.99702" />
-        <Rotation Y="0.78540" Z="-1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Rcs15" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.52000" Y="0.99702" Z="-1.20915" />
-        <Rotation Y="-0.78540" Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Rcs16" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.52000" Y="1.18794" Z="1.18794" />
-        <Rotation Y="0.78540" Z="-1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Rcs17" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.52000" Y="-1.18794" Z="1.18794" />
-        <Rotation Y="0.78540" Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Rcs18" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.52000" Y="-1.18794" Z="-1.18794" />
-        <Rotation Y="-0.78540" Z="1.57080" />
-      </Transform>
-    </SubPart>
-    <SubPart Id="KSArmory_PostBoost_Rcs19" InstanceOf="KSArmory_PostBoostRcs_SubPart">
-      <Transform>
-        <Position X="0.52000" Y="1.18794" Z="-1.18794" />
-        <Rotation Y="-0.78540" Z="-1.57080" />
-      </Transform>
-    </SubPart>
-
-    <!-- Appended after the 27 the six-RV bus carried under this Id, in its order: a save pairs
+      <SubPart Key="KSArmory_PostBoost_Rcs00" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.67000" Y="1.10309" Z="1.10309" />
+          <Rotation Z="-3.14159" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Rcs01" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.37000" Y="1.10309" Z="1.10309" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Rcs02" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.52000" Y="0.99702" Z="1.20915" />
+          <Rotation Y="0.78540" Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Rcs03" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.52000" Y="1.20915" Z="0.99702" />
+          <Rotation Y="-0.78540" Z="-1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Rcs04" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.67000" Y="-1.10309" Z="1.10309" />
+          <Rotation Z="-3.14159" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Rcs05" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.37000" Y="-1.10309" Z="1.10309" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Rcs06" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.52000" Y="-1.20915" Z="0.99702" />
+          <Rotation Y="-0.78540" Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Rcs07" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.52000" Y="-0.99702" Z="1.20915" />
+          <Rotation Y="0.78540" Z="-1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Rcs08" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.67000" Y="-1.10309" Z="-1.10309" />
+          <Rotation Z="-3.14159" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Rcs09" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.37000" Y="-1.10309" Z="-1.10309" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Rcs10" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.52000" Y="-0.99702" Z="-1.20915" />
+          <Rotation Y="-0.78540" Z="-1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Rcs11" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.52000" Y="-1.20915" Z="-0.99702" />
+          <Rotation Y="0.78540" Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Rcs12" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.67000" Y="1.10309" Z="-1.10309" />
+          <Rotation Z="-3.14159" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Rcs13" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.37000" Y="1.10309" Z="-1.10309" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Rcs14" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.52000" Y="1.20915" Z="-0.99702" />
+          <Rotation Y="0.78540" Z="-1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Rcs15" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.52000" Y="0.99702" Z="-1.20915" />
+          <Rotation Y="-0.78540" Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Rcs16" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.52000" Y="1.18794" Z="1.18794" />
+          <Rotation Y="0.78540" Z="-1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Rcs17" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.52000" Y="-1.18794" Z="1.18794" />
+          <Rotation Y="0.78540" Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Rcs18" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.52000" Y="-1.18794" Z="-1.18794" />
+          <Rotation Y="-0.78540" Z="1.57080" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_PostBoost_Rcs19" Ref="KSArmory_PostBoostRcs_SubPart">
+        <Transform>
+          <Position X="0.52000" Y="1.18794" Z="-1.18794" />
+          <Rotation Y="-0.78540" Z="-1.57080" />
+        </Transform>
+      </SubPart>
+      <!-- Appended after the 27 the six-RV bus carried under this Id, in its order: a save pairs
          subparts by position (docs/KSA-MODDING-NOTES.md), so nothing before here may move. -->
-    <!-- The seventh RV, on the axis. -->
-    <SubPart Id="KSArmory_PostBoost_Mirv_Rv06" InstanceOf="KSArmory_PostBoostRv_SubPart">
-      <Transform>
-        <Position X="2.14000" Y="0.00000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <!-- Mount face on the gimbal point; the bell fires along -X, so it thrusts up the stack. -->
-    <SubPart Id="KSArmory_PostBoost_Engine" InstanceOf="KSArmory_PostBoostEngine_SubPart">
-      <Transform>
-        <Position X="0.80000" />
-      </Transform>
-    </SubPart>
-
-    <!-- Node attach at the mounting face. No ToSurface flag: this one stacks. -->
-    <Connector Id="_mirvConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation X="3.14159" Z="3.14159" />
-        <Scale X="3.00000" Y="3.00000" Z="3.00000" />
-      </Transform>
-    </Connector>
+      <!-- The seventh RV, on the axis. -->
+      <SubPart Key="KSArmory_PostBoost_Mirv_Rv06" Ref="KSArmory_PostBoostRv_SubPart">
+        <Transform>
+          <Position X="2.14000" Y="0.00000" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <!-- Mount face on the gimbal point; the bell fires along -X, so it thrusts up the stack. -->
+      <SubPart Key="KSArmory_PostBoost_Engine" Ref="KSArmory_PostBoostEngine_SubPart">
+        <Transform>
+          <Position X="0.80000" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <!-- Node attach at the mounting face. No ToSurface flag: this one stacks. -->
+      <Connector Key="_mirvConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation X="3.14159" Z="3.14159" />
+          <Scale X="3.00000" Y="3.00000" Z="3.00000" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <!--
     5"/54 Mk 42 single enclosed mount, 2.83 m tall on a 3 m stack node.
 
@@ -2398,59 +2431,56 @@
     Geometry authored by Mallikas. +X is up the stack, +Y the way the gun faces at rest.
   -->
   <Part Id="KSArmory_Prefab_Mk42">
-
-    <SubPart Id="KSArmory_Mk42_Base" InstanceOf="KSArmory_Mk42Base_SubPart" />
-
-    <!--
+    <SubParts>
+      <SubPart Key="KSArmory_Mk42_Base" Ref="KSArmory_Mk42Base_SubPart" />
+      <!--
       Traverses about the stack centreline, 17 mm above the mounting face where the mesh origin
       sits. validate-parts.py reads a marker's placement out of the Transform, so it is written out.
       Keep in step with the Mk 42's TurretPivot in Guns.xml.
     -->
-    <SubPart Id="KSArmory_Mk42_Turret" InstanceOf="KSArmory_Mk42Turret_SubPart">
-      <Transform>
-        <Position X="0.01664" Y="0.00000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <!--
+      <SubPart Key="KSArmory_Mk42_Turret" Ref="KSArmory_Mk42Turret_SubPart">
+        <Transform>
+          <Position X="0.01664" Y="0.00000" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <!--
       Elevates on the trunnion, 1.55 m up the mount and 0.48 m forward of its centreline. The mesh
       is exported recentred on that trunnion, so KSA swings it in place and the offset comes back
       here. Keep in step with TurretPivot + GunPivotFromTurret on the Mk 42 in Guns.xml.
     -->
-    <SubPart Id="KSArmory_Mk42_Cannon" InstanceOf="KSArmory_Mk42Cannon_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <!--
+      <SubPart Key="KSArmory_Mk42_Cannon" Ref="KSArmory_Mk42Cannon_SubPart">
+        <Transform>
+          <Position X="1.55441" Y="0.48097" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <!--
       Everything below is appended after the cannon: a saved part is paired with this list by
       position, so an entry can be added at the end and never removed.
 
       The barrel, on the cannon's own trunnion. It runs back along the bore when the gun fires and
       otherwise moves exactly as the cannon do.
     -->
-    <SubPart Id="KSArmory_Mk42_Barrel" InstanceOf="KSArmory_Mk42Barrel_SubPart">
-      <Transform>
-        <Position X="1.55441" Y="0.48097" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <!--
+      <SubPart Key="KSArmory_Mk42_Barrel" Ref="KSArmory_Mk42Barrel_SubPart">
+        <Transform>
+          <Position X="1.55441" Y="0.48097" Z="0.00000" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <!--
       Node attach at the mounting face. No ToSurface flag: this one stacks. Scale is the node's
       size, and a part mates a tank's Internal node only if its own is no larger: without it the
       mount sinks onto that nested node, 8 cm into a 2 m tank and 24.5 cm into a 3 m one.
     -->
-    <Connector Id="_mk42ConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation X="3.14159" Z="3.14159" />
-        <Scale X="3.00000" Y="3.00000" Z="3.00000" />
-      </Transform>
-    </Connector>
-
+      <Connector Key="_mk42ConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation X="3.14159" Z="3.14159" />
+          <Scale X="3.00000" Y="3.00000" Z="3.00000" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <!--
     M197 20 mm chin turret, radially mounted under a nose like the LITENING pod.
 
@@ -2460,55 +2490,50 @@
     each ...FromTurret offset.
   -->
   <Part Id="KSArmory_Prefab_M197">
-
-    <SubPart Id="KSArmory_M197_Ring" InstanceOf="KSArmory_M197Ring_SubPart" />
-
-    <SubPart Id="KSArmory_M197_Yoke" InstanceOf="KSArmory_M197Yoke_SubPart">
-      <Transform>
-        <Position X="0.00000" Y="0.00000" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <SubPart Id="KSArmory_M197_Gun" InstanceOf="KSArmory_M197Gun_SubPart">
-      <Transform>
-        <Position X="0.33333" Y="-0.10773" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <!-- The actuator: the cylinder on its pin on the yoke, the rod on the gun's pin. -->
-    <SubPart Id="KSArmory_M197_Cylinder" InstanceOf="KSArmory_M197Cylinder_SubPart">
-      <Transform>
-        <Position X="0.03220" Y="0.37308" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <SubPart Id="KSArmory_M197_Rod" InstanceOf="KSArmory_M197Rod_SubPart">
-      <Transform>
-        <Position X="0.33474" Y="0.37308" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <SubPart Id="KSArmory_M197_Belt" InstanceOf="KSArmory_M197Belt_SubPart">
-      <Transform>
-        <Position X="0.06094" Y="-0.10319" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <!-- The three barrels, spun about the bore while the gun fires. -->
-    <SubPart Id="KSArmory_M197_Barrels" InstanceOf="KSArmory_M197Barrels_SubPart">
-      <Transform>
-        <Position X="0.50611" Y="0.70256" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <!-- Attaches by the ring's upper face, which is the mesh origin. -->
-    <Connector Id="_m197ConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
-
+    <SubParts>
+      <SubPart Key="KSArmory_M197_Ring" Ref="KSArmory_M197Ring_SubPart" />
+      <SubPart Key="KSArmory_M197_Yoke" Ref="KSArmory_M197Yoke_SubPart">
+        <Transform>
+          <Position X="0.00000" Y="0.00000" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_M197_Gun" Ref="KSArmory_M197Gun_SubPart">
+        <Transform>
+          <Position X="0.33333" Y="-0.10773" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <!-- The actuator: the cylinder on its pin on the yoke, the rod on the gun's pin. -->
+      <SubPart Key="KSArmory_M197_Cylinder" Ref="KSArmory_M197Cylinder_SubPart">
+        <Transform>
+          <Position X="0.03220" Y="0.37308" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_M197_Rod" Ref="KSArmory_M197Rod_SubPart">
+        <Transform>
+          <Position X="0.33474" Y="0.37308" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_M197_Belt" Ref="KSArmory_M197Belt_SubPart">
+        <Transform>
+          <Position X="0.06094" Y="-0.10319" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <!-- The three barrels, spun about the bore while the gun fires. -->
+      <SubPart Key="KSArmory_M197_Barrels" Ref="KSArmory_M197Barrels_SubPart">
+        <Transform>
+          <Position X="0.50611" Y="0.70256" Z="0.00000" />
+        </Transform>
+      </SubPart>
+    </SubParts>
+    <Connectors>
+      <!-- Attaches by the ring's upper face, which is the mesh origin. -->
+      <Connector Key="_m197ConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
   <!--
     An infrared search set: a faceted window set flush in a low fairing, after the F-35's EOTS, with
@@ -2516,50 +2541,54 @@
     player turns the part on the hull to aim it.
   -->
   <Part Id="KSArmory_Prefab_Irst">
-    <SubPart Id="KSArmory_Irst_Body" InstanceOf="KSArmory_IrstBody_SubPart" />
-
-    <SubPart Id="KSArmory_Irst_Head" InstanceOf="KSArmory_IrstHead_SubPart">
-      <Transform>
-        <Position X="0.09000" Y="0.16650" Z="0.00000" />
-      </Transform>
-    </SubPart>
-
-    <SubPart Id="KSArmory_Irst_Glass" InstanceOf="KSArmory_IrstGlass_SubPart" />
-
-    <!-- Attaches by the fairing's flat bottom, which is the mesh origin's plane. -->
-    <Connector Id="_irConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
+    <SubParts>
+      <SubPart Key="KSArmory_Irst_Body" Ref="KSArmory_IrstBody_SubPart" />
+      <SubPart Key="KSArmory_Irst_Head" Ref="KSArmory_IrstHead_SubPart">
+        <Transform>
+          <Position X="0.09000" Y="0.16650" Z="0.00000" />
+        </Transform>
+      </SubPart>
+      <SubPart Key="KSArmory_Irst_Glass" Ref="KSArmory_IrstGlass_SubPart" />
+    </SubParts>
+    <Connectors>
+      <!-- Attaches by the fairing's flat bottom, which is the mesh origin's plane. -->
+      <Connector Key="_irConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <!--
     AN/ALE-47 countermeasures dispensers, radially mounted. One kind per part, as a real magazine
     section is loaded: the flare module's fifteen 1x2-inch cells, the chaff module's thirty 1x1.
   -->
   <Part Id="KSArmory_Prefab_Ale47Flare">
-    <SubPart Id="KSArmory_Ale47Flare_Body" InstanceOf="KSArmory_Ale47Flare_SubPart" />
-
-    <!-- Attaches by the flange, which the export puts on the mesh origin. -->
-    <Connector Id="_cmConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
+    <SubParts>
+      <SubPart Key="KSArmory_Ale47Flare_Body" Ref="KSArmory_Ale47Flare_SubPart" />
+    </SubParts>
+    <Connectors>
+      <!-- Attaches by the flange, which the export puts on the mesh origin. -->
+      <Connector Key="_cmConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
   <Part Id="KSArmory_Prefab_Ale47Chaff">
-    <SubPart Id="KSArmory_Ale47Chaff_Body" InstanceOf="KSArmory_Ale47Chaff_SubPart" />
-
-    <Connector Id="_cmConnectorBase">
-      <Transform>
-        <Position X="0.00000" />
-        <Rotation Z="3.14159" />
-      </Transform>
-    </Connector>
+    <SubParts>
+      <SubPart Key="KSArmory_Ale47Chaff_Body" Ref="KSArmory_Ale47Chaff_SubPart" />
+    </SubParts>
+    <Connectors>
+      <Connector Key="_cmConnectorBase">
+        <Transform>
+          <Position X="0.00000" />
+          <Rotation Z="3.14159" />
+        </Transform>
+      </Connector>
+    </Connectors>
   </Part>
-
 </Assets>

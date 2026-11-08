@@ -27,7 +27,7 @@ fi
 #
 # The default is every RocketWerkz first-party assembly plus the third-party libraries the game
 # ships, so the private repository is a general KSA SDK mirror that *any* mod can build against -
-# not just this one: 40 assemblies.
+# not just this one: 41 assemblies.
 #
 # The loader is not mirrored: StarMap.API and Lib.Harmony are NuGet packages.
 #

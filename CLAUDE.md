@@ -249,7 +249,7 @@ parses as it is.
 ## Environment
 
 - **KSA install**: `/mnt/c/Program Files/Kitten Space Agency` (Windows game, WSL dev)
-- **KSA build these notes were taken against**: `2026.10.25.5707`
+- **KSA build these notes were taken against**: `2026.11.10.5801`
 - The system `dotnet` is 8.0 and **cannot build this** — the mod targets **net10.0**
   (`error NETSDK1045`). A .NET 10 SDK is installed at `~/.dotnet`.
   **Use `tools/build.sh` / `tools/test.sh`**, which source `tools/env.sh` to fix PATH. Bare
@@ -421,7 +421,8 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/CloudFlags.cs` | the cloud dispatch's packed flag float — spray, weather, first, **dryness in sevenths** and the front's radius — **exact to 262,143 m**, because every term is an integer under 2^24 and the shader divides by powers of two with nothing added |
 | `Sim/ScorchFootprint.cs` | how far a scorch mark reaches downwind, across and upwind, in patch radii — **the shader's own constants restated**, so the box the cloud pass dispatches a mark over never crops it; `ScorchFootprintTests` compares the two |
 | `Sim/AmbientAir.cs` | the air at a point as density and pressure **against fixed physical references**, not a body's own sea level -- so a threshold calibrated in Earth's air holds on any body -- with a flag for air that could not be read, never a silent sea level |
-| `Sim/BodyAir.cs` | a body's air as numbers, **mirroring KSA's isothermal model exactly** -- `ρ(h)·H` with the declared scale height for the column, one sound speed per body -- so nothing downstream knows which planet it is on |
+| `Sim/BodyAir.cs` | a body's air as numbers, **mirroring KSA's layered model exactly** -- the column hydrostatic, `P(h)/g`, one sound speed per body, the surface's -- so nothing downstream knows which planet it is on; without a profile it is isothermal, which is what the rigs fly |
+| `Sim/AtmosphereProfile.cs` | **KSA's `PhysicalAtmosphere` restated**: temperature linear in geopotential between the declared points and held above the last, pressure hydrostatic through each layer; `KsaWorld.BodyAirOf` logs how far it lands from the engine's own density |
 | `Sim/BodyTraits.cs` | what a burst or a beam needs about a body, read from `Bodies.xml` rather than the game -- field, airglow, condensation, γ, surface, X-ray opacity, which cloud layers are too thin to stop a beam -- **the neutral answer by default**, never Earth's |
 | `Sim/BodyReader.cs` | a mod's `KSArmory/Bodies.xml` read -- text in, and **told from a weapon pack by its root**, since the pack reader would refuse it on every load |
 | `Sim/BodyCatalogue.cs` | every mod's body entries, a later mod restating a body, and the audit that finds an entry naming no body in the system |
@@ -777,7 +778,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `docs/KSA-CAMERAS.md` | what the engine does with cameras and viewports, from the decompiled source |
 | `docs/KSA-FRAME-ORDER.md` | **the engine's own frame order and what instant each sample belongs to**, from that same source — the evidence under `FRAMES-AND-EPOCHS.md`'s rules |
 | `docs/KSA-TERRAIN.md` | **where the engine thinks the ground is** — the height field's resolution, what `accurate` buys, and the one place three surfaces disagree |
-| `docs/KSA-API-SURFACE.md` | **generated** — the 967 members an upgrade has to preserve |
+| `docs/KSA-API-SURFACE.md` | **generated** — the 972 members an upgrade has to preserve |
 | `docs/PACK-API-SURFACE.md` | **generated** — the elements, attributes and members a weapon pack binds to |
 | `docs/AUDIT-2026-08.md` | a review of where the code and tools mislead; the ranked list at the end is the backlog, and items come off it as they land |
 | `docs/CODE-HEALTH.md` | **living** — the modularity and comment-hygiene backlog, ticked off as it lands |
@@ -982,15 +983,15 @@ part is now hidden from the editor and kept for saves, and its mesh comes from t
    atlas, so an authored mount's travel is swept in Blender. Between them they catch the defects
    that are invisible in a preview render and obvious in game.
 2. **Declare the part.** A `<SubPart>` per moving assembly plus a `<Part>` in
-   `KSArmoryAssets.xml`, and a `<PartGameData>` with its colliders and mass.
+   `KSArmoryAssets.xml`, and a `<Part Modify="Patch">` in `KSArmoryGameData.xml` with its colliders
+   and mass (`docs/KSA-MODDING-NOTES.md` has the format).
 
-   **A shipped part's subpart list is append-only.** KSA pairs a saved part with its current
-   definition positionally, bounding the loop by the save and indexing the definition
-   (`PartTree.Deserialize`), so removing a `<SubPart>` throws `IndexOutOfRangeException` for every
-   craft holding that part. `CelestialSystem.DeserializeSave` catches it and **drops the craft** with
-   an on-screen alert, and the next save makes that permanent. Adding is free. Leave a stub to hold
-   the count, or repair the saves with `tools/repair-saves.py`;
-   `docs/KSA-MODDING-NOTES.md` has the loop.
+   **A shipped part's subpart list is append-only.** KSA pairs a saved part's subpart state with its
+   current definition positionally (`PartTree.Deserialize`). Since 2026.11.10.5801 the loop is bounded
+   by both lengths, so a removed `<SubPart>` no longer throws: the saved state past the end is dropped
+   with a warning, and **everything after a removed middle entry lands on the wrong subpart**. Read
+   from the source, not yet flown. Adding at the end is free. Leave a stub to hold the count, or
+   repair the saves with `tools/repair-saves.py`; `docs/KSA-MODDING-NOTES.md` has the loop.
 
    **Nor is a shipped `<Part>` Id renameable.** A save names it (`PartRef InstanceOf`), and
    `CelestialSystem.DeserializeSave` drops any craft naming a part that no longer exists, with an
@@ -1402,10 +1403,10 @@ Do the private repo *before* pushing here, or CI fails on the lock it cannot sat
 member that keeps its name and signature and changes its *meaning* — a different reference
 frame, different units, a reordered enum — compiles clean and is wrong in flight. That is what
 the decompiled corpus is for, and `ksa-api-diff.sh` narrows it from about 770,000 lines to the files
-defining the 362 types this mod actually uses.
+defining the 371 types this mod actually uses.
 
-**The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 34 RocketWerkz
-first-party assemblies plus the game-shipped third-party — 40 in total —
+**The mirror is a general KSA SDK, not this mod's dependencies.** It carries all 35 RocketWerkz
+first-party assemblies plus the game-shipped third-party — 41 in total —
 so any KSA mod can build against it. The loader is not in it: `StarMap.API` and `Lib.Harmony`
 are NuGet packages, which a mod references directly. `sync-assemblies.sh --subset` narrows it to the minimal set.
 Per-mod pinning still comes from that mod's own `ksa-assemblies.lock`, which covers only what it

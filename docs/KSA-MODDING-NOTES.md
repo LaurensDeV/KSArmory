@@ -2,7 +2,7 @@
 
 Everything here comes out of the shipped assemblies of **KSA build 2026.9.10.5438**, read with
 `tools/apidump`, or out of the StarMap sources, and was rechecked against **2026.9.22.5482**
-and again against **2026.10.7.5541**, **2026.10.10.5554**, **2026.10.13.5602**, **2026.10.19.5638** and **2026.10.25.5707** wherever those builds changed a type this mod uses. KSA is pre-release and unofficially moddable:
+and again against **2026.10.7.5541**, **2026.10.10.5554**, **2026.10.13.5602**, **2026.10.19.5638**, **2026.10.25.5707** and **2026.11.10.5801** wherever those builds changed a type this mod uses. KSA is pre-release and unofficially moddable:
 none of this is documented by RocketWerkz, and **it will drift between game builds**. Re-run
 the dumper rather than trusting this file after an update.
 
@@ -495,20 +495,51 @@ The simulation model is unusually physical — engines are real combustion chamb
 nozzles rather than thrust curves:
 
 ```xml
-<PartGameData Id="CorePropulsionA_Prefab_EngineA2" DisplayName="LR91 Sea">
-  <EditorTag Value="Engines" />
-  <Diameter M="1"/>
-  <RocketEngineController Id="LR91-AJ-3">
-    <RocketReference Id="Engine" SubPartId="..." />
-  </RocketEngineController>
-  <Combustor Id="GasGeneratorChamber">
-    <Reaction Id="Hydrolox"><MixtureRatio>5.5</MixtureRatio></Reaction>
-    <MaxPressure Bar="49" />
-  </Combustor>
-  <SolidSphereMass><Mass Kg="1500" /><Radius M="0.25" /></SolidSphereMass>
-  <Collider Id="Collider1"><Cylinder .../><Sphere .../></Collider>
-</PartGameData>
+<Part Id="CorePropulsionA_Prefab_EngineA2" Modify="Patch" DisplayName="LR91 Sea">
+  <EditorTags Modify="Extend"><EditorTag Ref="Engines" /></EditorTags>
+  <Diameters Modify="Extend"><Diameter M="1"/></Diameters>
+  <RocketEngineControllers Modify="Extend">
+    <RocketEngineController Key="LR91-AJ-3">
+      <Rockets><Rocket SubPart="..." KeyRef="Engine" /></Rockets>
+    </RocketEngineController>
+  </RocketEngineControllers>
+  <RocketCores Modify="Extend">
+    <Combustor Key="GasGeneratorChamber">
+      <Reaction Ref="Hydrolox"><MixtureRatio>5.5</MixtureRatio></Reaction>
+      <MaxPressure Bar="49" />
+    </Combustor>
+  </RocketCores>
+  <InertMasses Modify="Extend"><SolidSphereMass><Mass Kg="1500" /><Radius M="0.25" /></SolidSphereMass></InertMasses>
+  <Components Modify="Extend">
+    <Collider Key="Collider1"><Colliders><Cylinder Key=".." .../><Sphere Key=".." .../></Colliders></Collider>
+  </Components>
+</Part>
 ```
+
+### The format since 2026.11.10.5801
+
+The `<Name>GameData.xml` half is a **patch**: `<Part Id="X" Modify="Patch">` merged by Id into the
+`<Part Id="X">` the `<Name>Assets.xml` half declares, and `<SubPart Id Modify="Patch">` likewise.
+`Modify` takes `Patch`, `Extend`, `Replace`, `Remove` and their `IfExists` forms. The rules this mod
+was converted by:
+
+- **`Id` names only a top-level asset.** A child takes `Key`, unique within its parent: a placed
+  subpart (`<SubPart Key="K" Ref="Template">`), a connector, a collider shape, a combustor. A
+  reference to an asset is `Ref` (`<Mesh Ref>`, `<Material Ref>`, `<EditorTag Ref>`); to a keyed child,
+  `KeyRef`, with `SubPart=` naming the placement it is on.
+- **Every list is wrapped**: `<SubParts>`, `<Connectors>`, `<EditorTags>`, `<Diameters>`,
+  `<InertMasses>`, `<Components>`, `<Gimbals>`, `<Rockets>`, `<RocketCores>`, `<RocketNozzles>`,
+  `<ConsumerFeedWirings>`, `<FeedsFroms>`, `<ReactionPlumes>`; a collider's shapes are in `<Colliders>`.
+  Control, Battery, Tank, Collider, PartModel, MeshView, IVASeat and EVADoor are all `<Components>`.
+- **Textures and sound files are assets**: `<Texture Id Path Category>`, named by a `<PbrMaterial>`'s
+  `<Diffuse Ref>`; `<SoundFile Id Path>`, listed by a `<Sound>`'s `<SoundFiles>`, with `<Channel Ref>`.
+  A `<MeshAtlas>` takes an `Id`. A particle emitter's children are emitters of their own, named in
+  `<ChildEmitters>`.
+- **A feed wiring names its subpart exactly.** `ConsumerFeedWiring.Wires` compares the placement's
+  Key, so a wiring with no `SubPart=` reaches only a core on the part itself: twenty thrusters need
+  twenty wirings.
+- **A substance is named with its phase**: `<Material Ref="Aluminum.2014" Phase="Solid">`.
+- **Saves did not change**: still `<PartRef InstanceOf>` and `<SubPartRef InstanceOf>`.
 
 Each XML node maps to a C# pair:
 
@@ -527,16 +558,16 @@ repo does — from `[StarMapAfterGui]` by preference, because a postfix on `OnFr
 the render it was meant to feed, and from `Ksa/PreRenderHook.cs` or the frame hook only on a frame
 the UI pass skipped (`Sim/FrameLatch.cs`). See `docs/KSA-FRAME-ORDER.md` §7.
 
-### A subpart is found at runtime by the Id its part gives it
+### A subpart is found at runtime by the Key its part gives it
 
-`Part.SubParts[i].Id` is the Id on the `<SubPart>` *inside the `<Part>`* (`KSArmory_Ciws_Turret`),
-not the template it instances (`KSArmory_CiwsTurret_SubPart`). A marker matched against the
+`Part.SubParts[i].Id` is the `Key` on the `<SubPart>` *inside the `<Part>`* (`KSArmory_Ciws_Turret`),
+not the template it names by `Ref` (`KSArmory_CiwsTurret_SubPart`). A marker matched against the
 template's spelling finds nothing, and a body that is never found is simply never moved — the part
 loads and draws at its modelled pose, and no log says why.
 
 ### A crew seat on a mod's own part
 
-- **An `<IVASeat>` can sit directly in a part's `<PartGameData>`**, as Core's internal parts do
+- **An `<IVASeat Key>` can sit in a part's `<Components>`**, as Core's internal parts do
   (`CoreIVASpaceAGameData.xml`); `IVASeat.CreateComponents` runs for every part and subpart. A crew
   window, the launch menu and a save (`<IVASeatData AssignedKittenName="…" />`) all fill it.
 - **Its `PositionAsmb`, `ForwardAxisAsmb` and `UpAxisAsmb` are public fields** in the owning part's
@@ -546,7 +577,7 @@ loads and draws at its modelled pose, and no log says why.
 - **The model is drawn 0.63 m under the seat point** (`KittenLocomotionTuning.SeatedOffset`), and the
   seated pose rests well above that: a seat point on the surface sinks the kitten to its neck, one
   0.48 m up leaves it hovering, and 0.12 m up looked seated from 50 m away, not checked closer.
-- **Boarding needs an `<EVADoor SeatId="…" />`**, which goes on a `<SubPartGameData>` of the same
+- **Boarding needs an `<EVADoor SeatId="…" />`**, which goes in the `<Components>` of a subpart patch of the same
   part. A kitten boards only from within 1 m of that subpart's origin (`KittenEva.CanBoardDoor`), so
   the door belongs on a subpart whose origin a kitten can actually walk up to.
 
@@ -627,33 +658,29 @@ round. Declare the `ToSurface` connector first and the node after it, as every s
 
 `Diameter` plus a `DiameterFilterlist` tag is what makes a part appear under a given stack size.
 
-### Removing a subpart drops every craft holding that part from a save
+### Removing a subpart shifts every saved subpart after it
 
-**A saved part is paired with its current definition by *position*, and the loop is bounded by
-the save while it indexes the definition** — `KSA.PartTree.Deserialize`:
+**A saved part is paired with its current definition by *position*** — `KSA.PartTree.Deserialize`,
+which since 2026.11.10.5801 is bounded by both lists:
 
 ```csharp
-for (int i = 0; i < nextNode2.SubPartInstances?.Count; i++)
+for (int i = 0; i < Math.Min(num, nextNode.SubParts.Length); i++)
 {
-    Part part2 = nextNode.SubParts[i];                     // the definition, as it is now
-    PartInstance partInstance2 = nextNode2.SubPartInstances[i];   // the save
+    partTree.ApplyModuleSaveData(nextNode.SubParts[i], nextNode2.SubPartInstances[i].Components);
+}
 ```
 
-So the three edits are not symmetric:
+So the three edits are not symmetric (read from the 5801 source; not yet flown):
 
 | Edit | Result |
 | --- | --- |
-| **add** a subpart | fine — the loop stops at the save's shorter count, and the new one starts unconfigured |
+| **add** a subpart at the end | fine — the new one starts unconfigured |
 | **rename** a subpart | fine — `InstanceOf` is written into the save and never read back |
-| **remove** a subpart | `IndexOutOfRangeException` on load, **every time**, for every craft holding it |
+| **remove** a subpart | no exception: the saved state past the end is dropped with a warning ("runtime-added sub-part(s); their saved state was discarded"), and every subpart after the removed one is given its neighbour's saved state |
 
-Since 2026.10.19.5638 the game survives it. `CelestialSystem.DeserializeSave` builds each craft
-inside a `try`/`catch`, so the exception drops that craft with the on-screen alert *"Cannot load
-{Vehicle}: its parts have changed since it was saved"* and ends the mission of every kitten aboard
-(`Universe.DeserializeSave`). The craft is then not in the world, so the next save leaves it out and
-the loss is permanent. Before 5638 nothing caught it and the game terminated. There is no version
-field and no name match; the same positional pairing means a **reorder** silently applies one
-subpart's saved state to another.
+Before 5801 a removal indexed past the definition and threw `IndexOutOfRangeException`, which from
+2026.10.19.5638 `CelestialSystem.DeserializeSave` caught by dropping the craft. There is no version
+field and no name match; a **reorder** silently applies one subpart's saved state to another.
 
 A craft file in the vehicle library can carry `<SubPartRef>` too -- every design `tools/make-rocket.py`
 writes does -- so treat a design like a save.
@@ -706,24 +733,29 @@ When the part cannot be assembled out of Core's kit, mirror Core's own file exac
 
 ```xml
 <Assets>
-  <MeshAtlas Path="Meshes/MyMod_MeshAtlas.glb" />
+  <MeshAtlas Id="MyMod_MeshAtlas" Path="Meshes/MyMod_MeshAtlas.glb" />
 
+  <Texture Id="MyMod_Diffuse" Path="Textures/MyMod_Diffuse.png" Category="Vessel" />
+  <Texture Id="MyMod_Normal"  Path="Textures/MyMod_Normal.png"  Category="Vessel" />
+  <Texture Id="MyMod_PBR"     Path="Textures/MyMod_PBR.png"     Category="Vessel" />
   <PbrMaterial Id="MyMod_Material">
-    <Diffuse      Path="Textures/MyMod_Diffuse.png" Category="Vessel" />
-    <Normal       Path="Textures/MyMod_Normal.png"  Category="Vessel" />
-    <AoRoughMetal Path="Textures/MyMod_PBR.png"     Category="Vessel" />
+    <Diffuse Ref="MyMod_Diffuse" />
+    <Normal Ref="MyMod_Normal" />
+    <AoRoughMetal Ref="MyMod_PBR" />
   </PbrMaterial>
 
   <SubPart Id="MyMod_Subpart_Thing">
-    <PartModel Id="MyMod_Subpart_Thing_Model">
-      <Mesh Id="MyMod_Subpart_Thing" />          <!-- a mesh name inside the atlas -->
-      <Material Id="MyMod_Material" />
-    </PartModel>
-    <MeshView><Mesh Id="MyMod_Subpart_Thing_VM" /></MeshView>
+    <Components>
+      <PartModel Key="MyMod_Subpart_Thing_Model">
+        <Mesh Ref="MyMod_Subpart_Thing" />       <!-- a mesh name inside the atlas -->
+        <Material Ref="MyMod_Material" />
+      </PartModel>
+      <MeshView><Mesh Ref="MyMod_Subpart_Thing_VM" /></MeshView>
+    </Components>
   </SubPart>
 
   <Part Id="MyMod_Prefab_Thing">
-    <SubPart Id="MyMod_Thing_1" InstanceOf="MyMod_Subpart_Thing" />
+    <SubParts><SubPart Key="MyMod_Thing_1" Ref="MyMod_Subpart_Thing" /></SubParts>
   </Part>
 </Assets>
 ```
@@ -781,42 +813,55 @@ assets = [ "MyModAssets.xml", "MyModGameData.xml" ]
 EntryAssembly = "KSArmory"
 ```
 
-**Assets XML** — appearance and layout. `<Part>` places `<SubPart>` instances:
+**Assets XML** — appearance and layout. `<Part>` places `<SubPart>`s:
 
 ```xml
 <Part Id="MyMod_Prefab_Thing">
-  <SubPart Id="MyMod_Base" InstanceOf="CoreStructuralA_Subpart_MountingNodeHalfWA" />
-  <SubPart Id="MyMod_Tube1" InstanceOf="CoreStructuralA_Subpart_TubeA">
-    <Transform>
-      <Position X="0.522" Y="0.26" Z="0" />
-      <Rotation Z="3.14159" />          <!-- RADIANS, not degrees -->
-      <Scale X="0.5" Y="0.5" Z="0.5" />
-    </Transform>
-  </SubPart>
-  <Connector Id="_myConnector">
-    <Transform><Position X="-0.095" /><Rotation Z="3.14159" /></Transform>
-  </Connector>
+  <SubParts>
+    <SubPart Key="MyMod_Base" Ref="CoreStructuralA_Subpart_MountingNodeHalfWA" />
+    <SubPart Key="MyMod_Tube1" Ref="CoreStructuralA_Subpart_TubeA">
+      <Transform>
+        <Position X="0.522" Y="0.26" Z="0" />
+        <Rotation Z="3.14159" />        <!-- RADIANS, not degrees -->
+        <Scale X="0.5" Y="0.5" Z="0.5" />
+      </Transform>
+    </SubPart>
+  </SubParts>
+  <Connectors>
+    <Connector Key="_myConnector">
+      <Transform><Position X="-0.095" /><Rotation Z="3.14159" /></Transform>
+    </Connector>
+  </Connectors>
 </Part>
 ```
 
 **GameData XML** — simulation. Minimal is genuinely minimal; `CoreStructuralA_Prefab_StrutA` is
 nothing but an `EditorTag`. Mass and colliders are optional and derived from geometry if absent.
+It is a patch laid over the Assets half by Id:
 
 ```xml
-<PartGameData Id="MyMod_Prefab_Thing" DisplayName="Shown in the editor">
-  <EditorTag Value="Structural" />
-  <EditorTag Value="Radial" />        <!-- allows surface attachment -->
-  <Diameter M="0.5" />                <!-- 0.5 / 1 / 2 / 3 / 4 -->
-  <Connector Id="_myConnector"><Flags>ToSurface</Flags></Connector>
-  <SolidSphereMass><Mass Kg="185" /><Radius M="0.30" /></SolidSphereMass>
-  <Collider Id="MyCollider">
-    <Cylinder Id="C1">
-      <LocationAsmb X="0.522" Y="0" Z="0" />
-      <Collider2Asmb X="0" Y="0" Z="1.5708" />   <!-- cylinders are Y-axis; rotate onto X -->
-      <LengthY M="0.854" /><Radius M="0.32" />
-    </Cylinder>
-  </Collider>
-</PartGameData>
+<Part Id="MyMod_Prefab_Thing" Modify="Patch" DisplayName="Shown in the editor">
+  <EditorTags Modify="Extend">
+    <EditorTag Ref="Structural" />
+    <EditorTag Ref="Radial" />        <!-- allows surface attachment -->
+  </EditorTags>
+  <Diameters Modify="Extend"><Diameter M="0.5" /></Diameters>   <!-- 0.5 / 1 / 2 / 3 / 4 -->
+  <Connectors Modify="Extend">
+    <Connector Key="_myConnector" Modify="Patch"><Flags>ToSurface</Flags></Connector>
+  </Connectors>
+  <InertMasses Modify="Extend"><SolidSphereMass><Mass Kg="185" /><Radius M="0.30" /></SolidSphereMass></InertMasses>
+  <Components Modify="Extend">
+    <Collider Key="MyCollider">
+      <Colliders>
+        <Cylinder Key="C1">
+          <LocationAsmb X="0.522" Y="0" Z="0" />
+          <Collider2Asmb X="0" Y="0" Z="1.5708" />   <!-- cylinders are Y-axis; rotate onto X -->
+          <LengthY M="0.854" /><Radius M="0.32" />
+        </Cylinder>
+      </Colliders>
+    </Collider>
+  </Components>
+</Part>
 ```
 
 Conventions worth knowing:
@@ -909,7 +954,7 @@ declares `<SoundFile Path="Sounds/EngineDefault.wav">` alongside `<SpatialSoundD
 mod — so the loader contract is known-good.
 
 **The declarative route is for parts only.** Core hangs engine noise off
-`<SoundEvent Action="On" SoundId="DefaultEngineSoundBehavior" />` inside `<PartGameData>`, driven
+`<SoundEvent Ref="DefaultEngineSoundBehavior" Action="On" />` on a nozzle in a part patch, driven
 by the part's engine module. A self-simulated round is not a part with an engine, so that path is
 closed and `GameAudio.PlaySound` is the one to use.
 
@@ -1176,6 +1221,49 @@ exponentially the opacity-weighted mean distance is its scale, so that stretch b
 `exp(-t / averaged distance)` instead. `PlaceWeather` in `Shaders/KSArmoryCloud.comp` is the worked
 example.
 
+## A profiler capture the game runs by itself, for A/B timing
+
+KSA has a capture harness in `KSA.ProfilerCapture`, switched on by environment variables read once
+at startup. It loads a save, waits, records 302 frames of the in-game profiler, writes them to CSV
+and **exits the game**. Matty (RocketWerkz) pointed it out as the reliable way to A/B performance,
+and it is: the same save, the same frame count and no hand on the camera.
+
+| Variable | What it does |
+| --- | --- |
+| `KSA_PROFILE_CAPTURE` | the save to load, by name; setting it is what turns the harness on |
+| `KSA_PROFILE_CAPTURE_OUT` | the CPU CSV; default `<Documents>/My Games/Kitten Space Agency/profilerdumps/ksa_profiler_dump.csv` (`Constants.ProfilerDumpFolderPath`) |
+| `KSA_PROFILE_CAPTURE_WARMUP` | frames after the load before recording; default 300 |
+| `KSA_PROFILE_CAPTURE_GPU` | any value adds a GPU CSV, if the device has timestamp queries |
+| `KSA_PROFILE_SPIKE_MS` | separate mode, used *without* `KSA_PROFILE_CAPTURE`: one CSV per frame over this many ms, as `ksa_profiler_spike_<frame>_<us>us.csv` |
+| `KSA_PROFILE_SPIKE_OUT`, `KSA_PROFILE_SPIKE_MAX` | where those go (the dump folder by default) and how many at most (64) |
+
+Beside the CPU file it always writes `<out>_ram.csv` and, where the VRAM sampler is up,
+`<out>_vram.csv`; with the GPU on, `<out>_gpu.csv`. Every file has the columns
+`frame,wall_ts,index,parent,tag,start_us,dur_us,alloc_bytes`, one row per profiler zone, nested by
+`parent`. The log gets one summary line for RAM (fragmentation, GC pause, gen0/1/2 counts) and one
+for VRAM.
+
+The save loads 60 frames after startup, and a capture run skips the new-mods confirmation and the
+start popup, so nothing waits for a click. Mods load as usual, so this mod's own zones, such as the
+cloud pass's GPU region that `Ksa/CloudPassCost.cs` reads, appear in the CSV next to the engine's.
+
+```bat
+:: Windows
+set KSA_PROFILE_CAPTURE=MySave
+set KSA_PROFILE_CAPTURE_GPU=1
+set KSA_PROFILE_CAPTURE_OUT=C:\caps\run1.csv
+StarMap.exe
+```
+
+```bash
+# Linux
+KSA_PROFILE_CAPTURE=MySave KSA_PROFILE_CAPTURE_OUT=/tmp/run1.csv ./KSA
+```
+
+**From WSL a variable does not reach a Windows process unless `WSLENV` names it.** Use
+`WSLENV=KSA_PROFILE_CAPTURE:KSA_PROFILE_CAPTURE_GPU:KSA_PROFILE_CAPTURE_OUT/p`, where `/p` translates
+the path. Otherwise the game starts normally with nothing captured. Not yet tried here.
+
 ## Re-running the research
 
 ```bash
@@ -1220,49 +1308,6 @@ if (body.Parent is not { } primary) return Vec.Zero;         // IParentBody
 double mu = primary.Mu;
 double3 toPrimary = primary.GetPositionEcl() - body.GetPositionEcl();
 ```
-
-## A profiler capture the game runs by itself, for A/B timing
-
-KSA has a capture harness in `KSA.ProfilerCapture`, switched on by environment variables read once
-at startup. It loads a save, waits, records 302 frames of the in-game profiler, writes them to CSV
-and **exits the game**. Matty (RocketWerkz) pointed it out as the reliable way to A/B performance,
-and it is: the same save, the same frame count and no hand on the camera.
-
-| Variable | What it does |
-| --- | --- |
-| `KSA_PROFILE_CAPTURE` | the save to load, by name; setting it is what turns the harness on |
-| `KSA_PROFILE_CAPTURE_OUT` | the CPU CSV; default `<Documents>/My Games/Kitten Space Agency/profilerdumps/ksa_profiler_dump.csv` (`Constants.ProfilerDumpFolderPath`) |
-| `KSA_PROFILE_CAPTURE_WARMUP` | frames after the load before recording; default 300 |
-| `KSA_PROFILE_CAPTURE_GPU` | any value adds a GPU CSV, if the device has timestamp queries |
-| `KSA_PROFILE_SPIKE_MS` | separate mode, used *without* `KSA_PROFILE_CAPTURE`: one CSV per frame over this many ms, as `ksa_profiler_spike_<frame>_<us>us.csv` |
-| `KSA_PROFILE_SPIKE_OUT`, `KSA_PROFILE_SPIKE_MAX` | where those go (the dump folder by default) and how many at most (64) |
-
-Beside the CPU file it always writes `<out>_ram.csv` and, where the VRAM sampler is up,
-`<out>_vram.csv`; with the GPU on, `<out>_gpu.csv`. Every file has the columns
-`frame,wall_ts,index,parent,tag,start_us,dur_us,alloc_bytes`, one row per profiler zone, nested by
-`parent`. The log gets one summary line for RAM (fragmentation, GC pause, gen0/1/2 counts) and one
-for VRAM.
-
-The save loads 60 frames after startup, and a capture run skips the new-mods confirmation and the
-start popup, so nothing waits for a click. Mods load as usual, so this mod's own zones, such as the
-cloud pass's GPU region that `Ksa/CloudPassCost.cs` reads, appear in the CSV next to the engine's.
-
-```bat
-:: Windows
-set KSA_PROFILE_CAPTURE=MySave
-set KSA_PROFILE_CAPTURE_GPU=1
-set KSA_PROFILE_CAPTURE_OUT=C:\caps\run1.csv
-StarMap.exe
-```
-
-```bash
-# Linux
-KSA_PROFILE_CAPTURE=MySave KSA_PROFILE_CAPTURE_OUT=/tmp/run1.csv ./KSA
-```
-
-**From WSL a variable does not reach a Windows process unless `WSLENV` names it.** Use
-`WSLENV=KSA_PROFILE_CAPTURE:KSA_PROFILE_CAPTURE_GPU:KSA_PROFILE_CAPTURE_OUT/p`, where `/p` translates
-the path. Otherwise the game starts normally with nothing captured. Not yet tried here.
 
 **The failure mode is silence, and no gate in this repository can catch it.** The test project
 references no KSA assembly by design, so nothing under `Ksa/` is reachable by a unit test; the build

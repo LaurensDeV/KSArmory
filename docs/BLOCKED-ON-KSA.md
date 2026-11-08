@@ -8,7 +8,8 @@ Each entry cites what the decompiled corpus says, so a claim can be rechecked af
 rather than taken on trust. **Recheck this file when the game moves** — the whole point of it is
 that some of these will quietly become possible.
 
-Findings are against KSA **2026.10.25.5707**. Paths are relative to
+Findings are against KSA **2026.10.25.5707**, and their citations still are; 2026.11.10.5801 has not
+been rechecked against them yet, and could not be flown (StarMap 0.5.2 does not start on it). Paths are relative to
 `../ksa-game-assemblies/current/src`. A line number is where the member was on the build its entry was
 written against, and some have drifted since; search for the member it names.
 

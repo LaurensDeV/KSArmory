@@ -62,7 +62,7 @@ FAMILY = re.compile(r'(<WeaponPack\b[^>]*?)\s+Family="([^"]*)"')
 HEADER = re.compile(r"<!--\n  Generated from KSArmory .*?-->\n", re.S)
 # KSArmory declares these editor categories; a second declaration collides, and naming one works without it.
 TAG_DEF = re.compile(r"\n?[ \t]*<EditorTagDef\b[^>]*/>[ \t]*\n?")
-EDITOR_NAME = re.compile(r'(<PartGameData\b[^>]*\bDisplayName=")([^"]*)(")')
+EDITOR_NAME = re.compile(r'(<Part\b[^>]*\bDisplayName=")([^"]*)(")')
 
 
 def git(*args: str) -> str:
@@ -151,8 +151,8 @@ def expected(commit: str, date: str) -> tuple[dict[str, bytes | str], dict[str, 
     return files, families
 
 
-def ids(element: ET.Element, tag: str) -> set[str]:
-    return {e.get("Id", "") for e in element.iter(tag)}
+def refs(element: ET.Element, tag: str) -> set[str]:
+    return {e.get("Ref", "") for e in element.iter(tag)}
 
 
 def union(sets) -> set[str]:
@@ -165,14 +165,17 @@ def art_by_family(files: dict[str, bytes | str],
     assets = ET.fromstring(HEADER.sub("", files["ExampleCopyAssets.xml"]).encode())
     sounds = ET.fromstring(HEADER.sub("", files["ExampleCopySounds.xml"]).encode())
 
-    templates = {s.get("Id"): s for s in assets.iter("SubPart") if s.get("InstanceOf") is None}
-    parts = {p.get("Id"): p for p in assets.iter("Part")}
-    textures = {m.get("Id"): {t.get("Path") for t in m if t.get("Path")} for m in assets.iter("PbrMaterial")}
+    templates = {s.get("Id"): s for s in assets.findall("SubPart")}
+    parts = {p.get("Id"): p for p in assets.findall("Part")}
+    texture_paths = {t.get("Id"): t.get("Path") for t in assets.findall("Texture")}
+    textures = {m.get("Id"): {texture_paths[t.get("Ref")] for t in m if t.get("Ref") in texture_paths}
+                for m in assets.iter("PbrMaterial")}
     atlases = {path: glb_names(data) for path, data in files.items() if path.endswith(".glb")}
-    sound_files = {s.get("Id"): {f.get("Path") for f in s.iter("SoundFile")}
-                   for s in sounds.iter("Sound") if s.find("SoundFile") is not None}
+    file_paths = {f.get("Id"): f.get("Path") for f in sounds.findall("SoundFile")}
+    sound_files = {s.get("Id"): {file_paths[f.get("Ref")] for f in s.iter("SoundFile") if f.get("Ref") in file_paths}
+                   for s in sounds.findall("Sound")}
     for compound in sounds.iter("CompoundSound"):
-        sound_files[compound.get("Id")] = union(sound_files.get(e.get("Id"), set()) for e in compound)
+        sound_files[compound.get("Id")] = union(sound_files.get(e.get("Ref"), set()) for e in compound)
 
     found: dict[str, dict[str, set[str]]] = {}
     for family, body in families.values():
@@ -185,11 +188,10 @@ def art_by_family(files: dict[str, bytes | str],
         for part_id in part_ids:
             if (part := parts.get(part_id)) is not None:
                 used.append(part)
-                used += [templates[s.get("InstanceOf")] for s in part.iter("SubPart")
-                         if s.get("InstanceOf") in templates]
+                used += [templates[s.get("Ref")] for s in part.iter("SubPart") if s.get("Ref") in templates]
 
-        meshes = union(ids(e, "Mesh") for e in used)
-        materials = union(ids(e, "Material") for e in used)
+        meshes = union(refs(e, "Mesh") for e in used)
+        materials = union(refs(e, "Material") for e in used)
         found[family] = {
             "parts": part_ids,
             "meshes": {path for path, names in atlases.items() if names & meshes},
@@ -240,7 +242,7 @@ def index(families: dict[str, tuple[str, str]], art: dict[str, dict[str, set[str
         "`tools/copy-save.py` makes a save's craft carry them instead.",
         "",
         "To start your own from one, copy what that family uses below under Ids of your own. A marker a "
-        "definition names is found inside the Id the `<Part>` gives a subpart, not the template's. A "
+        "definition names is found inside the Key the `<Part>` gives a subpart, not the template's Id. A "
         "gun naming no sound plays KSArmory's `KSArmoryCannon`, and the plume, flash and smoke are "
         "KSArmory's effects for every pack.",
         "",

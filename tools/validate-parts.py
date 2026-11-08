@@ -6,7 +6,7 @@ A bad asset Id or a mistyped texture path is a *silent* failure in-game: the par
 untextured, or invisible, or not at all, with nothing in any log to say why. This walks the
 XML and verifies four things:
 
-  1. every SubPart InstanceOf resolves, against our own file or against Core's library
+  1. every placed SubPart Ref resolves, against our own file or against Core's library
   2. every Material Id resolves, likewise
   3. every Mesh Id exists in the mesh atlas the file declares
   4. every file path (<MeshAtlas>, <Diffuse>, <Normal>, <AoRoughMetal>) is actually there
@@ -46,8 +46,23 @@ MOD = REPO / "src" / "KSArmory"
 KSA_DIR = Path(os.environ.get("KSA_DIR", "/mnt/c/Program Files/Kitten Space Agency"))
 CORE = KSA_DIR / "Content" / "Core"
 
-TEXTURE_TAGS = ("Diffuse", "Normal", "AoRoughMetal", "Emissive")
+TEXTURE_TAGS = ("Texture",)
 
+
+
+def asset_parts(root):
+    """The parts a file declares, not the patches a game-data file lays over them by the same Id."""
+    return [p for p in root.findall("Part") if p.get("Modify") is None]
+
+
+def patches(root):
+    """The hand-written halves of parts, laid over the generated ones by Id."""
+    return [p for p in root.findall("Part") if p.get("Modify") == "Patch"]
+
+
+def placed_subparts(part):
+    """A part's placed subparts: Key is the name the part gives one, Ref the template it places."""
+    return part.findall("SubParts/SubPart")
 
 def exists_case_exact(path):
     """True only if the file exists with exactly this name.
@@ -97,7 +112,7 @@ def check_file(path, core_subparts, core_materials, core_substances, own_prefixe
         print(f"  MALFORMED: {exc}", file=sys.stderr)
         return 1, 0
 
-    local_subparts = {el.get("Id") for el in root.iter("SubPart") if el.get("Id")}
+    local_subparts = {el.get("Id") for el in root.findall("SubPart") if el.get("Id")}
     local_materials = {el.get("Id") for el in root.iter("PbrMaterial") if el.get("Id")}
 
     # Paths are resolved against the XML's own directory, which for this mod is also the mod
@@ -128,18 +143,18 @@ def check_file(path, core_subparts, core_materials, core_substances, own_prefixe
                 problems += 1
 
     for el in root.iter("Mesh"):
-        ident = el.get("Id")
+        ident = el.get("Ref")
         if not ident:
             continue
         checked += 1
         # Only meaningful once this file declares an atlas of its own; a mesh Id could
         # otherwise legitimately live in Core's library.
         if meshes_in_atlas and ident not in meshes_in_atlas:
-            print(f"  UNRESOLVED Mesh Id=\"{ident}\" (not in the declared atlas)", file=sys.stderr)
+            print(f"  UNRESOLVED Mesh Ref=\"{ident}\" (not in the declared atlas)", file=sys.stderr)
             problems += 1
 
     for el in root.iter("SubPart"):
-        source = el.get("InstanceOf")
+        source = el.get("Ref")
         if not source:
             continue
         checked += 1
@@ -153,7 +168,7 @@ def check_file(path, core_subparts, core_materials, core_substances, own_prefixe
         # "PartTemplate is null", and detecting that needs no Core: a name used here is declared
         # here.
         if source.startswith(own_prefixes) and source not in local_subparts:
-            print(f"  UNDECLARED SubPart InstanceOf=\"{source}\" - no such template in this file",
+            print(f"  UNDECLARED SubPart Ref=\"{source}\" - no such template in this file",
                   file=sys.stderr)
             problems += 1
             continue
@@ -161,30 +176,29 @@ def check_file(path, core_subparts, core_materials, core_substances, own_prefixe
         if core_subparts is None:
             continue
         if source not in core_subparts and source not in local_subparts:
-            print(f"  UNRESOLVED SubPart InstanceOf=\"{source}\"", file=sys.stderr)
+            print(f"  UNRESOLVED SubPart Ref=\"{source}\"", file=sys.stderr)
             problems += 1
 
     # <Material> names two different things depending on where it sits: a PbrMaterial, which is
-    # how something is drawn, and a Substance, which is what it is made of -- and a substance is
-    # referenced by phase, "Aluminum.2014(s)" for the solid Core declares as "Aluminum.2014".
+    # how something is drawn, and a Substance, which is what it is made of -- named with a Phase.
     for el in root.iter("Material"):
-        ident = el.get("Id")
+        ident = el.get("Ref")
         if not ident:
             continue
         checked += 1
         if core_materials is None:
             continue
-        substance = re.sub(r"\((s|l|g)\)$", "", ident)
         if (ident in core_materials or ident in local_materials
-                or substance in core_substances):
+                or (el.get("Phase") and ident in core_substances)):
             continue
-        print(f"  UNRESOLVED Material Id=\"{ident}\"", file=sys.stderr)
+        print(f"  UNRESOLVED Material Ref=\"{ident}\"", file=sys.stderr)
         problems += 1
 
-    for el in root.iter("PartGameData"):
-        print(f"  part: {el.get('Id')}  \"{el.get('DisplayName', '')}\"")
-    for el in root.iter("Part"):
-        print(f"  part: {el.get('Id')}")
+    for el in root.findall("Part"):
+        if el.get("Modify") is None:
+            print(f"  part: {el.get('Id')}")
+        else:
+            print(f"  part: {el.get('Id')}  \"{el.get('DisplayName', '')}\"")
 
     return problems, checked
 
@@ -430,9 +444,9 @@ def check_cross_body_planes():
         # another name, so it would report every body as fighting itself.
         mesh_of = {}
         for sub in root.findall("SubPart"):
-            model = sub.find("PartModel/Mesh")
-            if sub.get("Id") and model is not None and model.get("Id"):
-                mesh_of[sub.get("Id")] = model.get("Id")
+            model = sub.find("Components/PartModel/Mesh")
+            if sub.get("Id") and model is not None and model.get("Ref"):
+                mesh_of[sub.get("Id")] = model.get("Ref")
 
         gltf, binary = checkmesh.read_glb(str(glb))
 
@@ -440,10 +454,10 @@ def check_cross_body_planes():
         # belonging to different parts never are -- they are separate things a player attaches
         # separately. Pooling them reports every pair of parts whose mounting faces both sit at
         # X = 0, which is all of them by construction.
-        for part in root.findall("Part"):
+        for part in asset_parts(root):
             placements = {}
-            for sub in part.findall("SubPart"):
-                mesh = mesh_of.get(sub.get("InstanceOf"))
+            for sub in placed_subparts(part):
+                mesh = mesh_of.get(sub.get("Ref"))
                 if mesh is None:
                     continue
                 position = sub.find("Transform/Position")
@@ -515,13 +529,13 @@ def check_subpart_positions():
     # registered, a global check calls "Turret" ambiguous for a configuration that runs correctly.
     by_part = {}
     for path in sorted(MOD.glob("KSArmory*.xml")):
-        for part in ET.parse(path).getroot().findall("Part"):
+        for part in asset_parts(ET.parse(path).getroot()):
             here = {}
-            for sub in part.findall("SubPart"):
+            for sub in placed_subparts(part):
                 position = sub.find("Transform/Position")
-                if position is None or sub.get("Id") is None:
+                if position is None or sub.get("Key") is None:
                     continue
-                here[sub.get("Id")] = [float(position.get(axis, "0")) for axis in "XYZ"]
+                here[sub.get("Key")] = [float(position.get(axis, "0")) for axis in "XYZ"]
             if here:
                 by_part[part.get("Id")] = here
 
@@ -585,7 +599,7 @@ def _check_markers(profile_name, body, placed, assemblies):
         got = placed[hits[0]]
         if any(abs(a - b) > 5e-4 for a, b in zip(got, want)):
             show = lambda v: "(" + ", ".join(f"{x:g}" for x in v) + ")"  # noqa: E731
-            print(f"  STALE <SubPart Id=\"{hits[0]}\"> at {show(got)}, "
+            print(f"  STALE <SubPart Key=\"{hits[0]}\"> at {show(got)}, "
                   f"the definitions say {show(want)}", file=sys.stderr)
             problems += 1
 
@@ -646,18 +660,15 @@ def check_asset_id_collisions():
             if atlas.is_file():
                 from_atlas |= set(atlas_mesh_names(atlas))
 
-        # Top-level only. An Id deeper in the tree is a *reference* -- <Mesh Id>, <StartSound Id>,
-        # a nested <SubPart Id> naming an instance -- and only the direct children of <Assets>
-        # register a name. Walking the whole tree flags every reference as a redeclaration.
+        # Top-level only: only the direct children of <Assets> register a name.
         for el in root:
             ident = el.get("Id")
             if ident is None:
                 continue
 
-            # A *GameData entry is a companion keyed on another asset's Id -- that is how KSA
-            # pairs a part's art with its physics, and Core does the same. It is a different
-            # registry, so it is not a redeclaration.
-            if el.tag.endswith("GameData"):
+            # A Modify entry is laid over another asset by its Id, which is how KSA pairs a part's
+            # art with its physics, and Core does the same. It is not a redeclaration.
+            if el.get("Modify") is not None:
                 continue
 
             checked += 1
@@ -696,7 +707,7 @@ def check_body_markers():
 
     instances = set()
     for path in sorted(MOD.glob("KSArmory*.xml")):
-        instances |= set(re.findall(r'<SubPart\s+Id="([^"]+)"\s+InstanceOf=', path.read_text()))
+        instances |= set(re.findall(r'<SubPart\s+Key="([^"]+)"\s+Ref=', path.read_text()))
 
     problems = checked = 0
     text = arsenal_text()
@@ -744,12 +755,12 @@ def check_body_markers():
 
 
 def part_subparts(part_id):
-    """Subpart instance Ids declared inside one <Part>, or None if that Part is not declared."""
+    """Subpart placement Keys declared inside one <Part>, or None if that Part is not declared."""
     for path in sorted(MOD.glob("KSArmory*.xml")):
         block = re.search(rf'<Part\s+Id="{re.escape(part_id)}"\s*>(.*?)</Part>',
                           path.read_text(), re.S)
         if block is not None:
-            return set(re.findall(r'<SubPart\s+Id="([^"]+)"', block.group(1)))
+            return set(re.findall(r'<SubPart\s+Key="([^"]+)"', block.group(1)))
     return None
 
 
@@ -862,7 +873,7 @@ def check_editor_tags(core_dir):
     for path in sorted(MOD.glob("KSArmory*.xml")):
         text = path.read_text()
         declared.update(re.findall(r'<EditorTagDef\s+Id="([^"]+)"', text))
-        for tag in re.findall(r'<EditorTag\s+Value="([^"]+)"', text):
+        for tag in re.findall(r'<EditorTag\s+Ref="([^"]+)"', text):
             used.setdefault(tag, path.name)
 
     if core_dir is not None:
@@ -986,13 +997,13 @@ def check_authored_gun_geometry(profile, part_id, cannon_id, barrel_id, muzzle_m
     placed, bounds = {}, {}
     for path in sorted(MOD.glob("KSArmory*.xml")):
         root = ET.parse(path).getroot()
-        for part in root.findall("Part"):
+        for part in asset_parts(root):
             if part.get("Id") != part_id:
                 continue
-            for sub in part.findall("SubPart"):
+            for sub in placed_subparts(part):
                 position = sub.find("Transform/Position")
                 if position is not None:
-                    placed[sub.get("Id")] = [float(position.get(axis, "0")) for axis in "XYZ"]
+                    placed[sub.get("Key")] = [float(position.get(axis, "0")) for axis in "XYZ"]
         for atlas in root.findall(".//MeshAtlas"):
             glb = MOD / atlas.get("Path", "")
             if not glb.is_file():
@@ -1023,9 +1034,9 @@ def check_authored_gun_geometry(profile, part_id, cannon_id, barrel_id, muzzle_m
             continue
         checked += 1
         if sub_id not in placed:
-            report("MISSING", f'<SubPart Id="{sub_id}"> position in the part XML')
+            report("MISSING", f'<SubPart Key="{sub_id}"> position in the part XML')
         elif any(abs(placed[sub_id][i] - trunnion[i]) > 5e-4 for i in range(3)):
-            report("STALE", f'<SubPart Id="{sub_id}"> is at {fmt(placed[sub_id])}, but '
+            report("STALE", f'<SubPart Key="{sub_id}"> is at {fmt(placed[sub_id])}, but '
                             f"{profile}'s trunnion is {fmt(trunnion)}")
 
     checked += 1
@@ -1095,11 +1106,11 @@ def check_authored_launcher_geometry(profile, part_id, seat_id, mesh_id, munitio
     seat = bounds = None
     for path in sorted(MOD.glob("KSArmory*.xml")):
         root = ET.parse(path).getroot()
-        for part in root.findall("Part"):
+        for part in asset_parts(root):
             if part.get("Id") != part_id:
                 continue
-            for sub in part.findall("SubPart"):
-                if sub.get("Id") != seat_id:
+            for sub in placed_subparts(part):
+                if sub.get("Key") != seat_id:
                     continue
                 position = sub.find("Transform/Position")
                 if position is not None:
@@ -1114,7 +1125,7 @@ def check_authored_launcher_geometry(profile, part_id, seat_id, mesh_id, munitio
                     bounds = meshinfo.mesh_bounds(gltf, mesh)
 
     if seat is None:
-        print(f"  MISSING <SubPart Id=\"{seat_id}\"> position in the part XML", file=sys.stderr)
+        print(f"  MISSING <SubPart Key=\"{seat_id}\"> position in the part XML", file=sys.stderr)
         return 1, 1
     if bounds is None or bounds[0] is None:
         print(f"  MISSING mesh {mesh_id} in any declared atlas", file=sys.stderr)
@@ -1189,10 +1200,10 @@ def check_seated_generated_round(profile, part_id, seat_id, munition, label):
     block = profile_block(text, profile)
     seat = None
     for path in sorted(MOD.glob("KSArmory*.xml")):
-        for part in ET.parse(path).getroot().findall("Part"):
-            for sub in part.findall("SubPart"):
+        for part in asset_parts(ET.parse(path).getroot()):
+            for sub in placed_subparts(part):
                 position = sub.find("Transform/Position")
-                if part.get("Id") == part_id and sub.get("Id") == seat_id and position is not None:
+                if part.get("Id") == part_id and sub.get("Key") == seat_id and position is not None:
                     seat = [float(position.get(axis, "0")) for axis in "XYZ"]
     body = re.search(rf"{munition}\s*=\s*new\(\)\s*\{{(.*?)\n\s*\}};", text, re.S)
     length = re.search(r"BodyLength\s*=\s*([\d.]+)f\s*,", body.group(1)) if body else None
@@ -1284,7 +1295,7 @@ def check_hinged_blade_seats(munition, part_id, body_id, blade_prefix, label):
     count = int(count)
 
     xml = (MOD / "KSArmoryAssets.xml").read_text()
-    body = re.search(rf'<SubPart Id="{body_id}".*?</SubPart>', xml, re.S)
+    body = re.search(rf'<SubPart Key="{body_id}".*?</SubPart>', xml, re.S)
     if not body:
         print(f"  UNRESOLVED " + f"{label}: no round body subpart {body_id}", file=sys.stderr)
         return 1, 1
@@ -1303,7 +1314,7 @@ def check_hinged_blade_seats(munition, part_id, body_id, blade_prefix, label):
 
     for i in range(count):
         checked += 1
-        sub = re.search(rf'<SubPart Id="{blade_prefix}{i:02d}".*?</SubPart>', xml, re.S)
+        sub = re.search(rf'<SubPart Key="{blade_prefix}{i:02d}".*?</SubPart>', xml, re.S)
         if not sub:
             problems += fail(f"{label}: no blade subpart {blade_prefix}{i:02d}")
             continue
@@ -1351,11 +1362,11 @@ def check_cluster_launcher_geometry(profile, part_id, seat_prefix, mesh_id, muni
     seats, bounds = {}, None
     for path in sorted(MOD.glob("KSArmory*.xml")):
         root = ET.parse(path).getroot()
-        for part in root.findall("Part"):
+        for part in asset_parts(root):
             if part.get("Id") != part_id:
                 continue
-            for sub in part.findall("SubPart"):
-                sid = sub.get("Id") or ""
+            for sub in placed_subparts(part):
+                sid = sub.get("Key") or ""
                 if not sid.startswith(seat_prefix):
                     continue
                 position = sub.find("Transform/Position")
@@ -1376,7 +1387,7 @@ def check_cluster_launcher_geometry(profile, part_id, seat_prefix, mesh_id, muni
 
     checked += 1
     if len(seats) != count:
-        print(f"  MISCOUNT {part_id}: {len(seats)} <SubPart Id=\"{seat_prefix}..\">, "
+        print(f"  MISCOUNT {part_id}: {len(seats)} <SubPart Key=\"{seat_prefix}..\">, "
               f"{profile} declares {count} tubes", file=sys.stderr)
         return problems + 1, checked
     if bounds is None or bounds[0] is None:
@@ -1773,10 +1784,10 @@ def check_optic_geometry(profile="EoDirector"):
     placed = {}
     base_turn = [0.0, 0.0, 0.0]
     for path in sorted(MOD.glob("KSArmory*.xml")):
-        for part in ET.parse(path).getroot().findall("Part"):
-            for sub in part.findall("SubPart"):
+        for part in asset_parts(ET.parse(path).getroot()):
+            for sub in placed_subparts(part):
                 for marker, ident in ids.items():
-                    if sub.get("Id") != ident:
+                    if sub.get("Key") != ident:
                         continue
                     position = sub.find("Transform/Position")
                     rotation = sub.find("Transform/Rotation")
@@ -1787,7 +1798,7 @@ def check_optic_geometry(profile="EoDirector"):
 
     missing = [ids[m] for m in wanted if m not in placed]
     if missing:
-        print(f"  MISSING <SubPart Id=\"{missing[0]}\"> in the asset XML", file=sys.stderr)
+        print(f"  MISSING <SubPart Key=\"{missing[0]}\"> in the asset XML", file=sys.stderr)
         problems += 1
     else:
         # Every moving body, against the same pivot. The roll gimbal shares it with the head --
@@ -1797,7 +1808,7 @@ def check_optic_geometry(profile="EoDirector"):
         for marker in [m for m in wanted if m != "BaseMarker"]:
             offset = rotate_inverse(base_turn, [h - b for h, b in zip(placed[marker], placed["BaseMarker"])])
             if any(abs(a - b) > 5e-4 for a, b in zip(offset, want)):
-                print(f"  STALE <SubPart Id=\"{ids[marker]}\"> sits {tuple(offset)} from its "
+                print(f"  STALE <SubPart Key=\"{ids[marker]}\"> sits {tuple(offset)} from its "
                       f"base, mesh says {tuple(want)}", file=sys.stderr)
                 problems += 1
 
@@ -1831,11 +1842,11 @@ def check_search_set_heads():
         part_id = re.search(r'PartId\s*=\s*"([^"]+)"', block).group(1)
         placed = None
         for path in sorted(MOD.glob("KSArmory*.xml")):
-            for part in ET.parse(path).getroot().findall("Part"):
+            for part in asset_parts(ET.parse(path).getroot()):
                 if part.get("Id") != part_id:
                     continue
-                for sub in part.findall("SubPart"):
-                    if marker.group(1).lower() in (sub.get("Id") or "").lower():
+                for sub in placed_subparts(part):
+                    if marker.group(1).lower() in (sub.get("Key") or "").lower():
                         position = sub.find("Transform/Position")
                         placed = [float(position.get(axis, "0")) for axis in "XYZ"] if position is not None else [0.0] * 3
         if pivot is None or placed is None:
@@ -1890,14 +1901,14 @@ def check_armour_plates(definition_roots=None, gamedata_paths=None, material_roo
     gamedata = [ET.parse(path).getroot() for path in gamedata_paths or [MOD / "KSArmoryGameData.xml"]]
     density = {m.get("Name"): float(m.get("DensityKgPerM3")) for root in [*material_roots, *roots]
                for m in root.iter("ArmourMaterial")}
-    data = {d.get("Id"): d for root in gamedata for d in root.iter("PartGameData")}
+    data = {d.get("Id"): d for root in gamedata for d in patches(root)}
 
     problems = checked = 0
     for plate in (a for root in roots for a in root.iter("Armour")):
         part, thickness = plate.get("PartId"), float(plate.get("ThicknessMm")) / 1000.0
         checked += 1
         found = data.get(part)
-        box = None if found is None else found.find("SolidCuboidMass")
+        box = None if found is None else found.find("InertMasses/SolidCuboidMass")
         if found is None:
             print(f"  ARMOUR {part} -- declared by nothing checked here: armour on somebody else's part "
                   f"carries none of its mass", file=sys.stderr)
@@ -1946,21 +1957,21 @@ def check_stacking_connectors_sized(asset_paths=None, gamedata_paths=None):
     gamedata = [ET.parse(path).getroot() for path in gamedata_paths or [MOD / "KSArmoryGameData.xml"]]
 
     diameters, surface = {}, set()
-    for data in (d for root in gamedata for d in root.iter("PartGameData")):
+    for data in (d for root in gamedata for d in patches(root)):
         part = data.get("Id")
-        diameter = data.find("Diameter")
+        diameter = data.find("Diameters/Diameter")
         if diameter is not None:
             diameters[part] = float(diameter.get("M"))
-        for connector in data.findall("Connector"):
+        for connector in data.findall("Connectors/Connector"):
             flags = connector.findtext("Flags") or ""
             if any(flag in flags for flag in ("ToSurface", "FromSurface", "Internal")):
-                surface.add((part, connector.get("Id")))
+                surface.add((part, connector.get("Key")))
 
     problems = checked = 0
-    for part in (p for root in assets for p in root.iter("Part")):
+    for part in (p for root in assets for p in asset_parts(root)):
         part_id = part.get("Id")
-        for connector in part.findall("Connector"):
-            if (part_id, connector.get("Id")) in surface:
+        for connector in part.findall("Connectors/Connector"):
+            if (part_id, connector.get("Key")) in surface:
                 continue
             checked += 1
             if part_id in UNSIZED_STACK_CONNECTORS:
@@ -1970,7 +1981,7 @@ def check_stacking_connectors_sized(asset_paths=None, gamedata_paths=None):
             want = diameters.get(part_id)
             sizes = None if scale is None else {float(scale.get(axis, "1")) for axis in "XYZ"}
             if want is None or sizes != {want}:
-                print(f"  UNSIZED {part_id} {connector.get('Id')} -- a stacking node needs "
+                print(f"  UNSIZED {part_id} {connector.get('Key')} -- a stacking node needs "
                       f"<Scale> of its diameter ({want} m) on every axis, or it nests into a "
                       f"tank's Internal node; found {sorted(sizes) if sizes else 'none'}",
                       file=sys.stderr)
@@ -2020,13 +2031,13 @@ def pack_asset_paths(root):
 
 
 def pack_parts(asset_roots):
-    """Part Id -> its subpart instance Ids, and every subpart template Id, across a pack's assets."""
+    """Part Id -> its subpart placement Keys, and every subpart template Id, across a pack's assets."""
     parts, templates = {}, set()
     for root in asset_roots:
-        for part in root.iter("Part"):
-            parts[part.get("Id")] = [sub.get("Id") for sub in part.iter("SubPart") if sub.get("Id")]
-        for sub in root.iter("SubPart"):
-            if sub.get("InstanceOf") is None and sub.get("Id"):
+        for part in asset_parts(root):
+            parts[part.get("Id")] = [sub.get("Key") for sub in placed_subparts(part) if sub.get("Key")]
+        for sub in root.findall("SubPart"):
+            if sub.get("Id") and sub.get("Modify") is None:
                 templates.add(sub.get("Id"))
     return parts, templates
 
@@ -2154,9 +2165,9 @@ def validate_pack(root, core_subparts, core_materials, core_substances):
             problems += 1
             continue
         asset_roots.append(parsed)
-        if any(True for _ in parsed.iter("PartGameData")):
+        if patches(parsed):
             gamedata_paths.append(path)
-        if any(True for _ in parsed.iter("Part")):
+        if asset_parts(parsed):
             part_paths.append(path)
 
     # The pack's own Ids, by the prefixes its parts carry; a template under one has to be declared here.

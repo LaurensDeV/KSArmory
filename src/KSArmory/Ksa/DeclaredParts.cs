@@ -17,9 +17,9 @@ public sealed class DeclaredParts : IPartCatalogue
         if (Template(partId) is not { } part) return [];
 
         List<string> ids = [];
-        foreach (PartInstance sub in part.SubPartInstances)
+        foreach (TransformDataReference<SubPartTemplate> sub in part.SubPartInstances)
         {
-            if (sub.Id is { Length: > 0 } id) ids.Add(id);
+            if (sub.Key is { Length: > 0 } key) ids.Add(key);
         }
 
         return ids;
