@@ -1,3 +1,35 @@
+## [0.10.1](https://github.com/LaurensDeV/KSArmory/compare/v0.10.0...v0.10.1) (2026-11-08)
+
+### Features
+
+* **clouds:** shade a nuclear cloud's folds and its shadow on the ground ([252949a](https://github.com/LaurensDeV/KSArmory/commit/252949ad0b2ad2a1a8944b497873a9b02f800a2b))
+* **damage:** armour plates, judged by Lambert's ballistic limit ([f90df10](https://github.com/LaurensDeV/KSArmory/commit/f90df106af5b69991de5c3c1b0504aed934d7710))
+* **damage:** hits a tank's wall stops still wear it down ([88ab270](https://github.com/LaurensDeV/KSArmory/commit/88ab27065363f64efc53711ae7cb09967b42f54d))
+* **damage:** ram tanks behind others, the exit wall, fragments and duds ([77ce38f](https://github.com/LaurensDeV/KSArmory/commit/77ce38feb94b399c290347ae44c0fd75fa4285d6))
+* **damage:** split a full tank by the liquid a round drives through it ([5ad1362](https://github.com/LaurensDeV/KSArmory/commit/5ad136252b0a6a0d693d0d6267b745887ad72548))
+* **damage:** tank walls stop hits, and holed gas tanks burst ([80b6793](https://github.com/LaurensDeV/KSArmory/commit/80b679395532d10ccde3b87f6774f3531187a118))
+* **tools:** show a moved craft where it will land ([a74e09f](https://github.com/LaurensDeV/KSArmory/commit/a74e09f9a234a4da9d2ae88a801a4d4b1bf53de7))
+* **ui:** reopen the panel from StarMap's Mods menu, not a button ([e34042d](https://github.com/LaurensDeV/KSArmory/commit/e34042d4baf41ce3871f988ed0cdd1319222349d))
+
+### Fixes
+
+* **damage:** an inert dart's hole is little wider than the dart ([3eee4f7](https://github.com/LaurensDeV/KSArmory/commit/3eee4f72fdaefe5af2ff01de3fc1dec6f359763b))
+* **damage:** judge a dart against a tank wall with holes switched off ([466a804](https://github.com/LaurensDeV/KSArmory/commit/466a8042125787a9eaea4ad866e68b1480b5c75f))
+* **damage:** take 2014 aluminium's crack length for every tank wall ([462c84c](https://github.com/LaurensDeV/KSArmory/commit/462c84c01c3639e46c51f8bd17d18560ded04bff))
+* **damage:** take thin sheet's fracture toughness for a tank's wall ([856d488](https://github.com/LaurensDeV/KSArmory/commit/856d488bca6662c670e31893f2bd20ace882a61b))
+* **effects:** put Core's close crack back under a nuclear bang ([97a6a25](https://github.com/LaurensDeV/KSArmory/commit/97a6a253ba13f97f03d0691cce29ba7eb1a511c5))
+* **leaks:** leak through a hole anywhere on a tank's skin ([3c9aed1](https://github.com/LaurensDeV/KSArmory/commit/3c9aed19ea98f5a3da1bb49e529fb878554e002c))
+* **leaks:** send a tank's stream out square to the skin ([605e7b8](https://github.com/LaurensDeV/KSArmory/commit/605e7b8138a520282d09cb89be9252627b9c0c31))
+
+### Performance
+
+* **damage:** read each tank's wall once, not on every hit ([050db86](https://github.com/LaurensDeV/KSArmory/commit/050db8663e814fdc975ac121c15c0dbdf4367fcd))
+
+### Build and packaging
+
+* **deps:** require StarMap 0.5.3, the first that starts KSA 5801 ([980d814](https://github.com/LaurensDeV/KSArmory/commit/980d814db5e76add2de242b28273d12ca4ed6aec)), closes [StarMapLoader/StarMap#114](https://github.com/StarMapLoader/StarMap/issues/114)
+* **ksa:** retarget 2026.11.10.5801 ([62c6c64](https://github.com/LaurensDeV/KSArmory/commit/62c6c64153e59857c595ca73ec678fe3b63770ba))
+
 ## [0.10.0](https://github.com/LaurensDeV/KSArmory/compare/v0.9.9...v0.10.0) (2026-10-29)
 
 ### Features
