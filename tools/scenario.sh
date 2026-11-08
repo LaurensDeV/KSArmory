@@ -292,7 +292,9 @@ echo "== launching, scenario '$SCENARIO', save '$SAVE'${CRAFT:+, craft '$CRAFT'}
 RUNS_DIR="$REPO_ROOT/runs"
 mkdir -p "$RUNS_DIR" 2>/dev/null || true
 if [[ -s "$LOG" ]]; then cp -f "$LOG" "$RUNS_DIR/previous-KSArmory.log" 2>/dev/null || true; fi
-: > "$LOG" 2>/dev/null || true
+# stderr first: a redirect that fails is reported before a later 2>/dev/null applies, so on a
+# fresh install with no Logs folder yet this printed an error it was written to swallow.
+: 2>/dev/null > "$LOG" || true
 "$REPO_ROOT/tools/run.sh" --no-build >/dev/null 2>&1 &
 LAUNCHER=$!
 
