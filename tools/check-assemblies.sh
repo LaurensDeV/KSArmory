@@ -61,6 +61,17 @@ mapfile -t NAMES < <(grep -ohP '(?<=\$\(KsaDllDir\))[A-Za-z0-9._]+(?=\.dll)' \
     "$REPO_ROOT"/src/KSArmory/*.csproj "$REPO_ROOT"/tests/*/*.csproj | sort -u)
 [[ ${#NAMES[@]} -gt 0 ]] || { echo "error: no \$(KsaDllDir) references found in the csproj files" >&2; exit 1; }
 
+# In --game mode, compare only what the install actually ships, so an assembly it does not carry is
+# not reported as a KSA update on every run. (KSACars has had this since its own split; KSArmory did
+# not, so a game folder missing one referenced assembly failed here instead of being skipped.)
+if (( GAME )); then
+    present=()
+    for name in "${NAMES[@]}"; do
+        [[ -f "$DIR/$name.dll" ]] && present+=("$name")
+    done
+    NAMES=("${present[@]}")
+fi
+
 digests() {
     for name in "${NAMES[@]}"; do
         local path="$DIR/$name.dll"
