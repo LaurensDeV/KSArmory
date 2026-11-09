@@ -11,6 +11,10 @@ locals {
     ${var.api_domain} {
       reverse_proxy feedback:${var.feedback_port}
     }
+
+    ${var.servers_domain} {
+      reverse_proxy ksamp-directory:${var.directory_port}
+    }
   EOT
 }
 
