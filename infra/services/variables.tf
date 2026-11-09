@@ -28,6 +28,25 @@ variable "feedback_port" {
   default     = 8080
 }
 
+# The KSA Multiplayer directory: the list of servers the mod's browser reads. Its container belongs
+# to that repository's own state, which cannot edit this Caddyfile, so the route is here and the
+# container is there. Caddy reaches it by name over this overlay network, as it reaches feedback.
+#
+# Unproxied at Cloudflare like every other name on this machine, which costs nothing here: the list
+# is a few hundred reads a day, so there is no caching worth a second TLS terminator in front of
+# Caddy.
+variable "servers_domain" {
+  description = "Where the KSA Multiplayer server directory is served."
+  type        = string
+  default     = "servers.ksarmory.com"
+}
+
+variable "directory_port" {
+  description = "Port the directory listens on inside its container."
+  type        = number
+  default     = 8080
+}
+
 variable "api_domain" {
   description = "Where the feedback endpoint is served."
   type        = string
