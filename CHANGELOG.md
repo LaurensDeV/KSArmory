@@ -1,3 +1,9 @@
+## [0.10.2](https://github.com/LaurensDeV/KSArmory/compare/v0.10.1...v0.10.2) (2026-11-09)
+
+### Features
+
+* **infra:** route servers.ksarmory.com to the multiplayer list ([4ebf850](https://github.com/LaurensDeV/KSArmory/commit/4ebf850859b22e6de9f3a028a531b31f0c300959))
+
 ## [0.10.1](https://github.com/LaurensDeV/KSArmory/compare/v0.10.0...v0.10.1) (2026-11-08)
 
 ### Features
