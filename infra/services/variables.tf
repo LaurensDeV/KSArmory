@@ -39,10 +39,14 @@ variable "feedback_port" {
 # Two names for one list: the multiplayer mod's own domain, which is where its games are pointed,
 # and this one, which older games have compiled in as the place to ask when nothing else answers.
 # Caddy takes a site's names separated by commas and holds a certificate for each.
+#
+# The last is that mod's domain with nothing in front of it. The directory serves a page of every
+# server at its root, and that page is what a browser gets there; the game server players reach at
+# the same name is UDP on a port of its own and never meets Caddy.
 variable "servers_domain" {
   description = "Where the KSA Multiplayer server directory is served: one name, or several separated by commas."
   type        = string
-  default     = "servers.ksarmory.com, servers.ksamp.gg"
+  default     = "servers.ksarmory.com, servers.ksamp.gg, ksamp.gg"
 }
 
 variable "directory_port" {
