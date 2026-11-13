@@ -35,10 +35,14 @@ variable "feedback_port" {
 # Unproxied at Cloudflare like every other name on this machine, which costs nothing here: the list
 # is a few hundred reads a day, so there is no caching worth a second TLS terminator in front of
 # Caddy.
+#
+# Two names for one list: the multiplayer mod's own domain, which is where its games are pointed,
+# and this one, which older games have compiled in as the place to ask when nothing else answers.
+# Caddy takes a site's names separated by commas and holds a certificate for each.
 variable "servers_domain" {
-  description = "Where the KSA Multiplayer server directory is served."
+  description = "Where the KSA Multiplayer server directory is served: one name, or several separated by commas."
   type        = string
-  default     = "servers.ksarmory.com"
+  default     = "servers.ksarmory.com, servers.ksamp.gg"
 }
 
 variable "directory_port" {
