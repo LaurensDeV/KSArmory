@@ -309,6 +309,20 @@ if [[ -s "$LOG" ]]; then cp -f "$LOG" "$RUNS_DIR/previous-KSArmory.log" 2>/dev/n
 "$REPO_ROOT/tools/run.sh" --no-build >/dev/null 2>&1 &
 LAUNCHER=$!
 
+restore_settings() {
+    sleep 1
+    [[ "$DIALOG_WAS" == "selectSystemOnStart = true" ]] &&
+        sed -i 's/^selectSystemOnStart = false/selectSystemOnStart = true/' "$SETTINGS"
+    [[ -n "$CRAFT_WAS" ]] &&
+        sed -i "s|^startVehicle = \".*\"|$CRAFT_WAS|" "$SETTINGS"
+    [[ -n "${SYSTEM_WAS:-}" ]] &&
+        sed -i "s|^lastSystemId = \".*\"|$SYSTEM_WAS|" "$SETTINGS"
+    for line in "${DISPLAY_WAS[@]}"; do
+        sed -i "s|^${line%% = *} = .*|$line|" "$SETTINGS"
+    done
+    return 0
+}
+
 cleanup() {
     if (( ! KEEP )); then
         cmd.exe /c "taskkill /IM StarMap.exe /F" >/dev/null 2>&1 || true
@@ -316,18 +330,17 @@ cleanup() {
     kill "$LAUNCHER" 2>/dev/null || true
 
 
-    # The game rewrites settings.toml on exit, so this has to run after it is gone.
+    # The game rewrites settings.toml on exit, so this has to run after it is gone -- and under --keep
+    # it is not gone yet, so a restore made now would be overwritten when it closes.
     if [[ -f "$SETTINGS" ]]; then
-        sleep 1
-        [[ "$DIALOG_WAS" == "selectSystemOnStart = true" ]] &&
-            sed -i 's/^selectSystemOnStart = false/selectSystemOnStart = true/' "$SETTINGS"
-        [[ -n "$CRAFT_WAS" ]] &&
-            sed -i "s|^startVehicle = \".*\"|$CRAFT_WAS|" "$SETTINGS"
-        [[ -n "${SYSTEM_WAS:-}" ]] &&
-            sed -i "s|^lastSystemId = \".*\"|$SYSTEM_WAS|" "$SETTINGS"
-        for line in "${DISPLAY_WAS[@]}"; do
-            sed -i "s|^${line%% = *} = .*|$line|" "$SETTINGS"
-        done
+        if (( KEEP )); then
+            # A string test, not grep -q: under pipefail tasklist's SIGPIPE reads as "not running".
+            ( while [[ "$(tasklist.exe 2>/dev/null)" == *StarMap.exe* ]]; do sleep 5; done
+              restore_settings ) >/dev/null 2>&1 &
+            disown
+        else
+            restore_settings
+        fi
     fi
 
     # ScenarioRunner.Requested() deletes this as it reads it, but only if a game got far enough to
