@@ -79,6 +79,7 @@ public sealed class KSArmoryMod
     // Holds the main view on one system without handing it the controls.
     private readonly WatchCamera _watch = new();
     private readonly ChaseCamera _chase = new();
+    private WeaponSystem? _askedLoose;
     private readonly SightCamera _sight = new();
 
     // For the cameras: a move tracking a round runs on simulated time, zero while paused.
@@ -467,6 +468,12 @@ public sealed class KSArmoryMod
             _chase.Apply(riding, enabled: true, dt, _lastSimStep, _config.FreezeChaseTransition,
                          _sight.BaseFovDeg);
         }
+        else if (_ui.ChaseLoose is { } loose)
+        {
+            if (!ReferenceEquals(loose, _askedLoose)) _chase.ForgetPassedOver();
+            _chase.Apply(loose, KsaWorld.InFlightScene, dt, _lastSimStep, _config.FreezeChaseTransition,
+                         _sight.BaseFovDeg, takeCraftless: true);
+        }
         else if (_roster.For(_ui.Focused) is { } selected && _roster.LastReleasing(selected) is var chased)
         {
             _chase.Apply(chased.Weapon, chased.Policy.ChaseRounds && KsaWorld.InFlightScene,
@@ -476,6 +483,11 @@ public sealed class KSArmoryMod
         {
             _chase.Release();
         }
+
+        // One round ridden to its burst is the request, and one that could not be taken is refused;
+        // either way the next press asks again.
+        if (!_chase.HoldsMainView) _ui.StopChasingLoose();
+        _askedLoose = _ui.ChaseLoose;
 
         DriveCameraWindows(dt);
 

@@ -194,6 +194,9 @@ internal sealed class ChaseCamera : IViewPose
         => ViewClaim.StillOurs(KsaWorld.MainViewIsFixed(),
                                KsaWorld.MainViewFollows(_followed), outranked: false);
 
+    /// <summary>Makes every round in the air eligible again, for a chase asked for after a burst passed them over.</summary>
+    public void ForgetPassedOver() => _passedOver.Clear();
+
     /// <summary>Hands the view back, if it was taken. Safe to call at any time.</summary>
     public void Release()
     {
@@ -271,13 +274,15 @@ internal sealed class ChaseCamera : IViewPose
     /// The field the player's own view was set to, or zero if nothing changed it. Stated every frame,
     /// since the sight yields rather than releasing and its magnified field would otherwise be inherited.
     /// </param>
+    /// <param name="takeCraftless">
+    /// Asked for by name, as the switcher's row for a dead craft's rounds does. Otherwise a system with
+    /// no craft is only ridden on, never taken from: the view follows no craft it could be taken from.
+    /// </param>
     public void Apply(IEffectSource system, bool enabled, double dtPlayer, double dtSim,
-                      bool freezeTransition, double unzoomedFovDeg)
+                      bool freezeTransition, double unzoomedFovDeg, bool takeCraftless = false)
     {
-        // A system with no craft is only ridden on, never taken from: its round is the one already
-        // being watched, and it goes on to its burst after the craft that fired it is destroyed.
         bool ridingThis = _saved.Valid && ReferenceEquals(system, _source);
-        if (!enabled || (system.Platform is null && !ridingThis))
+        if (!enabled || (system.Platform is null && !ridingThis && !takeCraftless))
         {
             _passedOver.Clear();
             Release();
@@ -424,7 +429,7 @@ internal sealed class ChaseCamera : IViewPose
         {
             // Only if the view is already on this craft: otherwise a site elsewhere takes the
             // camera off whatever is being watched.
-            if (!KsaWorld.MainViewFollows(system.Platform)) return;
+            if (system.Platform is { } shooter ? !KsaWorld.MainViewFollows(shooter) : !takeCraftless) return;
 
             _saved = KsaWorld.RememberMainView();
             if (!_saved.Valid)
