@@ -628,12 +628,12 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// Start the burn's aim correction again at each staging during the climb, and read nothing while one lands. The
-    /// pitch programme's projection drifts and steps at a staging, the loop settles on it after twelve worse, and which
-    /// aim it settles on is luck: flown at 6,181 km on KSA 5801, six of eight buses cut off 3.0 km off their own
-    /// prediction and trimmed ~20 m/s, seat 1, whose loop first read just after its core dropped, 0.01 km and 4.
-    /// <c>docs/ICBM-OUTSTANDING.md</c> 1.25.
+    /// pitch programme's projection drifts and steps at a staging, and off, the loop settles on it after twelve worse
+    /// readings on whichever aim it banked: paired at 6,181 km on KSA 5801, 16 rockets an arm, base cut off up to 3.08 km
+    /// off its own prediction and spent a median 12.6 m/s of trim, max 21.4; on, 0.03 km and 4.7, max 5.4, every warhead
+    /// within 1 cm on both. <c>docs/ICBM-OUTSTANDING.md</c> 1.25.
     /// </summary>
-    public bool AimStartsOverAtEachClimbStaging;
+    public bool AimStartsOverAtEachClimbStaging = true;
 
     /// <summary>
     /// Keep a burn window once the hold has chosen to wait for it. Off, every re-solve asks again whether waiting saves
