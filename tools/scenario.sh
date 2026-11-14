@@ -36,6 +36,8 @@
 #   ./tools/scenario.sh head-on --keep   # leave the game running afterwards
 #   ./tools/scenario.sh head-on --shots  # ...and screenshot on CAPTURE (whole screen, opt-in)
 #   ./tools/scenario.sh mirv --no-deploy # fly whatever is already in the mods folder
+#   KSARMORY_SCENARIO_WINDOW=native ./tools/scenario.sh mirv   # the player's own display mode and size;
+#       the default is a 1280x720 window, so a run does not cost the frame rate of a machine in use
 #   KSARMORY_SCENARIO_VERBOSE=1 ./tools/scenario.sh head-on   # ...logging at DEBUG, per-part blast sweep included
 #
 #   KSARMORY_SCENARIO_CLOUDS=1 ./tools/scenario.sh drop:10,0,dumb   # a burst photographed rather
@@ -243,6 +245,15 @@ if [[ -f "$SETTINGS" ]]; then
     fi
 
     [[ -n "$CRAFT" ]] && sed -i "s|^startVehicle = \".*\"|startVehicle = \"$CRAFT\"|" "$SETTINGS"
+
+    WINDOW="${KSARMORY_SCENARIO_WINDOW:-1280x720}"
+    DISPLAY_WAS=()
+    if [[ "$WINDOW" =~ ^([0-9]+)x([0-9]+)$ ]]; then
+        mapfile -t DISPLAY_WAS < <(grep -E '^(mode|width|height|posX|posY) = ' "$SETTINGS" || true)
+        sed -i -e 's/^mode = ".*"/mode = "Windowed"/' \
+               -e "s/^width = .*/width = ${BASH_REMATCH[1]}/" -e "s/^height = .*/height = ${BASH_REMATCH[2]}/" \
+               -e 's/^posX = .*/posX = 40/' -e 's/^posY = .*/posY = 40/' "$SETTINGS"
+    fi
 fi
 
 # Any instance still up is one an earlier run left behind -- this launches its own either way, and
@@ -314,6 +325,9 @@ cleanup() {
             sed -i "s|^startVehicle = \".*\"|$CRAFT_WAS|" "$SETTINGS"
         [[ -n "${SYSTEM_WAS:-}" ]] &&
             sed -i "s|^lastSystemId = \".*\"|$SYSTEM_WAS|" "$SETTINGS"
+        for line in "${DISPLAY_WAS[@]}"; do
+            sed -i "s|^${line%% = *} = .*|$line|" "$SETTINGS"
+        done
     fi
 
     # ScenarioRunner.Requested() deletes this as it reads it, but only if a game got far enough to
