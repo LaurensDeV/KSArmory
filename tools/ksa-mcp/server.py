@@ -108,17 +108,25 @@ def launch(save: str | None = None) -> str:
         log = open(Path(__file__).resolve().parent / "launch.log", "w")
         proc = subprocess.Popen([str(REPO / "tools" / "run.sh")], cwd=REPO, stdout=log,
                                 stderr=subprocess.STDOUT, start_new_session=True)
-        STATE.write_text(str(proc.pid))
+        # The pid alone is not enough to identify this game later: pids are recycled, and killing a
+        # recycled one would signal an unrelated process group. Record when we started it.
+        STATE.write_text(json.dumps({"pid": proc.pid, "started": time.time()}))
         note = "launched"
 
-    deadline = time.time() + 300
+    # 120 s, not 300: run.sh does not touch settings.toml, so if the loader is showing its
+    # configuration dialog nothing will ever answer and a five-minute wait only delays saying so.
+    deadline = time.time() + 120
     while True:
         try:
             send("status", timeout=5)
             break
         except Refused:
             if time.time() > deadline:
-                raise Refused("the game never answered on the bridge")
+                raise Refused("the game never answered on the bridge in 120 s. It may be waiting on "
+                              "the loader's configuration dialog (scenario.sh clears "
+                              "selectSystemOnStart for this reason), or it may have failed to "
+                              f"start.\n{_tail(Path(__file__).resolve().parent / 'launch.log')}"
+                              f"\n{_tail(user_dir() / 'Logs' / 'KSArmory.log')}")
             time.sleep(2)
 
     if save:
@@ -127,15 +135,44 @@ def launch(save: str | None = None) -> str:
     return note
 
 
+def _tail(path: Path, lines: int = 20) -> str:
+    try:
+        tail = path.read_text(errors="replace").splitlines()[-lines:]
+    except OSError:
+        return f"({path.name}: not readable)"
+    return f"--- {path.name}, last {len(tail)} line(s) ---\n" + "\n".join(tail)
+
+
 def quit_game() -> str:
     """Closes a game this server launched, and refuses any other: that one is somebody's session."""
     if not STATE.exists():
         raise Refused("this server did not launch the running game; it is the player's to close")
-    pid = int(STATE.read_text())
+
+    # run.sh ends in a pipeline, so its process group holds the interop relay and the log filter --
+    # not StarMap.exe, which Windows owns. SIGTERM here left the game running while this function
+    # reported "closed" and forgot the state, so the next call refused a game it had started.
+    # taskkill is what scenario.sh uses for the same reason.
+    try:
+        state = json.loads(STATE.read_text())
+        pid = int(state["pid"])
+    except (ValueError, KeyError, TypeError):
+        pid = int(STATE.read_text().strip())   # a state file from before this was recorded as JSON
+
     try:
         os.killpg(pid, signal.SIGTERM)
-    except ProcessLookupError:
+    except (ProcessLookupError, PermissionError, OSError):
         pass
+    subprocess.run(["taskkill.exe", "/IM", "StarMap.exe", "/F"],
+                   capture_output=True, text=True, timeout=30)
+
+    deadline = time.time() + 30
+    while game_running():
+        if time.time() > deadline:
+            # Leave STATE in place: the game is still ours and still open, so a retry must be
+            # allowed to try again rather than be refused as the player's.
+            raise Refused("asked the game to close and it is still in tasklist after 30 s")
+        time.sleep(1)
+
     STATE.unlink(missing_ok=True)
     return "closed"
 
@@ -489,6 +526,9 @@ TOOLS = {
                     {"craft": {"type": "string"}}, ["craft"], lambda a: [_text(json.dumps(send("control", **a)))]),
     "ksa_remove": ("Take a named craft out of the world, leaving no debris. Refuses the craft being flown.",
                    {"craft": {"type": "string"}}, ["craft"], lambda a: [_text(json.dumps(send("remove", **a)))]),
+    "ksa_reseat": ("Set every landed craft whose origin is under the ground back down on it where it stands, "
+                   "for a save written against older terrain; ksa_save keeps it.",
+                   {}, [], lambda a: [_text(json.dumps(send("reseat", **a)))]),
     "ksa_spawn": ("Park a craft (craft, default Rocket) on the ground at lat/lon, named name: one of KSA's stock "
                   "designs, or one from the player's own design library.",
                   {"craft": {"type": "string"}, "name": {"type": "string"}, "lat": _num("deg"), "lon": _num("deg")},

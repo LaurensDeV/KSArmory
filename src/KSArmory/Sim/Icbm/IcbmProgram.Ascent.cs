@@ -14,11 +14,9 @@ internal sealed partial class IcbmProgram
         return Fly(Phase, state.UpCci, state, "vertical rise");
     }
 
-    // KSA's drag acts at the vehicle's centre with no turning moment -- the only aerodynamic torque
-    // damps rotation -- and structural failure depends on g-load alone, so an angle of attack costs
-    // drag and nothing else in this build. A short shot steers freely: the eight degrees that suit a
-    // long ascent are exactly what stops a core lit in thick air pointing where the shot needs.
-    // RocketWerkz are reworking aerodynamics; docs/BLOCKED-ON-KSA.md.
+    // A short shot steers freely: the eight degrees that suit a long ascent are exactly what stops a core
+    // lit in thick air pointing where the shot needs. Since 2026.11.16.5901 KSA gives a stack an
+    // aerodynamic moment; flown on it at 200 km, all seven warheads landed within 2.3 mm.
     private double AllowedAngleOfAttackDeg(in IcbmState state)
         => _shortShot ? 180.0 : Config.MaxAngleOfAttackDeg;
 

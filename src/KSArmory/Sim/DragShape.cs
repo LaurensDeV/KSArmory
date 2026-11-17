@@ -3,7 +3,7 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
-/// The drag a craft feels from air arriving from a given direction, as the engine computes it.
+/// The drag a craft feels from air arriving from a given direction, as KSA's drag box computes it.
 ///
 /// <para>KSA's drag is a drag area fixed to the body, times dynamic pressure, over the mass: the bounding
 /// box's faces weighted 0.3 nose, 1.0 tail, 1.2 sides, plus a tenth of the surface area as skin
@@ -11,8 +11,8 @@ namespace KSArmory;
 /// put every first shell 25 m behind and above the drone. Computed rather than read off the slowing,
 /// because a craft under power is not slowing and still has all of its drag.</para>
 ///
-/// <para>A copy of the engine's model as of 2026.9.7.5402, which RocketWerkz are reworking:
-/// <c>docs/BLOCKED-ON-KSA.md</c> has the check that confirms it still matches.</para>
+/// <para>A copy of the engine's box as of 2026.9.7.5402, which since 2026.11.16.5901 KSA flies only for a
+/// craft with no aerodynamic mesh; <see cref="Aero"/> is what flies the rest.</para>
 /// </summary>
 /// <param name="Positive">Drag area of each body axis's positive face (m²).</param>
 /// <param name="Negative">Drag area of each body axis's negative face (m²).</param>
@@ -29,9 +29,21 @@ namespace KSArmory;
 /// 22.8 m/s² over 15 s on a steady force, and holding it put the bursts 19.5 m under it.
 /// </param>
 /// <param name="PropellantMass">What it has left to burn (kg), which is when the thrust stops.</param>
+/// <param name="Aero">
+/// The engine's own loads over every airflow direction, which since 2026.11.16.5901 is what flies a
+/// craft with an aerodynamic mesh -- lift and side force included; the box above is KSA's fallback.
+/// </param>
+/// <param name="InertiaDiagonal">XX, YY, ZZ of its body-frame inertia about the centre of mass (kg m²), zero when unread.</param>
+/// <param name="InertiaOff">YX, ZX, ZY of the same.</param>
+/// <param name="InverseDiagonal">The inverse tensor's diagonal.</param>
+/// <param name="InverseOff">The inverse tensor's YX, ZX, ZY.</param>
+/// <param name="Track">Its attitude flown under the moment, which every turn with the body reads in place of the held rates.</param>
 public readonly record struct DragShape(double3 Positive, double3 Negative, double Skin, doubleQuat Body2Ecl,
                                         double3 BodyRates, double Mass, double ReferenceDensity,
-                                        double ExhaustVelocity, double PropellantMass)
+                                        double ExhaustVelocity, double PropellantMass, AeroTable? Aero = null,
+                                        double3 InertiaDiagonal = default, double3 InertiaOff = default,
+                                        double3 InverseDiagonal = default, double3 InverseOff = default,
+                                        AttitudeTrack? Track = null)
 {
     /// <summary>The mass flow that gives it <paramref name="thrustNow"/> of acceleration (kg/s).</summary>
     public double MassFlowFor(double3 thrustNow)
@@ -64,6 +76,14 @@ public readonly record struct DragShape(double3 Positive, double3 Negative, doub
         double airspeed = Vec.Len(airVelocity);
         if (!(airspeed > 0.0) || !(densityRatio > 0.0)) return Vec.Zero;
 
+        if (Aero is { IsComplete: true } table)
+        {
+            double q = 0.5 * ReferenceDensity * densityRatio * airspeed * airspeed;
+            double3 rates = Track?.RatesAt(seconds) ?? BodyRates;
+            double3 forcePerQ = table.Loads(ToBody(airVelocity * (-1.0 / airspeed), seconds), rates * (1.0 / airspeed)).Force;
+            return ToEcl(forcePerQ, seconds) * (q / Mass);
+        }
+
         double perSpeed = 0.5 * ReferenceDensity * densityRatio * AreaFacing(airVelocity, seconds) * airspeed / Mass;
         return airVelocity * -perSpeed;
     }
@@ -73,9 +93,24 @@ public readonly record struct DragShape(double3 Positive, double3 Negative, doub
     /// the turn.
     /// </summary>
     public double3 Carry(double3 vectorEcl, double seconds)
-        => IsTurning ? Body2Ecl * (Turn(seconds) * (doubleQuat.Conjugate(Body2Ecl) * vectorEcl)) : vectorEcl;
+        => Track is { } track ? track.ToEcl(track.ToBody(vectorEcl, 0.0), seconds)
+           : IsTurning ? Body2Ecl * (Turn(seconds) * (doubleQuat.Conjugate(Body2Ecl) * vectorEcl)) : vectorEcl;
 
     public bool IsTurning => Vec.Len2(BodyRates) > 0.0;
+
+    /// <summary>True when the inertia was read, so the rotation can be flown.</summary>
+    public bool HasInertia => InertiaDiagonal.X > 0.0 && InertiaDiagonal.Y > 0.0 && InertiaDiagonal.Z > 0.0
+                              && InverseDiagonal.X > 0.0 && Vec.IsFinite(InverseOff) && Vec.IsFinite(InertiaOff);
+
+    /// <summary>
+    /// This shape with its rotation flown under the table's moment; <paramref name="flowAt"/> answers its
+    /// airflow at a time from now. Itself where there is no table or no inertia to fly it with.
+    /// </summary>
+    public DragShape WithTrack(Func<double, AttitudeTrack.Flow> flowAt)
+        => Aero is { IsComplete: true } table && HasInertia
+               ? this with { Track = new AttitudeTrack(table, Body2Ecl, BodyRates, InertiaDiagonal, InertiaOff,
+                                                       InverseDiagonal, InverseOff, ReferenceDensity, flowAt) }
+               : this;
 
     /// <summary>True when every term is a real number the drag can be computed from.</summary>
     public bool IsUsable
@@ -87,9 +122,15 @@ public readonly record struct DragShape(double3 Positive, double3 Negative, doub
            && ExhaustVelocity >= 0.0 && double.IsFinite(ExhaustVelocity)
            && PropellantMass >= 0.0 && PropellantMass < Mass;
 
+    private double3 ToEcl(double3 body, double seconds)
+        => Track is { } track ? track.ToEcl(body, seconds)
+           : Body2Ecl * (IsTurning && seconds != 0.0 ? Turn(seconds) * body : body);
+
     // Body rates are in the body's own axes, so the turn composes on the body side of the attitude.
     private double3 ToBody(double3 ecl, double seconds)
     {
+        if (Track is { } track) return track.ToBody(ecl, seconds);
+
         double3 now = doubleQuat.Conjugate(Body2Ecl) * ecl;
         return IsTurning && seconds != 0.0 ? doubleQuat.Conjugate(Turn(seconds)) * now : now;
     }

@@ -7,9 +7,14 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-372 types and 973 members across 12 assemblies.
+383 types and 1000 members across 12 assemblies.
 
 ## BepuUtilities
+
+### BepuUtilities.Memory.BufferPool
+
+- `void .ctor(int, int)`
+- `void Clear()`
 
 ### BepuUtilities.Symmetric3x3
 
@@ -710,6 +715,42 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float Thrust`
 - `float get_ExhaustVelocity()`
 
+### KSA.Aero.AeroMesh
+
+- `KSA.Aero.AeroSurface Surface`
+
+### KSA.Aero.AeroMeshSource
+
+*referenced as a type only*
+
+### KSA.Aero.AeroSurface
+
+*referenced as a type only*
+
+### KSA.Aero.AeroSurfaceFlow
+
+- `bool Update(System.Numerics.Vector3)`
+- `void .ctor(KSA.Aero.AeroSurface, BepuUtilities.Memory.BufferPool)`
+
+### KSA.Aero.Aerodynamics
+
+- `KSA.Aero.AeroMesh get_Mesh()`
+- `KSA.Aero.AeroMeshSource get_Source()`
+
+### KSA.Aero.LocalInclinationLaw
+
+- `KSA.Aero.SurfaceLoads ComputeLoads(KSA.Aero.AeroSurfaceFlow, ref KSA.Aero.SkinFrictionLaw, System.Numerics.Vector3, System.Numerics.Vector3, System.Numerics.Vector3)`
+- `void .ctor(float, float)`
+
+### KSA.Aero.SkinFrictionLaw
+
+- `void .ctor(KSA.AtmosphericMixture, double, double, double, System.Nullable`1<double>)`
+
+### KSA.Aero.SurfaceLoads
+
+- `System.Numerics.Vector3 get_ForcePerDynamicPressure()`
+- `System.Numerics.Vector3 get_MomentPerDynamicPressure()`
+
 ### KSA.AsmbTankTemplate
 
 - `float GetWallYieldStrength()`
@@ -757,10 +798,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.ByteSize DynamicUboStride`
 
-### KSA.Atmosphere.Rendering.CloudShadowsRenderer
-
-*referenced as a type only*
-
 ### KSA.AtmosphereReference
 
 - `KSA.PhysicalAtmosphereReference Physical`
@@ -780,6 +817,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.AtmosphericMixture
 
+- `double ComputeGamma(double)`
+- `double ComputeSpeedOfSound(double)`
 - `double get_SpecificGasConstant()`
 
 ### KSA.AttitudeControlSystem
@@ -830,6 +869,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.doubleQuat LookAtRotation(Brutal.Numerics.double3, Brutal.Numerics.double3)`
 - `Brutal.Numerics.float2 EclToScreen(Brutal.Numerics.double3, bool)`
 - `Brutal.Numerics.float2 EgoToScreen(Brutal.Numerics.double3, bool)`
+- `Brutal.Numerics.float2 ScreenSize`
 - `Brutal.Numerics.int2 FramebufferSize`
 - `KSA.Celestial get_NearbyCelestial()`
 - `KSA.IFollowable get_Following()`
@@ -1016,8 +1056,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Double3Ex
 
+- `Brutal.Numerics.double3 FromBepu(System.Numerics.Vector3)`
 - `Brutal.Numerics.double3 Transform(Brutal.Numerics.double3, Brutal.Numerics.double4x4)`
 - `Brutal.Numerics.double3 Transform(Brutal.Numerics.double3, Brutal.Numerics.doubleQuat)`
+- `System.Numerics.Vector3 ToBepu(Brutal.Numerics.double3)`
 
 ### KSA.DoubleReference
 
@@ -1035,7 +1077,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.RocketControllerData SeaLevelData`
 - `KSA.RocketControllerData VacuumData`
-- `KSA.RocketCore[] Cores`
+- `KSA.Rocket[] Rockets`
 - `bool get_IsActive()`
 - `float MinimumThrottle`
 - `int get_Sequence()`
@@ -1593,6 +1635,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.PartTree
 
+- `KSA.Aero.Aerodynamics get_Aerodynamics()`
 - `KSA.ModuleList Modules`
 - `KSA.OffsetMassProperties ComputeInertMassPropertiesAsmb()`
 - `KSA.Part get_Root()`
@@ -1605,6 +1648,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `System.ReadOnlySpan`1<KSA.ISubstanceStore> get_SubstanceStores()`
 - `System.ReadOnlySpan`1<KSA.Part> get_Parts()`
 - `VehicleDents Dents`
+- `bool get_IsRebuildingAerodynamics()`
 - `float get_EngineThrottleMin()`
 - `int get_Count()`
 - `void ComposeRenderData(ref Brutal.Numerics.double4x4, bool, KSA.IViewport, int)`
@@ -1705,7 +1749,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.VulkanApi.VkSampler get_LinearClampedSampler()`
 - `Brutal.VulkanApi.VkSampler get_PointClampedSampler()`
 - `Core.Renderer GetRenderer()`
-- `KSA.Atmosphere.Rendering.CloudShadowsRenderer GetCloudShadowsRenderer()`
 - `KSA.AtmosphereRenderer get_PlanetAtmosphereRenderer()`
 - `KSA.Camera GetMainCamera()`
 - `KSA.Camera GetRenderCamera()`
@@ -1874,16 +1917,27 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.DensityReference Density`
 - `KSA.DistanceReference Level`
 
+### KSA.Rocket
+
+- `KSA.RocketCoreConditions ComputeCoreConditions(KSA.RocketCore, float)`
+- `System.ReadOnlySpan`1<KSA.RocketCore> get_Cores()`
+
 ### KSA.RocketControllerData
 
 - `Brutal.Numerics.float3 ThrustMax`
-- `KSA.RocketControllerData ComputeFromCores(System.ReadOnlySpan`1<KSA.RocketCore>, float, float)`
+- `KSA.RocketControllerData ComputeFromRockets(System.ReadOnlySpan`1<KSA.Rocket>, float, float)`
 - `float MassFlowRateMax`
-- `void ComputeFromCores(System.ReadOnlySpan`1<KSA.RocketCore>, float, float, float, ref KSA.RocketControllerData, ref KSA.RocketControllerData)`
+- `void ComputeFromRockets(System.ReadOnlySpan`1<KSA.Rocket>, float, float, float, ref KSA.RocketControllerData, ref KSA.RocketControllerData)`
 
 ### KSA.RocketCore
 
+- `KSA.Rocket Rocket`
 - `void RecomputeDesignConditions()`
+- `void RefreshMaxMassFlowRate(ref KSA.RocketCoreConditions)`
+
+### KSA.RocketCoreConditions
+
+*referenced as a type only*
 
 ### KSA.ScreenshotCapture
 
@@ -2017,7 +2071,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.ThrusterController
 
-- `KSA.RocketCore[] Cores`
+- `KSA.Rocket[] Rockets`
 
 ### KSA.ThrusterMapFlags
 
@@ -2032,6 +2086,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.TransformDataReference`1
 
 *referenced as a type only*
+
+### KSA.TransformReference
+
+- `void .ctor()`
+- `void set_ScaleValue(Brutal.Numerics.double3)`
 
 ### KSA.UncompressedSave
 
@@ -2144,8 +2203,11 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.VehicleProperties
 
+- `Brutal.Numerics.float3 get_CenterOfMassAsmb()`
 - `KSA.BoundingBoxCdA AerodynamicCdABody`
 - `KSA.OffsetMassProperties InertMassPropsAsmb`
+- `KSA.OffsetMassProperties TotalMassPropsAsmb`
+- `KSA.OffsetMassProperties TotalMassPropsInvAsmb`
 - `float TotalPropellantMass`
 - `float TotalSurfaceArea`
 - `float get_TotalMass()`

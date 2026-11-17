@@ -9,8 +9,8 @@ namespace KSArmory;
 /// station -- the store brings the same carriage, and mates at the same origin.
 ///
 /// <para>The mod's one pass in the vehicle editor as well as in flight. A subpart's scale is honoured by
-/// the editor's drawing, picking and snapping, and is not saved, so a load shows each part as its XML
-/// declares it until the first frame decides.</para>
+/// the editor's drawing, picking and snapping, and is not saved, so a load shows each part as its template
+/// has it, the carriage parked (<see cref="ParkOnTemplates"/>), until the first frame decides.</para>
 /// </summary>
 internal static class StoreCarriage
 {
@@ -74,6 +74,42 @@ internal static class StoreCarriage
             {
                 Show(part, carriage, part.TreeParent is not null, inEditor);
             }
+        }
+    }
+
+    /// <summary>
+    /// Parks every store's carriage on its part template. The XML declares it at full size so a tool that
+    /// reads the part files draws it; the editor's thumbnails and a part's first frame are built from the
+    /// template, so they show the store alone, as a carriage declared parked does.
+    /// </summary>
+    public static void ParkOnTemplates()
+    {
+        int parked = 0;
+        foreach (LauncherProfile launcher in Catalogue.Launchers) parked += Park(launcher.PartId, launcher.CarriageMarker);
+        foreach (OpticProfile optic in Catalogue.Optics) parked += Park(optic.PartId, optic.CarriageMarker);
+        if (parked > 0) Log.Info($"store carriage: {parked} carriage subpart(s) parked on their templates");
+    }
+
+    private static int Park(string partId, string? marker)
+    {
+        if (string.IsNullOrEmpty(marker)) return 0;
+        try
+        {
+            if (ModLibrary.Get<PartTemplate>(partId) is not { } template) return 0;
+            int parked = 0;
+            foreach (TransformDataReference<SubPartTemplate> sub in template.SubPartInstances)
+            {
+                if (!sub.Key.Contains(marker, StringComparison.Ordinal)) continue;
+                (sub.Transform ??= new TransformReference()).ScaleValue = Hidden;
+                parked++;
+            }
+
+            return parked;
+        }
+        catch
+        {
+            // A part the library cannot answer for is drawn as its XML says, and Update still decides.
+            return 0;
         }
     }
 

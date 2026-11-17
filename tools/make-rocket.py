@@ -37,9 +37,23 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+def _ksa_dir() -> Path:
+    """The KSA install. tools/ksa-game-dir.sh is the one list of places it can be, so that the
+    launcher moving the game -- as the Ahwoo/Neutrino one did -- is a one-file change."""
+    if os.environ.get("KSA_DIR"):
+        return Path(os.environ["KSA_DIR"])
+    try:
+        found = subprocess.run([str(Path(__file__).resolve().parent / "ksa-game-dir.sh")],
+                               capture_output=True, text=True, timeout=60).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        found = ""
+    # Unresolvable is not fatal here: the callers each say what they cannot do without it.
+    return Path(found) if found else Path("/nonexistent/Kitten Space Agency")
+
+
 REPO = Path(__file__).resolve().parent.parent
 MOD = REPO / "src" / "KSArmory"
-KSA_DIR = Path(os.environ.get("KSA_DIR", "/mnt/c/Program Files/Kitten Space Agency"))
+KSA_DIR = _ksa_dir()
 CORE = KSA_DIR / "Content" / "Core"
 
 ENGINE = "CorePropulsionA_Prefab_Engine"

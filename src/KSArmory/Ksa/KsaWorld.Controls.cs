@@ -20,10 +20,13 @@ internal static partial class KsaWorld
             for (int i = 0; i < engines.Length; i++)
             {
                 if (!engines[i].IsActive) continue;
-                foreach (RocketCore core in engines[i].Cores)
+                foreach (Rocket rocket in engines[i].Rockets)
                 {
-                    if (core is not SolidMotor) return false;
-                    any = true;
+                    foreach (RocketCore core in rocket.Cores)
+                    {
+                        if (core is not SolidMotor) return false;
+                        any = true;
+                    }
                 }
             }
             return any;
@@ -33,6 +36,28 @@ internal static partial class KsaWorld
             return false;
         }
     }
+
+    /// <summary>
+    /// Whether KSA counts the craft as controllable, and why not. Since 2026.11.16.5901 that needs an able
+    /// crew or a powered probe core; it gates the player's keys and gauges, not the mod's commands.
+    /// </summary>
+    public static string ControlSaid(Vehicle craft)
+    {
+        try
+        {
+            if (craft.IsControllable) return "controllable";
+
+            // KSA's own reason, private; its tooltip is the same thing as a localised string.
+            _controlField ??= typeof(Vehicle).GetField("_control", BindingFlags.NonPublic | BindingFlags.Instance);
+            return $"not controllable ({_controlField?.GetValue(craft)?.ToString() ?? "reason unread"})";
+        }
+        catch
+        {
+            return "control unknown";
+        }
+    }
+
+    private static FieldInfo? _controlField;
 
     /// <summary>
     /// Whether the engines running now stop when told to. False while any active engine burns a
@@ -47,9 +72,12 @@ internal static partial class KsaWorld
             for (int i = 0; i < engines.Length; i++)
             {
                 if (!engines[i].IsActive) continue;
-                foreach (RocketCore core in engines[i].Cores)
+                foreach (Rocket rocket in engines[i].Rockets)
                 {
-                    if (core is SolidMotor) return false;
+                    foreach (RocketCore core in rocket.Cores)
+                    {
+                        if (core is SolidMotor) return false;
+                    }
                 }
             }
             return true;
@@ -132,7 +160,7 @@ internal static partial class KsaWorld
                 Span<ThrusterController> jets = craft.Parts.Modules.Get<ThrusterController>();
                 for (int i = 0; i < jets.Length; i++)
                 {
-                    RocketControllerData d = RocketControllerData.ComputeFromCores(jets[i].Cores.AsSpan(), 0f, 1f);
+                    RocketControllerData d = RocketControllerData.ComputeFromRockets(jets[i].Rockets.AsSpan(), 0f, 1f);
                     thrust += Vec.Len(new double3(d.ThrustMax.X, d.ThrustMax.Y, d.ThrustMax.Z));
                     flow += d.MassFlowRateMax;
                 }
@@ -142,7 +170,7 @@ internal static partial class KsaWorld
                 Span<EngineController> engines = craft.Parts.Modules.Get<EngineController>();
                 for (int i = 0; i < engines.Length; i++)
                 {
-                    RocketControllerData d = RocketControllerData.ComputeFromCores(engines[i].Cores.AsSpan(), 0f, 1f);
+                    RocketControllerData d = RocketControllerData.ComputeFromRockets(engines[i].Rockets.AsSpan(), 0f, 1f);
                     thrust += Vec.Len(new double3(d.ThrustMax.X, d.ThrustMax.Y, d.ThrustMax.Z));
                     flow += d.MassFlowRateMax;
                 }

@@ -36,6 +36,8 @@
 #   ./tools/scenario.sh head-on --keep   # leave the game running afterwards
 #   ./tools/scenario.sh head-on --shots  # ...and screenshot on CAPTURE (whole screen, opt-in)
 #   ./tools/scenario.sh mirv --no-deploy # fly whatever is already in the mods folder
+#   KSARMORY_SCENARIO_WINDOW=native ./tools/scenario.sh mirv   # the player's own display mode and size;
+#       the default is a 1280x720 window, so a run does not cost the frame rate of a machine in use
 #   KSARMORY_SCENARIO_VERBOSE=1 ./tools/scenario.sh head-on   # ...logging at DEBUG, per-part blast sweep included
 #
 #   KSARMORY_SCENARIO_CLOUDS=1 ./tools/scenario.sh drop:10,0,dumb   # a burst photographed rather
@@ -170,7 +172,13 @@ case "${SCENARIO%%:*}" in
         # The mod's own budget is sized from the request, so this only has to outlast it.
         SAVE="${KSARMORY_SCENARIO_SAVE:-5inch_gun}"
         SYSTEM="${KSARMORY_SCENARIO_SYSTEM:-}"
-        DEADLINE_SECONDS=1800
+        # Must outlast GunneryScenario.BudgetSeconds, which is sized from the request:
+        # 90 + drones * (GapSeconds + ShellFlightSeconds) for a ground or craft shot, so four
+        # drones ask for 1902 s on their own (GunneryScenario.cs:48). A site adds
+        # SiteBudgetSeconds and a chase adds more, and the mod's clock starts after the save
+        # loads while this one starts before boot. 1800 cut healthy runs short and reported them
+        # as an unclicked dialog.
+        DEADLINE_SECONDS=2400
         ;;
     mirv)
         # No save by default: the rocket is the operator's, wherever they keep it, and a scenario
@@ -220,23 +228,34 @@ mkdir -p "$USER_DIR/Logs"
 # selectSystemOnStart, and with it off the game boots straight into settings.toml's startVehicle.
 # Restored on exit: it is the player's setting, not the harness's.
 SETTINGS="$USER_DIR/settings.toml"
-DIALOG_WAS=""
-CRAFT_WAS=""
+# The player's own lines, in a file a later run takes over while an earlier --keep run's restore waits:
+# captured afresh they would be that run's harness values.
+SETTINGS_WAS="$USER_DIR/Logs/scenario-settings-was.txt"
+SETTINGS_OWNER="$USER_DIR/Logs/scenario-settings-owner.txt"
+RUN_ID="$$-$(date +%s%N)"
 if [[ -f "$SETTINGS" ]]; then
-    DIALOG_WAS="$(grep -oE '^selectSystemOnStart = (true|false)' "$SETTINGS" | head -1 || true)"
-    CRAFT_WAS="$(grep -oE '^startVehicle = ".*"' "$SETTINGS" | head -1 || true)"
+    if [[ ! -s "$SETTINGS_WAS" ]]; then
+        grep -E '^(selectSystemOnStart|startVehicle|lastSystemId|mode|width|height|posX|posY) = ' \
+            "$SETTINGS" > "$SETTINGS_WAS" || true
+    fi
+    echo "$RUN_ID" > "$SETTINGS_OWNER"
 
     sed -i 's/^selectSystemOnStart = true/selectSystemOnStart = false/' "$SETTINGS"
 
     # Skipping the dialog does not choose a system: the game loads lastSystemId, set from SYSTEM
     # above and restored on exit with everything else here.
-    SYSTEM_WAS="$(grep -oE '^lastSystemId = ".*"' "$SETTINGS" | head -1 || true)"
-
     if [[ -n "${SYSTEM:-}" ]]; then
         sed -i "s|^lastSystemId = \".*\"|lastSystemId = \"$SYSTEM\"|" "$SETTINGS"
     fi
 
     [[ -n "$CRAFT" ]] && sed -i "s|^startVehicle = \".*\"|startVehicle = \"$CRAFT\"|" "$SETTINGS"
+
+    WINDOW="${KSARMORY_SCENARIO_WINDOW:-1280x720}"
+    if [[ "$WINDOW" =~ ^([0-9]+)x([0-9]+)$ ]]; then
+        sed -i -e 's/^mode = ".*"/mode = "Windowed"/' \
+               -e "s/^width = .*/width = ${BASH_REMATCH[1]}/" -e "s/^height = .*/height = ${BASH_REMATCH[2]}/" \
+               -e 's/^posX = .*/posX = 40/' -e 's/^posY = .*/posY = 40/' "$SETTINGS"
+    fi
 fi
 
 # Any instance still up is one an earlier run left behind -- this launches its own either way, and
@@ -280,9 +299,30 @@ else
 fi
 
 echo "== launching, scenario '$SCENARIO', save '$SAVE'${CRAFT:+, craft '$CRAFT'}"
-: > "$LOG" 2>/dev/null || true
+# The truncation below is what lets the poll loop read the log from its start, but KSArmory.prev.log
+# cannot be the safety net for it: the game copies this file over prev on startup, so truncating
+# first means the previous run is overwritten with nothing. Keep our own copy.
+RUNS_DIR="$REPO_ROOT/runs"
+mkdir -p "$RUNS_DIR" 2>/dev/null || true
+if [[ -s "$LOG" ]]; then cp -f "$LOG" "$RUNS_DIR/previous-KSArmory.log" 2>/dev/null || true; fi
+# stderr first: a redirect that fails is reported before a later 2>/dev/null applies, so on a
+# fresh install with no Logs folder yet this printed an error it was written to swallow.
+: 2>/dev/null > "$LOG" || true
 "$REPO_ROOT/tools/run.sh" --no-build >/dev/null 2>&1 &
 LAUNCHER=$!
+
+# Only the newest run restores: an older --keep run's waiting restore otherwise lands on the
+# settings a newer launch has just written.
+restore_settings() {
+    sleep 1
+    [[ "$(cat "$SETTINGS_OWNER" 2>/dev/null)" == "$RUN_ID" && -s "$SETTINGS_WAS" ]] || return 0
+    local line
+    while IFS= read -r line; do
+        sed -i "s|^${line%% = *} = .*|$line|" "$SETTINGS"
+    done < "$SETTINGS_WAS"
+    rm -f "$SETTINGS_WAS" "$SETTINGS_OWNER"
+    return 0
+}
 
 cleanup() {
     if (( ! KEEP )); then
@@ -291,16 +331,23 @@ cleanup() {
     kill "$LAUNCHER" 2>/dev/null || true
 
 
-    # The game rewrites settings.toml on exit, so this has to run after it is gone.
+    # The game rewrites settings.toml on exit, so this has to run after it is gone -- and under --keep
+    # it is not gone yet, so a restore made now would be overwritten when it closes.
     if [[ -f "$SETTINGS" ]]; then
-        sleep 1
-        [[ "$DIALOG_WAS" == "selectSystemOnStart = true" ]] &&
-            sed -i 's/^selectSystemOnStart = false/selectSystemOnStart = true/' "$SETTINGS"
-        [[ -n "$CRAFT_WAS" ]] &&
-            sed -i "s|^startVehicle = \".*\"|$CRAFT_WAS|" "$SETTINGS"
-        [[ -n "${SYSTEM_WAS:-}" ]] &&
-            sed -i "s|^lastSystemId = \".*\"|$SYSTEM_WAS|" "$SETTINGS"
+        if (( KEEP )); then
+            # A string test, not grep -q: under pipefail tasklist's SIGPIPE reads as "not running".
+            ( while [[ "$(tasklist.exe 2>/dev/null)" == *StarMap.exe* ]]; do sleep 5; done
+              restore_settings ) >/dev/null 2>&1 &
+            disown
+        else
+            restore_settings
+        fi
     fi
+
+    # ScenarioRunner.Requested() deletes this as it reads it, but only if a game got far enough to
+    # read it. A launch that died earlier would otherwise leave it for the operator's next ordinary
+    # run.sh, which would then fly the scenario unasked.
+    rm -f "$USER_DIR/Logs/scenario.txt" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -316,6 +363,10 @@ PRINTED=0
 GAME_SEEN=0
 GAME_GONE=0
 NEXT_GAME_CHECK=$SECONDS
+# A game that never appears in any listing -- a bad deploy, a missing shader, a Vulkan failure --
+# leaves GAME_SEEN at 0 forever, and the exit branch below needs it set, so nothing would end the
+# wait before the flight deadline. Give the start its own short deadline.
+STARTUP_GRACE=$(( SECONDS + 150 ))
 
 while (( SECONDS < DEADLINE )); do
     [[ -f "$LOG" ]] || { sleep 2; continue; }
@@ -338,8 +389,14 @@ while (( SECONDS < DEADLINE )); do
                 # can answer.
                 if (( SHOTS_ON )); then
                     sleep 1
-                    "$REPO_ROOT/tools/screenshot.sh" >/dev/null 2>&1 || true
-                    echo "   -> screenshot in screenshots/"
+                    # Say what actually happened: screenshot.sh exits non-zero when the game is not
+                    # the foreground window, which is the normal case on an unattended box, and
+                    # announcing a file that was never written is worse than announcing nothing.
+                    if SHOT_OUT=$("$REPO_ROOT/tools/screenshot.sh" 2>&1); then
+                        echo "   -> ${SHOT_OUT##*$'\n'}"
+                    else
+                        echo "   -> no screenshot: ${SHOT_OUT##*$'\n'}" >&2
+                    fi
                 fi
                 ;;
             *PASS*)    VERDICT=PASS ;;
@@ -349,6 +406,16 @@ while (( SECONDS < DEADLINE )); do
     done
 
     [[ -n "$VERDICT" ]] && break
+
+    # KSArmoryMod.Fault() disables the mod after FaultLimit exceptions and lets go of the game.
+    # StepOnce then returns before StepSimulation, so ScenarioRunner.Update is never called again
+    # and no further SCENARIO line can ever arrive -- while the game stays in tasklist, so the exit
+    # branch never fires either. Without this the run burns its whole deadline and is reported as an
+    # unclicked configuration dialog.
+    if grep -qF 'air defence disabled for this session' "$LOG" 2>/dev/null; then
+        VERDICT=FAULTED
+        break
+    fi
 
     if (( SECONDS >= NEXT_GAME_CHECK )); then
         NEXT_GAME_CHECK=$(( SECONDS + 10 ))
@@ -360,6 +427,12 @@ while (( SECONDS < DEADLINE )); do
             GAME_GONE=$(( GAME_GONE + 1 ))
             (( GAME_GONE >= 3 )) && { VERDICT=EXITED; break; }
         fi
+
+        # Never came up at all: end the wait here rather than at the flight deadline, which for
+        # mirv is fifty minutes away.
+        if (( ! GAME_SEEN )) && (( SECONDS >= STARTUP_GRACE )); then
+            break
+        fi
     fi
     sleep 2
 done
@@ -370,15 +443,57 @@ if [[ "${SCENARIO%%:*}" == "drop" ]]; then
          "$(grep -oE 'chase: (taking|holding on the burst|released)[^,]*' "$LOG" | tr '\n' ';')"
 fi
 
+# Everything the operator would otherwise get by hand, on a second run, from a log the next launch
+# has already truncated. SKILL.md section 3 prescribes these same two greps.
+bundle() {
+    local dir stamp
+    stamp=$(date +%Y%m%d-%H%M%S)
+    dir="$RUNS_DIR/$stamp-${SCENARIO%%:*}"
+    mkdir -p "$dir" 2>/dev/null || return 0
+    cp -f "$LOG" "$dir/KSArmory.log" 2>/dev/null || true
+    local engine
+    # shellcheck disable=SC2012  # KSA's own filenames are timestamps; ls -t is the simplest sort
+    engine=$(ls -t "$USER_DIR"/Logs/KittenSpaceAgency.*.log 2>/dev/null | head -1)
+    [[ -n "$engine" ]] && cp -f "$engine" "$dir/engine.log" 2>/dev/null || true
+    {
+        echo "scenario: $SCENARIO"
+        echo "verdict:  ${VERDICT:-none}"
+        echo "save:     $SAVE"
+        echo "elapsed:  $(( SECONDS ))s of ${DEADLINE_SECONDS}s"
+        env | grep '^KSARMORY_SCENARIO_' | sort || true
+    } > "$dir/run.txt" 2>/dev/null || true
+    echo "  evidence: $dir" >&2
+
+    local errs
+    errs=$(grep -E 'ERROR|Exception' "$LOG" 2>/dev/null | tail -8 || true)
+    [[ -n "$errs" ]] && { echo "  the mod's last errors:" >&2; sed 's/^/    /' <<< "$errs" >&2; }
+    [[ -n "$engine" ]] && {
+        errs=$(grep -iE 'exception|Update task failed' "$engine" 2>/dev/null | tail -5 || true)
+        [[ -n "$errs" ]] && { echo "  the engine's:" >&2; sed 's/^/    /' <<< "$errs" >&2; }
+    }
+    return 0
+}
+
 echo
 case "$VERDICT" in
     PASS) echo "scenario '$SCENARIO': PASS" ;;
+    FAULTED)
+          echo "scenario '$SCENARIO': FAIL -- the mod took too many exceptions and disabled itself" >&2
+          echo "  the game is still running but the scenario runner is dead; nothing more will be logged" >&2
+          bundle
+          exit 1 ;;
     EXITED) echo "scenario '$SCENARIO': FAIL -- the game exited before a verdict" >&2
+          bundle
           exit 1 ;;
     "")   echo "scenario '$SCENARIO': no verdict within $(( DEADLINE_SECONDS / 60 )) minutes" >&2
-          echo "  the game may still be on StarMap's configuration dialog -- it needs START KSA clicked" >&2
+          if (( ! GAME_SEEN )); then
+              echo "  no game ever appeared in tasklist -- it failed to start; check the deploy and runs/" >&2
+          else
+              echo "  the game may still be on StarMap's configuration dialog -- it needs START KSA clicked" >&2
+          fi
+          bundle
           exit 1 ;;
-    *)    echo "scenario '$SCENARIO': $VERDICT" >&2; exit 1 ;;
+    *)    echo "scenario '$SCENARIO': $VERDICT" >&2; bundle; exit 1 ;;
 esac
 
 # An `if` rather than `&&`: this is the last statement, so with --shots off a false `&&` would

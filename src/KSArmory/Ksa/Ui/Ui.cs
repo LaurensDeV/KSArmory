@@ -288,8 +288,9 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
     private void DrawSystemList()
     {
         RefreshSystems();
+        RefreshLoose();
 
-        if (_systems.Count == 0)
+        if (_systems.Count == 0 && _looseFlying.Count == 0)
         {
             ImGui.TextColored(Grey, "No weapons or sensors on any craft.");
             ImGui.SameLine();
@@ -343,7 +344,130 @@ internal sealed partial class Ui(Config config, WeaponSystems roster, OpticalHea
             }
         }
 
+        DrawLooseRows(toggled);
+
         ImGui.EndTable();
+    }
+
+    /// <summary>A craftless system whose rounds the switcher's chase button asked to ride, while they fly.</summary>
+    public WeaponSystem? ChaseLoose { get; private set; }
+
+    public void StopChasingLoose() => ChaseLoose = null;
+
+    private readonly List<WeaponSystem> _looseFlying = [];
+
+    private void RefreshLoose()
+    {
+        _looseFlying.Clear();
+        foreach (WeaponSystem s in _roster.Loose)
+        {
+            if (FlyingCount(s) > 0) _looseFlying.Add(s);
+        }
+
+        if (ChaseLoose is { } chased && !_looseFlying.Contains(chased)) ChaseLoose = null;
+    }
+
+    private static int FlyingCount(WeaponSystem s)
+    {
+        int flying = 0;
+        foreach (IProjectile r in s.Rounds) flying += r.State == RoundState.Flying ? 1 : 0;
+        return flying;
+    }
+
+    // Rounds whose craft is gone, which no craft row can reach: a MIRV bus dies once it has let go.
+    private void DrawLooseRows(bool toggled)
+    {
+        if (_looseFlying.Count == 0) return;
+
+        ImGui.TableNextRow();
+        ImGui.TableNextColumn();
+        ImGui.TextColored(Grey, "Rounds in the air");
+        if (!toggled && ImGui.TableSetColumnIndex(5)) DrawTeamsToggle();
+
+        for (int i = 0; i < _looseFlying.Count; i++)
+        {
+            ImGui.PushID(LooseRowIds + i);
+            ImGui.TableNextRow();
+            DrawLooseRow(_looseFlying[i]);
+            ImGui.PopID();
+        }
+    }
+
+    // Clear of the craft rows' ids, which count from zero.
+    private const int LooseRowIds = 1 << 20;
+
+    private void DrawLooseRow(WeaponSystem s)
+    {
+        ImGui.TableNextColumn();
+
+        int flying = 0;
+        double first = double.NaN;
+        foreach (IProjectile r in s.Rounds)
+        {
+            if (r.State != RoundState.Flying) continue;
+            flying++;
+            double down = SecondsToGround(s, r);
+            if (double.IsFinite(down) && !(down >= first)) first = down;
+        }
+
+        // Two short lines: the panel opens narrow enough to clip one long one after the name.
+        string when = double.IsFinite(first) ? $", {IcbmProgram.Clock(first)}" : "";
+        ImGui.TextColored(Grey, $"     {s.LooseName}");
+        ImGui.TextColored(Grey, $"       {flying} falling{when}");
+
+        if (ImGui.BeginItemTooltip())
+        {
+            ImGui.Text($"Fired by {s.LooseName}, which is gone; the time is when the first comes down. "
+                       + "Each round, where it was sent and when it lands:");
+            foreach (IProjectile r in s.Rounds)
+            {
+                if (r.State != RoundState.Flying) continue;
+                double down = SecondsToGround(s, r);
+                ImGui.Text($"  {RoundLabel.For(r.Tube),-8} {SentTo(r),-22} "
+                                      + (double.IsFinite(down) ? IcbmProgram.Clock(down) : "--:--"));
+            }
+            ImGui.EndTooltip();
+        }
+
+        ImGui.TableNextColumn();
+        ImGui.TableNextColumn();
+        ImGui.TableNextColumn();
+
+        bool chasing = ReferenceEquals(ChaseLoose, s);
+        if (IconButton("##chase", Icon.Camera, chasing ? ChaseInk : OffInk, lit: chasing))
+        {
+            ChaseLoose = chasing ? null : s;
+        }
+
+        Tip(chasing
+                ? "Riding one of these rounds down. Click to hand the view back."
+                : "Rides the camera behind the newest of these rounds down to its burst, then hands the "
+                  + "view back; press again for the next. Right-drag looks around the round.");
+    }
+
+    // To the mean sphere rather than the terrain: a countdown in whole seconds, read every frame for
+    // every round in the air, is not worth a height-field lookup each.
+    private static double SecondsToGround(WeaponSystem s, IProjectile r)
+    {
+        if (s.EffectBody is not { } body) return double.NaN;
+
+        double3 centre = KsaWorld.PositionEcl(body);
+        double3 below = centre + (Vec.Unit(r.PositionEcl - centre) * body.MeanRadius);
+        return ChaseInterest.TimeToFall(r.PositionEcl, r.VelocityEcl, below, KsaWorld.GroundVelocityAt(body, below),
+                                        KsaWorld.GravityAt(body, r.PositionEcl));
+    }
+
+    private static string SentTo(IProjectile r)
+    {
+        Aimpoint aim = r.Aimpoint;
+        if (aim.Kind != AimpointKind.Ground
+            || !KsaWorld.TryGroundAnchorEcl(aim.Handle, aim.Anchor, out double3 at, out _)
+            || !KsaWorld.TryLatitudeLongitude(at, out string body, out double lat, out double lon))
+        {
+            return aim.Kind == AimpointKind.None ? "unguided" : aim.Kind.ToString().ToLowerInvariant();
+        }
+
+        return new AimSite(body, lat, lon, "").Coordinates;
     }
 
     // Each switch acts on every system of its kind on the craft; its window acts on one.

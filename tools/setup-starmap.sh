@@ -11,7 +11,9 @@
 #
 set -euo pipefail
 
-KSA_DIR="${KSA_DIR:-/mnt/c/Program Files/Kitten Space Agency}"
+# shellcheck source=ksa-game-dir.sh
+source "$(dirname "${BASH_SOURCE[0]}")/ksa-game-dir.sh"
+KSA_DIR="${KSA_DIR:-$(ksa_game_dir || true)}"
 
 if [[ ! -f "$KSA_DIR/KSA.dll" ]]; then
     echo "error: KSA not found at '$KSA_DIR'" >&2

@@ -627,6 +627,15 @@ internal sealed class IcbmConfig
     public bool FreezeKeepsABetterRecentAim = true;
 
     /// <summary>
+    /// Start the burn's aim correction again at each staging during the climb, and read nothing while one lands. The
+    /// pitch programme's projection drifts and steps at a staging, and off, the loop settles on it after twelve worse
+    /// readings on whichever aim it banked: paired at 6,181 km on KSA 5801, 16 rockets an arm, base cut off up to 3.08 km
+    /// off its own prediction and spent a median 12.6 m/s of trim, max 21.4; on, 0.03 km and 4.7, max 5.4, every warhead
+    /// within 1 cm on both. <c>docs/ICBM-OUTSTANDING.md</c> 1.25.
+    /// </summary>
+    public bool AimStartsOverAtEachClimbStaging = true;
+
+    /// <summary>
     /// Keep a burn window once the hold has chosen to wait for it. Off, every re-solve asks again whether waiting saves
     /// 1,000 m/s, and nearing the window leaving now always passes: flown under warp, it lit 7.2 deg off the plane at
     /// 15,800x on a 50 s step. From <c>ORBIT 300</c>, without it 2 of 2 holds left mid-warp, 7-47 deg off the plane;

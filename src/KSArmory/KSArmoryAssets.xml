@@ -1447,31 +1447,26 @@
       <SubPart Key="KSArmory_Lau10_CarriageBody" Ref="KSArmory_EjectorBody_SubPart">
         <Transform>
           <Position X="-0.19000" Y="0.00000" Z="0.00000" />
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
         </Transform>
       </SubPart>
       <SubPart Key="KSArmory_Lau10_CarriageHookFwd" Ref="KSArmory_EjectorHook_SubPart">
         <Transform>
           <Position X="0.00000" Y="0.38100" Z="0.00000" />
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
         </Transform>
       </SubPart>
       <SubPart Key="KSArmory_Lau10_CarriageHookAft" Ref="KSArmory_EjectorHook_SubPart">
         <Transform>
           <Position X="0.00000" Y="-0.38100" Z="0.00000" />
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
         </Transform>
       </SubPart>
       <SubPart Key="KSArmory_Lau10_CarriageArmFwd" Ref="KSArmory_EjectorArm_SubPart">
         <Transform>
           <Position X="-0.01400" Y="0.28000" Z="0.00000" />
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
         </Transform>
       </SubPart>
       <SubPart Key="KSArmory_Lau10_CarriageArmAft" Ref="KSArmory_EjectorArm_SubPart">
         <Transform>
           <Position X="-0.01400" Y="-0.28000" Z="0.00000" />
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
         </Transform>
       </SubPart>
     </SubParts>
@@ -1585,31 +1580,26 @@
       <SubPart Key="KSArmory_ZuniPod6_CarriageBody" Ref="KSArmory_EjectorBody_SubPart">
         <Transform>
           <Position X="-0.19000" Y="0.00000" Z="0.00000" />
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
         </Transform>
       </SubPart>
       <SubPart Key="KSArmory_ZuniPod6_CarriageHookFwd" Ref="KSArmory_EjectorHook_SubPart">
         <Transform>
           <Position X="0.00000" Y="0.38100" Z="0.00000" />
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
         </Transform>
       </SubPart>
       <SubPart Key="KSArmory_ZuniPod6_CarriageHookAft" Ref="KSArmory_EjectorHook_SubPart">
         <Transform>
           <Position X="0.00000" Y="-0.38100" Z="0.00000" />
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
         </Transform>
       </SubPart>
       <SubPart Key="KSArmory_ZuniPod6_CarriageArmFwd" Ref="KSArmory_EjectorArm_SubPart">
         <Transform>
           <Position X="-0.01400" Y="0.28000" Z="0.00000" />
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
         </Transform>
       </SubPart>
       <SubPart Key="KSArmory_ZuniPod6_CarriageArmAft" Ref="KSArmory_EjectorArm_SubPart">
         <Transform>
           <Position X="-0.01400" Y="-0.28000" Z="0.00000" />
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
         </Transform>
       </SubPart>
     </SubParts>
@@ -1678,11 +1668,7 @@
           <Rotation Z="1.57080" />
         </Transform>
       </SubPart>
-      <SubPart Key="KSArmory_Sidewinder_LaunchRailBody" Ref="KSArmory_LaunchRailBody_SubPart">
-        <Transform>
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-        </Transform>
-      </SubPart>
+      <SubPart Key="KSArmory_Sidewinder_LaunchRailBody" Ref="KSArmory_LaunchRailBody_SubPart" />
     </SubParts>
     <Connectors>
       <!-- Attaches by the ejector's upper face, the mesh origin. -->
@@ -1739,11 +1725,7 @@
           <Rotation Z="1.57080" />
         </Transform>
       </SubPart>
-      <SubPart Key="KSArmory_Amraam_LaunchRailBody" Ref="KSArmory_LaunchRailBody_SubPart">
-        <Transform>
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-        </Transform>
-      </SubPart>
+      <SubPart Key="KSArmory_Amraam_LaunchRailBody" Ref="KSArmory_LaunchRailBody_SubPart" />
     </SubParts>
     <Connectors>
       <!-- Attaches by the ejector's upper face, the mesh origin. -->
@@ -1800,11 +1782,7 @@
           <Rotation Z="1.57080" />
         </Transform>
       </SubPart>
-      <SubPart Key="KSArmory_Harm_LaunchRailBody" Ref="KSArmory_LaunchRailBody_SubPart">
-        <Transform>
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-        </Transform>
-      </SubPart>
+      <SubPart Key="KSArmory_Harm_LaunchRailBody" Ref="KSArmory_LaunchRailBody_SubPart" />
     </SubParts>
     <Connectors>
       <!-- Attaches by the ejector's upper face, the mesh origin. -->
@@ -1826,33 +1804,25 @@
   </Part>
   <Part Id="KSArmory_Prefab_B61">
     <SubParts>
-      <SubPart Key="KSArmory_Bomb_CarriageBody" Ref="KSArmory_EjectorBody_SubPart">
-        <Transform>
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-        </Transform>
-      </SubPart>
+      <SubPart Key="KSArmory_Bomb_CarriageBody" Ref="KSArmory_EjectorBody_SubPart" />
       <SubPart Key="KSArmory_Bomb_CarriageHookFwd" Ref="KSArmory_EjectorHook_SubPart">
         <Transform>
           <Position X="0.19000" Y="0.38100" Z="0.00000" />
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
         </Transform>
       </SubPart>
       <SubPart Key="KSArmory_Bomb_CarriageHookAft" Ref="KSArmory_EjectorHook_SubPart">
         <Transform>
           <Position X="0.19000" Y="-0.38100" Z="0.00000" />
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
         </Transform>
       </SubPart>
       <SubPart Key="KSArmory_Bomb_CarriageArmFwd" Ref="KSArmory_EjectorArm_SubPart">
         <Transform>
           <Position X="0.21200" Y="0.28000" Z="0.00000" />
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
         </Transform>
       </SubPart>
       <SubPart Key="KSArmory_Bomb_CarriageArmAft" Ref="KSArmory_EjectorArm_SubPart">
         <Transform>
           <Position X="0.21200" Y="-0.28000" Z="0.00000" />
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
         </Transform>
       </SubPart>
       <SubPart Key="KSArmory_Bomb_B6100" Ref="KSArmory_B61_SubPart">
@@ -2014,33 +1984,25 @@
       the part list shows the pod alone. Hooks at the lugs' 14-inch spacing, arms with their feet on
       the skin. Named so no optic marker selects them.
     -->
-      <SubPart Key="KSArmory_LtCarriage_EjectorBody" Ref="KSArmory_EjectorBody_SubPart">
-        <Transform>
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
-        </Transform>
-      </SubPart>
+      <SubPart Key="KSArmory_LtCarriage_EjectorBody" Ref="KSArmory_EjectorBody_SubPart" />
       <SubPart Key="KSArmory_LtCarriage_HookFwd" Ref="KSArmory_EjectorHook_SubPart">
         <Transform>
           <Position X="0.19000" Y="0.17780" Z="0.00000" />
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
         </Transform>
       </SubPart>
       <SubPart Key="KSArmory_LtCarriage_HookAft" Ref="KSArmory_EjectorHook_SubPart">
         <Transform>
           <Position X="0.19000" Y="-0.17780" Z="0.00000" />
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
         </Transform>
       </SubPart>
       <SubPart Key="KSArmory_LtCarriage_ArmFwd" Ref="KSArmory_EjectorArm_SubPart">
         <Transform>
           <Position X="0.19100" Y="0.28000" Z="0.00000" />
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
         </Transform>
       </SubPart>
       <SubPart Key="KSArmory_LtCarriage_ArmAft" Ref="KSArmory_EjectorArm_SubPart">
         <Transform>
           <Position X="0.19100" Y="-0.28000" Z="0.00000" />
-          <Scale X="0.00100" Y="0.00100" Z="0.00100" />
         </Transform>
       </SubPart>
     </SubParts>

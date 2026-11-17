@@ -144,6 +144,7 @@ RESEARCH = (
     "FlyAnyRange",
     "FocusTubesOnTheAim",
     "FreezeKeepsABetterRecentAim",
+    "AimStartsOverAtEachClimbStaging",
     "GroundQueryAtOwnEpoch",
     "HandsOverWhenBurningAddsToTheShot",
     "HoldDriftsUntilIgnition",

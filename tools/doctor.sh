@@ -10,6 +10,8 @@
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=ksa-game-dir.sh
+source "$REPO_ROOT/tools/ksa-game-dir.sh"
 cd "$REPO_ROOT" || exit 1
 
 FAIL=0
@@ -81,13 +83,9 @@ for candidate in \
     "${KSA_DIR:-}" \
     "$REPO_ROOT/Import" \
     "$REPO_ROOT/../ksa-game-assemblies/current/dll" \
-    "C:/Program Files/Kitten Space Agency" \
-    "/c/Program Files/Kitten Space Agency" \
     "$HOME/.steam/steam/steamapps/common/Kitten Space Agency" \
-    "$HOME/.local/share/Steam/steamapps/common/Kitten Space Agency" \
     "$HOME/Games/Kitten Space Agency" \
-    "$HOME/Kitten Space Agency" \
-    "/mnt/c/Program Files/Kitten Space Agency"
+    "$(ksa_game_dir 2>/dev/null || true)"
 do
     [[ -n "$candidate" && -f "$candidate/KSA.dll" ]] && { FOUND_DLL="$candidate"; break; }
 done
@@ -192,6 +190,30 @@ elif [[ "$PLATFORM" == "gitbash" ]]; then
     hint "the Blender model pipeline is not wired up for this shell; set BLENDER if you need it"
 else
     hint "running the game and rebuilding the model are WSL/Windows only; everything else works here"
+fi
+
+# Reports and never deletes, on purpose: the stale ones holding uncommitted work are the valuable
+# ones, and which way each should go -- squashed and landed, or one line in docs/ and the branch
+# deleted -- is CLAUDE.md's arm policy, not a script's call.
+head_ "Agent worktrees"
+
+stale=0
+while IFS= read -r w; do
+    [[ -n "$w" && -d "$w" ]] || continue
+    age=$(( ( $(date +%s) - $(stat -c %Y "$w") ) / 86400 ))
+    (( age > 14 )) || continue
+    dirty=$(git -C "$w" status --porcelain 2>/dev/null | wc -l)
+    ahead=$(git -C "$w" rev-list --count dev..HEAD 2>/dev/null || echo 0)
+    printf '  %-44s %3dd  %2d dirty  %2d ahead of dev\n' "$(basename "$w")" "$age" "$dirty" "$ahead"
+    stale=$(( stale + 1 ))
+done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}' | grep '/\.claude/worktrees/' || true)
+
+if (( stale )); then
+    hint "$stale older than two weeks. Clean and 0 ahead: git worktree remove."
+    hint "Otherwise land it, or write the one line in docs/ and delete the branch."
+    hint "bin/obj inside them is build output and is always free to rm -rf."
+else
+    ok "no agent worktree older than two weeks"
 fi
 
 head_ "Summary"

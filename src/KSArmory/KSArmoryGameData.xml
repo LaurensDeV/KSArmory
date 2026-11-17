@@ -876,6 +876,9 @@
         <Nozzles>
           <Nozzle KeyRef="Nozzle" />
         </Nozzles>
+        <!-- KSA's floor (RocketTemplate clamps to 1 ms): a shorter pulse is a finer attitude quantum
+           at no cost in peak authority. -->
+        <MinimumPulseTime Seconds="0.001" />
       </Rocket>
     </Rockets>
     <RocketCores Modify="Extend">
@@ -889,9 +892,6 @@
         </Reaction>
         <MaxPressure Bar="7" />
         <ThermalEfficiency Value="0.95" />
-        <!-- KSA's floor (CombustorTemplate clamps to 1 ms): a shorter pulse is a finer attitude quantum
-           at no cost in peak authority. -->
-        <MinimumPulseTime Seconds="0.001" />
       </Combustor>
     </RocketCores>
     <RocketNozzles Modify="Extend">
@@ -919,6 +919,7 @@
         <Nozzles>
           <Nozzle KeyRef="Nozzle" />
         </Nozzles>
+        <MinimumThrottle Value="0.01" />
       </Rocket>
     </Rockets>
     <RocketCores Modify="Extend">
@@ -931,7 +932,6 @@
         </Reaction>
         <MaxPressure Bar="7" />
         <ThermalEfficiency Value="0.95" />
-        <MinimumThrottle Value="0.01" />
       </Combustor>
     </RocketCores>
     <RocketNozzles Modify="Extend">

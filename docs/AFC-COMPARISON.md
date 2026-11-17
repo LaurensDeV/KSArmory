@@ -109,7 +109,7 @@ who grabs the attitude mid-ascent today fights the computer without being told w
 They sample the game's own aerodynamics once onto a Mach and angle-of-attack grid and fit a spline, spaced finely
 through 0.85–1.30 for the day the game's drag stops being flat in Mach. Ours is one coefficient per round, five
 rounds are still typed by hand (`ArsenalTests.EveryRoundsDragComesFromWhatItIsUnlessNamedHere`), and
-`Sim/DragShape.cs` is a copy of today's `PhysicsStates.ComputeDrag` that nothing fails on when the engine's changes.
+`Sim/DragShape.cs` now samples the engine's own loads (`Ksa/AeroTables.cs`), which is the approach worth taking from AFC; its drag box is the fallback.
 Sampling the engine instead of copying it is the part worth taking; `Adapters/KsaAeroSweep.cs` is how they do it.
 
 ## 7. Steering over the whole burn

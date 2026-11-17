@@ -26,6 +26,7 @@
     <KsaDllDir Condition="'$(KsaDllDir)' == '' AND Exists('$(MSBuildThisFileDirectory)../ksa-game-assemblies/current/dll/KSA.dll')">$(MSBuildThisFileDirectory)../ksa-game-assemblies/current/dll/</KsaDllDir>
 
     <!-- Windows -->
+    <KsaDllDir Condition="'$(KsaDllDir)' == '' AND Exists('C:\Program Files\Ahwoo\Games\Kitten Space Agency\KSA.dll')">C:\Program Files\Ahwoo\Games\Kitten Space Agency\</KsaDllDir>
     <KsaDllDir Condition="'$(KsaDllDir)' == '' AND Exists('C:\Program Files\Kitten Space Agency\KSA.dll')">C:\Program Files\Kitten Space Agency\</KsaDllDir>
 
     <!-- Native Linux and macOS: Steam in both its usual homes, then the obvious manual spots. -->
@@ -35,6 +36,7 @@
     <KsaDllDir Condition="'$(KsaDllDir)' == '' AND Exists('$(HOME)/Kitten Space Agency/KSA.dll')">$(HOME)/Kitten Space Agency/</KsaDllDir>
 
     <!-- WSL, last: this path exists only there, so probing it earlier would shadow a real install. -->
+    <KsaDllDir Condition="'$(KsaDllDir)' == '' AND Exists('/mnt/c/Program Files/Ahwoo/Games/Kitten Space Agency/KSA.dll')">/mnt/c/Program Files/Ahwoo/Games/Kitten Space Agency/</KsaDllDir>
     <KsaDllDir Condition="'$(KsaDllDir)' == '' AND Exists('/mnt/c/Program Files/Kitten Space Agency/KSA.dll')">/mnt/c/Program Files/Kitten Space Agency/</KsaDllDir>
 
     <HaveKsaAssemblies>false</HaveKsaAssemblies>

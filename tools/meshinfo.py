@@ -6,7 +6,7 @@ KSA parts are assembled by referencing named sub-meshes out of a shared atlas an
 them with <Transform> offsets, so you need real dimensions to lay a part out. glTF stores
 per-accessor min/max for POSITION, which gives exact bounds without decoding any vertices.
 
-    ./tools/meshinfo.py "/mnt/c/Program Files/Kitten Space Agency/Content/Core/Meshes/CoreStructuralA_MeshAtlas.glb"
+    ./tools/meshinfo.py "$(./tools/ksa-game-dir.sh)/Content/Core/Meshes/CoreStructuralA_MeshAtlas.glb"
     ./tools/meshinfo.py <atlas.glb> Tube      # only meshes whose name contains "Tube"
 """
 

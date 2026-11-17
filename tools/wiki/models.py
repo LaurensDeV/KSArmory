@@ -29,8 +29,18 @@ from checkmesh import euler_quaternion, read_glb  # noqa: E402
 # A round the mod parks before it is fired is <Scale 0.001>; nothing a player sees is that small.
 PARKED_SCALE = 0.01
 
+def carriage_markers() -> dict[str, str]:
+    """Each part's CarriageMarker, from the definition files: what the mod parks at load, so not drawn."""
+    markers = {}
+    for path in sorted((MOD / "KSArmory").glob("*.xml")):
+        for element in ET.parse(path).getroot():
+            if element.get("PartId") and element.get("CarriageMarker"):
+                markers[element.get("PartId")] = element.get("CarriageMarker")
+    return markers
+
+
 # Models of hardware that is not a part of its own: (the part carrying it, the subpart Key marker that
-# selects it). A missile's launch rail is declared parked on each missile part and shown only when attached.
+# selects it). A missile's launch rail is its carriage, parked at load and shown only when attached.
 VIEWS = {"KSArmory_Prefab_LaunchRail": ("KSArmory_Prefab_Aim9J", "LaunchRail")}
 
 # KSA's part frame has +X out of the mounting face and +Y forward; a web viewer is Y-up. A 120 degree
@@ -76,6 +86,7 @@ class Assets:
         self.materials = {m.get("Id"): {slot: textures[m.find(slot).get("Ref")]
                                         for slot in ("Diffuse", "Normal", "AoRoughMetal") if m.find(slot) is not None}
                           for m in root.findall("PbrMaterial")}
+        self.carriages = carriage_markers()
         self.templates: dict[str, tuple[str, str, bool]] = {}
         for template in root.findall("SubPart"):
             if template.get("Modify") is not None:
@@ -103,8 +114,11 @@ class Assets:
         """(subpart id, mesh, material, glass, position, rotation, scale) for every subpart shown."""
         base, marker = VIEWS.get(part_id, (part_id, None))
         shown = []
+        carriage = self.carriages.get(base)
         for sub in self.parts[base].findall("SubParts/SubPart"):
             if marker is not None and marker not in sub.get("Key", ""):
+                continue
+            if marker is None and carriage and carriage in sub.get("Key", ""):
                 continue
             template = sub.get("Ref")
             if template not in self.templates:

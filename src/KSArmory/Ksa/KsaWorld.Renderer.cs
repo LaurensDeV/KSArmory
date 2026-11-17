@@ -162,8 +162,10 @@ internal static partial class KsaWorld
 
         try
         {
-            var renderer = Program.GetCloudShadowsRenderer();
             const BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
+            _shadowRenderer ??= typeof(Program).GetField("_cloudShadowsRenderer", Private);
+            if (_shadowRenderer?.GetValue(Program.Instance) is not object renderer)
+                return Unshadowed("the cloud shadows renderer did not resolve");
 
             _shadowPlanets ??= renderer.GetType().GetField("PlanetToCloudShadowData", Private);
             _shadowNone ??= renderer.GetType().GetField("_noShadowData", Private);
@@ -199,6 +201,8 @@ internal static partial class KsaWorld
             return Unshadowed(e.Message);
         }
     }
+
+    private static FieldInfo? _shadowRenderer;
 
     private static FieldInfo? _shadowPlanets;
 

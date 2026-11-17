@@ -722,7 +722,7 @@ internal sealed partial class IcbmComputer
                      + $"{(ArrivalIsIfReleasedNow ? "impact if released now in" : "impact in")} "
                      + $"{IcbmProgram.Clock(SecondsToArrival)}, "
                      + $"target {OffPlaneDegrees:F1} deg off plane ({PlaneChangeCost:F0} m/s), "
-                     + $"reach {Command.Reach}{BusJetsSaid()}"
+                     + $"reach {Command.Reach}{BusJetsSaid()}, {KsaWorld.ControlSaid(Craft)}"
                      + (double.IsFinite(Program.ResidualAtCutoff)
                             ? $", cut off {Program.ResidualAtCutoff:F2} m/s short{ResidualSaid()}"
                             : "")
@@ -925,6 +925,14 @@ internal sealed partial class IcbmComputer
                 if (!StagingWouldDropTheLauncher(release))
                 {
                     Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)} staging: {Command.Hold}");
+
+                    // Every staging in the climb steps the projection the aim is read off, as the solids' burnout does.
+                    if (Config.AimStartsOverAtEachClimbStaging && Program.Phase is IcbmPhase.Rising or IcbmPhase.PitchProgram)
+                    {
+                        Log.Info($"{KsaWorld.DisplayName(Craft)} ICBM: staging in the climb; the aim correction starts again "
+                                 + $"from nothing, dropping {Distance.Say(Vec.Len(_aim.BiasCci))} of bias");
+                        _aim.Reset();
+                    }
 
                     // Before the call: the stage lands frames later, and the difference names what came off.
                     _wasBeforeStage.Clear();

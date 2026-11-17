@@ -146,7 +146,8 @@ internal sealed partial class IcbmComputer
                 && departureIsWorthObserving
                 && (Program.IsBurning || (_measureDue && _trim.Done))
                 && !AimWaitsForTheSolids(state)
-                && !(Program.IsBurning && Program.AimSitsOutTheBurn))
+                && !(Program.IsBurning && Program.AimSitsOutTheBurn)
+                && !(Config.AimStartsOverAtEachClimbStaging && _awaitingStage))
             {
                 double biasWas = Vec.Len(_aim.BiasCci);
 

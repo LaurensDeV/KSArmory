@@ -14,6 +14,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=ksa-game-dir.sh
+source "$REPO_ROOT/tools/ksa-game-dir.sh"
 LOCK="$REPO_ROOT/ksa-assemblies.lock"
 
 DIR="${1:-}"
@@ -32,9 +34,8 @@ done
 # --game skips Import/: it is a copy, so it still matches the lock after a game update until it is
 # refreshed.
 if (( GAME )); then
-    for candidate in "${KSA_DIR:-}" "/mnt/c/Program Files/Kitten Space Agency" "C:/Program Files/Kitten Space Agency"; do
-        [[ -n "$candidate" && -f "$candidate/KSA.dll" ]] && { DIR="$candidate"; break; }
-    done
+    DIR="$(ksa_game_dir 2>/dev/null || true)"
+    [[ -n "$DIR" && -f "$DIR/KSA.dll" ]] || DIR=""
     if [[ -z "$DIR" ]]; then
         (( QUIET )) || echo "no KSA install found; nothing to compare against"
         exit 0
@@ -47,8 +48,7 @@ if [[ -z "$DIR" ]]; then
         "${KSA_DLL_DIR:-}" \
         "$REPO_ROOT/Import" \
         "$REPO_ROOT/../ksa-game-assemblies/current/dll" \
-        "/mnt/c/Program Files/Kitten Space Agency" \
-        "C:/Program Files/Kitten Space Agency"
+        "$(ksa_game_dir 2>/dev/null || true)"
     do
         [[ -n "$candidate" && -f "$candidate/KSA.dll" ]] && { DIR="$candidate"; break; }
     done
@@ -60,6 +60,17 @@ fi
 mapfile -t NAMES < <(grep -ohP '(?<=\$\(KsaDllDir\))[A-Za-z0-9._]+(?=\.dll)' \
     "$REPO_ROOT"/src/KSArmory/*.csproj "$REPO_ROOT"/tests/*/*.csproj | sort -u)
 [[ ${#NAMES[@]} -gt 0 ]] || { echo "error: no \$(KsaDllDir) references found in the csproj files" >&2; exit 1; }
+
+# In --game mode, compare only what the install actually ships, so an assembly it does not carry is
+# not reported as a KSA update on every run. (KSACars has had this since its own split; KSArmory did
+# not, so a game folder missing one referenced assembly failed here instead of being skipped.)
+if (( GAME )); then
+    present=()
+    for name in "${NAMES[@]}"; do
+        [[ -f "$DIR/$name.dll" ]] && present+=("$name")
+    done
+    NAMES=("${present[@]}")
+fi
 
 digests() {
     for name in "${NAMES[@]}"; do

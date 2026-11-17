@@ -122,6 +122,8 @@ internal static class DamagedEngines
         }
 
         core.RecomputeDesignConditions();
+        // KSA caches the full-power flow at creation, and the resource graph draws on it.
+        core.RefreshMaxMassFlowRate(core.Rocket.ComputeCoreConditions(core, 1f));
     }
 
     private static void Hold(Gimbal gimbal, bool lost)
@@ -137,8 +139,8 @@ internal static class DamagedEngines
         PartTree tree = craft.Parts;
         foreach (EngineController engine in tree.Modules.Get<EngineController>())
         {
-            RocketControllerData.ComputeFromCores(engine.Cores.AsSpan(), 0f, 101325f, 1f,
-                                                  out RocketControllerData vacuum, out RocketControllerData seaLevel);
+            RocketControllerData.ComputeFromRockets(engine.Rockets.AsSpan(), 0f, 101325f, 1f,
+                                                    out RocketControllerData vacuum, out RocketControllerData seaLevel);
             engine.VacuumData = vacuum;
             engine.SeaLevelData = seaLevel;
         }

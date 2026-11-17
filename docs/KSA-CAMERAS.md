@@ -21,7 +21,7 @@ about 9 earlier). A citation is a pointer to grep near, not a proof.
 Grounded **only** in the decompiled engine at
 `../ksa-game-assemblies/current/src`.
 All citations are relative to that root. Nothing here is taken from any mod's own code or docs.
-Build: **2026.11.10.5801**, citations against 2026.10.25.5707. Line numbers move on every KSA update, so a citation that does not land
+Build: **2026.11.16.5901**, citations against 2026.10.25.5707. Line numbers move on every KSA update, so a citation that does not land
 on what it claims means this file is behind the corpus, not that the corpus is wrong.
 
 > **Its citations and its viewport sections are against 2026.8.22.5348, and section 2 in particular
