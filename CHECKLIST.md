@@ -123,6 +123,26 @@ Four things changed shape and need watching, worst first:
 
 Also unflown on this build: everything the previous retarget listed as unwatched, and the turret.
 
+**Retargeted to KSA `2026.11.16.5901` — rockets reworked, two silent breaks, and aerodynamics that fly.**
+Engines and thrusters hold `Rocket`s rather than cores. `MinimumThrottle` and `MinimumPulseTime` moved onto
+`<Rocket>`, where an unset floor is 1.0, and the weather-shadow struct traded `middleRadius` for `topRadius`;
+left alone, those two would have silently made the bus's engine full-or-nothing and lit every burst as if
+under a clear sky. `GetCloudShadowsRenderer` is gone, and reflection replaces it. A craft in air is now flown
+on its aerodynamic mesh, so `Sim/DragShape.cs` copies a fallback (`docs/BLOCKED-ON-KSA.md`). Every other
+contract in the upgrade skill reads the same.
+
+- [x] **`head-on`** on 5901, 2026-11-17: PASS, `built for KSA 2026.11.16.5901, running 2026.11.16.5901 -
+      reporting on`, round 1 burst 17 m from the drone and 16 parts dented through the engine, no exception in
+      KSA's log, and the air mirrored to a worst density error of 0.
+- [ ] **The bus's post-boost engine throttles below full** (`mirv`, or a hop with `HopsBurnTheEngine` on).
+- [ ] **Weather clouds shade a burst and stand in front of and behind it** as on 5801
+      (`KSARMORY_SCENARIO_CLOUDS=1`), with no `cloud shadows renderer did not resolve` warning.
+- [ ] **A damaged engine burns less propellant**, now that its cached flow is refreshed.
+- [ ] **The gun's lead against KSA's new drag**: `scenario.sh gunnery:1,overhead,30,300,1500`, reading the
+      logged drag coefficient against 0.6125. A gap is the size of the lead error.
+- [ ] **Scenario and bridge craft stay controllable**: 5901 drops the flight computer to Manual on a craft with
+      no able crew and no powered probe core.
+
 **Retargeted to KSA `2026.10.25.5707` — one member gone, two silent breaks, and crew radiation.**
 `PlanetRenderer.GetRenderBillboardMatrix` is gone; it returned the identity, which the planet map now passes
 itself. `Radiation.ComputeDoseRate` now returns `SievertsPerSecond` and **nothing calls it**: the gauge and
