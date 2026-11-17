@@ -49,7 +49,7 @@ internal static partial class KsaWorld
                                       0.1 * props.TotalSurfaceArea, v.Body2Cce, v.BodyRates,
                                       props.TotalMass, Medium.ReferenceDensityKgPerM3,
                                       v.FlightComputer.ActiveEnginePerformanceMax.ExhaustVelocity,
-                                      props.TotalPropellantMass);
+                                      props.TotalPropellantMass, AeroTables.For(v));
             return shape.IsUsable ? shape : null;
         }
         catch

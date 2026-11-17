@@ -304,8 +304,13 @@ internal sealed class GunneryScenario
             : double.NaN;
         double turning = shape is { } t ? double.RadiansToDegrees(Vec.Len(t.BodyRates)) : double.NaN;
 
+        // What the lead flies the drone on, split as the accelerometer is: the gap is the lead's error.
+        string predictedSplit = shape is { } p
+            ? $"{(p.Aero is { IsComplete: true } ? "aero" : "box")} " + Split(p.DragAcceleration(air, density), air, pull, density)
+            : "n/a";
+
         Log.Debug(() => $"  drone {_spawned} at {_sinceSpawn:F1} s: {airspeed:F0} m/s, density {density:F3}; "
-                        + $"accelerometer {accelerometer}; velocity {flown}; "
+                        + $"accelerometer {accelerometer}; velocity {flown}; lead {predictedSplit}; "
                         + $"airflow in body {flowBody.X:F3},{flowBody.Y:F3},{flowBody.Z:F3}; turning {turning:F1} deg/s; "
                         + $"drag area {area:F3} m2 against {predicted:F3} predicted, slowing per area {perArea:F4}");
 

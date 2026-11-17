@@ -7,9 +7,14 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-374 types and 979 members across 12 assemblies.
+383 types and 997 members across 12 assemblies.
 
 ## BepuUtilities
+
+### BepuUtilities.Memory.BufferPool
+
+- `void .ctor(int, int)`
+- `void Clear()`
 
 ### BepuUtilities.Symmetric3x3
 
@@ -710,6 +715,41 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float Thrust`
 - `float get_ExhaustVelocity()`
 
+### KSA.Aero.AeroMesh
+
+- `KSA.Aero.AeroSurface Surface`
+
+### KSA.Aero.AeroMeshSource
+
+*referenced as a type only*
+
+### KSA.Aero.AeroSurface
+
+*referenced as a type only*
+
+### KSA.Aero.AeroSurfaceFlow
+
+- `bool Update(System.Numerics.Vector3)`
+- `void .ctor(KSA.Aero.AeroSurface, BepuUtilities.Memory.BufferPool)`
+
+### KSA.Aero.Aerodynamics
+
+- `KSA.Aero.AeroMesh get_Mesh()`
+- `KSA.Aero.AeroMeshSource get_Source()`
+
+### KSA.Aero.LocalInclinationLaw
+
+- `KSA.Aero.SurfaceLoads ComputeLoads(KSA.Aero.AeroSurfaceFlow, ref KSA.Aero.SkinFrictionLaw, System.Numerics.Vector3, System.Numerics.Vector3, System.Numerics.Vector3)`
+- `void .ctor(float, float)`
+
+### KSA.Aero.SkinFrictionLaw
+
+- `void .ctor(KSA.AtmosphericMixture, double, double, double, System.Nullable`1<double>)`
+
+### KSA.Aero.SurfaceLoads
+
+- `System.Numerics.Vector3 get_ForcePerDynamicPressure()`
+
 ### KSA.AsmbTankTemplate
 
 - `float GetWallYieldStrength()`
@@ -776,6 +816,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.AtmosphericMixture
 
+- `double ComputeGamma(double)`
+- `double ComputeSpeedOfSound(double)`
 - `double get_SpecificGasConstant()`
 
 ### KSA.AttitudeControlSystem
@@ -1013,8 +1055,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Double3Ex
 
+- `Brutal.Numerics.double3 FromBepu(System.Numerics.Vector3)`
 - `Brutal.Numerics.double3 Transform(Brutal.Numerics.double3, Brutal.Numerics.double4x4)`
 - `Brutal.Numerics.double3 Transform(Brutal.Numerics.double3, Brutal.Numerics.doubleQuat)`
+- `System.Numerics.Vector3 ToBepu(Brutal.Numerics.double3)`
 
 ### KSA.DoubleReference
 
@@ -1590,6 +1634,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.PartTree
 
+- `KSA.Aero.Aerodynamics get_Aerodynamics()`
 - `KSA.ModuleList Modules`
 - `KSA.OffsetMassProperties ComputeInertMassPropertiesAsmb()`
 - `KSA.Part get_Root()`
@@ -1602,6 +1647,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `System.ReadOnlySpan`1<KSA.ISubstanceStore> get_SubstanceStores()`
 - `System.ReadOnlySpan`1<KSA.Part> get_Parts()`
 - `VehicleDents Dents`
+- `bool get_IsRebuildingAerodynamics()`
 - `float get_EngineThrottleMin()`
 - `int get_Count()`
 - `void ComposeRenderData(ref Brutal.Numerics.double4x4, bool, KSA.IViewport, int)`
@@ -2156,6 +2202,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.VehicleProperties
 
+- `Brutal.Numerics.float3 get_CenterOfMassAsmb()`
 - `KSA.BoundingBoxCdA AerodynamicCdABody`
 - `KSA.OffsetMassProperties InertMassPropsAsmb`
 - `float TotalPropellantMass`

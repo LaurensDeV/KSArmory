@@ -11,8 +11,8 @@ namespace KSArmory;
 /// put every first shell 25 m behind and above the drone. Computed rather than read off the slowing,
 /// because a craft under power is not slowing and still has all of its drag.</para>
 ///
-/// <para>A copy of the engine's model as of 2026.9.7.5402, which since 2026.11.16.5901 KSA flies only for
-/// a craft with no aerodynamic mesh: <c>docs/BLOCKED-ON-KSA.md</c> has what replaced it.</para>
+/// <para>A copy of the engine's box as of 2026.9.7.5402, which since 2026.11.16.5901 KSA flies only for a
+/// craft with no aerodynamic mesh; <see cref="Aero"/> is what flies the rest.</para>
 /// </summary>
 /// <param name="Positive">Drag area of each body axis's positive face (m²).</param>
 /// <param name="Negative">Drag area of each body axis's negative face (m²).</param>
@@ -29,9 +29,13 @@ namespace KSArmory;
 /// 22.8 m/s² over 15 s on a steady force, and holding it put the bursts 19.5 m under it.
 /// </param>
 /// <param name="PropellantMass">What it has left to burn (kg), which is when the thrust stops.</param>
+/// <param name="Aero">
+/// The engine's own loads over every airflow direction, which since 2026.11.16.5901 is what flies a
+/// craft with an aerodynamic mesh -- lift and side force included; the box above is KSA's fallback.
+/// </param>
 public readonly record struct DragShape(double3 Positive, double3 Negative, double Skin, doubleQuat Body2Ecl,
                                         double3 BodyRates, double Mass, double ReferenceDensity,
-                                        double ExhaustVelocity, double PropellantMass)
+                                        double ExhaustVelocity, double PropellantMass, AeroTable? Aero = null)
 {
     /// <summary>The mass flow that gives it <paramref name="thrustNow"/> of acceleration (kg/s).</summary>
     public double MassFlowFor(double3 thrustNow)
@@ -64,6 +68,13 @@ public readonly record struct DragShape(double3 Positive, double3 Negative, doub
         double airspeed = Vec.Len(airVelocity);
         if (!(airspeed > 0.0) || !(densityRatio > 0.0)) return Vec.Zero;
 
+        if (Aero is { IsComplete: true } table)
+        {
+            double q = 0.5 * ReferenceDensity * densityRatio * airspeed * airspeed;
+            double3 forcePerQ = table.ForcePerQ(ToBody(airVelocity * (-1.0 / airspeed), seconds));
+            return ToEcl(forcePerQ, seconds) * (q / Mass);
+        }
+
         double perSpeed = 0.5 * ReferenceDensity * densityRatio * AreaFacing(airVelocity, seconds) * airspeed / Mass;
         return airVelocity * -perSpeed;
     }
@@ -86,6 +97,9 @@ public readonly record struct DragShape(double3 Positive, double3 Negative, doub
            && Mass > 0.0 && double.IsFinite(Mass) && ReferenceDensity > 0.0 && double.IsFinite(ReferenceDensity)
            && ExhaustVelocity >= 0.0 && double.IsFinite(ExhaustVelocity)
            && PropellantMass >= 0.0 && PropellantMass < Mass;
+
+    private double3 ToEcl(double3 body, double seconds)
+        => Body2Ecl * (IsTurning && seconds != 0.0 ? Turn(seconds) * body : body);
 
     // Body rates are in the body's own axes, so the turn composes on the body side of the attitude.
     private double3 ToBody(double3 ecl, double seconds)

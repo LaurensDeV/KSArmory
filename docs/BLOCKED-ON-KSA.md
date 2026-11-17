@@ -41,8 +41,8 @@ happen rather than a member that moved.
   the atmosphere nor the ocean has an `IsValid()` any more; see the entry below
 - [x] **`PhysicsStates.ComputeDrag` is still a body-fixed drag box over the mass, with no lift, no
   Mach term and no restoring torque** — **no longer, in 5901**: a craft in air is flown on its
-  aerodynamic mesh, per panel, with Mach, lift and a moment, and the box is the fallback. The gun's lead
-  is leading on yesterday's physics; see the entry below. And
+  aerodynamic mesh, per panel, with Mach, lift and a moment, and the box is the fallback. The lead now
+  samples the engine's loads; it does not yet fly the moment; see the entry below. And
   `IcbmConfig.FlyAnyRange` lets a short shot steer at any angle of attack because nothing here can
   tip a stack over: an aerodynamic moment would make that a way to lose the rocket
 - [x] **`RecomputeImmersion` rotates `MassToGeometryAsmb` into the planet's frame**, or buoyancy
@@ -134,61 +134,49 @@ kill's `mod frame:` line against the second kill's. Within a few milliseconds of
 is buying nothing and goes. The mod's own assembly stays warmed either way: that half is this mod's
 code, and no KSA change touches it.
 
-## Aerodynamics have landed, and the gun's lead is a copy of yesterday's
+## Aerodynamics have landed, and the gun's lead samples them
 
-**Not blocked — the opposite.** Nothing here is missing. It is recorded because this mod copies the
-engine's model by hand in a place no tool will flag when it changes, and **in 2026.11.16.5901 it
-changed**: the copy below is now the engine's fallback, not what flies a craft.
+**Not blocked — the opposite.** In 2026.11.16.5901 a craft in air is flown on its aerodynamic mesh, and
+the gun's lead now flies a target on the engine's own loads rather than on a copy of its law. What it
+still does not predict is the target's rotation.
 
-**What is copied.** `PhysicsStates.ComputeDrag` (`KSA/KSA/PhysicsStates.cs:1091`, called from `:1008` and
-`:1016`) and `BoundingBoxCdA.ComputeCdA` (`BoundingBoxCdA.cs:13`), copied on 2026.9.7.5402 and unchanged
-through 5801, and on 5901 flown only by a craft whose aerodynamic mesh has no faces: drag = `(ComputeCdA(airflow in the body frame) + 0.1 × TotalSurfaceArea) × ½ρv²`,
-against the mass, then an implicit damping factor `1 / (1 + F·dt / (m·v))` that is negligible at
-these speeds and is not copied. The box is `VehicleProperties.AerodynamicCdABody`, built by `RecomputeAerodynamicProperties`
-(`VehicleProperties.cs:124`) off the bounding box: each face's area weighted 0.3 on +X, 1.0 on −X and 1.2 on
-the sides, by how squarely the air meets it. There is **no
-Mach term, no lift and no restoring torque** — only a rate-damping one, `0.1 × TotalSurfaceArea`
-against the body rates, which a lead on the centre of mass does not need. `Sim/DragShape.cs` is the copy and
-`KsaWorld.DragShapeOf` reads the terms off a craft; `Sim/BallisticLead.cs` flies a target on it.
+**What the engine does.** In air, `PhysicsStates` (`:1055`) takes the craft's published surface flow and
+flies `ComputeAerodynamicLoads` (`:1173`): per panel, a pressure coefficient by the **Local Inclination
+Law** (`KSA.Aero/LocalInclinationLaw.cs`) from the panel's inclination to the airflow, Mach (clamped to at
+least 1.3, so the same at any subsonic speed) and the air's γ, plus skin friction by Reynolds number
+(`SkinFrictionLaw.cs`). The force is **not along the airflow** -- there is lift and side force -- and the
+moment about the centre of mass is the whole aerodynamic moment. `ComputeDrag` (`:1138`), the drag box
+`Sim/DragShape.cs` copied on 2026.9.7.5402, is left for a mesh with no faces and for the ocean.
 
-**On 5901 the aerodynamic mesh feeds the force, so the copy no longer matches** — read from the source,
-not yet flown. In air, `PhysicsStates` (`:1055`) asks the craft's `PartTree.AwaitAerodynamics()`
-(`PartTree.cs:750`, which waits for the mesh built from the parts' colliders) for its surface flow, and
-flies `ComputeAerodynamicLoads` (`:1173`) when there is one; `ComputeDrag` (`:1138`) is left for a mesh
-with no faces and for the ocean. The new law is per panel: a pressure coefficient from each panel's
-inclination to the airflow by the **Local Inclination Law** (`KSA.Aero/LocalInclinationLaw.cs`), a function
-of **Mach** and the air's **γ**, plus skin friction by Reynolds number (`SkinFrictionLaw.cs`). The force it
-returns is **not along the airflow**, so a craft now has **lift and side force**, and the moment about the
-centre of mass is the whole aerodynamic moment rather than only rate damping. Even the fallback gained a
-torque, `MassToGeometryAsmb × F`. So everything in *What else the lead assumes* below has now happened.
-`Sim/DragShape.cs` has not moved, and until it does the gun leads every target in air on the old box.
+**What the lead does.** `Ksa/AeroTables.cs` runs that same `ComputeLoads` on a surface flow of its own --
+never the engine's, which the vehicle worker updates during the mod's pass -- over 642 airflow directions
+8° apart, at the craft's Mach and air, a millisecond a frame, and rebuilds every 10 s. `Sim/AeroTable.cs`
+interpolates them linearly within the sphere's triangles onto a 5° grid read bilinearly, and
+`DragShape.DragAcceleration` flies the force per q from it, turned with the body. Until a table is in,
+the box stands in, as it does in the engine for a craft with no mesh. Flown on
+`gunnery:1,overhead,30,300,1500`: a table took 0.5–2.5 s and 34–155 ms of sampling; the lead's
+acceleration then matched the drone's accelerometer to about 0.05 m/s² on every axis, where the box had
+predicted 26 m/s² of drag against 11 and no lift. The median burst came in from **216 m to 44 m** and the
+drone was killed.
 
-**How it was confirmed, so the check can be repeated.** `scenario.sh gunnery:1,overhead,30,300,1500`
-logs every half second a drone's slowing times its mass over `v² × density ratio × area`. On today's
-engine that held at **0.6125 — ½ × 1.225 — to four places** while the drag area changed by 20%, and
-with `,20` appended (a 20°/s tumble) the area predicted half a second ahead matched the engine's
-within 0.1 m². If either stops holding after an update, the copy is out of date.
+**What it still assumes, and what that costs.**
+- A tumbling craft keeps its **body rates** for the whole of a shell's flight. The aerodynamic moment
+  now changes them -- the test drone went from 4 to 40°/s in five seconds -- so the lift is predicted
+  along the wrong axis: shells flying 3–4 s burst 9–20 m off, 6–11 s 40–175 m. Fixing it means flying
+  the attitude under the moment (`SurfaceLoads.MomentPerDynamicPressure`, the rate damping the engine
+  takes from `ω/V`, and the inertia), which is the next step.
+- The table is sampled at the rates of zero, so the rate-damping share of the *force* is left out:
+  of order `ωL/V`, a few per cent.
+- Whatever accelerates a target besides gravity and this is its **engine**, held fixed to the body and
+  scaled up as its mass burns away (`DragShape.ExhaustVelocity`, `PropellantMass`). Lift no longer reads
+  as thrust, because the table carries it.
+- A **round's** drag is `Medium.Drag`, a coefficient on airspeed squared with no Mach term -- this mod's
+  own model, not the engine's.
 
-**What else the lead assumes, which aerodynamics would also break.**
-- Whatever accelerates a target besides gravity and this drag is its **engine**, held fixed to the
-  body and scaled up as its mass burns away (`DragShape.ExhaustVelocity`, `PropellantMass`). Lift
-  would be read as thrust: the right size at the shot, then wrong, because lift follows the airflow
-  and the airspeed rather than the body and the mass. Flown with `,0,burn` appended: holding the
-  thrust put every burst 19.5 m and further under a burning drone, and burning the mass away put
-  the first shell on it.
-- A tumbling craft keeps its **body rates** for the whole of a shell's flight. True while nothing
-  aerodynamic torques it; an aerodynamic moment that weathervanes a craft into the wind would turn
-  it away from the predicted attitude within seconds.
-- A **round's** drag is `Medium.Drag`, a coefficient on airspeed squared with no Mach term. That is
-  this mod's own model rather than the engine's, and a real shell's drag changes a lot through the
-  speed of sound.
-
-**What to do when it lands**, cheapest first: re-run the two logged checks above; if the new drag is
-still a function of the body, the airflow and the mass, extend `DragShape` to it; if it gains lift or
-a moment, carry that in the same place, since the body's attitude is already being flown. Holding
-the measured acceleration is the fallback, and it is what a target without a shape still gets.
-Closed-loop spotting would stop the gun depending on the copy at all, and `docs/CIWS-REALISM.md` §2
-says what it would take.
+**How to check it after an update.** `KSARMORY_SCENARIO_VERBOSE=1 ./tools/scenario.sh
+gunnery:1,overhead,30,300,1500` logs every half second the drone's felt acceleration and the lead's,
+each split along the airflow, up and sideways, and says `aero` or `box` for which the lead is using. If
+they part on an `aero` line, the engine's loads moved under the table.
 
 **And it is not a real fire-control system either.** The lead reads the target's mass, fuel, drag box
 and body rates straight out of the engine — nothing a radar could measure. It hits because it knows

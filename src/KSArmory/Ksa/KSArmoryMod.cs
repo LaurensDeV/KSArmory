@@ -173,6 +173,7 @@ public sealed class KSArmoryMod
         BuiltInFamilies.HideDisabledParts();
 
         JitWarmup.Start();
+        AeroTables.Warm();
 
         Catalogue.Freeze();
         ReportRegistrations();
@@ -377,6 +378,7 @@ public sealed class KSArmoryMod
         if (KsaWorld.InFlightScene)
         {
             using (_budget.Measure("sim", top: true)) StepSimulation(dtPlayer);
+            using (_budget.Measure("aero tables")) AeroTables.Step();
         }
 
         // Not in the GUI hook, which F2 skips: a borrowed view left unrestated freezes. Outside the

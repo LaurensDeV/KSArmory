@@ -1194,11 +1194,12 @@ from 20 km at 300 m/s the fall is 95 s of a 102 s horizon and there is no room f
 region is then reported **unknown rather than absent**: reading a probe that never landed as a region
 of zero told a store with a perfectly good landing that it had nothing to move it with.
 
-**The gun's lead flies a copy of the engine's old drag, and since 2026.11.16.5901 the engine flies
-something else.** `Sim/DragShape.cs` is `PhysicsStates.ComputeDrag` — a body-fixed box over the mass, no
-lift, no Mach — which KSA now keeps only for a craft with no aerodynamic mesh; a craft in air is flown
-per panel, with Mach, lift and a moment. Nothing fails on the difference. `docs/BLOCKED-ON-KSA.md` has
-what changed, the flown check that measures the gap, and what to do about it. The lead also reads what no radar
+**The gun's lead flies a target on the engine's own aerodynamic loads.** Since 2026.11.16.5901 a craft
+in air is flown per panel, with Mach, lift and a moment, and `Ksa/AeroTables.cs` samples that same law
+over 642 airflow directions into a `Sim/AeroTable.cs` the lead's `DragShape` reads; the old drag box
+stands in until a table is built, as it does in the engine. It does not yet fly the target's rotation
+under the moment, which is most of what is left of the miss. `docs/BLOCKED-ON-KSA.md` has the numbers
+and the check. The lead also reads what no radar
 could — mass, fuel, body rates — so it is true to the game's physics, not to a real director.
 `docs/CIWS-REALISM.md` has what a real director would do instead, and when that would be worth it.
 
