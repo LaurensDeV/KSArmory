@@ -273,6 +273,7 @@ internal sealed class Bridge : IViewPose
             "designate" => Designate(command),
             "icbm_map" => IcbmMap(command),
             "remove" => RemoveCraft(command),
+            "reseat" => Reseat(),
             "orbit" => PutInOrbit(command),
             "attitude" => Attitude(command),
             _ => Failed($"no command '{command.Name}'"),
@@ -805,6 +806,31 @@ internal sealed class Bridge : IViewPose
         => CraftNamed(command.String("craft")) is { } craft && KsaWorld.GoTo(craft)
                ? Done(new() { ["craft"] = KsaWorld.DisplayName(craft) })
                : Failed("no such craft, or the engine would not hand it over");
+
+    // Every landed craft whose origin is under the ground set down on it where it stands: KSA 5901's
+    // terrain stands up to 75 m higher round LC-39A than 5801's, and a save keeps the old height.
+    private static Reply Reseat()
+    {
+        List<object?> moved = [];
+        foreach (Vehicle v in KsaWorld.Vehicles.ToArray())
+        {
+            if (!KsaWorld.IsAlive(v) || v.Situation.ToString() != "Landed") continue;
+            if (Detonation.BodyFor(v) is not Celestial body) continue;
+            if (!DropScenario.TryLocalFrame(v, body, out _, out _, out _, out double agl) || agl >= 0.0) continue;
+
+            double3 cce = KsaWorld.PositionEcl(v) - body.GetPositionEcl();
+            double lat = body.GetLatitudeFromCce(cce), lon = body.GetLongitudeFromCce(cce);
+            if (!KsaWorld.TryPlaceOnSurface(v, body.Id, lat, lon)) continue;
+
+            moved.Add(new Dictionary<string, object?>
+            {
+                ["craft"] = KsaWorld.DisplayName(v), ["was_agl_m"] = Math.Round(agl, 1),
+                ["lat"] = Math.Round(lat, 6), ["lon"] = Math.Round(lon, 6),
+            });
+        }
+
+        return Done(new() { ["reseated"] = moved });
+    }
 
     // A named craft taken out of the world, leaving nothing behind -- never the one being flown, which
     // the engine would take the scene with.

@@ -526,6 +526,9 @@ TOOLS = {
                     {"craft": {"type": "string"}}, ["craft"], lambda a: [_text(json.dumps(send("control", **a)))]),
     "ksa_remove": ("Take a named craft out of the world, leaving no debris. Refuses the craft being flown.",
                    {"craft": {"type": "string"}}, ["craft"], lambda a: [_text(json.dumps(send("remove", **a)))]),
+    "ksa_reseat": ("Set every landed craft whose origin is under the ground back down on it where it stands, "
+                   "for a save written against older terrain; ksa_save keeps it.",
+                   {}, [], lambda a: [_text(json.dumps(send("reseat", **a)))]),
     "ksa_spawn": ("Park a craft (craft, default Rocket) on the ground at lat/lon, named name: one of KSA's stock "
                   "designs, or one from the player's own design library.",
                   {"craft": {"type": "string"}, "name": {"type": "string"}, "lat": _num("deg"), "lon": _num("deg")},
