@@ -1,3 +1,21 @@
+## [0.10.3](https://github.com/LaurensDeV/KSArmory/compare/v0.10.2...v0.10.3) (2026-11-17)
+
+### Features
+
+* **stores:** declare carriages at full size, so part previews show them ([edcf968](https://github.com/LaurensDeV/KSArmory/commit/edcf968f2f975b1bf77c90ac069052bf62d5dbf5))
+* **ui:** list a dead craft's rounds still falling, and chase them ([8095682](https://github.com/LaurensDeV/KSArmory/commit/80956824f449fca0d8b87464e9ce583eddc61ebc))
+
+### Fixes
+
+* **aim:** take the cursor into the size the camera unprojects against ([6637fc7](https://github.com/LaurensDeV/KSArmory/commit/6637fc7dfff3bf604e4bcf7da8ba2574f837655c))
+* **guns:** lead a target on KSA's own aerodynamic loads ([6c70b33](https://github.com/LaurensDeV/KSArmory/commit/6c70b33c27f130b6e02b393e75850f0103e5aa52))
+* **guns:** turn a target under its aerodynamic moment in the lead ([e901cce](https://github.com/LaurensDeV/KSArmory/commit/e901cce29637f79e7624cb20318099ac22975e17))
+* **mirv:** start the burn's aim again at each staging in the climb ([6061ecf](https://github.com/LaurensDeV/KSArmory/commit/6061ecf96f937a2a103d3e73d2218ba9fd5eef64))
+
+### Build and packaging
+
+* **ksa:** retarget 2026.11.16.5901 ([3e98c7f](https://github.com/LaurensDeV/KSArmory/commit/3e98c7f3d901b1cbb56cb5669b0140afe469b170))
+
 ## [0.10.2](https://github.com/LaurensDeV/KSArmory/compare/v0.10.1...v0.10.2) (2026-11-09)
 
 ### Features
