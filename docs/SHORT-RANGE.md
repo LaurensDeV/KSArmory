@@ -443,7 +443,8 @@ Each first flight found something GeoSat FAT never showed:
   150 km: 4,064 to 806-828 m/s at 20-40 kPa; at 700 km, 1,473 to 709-1,198) and does not make it land, and at
   40 m^2 it barely moves; not in.
 
-  **And 25 m^2 is exactly what KSA gives it.** `VehicleProperties.RecomputeAerodynamicProperties` takes one
+  **And 25 m^2 is exactly what KSA gave it**, up to 2026.11.10.5801; since 5901 a craft in air is flown on its
+  collider mesh instead, so this skin no longer exists and the Light stack's drag has not been re-measured. `VehicleProperties.RecomputeAerodynamicProperties` takes one
   bounding box for the whole craft: 0.3 x (pi/4) w^2 on the nose, and `PhysicsStates.ComputeDrag` adds a tenth of
   the box's whole surface area, `2((pi/4) w^2 + 2 L w)`, whichever way the air comes. The Light preset is 2 m tanks
   (`A2:LF2W4HAx2`, `A4:LF2W2HA` in `tools/make-rocket.py`) under the MIRV bus, which is 3.0 m wide, so the box is

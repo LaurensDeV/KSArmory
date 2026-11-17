@@ -138,10 +138,23 @@ contract in the upgrade skill reads the same.
 - [ ] **Weather clouds shade a burst and stand in front of and behind it** as on 5801
       (`KSARMORY_SCENARIO_CLOUDS=1`), with no `cloud shadows renderer did not resolve` warning.
 - [ ] **A damaged engine burns less propellant**, now that its cached flow is refreshed.
-- [ ] **The gun's lead against KSA's new drag**: `scenario.sh gunnery:1,overhead,30,300,1500`, reading the
-      logged drag coefficient against 0.6125. A gap is the size of the lead error.
-- [ ] **Scenario and bridge craft stay controllable**: 5901 drops the flight computer to Manual on a craft with
-      no able crew and no powered probe core.
+- [x] **The gun's lead against KSA's new aerodynamics**, 2026-11-17. On the old drag box the 5"/54 missed the
+      overhead drone by a median 216 m; sampling the engine's loads (`Ksa/AeroTables.cs`) took it to 44 m, and
+      flying the drone's tumble under their moment (`Sim/AttitudeTrack.cs`) to a PASS:
+      `gunnery:3,overhead,30,300,1500` 3 of 3 drones, 7 of 7 bursts inside the lethal radius, median 5.7 m;
+      `KSARMORY_SCENARIO_SAVE="CIWS" gunnery:3,passing,15,200,500` 3 of 3 at 0.0 m.
+- [x] **The ballistic computer through the new air**, 2026-11-17: `KSARMORY_SCENARIO_SAVE="SOLVER SCALE 8"
+      mirv:24S,62W` 8 of 8 rockets, 56 of 56 warheads within 10.3 mm (median 2.5 mm), as on 5801; and the
+      200 km short shot that steers at any angle of attack, `mirv:26.8106N,80.604W,5` on `SOLVER SCALE 1`, 7 of 7
+      within 2.3 mm. No exception in KSA's log on either.
+- [ ] **A dry core dropped in thick air** (`StagesIntoTheAirflow`, tuned on the old box's side force): the
+      RealLiquid2 1,000 km cell, whose `TEST RealLiquid2` save no longer exists; rebuild it with
+      `tools/make-rocket.py` to fly it.
+- [x] **Saves made on 5801 have landed craft under the ground** -- 5901's terrain stands about 50 m higher, 75 m
+      at LC-39A. The bridge's `reseat` set them down; 30 of 36 saves had craft 42-58 m down.
+- [x] **Controllability changes nothing the mod commands** (read from the source): only the player's keys and
+      gauges ask it, and `AttitudeHook` writes the attitude again the frame KSA releases it. The flights above
+      ran through it.
 
 **Retargeted to KSA `2026.10.25.5707` — one member gone, two silent breaks, and crew radiation.**
 `PlanetRenderer.GetRenderBillboardMatrix` is gone; it returned the identity, which the planet map now passes

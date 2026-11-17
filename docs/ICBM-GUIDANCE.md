@@ -1862,8 +1862,9 @@ a flown failure first:
    it point usefully it waits while climbing and stops once the climb is over; while it waits to turn it burns at
    its floor rather than off, because a stack that steers by gimballing its engines has nothing else (flown at
    200 km, one tumbled into the sea with the engine held off until it was pointed).
-4. **A short shot steers at any angle of attack** — KSA's drag has no turning moment and structural failure is
-   g-load alone, so in this build an angle costs drag and nothing else (`docs/BLOCKED-ON-KSA.md`) — and **pins its
+4. **A short shot steers at any angle of attack** — chosen when KSA's drag had no turning moment; since
+   2026.11.16.5901 it has one, and the 200 km shot flown on it still put all seven warheads within 2.3 mm
+   (`docs/BLOCKED-ON-KSA.md`) — and **pins its
    arrival the moment the closed loop takes it**: left free, the cheapest arc from a point on a lofted one is a
    lower one, and the velocity to gain swung round to point backwards through a pause.
 5. **Release.** A short shot drops the spent stack at cutoff. One that cuts off in the air, or whose arc
