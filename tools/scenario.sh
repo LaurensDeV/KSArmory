@@ -228,18 +228,22 @@ mkdir -p "$USER_DIR/Logs"
 # selectSystemOnStart, and with it off the game boots straight into settings.toml's startVehicle.
 # Restored on exit: it is the player's setting, not the harness's.
 SETTINGS="$USER_DIR/settings.toml"
-DIALOG_WAS=""
-CRAFT_WAS=""
+# The player's own lines, in a file a later run takes over while an earlier --keep run's restore waits:
+# captured afresh they would be that run's harness values.
+SETTINGS_WAS="$USER_DIR/Logs/scenario-settings-was.txt"
+SETTINGS_OWNER="$USER_DIR/Logs/scenario-settings-owner.txt"
+RUN_ID="$$-$(date +%s%N)"
 if [[ -f "$SETTINGS" ]]; then
-    DIALOG_WAS="$(grep -oE '^selectSystemOnStart = (true|false)' "$SETTINGS" | head -1 || true)"
-    CRAFT_WAS="$(grep -oE '^startVehicle = ".*"' "$SETTINGS" | head -1 || true)"
+    if [[ ! -s "$SETTINGS_WAS" ]]; then
+        grep -E '^(selectSystemOnStart|startVehicle|lastSystemId|mode|width|height|posX|posY) = ' \
+            "$SETTINGS" > "$SETTINGS_WAS" || true
+    fi
+    echo "$RUN_ID" > "$SETTINGS_OWNER"
 
     sed -i 's/^selectSystemOnStart = true/selectSystemOnStart = false/' "$SETTINGS"
 
     # Skipping the dialog does not choose a system: the game loads lastSystemId, set from SYSTEM
     # above and restored on exit with everything else here.
-    SYSTEM_WAS="$(grep -oE '^lastSystemId = ".*"' "$SETTINGS" | head -1 || true)"
-
     if [[ -n "${SYSTEM:-}" ]]; then
         sed -i "s|^lastSystemId = \".*\"|lastSystemId = \"$SYSTEM\"|" "$SETTINGS"
     fi
@@ -247,9 +251,7 @@ if [[ -f "$SETTINGS" ]]; then
     [[ -n "$CRAFT" ]] && sed -i "s|^startVehicle = \".*\"|startVehicle = \"$CRAFT\"|" "$SETTINGS"
 
     WINDOW="${KSARMORY_SCENARIO_WINDOW:-1280x720}"
-    DISPLAY_WAS=()
     if [[ "$WINDOW" =~ ^([0-9]+)x([0-9]+)$ ]]; then
-        mapfile -t DISPLAY_WAS < <(grep -E '^(mode|width|height|posX|posY) = ' "$SETTINGS" || true)
         sed -i -e 's/^mode = ".*"/mode = "Windowed"/' \
                -e "s/^width = .*/width = ${BASH_REMATCH[1]}/" -e "s/^height = .*/height = ${BASH_REMATCH[2]}/" \
                -e 's/^posX = .*/posX = 40/' -e 's/^posY = .*/posY = 40/' "$SETTINGS"
@@ -309,17 +311,16 @@ if [[ -s "$LOG" ]]; then cp -f "$LOG" "$RUNS_DIR/previous-KSArmory.log" 2>/dev/n
 "$REPO_ROOT/tools/run.sh" --no-build >/dev/null 2>&1 &
 LAUNCHER=$!
 
+# Only the newest run restores: an older --keep run's waiting restore otherwise lands on the
+# settings a newer launch has just written.
 restore_settings() {
     sleep 1
-    [[ "$DIALOG_WAS" == "selectSystemOnStart = true" ]] &&
-        sed -i 's/^selectSystemOnStart = false/selectSystemOnStart = true/' "$SETTINGS"
-    [[ -n "$CRAFT_WAS" ]] &&
-        sed -i "s|^startVehicle = \".*\"|$CRAFT_WAS|" "$SETTINGS"
-    [[ -n "${SYSTEM_WAS:-}" ]] &&
-        sed -i "s|^lastSystemId = \".*\"|$SYSTEM_WAS|" "$SETTINGS"
-    for line in "${DISPLAY_WAS[@]}"; do
+    [[ "$(cat "$SETTINGS_OWNER" 2>/dev/null)" == "$RUN_ID" && -s "$SETTINGS_WAS" ]] || return 0
+    local line
+    while IFS= read -r line; do
         sed -i "s|^${line%% = *} = .*|$line|" "$SETTINGS"
-    done
+    done < "$SETTINGS_WAS"
+    rm -f "$SETTINGS_WAS" "$SETTINGS_OWNER"
     return 0
 }
 
