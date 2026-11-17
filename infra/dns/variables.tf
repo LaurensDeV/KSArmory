@@ -21,7 +21,7 @@ variable "domain" {
 variable "subdomains" {
   description = "Hostnames served from the VPS."
   type        = set(string)
-  default     = ["api"]
+  default     = ["api", "servers"]
 }
 
 # Caddy answers the ACME HTTP-01 challenge on the VPS and holds the certificate.
