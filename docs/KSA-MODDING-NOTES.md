@@ -1109,9 +1109,13 @@ A solid motor has to be declared `<SolidRocket>`; a `<Rocket>` round one throws 
 Since 2026.11.16.5901 `Vehicle.IsControllable` (`Vehicle.cs:703`) is `_control == VehicleControl.Controllable`,
 from `ComputeControl(pod, probe)` (`:3820`): a command pod with no able kitten and no powered probe core is
 `NoCrew`, and a probe core unpowered, off, failed or rebooting is not controllable either. When a craft
-stops being controllable, `UpdateControl` (`:3751`) releases its flight computer to Manual. `ProcessInput`
-and the worker do not ask, so the mod's own writes still land, but a ballistic computer reading
-`AttitudeMode` will see its hold dropped. Read from the source, not yet flown.
+stops being controllable, `UpdateControl` (`:3751`) queues its flight computer back to Manual, once, on
+the transition -- applied in `ApplyInputEvents`, before `PrepareWorker`, whose prefix (`Ksa/AttitudeHook.cs`)
+writes the mod's `Custom` attitude again on the same frame. Only the player's keys, gauges and part menus
+ask `IsControllable`; `ProcessInput`, staging and the flight computer do not, so nothing the mod commands
+is lost. A `<Control/>` part with no `PowerConsumer`, as the Pantsir and the bus are, counts as a probe
+core that is always powered. `KsaWorld.ControlSaid` puts KSA's reason in the drone and ballistic logs.
+Read from the source, not yet flown.
 
 ## TVC tracking has an integral term, and the steering period stretches when settled
 

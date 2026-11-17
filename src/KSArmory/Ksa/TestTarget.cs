@@ -280,7 +280,7 @@ internal static class TestTarget
                    + $"parts {v.Parts?.Count ?? -1} "
                    + $"bubbleLeader {(v.BubbleLeader is null ? "none" : "yes")} "
                    + $"bubble {(v.HasPhysicsBubble ? "yes" : "none")} "
-                   + $"controllable {v.IsControllable} "
+                   + $"{KsaWorld.ControlSaid(v)} "
                    + $"hasControlModule {HasControlModule(v)} controls {ControlCount(v)}";
         }
         catch (Exception e)

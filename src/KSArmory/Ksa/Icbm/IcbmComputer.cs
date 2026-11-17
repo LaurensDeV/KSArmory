@@ -722,7 +722,7 @@ internal sealed partial class IcbmComputer
                      + $"{(ArrivalIsIfReleasedNow ? "impact if released now in" : "impact in")} "
                      + $"{IcbmProgram.Clock(SecondsToArrival)}, "
                      + $"target {OffPlaneDegrees:F1} deg off plane ({PlaneChangeCost:F0} m/s), "
-                     + $"reach {Command.Reach}{BusJetsSaid()}"
+                     + $"reach {Command.Reach}{BusJetsSaid()}, {KsaWorld.ControlSaid(Craft)}"
                      + (double.IsFinite(Program.ResidualAtCutoff)
                             ? $", cut off {Program.ResidualAtCutoff:F2} m/s short{ResidualSaid()}"
                             : "")

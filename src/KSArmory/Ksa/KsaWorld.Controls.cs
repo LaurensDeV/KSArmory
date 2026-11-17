@@ -38,6 +38,28 @@ internal static partial class KsaWorld
     }
 
     /// <summary>
+    /// Whether KSA counts the craft as controllable, and why not. Since 2026.11.16.5901 that needs an able
+    /// crew or a powered probe core; it gates the player's keys and gauges, not the mod's commands.
+    /// </summary>
+    public static string ControlSaid(Vehicle craft)
+    {
+        try
+        {
+            if (craft.IsControllable) return "controllable";
+
+            // KSA's own reason, private; its tooltip is the same thing as a localised string.
+            _controlField ??= typeof(Vehicle).GetField("_control", BindingFlags.NonPublic | BindingFlags.Instance);
+            return $"not controllable ({_controlField?.GetValue(craft)?.ToString() ?? "reason unread"})";
+        }
+        catch
+        {
+            return "control unknown";
+        }
+    }
+
+    private static FieldInfo? _controlField;
+
+    /// <summary>
     /// Whether the engines running now stop when told to. False while any active engine burns a
     /// solid grain: KSA's <c>SolidMotor</c> keeps burning once lit whatever it is commanded, and only
     /// a spent grain stops it. True when it cannot be read, which is every engine that throttles.
