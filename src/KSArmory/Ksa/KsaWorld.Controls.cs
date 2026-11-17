@@ -20,10 +20,13 @@ internal static partial class KsaWorld
             for (int i = 0; i < engines.Length; i++)
             {
                 if (!engines[i].IsActive) continue;
-                foreach (RocketCore core in engines[i].Cores)
+                foreach (Rocket rocket in engines[i].Rockets)
                 {
-                    if (core is not SolidMotor) return false;
-                    any = true;
+                    foreach (RocketCore core in rocket.Cores)
+                    {
+                        if (core is not SolidMotor) return false;
+                        any = true;
+                    }
                 }
             }
             return any;
@@ -47,9 +50,12 @@ internal static partial class KsaWorld
             for (int i = 0; i < engines.Length; i++)
             {
                 if (!engines[i].IsActive) continue;
-                foreach (RocketCore core in engines[i].Cores)
+                foreach (Rocket rocket in engines[i].Rockets)
                 {
-                    if (core is SolidMotor) return false;
+                    foreach (RocketCore core in rocket.Cores)
+                    {
+                        if (core is SolidMotor) return false;
+                    }
                 }
             }
             return true;
@@ -132,7 +138,7 @@ internal static partial class KsaWorld
                 Span<ThrusterController> jets = craft.Parts.Modules.Get<ThrusterController>();
                 for (int i = 0; i < jets.Length; i++)
                 {
-                    RocketControllerData d = RocketControllerData.ComputeFromCores(jets[i].Cores.AsSpan(), 0f, 1f);
+                    RocketControllerData d = RocketControllerData.ComputeFromRockets(jets[i].Rockets.AsSpan(), 0f, 1f);
                     thrust += Vec.Len(new double3(d.ThrustMax.X, d.ThrustMax.Y, d.ThrustMax.Z));
                     flow += d.MassFlowRateMax;
                 }
@@ -142,7 +148,7 @@ internal static partial class KsaWorld
                 Span<EngineController> engines = craft.Parts.Modules.Get<EngineController>();
                 for (int i = 0; i < engines.Length; i++)
                 {
-                    RocketControllerData d = RocketControllerData.ComputeFromCores(engines[i].Cores.AsSpan(), 0f, 1f);
+                    RocketControllerData d = RocketControllerData.ComputeFromRockets(engines[i].Rockets.AsSpan(), 0f, 1f);
                     thrust += Vec.Len(new double3(d.ThrustMax.X, d.ThrustMax.Y, d.ThrustMax.Z));
                     flow += d.MassFlowRateMax;
                 }

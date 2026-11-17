@@ -637,6 +637,9 @@ subpart `Mk8200` so that `BodyMarker="Mk82"` matches it and nothing else.
   part either stacks or surface-attaches.
 - **Core's `Radial` editor tag stops anything being mounted on the part carrying it.** Leave it off a
   launcher that a sight should fit onto.
+- **An engine's throttle floor goes inside `<Rocket>`.** Since KSA 2026.11.16.5901 `MinimumThrottle` and
+  `MinimumPulseTime` belong to the rocket, after its `<Nozzles>`; on a `<Combustor>` they are dropped
+  silently and the engine runs at full throttle or not at all.
 - **File names are case-sensitive on Linux.** A path that differs only in case works on Windows and
   fails on Linux.
 

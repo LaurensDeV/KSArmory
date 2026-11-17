@@ -251,7 +251,7 @@ float ColumnStem(vec2 p, float capH, float columnR)
 struct WeatherShadowLayer
 {
     float bottomRadius;
-    float middleRadius;
+    float padding3;
     float transitionStartAltitude;
     float transitionEndAltitude;
     float invDetailTextureScale;
@@ -266,7 +266,10 @@ struct WeatherShadowLayer
     int shadowDensityLutTextureId;
     int linearRepeatSamplerId;
     int linearClampSamplerId;
-    vec4 padding;
+    float topRadius;
+    float padding0;
+    float padding1;
+    float padding2;
 };
 
 layout (set = 1, binding = 6) uniform WeatherShadowStatic
@@ -315,7 +318,8 @@ float WeatherShadow(vec3 worldPos, vec3 sunDir)
     for (int i = 0; i < min(weatherShadowStatic.layerCount, 4); i++)
     {
         WeatherShadowLayer layer = weatherShadowStatic.layers[i];
-        float toCloud = RaySphereIntersection(planet, layer.middleRadius, worldPos, sunDir).y;
+        float middleRadius = 0.5 * (layer.bottomRadius + layer.topRadius);
+        float toCloud = RaySphereIntersection(planet, middleRadius, worldPos, sunDir).y;
         if (toCloud <= 0.0) continue;
 
         vec3 cloudSpace = (weatherShadowDynamic.layers[i].worldToCloud
@@ -332,8 +336,8 @@ float WeatherShadow(vec3 worldPos, vec3 sunDir)
         float coverage = layer.volumetricTextureSingleChannel > 0 ? coverageMap.r : coverageMap.a;
 
         // Under the layer's own base only: a point up inside the deck is not shaded by all of it.
-        float below = clamp((layer.middleRadius - length(worldPos - planet))
-                            / max(layer.middleRadius - layer.bottomRadius, 1.0), 0.0, 1.0);
+        float below = clamp((middleRadius - length(worldPos - planet))
+                            / max(middleRadius - layer.bottomRadius, 1.0), 0.0, 1.0);
         result *= 1.0 - (clamp(coverage, 0.0, 1.0) * below);
     }
 
@@ -417,7 +421,7 @@ void PlaceWeather(vec2 uv, vec3 dir, float sceneT, float averagedAt, float clear
     {
         WeatherShadowLayer layer = weatherShadowStatic.layers[i];
         float bottom = layer.bottomRadius;
-        float top = 2.0 * layer.middleRadius - bottom;
+        float top = layer.topRadius;
 
         vec2 underTop;
         if (!ShellRoots(eyeR, b, top, underTop)) continue;

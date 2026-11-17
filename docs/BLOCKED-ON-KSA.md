@@ -8,8 +8,8 @@ Each entry cites what the decompiled corpus says, so a claim can be rechecked af
 rather than taken on trust. **Recheck this file when the game moves** — the whole point of it is
 that some of these will quietly become possible.
 
-Findings and citations are against KSA **2026.11.10.5801**, read from the decompiled source, not flown
-entry by entry. Paths are relative to
+Findings are against KSA **2026.11.16.5901**, read from the decompiled source, not flown entry by entry;
+citations are against 2026.11.10.5801 unless an entry names 5901, since only the drag entry's files moved. Paths are relative to
 `../ksa-game-assemblies/current/src`, and shaders to the install's `Content/Core/Shaders`. A line number is
 where the member was on the build its entry cites; search for the member it names.
 
@@ -20,27 +20,29 @@ will not surface any of these — none is a signature change, and most are a cal
 happen rather than a member that moved.
 
 - [x] Secondary viewport gets the planet, atmosphere and lighting passes — **partly**: terrain, sky,
-  clouds and ground clutter, not the ocean, trails or clustered lights; unchanged in 5801; see the entry below
+  clouds and ground clutter, not the ocean, trails or clustered lights; unchanged in 5901; see the entry below
 - [x] A secondary viewport's terrain is shadowed by cascades fitted to its own camera, not the main one's
   — **partly, in 2026.10.13.5602**: not shadowed at all unless `PlanetRenderer.ViewportShadows` is set,
-  which is the picture the entry below asked for; unchanged in 5801
+  which is the picture the entry below asked for; unchanged in 5901
 - [x] `Camera.NearbyCelestial` is set per camera rather than only for the frame viewport — **partly,
   in 2026.10.7.5541**: the field is still the frame camera's, but `Camera.GetEffectiveNearbyCelestial`
   (`KSA/KSA/Camera.cs:166`) resolves one for any camera, and the planet and atmosphere passes read that
-- [x] Wheel, suspension or steering module exists — no, still none in `ModuleList.CreateModules`
+- [x] Wheel, suspension or steering module exists — no, still none in `ModuleList.CreateModules`; 5901 only
+  compacted how a part stores its modules
 - [x] Custom part modules can be registered without patching — no
-- [x] Public accessor for the volumetric trail renderer — no
+- [x] Public accessor for the volumetric trail renderer — no, still `Program._volumetricTrailRenderer`
 - [x] **A hook that hands a mod the frame's command buffer** — none; the day it exists, `Ksa/CloudPassHook.cs`'s
   prefix on `SunbloomRenderer.Render` can go
 - [x] **A hook between applying the vehicle solvers and snapshotting them** — none; delete `Ksa/AttitudeHook.cs`'s
   patch the day this exists
 - [x] **A menu a mod can add a submenu to** — StarMap's Mods menu takes a button only; the `BeginMainMenuBar`
   append in `Ui.DrawMenuBarEntry` goes the day it takes more
-- [x] **`DistanceReference.IsValid()` stops requiring 100 km** — it still does, but **moot in 5801**: neither
+- [x] **`DistanceReference.IsValid()` stops requiring 100 km** — unchanged in 5901, and **moot since 5801**: neither
   the atmosphere nor the ocean has an `IsValid()` any more; see the entry below
 - [x] **`PhysicsStates.ComputeDrag` is still a body-fixed drag box over the mass, with no lift, no
-  Mach term and no restoring torque** — **still, in 5801**: the new aerodynamic mesh feeds no force
-  yet. The day this changes, the gun's lead is leading on yesterday's physics; see the entry below. And
+  Mach term and no restoring torque** — **no longer, in 5901**: a craft in air is flown on its
+  aerodynamic mesh, per panel, with Mach, lift and a moment, and the box is the fallback. The gun's lead
+  is leading on yesterday's physics; see the entry below. And
   `IcbmConfig.FlyAnyRange` lets a short shot steer at any angle of attack because nothing here can
   tip a stack over: an aerodynamic moment would make that a way to lose the rocket
 - [x] **`RecomputeImmersion` rotates `MassToGeometryAsmb` into the planet's frame**, or buoyancy
@@ -53,9 +55,14 @@ happen rather than a member that moved.
   pressure and its walls* below
 - [x] **KSA's destroy runs warm the first time it is called** -- its assemblies compiled ahead
   (ReadyToRun), or a debris split that no longer does first-time work -- **delete
-  `JitWarmup.EngineTypes` the day it does**; 5801's `KSA.dll` is still IL-only; see the entry below
-- [x] **A body declares what its air is made of** — **partly, in 5801**: a gas mixture with mole
+  `JitWarmup.EngineTypes` the day it does**; 5901's `KSA.dll` is still IL-only; see the entry below
+- [x] **A body declares what its air is made of** — **partly, since 5801, and 5901 adds its viscosity**: a gas mixture with mole
   fractions and a γ by temperature; see *A body's magnetic field and what its air is made of* below
+
+**Rechecked against 2026.11.16.5901, from the source only.** One thing moved, and it is the one this list
+was watching for: aerodynamics now fly a craft (*Aerodynamics have landed* below). The flight order around
+`PrepareWorker`, the command-buffer hook, the module list's contents, the immersion maths, ground contact,
+tank pressures and `KSA.dll`'s IL-only header are as 5801 left them.
 
 **Rechecked against 2026.11.10.5801, from the source only.** Two things moved. The atmosphere is no longer
 isothermal: `PhysicalAtmosphere` (`KSA/KSA/PhysicalAtmosphere.cs`) is built from a sea-level pressure, a
@@ -127,15 +134,15 @@ kill's `mod frame:` line against the second kill's. Within a few milliseconds of
 is buying nothing and goes. The mod's own assembly stays warmed either way: that half is this mod's
 code, and no KSA change touches it.
 
-## Aerodynamics are being worked on, and the gun's lead is a copy of today's
+## Aerodynamics have landed, and the gun's lead is a copy of yesterday's
 
-**Not blocked — the opposite.** Nothing here is missing. It is recorded because the author has it
-from RocketWerkz that aerodynamics are being worked on (2026-09-14), and this mod copies the
-current model by hand in a place no tool will flag when it changes.
+**Not blocked — the opposite.** Nothing here is missing. It is recorded because this mod copies the
+engine's model by hand in a place no tool will flag when it changes, and **in 2026.11.16.5901 it
+changed**: the copy below is now the engine's fallback, not what flies a craft.
 
 **What is copied.** `PhysicsStates.ComputeDrag` (`KSA/KSA/PhysicsStates.cs:1091`, called from `:1008` and
 `:1016`) and `BoundingBoxCdA.ComputeCdA` (`BoundingBoxCdA.cs:13`), copied on 2026.9.7.5402 and unchanged
-through 5801: drag = `(ComputeCdA(airflow in the body frame) + 0.1 × TotalSurfaceArea) × ½ρv²`,
+through 5801, and on 5901 flown only by a craft whose aerodynamic mesh has no faces: drag = `(ComputeCdA(airflow in the body frame) + 0.1 × TotalSurfaceArea) × ½ρv²`,
 against the mass, then an implicit damping factor `1 / (1 + F·dt / (m·v))` that is negligible at
 these speeds and is not copied. The box is `VehicleProperties.AerodynamicCdABody`, built by `RecomputeAerodynamicProperties`
 (`VehicleProperties.cs:124`) off the bounding box: each face's area weighted 0.3 on +X, 1.0 on −X and 1.2 on
@@ -144,12 +151,17 @@ Mach term, no lift and no restoring torque** — only a rate-damping one, `0.1 �
 against the body rates, which a lead on the centre of mass does not need. `Sim/DragShape.cs` is the copy and
 `KsaWorld.DragShapeOf` reads the terms off a craft; `Sim/BallisticLead.cs` flies a target on it.
 
-**5801's aerodynamic mesh changes no force, so the copy still matches.** Each craft's `PartTree.AeroMesh`
-(`PartTree.cs:40`, `KSA/KSA.Aero/`) is a panel mesh built on the vehicle worker pool from the parts' colliders,
-rebuilt when a part (not a subpart) moves (`Part.cs:1396`). Its only readers are the debug draw and readout
-(`AeroMeshDebugDraw`, Draw Aero Mesh in the menu) and `AeroDump`; nothing in `PhysicsStates` or
-`VehicleProperties` reads it. `PhysicsEnvironment` now carries the air's `SpeedOfSound`, which nothing reads
-either, so there is still no Mach term. The day either feeds a force, re-run the check below.
+**On 5901 the aerodynamic mesh feeds the force, so the copy no longer matches** — read from the source,
+not yet flown. In air, `PhysicsStates` (`:1055`) asks the craft's `PartTree.AwaitAerodynamics()`
+(`PartTree.cs:750`, which waits for the mesh built from the parts' colliders) for its surface flow, and
+flies `ComputeAerodynamicLoads` (`:1173`) when there is one; `ComputeDrag` (`:1138`) is left for a mesh
+with no faces and for the ocean. The new law is per panel: a pressure coefficient from each panel's
+inclination to the airflow by the **Local Inclination Law** (`KSA.Aero/LocalInclinationLaw.cs`), a function
+of **Mach** and the air's **γ**, plus skin friction by Reynolds number (`SkinFrictionLaw.cs`). The force it
+returns is **not along the airflow**, so a craft now has **lift and side force**, and the moment about the
+centre of mass is the whole aerodynamic moment rather than only rate damping. Even the fallback gained a
+torque, `MassToGeometryAsmb × F`. So everything in *What else the lead assumes* below has now happened.
+`Sim/DragShape.cs` has not moved, and until it does the gun leads every target in air on the old box.
 
 **How it was confirmed, so the check can be repeated.** `scenario.sh gunnery:1,overhead,30,300,1500`
 logs every half second a drone's slowing times its mass over `v² × density ratio × area`. On today's

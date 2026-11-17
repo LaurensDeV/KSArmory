@@ -258,7 +258,7 @@ parses as it is.
   tool takes `KSA_DIR` to override it. On this box the Ahwoo/Neutrino launcher's library,
   `/mnt/c/Program Files/Ahwoo/Games/Kitten Space Agency`; a hand-unpacked copy used to sit at
   `/mnt/c/Program Files/Kitten Space Agency`, which is still tried (Windows game, WSL dev)
-- **KSA build these notes were taken against**: `2026.11.10.5801`
+- **KSA build these notes were taken against**: `2026.11.16.5901`
 - The system `dotnet` is 8.0 and **cannot build this** — the mod targets **net10.0**
   (`error NETSDK1045`). A .NET 10 SDK is installed at `~/.dotnet`.
   **Use `tools/build.sh` / `tools/test.sh`**, which source `tools/env.sh` to fix PATH. Bare
@@ -1194,10 +1194,11 @@ from 20 km at 300 m/s the fall is 95 s of a 102 s horizon and there is no room f
 region is then reported **unknown rather than absent**: reading a probe that never landed as a region
 of zero told a store with a perfectly good landing that it had nothing to move it with.
 
-**The gun's lead flies a copy of the engine's drag, and RocketWerkz are working on aerodynamics.**
-`Sim/DragShape.cs` is today's `PhysicsStates.ComputeDrag` — a body-fixed box over the mass, no lift,
-no Mach — and nothing fails when the engine's changes. `docs/BLOCKED-ON-KSA.md` has the flown check
-that confirms the copy, and what to do when it stops matching. The lead also reads what no radar
+**The gun's lead flies a copy of the engine's old drag, and since 2026.11.16.5901 the engine flies
+something else.** `Sim/DragShape.cs` is `PhysicsStates.ComputeDrag` — a body-fixed box over the mass, no
+lift, no Mach — which KSA now keeps only for a craft with no aerodynamic mesh; a craft in air is flown
+per panel, with Mach, lift and a moment. Nothing fails on the difference. `docs/BLOCKED-ON-KSA.md` has
+what changed, the flown check that measures the gap, and what to do about it. The lead also reads what no radar
 could — mass, fuel, body rates — so it is true to the game's physics, not to a real director.
 `docs/CIWS-REALISM.md` has what a real director would do instead, and when that would be worth it.
 

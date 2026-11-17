@@ -3,7 +3,7 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
-/// The drag a craft feels from air arriving from a given direction, as the engine computes it.
+/// The drag a craft feels from air arriving from a given direction, as KSA's drag box computes it.
 ///
 /// <para>KSA's drag is a drag area fixed to the body, times dynamic pressure, over the mass: the bounding
 /// box's faces weighted 0.3 nose, 1.0 tail, 1.2 sides, plus a tenth of the surface area as skin
@@ -11,8 +11,8 @@ namespace KSArmory;
 /// put every first shell 25 m behind and above the drone. Computed rather than read off the slowing,
 /// because a craft under power is not slowing and still has all of its drag.</para>
 ///
-/// <para>A copy of the engine's model as of 2026.9.7.5402, which RocketWerkz are reworking:
-/// <c>docs/BLOCKED-ON-KSA.md</c> has the check that confirms it still matches.</para>
+/// <para>A copy of the engine's model as of 2026.9.7.5402, which since 2026.11.16.5901 KSA flies only for
+/// a craft with no aerodynamic mesh: <c>docs/BLOCKED-ON-KSA.md</c> has what replaced it.</para>
 /// </summary>
 /// <param name="Positive">Drag area of each body axis's positive face (m²).</param>
 /// <param name="Negative">Drag area of each body axis's negative face (m²).</param>

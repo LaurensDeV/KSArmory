@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-373 types and 976 members across 12 assemblies.
+374 types and 979 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -757,10 +757,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `Brutal.ByteSize DynamicUboStride`
 
-### KSA.Atmosphere.Rendering.CloudShadowsRenderer
-
-*referenced as a type only*
-
 ### KSA.AtmosphereReference
 
 - `KSA.PhysicalAtmosphereReference Physical`
@@ -1036,7 +1032,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.RocketControllerData SeaLevelData`
 - `KSA.RocketControllerData VacuumData`
-- `KSA.RocketCore[] Cores`
+- `KSA.Rocket[] Rockets`
 - `bool get_IsActive()`
 - `float MinimumThrottle`
 - `int get_Sequence()`
@@ -1706,7 +1702,6 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.VulkanApi.VkSampler get_LinearClampedSampler()`
 - `Brutal.VulkanApi.VkSampler get_PointClampedSampler()`
 - `Core.Renderer GetRenderer()`
-- `KSA.Atmosphere.Rendering.CloudShadowsRenderer GetCloudShadowsRenderer()`
 - `KSA.AtmosphereRenderer get_PlanetAtmosphereRenderer()`
 - `KSA.Camera GetMainCamera()`
 - `KSA.Camera GetRenderCamera()`
@@ -1875,16 +1870,27 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.DensityReference Density`
 - `KSA.DistanceReference Level`
 
+### KSA.Rocket
+
+- `KSA.RocketCoreConditions ComputeCoreConditions(KSA.RocketCore, float)`
+- `System.ReadOnlySpan`1<KSA.RocketCore> get_Cores()`
+
 ### KSA.RocketControllerData
 
 - `Brutal.Numerics.float3 ThrustMax`
-- `KSA.RocketControllerData ComputeFromCores(System.ReadOnlySpan`1<KSA.RocketCore>, float, float)`
+- `KSA.RocketControllerData ComputeFromRockets(System.ReadOnlySpan`1<KSA.Rocket>, float, float)`
 - `float MassFlowRateMax`
-- `void ComputeFromCores(System.ReadOnlySpan`1<KSA.RocketCore>, float, float, float, ref KSA.RocketControllerData, ref KSA.RocketControllerData)`
+- `void ComputeFromRockets(System.ReadOnlySpan`1<KSA.Rocket>, float, float, float, ref KSA.RocketControllerData, ref KSA.RocketControllerData)`
 
 ### KSA.RocketCore
 
+- `KSA.Rocket Rocket`
 - `void RecomputeDesignConditions()`
+- `void RefreshMaxMassFlowRate(ref KSA.RocketCoreConditions)`
+
+### KSA.RocketCoreConditions
+
+*referenced as a type only*
 
 ### KSA.ScreenshotCapture
 
@@ -2018,7 +2024,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.ThrusterController
 
-- `KSA.RocketCore[] Cores`
+- `KSA.Rocket[] Rockets`
 
 ### KSA.ThrusterMapFlags
 

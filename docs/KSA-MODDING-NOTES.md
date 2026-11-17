@@ -2,7 +2,7 @@
 
 Everything here comes out of the shipped assemblies of **KSA build 2026.9.10.5438**, read with
 `tools/apidump`, or out of the StarMap sources, and was rechecked against **2026.9.22.5482**
-and again against **2026.10.7.5541**, **2026.10.10.5554**, **2026.10.13.5602**, **2026.10.19.5638**, **2026.10.25.5707** and **2026.11.10.5801** wherever those builds changed a type this mod uses. KSA is pre-release and unofficially moddable:
+and again against **2026.10.7.5541**, **2026.10.10.5554**, **2026.10.13.5602**, **2026.10.19.5638**, **2026.10.25.5707**, **2026.11.10.5801** and **2026.11.16.5901** wherever those builds changed a type this mod uses. KSA is pre-release and unofficially moddable:
 none of this is documented by RocketWerkz, and **it will drift between game builds**. Re-run
 the dumper rather than trusting this file after an update.
 
@@ -1092,6 +1092,27 @@ thrust under `0.9 * MaxGLoad * g` (`SolveGLoadThrottleCap`), and flags `IsThrott
 coincide and the engine's should not bind under the mod's. If they ever disagree, the computer
 reads the throttle the vehicle reports, so it sees the cap rather than fighting it.
 
+## A rocket's throttle floor and pulse are the rocket's, and the floor defaults to full
+
+Since 2026.11.16.5901 an engine or a thruster holds `Rocket[] Rockets` rather than cores, each a core
+and its nozzles, and `MinimumThrottle` and `MinimumPulseTime` belong to `RocketTemplate` -- written
+inside `<Rocket>`, after `<Nozzles>`, as Core's `CorePropulsionAGameData.xml` does. Left on a
+`<Combustor>` or `<ThermalCore>` they are dropped without a word, and the floor is then
+`RocketTemplate`'s default of **1.0**: an engine that cannot throttle at all. The pulse defaults to the
+1 ms floor. `RocketCore.MaxMassFlowRate` is now cached from full power at creation, and the resource
+graph draws on it, so a core whose chamber pressure is changed afterwards needs
+`RefreshMaxMassFlowRate(core.Rocket.ComputeCoreConditions(core, 1f))` -- `Ksa/DamagedEngines.cs` does.
+A solid motor has to be declared `<SolidRocket>`; a `<Rocket>` round one throws at load.
+
+## A craft is controllable only with an able crew or a powered probe core
+
+Since 2026.11.16.5901 `Vehicle.IsControllable` (`Vehicle.cs:703`) is `_control == VehicleControl.Controllable`,
+from `ComputeControl(pod, probe)` (`:3820`): a command pod with no able kitten and no powered probe core is
+`NoCrew`, and a probe core unpowered, off, failed or rebooting is not controllable either. When a craft
+stops being controllable, `UpdateControl` (`:3751`) releases its flight computer to Manual. `ProcessInput`
+and the worker do not ask, so the mod's own writes still land, but a ballistic computer reading
+`AttitudeMode` will see its hold dropped. Read from the source, not yet flown.
+
 ## TVC tracking has an integral term, and the steering period stretches when settled
 
 Since 2026.10.10.5554 `FlightComputer.ComputeTvcControlAxis` tracks an attitude with a third state, the
@@ -1172,8 +1193,10 @@ way in, `FxDeformation.DebugImpact`, and places one at random.
 
 ## A compute pass can read KSA's weather shadows, but not through KSA's set
 
-`Program.GetCloudShadowsRenderer().GetDescriptorSet(body)` is the set the terrain, the ocean and static
-objects shade by the weather through (`Clouds/CloudShadows.glsl`), and binding it to a compute pass
+`CloudShadowsRenderer.GetDescriptorSet(body)` is the set the ocean shades by the weather through
+(`Clouds/CloudShadows.glsl`; since 2026.11.16.5901 the terrain reads a screen-space pass,
+`ScreenSpaceCloudShadows.frag`, instead). The renderer is `Program`'s private `_cloudShadowsRenderer`, which
+5901 gave no getter, so it is reached by reflection off `Program.Instance`. Binding the set to a compute pass
 compiles, validates nowhere visible and reads **garbage**: its three bindings are declared with
 `StageFlags = FragmentBit` alone, so from a compute shader every float came back NaN and the layer
 count as a random integer. A set cannot be bound to a pipeline whose layout differs from it in stage
@@ -1208,7 +1231,7 @@ Then the upscaler (`Upscaling/UpscalingFunctions.glsl`) writes each full-resolut
 itself forward, which draws as boxes.
 
 What recovers it: the layers' own radii are in the weather-shadow buffers above (`bottomRadius`,
-`middleRadius`, the top being symmetric), so each stretch of the ray **inside** a layer's slab can be
+`topRadius`), so each stretch of the ray **inside** a layer's slab can be
 placed exactly -- between its bottom and top spheres, not at its middle's crossing, which a ray
 skimming the top half never makes. The blended distance then says only how the opacity **divides**
 between the two stretches it falls between, measured between their facing edges (a deck seen from

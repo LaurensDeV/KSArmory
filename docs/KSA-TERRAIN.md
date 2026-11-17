@@ -6,6 +6,11 @@ directly off the shipped `Earth_Height.ktx2`. Nothing here has been flown. The m
 taken against 2026.8.19.5261 and still stand: they are sampled well inside a face, and the only
 sampling change since is in the seam branch.
 
+> **2026.11.16.5901 changed the terrain modifiers' input** (`ProceduralModifiersRenderData.ModifierInputData`):
+> a `double3` direction where it took a `float3` position, and the modifier curves read through
+> `EvaluateLutGrad`. Heights from erosion, dunes and detail may have moved, and the float staircase below
+> may be smaller. Neither has been measured on 5901; `TerrainStaircaseTests` and a flown height are the check.
+
 **Why it matters.** One metre of disagreement about where the surface is costs `cot γ` metres of
 ground at an arrival angle `γ`: **9.3 m** at the six-to-seven degrees this file was written against,
 11.1 m at five and 2.7 m at twenty (`SurfaceAgreementTests.AMetreOfHeightIsCotangentMetresOfGround`).
