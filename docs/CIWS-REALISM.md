@@ -73,8 +73,8 @@ nights under `docs/SHOT-PROTOCOL.md`. It is only worth it if the CIWS should *be
 one rather than hit as well as the game allows.
 
 **What would change that:** since 2026.11.16.5901 KSA flies a craft in air on its aerodynamic mesh, with
-Mach, lift and a moment. The lead samples those loads (`Ksa/AeroTables.cs`) but does not yet fly the
-rotation the moment drives, which left a tumbling drone 9–175 m from the bursts aimed at it. `docs/BLOCKED-ON-KSA.md` has the flown check that confirms the
+Mach, lift and a moment. The lead samples those loads (`Ksa/AeroTables.cs`) and turns the target under their moment
+(`Sim/AttitudeTrack.cs`), which a real director could not know. `docs/BLOCKED-ON-KSA.md` has the flown check that confirms the
 copy. Spotting corrects a lead against whatever the shells actually do, so it keeps the gun
 accurate after the copy goes stale. At that point step 2 alone, on top of today's lead, would be
 worth building.

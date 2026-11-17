@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-383 types and 997 members across 12 assemblies.
+383 types and 1000 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -749,6 +749,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 ### KSA.Aero.SurfaceLoads
 
 - `System.Numerics.Vector3 get_ForcePerDynamicPressure()`
+- `System.Numerics.Vector3 get_MomentPerDynamicPressure()`
 
 ### KSA.AsmbTankTemplate
 
@@ -2205,6 +2206,8 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `Brutal.Numerics.float3 get_CenterOfMassAsmb()`
 - `KSA.BoundingBoxCdA AerodynamicCdABody`
 - `KSA.OffsetMassProperties InertMassPropsAsmb`
+- `KSA.OffsetMassProperties TotalMassPropsAsmb`
+- `KSA.OffsetMassProperties TotalMassPropsInvAsmb`
 - `float TotalPropellantMass`
 - `float TotalSurfaceArea`
 - `float get_TotalMass()`

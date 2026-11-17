@@ -3,8 +3,9 @@ using Brutal.Numerics;
 namespace KSArmory;
 
 /// <summary>
-/// A craft's aerodynamic force per unit of dynamic pressure (m²), in its own body frame, against the
-/// direction the air flows past it — sampled from the engine over a sphere of directions.
+/// A craft's aerodynamic force (m²) and moment about its centre of mass (m³) per unit of dynamic pressure,
+/// in its own body frame, against the direction the air flows past it -- and how each changes with the
+/// body rate over the airspeed, which is the engine's rate damping -- sampled over a sphere of directions.
 ///
 /// <para>The samples sit on an icosphere and are resampled once, linearly within its triangles, onto a
 /// 5° latitude-longitude grid read back bilinearly: the lead flies a target forward tens of thousands of
@@ -20,9 +21,13 @@ public sealed class AeroTable
     // one sphere, so worked out once a level and not on the frame a table completes.
     private static readonly Dictionary<int, (double3[] Directions, (int A, int B, int C, double U, double V, double W)[] Grid)> Spheres = [];
 
+    // Per direction: force, moment, then the force's and the moment's change per unit of rate over
+    // airspeed (rad/m) about each body axis.
+    public const int Channels = 8;
+
     private readonly double3[] _directions;
     private readonly (int A, int B, int C, double U, double V, double W)[] _weights;
-    private readonly double3[] _forces;
+    private readonly double3[] _samples;
     private readonly bool[] _set;
     private double3[]? _grid;
     private int _filled;
@@ -41,9 +46,8 @@ public sealed class AeroTable
             (_directions, _weights) = sphere;
         }
 
-        double3[] directions = _directions;
-        _forces = new double3[directions.Length];
-        _set = new bool[directions.Length];
+        _samples = new double3[_directions.Length * Channels];
+        _set = new bool[_directions.Length];
     }
 
     public int Count => _directions.Length;
@@ -54,11 +58,15 @@ public sealed class AeroTable
 
     public double3 Direction(int index) => _directions[index];
 
-    public void Set(int index, double3 forcePerQ)
+    /// <summary>A force alone, with no moment and no rate damping.</summary>
+    public void Set(int index, double3 forcePerQ) => Set(index, [forcePerQ, Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero, Vec.Zero]);
+
+    /// <summary>Every channel of one direction, in the order <see cref="Channels"/> describes.</summary>
+    public void Set(int index, ReadOnlySpan<double3> channels)
     {
         if (!_set[index]) _filled++;
         _set[index] = true;
-        _forces[index] = forcePerQ;
+        channels.Slice(0, Channels).CopyTo(_samples.AsSpan(index * Channels, Channels));
     }
 
     /// <summary>Resamples the filled directions onto the grid; a table is read only once sealed.</summary>
@@ -66,18 +74,42 @@ public sealed class AeroTable
     {
         if (_filled < _directions.Length) return;
 
-        var grid = new double3[_weights.Length];
-        for (int i = 0; i < grid.Length; i++)
+        var grid = new double3[_weights.Length * Channels];
+        for (int i = 0; i < _weights.Length; i++)
         {
             (int a, int b, int c, double u, double v, double w) = _weights[i];
-            grid[i] = (_forces[a] * u) + (_forces[b] * v) + (_forces[c] * w);
+            for (int k = 0; k < Channels; k++)
+            {
+                grid[(i * Channels) + k] = (_samples[(a * Channels) + k] * u) + (_samples[(b * Channels) + k] * v)
+                                           + (_samples[(c * Channels) + k] * w);
+            }
         }
 
         _grid = grid;
     }
 
-    /// <summary>The force per unit dynamic pressure for air flowing along <paramref name="flowBody"/>, a unit body-frame direction.</summary>
-    public double3 ForcePerQ(double3 flowBody)
+    /// <summary>The force per unit dynamic pressure for air flowing along <paramref name="flowBody"/>, a unit body-frame direction, the body not turning.</summary>
+    public double3 ForcePerQ(double3 flowBody) => Channel(flowBody, 0);
+
+    /// <summary>
+    /// Force and moment per unit dynamic pressure for air along <paramref name="flowBody"/> with the body
+    /// turning at <paramref name="ratePerSpeed"/>, its rates over the airspeed (rad/m).
+    /// </summary>
+    public (double3 Force, double3 Moment) Loads(double3 flowBody, double3 ratePerSpeed)
+    {
+        double3 force = Channel(flowBody, 0), moment = Channel(flowBody, 1);
+        for (int axis = 0; axis < 3; axis++)
+        {
+            double rate = axis == 0 ? ratePerSpeed.X : axis == 1 ? ratePerSpeed.Y : ratePerSpeed.Z;
+            if (rate == 0.0) continue;
+            force += Channel(flowBody, 2 + axis) * rate;
+            moment += Channel(flowBody, 5 + axis) * rate;
+        }
+
+        return (force, moment);
+    }
+
+    private double3 Channel(double3 flowBody, int k)
     {
         if (_grid is null) return Vec.Zero;
 
@@ -90,8 +122,9 @@ public sealed class AeroTable
         int r0 = (int)r, c0 = (int)c % LonCells, c1 = (c0 + 1) % LonCells;
         double fr = r - r0, fc = c - Math.Floor(c);
 
-        double3 low = Lerp(_grid[(r0 * LonCells) + c0], _grid[(r0 * LonCells) + c1], fc);
-        double3 high = Lerp(_grid[((r0 + 1) * LonCells) + c0], _grid[((r0 + 1) * LonCells) + c1], fc);
+        double3 low = Lerp(_grid[(((r0 * LonCells) + c0) * Channels) + k], _grid[(((r0 * LonCells) + c1) * Channels) + k], fc);
+        double3 high = Lerp(_grid[((((r0 + 1) * LonCells) + c0) * Channels) + k],
+                            _grid[((((r0 + 1) * LonCells) + c1) * Channels) + k], fc);
         return Lerp(low, high, fr);
     }
 

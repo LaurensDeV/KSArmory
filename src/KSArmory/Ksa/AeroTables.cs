@@ -24,6 +24,9 @@ internal static class AeroTables
     private const double RebuildAfterSeconds = 10.0;
     private const double BudgetMs = 1.0;
 
+    // A rate over airspeed (rad/m) of the order a tumbling drone turns at: 0.7 rad/s at 200 m/s is 0.0035.
+    private const float RatePerSpeed = 0.003f;
+
     private sealed class Entry : IDisposable
     {
         public required Vehicle Craft;
@@ -136,12 +139,26 @@ internal static class AeroTables
             float3 com = entry.Craft.Props.CenterOfMassAsmb;
             var centreOfMass = new Vector3(com.X, com.Y, com.Z);
             AeroTable table = entry.Building;
+            Span<double3> channels = stackalloc double3[AeroTable.Channels];
             for (int i = table.Filled; i < table.Count && Stopwatch.GetElapsedTime(start).TotalMilliseconds < BudgetMs; i++)
             {
                 Vector3 flow = table.Direction(i).ToBepu();
                 entry.Flow!.Update(flow);
-                SurfaceLoads loads = entry.Law.ComputeLoads(entry.Flow, in entry.Friction, flow, Vector3.Zero, centreOfMass);
-                table.Set(i, Double3Ex.FromBepu(loads.ForcePerDynamicPressure));
+                SurfaceLoads still = entry.Law.ComputeLoads(entry.Flow, in entry.Friction, flow, Vector3.Zero, centreOfMass);
+                channels[0] = Double3Ex.FromBepu(still.ForcePerDynamicPressure);
+                channels[1] = Double3Ex.FromBepu(still.MomentPerDynamicPressure);
+
+                // Damping is a finite difference over a rate about each axis, linear about none.
+                for (int axis = 0; axis < 3; axis++)
+                {
+                    Vector3 rate = axis == 0 ? new Vector3(RatePerSpeed, 0, 0)
+                                 : axis == 1 ? new Vector3(0, RatePerSpeed, 0) : new Vector3(0, 0, RatePerSpeed);
+                    SurfaceLoads turning = entry.Law.ComputeLoads(entry.Flow, in entry.Friction, flow, rate, centreOfMass);
+                    channels[2 + axis] = (Double3Ex.FromBepu(turning.ForcePerDynamicPressure) - channels[0]) * (1.0 / RatePerSpeed);
+                    channels[5 + axis] = (Double3Ex.FromBepu(turning.MomentPerDynamicPressure) - channels[1]) * (1.0 / RatePerSpeed);
+                }
+
+                table.Set(i, channels);
             }
 
             entry.SampleMs += Stopwatch.GetElapsedTime(sampling).TotalMilliseconds;

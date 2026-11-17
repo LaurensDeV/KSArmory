@@ -42,7 +42,7 @@ happen rather than a member that moved.
 - [x] **`PhysicsStates.ComputeDrag` is still a body-fixed drag box over the mass, with no lift, no
   Mach term and no restoring torque** — **no longer, in 5901**: a craft in air is flown on its
   aerodynamic mesh, per panel, with Mach, lift and a moment, and the box is the fallback. The lead now
-  samples the engine's loads; it does not yet fly the moment; see the entry below. And
+  samples the engine's loads and flies the moment; see the entry below. And
   `IcbmConfig.FlyAnyRange` lets a short shot steer at any angle of attack because nothing here can
   tip a stack over: an aerodynamic moment would make that a way to lose the rocket
 - [x] **`RecomputeImmersion` rotates `MassToGeometryAsmb` into the planet's frame**, or buoyancy
@@ -137,8 +137,7 @@ code, and no KSA change touches it.
 ## Aerodynamics have landed, and the gun's lead samples them
 
 **Not blocked — the opposite.** In 2026.11.16.5901 a craft in air is flown on its aerodynamic mesh, and
-the gun's lead now flies a target on the engine's own loads rather than on a copy of its law. What it
-still does not predict is the target's rotation.
+the gun's lead now flies a target on the engine's own loads and turns it under their moment.
 
 **What the engine does.** In air, `PhysicsStates` (`:1055`) takes the craft's published surface flow and
 flies `ComputeAerodynamicLoads` (`:1173`): per panel, a pressure coefficient by the **Local Inclination
@@ -159,14 +158,20 @@ acceleration then matched the drone's accelerometer to about 0.05 m/s² on every
 predicted 26 m/s² of drag against 11 and no lift. The median burst came in from **216 m to 44 m** and the
 drone was killed.
 
-**What it still assumes, and what that costs.**
-- A tumbling craft keeps its **body rates** for the whole of a shell's flight. The aerodynamic moment
-  now changes them -- the test drone went from 4 to 40°/s in five seconds -- so the lift is predicted
-  along the wrong axis: shells flying 3–4 s burst 9–20 m off, 6–11 s 40–175 m. Fixing it means flying
-  the attitude under the moment (`SurfaceLoads.MomentPerDynamicPressure`, the rate damping the engine
-  takes from `ω/V`, and the inertia), which is the next step.
-- The table is sampled at the rates of zero, so the rate-damping share of the *force* is left out:
-  of order `ωL/V`, a few per cent.
+**And its rotation.** The moment turns the target -- the test drone went from 4 to 40°/s in five seconds --
+and with its rates held the lift was predicted along the wrong axis: shells flying 6–11 s burst 40–175 m off.
+So the table also carries the moment and how force and moment change with the body rate over the airspeed
+(four `ComputeLoads` a direction, which is the engine's rate damping), and `Sim/AttitudeTrack.cs` flies the
+body under them with the craft's own inertia, on the airflow the lead's own flight of the target reaches it
+with. Flown on 5901: `gunnery:3,overhead,30,300,1500` killed 3 of 3 drones with all 7 bursts inside the
+lethal radius, median 5.7 m and worst 8.0 m, every one past 6 km; `gunnery:3,passing,15,200,500` on `CIWS`
+3 of 3 at 0.0 m. The ballistic computer flies a real stack through this air too, and is unmoved: on 5901
+the Chaco shot (`mirv:24S,62W`, `SOLVER SCALE 8`) put 56 of 56 warheads within 10.3 mm and the 200 km
+short shot 7 of 7 within 2.3 mm.
+
+**What it still assumes.**
+- The engine's implicit saturation of force and torque is left out; at a drone's mass and the engine's
+  step it is under a tenth of a per cent.
 - Whatever accelerates a target besides gravity and this is its **engine**, held fixed to the body and
   scaled up as its mass burns away (`DragShape.ExhaustVelocity`, `PropellantMass`). Lift no longer reads
   as thrust, because the table carries it.

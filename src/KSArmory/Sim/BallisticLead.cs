@@ -471,6 +471,12 @@ public static class BallisticLead
         // The engine's own drag, off the body, which changes as the airflow turns against it. Holding the
         // coefficient put every first shell 25 m behind and above.
         private readonly DragShape? _targetShape;
+        private readonly TrackFlow? _trackFlow;
+
+        private sealed class TrackFlow
+        {
+            public AttitudeTrack.Flow Now;
+        }
 
         // And how fast that push is burning its mass away, and for how long it can: a steady force over a
         // falling mass accelerates harder, and stops when the propellant does.
@@ -503,7 +509,11 @@ public static class BallisticLead
 
             if (targetShape is { IsUsable: true } shape)
             {
-                _targetShape = shape;
+                // The track flies the target's rotation on the airflow this flight last reached it with: the
+                // target's flight does not depend on the round, so every pass asks it the same thing.
+                var flow = new TrackFlow { Now = new AttitudeTrack.Flow(airspeed, density) };
+                _trackFlow = flow;
+                _targetShape = shape.WithTrack(_ => flow.Now);
                 _targetDrag = 0.0;
                 _targetPush = felt - shape.DragAcceleration(airspeed, density);
                 _targetMassFlow = shape.MassFlowFor(_targetPush);
@@ -634,6 +644,7 @@ public static class BallisticLead
 
             if (_targetShape is { } shape)
             {
+                if (_trackFlow is { } flow) flow.Now = new AttitudeTrack.Flow(air, Density(_densityAt, _mount + y));
                 double mass = shape.MassAt(_targetMassFlow, t);
                 double3 push = t < _targetBurnSeconds ? shape.Carry(_targetPush, t) * (shape.Mass / mass) : Vec.Zero;
                 return pull + push + (shape with { Mass = mass }).DragAcceleration(air, Density(_densityAt, _mount + y), t);

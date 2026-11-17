@@ -1,3 +1,4 @@
+using BepuUtilities;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
@@ -30,10 +31,9 @@ internal static partial class KsaWorld
     }
 
     /// <summary>
-    /// A craft's drag as <c>PhysicsStates.ComputeDrag</c> computes it: the body-fixed
-    /// <c>AerodynamicCdABody</c> plus a tenth of the surface area, over its mass, in the air of the body
-    /// it flies over — with its attitude and turn. Null when any of it cannot be read, which includes a
-    /// body with no air.
+    /// A craft's aerodynamics as the lead flies it: the engine's own loads once <see cref="AeroTables"/> has a
+    /// table for it, its inertia to turn it under their moment, and the drag box <c>PhysicsStates.ComputeDrag</c>
+    /// falls back on until then. Null when any of it cannot be read, which includes a body with no air.
     /// </summary>
     public static DragShape? DragShapeOf(Vehicle v)
     {
@@ -44,12 +44,21 @@ internal static partial class KsaWorld
             ref readonly VehicleProperties props = ref v.Props;
             float3 positive = props.AerodynamicCdABody.Positive;
             float3 negative = props.AerodynamicCdABody.Negative;
-            var shape = new DragShape(new double3(positive.X, positive.Y, positive.Z),
+            DragShape shape = new(new double3(positive.X, positive.Y, positive.Z),
                                       new double3(negative.X, negative.Y, negative.Z),
                                       0.1 * props.TotalSurfaceArea, v.Body2Cce, v.BodyRates,
                                       props.TotalMass, Medium.ReferenceDensityKgPerM3,
                                       v.FlightComputer.ActiveEnginePerformanceMax.ExhaustVelocity,
                                       props.TotalPropellantMass, AeroTables.For(v));
+            Symmetric3x3 inertia = props.TotalMassPropsAsmb.Props.Inertia;
+            Symmetric3x3 inverse = props.TotalMassPropsInvAsmb.Props.Inertia;
+            shape = shape with
+            {
+                InertiaDiagonal = new double3(inertia.XX, inertia.YY, inertia.ZZ),
+                InertiaOff = new double3(inertia.YX, inertia.ZX, inertia.ZY),
+                InverseDiagonal = new double3(inverse.XX, inverse.YY, inverse.ZZ),
+                InverseOff = new double3(inverse.YX, inverse.ZX, inverse.ZY),
+            };
             return shape.IsUsable ? shape : null;
         }
         catch
