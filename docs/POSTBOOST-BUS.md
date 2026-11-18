@@ -85,6 +85,10 @@ body turns at half a turn a second after. Then seven targets 2.5 km apart in a l
 `TargetSet.MaxTargets` was raised to seven: PASS, every warhead to its own target and the worst 5.6 mm from it, the walk
 flown on the nozzles exactly as the old bus flies one.
 
+**The sphere holds 688.5 kg full, not 500** (2026-11-18): at KSA's own storage densities the mix is 1,164 kg/m3, where
+this table and `make-rocket.py` took 845. Every bus built until then, and every night flown on one, carried about 500 kg
+in a tank 73% full; a bus a player fills in the editor carries 688.5. The rows below are the 500 kg flown.
+
 So **the declared 500 kg is the 50 km bus at long range**, and 100 km at 6,179 km wants about 1.2 t. The same arithmetic
 on the old bus (1.27 t structure, six RVs, 134 kg) gives **~167 m/s** of physical divert against the 60-70 the
 guidance allows itself: the current bus is already capped by the code, not the tank.

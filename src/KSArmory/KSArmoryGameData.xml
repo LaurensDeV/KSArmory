@@ -963,8 +963,8 @@
     </Diameters>
     <Components Modify="Extend">
       <!--
-      Not drawn, so only its volume and centre matter: 0.591 m3, about 500 kg of MMH/NTO at
-      843 kg/m3, on the axis just above the thruster ring so the centre of mass stays near the ring
+      Not drawn, so only its volume and centre matter: 0.591 m3, 688.5 kg of MMH/NTO full at
+      KSA's own 1,164 kg/m3 for the mix, on the axis just above the thruster ring so the centre of mass stays near the ring
       however full it is. A placeholder until docs/POSTBOOST-BUS.md settles the size.
     -->
       <Tank Key="MirvPropellant">

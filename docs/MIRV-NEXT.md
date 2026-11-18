@@ -32,7 +32,8 @@ Everything else is flown, closed, or retired, and says so in its own heading.
 >
 > It has changed again since. The bus that ships is the Heavy MIRV Bus: seven RVs rather than six,
 > an axial engine, a 3,450 kg `SolidSphereMass` (seven 250 kg RVs and about 1,700 kg of structure
-> and engine) and about 500 kg of propellant (`KSArmory_Prefab_MirvBus` in `KSArmoryGameData.xml`;
+> and engine) and 688.5 kg of propellant full (`KSArmory_Prefab_MirvBus` in `KSArmoryGameData.xml`;
+> every flight before 2026-11-18 carried about 500, from a density for the mix 27% light;
 > `docs/POSTBOOST-BUS.md` has the sizing).
 >
 > It was corrected because it was wrong, and because 6,300 kg on the nose made a stack chatter
