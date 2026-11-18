@@ -241,6 +241,11 @@ RELEASEWALK = re.compile(
     r"released \d+ of \d+ on (?P<craft>.+?): target (?P<k>\d+) (?P<site>.+?), "
     r"(?P<warheads>\d+) warheads?, divert (?P<divert>[-\d.]+) m/s, (?P<left>[-\d.]+) m/s left")
 
+# A walk ended short of its last stop hands the warheads still aboard to the stop it is at.
+WALKEND = re.compile(
+    r"walk on (?P<craft>.+?): .*?the walk ends here and target (?P<k>\d+) takes the (?P<warheads>\d+) "
+    r"warheads? left")
+
 # What ended the post-boost correction, which is the one thing that decides whether the aim loop
 # was allowed to finish. Every Finish() in Sim/PostBoostAim.cs, in the order it is tested, plus the
 # two numbers that say how near it got: the passes it ran and what the trim was still owed. A shot
@@ -581,7 +586,7 @@ def split_flights(out_path, log_path):
 def read_shot(out_path, log_path, craft=None):
     """Everything one shot is worth attributing, from its stdout and its copied-out log."""
     shot = {"mean": None, "spread": None, "worst": None, "best": None,
-            "targets": [], "split": False, "walk_stops": [],
+            "targets": [], "split": False, "walk_stops": [], "walk_end": [],
             "arrived": None, "released": None, "pickup_km": None, "pickup_ms": None,
             "residual": None, "own_km": None, "trim_split": None, "trim_release": None,
             "arc_deg": [], "release_owed": [], "response": [], "raw_response": [],
@@ -617,6 +622,8 @@ def read_shot(out_path, log_path, craft=None):
 
     shot["walk_stops"] = [m.groupdict() for m in RELEASEWALK.finditer(both)
                           if craft is None or _craft(m.group("craft")) == _craft(craft)]
+    shot["walk_end"] = [m.groupdict() for m in WALKEND.finditer(both)
+                        if craft is None or _craft(m.group("craft")) == _craft(craft)]
 
     m = PICKUP.search(both)
     if m:
@@ -2247,6 +2254,8 @@ def say_targets(shots, arms):
         # in this report would say so.
         for s in mine:
             said = {int(w["k"]) + 1: int(w["warheads"]) for w in s["walk_stops"]}
+            for w in s.get("walk_end", []):
+                said[int(w["k"]) + 1] = said.get(int(w["k"]) + 1, 0) + int(w["warheads"])
             scored = {r["k"]: (r["released"] or 0) for r in s["targets"]}
             if said and said != {k: v for k, v in scored.items() if k in said}:
                 print(f"   {arm:<14} ** {s['n']}: the release log says {said} warheads a target "
