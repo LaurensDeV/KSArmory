@@ -680,6 +680,7 @@ internal sealed partial class IcbmComputer
 
         IcbmState state = Sample(playerStep, out bool usable);
         StepStagingProbe(simStep, state);
+        HoldTheBusEngine();
 
         // After Sample writes this frame's Parent, Body and aim, and before a release, so a warhead
         // let go this frame starts its trace at zero.

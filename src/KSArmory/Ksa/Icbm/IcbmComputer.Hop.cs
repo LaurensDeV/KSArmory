@@ -11,6 +11,18 @@ internal sealed partial class IcbmComputer
     private double _hopMassBefore = double.NaN;
     private double _hopAskedBefore = double.NaN;
 
+    private Func<bool>? _engineStaysDark;
+
+    /// <summary>Whether staging lit the bus's own engine and the computer had to switch it off.</summary>
+    public bool BusEngineHeldOff => BusEngineHold.HasHeld(Craft);
+
+    private void HoldTheBusEngine()
+    {
+        if (_engineLit || _release is not { Profile.HopEngineThrustNewtons: > 0.0, HeldPart: { } bus }) return;
+
+        BusEngineHold.Hold(Craft, bus, _engineStaysDark ??= () => !_engineLit);
+    }
+
     private bool HopsBurnTheEngine
         => Config.HopsBurnTheEngine && Config.HopsSizeTheirOwnSlots
            && _release is { } release && release.Profile.HopEngineThrustNewtons > 0.0;

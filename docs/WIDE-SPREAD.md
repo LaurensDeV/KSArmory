@@ -526,7 +526,8 @@ For C, first:
 - **Ignition**: `VehicleCommand.SetEnginesActive` switches every engine on the craft. Add a per-part form for the bus's
   own engine after the split, and rewrite its "bridge only" rule to name this use.
 - **A player's own craft**: KSA puts an unsequenced engine in stage 1, so a design `make-rocket.py` did not stage lights
-  the bus engine at liftoff. Handle it (refuse to arm, or hold the engine inactive) and say so on the panel.
+  the bus engine at liftoff. Built on `agent/player-mirv`, not yet flown: an armed computer holds it inactive until a
+  hop lights it (`Ksa/BusEngineHold.cs`), and the panel says when it had to.
 - The coast branch's `SetEngine(false)` becomes `SetEngine(true)` and the burn attitude while burning (it already
   drives the throttle to 1). Read `BoosterPerformance` off the bus. One log line per hop: velocity asked, burn seconds,
   residual, kilograms.

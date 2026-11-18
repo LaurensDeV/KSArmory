@@ -183,6 +183,9 @@ internal interface IManualFire : IWeaponPlatform, IWeaponLoadout
 {
     int Ammo { get; }
 
+    /// <summary>The launcher part this system was crewed on, held by reference across a split.</summary>
+    Part? HeldPart { get; }
+
     bool IsLaid { get; }
 
     bool FireAt(double3 pointEcl);

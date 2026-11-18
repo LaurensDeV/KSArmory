@@ -316,6 +316,14 @@ internal sealed partial class Ui
                 + "warheads go with the burn unfinished. Drag it to the end of the staging list to fix it before launch.");
         }
 
+        if (computer.BusEngineHeldOff)
+        {
+            ImGui.TextDisabled("The bus's own engine was lit by staging; held off until a hop needs it");
+            Tip("KSA puts an engine no stage names into the first stage, so a design that never staged the bus's "
+                + "engine lights it at liftoff. The computer switches it off again whenever it finds it lit, and "
+                + "only a hop on the bus's engine lights it.");
+        }
+
         IcbmProgram program = computer.Program;
         if (program.Phase is IcbmPhase.Idle or IcbmPhase.NoSolution or IcbmPhase.Holding
             && double.IsFinite(program.NeedMetresPerSecond) && double.IsFinite(program.HaveMetresPerSecond))

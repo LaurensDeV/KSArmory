@@ -376,6 +376,9 @@ internal static class AttitudeHook
             // And a hurt engine's thrust, gimbal and ignition.
             DamagedEngines.Apply(__instance);
 
+            // And a bus engine staging lit before any hop asked for it.
+            BusEngineHold.Apply(__instance);
+
             if (Shoves.Count > 0 && Shoves.Remove(__instance, out (double3 Linear, double3 Angular, double Wind, double3 AwayEcl) shove))
             {
                 double3 before = KsaWorld.VelocityEcl(__instance);
