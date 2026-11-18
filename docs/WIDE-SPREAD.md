@@ -21,13 +21,22 @@ reading of code and have not been run; everything else names where it was measur
 
 ## Progress
 
-- [ ] 1. Flip night for the walk flags
+**Where it stands (2026-11-18): hundreds of km is flown, and nothing of it ships.** On the seven-RV bus with its
+axial engine (`PBB SCALE 8`, the bus that became the shipped Heavy MIRV Bus in `54a48682`), with the step-5 flags
+and `HopsBurnTheEngine` on, seven targets along the track walked in full at **200 and 300 km apart from 12,902 km**
+(224 of 224 within 0.35 and 0.52 m), **400 km** on 7 of 8 buses, and from 6,180 km **150 km apart** on 22 of 24 (two curtailed at the sixth stop); on this tank the widest
+walk of seven is 400 km apart, 2,400 km end to end (step 7 has the nights). Every one of those flags is still off and
+is a research switch with no control on the panel (`tools/check-tunables.py` `RESEARCH`), so a player's bus walks
+the shipped ~4.5 km. What is left before they ship is step 7's flip, the bus flying back through its first warheads,
+and step 8.
+
+- [ ] 1. Flip night for the walk flags -- overtaken by the engine nights in step 7, which fly them all on
 - [x] 2. Make a hop's time and budget belong to the hop (headless, flagged) -- 2026-10-18, rig only
-- [ ] 3. Spend the Heavy bus's tank, rolled once for the walk -- headless half built 2026-10-18 (guard, slider), roll deferred, night not flown
+- [ ] 3. Spend the Heavy bus's tank, rolled once for the walk -- headless half built 2026-10-18 (guard, slider), roll deferred; the engine hops spend the tank instead
 - [x] 4. Decide the route to 50 km (rig pricing, a decision, no build) -- 2026-10-18: A and B, C deferred
-- [ ] 5. Build the chosen route (headless) -- A and C built 2026-10-19 behind flags, all off; flown in step 6 and the 2026-10-19/20 nights
-- [ ] 6. Fly it in game, once -- flown 2026-10-19 for A, the second flight landing 25 warheads within 32 mm on seven-target sets that walked three
-- [ ] 7. The wide nights
+- [x] 5. Build the chosen route (headless) -- A and C built 2026-10-19 behind flags, all off
+- [x] 6. Fly it in game, once -- 2026-10-19: seven targets 50 km apart, 25 warheads within 32 mm, three stops walked on the nozzles
+- [ ] 7. The wide nights -- flown 2026-10-19/20 at 150-500 km on the engine and landing within a metre; the flags not yet turned on
 - [ ] 8. What a player sees
 
 ## The goal, in numbers
