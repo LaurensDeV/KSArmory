@@ -555,16 +555,20 @@ Each a small change after 7:
   and 11.94x free arrival buys along the track, so a player cannot even set up a walk the flight would fly. Every
   wide flight placed its targets through the scenario, which skips the outline. At the shipped 60 m/s budget, and
   the panel slider's 200, it is narrower still; the nights flew 1,000 with the tank bounding it.
-- **A free-arrival pad reach, studied and not built** (`PadFreeReachStudyTests`, 2026-11-18, the post-boost bus with
-  every walk flag and the engine on): the pad's cheapest conic coasted to the release gate and its columns flown
-  there with the free clock places, of seven along the track, 7 at 200 km and 6 at 300 km from 12,902 km against 7
-  and 6 walked, but 5 at 200 km and 3 at 400 km from 6,181 km against 4 and 2 -- one stop more than the coast flies
-  -- and 4-7 from 2,000 km where the coast walks 1. The pinned disc the pad draws today also places 7 at 50 km from
-  2,000 km against that 1. What the pad lacks is the coast's length (`CoastSeconds` is NaN before launch, which
-  leaves the stop count unbounded): the conic flies 1,424 s against 1,341 coasted at 6,181 km, 703 against 511 at
-  2,000 km and 2,226 against 2,726 at 12,902, where the flight lofts. So the estimate wants a coast that comes in
-  short -- the conic less the burn, which has not been measured on any stack but the rig's -- before it may refuse
-  anything.
+- **The pad plans the walk on a coast it will get, and on the free reach** (`Sim/PadReach.cs`, flown 2026-11-18). The
+  coast is taken as **0.55 of the cheapest conic** from where the bus stands -- every coast came in over that, 0.58 at
+  the least, across the six rigged stacks, 500-12,902 km and arrival preferences 0, 0.5 and 1 (`PadCoastStudyTests`; the
+  conic alone is no floor: 703 s against a 509 s coast at 2,000 km, while the flight lofts past it at long range). Under
+  `HopsFreeTheirArrival` the free reach is flown off that conic **at the coast floor's epoch**, where the coast measures
+  its own, carried back to now; measured at the gate instead, every earlier stop is capped at the gate's reach and the
+  pad planned 1 of 7. Under `PriceTheTankStopByStop` the bus's own tank is read before the split, its mass the bus part's
+  inert mass plus its tank. Seven targets along the track on the post-boost bus, pad against coast (`PadReachTests`):
+  2,000 km 50 km apart, 1 against 1; 6,181 km 200 km apart, 3 against 4; 12,902 km 300 km apart, 6 against 6, where the
+  pinned disc plans 1; a 134 kg tank there, 2 against 2 -- and that coast flies 1, which is the coast planner's own
+  over-promise, not the pad's. A coast left unknown planned 7 at 2,000 km against 1. Flown on `SOLVER SCALE 1` to
+  24.476S 26.909E, seven targets 300 km apart with every walk flag on: the pad planned 2-3 stops through the climb on
+  the bus's 134 kg, and the bus planned 3 after the split. The coast floor applies with the flags off too. The walker
+  keeps the plan it always had until the coast prices its own, so nothing the burn aims with moves.
 - **The pad outline at the walk's epoch** (4.12 step 3): the floor to 1,700 s is measured,
   `0.88 - 0.00034 (t - 760)` of `t_go`; it needs a coast estimate that comes in short. Pass: no pad click refused that
   the coast's own reach accepts, on the step 7 sets.

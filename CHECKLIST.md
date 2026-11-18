@@ -3067,6 +3067,9 @@ section that proves it, and it is the failure that produced a 3,255 km miss befo
       logged once; the shot went on as before. The Ballistic tab's line was not looked at.
 - [ ] Under `HopsBurnTheEngine` a hop still lights the bus engine through the hold, and the hold takes it back
       after the hop.
+- [x] **The pad plans no more stops than the bus.** Flown 2026-11-18 on `SOLVER SCALE 1`, seven targets 300 km apart from
+      12,902 km with every walk flag on: the pad planned 2-3 on the bus's 134 kg, the bus 3 after the split.
+- [ ] A click on the pad outside the outline at that spacing is refused, and one inside it is taken.
 
 ---
 

@@ -167,6 +167,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/TargetEdit.cs` | when that list may be edited — **an add needs a reach that can refuse it**, the lead moves only while the aim is free, and is never removable |
 | `Sim/DivertFootprint.cs` | how far one bus can move its own landing and what the trim pays for it — **the arrival clock has no default**, because the flight pins it and the pinned reach is a disc |
 | `Sim/ReleaseItinerary.cs` | when a bus with several targets lets each one's warheads go — **ending on today's release gate**, so a set of one is the shot everything is measured against |
+| `Sim/PadReach.cs` | the divert reach guessed before launch -- **the cheapest conic from the pad, its coast taken at 0.55 of it**, the share every rigged stack, range and arrival preference came in over, and under `HopsFreeTheirArrival` the free reach flown off that conic at the coast floor's epoch, carried back to now -- so the pad plans no walk the coast will not |
 | `Sim/ReachDisplay.cs` | that reach as something drawn, refused against and read off the panel — **one answer for all three**, or a refused click inside the outline reads as the tool being broken |
 | `Sim/ReleaseLoop.cs` | which stop a bus is on and when it hops — **the decision half**, refusing a walk rather than flying one at half its price |
 | `Sim/ReleaseWalker.cs` | the cursor that walk is flown through — **every statement is behind `Walking`, false for a set of one**, so a single-target flight executes none of it |

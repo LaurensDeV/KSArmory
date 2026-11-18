@@ -101,6 +101,22 @@ internal static class StoreMass
     /// <summary>Forgets every queued write, for a world being taken away.</summary>
     public static void Clear() => _owed.Clear();
 
+    /// <summary>What the part weighs bar its tanks' contents: its structure and whatever stores it still holds.</summary>
+    public static bool TryInertMassKg(Part part, out double kg)
+    {
+        kg = double.NaN;
+        try
+        {
+            if (!TryInertMass(part, out InertMass module)) return false;
+            kg = module.MassPropertiesAsmb.Props.Mass;
+            return kg > 0.0 && double.IsFinite(kg);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private static bool TryInertMass(Part part, out InertMass module)
     {
         module = null!;

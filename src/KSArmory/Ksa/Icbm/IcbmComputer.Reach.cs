@@ -101,9 +101,33 @@ internal sealed partial class IcbmComputer
         double tankKg = double.NaN, busKg = double.NaN;
         bool tankByStop = Config.PriceTheTankStopByStop && TryReadTheTank(out tankKg, out busKg);
 
-        Reach = ReachDisplay.For(_reachFootprint, PlacedTargets(),
-                                 new ReleaseItinerary.Bus(Config.ReleaseBeforeArrivalSeconds,
-                                                          coast, WarheadsAboard,
+        List<ReachDisplay.Placed> placed = PlacedTargets();
+        Reach = Display(_reachFootprint, placed, Means(coast, tankByStop, tankKg, busKg), coasting);
+        ReachDisplay forTheWalk = Reach;
+
+        // The player is shown a coast the flight will come in over and the free reach off the pad's conic; the walker
+        // keeps the plan the burn has always been aimed with, until the coast prices its own.
+        if (!coasting && double.IsFinite(_padCoastSeconds))
+        {
+            double padKg = double.NaN, padBusKg = double.NaN;
+            bool padTank = Config.PriceTheTankStopByStop && TryReadTheBusBeforeTheSplit(out padKg, out padBusKg);
+            Reach = Display(_padFootprint ?? _reachFootprint, placed,
+                            padTank ? Means(_padCoastSeconds, true, padKg, padBusKg)
+                                    : Means(_padCoastSeconds, tankByStop, tankKg, busKg),
+                            coasting);
+            SayThePadsWalkIfItChanged(padTank ? $", {padKg:F0} kg in the tank of a {padBusKg:F0} kg bus" : ", no tank read");
+        }
+
+        // Replaced only by a plan with stops: a frame whose footprint did not come down would take the
+        // walk away near the release gate and shut ReadyToDeploy mid-walk.
+        bool mayReplan = ReleaseLoop.MayReplan(Program.TurnsAtTheSplit, _didSplit, forTheWalk.Flown.Stops, _walker.Walk.Stops,
+                                               Config.WalkShrinksAfterTheSplit);
+        if (forTheWalk.Flown.Stops > 0 && mayReplan && _walker.Plan(forTheWalk.Flown)) SayTheWalkIfItChanged();
+    }
+
+    private ReleaseItinerary.Bus Means(double coastSeconds, bool tankByStop, double tankKg, double busKg)
+        => new ReleaseItinerary.Bus(Config.ReleaseBeforeArrivalSeconds,
+                                                          coastSeconds, WarheadsAboard,
                                                           FromCutoff: Config.WalkStartsAtCutoff,
                                                           ReserveAfterFirstStopMetresPerSecond:
                                                               Config.SpendTheSplitReserveAfterTheFirstStop
@@ -134,20 +158,17 @@ internal sealed partial class IcbmComputer
                                                           HopTurnSeconds: HopsBurnTheEngine ? HopBurn.TurnsSeconds : 0.0,
                                                           PassesMetresPerSecondPerStop: HopsBurnTheEngine
                                                               ? ReleaseItinerary.EnginePassesMetresPerSecond
-                                                              : 0.0),
+                                                              : 0.0);
+
+    private ReachDisplay Display(DivertFootprint? footprint, List<ReachDisplay.Placed> placed, in ReleaseItinerary.Bus means,
+                                 bool coasting)
+        => ReachDisplay.For(footprint, placed, means,
                                  Program.Phase, SalvoIsOver, TargetSet.MaxTargets,
                                  Warhead.LethalRadius(_warhead!.ChargeKg), _targets.LeadIndex,
                                  coasting ? ReachHold.Unflown : ReachHold.EpochUnmeasured,
                                  Config.PriceEachHopAtItsSlot, Config.PriceHopsAtWhatTheTrimPays,
                                  Config.PriceSlotsOnTheGateChord, _reachLater, HopsBurnTheEngine,
                                  Config.FreeHopsCountTheArrivalTheyMove);
-
-        // Replaced only by a plan with stops: a frame whose footprint did not come down would take the
-        // walk away near the release gate and shut ReadyToDeploy mid-walk.
-        bool mayReplan = ReleaseLoop.MayReplan(Program.TurnsAtTheSplit, _didSplit, Reach.Flown.Stops, _walker.Walk.Stops,
-                                               Config.WalkShrinksAfterTheSplit);
-        if (Reach.Flown.Stops > 0 && mayReplan && _walker.Plan(Reach.Flown)) SayTheWalkIfItChanged();
-    }
 
     // On a change of shape, numbers collapsed but the stop count: the cost moves with every re-fly,
     // and a walk that stops being one releases everything at the lead.
@@ -162,6 +183,19 @@ internal sealed partial class IcbmComputer
     }
 
     private string _saidWalk = "";
+
+    private void SayThePadsWalkIfItChanged(string tank)
+    {
+        string shape = $"{Reach.Flown.Stops}/{_targets.Count}/{(_padFootprint is null ? "pinned" : "free")}";
+        if (shape == _saidPadWalk) return;
+
+        _saidPadWalk = shape;
+        Log.Info($"pad reach on {KsaWorld.DisplayName(Craft)}: plans {Reach.Flown.Stops} stop(s) of {_targets.Count} "
+                 + $"target(s) on a {_padCoastSeconds:F0} s coast, {(_padFootprint is null ? "the pinned disc" : "the free reach")}{tank}"
+                 + $" -- {Reach.Flown.Say()}");
+    }
+
+    private string _saidPadWalk = "";
 
     // In the order a reader wants it: what has ended the shot first, then what cannot be answered,
     // and "nobody asked" last, because it is the one with a way out.
@@ -197,7 +231,41 @@ internal sealed partial class IcbmComputer
         _reachCci2Ccf = parent.GetCci2Ccf();
         _reachCcf2Cci = parent.GetCcf2Cci();
         _reachLandingCcf = landingCcf;
+
+        EstimateFromThePad(state);
     }
+
+    // A column flight, so at the coast's own interval, and again whenever the lead moves.
+    private void EstimateFromThePad(in IcbmState state)
+    {
+        _sincePadReach += state.PlayerStepSeconds;
+        if (_sincePadReach < ReachIntervalSeconds && _padReachFor.Equals(Target)) return;
+
+        _sincePadReach = 0.0;
+        _padReachFor = Target;
+        _padFootprint = null;
+        _padCoastSeconds = state.HasAim
+                               ? PadReach.CoastFloorSeconds(Body, state.PositionCci, state.VelocityCci, state.AimNowCci)
+                               : double.NaN;
+
+        if (!Config.HopsFreeTheirArrival || !state.HasAim || _warhead is not { } warhead) return;
+
+        ReleaseFocus.Air air = new(new ImpactPredictor.Drag(DensityRatioAt, warhead), PredictStepSeconds,
+                                   FuseRadiusAt(_trueAimCci), Config.PredictionStopsOnTheSurface,
+                                   Config.PredictionStopsOnTheTerrain);
+        double measuredAt = Math.Max(Config.ReleaseBeforeArrivalSeconds, _padCoastSeconds);
+        if (double.IsFinite(measuredAt)
+            && PadReach.TryFree(Body, state.PositionCci, state.VelocityCci, state.AimNowCci, measuredAt, air,
+                                out DivertFootprint free))
+        {
+            _padFootprint = free;
+        }
+    }
+
+    private double _sincePadReach = double.PositiveInfinity;
+    private AimSite _padReachFor = AimSite.None;
+    private DivertFootprint? _padFootprint;
+    private double _padCoastSeconds = double.NaN;
 
     // A walk whose hops find their own arrival is priced on the reach that leaves it free.
     private DivertFootprint.ArrivalClock ReachClock
