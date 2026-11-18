@@ -3058,7 +3058,18 @@ section that proves it, and it is the failure that produced a 3,255 km miss befo
 - [ ] `Config.LimitWarpInFlight` off restores the old behaviour. Expect a large miss; that is the
       point of the setting, not a bug.
 
+- [x] **A target's burst height puts the burst over it.** Flown 2026-11-18 on `SOLVER SCALE 1` to 24S 62W with
+      `fuse=1500`: seven of seven burst 1,501 m up and 0.86 m from straight over the aim.
+- [ ] Two targets of one bus at different heights, one on the ground: each warhead bursts at its own target's.
+- [ ] A target's height set on the Ballistic tab survives a save and a reload, and "default" gives back the
+      Tuning tab's.
+- [x] **A bus engine staging lit is held off.** The same flight: lit by the first stage at liftoff, switched off,
+      logged once; the shot went on as before. The Ballistic tab's line was not looked at.
+- [ ] Under `HopsBurnTheEngine` a hop still lights the bus engine through the hold, and the hold takes it back
+      after the hop.
+
 ---
+
 
 ## 13. The Mk 15's authored art
 

@@ -528,8 +528,9 @@ For C, first:
 - **Ignition**: `VehicleCommand.SetEnginesActive` switches every engine on the craft. Add a per-part form for the bus's
   own engine after the split, and rewrite its "bridge only" rule to name this use.
 - **A player's own craft**: KSA puts an unsequenced engine in stage 1, so a design `make-rocket.py` did not stage lights
-  the bus engine at liftoff. Built on `agent/player-mirv`, not yet flown: an armed computer holds it inactive until a
-  hop lights it (`Ksa/BusEngineHold.cs`), and the panel says when it had to.
+  the bus engine at liftoff. Done: an armed computer holds it inactive until a hop lights it (`Ksa/BusEngineHold.cs`),
+  and the panel says when it had to. Flown 2026-11-18 on `SOLVER SCALE 1`, whose GeoSat FAT carries the engine in
+  sequence 1 as well: held off at liftoff, the shot otherwise as before. A hop lighting it through the hold is unflown.
 - The coast branch's `SetEngine(false)` becomes `SetEngine(true)` and the burn attitude while burning (it already
   drives the throttle to 1). Read `BoosterPerformance` off the bus. One log line per hop: velocity asked, burn seconds,
   residual, kilograms.
@@ -547,6 +548,23 @@ For C, first:
 
 Each a small change after 7:
 
+- **The pad outline refuses the wide sets that fly** -- measured headlessly on 2026-11-18, `ReachDisplay.For` on the
+  pad's `TryAtTheEpoch` footprint with every walk flag and the engine on, at the nights' 1,000 m/s budget: seven
+  targets 300 km apart from 12,902 km place **2 of 7**, and 150 km apart from 6,180 km **3 of 7**, against 7 of 7
+  and 22 of 24 flown. Before launch the reach is a pinned disc, 0.88 t_go metres per m/s, and never sees the 2.56x
+  and 11.94x free arrival buys along the track, so a player cannot even set up a walk the flight would fly. Every
+  wide flight placed its targets through the scenario, which skips the outline. At the shipped 60 m/s budget, and
+  the panel slider's 200, it is narrower still; the nights flew 1,000 with the tank bounding it.
+- **A free-arrival pad reach, studied and not built** (`PadFreeReachStudyTests`, 2026-11-18, the post-boost bus with
+  every walk flag and the engine on): the pad's cheapest conic coasted to the release gate and its columns flown
+  there with the free clock places, of seven along the track, 7 at 200 km and 6 at 300 km from 12,902 km against 7
+  and 6 walked, but 5 at 200 km and 3 at 400 km from 6,181 km against 4 and 2 -- one stop more than the coast flies
+  -- and 4-7 from 2,000 km where the coast walks 1. The pinned disc the pad draws today also places 7 at 50 km from
+  2,000 km against that 1. What the pad lacks is the coast's length (`CoastSeconds` is NaN before launch, which
+  leaves the stop count unbounded): the conic flies 1,424 s against 1,341 coasted at 6,181 km, 703 against 511 at
+  2,000 km and 2,226 against 2,726 at 12,902, where the flight lofts. So the estimate wants a coast that comes in
+  short -- the conic less the burn, which has not been measured on any stack but the rig's -- before it may refuse
+  anything.
 - **The pad outline at the walk's epoch** (4.12 step 3): the floor to 1,700 s is measured,
   `0.88 - 0.00034 (t - 760)` of `t_go`; it needs a coast estimate that comes in short. Pass: no pad click refused that
   the coast's own reach accepts, on the step 7 sets.
