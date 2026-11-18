@@ -199,7 +199,7 @@ internal sealed class ScenarioRunner
 
             _shooters.Add(computer.Craft);
             _flights.Add(new BallisticScenario(
-                _shot, line => Report($"{_name}: {line}"), computer, _shooters, _viewTaken, arm));
+                _shot, line => Report($"{_name}: {line}"), computer, _shooters, _viewTaken, arm, _fuse));
             _outcomes.Add(null);
         }
 

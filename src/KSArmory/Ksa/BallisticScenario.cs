@@ -138,13 +138,17 @@ internal sealed class BallisticScenario
     /// <summary>Whether this flight has a craft and has committed to flying it.</summary>
     public bool Committed => _committed;
 
+    // Every target's burst height, from the run's fuse option; zero leaves each on the warhead's own.
+    private readonly double _burstHeightMetres;
+
     /// <summary>The craft it is flying, once it has one — so a caller can tell N flights apart.</summary>
     public Vehicle? Craft => _computer?.Craft;
 
     public BallisticScenario(ShotRequest shot, Action<string> say, IcbmComputer? bound = null,
                              IReadOnlyList<Vehicle>? shooters = null, bool[]? viewTaken = null,
-                             ShotArms.Arm? arm = null)
+                             ShotArms.Arm? arm = null, double burstHeightMetres = 0.0)
     {
+        _burstHeightMetres = burstHeightMetres;
         _arm = arm;
         _bound = bound;
         _viewTaken = viewTaken ?? new bool[1];
@@ -459,6 +463,12 @@ internal sealed class BallisticScenario
                 _say($"FAIL {bad}");
                 _armRefused = true;
                 return;
+            }
+
+            if (_burstHeightMetres > 0.0)
+            {
+                for (int i = 0; i < computer.Targets.Count; i++) computer.SetTargetBurstHeight(i, _burstHeightMetres);
+                _say($"every target bursts {_burstHeightMetres:F0} m over the ground");
             }
 
             computer.Config.Armed = true;
@@ -1118,6 +1128,15 @@ internal sealed class BallisticScenario
                 missEcl += along * (height / descent);
                 struck = $", struck a craft {height:F2} m up and carried to the ground";
             }
+        }
+
+        // An air burst is scored on the ground under it, which is where it was aimed to stand over.
+        if (round is Slug { BurstAtHeight: true } fused)
+        {
+            double3 up = Vec.Unit(aimAtBurst - parent.GetPositionEcl());
+            double over = Vec.Dot(missEcl, up);
+            missEcl -= up * over;
+            struck += $", burst {over:F0} m over the aim on a {fused.FuseHeightMetres:F0} m fuse";
         }
 
         double miss = Vec.Len(missEcl);
