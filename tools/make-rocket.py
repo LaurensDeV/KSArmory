@@ -107,12 +107,14 @@ SOLID_SEGMENT = "CorePropulsionC_Prefab_SRBESegmentLargeA"
 SOLID_MOTOR = "CorePropulsionC_Prefab_SRBEThrustAssemblyA"
 
 # What each bus carries: its tanks full of MMH/NTO, the mixture GeoSat FAT saves, and its mass all in.
-# The Heavy MIRV Bus's 499.7 kg is its 0.5912 m3 inside at 845 kg/m3.
+# The Heavy MIRV Bus's 688.5 kg is its 0.5914 m3 inside at the mix's 1,164 kg/m3, from KSA's own liquid storage
+# densities (Volatiles.xml: MMH 880.6, N2O4 1,457.8 kg/m3).
 BUS_MIXTURE = [("MMH(l)", 0.3846), ("N2O4(l)", 0.6154)]
+BUS_FULL_KG = 688.51
 BUSES = {
     "mirv": dict(pid="KSArmory_Prefab_MirvBus",
-                 tanks={"MirvPropellant": 499.66}, roles="Engine Thruster",
-                 mass=3450 + 499.66 + 38.4),  # declared lump, propellant, sphere tank structure
+                 tanks={"MirvPropellant": BUS_FULL_KG}, roles="Engine Thruster",
+                 mass=3450 + BUS_FULL_KG + 38.4),  # declared lump, propellant, sphere tank structure
 }
 BUS_PARTS = {b["pid"] for b in BUSES.values()}
 BUS_CHARGE_J = 50000
