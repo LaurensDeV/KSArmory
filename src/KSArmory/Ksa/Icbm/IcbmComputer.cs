@@ -557,13 +557,15 @@ internal sealed partial class IcbmComputer
             _warpIsOurs = false;
         }
 
-        AttitudeHook.Release(Craft);
-
         if (_driving)
         {
             VehicleCommand.SetEngine(Craft, running: false);
-            VehicleCommand.ReleaseAttitude(Craft);
+            AttitudeHook.HandBack(Craft);
             _driving = false;
+        }
+        else
+        {
+            AttitudeHook.Release(Craft);
         }
 
         // Outside that block: the thruster flags are held keys, and one left down translates the bus.
@@ -827,11 +829,14 @@ internal sealed partial class IcbmComputer
                 if (!_letGoAfterSalvo)
                 {
                     _letGoAfterSalvo = true;
-                    AttitudeHook.Release(Craft);
                     if (_driving)
                     {
-                        VehicleCommand.ReleaseAttitude(Craft);
+                        AttitudeHook.HandBack(Craft);
                         _driving = false;
+                    }
+                    else
+                    {
+                        AttitudeHook.Release(Craft);
                     }
                     VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
                     AttitudeHook.PulseMode(Craft, pulsing: false);
@@ -1016,12 +1021,14 @@ internal sealed partial class IcbmComputer
         Vehicle left = Craft;
 
         // The hook is keyed on the vehicle, so otherwise the spent stack is held for the session.
-        AttitudeHook.Release(left);
-
         if (_driving)
         {
             VehicleCommand.SetEngine(left, running: false);
-            VehicleCommand.ReleaseAttitude(left);
+            AttitudeHook.HandBack(left);
+        }
+        else
+        {
+            AttitudeHook.Release(left);
         }
 
         // Unconditionally: the trim may already have commanded the half left behind, and a thruster

@@ -3025,7 +3025,10 @@ with the old bus's 27 subparts first in their order and the engine and seventh R
 
 - [ ] **Abort** stops the engines and returns attitude control. Flying by hand works immediately
       afterwards.
-- [ ] Disarming mid-flight does the same.
+- [ ] Disarming mid-flight does the same. *Half seen 2026-11-18 on `SOLVER SCALE 1`: armed, disarmed 20 s into the climb,
+      and KSA's attitude hold read back `Manual` on every frame after; before the hand-back was queued for
+      `AttitudeHook`'s window it stayed `Auto`, and a save made after one kept KSA's hold firing the RCS on the pad.
+      Flying by hand afterwards was not tried.*
 - [ ] Destroying the craft mid-flight does not throw, and nothing in the log complains afterwards.
 
 ### 12.6a It survives a save — flown 2026-10-11
