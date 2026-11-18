@@ -36,7 +36,7 @@ and step 8.
 - [x] 4. Decide the route to 50 km (rig pricing, a decision, no build) -- 2026-10-18: A and B, C deferred
 - [x] 5. Build the chosen route (headless) -- A and C built 2026-10-19 behind flags, all off
 - [x] 6. Fly it in game, once -- 2026-10-19: seven targets 50 km apart, 25 warheads within 32 mm, three stops walked on the nozzles
-- [ ] 7. The wide nights -- flown 2026-10-19/20 at 150-500 km on the engine and landing within a metre; the flags not yet turned on
+- [ ] 7. The wide nights -- flown 2026-10-19/20 at 150-500 km on the engine and landing within a metre; the flip night of 2026-11-18 passed B (300 km, 24 of 24) and walked C (400 km, 16 of 16) on the full tank, with A void; the flags not yet turned on
 - [ ] 8. What a player sees
 
 ## The goal, in numbers
@@ -549,6 +549,23 @@ For C, first:
   per-warhead landing stated (an earlier release falls further: the 0.02 m/s stop band is 55 m on the ground at cutoff
   against 14 m at the gate).
 - Pass: the flag ships on, as `feat`.
+
+- **The flag-flip night, 2026-11-18** (`~/shots/2026-11-18-flip`, declared in
+  `~/shots/scripts-2026-11-18/DECLARE-flag-flip.md`): `SOLVER SCALE 8`, the 688.5 kg tank, KSA 5901, every step-5 flag
+  and `HopsBurnTheEngine` on (`flip`), paired against itself (`flip2`) for B and C.
+  - **A, 6,181 km, six 4 km apart, `base` against `flip`: void.** Six `ATTRIBUTION FAULT`s, all on `base`'s walks,
+    which its 70 m/s budget curtailed; the check reads a curtailed walk's dropped targets as misattributed.
+  - **B, 12,902 km, seven 300 km apart, 24 buses: passes every bar.** First flown with every engine hop stalled -- the
+    save held the bus tank as `Thruster` (step 6) -- and re-flown on the repaired save from `03ae5647`: 24 of 24
+    walked seven, 168 of 168 warheads within 0.1 m (worst 3.9 cm), nothing curtailed, no fault, no stall, no
+    exception. Six engine hops a bus, 292-303 m/s asked against 317 planned (0.92-0.96) and 302-313 kg of the tank.
+    The pad planned 7 at 456 m/s, after showing 0 and then 1 stop for its first 5 s on the pinned disc.
+  - **C, seven 400 km apart, 16 buses: 16 of 16 walked seven**, 416-437 m/s and 421-438 kg each, 110 of 112 within
+    0.1 m. The other two are one aim point in both shots, bus 3's target 5 at 18.809 S 12.692 E: 38.0 and 40.7 m
+    short downrange, on ground rising 0.19 to the impact, where the release probe missed by 547 m and the kick was
+    60 mm/s against 1-6 elsewhere. Bus 1's stop 5 sits on 0.19 and landed within 6 mm, so it is not the grade alone.
+  - **Not shipped by this night:** the declaration ships on A and B, and A is void. What decides it is A re-flown with
+    an attribution check that reads a curtailed walk, or the decision taken on B and C.
 
 ### 8. What a player sees
 
