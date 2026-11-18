@@ -579,6 +579,15 @@ Each a small change after 7:
 
 - **Warp**: KSA rejects a speed change while its own auto-warp runs, and `WarpPolicy` then abandons the burn. A long
   hop burn must be covered by the guided-burn path (`IcbmComputer.Warp`).
+- **The bus overtaking its own warheads, the cure sized (2026-11-18, not built).** Read off the 2026-10-20 200 km nozzle
+  night's per-release lines: a warhead leaves forward along the nose at 0.5 m/s from a tube 0.9-1.0 m off the axis,
+  and a nozzle hop firing Forward has the bus 7.5-8.9 m/s along that same line within seconds, so it passes the warhead
+  4.9 s after the release with it 0.9 m off its axis -- inside its own 3 m body. `HopsWaitForTheirWarhead` only moves
+  the pass to 37 s, since the hop is along the warhead's line; an engine hop turns onto its own line first and never
+  meets one. What would cure the nozzle hops: a sidestep straight after the release, square to the nose and away from
+  the tube the warhead left, about 0.4 m/s, so the bus stands 2.5 m clear of the warhead's line when it passes, and the
+  hop's re-solve takes the sideways velocity in -- about 3 m/s over seven stops. It wants the warhead against the bus
+  in the rig first, which nothing models yet, then one flight. It has cost no landing.
 - **Attitude propellant**: a stop that burns turns three times (onto the burn, onto the airflow, back); none of it is in
   the budget today.
 - **Linearity at 90 m/s hops** is argued, not shown: step 2's price-against-flown at 50 km is the check.
