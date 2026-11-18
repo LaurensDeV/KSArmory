@@ -272,6 +272,7 @@ internal sealed class Bridge : IViewPose
             "ground_track" => GroundTrack(command),
             "designate" => Designate(command),
             "icbm_map" => IcbmMap(command),
+            "icbm_set" => IcbmSet(command),
             "remove" => RemoveCraft(command),
             "reseat" => Reseat(),
             "orbit" => PutInOrbit(command),
@@ -728,6 +729,22 @@ internal sealed class Bridge : IViewPose
         });
     }
 
+    // A craft's ballistic settings set by field name, as a shot arm sets them: "Field=value,Field=value".
+    private Reply IcbmSet(BridgeCommand command)
+    {
+        string name = command.String("craft");
+        Vehicle? craft = name.Length > 0 ? CraftNamed(name) : KsaWorld.ControlledVehicle;
+
+        if (craft is null) return Failed("no such craft, and none is being flown");
+        if (_computerFor(craft) is not { } computer) return Failed("that craft has no ballistic computer");
+
+        string fields = command.String("fields");
+        if (!ShotArms.TryParse($"bridge:{fields}", out ShotArms arms, out string bad)) return Failed(bad);
+        if (!ShotArms.TryApply(arms.All[0], computer.Config, out bad)) return Failed(bad);
+
+        return Done(new() { ["craft"] = KsaWorld.DisplayName(craft), ["set"] = arms.All[0].Describe() });
+    }
+
     // Where a craft's warheads are aimed, set from outside -- the first target replaces the set,
     // and add=1 appends one. The panel does this by clicking the world; a test cannot click.
     private Reply Designate(BridgeCommand command)
@@ -743,6 +760,20 @@ internal sealed class Bridge : IViewPose
                            command.String("label"));
 
         if (!site.IsSet) return Failed("that is not a place");
+
+        // click=1 goes through the outline as a click on the world would, and says what it made of it.
+        if (command.Number("click", 0.0) != 0.0)
+        {
+            ReachVerdict verdict = SiteDesignator.ClickAt(computer, site);
+            return Done(new()
+            {
+                ["craft"] = KsaWorld.DisplayName(craft),
+                ["verdict"] = verdict.ToString(),
+                ["taken"] = ReachDisplay.Takes(verdict),
+                ["targets"] = computer.Targets.Count,
+                ["walk"] = computer.Reach.Flown.Say(),
+            });
+        }
 
         bool add = command.Number("add", 0.0) != 0.0;
 
@@ -1179,7 +1210,7 @@ internal sealed class Bridge : IViewPose
             if (_flight is { } was)
             {
                 VehicleCommand.DriveThrottle(was.Craft, 0.0);
-                VehicleCommand.ReleaseAttitude(was.Craft);
+                AttitudeHook.HandBack(was.Craft);
             }
 
             _flight = null;

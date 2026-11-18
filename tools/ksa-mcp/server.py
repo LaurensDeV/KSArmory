@@ -510,11 +510,17 @@ TOOLS = {
                     {"craft": {"type": "string"}, "open": _num("0 or 1")}, [],
                     lambda a: [_text(json.dumps(send("icbm_map", **a)))]),
     "ksa_designate": ("Aim a craft's warheads at a latitude and longitude. The first call replaces the target "
-                     "set; add=1 appends another, up to the bus's limit. What the panel does by clicking the "
-                     "world, for a test that cannot click.",
+                     "set; add=1 appends another, up to the bus's limit, past the reach outline. click=1 instead "
+                     "goes through the outline as a click on the world does, and returns its verdict, whether it "
+                     "was taken and the walk the reach now plans.",
                      {"lat": _num("deg"), "lon": _num("deg"), "label": {"type": "string"},
-                      "add": _num("0 or 1"), "craft": {"type": "string"}}, ["lat", "lon"],
+                      "add": _num("0 or 1"), "click": _num("0 or 1"), "craft": {"type": "string"}}, ["lat", "lon"],
                      lambda a: [_text(json.dumps(send("designate", **a)))]),
+    "ksa_icbm_set": ("Set a craft's ballistic computer settings by field name, as a shot arm does: fields is "
+                     "'Field=value,Field=value' over IcbmConfig, research switches included. Refused whole on an "
+                     "unknown field or a value that does not parse.",
+                     {"fields": {"type": "string"}, "craft": {"type": "string"}}, ["fields"],
+                     lambda a: [_text(json.dumps(send("icbm_set", **a)))]),
     "ksa_ground_track": ("KSA's own ground-track map window, opened on a craft (default: the one being flown) "
                         "and pointed somewhere. open=0 closes it. zoom is 1 (whole planet) to 5000; pan_x/pan_y "
                         "are pixels, and lat/lon centres on a place instead, which is what you want. KSA re-clamps as it draws.",
