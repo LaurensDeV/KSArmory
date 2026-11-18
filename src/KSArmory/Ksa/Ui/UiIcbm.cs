@@ -26,6 +26,9 @@ internal sealed partial class Ui
 
     // The slider's top once the tank bounds the budget, not the 60 m/s reserve: past the Heavy
     // bus's 143 m/s axially.
+    // The Tuning tab's own reach, so a target can ask for anything a warhead can.
+    private const float MaxTargetBurstHeightMetres = 10_000f;
+
     private const double WideTrimBudgetMetresPerSecond = 200.0;
 
     private void DrawIcbm(IcbmComputer computer)
@@ -217,6 +220,26 @@ internal sealed partial class Ui
             }
             Tip("How many of the bus's warheads are meant for this place. What no target takes rides "
                 + "the bus down.");
+
+            ImGui.SameLine();
+            ImGui.SetNextItemWidth(ImGui.GetFontSize() * 9f);
+
+            float burst = (float)computer.FuseHeightFor(i);
+            if (ImGui.SliderFloat("##burst", ref burst, 0f, MaxTargetBurstHeightMetres,
+                                  burst > 0f ? "air %.0f m" : "ground"))
+            {
+                computer.SetTargetBurstHeight(i, burst);
+            }
+            Tip("How high over the ground this target's warheads go off; at the far left they burst on the "
+                + "ground. The aim is corrected for the height, so the burst stands over the target. A "
+                + "warhead already away keeps the height it left with.");
+
+            if (double.IsFinite(entry.BurstHeightMetres))
+            {
+                ImGui.SameLine();
+                if (ImGui.SmallButton("default")) computer.SetTargetBurstHeight(i, double.NaN);
+                Tip("Back to the warhead's own height, the burst height on the Tuning tab.");
+            }
 
             if (computer.MayRemoveTarget(i))
             {
@@ -533,9 +556,10 @@ internal sealed partial class Ui
         if (computer.Munition is { } warhead)
         {
             ImGui.TextDisabled(warhead.BurstHeightMetres > 0f
-                                   ? $"Warheads burst {warhead.BurstHeightMetres:F0} m over the ground"
-                                   : "Warheads burst on the ground");
-            Tip("Set by the burst height on the Tuning tab, which every warhead of this kind shares.");
+                                   ? $"A target with no height of its own bursts {warhead.BurstHeightMetres:F0} m over the ground"
+                                   : "A target with no height of its own bursts on the ground");
+            Tip("Set by the burst height on the Tuning tab, which every warhead of this kind shares. Each "
+                + "target's own slider in the list above overrides it.");
         }
 
         bool autoStage = config.AutoStage;

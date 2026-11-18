@@ -128,6 +128,15 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     /// <summary>How fast the modelled nose swings onto a new held line; flown, 90 deg took about 3 s.</summary>
     public double TurnRateDegPerSecond = 30.0;
 
+    /// <summary>How high over the mean sphere the warheads go off; the landing is flown to it whatever the aim does.</summary>
+    public double FuseHeightMetres = 0.0;
+
+    /// <summary>Whether the predictions aim at <see cref="FuseHeightMetres"/>, as the computer does, or at the ground.</summary>
+    public bool AimsAtTheFuseHeight = true;
+
+    private Func<double3, double>? AimedSurface
+        => AimsAtTheFuseHeight && FuseHeightMetres > 0.0 ? _ => Body.SurfaceRadius + FuseHeightMetres : null;
+
     /// <summary>Where the air first turns an arriving RV, which is what <see cref="IcbmConfig.PointRvsAtEntry"/> points at.</summary>
     public double EntryAltitudeMetres = 130_000.0;
 
@@ -407,7 +416,7 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
 
     private bool TryPredict(double3 fromCci, double3 alongCci, out ImpactPredictor.Impact hit)
         => ImpactPredictor.TryPredict(Body, fromCci, alongCci, PredictStepSeconds, ImpactPredictor.DefaultMaxSeconds,
-                                      out hit, null, null, new ImpactPredictor.Drag(DensityAt, Warhead),
+                                      out hit, AimedSurface, null, new ImpactPredictor.Drag(DensityAt, Warhead),
                                       stopOnTheSurface: Config.PredictionStopsOnTheSurface,
                                       stopOnTheTerrain: Config.PredictionStopsOnTheTerrain);
 
@@ -1132,7 +1141,8 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
 
         double landed = ImpactPredictor.TryPredict(Body, fromCci, alongCci + kickCci, 0.5,
                                                    ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit,
-                                                   null, null, drag, atmosphericStepSeconds: 0.02,
+                                                   FuseHeightMetres > 0.0 ? _ => Body.SurfaceRadius + FuseHeightMetres : null,
+                                                   null, drag, atmosphericStepSeconds: 0.02,
                                                    stopOnTheSurface: true)
                             ? GroundMetres(hit.GroundFixedPointCci, _trueAimCci)
                             : double.NaN;

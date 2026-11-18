@@ -393,6 +393,28 @@ public class AirBurstTests(ITestOutputHelper output)
         Assert.True(double.IsPositiveInfinity(store.MissDistance), "an air burst is not a direct hit");
     }
 
+    [Fact]
+    public void ARoundsOwnFuseHeightOverridesItsMunitions()
+    {
+        Slug air = Released(Store(), 3000.0, new double3(0, 200, 0));
+        air.FuseHeightMetres = 800.0;
+        Fall(air);
+
+        Assert.True(air.BurstAtHeight);
+        Assert.Equal(800.0, Altitude(air), 0);
+
+        Slug ground = Released(Store(burstHeight: 500f), 3000.0, new double3(0, 200, 0));
+        ground.FuseHeightMetres = 0.0;
+        Fall(ground);
+
+        Assert.True(ground.HitGround);
+        Assert.False(ground.BurstAtHeight);
+
+        Slug unset = Released(Store(burstHeight: 500f), 3000.0);
+        unset.FuseHeightMetres = double.NaN;
+        Assert.Equal(500.0, unset.FuseHeightMetres);
+    }
+
     /// <summary>
     /// Released under its own burst height, it never crosses it on the way down, so the ground ends
     /// it -- and one on the way up does not fire either.

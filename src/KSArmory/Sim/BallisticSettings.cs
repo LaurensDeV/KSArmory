@@ -229,6 +229,7 @@ internal sealed class BallisticSettings
         double lon = Number(o["LongitudeDeg"]);
         string label = o["Label"] is JsonValue l && l.TryGetValue(out string? t) ? t ?? "" : "";
         int warheads = o["Warheads"] is JsonValue w && w.TryGetValue(out int n) ? n : 0;
+        double burst = Number(o["BurstHeightMetres"]);
 
         if (string.IsNullOrWhiteSpace(body)) bad = "names no body";
         else if (!double.IsFinite(lat) || Math.Abs(lat) > 90.0) bad = "has no latitude";
@@ -236,7 +237,8 @@ internal sealed class BallisticSettings
         else
         {
             bad = "";
-            target = new TargetSet.Entry(new AimSite(body, lat, lon, label), Math.Max(0, warheads));
+            target = new TargetSet.Entry(new AimSite(body, lat, lon, label), Math.Max(0, warheads),
+                                         double.IsFinite(burst) ? Math.Max(0.0, burst) : double.NaN);
             return true;
         }
 
@@ -248,14 +250,17 @@ internal sealed class BallisticSettings
         JsonArray targets = [];
         foreach (TargetSet.Entry e in _targets)
         {
-            targets.Add(new JsonObject
+            JsonObject target = new()
             {
                 ["Body"] = e.Site.BodyName,
                 ["LatitudeDeg"] = e.Site.LatitudeDeg,
                 ["LongitudeDeg"] = e.Site.LongitudeDeg,
                 ["Label"] = e.Site.Label ?? "",
                 ["Warheads"] = e.Warheads,
-            });
+            };
+
+            if (double.IsFinite(e.BurstHeightMetres)) target["BurstHeightMetres"] = e.BurstHeightMetres;
+            targets.Add(target);
         }
 
         return new JsonObject

@@ -317,4 +317,29 @@ public class TargetSetTests
 
         Assert.InRange(set.LeadIndex, 0, set.Count - 1);
     }
+
+    [Fact]
+    public void ATargetsBurstHeightIsItsOwnUntilClearedAndNeverBelowTheGround()
+    {
+        TargetSet set = new();
+        set.TryAdd(At(-24.0, -62.0));
+        set.TryAdd(At(-24.1, -62.0));
+
+        Assert.True(set.SetBurstHeight(1, 2500.0));
+        Assert.Equal(2500.0, set.Entries[1].FuseHeightMetres(400.0));
+        Assert.Equal(400.0, set.Entries[0].FuseHeightMetres(400.0));
+
+        set.SetBurstHeight(1, -50.0);
+        Assert.Equal(0.0, set.Entries[1].FuseHeightMetres(400.0));
+
+        set.SetBurstHeight(1, double.NaN);
+        Assert.Equal(400.0, set.Entries[1].FuseHeightMetres(400.0));
+
+        Assert.False(set.SetBurstHeight(2, 100.0));
+
+        set.SetWarheads(1, 3, 7);
+        Assert.Equal(3, set.Entries[1].Warheads);
+        set.SetBurstHeight(1, 900.0);
+        Assert.Equal(3, set.Entries[1].Warheads);
+    }
 }

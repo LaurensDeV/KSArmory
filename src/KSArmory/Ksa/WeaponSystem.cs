@@ -3458,7 +3458,7 @@ internal sealed class WeaponSystem(Config config, SystemConfig policy, int launc
         string how = round switch
         {
             Slug { HitGround: true } or Interceptor { HitGround: true } => "on the ground",
-            Slug { BurstAtHeight: true } => $"at its fuse height, {round.Munition.BurstHeightMetres:F0} m over the ground",
+            Slug { BurstAtHeight: true } fused => $"at its fuse height, {fused.FuseHeightMetres:F0} m over the ground",
             _ when round.StruckBody is not null => "on contact",
             _ when seduced => $"on {seeker!.OnDecoy!.Profile.DisplayName}",
             _ when double.IsFinite(round.MissDistance) => $"with the target at {round.MissDistance:F0} m",

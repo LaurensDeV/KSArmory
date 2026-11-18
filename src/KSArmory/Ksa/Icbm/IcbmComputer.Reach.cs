@@ -226,7 +226,7 @@ internal sealed partial class IcbmComputer
             // A sphere through the ground under the aim: each column is two landings metres apart, and
             // the terrain's texture across them is not the arc's sensitivity.
             double groundRadius = Target.IsSet && Target.BodyName == parent.Id
-                                      ? TerrainRadiusAt(_trueAimCci)
+                                      ? FuseRadiusAt(_trueAimCci)
                                       : Body.SurfaceRadius;
 
             long started = System.Diagnostics.Stopwatch.GetTimestamp();

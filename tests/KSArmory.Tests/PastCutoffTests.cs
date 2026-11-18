@@ -38,6 +38,33 @@ public class PastCutoffTests(ITestOutputHelper Out)
         Assert.True(shot.LandedMetres < 1.0, $"landed {shot.LandedMetres:F2} m out");
     }
 
+    // The aim correction reads the same surface the fuse fires on, so an air burst stands over the target; aimed at
+    // the ground, the burst comes h·cot γ uprange of it.
+    private PastCutoffRig.Outcome AirBurst(bool aimsAtTheFuse)
+    {
+        IcbmProgram program = new(new IcbmConfig
+        {
+            Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, ArrivalPreference = 0.5,
+            FlyAnyRange = true,
+        });
+
+        PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program, Mk21, DensityAt);
+        rig.FuseHeightMetres = 1_500.0;
+        rig.AimsAtTheFuseHeight = aimsAtTheFuse;
+        return Say(rig.Fly(GameStackShortRangeTests.South(2_000_000.0)));
+    }
+
+    [Fact]
+    public void AnAirBurstAimedAtItsFuseHeightStandsOverTheTarget()
+    {
+        PastCutoffRig.Outcome aimed = AirBurst(aimsAtTheFuse: true);
+        PastCutoffRig.Outcome atTheGround = AirBurst(aimsAtTheFuse: false);
+
+        Assert.True(aimed.Released, aimed.Said);
+        Assert.True(aimed.LandedMetres < 1.0, $"burst {aimed.LandedMetres:F2} m from over the target");
+        Assert.True(atTheGround.LandedMetres > 1_000.0, $"aimed at the ground it burst {atTheGround.LandedMetres:F0} m off");
+    }
+
     // The orbital case of docs/ICBM-OUTSTANDING.md 1.8: 0.70 m/s of separation and 0.38 shared by both halves, so the
     // bus owes 1.08 back toward the stack and the pair close at 0.38 once it is paid; 0.32 restitution makes that the
     // 0.5 m/s contact measured in flight.

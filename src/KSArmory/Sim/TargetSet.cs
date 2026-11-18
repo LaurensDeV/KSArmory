@@ -20,7 +20,17 @@ internal sealed class TargetSet
 
     private readonly List<Entry> _entries = [];
 
-    internal readonly record struct Entry(AimSite Site, int Warheads);
+    /// <param name="BurstHeightMetres">
+    /// How high over the ground this target's warheads go off; NaN takes the warhead's own
+    /// <see cref="MunitionProfile.BurstHeightMetres"/>, and zero is a ground burst.
+    /// </param>
+    internal readonly record struct Entry(AimSite Site, int Warheads, double BurstHeightMetres = double.NaN)
+    {
+        public double FuseHeightMetres(double warheadsOwn)
+            => double.IsFinite(BurstHeightMetres) ? Math.Max(0.0, BurstHeightMetres)
+             : double.IsFinite(warheadsOwn) ? Math.Max(0.0, warheadsOwn)
+             : 0.0;
+    }
 
     /// <summary>The targets in the order they were chosen, which is not the order they are flown.</summary>
     public IReadOnlyList<Entry> Entries => _entries;
@@ -156,6 +166,18 @@ internal sealed class TargetSet
 
         if (LeadIndex >= _entries.Count) LeadIndex = 0;
 
+        return true;
+    }
+
+    /// <summary>A height over the ground for one target's warheads, or NaN for the warhead's own.</summary>
+    public bool SetBurstHeight(int index, double metres)
+    {
+        if (index < 0 || index >= _entries.Count) return false;
+
+        _entries[index] = _entries[index] with
+        {
+            BurstHeightMetres = double.IsFinite(metres) ? Math.Max(0.0, metres) : double.NaN,
+        };
         return true;
     }
 

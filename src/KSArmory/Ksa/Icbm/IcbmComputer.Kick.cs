@@ -157,7 +157,7 @@ internal sealed partial class IcbmComputer
 
             ReleaseFocus.ProbeMiss? miss = Config.CancelProbeMissAtSeparation
                 ? new ReleaseFocus.ProbeMiss(from.Impact.GroundFixedPointCci, aimedAt,
-                                             Config.ProbeMissFollowsTheGround ? TerrainRadiusAt : null)
+                                             Config.ProbeMissFollowsTheGround ? FuseRadiusAt : null)
                 : null;
 
             ReleaseFocus.FlownSensitivity? throughTheAir =
@@ -335,7 +335,7 @@ internal sealed partial class IcbmComputer
             if (!ImpactPredictor.TryPredict(Body, positionCci, velocityCci, PredictStepSeconds,
                                             ImpactPredictor.DefaultMaxSeconds,
                                             out ImpactPredictor.Impact hit, out ImpactPredictor.Ending ending,
-                                            TerrainRadiusAt, null,
+                                            FuseRadiusAt, null,
                                             new ImpactPredictor.Drag(DensityRatioAt, warhead),
                                             stopOnTheSurface: Config.PredictionStopsOnTheSurface,
                                        stopOnTheTerrain: Config.PredictionStopsOnTheTerrain))

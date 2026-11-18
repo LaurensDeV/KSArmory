@@ -325,7 +325,19 @@ internal sealed class Slug : IProjectile
     /// <summary>True when it was the ground that stopped this round rather than a body or a fuse.</summary>
     public bool HitGround { get; private set; }
 
-    /// <summary>True when its fuse fired at <see cref="MunitionProfile.BurstHeightMetres"/> over the ground.</summary>
+    /// <summary>
+    /// How high over the ground the height fuse fires: this round's own where one was set, as a ballistic
+    /// computer sets each warhead's for its target, otherwise the munition's.
+    /// </summary>
+    public double FuseHeightMetres
+    {
+        get => double.IsFinite(_fuseHeightMetres) ? _fuseHeightMetres : Munition.BurstHeightMetres;
+        set => _fuseHeightMetres = double.IsFinite(value) ? Math.Max(0.0, value) : double.NaN;
+    }
+
+    private double _fuseHeightMetres = double.NaN;
+
+    /// <summary>True when its fuse fired at <see cref="FuseHeightMetres"/> over the ground.</summary>
     public bool BurstAtHeight { get; private set; }
 
     /// <summary>
@@ -650,7 +662,7 @@ internal sealed class Slug : IProjectile
 
             // The height fuse, crossed on the way down. Linear across the step like the ground
             // crossing below; a store already under the height when it arms bursts on the ground.
-            double fuseAt = munition.BurstHeightMetres;
+            double fuseAt = FuseHeightMetres;
             if (fuseAt > 0.0 && Age >= munition.FuseArmSeconds && was > fuseAt && now <= fuseAt)
             {
                 double g = Math.Clamp((was - fuseAt) / (was - now), 0.0, 1.0);

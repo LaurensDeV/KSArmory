@@ -158,7 +158,7 @@ internal sealed partial class IcbmComputer
     private bool _saidTraceStranded;
 
     // Cached: a method group allocates a delegate, and the trace builds its Setup every frame.
-    private Func<double3, double>? _terrainRadius;
+    private Func<double3, double>? _fuseRadius;
     private Func<double3, double>? _densityRatio;
 
     // Often enough to see an oscillation, rare enough not to fill the log with a burn's worth.
@@ -527,6 +527,18 @@ internal sealed partial class IcbmComputer
     /// <summary>Bounded by what the others have taken.</summary>
     public void SetTargetWarheads(int index, int warheads)
         => _targets.SetWarheads(index, warheads, WarheadsAboard);
+
+    /// <summary>
+    /// NaN gives the target back the warhead's own height. A warhead already away keeps the height it left with.
+    /// </summary>
+    public void SetTargetBurstHeight(int index, double metres)
+    {
+        if (!_targets.SetBurstHeight(index, metres)) return;
+
+        Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: target {index + 1} bursts "
+                 + (FuseHeightFor(index) > 0.0 ? $"{FuseHeightFor(index):F0} m over the ground" : "on the ground")
+                 + (double.IsFinite(metres) ? "" : ", the warhead's own setting"));
+    }
 
     /// <summary>Taking them from the lead; refused rather than clamped when there are not enough.</summary>
     public bool ShiftTargetWarheads(int index, int delta)
@@ -1342,6 +1354,17 @@ internal sealed partial class IcbmComputer
             return Body.SurfaceRadius;
         }
     }
+
+    /// <summary>How high over the ground a warhead sent to that target goes off.</summary>
+    internal double FuseHeightFor(int target)
+        => target >= 0 && target < _targets.Count
+               ? _targets.Entries[target].FuseHeightMetres(_warhead?.BurstHeightMetres ?? 0.0)
+               : _warhead?.BurstHeightMetres ?? 0.0;
+
+    // Where a warhead bound for the current stop ends: the ground, raised by its fuse height, so the aim
+    // correction puts the burst over the target rather than its arc's meeting with the ground under it.
+    private double FuseRadiusAt(double3 pointCci)
+        => TerrainRadiusAt(pointCci) + FuseHeightFor(_walker.TargetIndex(_targets.LeadIndex));
 
     // On a deorbit 1 m/s left along track is ~1.8 km of miss and radially ~3.4 km. One frame of
     // burning is accel x step x throttle, and a residual near it is timing, not guidance.

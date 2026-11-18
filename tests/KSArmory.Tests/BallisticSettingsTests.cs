@@ -97,6 +97,32 @@ public class BallisticSettingsTests
     }
 
     [Fact]
+    public void EachTargetsBurstHeightComesBackAndOneNeverSetStaysTheWarheads()
+    {
+        TargetSet set = new();
+        set.TryAdd(Chaco);
+        set.TryAdd(East);
+        set.TryAdd(Moon);
+        set.SetBurstHeight(0, 1800.0);
+        set.SetBurstHeight(1, 0.0);
+
+        string text = BallisticSettings.Write(new Dictionary<string, BallisticSettings>
+        {
+            ["Rocket"] = BallisticSettings.From(new IcbmConfig(), set.Entries, set.LeadIndex),
+        });
+        Assert.Equal(2, text.Split("BurstHeightMetres").Length - 1);
+
+        Assert.True(BallisticSettings.TryRead(text, out Dictionary<string, BallisticSettings> read, out string why), why);
+        (_, TargetSet back) = Applied(read["Rocket"]);
+
+        Assert.Equal(1800.0, back.Entries[0].BurstHeightMetres);
+        Assert.Equal(0.0, back.Entries[1].BurstHeightMetres);
+        Assert.True(double.IsNaN(back.Entries[2].BurstHeightMetres));
+        Assert.Equal(600.0, back.Entries[2].FuseHeightMetres(600.0));
+        Assert.Equal(0.0, back.Entries[1].FuseHeightMetres(600.0));
+    }
+
+    [Fact]
     public void AnOlderFileWithoutASettingLeavesItAtItsDefault()
     {
         IcbmConfig chosen = new() { Loft = 1.4, AutoStage = false };
