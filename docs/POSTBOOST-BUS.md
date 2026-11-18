@@ -71,7 +71,8 @@ higher: the engine thrusts along the axis, so only the nozzles see the height, a
 X 0.52. Full, the centre of mass is at 0.545 loaded and 0.565 with the RVs gone, against 0.564 and 0.600 at X 0.87, and
 `checkring.py`'s analysis at those seats puts 0.107 and 0.193 of torque per unit of a lateral trim push against 0.188
 and 0.337 -- nearly twice the turn coupled into every sideways correction. Its `RoleAffinity` is **`Engine Thruster`**, because a tank feeds only the roles it names
-(`PartTree`) -- declared `Thruster` alone, as the old bus's is, the engine can never draw. And KSA puts any engine with
+(`PartTree`) -- declared `Thruster` alone, as the old bus's is, the engine can never draw. A save keeps the role the
+tank had when it was written, over the template's, so a bus saved as `Thruster` stays so until `tools/repair-saves.py --fix`. And KSA puts any engine with
 no sequence into stage 1, so a bus engine left unstaged lights with the first stage; `make-rocket.py` stages it with
 the release, after cutoff has switched the main engines off.
 

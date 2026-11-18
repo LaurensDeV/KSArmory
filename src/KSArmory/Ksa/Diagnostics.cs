@@ -460,6 +460,48 @@ internal static class Diagnostics
         }
     }
 
+    /// <summary>What each engine was last commanded and what its rockets are doing, as the worker left them.</summary>
+    public static string DescribeEngineStates(Vehicle craft)
+    {
+        try
+        {
+            FlightComputer computer = craft.FlightComputer;
+            var line = new System.Text.StringBuilder();
+            line.Append($"burn {computer.BurnMode}, attitude {computer.AttitudeMode}, any active {craft.IsAnyEngineActive()}, "
+                        + $"g cap {computer.ManualGLoadThrottleCap:F3}, max thrust {computer.ActiveEnginePerformanceMax.Thrust / 1000.0:F1} kN");
+
+            if (!ModuleStateful<EngineController, EngineControllerState, EngineControllerGlobalState, EmptyStruct>
+                    .TryGetFrom(craft.Parts.States, out var engines))
+            {
+                return line.Append(", no engine states").ToString();
+            }
+
+            ModuleStateful<Rocket, RocketState, EmptyStruct, EmptyStruct>
+                .TryGetFrom(craft.Parts.States, out var rockets);
+
+            Span<EngineController> modules = craft.Parts.Modules.Get<EngineController>();
+            for (int i = 0; i < modules.Length; i++)
+            {
+                EngineController engine = modules[i];
+                ref readonly EngineControllerState s = ref engines.GetState(engine);
+                line.Append($"; commanded {s.CommandThrottle:F3} for {s.CommandBurnTime:G3} s, propellant {s.IsPropellantAvailable}");
+                if (rockets is null) continue;
+                foreach (Rocket rocket in engine.Rockets)
+                {
+                    ref readonly RocketState r = ref rockets.GetState(rocket);
+                    line.Append($", rocket throttle {r.Throttle:F3} propellant {r.IsPropellantAvailable} "
+                                + $"left {r.ThrustTimeRemaining:G3} s");
+                }
+            }
+
+            return line.ToString();
+        }
+        catch (Exception e)
+        {
+            return $"engine states unreadable ({e.GetType().Name}: {e.Message})";
+        }
+    }
+
     public static int EngineCount(Vehicle craft)
     {
         try

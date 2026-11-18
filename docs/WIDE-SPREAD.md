@@ -530,7 +530,13 @@ For C, first:
 - **A player's own craft**: KSA puts an unsequenced engine in stage 1, so a design `make-rocket.py` did not stage lights
   the bus engine at liftoff. Done: an armed computer holds it inactive until a hop lights it (`Ksa/BusEngineHold.cs`),
   and the panel says when it had to. Flown 2026-11-18 on `SOLVER SCALE 1`, whose GeoSat FAT carries the engine in
-  sequence 1 as well: held off at liftoff, the shot otherwise as before. A hop lighting it through the hold is unflown.
+  sequence 1 as well: held off at liftoff, the shot otherwise as before. A hop lights it through the hold, flown
+  the same day: 58.6 m/s asked, 34.6 s and 78.3 kg, stopped with 1.01 m/s for the nozzles.
+- **A save keeps a tank's roles over its part's**, and on 2026.11.16.5901 a sub-part engine counts as an `Engine`, so
+  a bus saved with its tank as `Thruster` alone -- every bus save made before the template named both -- feeds its
+  nozzles and never its engine: lit at 0.98, `propellant False`, 1.1 kg in 15 s, all of it the nozzles'. Every engine
+  hop of a night on those saves stalled. `tools/repair-saves.py --fix` gives a KSArmory tank back the roles its part
+  declares; `HopBurn` hands a burn that gains under a quarter of the engine's push in 15 s to the nozzles.
 - The coast branch's `SetEngine(false)` becomes `SetEngine(true)` and the burn attitude while burning (it already
   drives the throttle to 1). Read `BoosterPerformance` off the bus. One log line per hop: velocity asked, burn seconds,
   residual, kilograms.

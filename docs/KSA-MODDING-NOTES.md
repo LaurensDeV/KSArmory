@@ -658,6 +658,15 @@ round. Declare the `ToSurface` connector first and the node after it, as every s
 
 `Diameter` plus a `DiameterFilterlist` tag is what makes a part appear under a given stack size.
 
+### A saved tank's roles override its template's
+
+A tank feeds only the consumer roles in its `RoleAffinity` (`ResourceManager.QualifiesForOrder`), and
+`Tank.ApplySaveData` takes the saved roles over the template's. So adding a role to a shipped tank reaches new
+craft only; a saved one keeps what it had. Since 2026.11.16.5901 a combustor on a sub-part counts as an `Engine` when
+its rocket is under an engine controller (`PlumbedCore.Role` reads `Rocket?.Controller`), and an engine also draws
+only from tanks in its own stage by default (`FurtherestToNearestSameStage`) where a thruster draws from any.
+`tools/repair-saves.py --fix` widens a KSArmory tank back to its template's roles.
+
 ### Removing a subpart shifts every saved subpart after it
 
 **A saved part is paired with its current definition by *position*** — `KSA.PartTree.Deserialize`,
