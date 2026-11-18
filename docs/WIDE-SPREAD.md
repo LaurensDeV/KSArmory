@@ -183,7 +183,9 @@ widest spacing physically possible with accuracy unharmed, so carry on to step 4
   fly, none near the bottom (at most 108 of 134 kg). **Three 50 km apart from 6,181 km does not**: unguarded the jets
   run dry mid-hop and stop 3 lands **15.1 km** out; guarded the third hop is refused and every warhead released lands
   under a centimetre (`WideSpreadRigTests.ABudgetPastTheTankEndsTheWalkAStopEarlyRatherThanRunningDry`).
-- **The slider** runs to 200 m/s with the flag on, its tooltip saying the tank bounds it.
+- **The slider** runs to 1,000 m/s with the flag on, the engine nights' budget, and reads "as much as the tank pays"
+  there; its tooltip says the tank bounds it. When the flags ship, the budget's default goes to that top with them,
+  so the tank is what binds a walk -- not before, since without the flag nothing reads the tank.
 - **The roll, deferred.** In the rig the 6,181 km hops are almost all axial (107 kg for 122.8 m/s, about what an
   axial burn costs), so one roll would buy nearly nothing there; at 12,902 km about a fifth of the propellant goes to
   the lateral premium (108 kg for 94.3 m/s). The rig rolls its frame to keep down toward the planet, so this is the

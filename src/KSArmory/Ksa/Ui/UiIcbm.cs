@@ -29,7 +29,8 @@ internal sealed partial class Ui
     // The Tuning tab's own reach, so a target can ask for anything a warhead can.
     private const float MaxTargetBurstHeightMetres = 10_000f;
 
-    private const double WideTrimBudgetMetresPerSecond = 200.0;
+    // What the engine nights planned on, so the tank is what binds a wide walk at the slider's top.
+    private const double WideTrimBudgetMetresPerSecond = 1000.0;
 
     private void DrawIcbm(IcbmComputer computer)
     {
@@ -720,7 +721,9 @@ internal sealed partial class Ui
         if (ImGui.SliderFloat("Trim budget", ref budget, 0f,
                               (float)(config.HopsSizeTheirOwnSlots ? WideTrimBudgetMetresPerSecond
                                                                    : PostBoostAim.MaxTrimMetresPerSecond),
-                              "%.0f m/s for the flight"))
+                              config.HopsSizeTheirOwnSlots && budget >= WideTrimBudgetMetresPerSecond
+                                  ? "as much as the tank pays"
+                                  : "%.0f m/s for the flight"))
         {
             config.TrimBudgetMetresPerSecond = budget;
         }
