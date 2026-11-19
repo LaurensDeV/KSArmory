@@ -76,6 +76,7 @@ internal sealed partial class IcbmComputer
                              + "drag at the sub-step's midpoint velocity");
                 }
                 released.GroundQueryAtOwnEpoch = Config.GroundQueryAtOwnEpoch;
+                released.FuseHeightMetres = FuseHeightFor(sentTo);
             }
 
             ReleaseProbe? probe = ChooseProbe(ProbeRelease(), released);

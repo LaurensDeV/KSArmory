@@ -83,7 +83,7 @@ internal sealed partial class IcbmComputer
         if ((_warhead ?? _tracedWarhead) is not { } warhead) return null;
 
         return new WarheadTrace.Setup(parent, Body, warhead, _trueAimCci, PredictStepSeconds,
-                                      _terrainRadius ??= TerrainRadiusAt,
+                                      _fuseRadius ??= FuseRadiusAt,
                                       _densityRatio ??= DensityRatioAt,
                                       KsaWorld.DisplayName(Craft),
                                       Config.PredictionStopsOnTheSurface,

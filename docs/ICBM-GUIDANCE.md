@@ -1336,7 +1336,17 @@ From the player's side:
 5. Launch. The rocket flies to target 1's trajectory, and after separation the bus releases,
    re-aims, releases, and so on until every warhead is away.
 
+**How far apart is set by the tank at long range and the coast at short range.** With the wide walk on (the
+default since 2026-11-19, `docs/WIDE-SPREAD.md`), each hop commits its own cheapest arc and burns the bus's engine,
+so from 12,902 km seven targets fly up to 500 km apart, 3,000 km end to end, and at 550 km the bus walks six. A short
+shot runs out of coast first: at 2,000 km the 221-395 s after cutoff holds one stop and every warhead goes to the
+lead. The panel says which bound cut the walk, and before launch offers the shortest loft that walks more.
+
 ### The flight pins the arrival, so the reach is a disc
+
+**This is the pinned walk; the wide walk frees it.** Under `IcbmConfig.HopsFreeTheirArrival`, on by default, each
+hop commits the cheapest arc to its own target and the walk is priced on the free reach, so what follows is the
+first stop and a walk with that flag off.
 
 **A free-clock figure is a best case.** The divert figures below are priced with the **arrival clock
 free**, and the flight pins it: `IcbmProgram` latches the arrival

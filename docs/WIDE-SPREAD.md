@@ -21,14 +21,25 @@ reading of code and have not been run; everything else names where it was measur
 
 ## Progress
 
-- [ ] 1. Flip night for the walk flags
+**Where it stands (2026-11-19): the wide walk ships on.** Every step-5 flag, `HopsBurnTheEngine` and
+`EngineHopsClearTheStack` default on, and the trim budget to `IcbmConfig.WideTrimBudgetMetresPerSecond` so the
+tank binds. On the Heavy MIRV Bus's full 688.5 kg tank from 12,902 km: seven targets **300 km apart** on 24 of 24
+buses (every warhead within 3.9 cm), **400 km** on 16 of 16, **500 km** on 8 of 8, 3,000 km end to end; at 550 and
+600 km the bus drops the seventh at the split, on what its tank can still buy, and walks six. A player-shaped
+stack (`KSA Real SRB4`) walked seven 300 km apart within 2.4 cm. Short shots are bounded by the coast instead:
+at 2,000 km it is 221-395 s and every bus releases all seven at the lead, as the narrow walk did, unless the
+flight is lofted -- the pad offers the shortest loft that walks more (step 8). The 4 km walk costs about 0.6 mm
+(3.7 against 3.1 mm, unresolved at eight blocks, over the declared 1.5x bound), and walks six on 32 of
+32 where the narrow walk's budget walked 24. Step 7 has the nights.
+
+- [ ] 1. Flip night for the walk flags -- overtaken by the engine nights in step 7, which fly them all on
 - [x] 2. Make a hop's time and budget belong to the hop (headless, flagged) -- 2026-10-18, rig only
-- [ ] 3. Spend the Heavy bus's tank, rolled once for the walk -- headless half built 2026-10-18 (guard, slider), roll deferred, night not flown
+- [ ] 3. Spend the Heavy bus's tank, rolled once for the walk -- headless half built 2026-10-18 (guard, slider), roll deferred; the engine hops spend the tank instead
 - [x] 4. Decide the route to 50 km (rig pricing, a decision, no build) -- 2026-10-18: A and B, C deferred
-- [ ] 5. Build the chosen route (headless) -- A and C built 2026-10-19 behind flags, all off; flown in step 6 and the 2026-10-19/20 nights
-- [ ] 6. Fly it in game, once -- flown 2026-10-19 for A, the second flight landing 25 warheads within 32 mm on seven-target sets that walked three
-- [ ] 7. The wide nights
-- [ ] 8. What a player sees
+- [x] 5. Build the chosen route (headless) -- A and C built 2026-10-19 behind flags, all off
+- [x] 6. Fly it in game, once -- 2026-10-19: seven targets 50 km apart, 25 warheads within 32 mm, three stops walked on the nozzles
+- [x] 7. The wide nights -- 2026-10-19/20 at 150-500 km, the flip night of 2026-11-18 and the reach night of 2026-11-19; on by default since 2026-11-19
+- [ ] 8. What a player sees -- the expected walk, why it walks fewer and a loft offer built 2026-11-19; the map at hundreds of km open
 
 ## The goal, in numbers
 
@@ -174,7 +185,9 @@ widest spacing physically possible with accuracy unharmed, so carry on to step 4
   fly, none near the bottom (at most 108 of 134 kg). **Three 50 km apart from 6,181 km does not**: unguarded the jets
   run dry mid-hop and stop 3 lands **15.1 km** out; guarded the third hop is refused and every warhead released lands
   under a centimetre (`WideSpreadRigTests.ABudgetPastTheTankEndsTheWalkAStopEarlyRatherThanRunningDry`).
-- **The slider** runs to 200 m/s with the flag on, its tooltip saying the tank bounds it.
+- **The slider** runs to 1,000 m/s with the flag on, the engine nights' budget, and reads "as much as the tank pays"
+  there; its tooltip says the tank bounds it. When the flags ship, the budget's default goes to that top with them,
+  so the tank is what binds a walk -- not before, since without the flag nothing reads the tank.
 - **The roll, deferred.** In the rig the 6,181 km hops are almost all axial (107 kg for 122.8 m/s, about what an
   axial burn costs), so one roll would buy nearly nothing there; at 12,902 km about a fifth of the propellant goes to
   the lateral premium (108 kg for 94.3 m/s). The rig rolls its frame to keep down toward the planet, so this is the
@@ -517,7 +530,15 @@ For C, first:
 - **Ignition**: `VehicleCommand.SetEnginesActive` switches every engine on the craft. Add a per-part form for the bus's
   own engine after the split, and rewrite its "bridge only" rule to name this use.
 - **A player's own craft**: KSA puts an unsequenced engine in stage 1, so a design `make-rocket.py` did not stage lights
-  the bus engine at liftoff. Handle it (refuse to arm, or hold the engine inactive) and say so on the panel.
+  the bus engine at liftoff. Done: an armed computer holds it inactive until a hop lights it (`Ksa/BusEngineHold.cs`),
+  and the panel says when it had to. Flown 2026-11-18 on `SOLVER SCALE 1`, whose GeoSat FAT carries the engine in
+  sequence 1 as well: held off at liftoff, the shot otherwise as before. A hop lights it through the hold, flown
+  the same day: 58.6 m/s asked, 34.6 s and 78.3 kg, stopped with 1.01 m/s for the nozzles.
+- **A save keeps a tank's roles over its part's**, and on 2026.11.16.5901 a sub-part engine counts as an `Engine`, so
+  a bus saved with its tank as `Thruster` alone -- every bus save made before the template named both -- feeds its
+  nozzles and never its engine: lit at 0.98, `propellant False`, 1.1 kg in 15 s, all of it the nozzles'. Every engine
+  hop of a night on those saves stalled. `tools/repair-saves.py --fix` gives a KSArmory tank back the roles its part
+  declares; `HopBurn` hands a burn that gains under a quarter of the engine's push in 15 s to the nozzles.
 - The coast branch's `SetEngine(false)` becomes `SetEngine(true)` and the burn attitude while burning (it already
   drives the throttle to 1). Read `BoosterPerformance` off the bus. One log line per hop: velocity asked, burn seconds,
   residual, kilograms.
@@ -531,13 +552,71 @@ For C, first:
   against 14 m at the gate).
 - Pass: the flag ships on, as `feat`.
 
+- **The flag-flip night, 2026-11-18** (`~/shots/2026-11-18-flip`, declared in
+  `~/shots/scripts-2026-11-18/DECLARE-flag-flip.md`): `SOLVER SCALE 8`, the 688.5 kg tank, KSA 5901, every step-5 flag
+  and `HopsBurnTheEngine` on (`flip`), paired against itself (`flip2`) for B and C.
+  - **A, 6,181 km, six 4 km apart, `base` against `flip`: void.** Six `ATTRIBUTION FAULT`s, all on `base`'s walks,
+    which its 70 m/s budget curtailed; the check reads a curtailed walk's dropped targets as misattributed.
+  - **B, 12,902 km, seven 300 km apart, 24 buses: passes every bar.** First flown with every engine hop stalled -- the
+    save held the bus tank as `Thruster` (step 6) -- and re-flown on the repaired save from `03ae5647`: 24 of 24
+    walked seven, 168 of 168 warheads within 0.1 m (worst 3.9 cm), nothing curtailed, no fault, no stall, no
+    exception. Six engine hops a bus, 292-303 m/s asked against 317 planned (0.92-0.96) and 302-313 kg of the tank.
+    The pad planned 7 at 456 m/s, after showing 0 and then 1 stop for its first 5 s on the pinned disc.
+  - **C, seven 400 km apart, 16 buses: 16 of 16 walked seven**, 416-437 m/s and 421-438 kg each, 110 of 112 within
+    0.1 m. The other two are one aim point in both shots, bus 3's target 5 at 18.809 S 12.692 E: 38.0 and 40.7 m
+    short downrange, on ground rising 0.19 to the impact, where the release probe missed by 547 m and the kick was
+    60 mm/s against 1-6 elsewhere. Bus 1's stop 5 sits on 0.19 and landed within 6 mm, so it is not the grade alone.
+  - **A, judged once the check read a walk ended by its budget** (`tools/shot-report.py` `WALKEND`; the six faults
+    were that line), and extended to eight blocks from the same build: `flip` walked six on 32 of 32, `base` on 24;
+    433 of 433 within 1.8 cm; landing 1.42x [0.89, 1.56], un-levelled 1.36x [0.90, 1.55], 3.7 against 3.1 mm --
+    over the 1.5 bound, unresolved. Shipped on anyway, by the owner's call, for sub-millimetre on a 4 km walk.
+- **The reach night, 2026-11-19** (`~/shots/2026-11-19-reach`), `SOLVER SCALE 8`, the flags on, 8 buses a cell
+  from 12,902 km: **500 km** apart 8 of 8 walked seven, 549-583 kg of the tank, worst 4.3 cm; **550 km** 8 of 8
+  walked six, the seventh dropped at the split with 119 m/s left against a last hop of 150-180, worst 3.4 cm;
+  **600 km** six on 8 of 8, 561-578 kg, worst 3.5 cm. From 2,000 km (20.0 N 99.0 W) every bus, the narrow walk's
+  too, released all seven at the lead: a 221-395 s coast. At `Loft` 1.8 the coast came in at 757 s against 420
+  and the buses walked four, the three dropped targets' warheads staying aboard. `PLAYER SRB4` (`KSA Real SRB4`
+  from `make-rocket.py`) walked seven 300 km apart within 2.4 cm.
+
 ### 8. What a player sees
 
 Each a small change after 7:
 
+- **The pad outline refuses the wide sets that fly** -- measured headlessly on 2026-11-18, `ReachDisplay.For` on the
+  pad's `TryAtTheEpoch` footprint with every walk flag and the engine on, at the nights' 1,000 m/s budget: seven
+  targets 300 km apart from 12,902 km place **2 of 7**, and 150 km apart from 6,180 km **3 of 7**, against 7 of 7
+  and 22 of 24 flown. Before launch the reach is a pinned disc, 0.88 t_go metres per m/s, and never sees the 2.56x
+  and 11.94x free arrival buys along the track, so a player cannot even set up a walk the flight would fly. Every
+  wide flight placed its targets through the scenario, which skips the outline. At the shipped 60 m/s budget, and
+  the panel slider's 200, it is narrower still; the nights flew 1,000 with the tank bounding it.
+- **The pad plans the walk on a coast it will get, and on the free reach** (`Sim/PadReach.cs`, flown 2026-11-18). The
+  coast is taken as **0.55 of the cheapest conic** from where the bus stands -- every coast came in over that, 0.58 at
+  the least, across the six rigged stacks, 500-12,902 km and arrival preferences 0, 0.5 and 1 (`PadCoastStudyTests`; the
+  conic alone is no floor: 703 s against a 509 s coast at 2,000 km, while the flight lofts past it at long range). Under
+  `HopsFreeTheirArrival` the free reach is flown off that conic **at the coast floor's epoch**, where the coast measures
+  its own, carried back to now; measured at the gate instead, every earlier stop is capped at the gate's reach and the
+  pad planned 1 of 7. Under `PriceTheTankStopByStop` the bus's own tank is read before the split, its mass the bus part's
+  inert mass plus its tank. Seven targets along the track on the post-boost bus, pad against coast (`PadReachTests`):
+  2,000 km 50 km apart, 1 against 1; 6,181 km 200 km apart, 3 against 4; 12,902 km 300 km apart, 6 against 6, where the
+  pinned disc plans 1; a 134 kg tank there, 2 against 2 -- and that coast flies 1, which is the coast planner's own
+  over-promise, not the pad's. A coast left unknown planned 7 at 2,000 km against 1. Flown on `SOLVER SCALE 1` to
+  24.476S 26.909E, seven targets 300 km apart with every walk flag on: the pad planned 2-3 stops through the climb on
+  the bus's 134 kg, and the bus planned 3 after the split. The coast floor applies with the flags off too. The walker
+  keeps the plan it always had until the coast prices its own, so nothing the burn aims with moves.
 - **The pad outline at the walk's epoch** (4.12 step 3): the floor to 1,700 s is measured,
   `0.88 - 0.00034 (t - 760)` of `t_go`; it needs a coast estimate that comes in short. Pass: no pad click refused that
   the coast's own reach accepts, on the step 7 sets.
+- **One expected walk, and why it walks fewer** (built 2026-11-19). The panel reads `IcbmComputer.ExpectedWalk`: the
+  pad's plan until cutoff, the walker's after, where it used to show the walker's pinned plan on the pad ("2 stops")
+  beside the pad's own. "Estimating the walk" covers the first frames, before the free reach is flown, which read
+  0, then 1, then 7 stops. A plan cut for time says so and names the coast the whole set wants
+  (`ReleaseWalk.CoastBound`, `ReleaseItinerary.CoastForAllSeconds`): at 2,000 km, 1,054 s against 395. Logged in
+  flight; the panel itself not yet seen in a capture.
+- **A loft offer for a short shot** (built 2026-11-19). The pad's coast scales with `IcbmConfig.Loft` -- flown, 757 s
+  at 1.8 against 420 at 1 -- so a walk cut for time is planned again at longer lofts up to
+  `IcbmConfig.LongestLoft`, and the panel offers the shortest that walks the most, with a button that sets it,
+  only before launch. At 2,000 km, seven 50 km apart, it offered loft 1.65 for 3 of 7 (logged). Past 1.8 is unbuilt:
+  all seven there want about 2.5x.
 - **The reach ring and the planet map at hundreds of km**, where per-target rings go sub-pixel (`ICBM-MAP.md`). Pass:
   readable in a capture at both ranges.
 
@@ -545,6 +624,15 @@ Each a small change after 7:
 
 - **Warp**: KSA rejects a speed change while its own auto-warp runs, and `WarpPolicy` then abandons the burn. A long
   hop burn must be covered by the guided-burn path (`IcbmComputer.Warp`).
+- **The bus overtaking its own warheads, the cure sized (2026-11-18, not built).** Read off the 2026-10-20 200 km nozzle
+  night's per-release lines: a warhead leaves forward along the nose at 0.5 m/s from a tube 0.9-1.0 m off the axis,
+  and a nozzle hop firing Forward has the bus 7.5-8.9 m/s along that same line within seconds, so it passes the warhead
+  4.9 s after the release with it 0.9 m off its axis -- inside its own 3 m body. `HopsWaitForTheirWarhead` only moves
+  the pass to 37 s, since the hop is along the warhead's line; an engine hop turns onto its own line first and never
+  meets one. What would cure the nozzle hops: a sidestep straight after the release, square to the nose and away from
+  the tube the warhead left, about 0.4 m/s, so the bus stands 2.5 m clear of the warhead's line when it passes, and the
+  hop's re-solve takes the sideways velocity in -- about 3 m/s over seven stops. It wants the warhead against the bus
+  in the rig first, which nothing models yet, then one flight. It has cost no landing.
 - **Attitude propellant**: a stop that burns turns three times (onto the burn, onto the airflow, back); none of it is in
   the budget today.
 - **Linearity at 90 m/s hops** is argued, not shown: step 2's price-against-flown at 50 km is the check.

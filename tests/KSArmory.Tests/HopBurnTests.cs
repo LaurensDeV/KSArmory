@@ -174,4 +174,40 @@ public class HopBurnTests
         Assert.Equal(HopBurn.Stage.Pointing, burn.Now);
         Assert.True(burn.HeldForTheStackSeconds >= HopBurn.StackHoldCapSeconds);
     }
+
+    // The engine lit but pushing nothing, as every bus of a night did; the bus's nose and turns are honest.
+    [Fact]
+    public void ABurnThatGainsNothingIsGivenUpToTheNozzles()
+    {
+        HopBurn burn = new();
+        burn.Begin(Entry);
+        Bus bus = new();
+
+        for (int i = 0; i < 6_000 && burn.Now != HopBurn.Stage.Done; i++)
+        {
+            double3 toGain = Hop * 40.0;
+            HopBurn.Decision d = burn.Update(0.1, toGain, bus.Nose, 1.62);
+            if (!d.LineCci.Equals(Vec.Zero)) bus.Nose = Vec.Unit(d.LineCci);
+        }
+
+        Assert.Equal(HopBurn.Stage.Done, burn.Now);
+        Assert.True(burn.Burnt);
+        Assert.True(burn.Stalled);
+        Assert.InRange(burn.BurnSeconds, HopBurn.StallJudgedAfterSeconds, HopBurn.StallJudgedAfterSeconds + 0.2);
+        Assert.Equal(40.0, burn.LeftMetresPerSecond, 6);
+    }
+
+    [Fact]
+    public void ABurnThatGainsIsNeverCalledStalled()
+    {
+        HopBurn burn = new();
+        burn.Begin(Entry);
+        Bus bus = new();
+
+        for (int i = 0; i < 20_000 && burn.Now != HopBurn.Stage.Done; i++) bus.Step(burn, 80.0, 1.62, 0.02);
+
+        Assert.Equal(HopBurn.Stage.Done, burn.Now);
+        Assert.False(burn.Stalled);
+        Assert.True(burn.BurnSeconds > HopBurn.StallJudgedAfterSeconds);
+    }
 }

@@ -57,9 +57,14 @@ internal enum HopHold
 /// than discovered at the last one. Their warheads stay aboard, which is what an unassigned warhead
 /// already does.
 /// </param>
+/// <param name="CoastBound">Whether the coast, not the budget, was what dropped the first target.</param>
+/// <param name="CoastForAllSeconds">The coast the whole set would have needed; NaN where nothing was dropped for time.</param>
 internal readonly record struct ReleaseWalk(ReleaseItinerary Itinerary, ReleaseWalkHold Hold,
-                                            int Dropped, double HopMetresPerSecond)
+                                            int Dropped, double HopMetresPerSecond,
+                                            bool CoastBound = false, double CoastForAllSeconds = double.NaN)
 {
+    public int Asked => Stops + Dropped;
+
     /// <remarks>
     /// The stop count is tested because <see cref="ReleaseWalkHold.Walking"/> is the enum's zero, so a
     /// <c>default</c> walk would otherwise claim to be one.
@@ -105,9 +110,11 @@ internal readonly record struct ReleaseWalk(ReleaseItinerary Itinerary, ReleaseW
                 + $"{Itinerary.Means.WalkBudgetMetresPerSecond:F0}"
                 + (Dropped > 0
                        ? $" -- {Dropped} target{(Dropped == 1 ? "" : "s")} dropped, "
-                         + "their warheads stay aboard"
+                         + "their warheads stay aboard" + Why()
                        : ""),
 
+            ReleaseWalkHold.OneStop when Dropped > 0 =>
+                $"one of {Asked} targets: every warhead goes to the one the bus is on{Why()}",
             ReleaseWalkHold.OneStop => "one target, released as every flight before it",
             ReleaseWalkHold.NoStops => "no warhead is assigned to anywhere",
 
@@ -121,6 +128,13 @@ internal readonly record struct ReleaseWalk(ReleaseItinerary Itinerary, ReleaseW
 
             _ => "no walk",
         };
+
+    private string Why()
+        => CoastBound
+               ? double.IsFinite(CoastForAllSeconds)
+                     ? $"; the coast is too short for more, and all {Asked} want about {CoastForAllSeconds:F0} s of it"
+                     : "; the coast is too short for more"
+               : "";
 }
 
 /// <summary>What one stop of a walk wants of the flight this frame.</summary>
@@ -276,14 +290,14 @@ internal static class ReleaseLoop
                                    IReadOnlyList<double>? reachMetresPerMetrePerSecond, int lead)
     {
         ReleaseItinerary plan = TrimToWhatFits(targets, bus, reachMetresPerMetrePerSecond,
-                                               out int dropped);
+                                               out int dropped, out bool coastBound, out double coastForAll);
 
-        if (plan.Count == 0) return new ReleaseWalk(plan, ReleaseWalkHold.NoStops, dropped, 0.0);
-        if (plan.Count == 1) return new ReleaseWalk(plan, ReleaseWalkHold.OneStop, dropped, 0.0);
+        if (plan.Count == 0) return new ReleaseWalk(plan, ReleaseWalkHold.NoStops, dropped, 0.0, coastBound, coastForAll);
+        if (plan.Count == 1) return new ReleaseWalk(plan, ReleaseWalkHold.OneStop, dropped, 0.0, coastBound, coastForAll);
 
         if (plan.Stops[0].Target != lead)
         {
-            return new ReleaseWalk(plan, ReleaseWalkHold.NotWhereTheBusIsAimed, dropped, 0.0);
+            return new ReleaseWalk(plan, ReleaseWalkHold.NotWhereTheBusIsAimed, dropped, 0.0, coastBound, coastForAll);
         }
 
         double dearest = 0.0;
@@ -293,8 +307,8 @@ internal static class ReleaseLoop
         }
 
         return dearest > bus.PassCeilingMetresPerSecond
-                   ? new ReleaseWalk(plan, ReleaseWalkHold.HopBeyondOnePass, dropped, dearest)
-                   : new ReleaseWalk(plan, ReleaseWalkHold.Walking, dropped, dearest);
+                   ? new ReleaseWalk(plan, ReleaseWalkHold.HopBeyondOnePass, dropped, dearest, coastBound, coastForAll)
+                   : new ReleaseWalk(plan, ReleaseWalkHold.Walking, dropped, dearest, coastBound, coastForAll);
     }
 
     /// <summary>
@@ -438,12 +452,18 @@ internal static class ReleaseLoop
     // may fit a stop the longer one did not. Each pass drops at least one, which bounds the loop.
     private static ReleaseItinerary TrimToWhatFits(IReadOnlyList<ReleaseItinerary.Target>? targets,
                                                    in ReleaseItinerary.Bus bus,
-                                                   IReadOnlyList<double>? reach, out int dropped)
+                                                   IReadOnlyList<double>? reach, out int dropped,
+                                                   out bool coastBound, out double coastForAll)
     {
+        coastBound = false;
+        coastForAll = double.NaN;
         dropped = 0;
 
         ReleaseItinerary plan = ReleaseItinerary.Plan(targets, bus, reach);
         if (plan.Count == 0) return plan;
+
+        coastBound = plan.CoastFits < plan.Count && plan.CoastFits <= plan.BudgetFits;
+        coastForAll = coastBound ? plan.CoastForAllSeconds : double.NaN;
 
         for (int guard = 0; guard <= TargetSet.MaxTargets; guard++)
         {

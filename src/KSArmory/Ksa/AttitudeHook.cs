@@ -36,6 +36,9 @@ internal static class AttitudeHook
     // Those owed one more Direct write, which has to happen in this window like every other one.
     private static readonly HashSet<Vehicle> Restore = [];
 
+    // Those owed KSA's attitude hold back at Manual: written outside the window, the worker's copy puts Auto back.
+    private static readonly HashSet<Vehicle> HandedBack = [];
+
     // Craft drifting on purpose, held out of KSA's own attitude hold every frame: left holding, a stack warped 11 h to
     // its burn window fired the bus's jets through the warp and emptied them, about 19 kg an hour, flown.
     private static readonly HashSet<Vehicle> Drifting = [];
@@ -134,6 +137,7 @@ internal static class AttitudeHook
         Staging.Clear();
         StagingAfter.Clear();
         Shoves.Clear();
+        HandedBack.Clear();
 
         try
         {
@@ -311,7 +315,14 @@ internal static class AttitudeHook
         }
     }
 
-    /// <summary>Stop pointing it. The vehicle is the player's again.</summary>
+    /// <summary>Stops steering a craft and gives KSA's attitude hold back to Manual, in the window that keeps it.</summary>
+    public static void HandBack(Vehicle craft)
+    {
+        Release(craft);
+        HandedBack.Add(craft);
+    }
+
+    /// <summary>Stop pointing it, leaving KSA's attitude hold as it stands; <see cref="HandBack"/> clears that too.</summary>
     public static void Release(Vehicle craft)
     {
         Wanted.Remove(craft);
@@ -376,6 +387,9 @@ internal static class AttitudeHook
             // And a hurt engine's thrust, gimbal and ignition.
             DamagedEngines.Apply(__instance);
 
+            // And a bus engine staging lit before any hop asked for it.
+            BusEngineHold.Apply(__instance);
+
             if (Shoves.Count > 0 && Shoves.Remove(__instance, out (double3 Linear, double3 Angular, double Wind, double3 AwayEcl) shove))
             {
                 double3 before = KsaWorld.VelocityEcl(__instance);
@@ -404,6 +418,11 @@ internal static class AttitudeHook
             else if (Restore.Remove(__instance))
             {
                 VehicleCommand.SetPulseMode(__instance, pulsing: false);
+            }
+
+            if (HandedBack.Count > 0 && HandedBack.Remove(__instance) && !Wanted.ContainsKey(__instance))
+            {
+                VehicleCommand.ReleaseAttitude(__instance);
             }
 
             if (Drifting.Count > 0 && Drifting.Contains(__instance))

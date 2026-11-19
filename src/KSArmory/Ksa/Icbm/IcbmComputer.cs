@@ -158,7 +158,7 @@ internal sealed partial class IcbmComputer
     private bool _saidTraceStranded;
 
     // Cached: a method group allocates a delegate, and the trace builds its Setup every frame.
-    private Func<double3, double>? _terrainRadius;
+    private Func<double3, double>? _fuseRadius;
     private Func<double3, double>? _densityRatio;
 
     // Often enough to see an oscillation, rare enough not to fill the log with a burn's worth.
@@ -287,6 +287,19 @@ internal sealed partial class IcbmComputer
 
     /// <summary>Holds no walk for a set of one — see <see cref="ReleaseWalker.Walking"/>.</summary>
     public ReleaseWalker Walk => _walker;
+
+    /// <summary>
+    /// The walk a player should expect: before cutoff the pad's, off the free reach and a coast the flight will get,
+    /// since the walker keeps the plan the burn is aimed with; after it, the walker's own.
+    /// </summary>
+    public ReleaseWalk ExpectedWalk => Program.Phase == IcbmPhase.Coast || !double.IsFinite(_padCoastSeconds)
+                                           ? _walker.Walk
+                                           : Reach.Flown;
+
+    /// <summary>Whether the pad's walk is still waiting on the free reach it is priced on.</summary>
+    public bool EstimatingTheWalk => Program.Phase != IcbmPhase.Coast && _targets.Count > 1
+                                     && ((Config.HopsFreeTheirArrival && _padFootprint is null)
+                                         || Reach.Flown.Hold == ReleaseWalkHold.NoStops);
 
     private readonly ReleaseWalker _walker = new();
 
@@ -528,6 +541,18 @@ internal sealed partial class IcbmComputer
     public void SetTargetWarheads(int index, int warheads)
         => _targets.SetWarheads(index, warheads, WarheadsAboard);
 
+    /// <summary>
+    /// NaN gives the target back the warhead's own height. A warhead already away keeps the height it left with.
+    /// </summary>
+    public void SetTargetBurstHeight(int index, double metres)
+    {
+        if (!_targets.SetBurstHeight(index, metres)) return;
+
+        Log.Info($"ICBM computer on {KsaWorld.DisplayName(Craft)}: target {index + 1} bursts "
+                 + (FuseHeightFor(index) > 0.0 ? $"{FuseHeightFor(index):F0} m over the ground" : "on the ground")
+                 + (double.IsFinite(metres) ? "" : ", the warhead's own setting"));
+    }
+
     /// <summary>Taking them from the lead; refused rather than clamped when there are not enough.</summary>
     public bool ShiftTargetWarheads(int index, int delta)
         => _targets.Shift(index, delta, WarheadsAboard);
@@ -545,13 +570,15 @@ internal sealed partial class IcbmComputer
             _warpIsOurs = false;
         }
 
-        AttitudeHook.Release(Craft);
-
         if (_driving)
         {
             VehicleCommand.SetEngine(Craft, running: false);
-            VehicleCommand.ReleaseAttitude(Craft);
+            AttitudeHook.HandBack(Craft);
             _driving = false;
+        }
+        else
+        {
+            AttitudeHook.Release(Craft);
         }
 
         // Outside that block: the thruster flags are held keys, and one left down translates the bus.
@@ -668,6 +695,7 @@ internal sealed partial class IcbmComputer
 
         IcbmState state = Sample(playerStep, out bool usable);
         StepStagingProbe(simStep, state);
+        HoldTheBusEngine();
 
         // After Sample writes this frame's Parent, Body and aim, and before a release, so a warhead
         // let go this frame starts its trace at zero.
@@ -814,11 +842,14 @@ internal sealed partial class IcbmComputer
                 if (!_letGoAfterSalvo)
                 {
                     _letGoAfterSalvo = true;
-                    AttitudeHook.Release(Craft);
                     if (_driving)
                     {
-                        VehicleCommand.ReleaseAttitude(Craft);
+                        AttitudeHook.HandBack(Craft);
                         _driving = false;
+                    }
+                    else
+                    {
+                        AttitudeHook.Release(Craft);
                     }
                     VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
                     AttitudeHook.PulseMode(Craft, pulsing: false);
@@ -1003,12 +1034,14 @@ internal sealed partial class IcbmComputer
         Vehicle left = Craft;
 
         // The hook is keyed on the vehicle, so otherwise the spent stack is held for the session.
-        AttitudeHook.Release(left);
-
         if (_driving)
         {
             VehicleCommand.SetEngine(left, running: false);
-            VehicleCommand.ReleaseAttitude(left);
+            AttitudeHook.HandBack(left);
+        }
+        else
+        {
+            AttitudeHook.Release(left);
         }
 
         // Unconditionally: the trim may already have commanded the half left behind, and a thruster
@@ -1342,6 +1375,17 @@ internal sealed partial class IcbmComputer
             return Body.SurfaceRadius;
         }
     }
+
+    /// <summary>How high over the ground a warhead sent to that target goes off.</summary>
+    internal double FuseHeightFor(int target)
+        => target >= 0 && target < _targets.Count
+               ? _targets.Entries[target].FuseHeightMetres(_warhead?.BurstHeightMetres ?? 0.0)
+               : _warhead?.BurstHeightMetres ?? 0.0;
+
+    // Where a warhead bound for the current stop ends: the ground, raised by its fuse height, so the aim
+    // correction puts the burst over the target rather than its arc's meeting with the ground under it.
+    private double FuseRadiusAt(double3 pointCci)
+        => TerrainRadiusAt(pointCci) + FuseHeightFor(_walker.TargetIndex(_targets.LeadIndex));
 
     // On a deorbit 1 m/s left along track is ~1.8 km of miss and radially ~3.4 km. One frame of
     // burning is accel x step x throttle, and a residual near it is timing, not guidance.

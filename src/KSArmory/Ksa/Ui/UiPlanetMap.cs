@@ -220,6 +220,10 @@ internal sealed partial class Ui
             ImGui.SameLine();
             ImGui.TextDisabled($"x{entries[i].Warheads}");
 
+            double burst = computer.FuseHeightFor(i);
+            ImGui.SameLine();
+            ImGui.TextDisabled(burst > 0.0 ? $"air {burst:F0} m" : "ground");
+
             if (TargetEdit.MayRemove(i, entries.Count, computer.LeadTarget))
             {
                 ImGui.SameLine();

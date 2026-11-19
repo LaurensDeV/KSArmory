@@ -24,9 +24,8 @@ internal sealed partial class Ui
     private static readonly float4 Working = new(0.95f, 0.85f, 0.45f, 1f);
     private static readonly float4 Bad = new(0.98f, 0.5f, 0.45f, 1f);
 
-    // The slider's top once the tank bounds the budget, not the 60 m/s reserve: past the Heavy
-    // bus's 143 m/s axially.
-    private const double WideTrimBudgetMetresPerSecond = 200.0;
+    // The Tuning tab's own reach, so a target can ask for anything a warhead can.
+    private const float MaxTargetBurstHeightMetres = 10_000f;
 
     private void DrawIcbm(IcbmComputer computer)
     {
@@ -168,8 +167,30 @@ internal sealed partial class Ui
         if (computer.Targets.Count > 0)
         {
             ReleaseWalker walker = computer.Walk;
+            ReleaseWalk expected = computer.ExpectedWalk;
+            bool coasting = computer.Program.Phase == IcbmPhase.Coast;
 
-            ImGui.TextColored(walker.Walk.Walks ? Good : Working, "  " + walker.Walk.Say());
+            if (computer.EstimatingTheWalk) ImGui.TextColored(Working, "  estimating the walk");
+            else
+            {
+                ImGui.TextColored(expected.Walks ? Good : Working,
+                                  $"  {(coasting ? "" : "expected: ")}walks {Math.Max(1, expected.Stops)} of "
+                                  + $"{Math.Max(expected.Asked, computer.Targets.Count)} -- {expected.Say()}");
+            }
+
+            // Only before launch: a loft changed on the way up re-aims a climbing rocket, which has not been flown.
+            if (computer.LoftOffer is { } offer && computer.Program.Phase == IcbmPhase.Idle)
+            {
+                bool all = offer.Stops >= computer.Targets.Count;
+                ImGui.TextColored(Working, all
+                                               ? $"  a longer flight walks all {offer.Stops}: loft {offer.Loft:F2}"
+                                               : $"  the longest flight offered walks {offer.Stops}: loft {offer.Loft:F2}");
+                ImGui.SameLine();
+                if (ImGui.SmallButton("Fly it")) computer.Config.Loft = offer.Loft;
+                Tip("Lofts the arc: the rocket flies higher and slower, the coast after cutoff grows with it, and the "
+                    + "bus has the time to walk between more targets. It costs the booster more and the warheads "
+                    + "arrive later and steeper; if the stack cannot pay for it, the panel says so before launch.");
+            }
 
             if (walker.Walking)
             {
@@ -217,6 +238,26 @@ internal sealed partial class Ui
             }
             Tip("How many of the bus's warheads are meant for this place. What no target takes rides "
                 + "the bus down.");
+
+            ImGui.SameLine();
+            ImGui.SetNextItemWidth(ImGui.GetFontSize() * 9f);
+
+            float burst = (float)computer.FuseHeightFor(i);
+            if (ImGui.SliderFloat("##burst", ref burst, 0f, MaxTargetBurstHeightMetres,
+                                  burst > 0f ? "air %.0f m" : "ground"))
+            {
+                computer.SetTargetBurstHeight(i, burst);
+            }
+            Tip("How high over the ground this target's warheads go off; at the far left they burst on the "
+                + "ground. The aim is corrected for the height, so the burst stands over the target. A "
+                + "warhead already away keeps the height it left with.");
+
+            if (double.IsFinite(entry.BurstHeightMetres))
+            {
+                ImGui.SameLine();
+                if (ImGui.SmallButton("default")) computer.SetTargetBurstHeight(i, double.NaN);
+                Tip("Back to the warhead's own height, the burst height on the Tuning tab.");
+            }
 
             if (computer.MayRemoveTarget(i))
             {
@@ -291,6 +332,14 @@ internal sealed partial class Ui
                                               : ": the burn will stop there and the shot fall short"));
             Tip("The staging list fires the decoupler holding the bus before the stages after it, which would let the "
                 + "warheads go with the burn unfinished. Drag it to the end of the staging list to fix it before launch.");
+        }
+
+        if (computer.BusEngineHeldOff)
+        {
+            ImGui.TextDisabled("The bus's own engine was lit by staging; held off until a hop needs it");
+            Tip("KSA puts an engine no stage names into the first stage, so a design that never staged the bus's "
+                + "engine lights it at liftoff. The computer switches it off again whenever it finds it lit, and "
+                + "only a hop on the bus's engine lights it.");
         }
 
         IcbmProgram program = computer.Program;
@@ -533,9 +582,10 @@ internal sealed partial class Ui
         if (computer.Munition is { } warhead)
         {
             ImGui.TextDisabled(warhead.BurstHeightMetres > 0f
-                                   ? $"Warheads burst {warhead.BurstHeightMetres:F0} m over the ground"
-                                   : "Warheads burst on the ground");
-            Tip("Set by the burst height on the Tuning tab, which every warhead of this kind shares.");
+                                   ? $"A target with no height of its own bursts {warhead.BurstHeightMetres:F0} m over the ground"
+                                   : "A target with no height of its own bursts on the ground");
+            Tip("Set by the burst height on the Tuning tab, which every warhead of this kind shares. Each "
+                + "target's own slider in the list above overrides it.");
         }
 
         bool autoStage = config.AutoStage;
@@ -616,7 +666,7 @@ internal sealed partial class Ui
         ImGui.SeparatorText("Shot");
 
         float loft = (float)config.Loft;
-        if (ImGui.SliderFloat("Loft", ref loft, 0.6f, 1.8f, "%.2f x cheapest")) config.Loft = loft;
+        if (ImGui.SliderFloat("Loft", ref loft, 0.6f, (float)IcbmConfig.LongestLoft, "%.2f x cheapest")) config.Loft = loft;
         Tip("At 1: minimum energy, the cheapest shot there is. Above 1: a longer flight than the "
             + "cheapest -- higher, slower, arrives steeper, costs more. Below 1: a shorter flight than "
             + "the cheapest -- flatter and faster, and costs more. It is not an arrival-angle control: "
@@ -686,9 +736,11 @@ internal sealed partial class Ui
 
         float budget = (float)config.TrimBudgetMetresPerSecond;
         if (ImGui.SliderFloat("Trim budget", ref budget, 0f,
-                              (float)(config.HopsSizeTheirOwnSlots ? WideTrimBudgetMetresPerSecond
+                              (float)(config.HopsSizeTheirOwnSlots ? IcbmConfig.WideTrimBudgetMetresPerSecond
                                                                    : PostBoostAim.MaxTrimMetresPerSecond),
-                              "%.0f m/s for the flight"))
+                              config.HopsSizeTheirOwnSlots && budget >= IcbmConfig.WideTrimBudgetMetresPerSecond
+                                  ? "as much as the tank pays"
+                                  : "%.0f m/s for the flight"))
         {
             config.TrimBudgetMetresPerSecond = budget;
         }

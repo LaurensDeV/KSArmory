@@ -25,6 +25,9 @@ internal sealed class IcbmConfig
     /// </summary>
     public double Loft = 1.0;
 
+    /// <summary>The longest flight the panel offers, against the cheapest.</summary>
+    public const double LongestLoft = 1.8;
+
     /// <summary>
     /// The shallowest the warheads may come in, in degrees below the horizontal; zero is off, and the
     /// default. A bound on the arc search rather than a nudge, so a shot with no arc steep enough is
@@ -139,11 +142,14 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// How much the bus may spend on trimming across the whole flight, in m/s; zero is none, negative
-    /// unlimited. Defaults to <see cref="PostBoostAim.MaxTrimMetresPerSecond"/>, the reserve sized against
-    /// what a bus carries: a separate 25 bound first and stopped a committed pass 0.45 m/s short.
+    /// unlimited. Defaults to <see cref="WideTrimBudgetMetresPerSecond"/>, which the tank binds; a walk without
+    /// <see cref="HopsSizeTheirOwnSlots"/> plans on <see cref="PostBoostAim.MaxTrimMetresPerSecond"/> instead.
     /// <c>docs/MIRV-NEXT.md</c>.
     /// </summary>
-    public double TrimBudgetMetresPerSecond = PostBoostAim.MaxTrimMetresPerSecond;
+    public double TrimBudgetMetresPerSecond = WideTrimBudgetMetresPerSecond;
+
+    /// <summary>A budget past anything a bus's tank pays, so under <see cref="HopsSizeTheirOwnSlots"/> the tank binds.</summary>
+    public const double WideTrimBudgetMetresPerSecond = 1000.0;
 
     /// <summary>
     /// Whether each stop of a walk starts its aim correction from the bias the last stop reached
@@ -161,18 +167,18 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// Whether a walk between several targets starts at cutoff rather than ending on
-    /// <see cref="ReleaseBeforeArrivalSeconds"/>: about twice the spacing, a worse floor per warhead.
-    /// <b>Off: lost alone on 2026-10-11</b>, its hops refused at the per-pass ceiling; flown again with
-    /// <see cref="HopsFlyTheirOwnCeiling"/>. <c>docs/ICBM-OUTSTANDING.md</c> 4.3 and 4.12.
+    /// <see cref="ReleaseBeforeArrivalSeconds"/>: about twice the spacing, a worse floor per warhead. Lost alone,
+    /// its hops refused at the per-pass ceiling; <b>on</b> with <see cref="HopsFlyTheirOwnCeiling"/> and the rest of the
+    /// wide walk: <c>docs/WIDE-SPREAD.md</c> step 7.
     /// </summary>
-    public bool WalkStartsAtCutoff;
+    public bool WalkStartsAtCutoff = true;
 
     /// <summary>
     /// Whether a walk's hop is bounded by its own price (<see cref="ReleaseLoop.HopCeilingFor"/>) rather
     /// than by <see cref="BusTrim.MaxMetresPerSecond"/>, which stays on the split null and the aim
-    /// correction. <b>Off until flown</b>: <c>docs/ICBM-OUTSTANDING.md</c> 4.12.
+    /// correction. <b>On</b>, with the rest of the wide walk: <c>docs/WIDE-SPREAD.md</c> step 7.
     /// </summary>
-    public bool HopsFlyTheirOwnCeiling;
+    public bool HopsFlyTheirOwnCeiling = true;
 
     /// <summary>
     /// A measurement, not a behaviour: degrees the bus turns off its held line once its split is nulled,
@@ -212,84 +218,85 @@ internal sealed class IcbmConfig
     /// Whether a slot between the gate and the reach's measurement is priced on the line from the gate's own floor
     /// to that measurement where it is above the line from the origin. Both lie under the concave pinned reach;
     /// over the sweep the gate's line held with 1.3% in hand and priced 6% more reach (median) for a slot near the
-    /// gate on a walk from cutoff. <b>Off until flown</b>: <c>docs/ICBM-OUTSTANDING.md</c> 4.12.
+    /// gate on a walk from cutoff. <b>On</b>, with the rest of the wide walk: <c>docs/WIDE-SPREAD.md</c> step 7.
     /// </summary>
-    public bool PriceSlotsOnTheGateChord;
+    public bool PriceSlotsOnTheGateChord = true;
 
     /// <summary>
     /// Whether a walk gives each hop the time its divert burn takes at the bus's
     /// <see cref="LauncherProfile.TrimAccelerationMetresPerSecond2"/> -- its slot, the trim's clock and the
     /// correction's -- and plans on <see cref="TrimBudgetMetresPerSecond"/> rather than
-    /// <see cref="PostBoostAim.MaxTrimMetresPerSecond"/>. <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c> step 2.
+    /// <see cref="PostBoostAim.MaxTrimMetresPerSecond"/>. <b>On</b>, with the rest of the wide walk: <c>docs/WIDE-SPREAD.md</c> step 7.
     /// </summary>
-    public bool HopsSizeTheirOwnSlots;
+    public bool HopsSizeTheirOwnSlots = true;
 
     /// <summary>
     /// Whether each hop of a walk commits the cheapest arc to its target rather than the one arriving at the
     /// committed instant, and the walk is priced on the free reach. Along the track a hop then costs 2.7x less at
-    /// 6,181 km and 5.8x less at 12,902; each warhead arrives at its own instant. <b>Off until flown</b>:
-    /// <c>docs/WIDE-SPREAD.md</c> step 5.
+    /// 6,181 km and 5.8x less at 12,902; each warhead arrives at its own instant.
+    /// <b>On</b>, with the rest of the wide walk: <c>docs/WIDE-SPREAD.md</c> step 7.
     /// </summary>
-    public bool HopsFreeTheirArrival;
+    public bool HopsFreeTheirArrival = true;
 
     /// <summary>
     /// Whether a walk prices the bus's tank in kilograms stop by stop, each hop at the mass the bus has by then, rather
     /// than in metres a second at its mass with every warhead aboard. Six Mk 21s are 1,500 kg of a 2,900 kg Heavy bus.
-    /// <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c> step 5.
+    /// <b>On</b>, with the rest of the wide walk: <c>docs/WIDE-SPREAD.md</c> step 7.
     /// </summary>
-    public bool PriceTheTankStopByStop;
+    public bool PriceTheTankStopByStop = true;
 
     /// <summary>
     /// Whether a free walk flies its reach again from where the coast will be at <see cref="DivertFootprint.LaterEpochs"/>
     /// epochs down to the release gate, and prices each hop's slot on what it costs there rather than on
     /// <see cref="ReleaseItinerary.FreeSlotExponent"/>, the fastest fall over 54 arcs. About 1 ms a flight, every 5 s.
-    /// <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c> step 5.
+    /// <b>On</b>, with the rest of the wide walk: <c>docs/WIDE-SPREAD.md</c> step 7.
     /// </summary>
-    public bool FreeHopsMeasureTheirSlots;
+    public bool FreeHopsMeasureTheirSlots = true;
 
     /// <summary>
     /// Whether a free walk counts the arrival each hop moves: an uprange hop commits an earlier arrival, so every later
     /// stop is nearer it than its slots alone say, and dearer. Flown at 12,902 km 400 km apart, the arrival moved about
-    /// 80 s a hop and the last hop flew 1.42x its price. <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c> step 5.
+    /// 80 s a hop and the last hop flew 1.42x its price; with this on every hop was within 1.11 of it.
+    /// <b>On</b>, with the rest of the wide walk: <c>docs/WIDE-SPREAD.md</c> step 7.
     /// </summary>
-    public bool FreeHopsCountTheArrivalTheyMove;
+    public bool FreeHopsCountTheArrivalTheyMove = true;
 
     /// <summary>
     /// Whether a hop flown on the nozzles holds until the warhead just released is <see cref="HopBurn.ClearMetres"/> away,
     /// as an engine hop does. Without it the trim fires 25 ms after the release and the bus, pushed back along the line
-    /// the warhead left on at 0.5 m/s, passes through it, seen on 2026-10-19. <b>Off until flown</b>: the wait is
-    /// about 20 s a stop that <see cref="ReleaseItinerary.HopOverheadSeconds"/> was not measured with.
+    /// the warhead left on at 0.5 m/s, passes through it. <b>Off</b>: flown, it keeps only the third warhead on clear of the bus, and the wait is
+    /// about 20 s a stop that <see cref="ReleaseItinerary.HopOverheadSeconds"/> was not measured with; <c>docs/WIDE-SPREAD.md</c> step 7.
     /// </summary>
     public bool HopsWaitForTheirWarhead;
 
     /// <summary>
     /// Whether an engine hop holds while its burn would carry the bus inside its spent stack's keep-out, for at most
     /// <see cref="HopBurn.StackHoldCapSeconds"/>. Every first hop flown on 2026-10-19 with the stack under 190 m away was
-    /// knocked off its line, and the nozzles then flew it at several times the cost. <b>Off until flown</b>.
+    /// knocked off its line, and the nozzles then flew it at several times the cost. <b>On</b>, with the rest of the wide walk: <c>docs/WIDE-SPREAD.md</c> step 7.
     /// </summary>
-    public bool EngineHopsClearTheStack;
+    public bool EngineHopsClearTheStack = true;
 
     /// <summary>
     /// Whether a plan with fewer stops may replace the walker's once a turning bus has split. Fewer stops never move the
-    /// first release earlier, which is what the split was timed on. <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c>
-    /// step 5.
+    /// first release earlier, which is what the split was timed on.
+    /// <b>On</b>, with the rest of the wide walk: <c>docs/WIDE-SPREAD.md</c> step 7.
     /// </summary>
-    public bool WalkShrinksAfterTheSplit;
+    public bool WalkShrinksAfterTheSplit = true;
 
     /// <summary>
     /// Whether a hop's arc is solved again from where its burn left the bus before the aim correction reads a miss.
     /// The arc is an impulse at the hand-over, and the trim nulls velocity alone: a 180 m/s hop on the post-boost bus's
     /// nozzles burns for about 450 s and ends 44.5 km off it, which the correction took for drag and ran away on.
-    /// <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c> step 5.
+    /// <b>On</b>, with the rest of the wide walk: <c>docs/WIDE-SPREAD.md</c> step 7.
     /// </summary>
-    public bool HopsResolveAfterTheirBurn;
+    public bool HopsResolveAfterTheirBurn = true;
 
     /// <summary>
     /// Whether a hop over <see cref="HopBurn.EngineAboveMetresPerSecond"/> is flown on the bus's main engine, where it has
     /// one (<see cref="LauncherProfile.HopEngineThrustNewtons"/>): turned onto the hop, burnt down to what the nozzles
-    /// take, and turned back. <b>Off until flown</b>: <c>docs/WIDE-SPREAD.md</c> step 5, C.
+    /// take, and turned back. <b>On</b>, with the rest of the wide walk: <c>docs/WIDE-SPREAD.md</c> step 7.
     /// </summary>
-    public bool HopsBurnTheEngine;
+    public bool HopsBurnTheEngine = true;
 
     /// <summary>
     /// Whether the trim reserve kept beyond the budget for nulling the split may be spent on hops once a

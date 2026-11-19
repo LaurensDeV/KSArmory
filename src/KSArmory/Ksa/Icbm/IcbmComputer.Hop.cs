@@ -11,6 +11,18 @@ internal sealed partial class IcbmComputer
     private double _hopMassBefore = double.NaN;
     private double _hopAskedBefore = double.NaN;
 
+    private Func<bool>? _engineWanted;
+
+    /// <summary>Whether staging lit the bus's own engine and the computer had to switch it off.</summary>
+    public bool BusEngineHeldOff => BusEngineHold.HasHeld(Craft);
+
+    private void HoldTheBusEngine()
+    {
+        if (_release is not { Profile.HopEngineThrustNewtons: > 0.0, HeldPart: { } bus }) return;
+
+        BusEngineHold.Hold(Craft, bus, _engineWanted ??= () => _engineLit);
+    }
+
     private bool HopsBurnTheEngine
         => Config.HopsBurnTheEngine && Config.HopsSizeTheirOwnSlots
            && _release is { } release && release.Profile.HopEngineThrustNewtons > 0.0;
@@ -21,8 +33,11 @@ internal sealed partial class IcbmComputer
                : 0.0;
 
     // At a hand-over, once the arc to the next stop has been asked for.
+    private bool _saidBurning;
+
     private void BeginTheHop()
     {
+        _saidBurning = false;
         if (!HopsBurnTheEngine) return;
 
         _hopBurn.Begin(!Program.CoastLineCci.Equals(Vec.Zero) ? Program.CoastLineCci : _entryLineCci);
@@ -69,6 +84,15 @@ internal sealed partial class IcbmComputer
         if (d.EngineOn != _engineLit) LightTheEngine(d.EngineOn);
         if (d.ResolveNow) ResolveTheHop();
 
+        // What the engine is doing a few seconds into a burn, since nothing reads it while it burns.
+        if (_engineLit && !_saidBurning && _hopBurn.BurnSeconds >= 5.0)
+        {
+            _saidBurning = true;
+            Log.Info($"hop on {KsaWorld.DisplayName(Craft)}: {_hopBurn.BurnSeconds:F1} s into the burn, "
+                     + $"{Vec.Len(toGain):F1} m/s left to gain, throttle {Craft.GetManualThrottle():F3}, "
+                     + $"{Mass():F1} kg -- {Diagnostics.DescribeEngines(Craft)} -- {Diagnostics.DescribeEngineStates(Craft)}");
+        }
+
         if (_hopBurn.Now != HopBurn.Stage.Done) return;
 
         if (_hopBurn.Burnt) ResolveTheHop();
@@ -81,6 +105,14 @@ internal sealed partial class IcbmComputer
                           + $"{_hopMassBefore - Mass():F1} kg, {_hopBurn.Said}, turned onto it and back in "
                           + $"{_hopBurn.TurnedSeconds:F1} s"
                         : _hopBurn.Said));
+
+        if (_hopBurn.Stalled)
+        {
+            Log.Warn($"hop on {KsaWorld.DisplayName(Craft)}: the engine gave no thrust, so the nozzles fly the hop -- "
+                     + $"throttle {Craft.GetManualThrottle():F3}, commanded {Command.Throttle:F3}"
+                     + $"{(Command.Pulsing ? ", pulsing" : "")}{(Command.HoldsLever ? ", holding the lever" : "")}; "
+                     + Diagnostics.DescribeEngines(Craft) + " -- " + Diagnostics.DescribeEngineStates(Craft));
+        }
     }
 
     private int _watchedRelease;

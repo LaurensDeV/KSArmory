@@ -31,6 +31,11 @@ it through `ModLibrary.Get`, which throws on an Id nothing declares -- inside th
 uncaught load. Every character registered is drawn from when a roster is made, so a mod's
 character ends up on kittens in nearly every save made while it was installed. Each is
 given one of Core's own, chosen by the kitten's name so a rerun picks the same one.
+
+And it gives a KSArmory tank back the roles its template declares where the save holds fewer.
+A save records each tank's RoleAffinity and `Tank.ApplySaveData` takes it over the template's, and
+since 2026.11.16.5901 a sub-part engine counts as an Engine, so a bus tank saved as `Thruster`
+feeds its nozzles and starves its main engine.
 """
 
 from __future__ import annotations
@@ -125,6 +130,9 @@ NOISE = re.compile(r"(?i)(^KSArmory_|_?Sub_?[Pp]art_?|^Prefab_|^Launcher_|\d+$|_
 PART_OPEN = re.compile(r'<(Root)?PartRef\s+InstanceOf="(KSArmory_[^"]*)"')
 SUBPART = re.compile(r'^(\s*)<SubPartRef\s+InstanceOf="([^"]*)"([^>]*?)(/?)>\s*$')
 
+TANK_DATA = re.compile(r'<TankData\s+InstanceOf="([^"]*)"')
+ROLE = re.compile(r'(<RoleAffinity>)([^<]*)(</RoleAffinity>)')
+
 # Where a part's own subpart list stops. PartConnectorRef and SubPartRef both begin
 # "<Part"-ish, so these are matched whole rather than by prefix.
 def ends_block(stripped: str) -> bool:
@@ -160,6 +168,43 @@ def declared_subparts() -> dict[str, list[str]]:
                 parts[part_id] = [canonical(s.get("Ref") or s.get("Key") or "") for s in subs]
 
     return parts
+
+
+def declared_tank_roles() -> dict[str, list[str]]:
+    """Each KSArmory tank's declared roles, by the key a save names it with."""
+    roles: dict[str, list[str]] = {}
+    for path in sorted((REPO / "src" / "KSArmory").glob("KSArmory*.xml")):
+        root = ET.parse(path).getroot()
+        for element in root.findall("Part"):
+            if not (element.get("Id") or "").startswith("KSArmory_"):
+                continue
+            for tank in element.iter("Tank"):
+                declared = tank.find(".//RoleAffinity")
+                if tank.get("Key") and declared is not None and declared.text:
+                    roles[tank.get("Key")] = declared.text.split()
+    return roles
+
+
+def widen_tank_roles(lines: list[str], declared: dict[str, list[str]]) -> int:
+    """Gives each declared tank whatever roles its template has that the save left out."""
+    widened = 0
+    want: list[str] | None = None
+    for n, line in enumerate(lines):
+        if (opened := TANK_DATA.search(line)):
+            want = declared.get(opened.group(1))
+            continue
+        if "</TankData>" in line:
+            want = None
+            continue
+        if want is None or not (role := ROLE.search(line)):
+            continue
+        have = role.group(2).split()
+        missing = [r for r in want if r not in have]
+        if missing:
+            lines[n] = line[:role.start(2)] + " ".join(have + missing) + line[role.end(2):]
+            widened += 1
+        want = None
+    return widened
 
 
 def declared_characters() -> set[str]:
@@ -215,7 +260,7 @@ def redress_kittens(lines: list[str], characters: set[str], stock: list[str]) ->
 
 
 def inspect(save: Path, declared: dict[str, list[str]], characters: set[str],
-            stock: list[str], fix: bool) -> tuple[int, int, int]:
+            stock: list[str], tanks: dict[str, list[str]], fix: bool) -> tuple[int, int, int]:
     """Returns (parts needing repair, entries dropped, kittens re-dressed)."""
     # newline="" throughout: the saves are CRLF, and letting Python translate them would
     # rewrite every line in a file this is meant to change by one.
@@ -228,6 +273,10 @@ def inspect(save: Path, declared: dict[str, list[str]], characters: set[str],
     renamed = rename_core_parts(lines) if written_before(save, CORE_BUILD) else 0
     if renamed:
         print(f"    {renamed} Core part(s) KSA renamed")
+
+    widened = widen_tank_roles(lines, tanks)
+    if widened:
+        print(f"    {widened} tank(s) saved with fewer roles than their part declares")
 
     index = 0
     while index < len(lines):
@@ -286,17 +335,18 @@ def inspect(save: Path, declared: dict[str, list[str]], characters: set[str],
         else:
             redressed = redress_kittens(lines, characters, stock)
 
-    if (dropped or redressed or renamed) and fix:
+    if (dropped or redressed or renamed or widened) and fix:
         backup = save.with_suffix(save.suffix + ".bak")
         if not backup.exists():
             shutil.copy2(save, backup)
         kept = [line for n, line in enumerate(lines) if n not in dropped]
         with open(save, "w", encoding="utf-8", errors="surrogateescape", newline="") as handle:
             handle.write("".join(kept))
-        print(f"    rewritten ({len(dropped)} dropped, {redressed} re-dressed, {renamed} renamed); "
+        print(f"    rewritten ({len(dropped)} dropped, {redressed} re-dressed, {renamed} renamed, "
+              f"{widened} tank(s) widened); "
               f"original at {backup.name}")
 
-    return needing + renamed, len(dropped), wearing
+    return needing + renamed + widened, len(dropped), wearing
 
 
 def written_before(path: Path, build: tuple[int, ...]) -> bool:
@@ -360,6 +410,7 @@ def main() -> int:
 
     characters = declared_characters()
     stock = stock_characters()
+    tanks = declared_tank_roles()
 
     root = args.saves or (ksa_user_dir() / "saves")
     if not root.is_dir():
@@ -380,7 +431,7 @@ def main() -> int:
         if not universe.is_file():
             continue
         print(f"  {universe.parent.name}")
-        needing, count, kittens = inspect(universe, declared, characters, stock, args.fix)
+        needing, count, kittens = inspect(universe, declared, characters, stock, tanks, args.fix)
         total_parts += needing
         total_dropped += count
         total_kittens += kittens
@@ -391,12 +442,11 @@ def main() -> int:
         return 0
 
     if args.fix:
-        print(f"repaired {total_parts} part(s), {total_dropped} entries dropped, "
+        print(f"repaired {total_parts} part(s) and tank(s), {total_dropped} entries dropped, "
               f"{total_kittens} kitten(s) re-dressed")
         return 0 if stock or total_kittens == 0 else 1
 
-    print(f"{total_parts} part(s) and {total_kittens} kitten(s) would crash the game on load; "
-          f"rerun with --fix")
+    print(f"{total_parts} part(s) and {total_kittens} kitten(s) need repair; rerun with --fix")
     return 1
 
 

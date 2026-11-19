@@ -101,7 +101,7 @@ internal sealed partial class IcbmComputer
 
         bool landed = ImpactPredictor.TryPredict(Body, fromCci, alongCci, PredictStepSeconds,
                                                  ImpactPredictor.DefaultMaxSeconds, out ImpactPredictor.Impact hit,
-                                                 TerrainRadiusAt, _path, air,
+                                                 FuseRadiusAt, _path, air,
                                                  stopOnTheSurface: Config.PredictionStopsOnTheSurface,
                                                  stopOnTheTerrain: Config.PredictionStopsOnTheTerrain);
 

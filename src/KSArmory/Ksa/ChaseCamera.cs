@@ -385,7 +385,7 @@ internal sealed class ChaseCamera : IViewPose
                     _burstSeen = KsaWorld.TryAnchorToGround(burst, out object? burstGround, out _burstAnchor);
                     if (_burstSeen) _observedGround = burstGround;
                     _burstAge = 0.0;
-                    _observedHeight = spent is Slug { BurstAtHeight: true } ? spent.Munition.BurstHeightMetres : 0.0;
+                    _observedHeight = spent is Slug { BurstAtHeight: true } fused ? fused.FuseHeightMetres : 0.0;
                     FrameObserved(null, 0.0);
                     fromBurst = Vec.Len(burst - _followed.GetPositionEcl());
                 }

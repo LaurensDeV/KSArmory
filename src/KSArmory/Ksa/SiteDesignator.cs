@@ -82,6 +82,28 @@ internal sealed class SiteDesignator
         return computer.Reach.Verdict(click, onTheBody, along, cross);
     }
 
+    /// <summary>A click on a named place, through the same decision a click on the world makes.</summary>
+    internal static ReachVerdict ClickAt(IcbmComputer computer, AimSite site)
+    {
+        TargetClick click = TargetEdit.ClickDoes(computer.Targets.Count, computer.Program.Phase,
+                                                 computer.Reach.HasRegion);
+        bool onTheBody = computer.Parent is { } parent && parent.Id == site.BodyName;
+
+        if (!computer.TryReachOffsets(site, out double along, out double cross))
+        {
+            along = double.NaN;
+            cross = double.NaN;
+        }
+
+        ReachVerdict verdict = computer.Reach.Verdict(click, onTheBody, along, cross);
+        if (!ReachDisplay.Takes(verdict)) return verdict;
+
+        if (verdict == ReachVerdict.Adds) computer.AddTarget(site);
+        else computer.Designate(site);
+
+        return verdict;
+    }
+
     /// <summary>Rings where the next click would aim, so the tool can be pointed before it is used.</summary>
     public void Draw(IcbmComputer computer)
     {

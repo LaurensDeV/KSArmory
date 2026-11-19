@@ -26,7 +26,8 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
             PulsesBelowTheFloor = false, SpendTheSplitReserveAfterTheFirstStop = true,
             WalkStartsAtCutoff = true, HopsFlyTheirOwnCeiling = true, PriceSlotsOnTheGateChord = true,
             HopsSizeTheirOwnSlots = sized, TrimBudgetMetresPerSecond = budget,
-        });
+        }.Narrowed(nameof(IcbmConfig.WalkStartsAtCutoff), nameof(IcbmConfig.HopsFlyTheirOwnCeiling), nameof(IcbmConfig.PriceSlotsOnTheGateChord),
+                   nameof(IcbmConfig.HopsSizeTheirOwnSlots), nameof(IcbmConfig.TrimBudgetMetresPerSecond)));
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
                                               BuiltIns.ReentryVehicleMk21.Copy(), DensityAt);
@@ -117,7 +118,8 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
             PulsesBelowTheFloor = false, SpendTheSplitReserveAfterTheFirstStop = true,
             WalkStartsAtCutoff = true, HopsFlyTheirOwnCeiling = true, PriceSlotsOnTheGateChord = true,
             HopsSizeTheirOwnSlots = true, TrimBudgetMetresPerSecond = 1_000.0,
-        });
+        }.Narrowed(nameof(IcbmConfig.WalkStartsAtCutoff), nameof(IcbmConfig.HopsFlyTheirOwnCeiling), nameof(IcbmConfig.PriceSlotsOnTheGateChord),
+                   nameof(IcbmConfig.HopsSizeTheirOwnSlots), nameof(IcbmConfig.TrimBudgetMetresPerSecond)));
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
                                               BuiltIns.ReentryVehicleMk21.Copy(), DensityAt);
@@ -151,7 +153,12 @@ public class WideSpreadRigTests(ITestOutputHelper Out)
             HopsSizeTheirOwnSlots = true, TrimBudgetMetresPerSecond = 1_000.0, HopsFreeTheirArrival = free,
             PriceTheTankStopByStop = remade, FreeHopsMeasureTheirSlots = remade, WalkShrinksAfterTheSplit = remade,
             HopsResolveAfterTheirBurn = resolve, HopsBurnTheEngine = engine, FreeHopsCountTheArrivalTheyMove = shift,
-        });
+        }.Narrowed(nameof(IcbmConfig.WalkStartsAtCutoff), nameof(IcbmConfig.HopsFlyTheirOwnCeiling), nameof(IcbmConfig.PriceSlotsOnTheGateChord),
+                   nameof(IcbmConfig.HopsSizeTheirOwnSlots), nameof(IcbmConfig.TrimBudgetMetresPerSecond),
+                   nameof(IcbmConfig.HopsFreeTheirArrival), nameof(IcbmConfig.PriceTheTankStopByStop),
+                   nameof(IcbmConfig.FreeHopsMeasureTheirSlots), nameof(IcbmConfig.WalkShrinksAfterTheSplit),
+                   nameof(IcbmConfig.HopsResolveAfterTheirBurn), nameof(IcbmConfig.HopsBurnTheEngine),
+                   nameof(IcbmConfig.FreeHopsCountTheArrivalTheyMove)));
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
                                               BuiltIns.ReentryVehicleMk21.Copy(), DensityAt);

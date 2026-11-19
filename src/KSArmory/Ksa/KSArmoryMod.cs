@@ -415,6 +415,7 @@ public sealed class KSArmoryMod
         StoreMass.Clear();
         PartFires.Clear();
         DamagedEngines.Clear();
+        BusEngineHold.Clear();
 
         // Keyed on craft DeserializeSave has destroyed; CollectTeams rebuilds it, but not while paused.
         KsaWorld.TeamRoster.Clear();

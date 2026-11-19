@@ -268,6 +268,35 @@ public class ReleaseLoopTests(ITestOutputHelper Out)
         Out.WriteLine(walk.Say());
     }
 
+    [Fact]
+    public void ACoastCutSaysSoAndNamesACoastThatHoldsTheWholeSet()
+    {
+        ReleaseWalk cut = ReleaseLoop.Plan(Outward(4, 2_000.0), TwoThousand, Reach, lead: 0);
+
+        Assert.True(cut.CoastBound);
+        Assert.Equal(4, cut.Asked);
+        Assert.True(cut.CoastForAllSeconds > TwoThousand.CoastSeconds);
+        Assert.Contains("coast is too short", cut.Say());
+
+        ReleaseWalk whole = ReleaseLoop.Plan(Outward(4, 2_000.0),
+                                             TwoThousand with { CoastSeconds = cut.CoastForAllSeconds }, Reach, lead: 0);
+
+        Assert.True(whole.Walks);
+        Assert.Equal(4, whole.Stops);
+        Assert.False(whole.CoastBound);
+    }
+
+    [Fact]
+    public void ABudgetCutIsNotCalledACoastCut()
+    {
+        ReleaseWalk walk = ReleaseLoop.Plan(Outward(4, 4_000.0), SixThousand with { BudgetMetresPerSecond = 30.0 },
+                                            Reach, lead: 0);
+
+        Assert.True(walk.Dropped > 0);
+        Assert.False(walk.CoastBound);
+        Assert.DoesNotContain("coast", walk.Say());
+    }
+
     /// <summary>
     /// A set the budget will not pay for is cut to what it will, and the walk that is left starts
     /// where the bus is.

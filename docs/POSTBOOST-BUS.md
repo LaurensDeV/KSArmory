@@ -71,7 +71,8 @@ higher: the engine thrusts along the axis, so only the nozzles see the height, a
 X 0.52. Full, the centre of mass is at 0.545 loaded and 0.565 with the RVs gone, against 0.564 and 0.600 at X 0.87, and
 `checkring.py`'s analysis at those seats puts 0.107 and 0.193 of torque per unit of a lateral trim push against 0.188
 and 0.337 -- nearly twice the turn coupled into every sideways correction. Its `RoleAffinity` is **`Engine Thruster`**, because a tank feeds only the roles it names
-(`PartTree`) -- declared `Thruster` alone, as the old bus's is, the engine can never draw. And KSA puts any engine with
+(`PartTree`) -- declared `Thruster` alone, as the old bus's is, the engine can never draw. A save keeps the role the
+tank had when it was written, over the template's, so a bus saved as `Thruster` stays so until `tools/repair-saves.py --fix`. And KSA puts any engine with
 no sequence into stage 1, so a bus engine left unstaged lights with the first stage; `make-rocket.py` stages it with
 the release, after cutoff has switched the main engines off.
 
@@ -84,6 +85,10 @@ only: released one at a time from the bus alone at 85 km and 0.02x, both jets li
 body turns at half a turn a second after. Then seven targets 2.5 km apart in a line from 24.0 S 62.0 W, once
 `TargetSet.MaxTargets` was raised to seven: PASS, every warhead to its own target and the worst 5.6 mm from it, the walk
 flown on the nozzles exactly as the old bus flies one.
+
+**The sphere holds 688.5 kg full, not 500** (2026-11-18): at KSA's own storage densities the mix is 1,164 kg/m3, where
+this table and `make-rocket.py` took 845. Every bus built until then, and every night flown on one, carried about 500 kg
+in a tank 73% full; a bus a player fills in the editor carries 688.5. The rows below are the 500 kg flown.
 
 So **the declared 500 kg is the 50 km bus at long range**, and 100 km at 6,179 km wants about 1.2 t. The same arithmetic
 on the old bus (1.27 t structure, six RVs, 134 kg) gives **~167 m/s** of physical divert against the 60-70 the

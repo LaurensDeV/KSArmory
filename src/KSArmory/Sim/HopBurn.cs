@@ -85,6 +85,8 @@ internal sealed class HopBurn
         _lineCci = Vec.Zero;
         _sinceResolve = 0.0;
         Burnt = false;
+        Stalled = false;
+        _toGainAtIgnition = double.NaN;
         AskedMetresPerSecond = double.NaN;
         BurnSeconds = 0.0;
         TurnedSeconds = 0.0;
@@ -103,6 +105,19 @@ internal sealed class HopBurn
 
     /// <summary>The longest a burn waits for its spent stack to leave the path (s), after which it is flown anyway.</summary>
     public const double StackHoldCapSeconds = 240.0;
+
+    /// <summary>
+    /// How long a burn runs before it is judged on what it gained, and the share of the engine's own acceleration it
+    /// has to have delivered by then: under it the engine is not pushing, and the nozzles fly what is left.
+    /// </summary>
+    public const double StallJudgedAfterSeconds = 15.0;
+
+    public const double StallShareOfTheEngine = 0.25;
+
+    /// <summary>True once a burn was given up for gaining next to nothing.</summary>
+    public bool Stalled { get; private set; }
+
+    private double _toGainAtIgnition = double.NaN;
 
     /// <summary>How long the burn has waited for its stack this hop.</summary>
     public double HeldForTheStackSeconds { get; private set; }
@@ -185,6 +200,7 @@ internal sealed class HopBurn
 
                 Now = Stage.Burning;
                 Burnt = true;
+                _toGainAtIgnition = toGain;
                 goto case Stage.Burning;
 
             case Stage.Burning:
@@ -202,6 +218,17 @@ internal sealed class HopBurn
                     Said = off > OffLineDegrees
                                ? $"stopped {off:F0} deg off what is left to gain"
                                : $"stopped with {toGain:F2} m/s for the nozzles";
+                    return TurnBack();
+                }
+
+                if (BurnSeconds >= StallJudgedAfterSeconds
+                    && _toGainAtIgnition - toGain
+                       < StallShareOfTheEngine * Math.Max(0.0, accelerationMetresPerSecond2) * BurnSeconds)
+                {
+                    Stalled = true;
+                    LeftMetresPerSecond = toGain;
+                    Said = $"stalled: {_toGainAtIgnition - toGain:F1} m/s gained in {BurnSeconds:F0} s, where the engine "
+                           + $"gives {accelerationMetresPerSecond2 * BurnSeconds:F0}";
                     return TurnBack();
                 }
 

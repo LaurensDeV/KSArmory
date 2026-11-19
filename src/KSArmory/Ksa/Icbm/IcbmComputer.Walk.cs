@@ -91,6 +91,22 @@ internal sealed partial class IcbmComputer
         return true;
     }
 
+    // Before the split the craft is the whole stack, so the bus's mass is its own part's: structure and warheads, and
+    // what its tank holds.
+    private bool TryReadTheBusBeforeTheSplit(out double kg, out double massKg)
+    {
+        kg = massKg = double.NaN;
+        if (!Config.HopsSizeTheirOwnSlots || _release?.HeldPart is not { } bus
+            || !KsaWorld.TryTankOf(bus, out Tank? tank) || !KsaWorld.TryTankMassKg(tank, out kg)
+            || !StoreMass.TryInertMassKg(bus, out double inert))
+        {
+            return false;
+        }
+
+        massKg = inert + kg;
+        return true;
+    }
+
     private double ReserveReleasedMetresPerSecond
         => ReleaseLoop.ReserveReleased(Config.SpendTheSplitReserveAfterTheFirstStop, _walker.FirstStopAway);
 
