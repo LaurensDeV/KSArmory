@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-383 types and 1000 members across 12 assemblies.
+387 types and 1009 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -1083,6 +1083,16 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `int get_Sequence()`
 - `void SetIsActive(KSA.Vehicle, bool)`
 
+### KSA.EngineControllerGlobalState
+
+*referenced as a type only*
+
+### KSA.EngineControllerState
+
+- `bool IsPropellantAvailable`
+- `double CommandBurnTime`
+- `float CommandThrottle`
+
 ### KSA.ExplosionContext
 
 - `KSA.BubbleOrigin Anchor`
@@ -1137,6 +1147,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.VehicleReferenceFrame AttitudeFrame`
 - `VehicleConfigInfo get_VehicleConfig()`
 - `float AngleDeadband`
+- `float ManualGLoadThrottleCap`
 - `float RateLimit`
 - `void ReadUpdatedVehicleConfiguration(KSA.Vehicle)`
 - `void SetAttitudeProfile(KSA.FlightComputerAttitudeProfile)`
@@ -1475,6 +1486,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `System.Span`1<!!0> Get<1>()`
 - `bool HasAny<1>()`
 
+### KSA.ModuleStateList
+
+*referenced as a type only*
+
 ### KSA.ModuleStateful`4
 
 *referenced as a type only*
@@ -1637,6 +1652,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 - `KSA.Aero.Aerodynamics get_Aerodynamics()`
 - `KSA.ModuleList Modules`
+- `KSA.ModuleStateList States`
 - `KSA.OffsetMassProperties ComputeInertMassPropertiesAsmb()`
 - `KSA.Part get_Root()`
 - `KSA.PartTree DeepCopy()`
@@ -1939,6 +1955,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### KSA.RocketState
+
+- `bool IsPropellantAvailable`
+- `double ThrustTimeRemaining`
+- `float Throttle`
+
 ### KSA.ScreenshotCapture
 
 - `void Request(int, string)`
@@ -2151,6 +2173,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.ThrusterMapFlags GetThrusterFlags()`
 - `KSA.Vehicle CreateVehicle(KSA.CelestialSystem, Brutal.Numerics.doubleQuat, Brutal.Numerics.double3, KSA.IParentBody, string, KSA.Part, KSA.Orbit)`
 - `KSA.Vehicle get_BubbleLeader()`
+- `bool IsAnyEngineActive()`
 - `bool IsAnyEnginePropellantAvailable()`
 - `bool get_HasPhysicsBubble()`
 - `bool get_IsControllable()`
