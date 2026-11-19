@@ -21,14 +21,16 @@ reading of code and have not been run; everything else names where it was measur
 
 ## Progress
 
-**Where it stands (2026-11-18): hundreds of km is flown, and nothing of it ships.** On the seven-RV bus with its
-axial engine (`PBB SCALE 8`, the bus that became the shipped Heavy MIRV Bus in `54a48682`), with the step-5 flags
-and `HopsBurnTheEngine` on, seven targets along the track walked in full at **200 and 300 km apart from 12,902 km**
-(224 of 224 within 0.35 and 0.52 m), **400 km** on 7 of 8 buses, and from 6,180 km **150 km apart** on 22 of 24 (two curtailed at the sixth stop); on this tank the widest
-walk of seven is 400 km apart, 2,400 km end to end (step 7 has the nights). Every one of those flags is still off and
-is a research switch with no control on the panel (`tools/check-tunables.py` `RESEARCH`), so a player's bus walks
-the shipped ~4.5 km. What is left before they ship is step 7's flip, the bus flying back through its first warheads,
-and step 8.
+**Where it stands (2026-11-19): the wide walk ships on.** Every step-5 flag, `HopsBurnTheEngine` and
+`EngineHopsClearTheStack` default on, and the trim budget to `IcbmConfig.WideTrimBudgetMetresPerSecond` so the
+tank binds. On the Heavy MIRV Bus's full 688.5 kg tank from 12,902 km: seven targets **300 km apart** on 24 of 24
+buses (every warhead within 3.9 cm), **400 km** on 16 of 16, **500 km** on 8 of 8, 3,000 km end to end; at 550 and
+600 km the bus drops the seventh at the split, on what its tank can still buy, and walks six. A player-shaped
+stack (`KSA Real SRB4`) walked seven 300 km apart within 2.4 cm. Short shots are bounded by the coast instead:
+at 2,000 km it is 221-395 s and every bus releases all seven at the lead, as the narrow walk did, unless the
+flight is lofted -- the pad offers the shortest loft that walks more (step 8). The 4 km walk costs about 0.6 mm
+(3.7 against 3.1 mm, unresolved at eight blocks, over the declared 1.5x bound), and walks six on 32 of
+32 where the narrow walk's budget walked 24. Step 7 has the nights.
 
 - [ ] 1. Flip night for the walk flags -- overtaken by the engine nights in step 7, which fly them all on
 - [x] 2. Make a hop's time and budget belong to the hop (headless, flagged) -- 2026-10-18, rig only
@@ -36,8 +38,8 @@ and step 8.
 - [x] 4. Decide the route to 50 km (rig pricing, a decision, no build) -- 2026-10-18: A and B, C deferred
 - [x] 5. Build the chosen route (headless) -- A and C built 2026-10-19 behind flags, all off
 - [x] 6. Fly it in game, once -- 2026-10-19: seven targets 50 km apart, 25 warheads within 32 mm, three stops walked on the nozzles
-- [ ] 7. The wide nights -- flown 2026-10-19/20 at 150-500 km on the engine and landing within a metre; the flip night of 2026-11-18 passed B (300 km, 24 of 24) and walked C (400 km, 16 of 16) on the full tank, with A void; the flags not yet turned on
-- [ ] 8. What a player sees
+- [x] 7. The wide nights -- 2026-10-19/20 at 150-500 km, the flip night of 2026-11-18 and the reach night of 2026-11-19; on by default since 2026-11-19
+- [ ] 8. What a player sees -- the expected walk, why it walks fewer and a loft offer built 2026-11-19; the map at hundreds of km open
 
 ## The goal, in numbers
 
@@ -564,8 +566,17 @@ For C, first:
     0.1 m. The other two are one aim point in both shots, bus 3's target 5 at 18.809 S 12.692 E: 38.0 and 40.7 m
     short downrange, on ground rising 0.19 to the impact, where the release probe missed by 547 m and the kick was
     60 mm/s against 1-6 elsewhere. Bus 1's stop 5 sits on 0.19 and landed within 6 mm, so it is not the grade alone.
-  - **Not shipped by this night:** the declaration ships on A and B, and A is void. What decides it is A re-flown with
-    an attribution check that reads a curtailed walk, or the decision taken on B and C.
+  - **A, judged once the check read a walk ended by its budget** (`tools/shot-report.py` `WALKEND`; the six faults
+    were that line), and extended to eight blocks from the same build: `flip` walked six on 32 of 32, `base` on 24;
+    433 of 433 within 1.8 cm; landing 1.42x [0.89, 1.56], un-levelled 1.36x [0.90, 1.55], 3.7 against 3.1 mm --
+    over the 1.5 bound, unresolved. Shipped on anyway, by the owner's call, for sub-millimetre on a 4 km walk.
+- **The reach night, 2026-11-19** (`~/shots/2026-11-19-reach`), `SOLVER SCALE 8`, the flags on, 8 buses a cell
+  from 12,902 km: **500 km** apart 8 of 8 walked seven, 549-583 kg of the tank, worst 4.3 cm; **550 km** 8 of 8
+  walked six, the seventh dropped at the split with 119 m/s left against a last hop of 150-180, worst 3.4 cm;
+  **600 km** six on 8 of 8, 561-578 kg, worst 3.5 cm. From 2,000 km (20.0 N 99.0 W) every bus, the narrow walk's
+  too, released all seven at the lead: a 221-395 s coast. At `Loft` 1.8 the coast came in at 757 s against 420
+  and the buses walked four, the three dropped targets' warheads staying aboard. `PLAYER SRB4` (`KSA Real SRB4`
+  from `make-rocket.py`) walked seven 300 km apart within 2.4 cm.
 
 ### 8. What a player sees
 
@@ -595,6 +606,17 @@ Each a small change after 7:
 - **The pad outline at the walk's epoch** (4.12 step 3): the floor to 1,700 s is measured,
   `0.88 - 0.00034 (t - 760)` of `t_go`; it needs a coast estimate that comes in short. Pass: no pad click refused that
   the coast's own reach accepts, on the step 7 sets.
+- **One expected walk, and why it walks fewer** (built 2026-11-19). The panel reads `IcbmComputer.ExpectedWalk`: the
+  pad's plan until cutoff, the walker's after, where it used to show the walker's pinned plan on the pad ("2 stops")
+  beside the pad's own. "Estimating the walk" covers the first frames, before the free reach is flown, which read
+  0, then 1, then 7 stops. A plan cut for time says so and names the coast the whole set wants
+  (`ReleaseWalk.CoastBound`, `ReleaseItinerary.CoastForAllSeconds`): at 2,000 km, 1,054 s against 395. Logged in
+  flight; the panel itself not yet seen in a capture.
+- **A loft offer for a short shot** (built 2026-11-19). The pad's coast scales with `IcbmConfig.Loft` -- flown, 757 s
+  at 1.8 against 420 at 1 -- so a walk cut for time is planned again at longer lofts up to
+  `IcbmConfig.LongestLoft`, and the panel offers the shortest that walks the most, with a button that sets it,
+  only before launch. At 2,000 km, seven 50 km apart, it offered loft 1.65 for 3 of 7 (logged). Past 1.8 is unbuilt:
+  all seven there want about 2.5x.
 - **The reach ring and the planet map at hundreds of km**, where per-target rings go sub-pixel (`ICBM-MAP.md`). Pass:
   readable in a capture at both ranges.
 

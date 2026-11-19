@@ -75,7 +75,7 @@ public class WalkRigTests(ITestOutputHelper Out)
         {
             Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, ArrivalPreference = 0.5, FlyAnyRange = true,
             PulsesBelowTheFloor = false, SpendTheSplitReserveAfterTheFirstStop = reserve,
-        });
+        }.Narrowed());
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
                                               BuiltIns.ReentryVehicleMk21.Copy(), DensityAt);

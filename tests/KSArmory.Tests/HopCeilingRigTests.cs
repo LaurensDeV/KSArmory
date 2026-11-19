@@ -23,7 +23,8 @@ public class HopCeilingRigTests(ITestOutputHelper Out)
             Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, ArrivalPreference = 0.5, FlyAnyRange = true,
             PulsesBelowTheFloor = false, SpendTheSplitReserveAfterTheFirstStop = true,
             WalkStartsAtCutoff = true, HopsFlyTheirOwnCeiling = ownCeiling, PriceSlotsOnTheGateChord = gateChord,
-        });
+        }.Narrowed(nameof(IcbmConfig.WalkStartsAtCutoff), nameof(IcbmConfig.HopsFlyTheirOwnCeiling),
+                   nameof(IcbmConfig.PriceSlotsOnTheGateChord)));
 
         PastCutoffRig rig = PastCutoffRig.For(GameStackShortRangeTests.GameStack(true), program,
                                               BuiltIns.ReentryVehicleMk21.Copy(), DensityAt);

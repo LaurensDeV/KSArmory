@@ -116,6 +116,17 @@ internal sealed partial class IcbmComputer
                                     : Means(_padCoastSeconds, tankByStop, tankKg, busKg),
                             coasting);
             SayThePadsWalkIfItChanged(padTank ? $", {padKg:F0} kg in the tank of a {padBusKg:F0} kg bus" : ", no tank read");
+
+            LoftOffer = Program.Phase is IcbmPhase.Idle or IcbmPhase.Rising or IcbmPhase.PitchProgram or IcbmPhase.Holding
+                        && Reach.Flown.CoastBound
+                            ? OfferALoft(placed, padTank ? Means(double.NaN, true, padKg, padBusKg)
+                                                         : Means(double.NaN, tankByStop, tankKg, busKg))
+                            : null;
+            SayTheLoftOfferIfItChanged();
+        }
+        else
+        {
+            LoftOffer = null;
         }
 
         // Replaced only by a plan with stops: a frame whose footprint did not come down would take the
@@ -123,6 +134,30 @@ internal sealed partial class IcbmComputer
         bool mayReplan = ReleaseLoop.MayReplan(Program.TurnsAtTheSplit, _didSplit, forTheWalk.Flown.Stops, _walker.Walk.Stops,
                                                Config.WalkShrinksAfterTheSplit);
         if (forTheWalk.Flown.Stops > 0 && mayReplan && _walker.Plan(forTheWalk.Flown)) SayTheWalkIfItChanged();
+    }
+
+    /// <summary>A longer flight that walks more of the set than this one, priced until the closed loop latches the arrival.</summary>
+    public (double Loft, int Stops)? LoftOffer { get; private set; }
+
+    // The coast grows with the loft, so the walk is planned again on each: the first that holds every target,
+    // or the longest the panel offers where none does.
+    private (double Loft, int Stops)? OfferALoft(List<ReachDisplay.Placed> placed, ReleaseItinerary.Bus means)
+    {
+        if (!(Config.Loft > 0.0) || !double.IsFinite(_padCoastSeconds)) return null;
+
+        double cheapestCoast = _padCoastSeconds / Config.Loft;
+        int now = Reach.Flown.Stops;
+        (double Loft, int Stops)? best = null;
+
+        for (double loft = Math.Ceiling(Config.Loft * 20.0 + 1e-9) / 20.0; loft <= IcbmConfig.LongestLoft + 1e-9; loft += 0.05)
+        {
+            int stops = Display(_padFootprint ?? _reachFootprint, placed, means with { CoastSeconds = cheapestCoast * loft },
+                                coasting: false).Flown.Stops;
+            if (stops > now && (best is null || stops > best.Value.Stops)) best = (loft, stops);
+            if (stops >= placed.Count) break;
+        }
+
+        return best;
     }
 
     private ReleaseItinerary.Bus Means(double coastSeconds, bool tankByStop, double tankKg, double busKg)
@@ -197,6 +232,17 @@ internal sealed partial class IcbmComputer
 
     private string _saidPadWalk = "";
 
+    private string _saidLoftOffer = "";
+
+    private void SayTheLoftOfferIfItChanged()
+    {
+        string said = LoftOffer is { } offer ? $"loft {offer.Loft:F2} walks {offer.Stops} of {_targets.Count}" : "none";
+        if (said == _saidLoftOffer) return;
+
+        _saidLoftOffer = said;
+        Log.Info($"loft offer on {KsaWorld.DisplayName(Craft)}: {said}, against {Reach.Flown.Stops} at loft {Config.Loft:F2}");
+    }
+
     // In the order a reader wants it: what has ended the shot first, then what cannot be answered,
     // and "nobody asked" last, because it is the one with a way out.
     private ReachHold WhyNotWanted()
@@ -245,7 +291,8 @@ internal sealed partial class IcbmComputer
         _padReachFor = Target;
         _padFootprint = null;
         _padCoastSeconds = state.HasAim
-                               ? PadReach.CoastFloorSeconds(Body, state.PositionCci, state.VelocityCci, state.AimNowCci)
+                               ? PadReach.CoastFloorSeconds(Body, state.PositionCci, state.VelocityCci, state.AimNowCci,
+                                                            Config.Loft)
                                : double.NaN;
 
         if (!Config.HopsFreeTheirArrival || !state.HasAim || _warhead is not { } warhead) return;

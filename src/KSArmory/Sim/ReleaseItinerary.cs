@@ -672,6 +672,26 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
         }
     }
 
+    /// <summary>The coast <see cref="CoastFits"/> would need to fit every stop; NaN where no coast bounds it.</summary>
+    public double CoastForAllSeconds
+    {
+        get
+        {
+            if (Count <= 1) return double.NaN;
+
+            double turn = Math.Max(0.0, Means.TurnSeconds);
+            if (Means.SizesSlots && double.IsFinite(Stops[1].SlotSeconds))
+            {
+                double slots = 0.0;
+                for (int k = 1; k < Count; k++) slots += Stops[k].SlotSeconds;
+                return Means.GateSeconds + turn + slots;
+            }
+
+            double hop = Means.HopSeconds;
+            return double.IsFinite(hop) && hop > 0.0 ? Means.GateSeconds + turn + (Count - 1) * hop : double.NaN;
+        }
+    }
+
     /// <summary>How many targets this bus can actually be sent to, which is the lower of the two bounds.</summary>
     public int Fits => Math.Min(BudgetFits, CoastFits);
 

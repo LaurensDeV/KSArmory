@@ -3068,11 +3068,19 @@ section that proves it, and it is the failure that produced a 3,255 km miss befo
       Tuning tab's.
 - [x] **A bus engine staging lit is held off.** The same flight: lit by the first stage at liftoff, switched off,
       logged once; the shot went on as before. The Ballistic tab's line was not looked at.
-- [ ] Under `HopsBurnTheEngine` a hop still lights the bus engine through the hold, and the hold takes it back
-      after the hop.
+- [x] **Under `HopsBurnTheEngine` a hop lights the bus engine through the hold.** Flown 2026-11-18 on
+      `SOLVER SCALE 1` once its tank was repaired: six hops of 58.6-145 m/s, each stopped with 1.01 m/s for the nozzles.
+      A bus saved with its tank as `Thruster` alone burns nothing (`tools/repair-saves.py --fix`).
 - [x] **The pad plans no more stops than the bus.** Flown 2026-11-18 on `SOLVER SCALE 1`, seven targets 300 km apart from
       12,902 km with every walk flag on: the pad planned 2-3 on the bus's 134 kg, the bus 3 after the split.
 - [ ] A click on the pad outside the outline at that spacing is refused, and one inside it is taken.
+- [x] **The wide walk ships on.** Flown 2026-11-18/19 from 12,902 km: seven 300 km apart on 24 of 24 buses,
+      400 km on 16 of 16, 500 km on 8 of 8, every warhead within 4.3 cm; a `KSA Real SRB4` stack seven 300 km
+      apart within 2.4 cm. `docs/WIDE-SPREAD.md` step 7.
+- [ ] The Ballistic tab's expected walk on the pad reads "estimating the walk" and then the pad's count, not 0 -> 1 ->
+      7, and says "the coast is too short for more" on a short shot. Logged in flight; not looked at.
+- [ ] A short shot with several targets offers a loft before launch, and **Fly it** sets it. Logged 2026-11-19 at
+      2,000 km: loft 1.65 for 3 of 7. The button not pressed by hand.
 
 ---
 

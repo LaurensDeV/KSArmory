@@ -14,10 +14,14 @@ internal static class PadReach
     /// </summary>
     public const double CoastShareOfTheConic = 0.55;
 
-    /// <summary>The coast a walk may be planned on before launch; NaN where no conic reaches the aim.</summary>
-    public static double CoastFloorSeconds(BallisticBody body, double3 positionCci, double3 velocityCci, double3 aimNowCci)
+    /// <summary>
+    /// The coast a walk may be planned on before launch; NaN where no conic reaches the aim. It scales with
+    /// <paramref name="loft"/>: at 2,000 km a 1.8 loft split 757 s out against 420 for the cheapest, flown 2026-11-19.
+    /// </summary>
+    public static double CoastFloorSeconds(BallisticBody body, double3 positionCci, double3 velocityCci, double3 aimNowCci,
+                                           double loft = 1.0)
         => BallisticArc.TryCheapest(body, positionCci, velocityCci, aimNowCci, out BallisticArc.Solution conic)
-               ? CoastShareOfTheConic * conic.FlightSeconds
+               ? CoastShareOfTheConic * conic.FlightSeconds * (loft > 0.0 ? loft : 1.0)
                : double.NaN;
 
     /// <summary>

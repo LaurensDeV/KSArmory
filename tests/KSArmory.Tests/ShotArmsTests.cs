@@ -171,7 +171,10 @@ public class ShotArmsTests
         IcbmConfig shipped = new();
 
         Assert.Equal(0.0, shipped.WarheadSubStepMs);
-        Assert.False(shipped.WalkStartsAtCutoff);
+
+        // The wide walk ships whole: seven targets 300-500 km apart from 12,902 km, docs/WIDE-SPREAD.md step 7.
+        Assert.True(shipped.WalkStartsAtCutoff);
+        Assert.True(shipped.HopsBurnTheEngine);
 
         // The one that is on, because it is the one that was resolved: 11 of 13 paired shots at
         // p=0.022. A baseline arm naming nothing therefore ships WITH it, which is what makes it
@@ -253,8 +256,8 @@ public class ShotArmsTests
     /// 4.12 step 2's two cells, pinned for the same reason. <c>docs/ICBM-OUTSTANDING.md</c> 4.12.
     /// </summary>
     [Theory]
-    [InlineData("base|arm:WalkStartsAtCutoff=true,HopsFlyTheirOwnCeiling=true", false, true)]
-    [InlineData("early:WalkStartsAtCutoff=true|own:WalkStartsAtCutoff=true,HopsFlyTheirOwnCeiling=true", true, true)]
+    [InlineData("off:WalkStartsAtCutoff=false,HopsFlyTheirOwnCeiling=false|arm:WalkStartsAtCutoff=true,HopsFlyTheirOwnCeiling=true", false, true)]
+    [InlineData("early:WalkStartsAtCutoff=true,HopsFlyTheirOwnCeiling=false|own:WalkStartsAtCutoff=true,HopsFlyTheirOwnCeiling=true", true, true)]
     public void TheHopCeilingSpecsParseAndSetTheWalk(string spec, bool firstFromCutoff, bool secondFromCutoff)
     {
         Assert.True(ShotArms.TryParse(spec, out ShotArms arms, out string fault), fault);

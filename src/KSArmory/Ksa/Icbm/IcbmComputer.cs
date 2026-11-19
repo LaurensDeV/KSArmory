@@ -288,6 +288,19 @@ internal sealed partial class IcbmComputer
     /// <summary>Holds no walk for a set of one — see <see cref="ReleaseWalker.Walking"/>.</summary>
     public ReleaseWalker Walk => _walker;
 
+    /// <summary>
+    /// The walk a player should expect: before cutoff the pad's, off the free reach and a coast the flight will get,
+    /// since the walker keeps the plan the burn is aimed with; after it, the walker's own.
+    /// </summary>
+    public ReleaseWalk ExpectedWalk => Program.Phase == IcbmPhase.Coast || !double.IsFinite(_padCoastSeconds)
+                                           ? _walker.Walk
+                                           : Reach.Flown;
+
+    /// <summary>Whether the pad's walk is still waiting on the free reach it is priced on.</summary>
+    public bool EstimatingTheWalk => Program.Phase != IcbmPhase.Coast && _targets.Count > 1
+                                     && ((Config.HopsFreeTheirArrival && _padFootprint is null)
+                                         || Reach.Flown.Hold == ReleaseWalkHold.NoStops);
+
     private readonly ReleaseWalker _walker = new();
 
     private double _spentAtStopStart;
