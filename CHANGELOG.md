@@ -1,3 +1,16 @@
+## [0.10.4](https://github.com/LaurensDeV/KSArmory/compare/v0.10.3...v0.10.4) (2026-11-19)
+
+### Features
+
+* **mirv:** give each target a burst height, and aim the burst over it ([d6ac454](https://github.com/LaurensDeV/KSArmory/commit/d6ac454d1262fb5c3be644a588c208ebe3fc10ea))
+* **mirv:** hold the bus's own engine off until a hop lights it ([c201162](https://github.com/LaurensDeV/KSArmory/commit/c2011624035e0ad0f2cffab110c3c6eb67a566af))
+* **mirv:** plan the pad's walk on a coast and a reach the bus will get ([7df768b](https://github.com/LaurensDeV/KSArmory/commit/7df768b6231c474b4f5daff7733949434e5c4de6))
+* **mirv:** walk seven targets hundreds of km apart, and say how far ([cfcc00e](https://github.com/LaurensDeV/KSArmory/commit/cfcc00eac03354d34becc09562943cbff94263a9))
+
+### Fixes
+
+* **mirv:** hand KSA's attitude hold back when the computer stands down ([2bfb317](https://github.com/LaurensDeV/KSArmory/commit/2bfb3172a659e685ee6afa4799fdae7f41cf8fcf))
+
 ## [0.10.3](https://github.com/LaurensDeV/KSArmory/compare/v0.10.2...v0.10.3) (2026-11-17)
 
 ### Features
