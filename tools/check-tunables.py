@@ -137,6 +137,7 @@ RESEARCH = (
     "RefreshStageModel",
     "RestagesARowThatLightsNothing",
     "StandsDownWhenControlIsTaken",
+    "CommandLeadSeconds",
     "BackstopRisesOnTheThrottledFrame",
     "CancelProbeMissAtSeparation",
     "CancelSpinAtSeparation",

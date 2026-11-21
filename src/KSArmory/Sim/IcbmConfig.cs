@@ -100,6 +100,13 @@ internal sealed class IcbmConfig
     public bool StandsDownWhenControlIsTaken;
 
     /// <summary>
+    /// Carry the attitude command this far ahead along its own turn while burning (<see cref="CommandLead"/>), in
+    /// seconds; zero is off. Flown on 5901, the nose trailed the 13-14 deg/s swing near 83 km by 11-13 deg, about 0.9 s.
+    /// <b>Off, and unflown.</b> <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 2c.
+    /// </summary>
+    public double CommandLeadSeconds;
+
+    /// <summary>
     /// Warp the ballistic coast without being asked, stopping a settling margin short of the release
     /// (<see cref="IcbmProgram.SteadyBeforeReleaseSeconds"/>). On, so a coast is warped without a tick box to find
     /// first. <c>docs/ICBM-GUIDANCE.md</c>, "Automatic only if

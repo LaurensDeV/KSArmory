@@ -249,6 +249,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/SimClock.cs` | classifies a step: usable, paused, or too long to integrate |
 | `Sim/WarpPolicy.cs` | holds timewarp down while rounds fly, and gives it back after |
 | `Sim/WorldSpeed.cs` | what one world clock runs at when several flights each want something — **the slowest wins**, because a speed is a ceiling on what can be simulated faithfully |
+| `Sim/CommandLead.cs` | an attitude command carried ahead along its own turn, so a tracker that follows a ramp from behind ends up on it -- **a step is never led**, since a ramp's rate is smooth from frame to frame and a step's is one frame of an unbounded one; behind `IcbmConfig.CommandLeadSeconds` |
 | `Sim/PhaseSamples.cs` | one quantity sampled over one phase of a flight and summarised as it ends -- **so a night logged at INFO still says how each phase went**, where the per-sample probe is DEBUG |
 | `Sim/OverrunLog.cs` | how much simulated time the clamp threw away, and whether that cost anything — **an empty sky loses nothing**, and a scene load is always one |
 | `Sim/FrameBudget.cs` | **what this mod costs the frame, split by what costs it** — the other side of `SolverLoad`'s subtraction, because three suspects eliminated one at a time is not the same as measuring the whole |

@@ -123,6 +123,7 @@ internal sealed partial class IcbmComputer
     private double3 _lastCommanded;
     private readonly PhaseSamples _attitudeError = new();
     private bool _lastStageLitNothing;
+    private readonly CommandLead _commandLead = new();
     private double _phasePeakPa;
     private double _phasePeakAltitude;
 
@@ -627,6 +628,7 @@ internal sealed partial class IcbmComputer
         _attitudeError.Clear();
         _phasePeakPa = 0.0;
         _lastStageLitNothing = false;
+        _commandLead.Reset();
         _releasedTheArrival = false;
         _trim.Reset();
         _postBoost.Reset();
@@ -897,7 +899,17 @@ internal sealed partial class IcbmComputer
             else
             {
                 // A Strict deadband held through a wait empties the bus's jets in minutes, flown.
-                AttitudeHook.Hold(Craft, _deploy.DirectionCci, _deploy.RollCci,
+                double3 held = _deploy.DirectionCci;
+                if (Config.CommandLeadSeconds > 0.0 && Program.IsBurning)
+                {
+                    held = _commandLead.Lead(held, simStep, Config.CommandLeadSeconds);
+                }
+                else
+                {
+                    _commandLead.Reset();
+                }
+
+                AttitudeHook.Hold(Craft, held, _deploy.RollCci,
                                   loosely: Config.HoldPointsLoosely && Program.Phase == IcbmPhase.Holding,
                                   standsDown: Config.StandsDownWhenControlIsTaken);
                 aimed = AttitudeHook.Installed;
@@ -1210,9 +1222,12 @@ internal sealed partial class IcbmComputer
 
         FlightComputer computer = Craft.FlightComputer;
 
-        // Pitch and yaw are the nose's angle off the target past KSA's clamp; roll is decoupled here.
-        double error = Degrees(Math.Sqrt(computer.ErrorAngles.Y * computer.ErrorAngles.Y
-                                         + computer.ErrorAngles.Z * computer.ErrorAngles.Z));
+        // The nose against the line wanted, not KSA's error, which is against the target it was handed -- a led one
+        // under CommandLeadSeconds. KSA's pitch and yaw are the fallback, past its clamp; roll is decoupled here.
+        double error = !state.ThrustAxisCci.Equals(Vec.Zero) && !wanted.Equals(Vec.Zero)
+                           ? Vec.AngleBetween(state.ThrustAxisCci, wanted) * 180.0 / Math.PI
+                           : Degrees(Math.Sqrt(computer.ErrorAngles.Y * computer.ErrorAngles.Y
+                                               + computer.ErrorAngles.Z * computer.ErrorAngles.Z));
         if (aimed) _attitudeError.Add(error);
 
         if (Log.Threshold > Log.Level.Debug) return;
