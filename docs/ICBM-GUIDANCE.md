@@ -2186,8 +2186,10 @@ back idle with its targets and flies nothing until armed again. A setting left a
 written, so a default changed in a later release reaches that save. Restoring a flight in progress — the
 phase, the latched arrival, the aim bias, the trim's debt — is not built.
 
-**The delta-v readout is one stage's except on the craft being flown.** KSA reports the whole stack
-only for the controlled craft and otherwise the running stage's engines, which is why a shot short of
+**The delta-v readout is one stage's except on the craft being flown.** KSA refreshes its stage figures
+for the controlled craft alone, with its staging list or engine gauge open; every other rocket reads an
+empty list, so the stack falls back to the running stage's engines (`IcbmConfig.RefreshStageModel`, off,
+recomputes it for every computer-flown craft). That is why a shot short of
 the propellant is flown and reported rather than refused: a launch gate built on that number would
 turn away every multi-stage rocket nobody is flying. It flies, falls short, says by how much, and holds
 its warheads, because releasing on a trajectory known to fall short scatters them over whatever is under

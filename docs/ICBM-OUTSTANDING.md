@@ -41,7 +41,7 @@ from one save to one target, pulsing on 112 paired rockets and two OneStage flig
 coast and one pad block. Anything that
 reaches players or the changelog should say "a level" too.
 
-**Seat 1 is the player's case.** It is the controlled craft, the only one KSA reports stage delta-v for, and the only
+**Seat 1 is the player's case.** It is the controlled craft, the only one KSA refreshes stage delta-v for, and the only
 one a player flies, so every long-range number should report it on its own: 1.1-1.2 mm at 12,900 km on the shipped
 stack wait, but 19-24 mm at Mato Grosso on both worlds (3fq), which is not chased.
 

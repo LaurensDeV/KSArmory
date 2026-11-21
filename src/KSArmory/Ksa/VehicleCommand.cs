@@ -76,6 +76,15 @@ internal static class VehicleCommand
         return true;
     }
 
+    /// <summary>Holding the attitude <see cref="TryAim"/> writes: a custom target in the ecliptic-body frame.</summary>
+    public static bool HoldsOurAim(Vehicle craft)
+    {
+        FlightComputer computer = craft.FlightComputer;
+        return computer.AttitudeMode == FlightComputerAttitudeMode.Auto
+               && computer.AttitudeTrackTarget == FlightComputerAttitudeTrackTarget.Custom
+               && computer.AttitudeFrame == VehicleReferenceFrame.EclBody;
+    }
+
     /// <summary>Holding an attitude of any kind, whoever set it.</summary>
     public static bool HoldsAttitude(Vehicle craft)
         => KsaWorld.IsAlive(craft) && craft.FlightComputer.AttitudeMode != FlightComputerAttitudeMode.Manual;

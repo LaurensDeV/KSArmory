@@ -86,6 +86,20 @@ internal sealed class IcbmConfig
     public bool AutoStage = true;
 
     /// <summary>
+    /// Stage again after a sequence that held nothing that burns, as for an ignition, rather than wait for it to push:
+    /// without it a row of decouplers between two engine stages strands the climb on the dry timer.
+    /// <b>Off, and unflown.</b> <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 1b.
+    /// </summary>
+    public bool RestagesARowThatLightsNothing;
+
+    /// <summary>
+    /// Give the craft up and disarm, engines left as they are, the frame it can no longer be controlled or somebody else
+    /// changes its attitude mode. Off, the computer writes its attitude over a player's and over a craft KSA has
+    /// released. <b>Off, and unflown.</b> <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 1c.
+    /// </summary>
+    public bool StandsDownWhenControlIsTaken;
+
+    /// <summary>
     /// Warp the ballistic coast without being asked, stopping a settling margin short of the release
     /// (<see cref="IcbmProgram.SteadyBeforeReleaseSeconds"/>). On, so a coast is warped without a tick box to find
     /// first. <c>docs/ICBM-GUIDANCE.md</c>, "Automatic only if
@@ -496,6 +510,13 @@ internal sealed class IcbmConfig
     /// <c>docs/ACCURACY-PLAN.md</c>, "12,900 km on 2026-10-06".
     /// </summary>
     public bool AimWaitsForTheSolids = true;
+
+    /// <summary>
+    /// Recompute the stage performance of every computer-flown craft a few times a second, which KSA does for the
+    /// controlled craft alone and only with its staging list or engine gauge open; unrefreshed, every other seat reads
+    /// its running stage as empty. <b>Off, and unflown.</b> <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 2a.
+    /// </summary>
+    public bool RefreshStageModel;
 
     /// <summary>
     /// Arm a short shot's backstop at <see cref="BusTrim.MaxMetresPerSecond"/> rather than

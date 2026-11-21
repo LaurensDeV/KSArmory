@@ -17,11 +17,23 @@ namespace KSArmory;
 internal static class AttitudeHook
 {
     /// <summary>What a vehicle should be pointed at, until told otherwise.</summary>
-    internal readonly record struct Aim(double3 DirectionCci, double3 RollReferenceCci, bool Loosely);
+    internal readonly record struct Aim(double3 DirectionCci, double3 RollReferenceCci, bool Loosely, bool StandsDown);
 
     private const string HarmonyId = "com.kesslersystems.ksarmory.attitude";
 
     private static readonly Dictionary<Vehicle, Aim> Wanted = [];
+
+    // Craft this prefix pointed last frame, so a mode found changed since was changed by somebody else.
+    private static readonly HashSet<Vehicle> Aimed = [];
+
+    // Craft whose aim was given up, and why, until the one holding it asks.
+    private static readonly Dictionary<Vehicle, string> Lost = [];
+
+    // When each craft was first read uncontrollable in a row: at a split the half without the control module is, for
+    // the frames before its computer moves onto the other half, and giving up there disarmed every bus of a world.
+    private static readonly Dictionary<Vehicle, long> UncontrollableSince = [];
+    private static readonly System.Diagnostics.Stopwatch Clock = System.Diagnostics.Stopwatch.StartNew();
+    private const long UncontrollableMilliseconds = 1000;
 
     // Craft whose manual thrust is in the engine's pulse mode this frame. Held here rather than
     // written where the trim decides it, because the flight computer is copied over wholesale when
@@ -134,6 +146,9 @@ internal static class AttitudeHook
     public static void Remove()
     {
         Wanted.Clear();
+        Aimed.Clear();
+        Lost.Clear();
+        UncontrollableSince.Clear();
         Staging.Clear();
         StagingAfter.Clear();
         Shoves.Clear();
@@ -152,12 +167,29 @@ internal static class AttitudeHook
         Installed = false;
     }
 
-    /// <summary>Point this craft here, every frame, until <see cref="Release"/>.</summary>
-    public static void Hold(Vehicle craft, double3 directionCci, double3 rollReferenceCci, bool loosely = false)
+    /// <summary>
+    /// Point this craft here, every frame, until <see cref="Release"/>. With <paramref name="standsDown"/> the aim is
+    /// given up the frame the craft cannot be controlled or somebody else changes its attitude mode; <see cref="TakeLost"/>
+    /// says why.
+    /// </summary>
+    public static void Hold(Vehicle craft, double3 directionCci, double3 rollReferenceCci, bool loosely = false,
+                            bool standsDown = false)
     {
         if (!KsaWorld.IsAlive(craft)) return;
         Drifting.Remove(craft);
-        Wanted[craft] = new Aim(directionCci, rollReferenceCci, loosely);
+        Wanted[craft] = new Aim(directionCci, rollReferenceCci, loosely, standsDown);
+    }
+
+    /// <summary>Why this craft's aim was given up since last asked, once.</summary>
+    public static bool TakeLost(Vehicle craft, out string why)
+    {
+        if (Lost.Count > 0 && Lost.Remove(craft, out string? lost))
+        {
+            why = lost;
+            return true;
+        }
+        why = "";
+        return false;
     }
 
     /// <summary>Hold no attitude at all, KSA's own included, every frame until <see cref="Hold"/> or <see cref="StopDrifting"/>.</summary>
@@ -165,6 +197,7 @@ internal static class AttitudeHook
     {
         if (!KsaWorld.IsAlive(craft)) return;
         Wanted.Remove(craft);
+        Aimed.Remove(craft);
         Drifting.Add(craft);
     }
 
@@ -326,6 +359,8 @@ internal static class AttitudeHook
     public static void Release(Vehicle craft)
     {
         Wanted.Remove(craft);
+        Aimed.Remove(craft);
+        UncontrollableSince.Remove(craft);
         Drifting.Remove(craft);
 
         // Left in pulse mode, the player's own translation keys would fire in millisecond taps. The
@@ -390,6 +425,9 @@ internal static class AttitudeHook
             // And a bus engine staging lit before any hop asked for it.
             BusEngineHold.Apply(__instance);
 
+            // And a computer-flown craft's stage performance, which KSA keeps current for the controlled craft alone.
+            StageModel.Apply(__instance);
+
             if (Shoves.Count > 0 && Shoves.Remove(__instance, out (double3 Linear, double3 Angular, double Wind, double3 AwayEcl) shove))
             {
                 double3 before = KsaWorld.VelocityEcl(__instance);
@@ -434,7 +472,19 @@ internal static class AttitudeHook
             if (Wanted.Count == 0) return;
             if (!Wanted.TryGetValue(__instance, out Aim aim)) return;
 
-            VehicleCommand.TryAim(__instance, aim.DirectionCci, aim.RollReferenceCci, aim.Loosely);
+            if (aim.StandsDown && GivenUp(__instance) is { } why)
+            {
+                Wanted.Remove(__instance);
+                Aimed.Remove(__instance);
+                UncontrollableSince.Remove(__instance);
+                Staging.Remove(__instance);
+                StagingAfter.Remove(__instance);
+                Lost[__instance] = why;
+                return;
+            }
+
+            if (VehicleCommand.TryAim(__instance, aim.DirectionCci, aim.RollReferenceCci, aim.Loosely)) Aimed.Add(__instance);
+            else Aimed.Remove(__instance);
         }
         catch (Exception e)
         {
@@ -451,6 +501,31 @@ internal static class AttitudeHook
             _complained = true;
             Log.Error("attitude hook failed; that craft is no longer being pointed", e);
         }
+    }
+
+    // KSA releases the flight computer of a craft it can no longer control and never stops a mod writing to it; and a
+    // mode other than the one written last frame is a player or another mod steering.
+    private static string? GivenUp(Vehicle craft)
+    {
+        if (!craft.IsControllable)
+        {
+            long now = Clock.ElapsedMilliseconds;
+            if (!UncontrollableSince.TryGetValue(craft, out long since)) UncontrollableSince[craft] = since = now;
+            if (now - since >= UncontrollableMilliseconds)
+            {
+                return $"it has not been controllable for {UncontrollableMilliseconds / 1000.0:F0} s -- {KsaWorld.ControlSaid(craft)}";
+            }
+        }
+        else
+        {
+            UncontrollableSince.Remove(craft);
+        }
+        if (Aimed.Contains(craft) && !VehicleCommand.HoldsOurAim(craft))
+        {
+            FlightComputer computer = craft.FlightComputer;
+            return $"somebody else took the attitude ({computer.AttitudeMode}/{computer.AttitudeTrackTarget})";
+        }
+        return null;
     }
 
     // Never called: puts the patched method in docs/KSA-API-SURFACE.md, so a signature change is a build error.

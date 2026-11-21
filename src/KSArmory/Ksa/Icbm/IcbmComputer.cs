@@ -121,6 +121,10 @@ internal sealed partial class IcbmComputer
     private double _sinceProbe;
     private double _sinceThrottleProbe;
     private double3 _lastCommanded;
+    private readonly PhaseSamples _attitudeError = new();
+    private bool _lastStageLitNothing;
+    private double _phasePeakPa;
+    private double _phasePeakAltitude;
 
     // One per released warhead, to separate the walk from the within-rocket deviation
     // (docs/ACCURACY-PLAN.md 3ee). The re-fly is rationed to one every ten seconds, so 48 traces
@@ -561,6 +565,32 @@ internal sealed partial class IcbmComputer
 
     public string DescribeTargets() => _targets.Describe(WarheadsAboard);
 
+    /// <summary>Why the computer last gave the craft up on its own, until it is armed again; null if it has not.</summary>
+    public string? StoodDownBecause { get; private set; }
+
+    // Gives the craft back without cutting the engine: a burn cut in the air costs more than a computer that stopped
+    // steering it, and whoever took it now has the throttle.
+    private void Yield(string why)
+    {
+        if (_warpIsOurs)
+        {
+            KsaWorld.StopAutoWarp();
+            _warpIsOurs = false;
+        }
+
+        AttitudeHook.HandBack(Craft);
+        AttitudeHook.ThrottleKey(Craft, 0);
+        VehicleCommand.DriveTranslation(Craft, TrimAxes.None);
+        AttitudeHook.PulseMode(Craft, pulsing: false);
+        _driving = false;
+
+        Config.Armed = false;
+        ForgetTheFlight();
+        StoodDownBecause = why;
+        Log.Warn($"ICBM computer on {KsaWorld.DisplayName(Craft)} gave the craft up and disarmed: {why}; the engines are left "
+                 + "as they are -- arm it again to resume from where the craft is");
+    }
+
     /// <summary>Forget the flight and hand the vehicle back.</summary>
     public void Abort(string why)
     {
@@ -594,6 +624,9 @@ internal sealed partial class IcbmComputer
     private void ForgetTheFlight()
     {
         Program.Reset();
+        _attitudeError.Clear();
+        _phasePeakPa = 0.0;
+        _lastStageLitNothing = false;
         _releasedTheArrival = false;
         _trim.Reset();
         _postBoost.Reset();
@@ -652,8 +685,12 @@ internal sealed partial class IcbmComputer
             return;
         }
 
+        if (AttitudeHook.TakeLost(Craft, out string lost)) Yield(lost);
+        if (Config.Armed) StoodDownBecause = null;
+
         _busyElsewhere = busyElsewhere ?? [];
         _roundsInFlight = roundsInFlight;
+        if (Config.RefreshStageModel) StageModel.Want(Craft);
         _traceWanted = traceWarhead;
 
         // Before the round is read, so the prediction and the warheads share one profile.
@@ -743,6 +780,7 @@ internal sealed partial class IcbmComputer
         // One line per phase change: every gate returns quietly, and the panel shows only now.
         if (Command.Phase != _reported)
         {
+            SayHowThePhaseWent();
             _reported = Command.Phase;
             Log.Info($"{KsaWorld.DisplayName(Craft)} ICBM: {Command.Phase} at "
                      + $"{AltitudeMetres / 1000.0:F0} km, {Command.VelocityToGain:F0} m/s to gain, "
@@ -860,7 +898,8 @@ internal sealed partial class IcbmComputer
             {
                 // A Strict deadband held through a wait empties the bus's jets in minutes, flown.
                 AttitudeHook.Hold(Craft, _deploy.DirectionCci, _deploy.RollCci,
-                                  loosely: Config.HoldPointsLoosely && Program.Phase == IcbmPhase.Holding);
+                                  loosely: Config.HoldPointsLoosely && Program.Phase == IcbmPhase.Holding,
+                                  standsDown: Config.StandsDownWhenControlIsTaken);
                 aimed = AttitudeHook.Installed;
                 if (aimed) _driving = true;
             }
@@ -881,7 +920,7 @@ internal sealed partial class IcbmComputer
 
         // The direction handed to the hook, which the release sequence turns off the nominal by a cant.
         ProbeAttitude(playerStep, aimed ? _deploy.DirectionCci : Command.ThrustDirectionCci,
-                      wasMode, wasTrack, aimed);
+                      wasMode, wasTrack, aimed, state);
 
         if (Command.EngineOn)
         {
@@ -939,7 +978,8 @@ internal sealed partial class IcbmComputer
                                  : "")
                           + $" | {Program.Phase}, alt {state.Altitude / 1000.0:F2} km, climbing "
                           + $"{Vec.Dot(state.AirflowCci, state.UpCci):F1} m/s, airspeed {Vec.Len(state.AirflowCci):F0} m/s, "
-                          + $"q {state.DynamicPressurePa:F0} Pa");
+                          + $"q {state.DynamicPressurePa:F0} Pa, engine's peak {load.PeakDynamicPressure / 1000.0:F1} of "
+                          + $"{load.MaxDynamicPressure / 1000.0:F0} kPa");
             }
             if (Program.LineSlowed && !_saidLineSlowed)
             {
@@ -969,6 +1009,12 @@ internal sealed partial class IcbmComputer
                     _wasBeforeStage.Clear();
                     KsaWorld.CollectVehicles(_wasBeforeStage);
                     _awaitingStage = true;
+                    _lastStageLitNothing = !KsaWorld.NextStageLightsAnEngine(Craft);
+                    if (_lastStageLitNothing)
+                    {
+                        Log.Info($"{KsaWorld.DisplayName(Craft)} ICBM: the sequence staging now holds nothing that burns"
+                                 + (Config.RestagesARowThatLightsNothing ? "; the next may follow it" : ""));
+                    }
 
                     Log.Info($"staging probe on {KsaWorld.DisplayName(Craft)}: before -- "
                              + $"{Diagnostics.DescribeEngines(Craft)}, turning "
@@ -1139,13 +1185,21 @@ internal sealed partial class IcbmComputer
     // opposite fixes. Through the coast too, where the inertia has collapsed with the stack.
     private void ProbeAttitude(double playerStep, double3 commandedCci,
                                FlightComputerAttitudeMode wasMode,
-                               FlightComputerAttitudeTrackTarget wasTrack, bool aimed)
+                               FlightComputerAttitudeTrackTarget wasTrack, bool aimed, in IcbmState state)
     {
         if (Command.Phase is IcbmPhase.Idle or IcbmPhase.NoSolution) return;
-        if (Log.Threshold > Log.Level.Debug) return;
+
+        // KSA destroys the vehicle when its own per-sub-step peak reaches the limit, unlagged.
+        double peak = Craft.StructuralLoad.PeakDynamicPressure;
+        if (peak > _phasePeakPa)
+        {
+            _phasePeakPa = peak;
+            _phasePeakAltitude = state.Altitude;
+        }
 
         _sinceProbe += playerStep;
         if (_sinceProbe < ProbeIntervalSeconds) return;
+        double interval = _sinceProbe;
         _sinceProbe = 0.0;
 
         double3 wanted = Vec.Unit(commandedCci);
@@ -1156,13 +1210,41 @@ internal sealed partial class IcbmComputer
 
         FlightComputer computer = Craft.FlightComputer;
 
+        // Pitch and yaw are the nose's angle off the target past KSA's clamp; roll is decoupled here.
+        double error = Degrees(Math.Sqrt(computer.ErrorAngles.Y * computer.ErrorAngles.Y
+                                         + computer.ErrorAngles.Z * computer.ErrorAngles.Z));
+        if (aimed) _attitudeError.Add(error);
+
+        if (Log.Threshold > Log.Level.Debug) return;
+
         Log.Debug($"{KsaWorld.DisplayName(Craft)} attitude: aimed={aimed} "
                   + $"dir={(wanted.Equals(Vec.Zero) ? "ZERO" : "set")} "
-                  + $"slew {slew:F1} deg | before {wasMode}/{wasTrack} "
+                  + $"slew {slew:F1} deg ({slew / Math.Max(interval, 1e-6):F1} deg/s) | before {wasMode}/{wasTrack} "
                   + $"-> after {computer.AttitudeMode}/{computer.AttitudeTrackTarget} | "
-                  + $"error {computer.ErrorAngles} rates {computer.ErrorRates}");
+                  + $"error {computer.ErrorAngles} rates {computer.ErrorRates}, off the command {error:F2} deg | "
+                  + $"alt {state.Altitude / 1000.0:F2} km, q {state.DynamicPressurePa:F0} Pa");
 
         ProbeControlLimits(computer);
+    }
+
+    // One line as a phase ends: the per-sample probe is DEBUG, and a night is not always verbose.
+    private void SayHowThePhaseWent()
+    {
+        if (_reported is IcbmPhase.Idle or IcbmPhase.NoSolution) return;
+
+        string pointing = _attitudeError.Count == 0
+                              ? "not aimed"
+                              : $"off the command {_attitudeError.Percentile(0.5):F2} median, {_attitudeError.Percentile(0.95):F2} p95, "
+                                + $"{_attitudeError.Max:F2} max deg over {_attitudeError.Count} probes";
+        string pressure = _phasePeakPa > 0.0
+                              ? $", peak q {_phasePeakPa / 1000.0:F1} of {VehicleStructuralLimits.MaxDynamicPressure / 1000.0:F0} kPa "
+                                + $"at {_phasePeakAltitude / 1000.0:F1} km"
+                              : "";
+        Log.Info($"{KsaWorld.DisplayName(Craft)} ICBM: {_reported} done -- {pointing}{pressure}");
+
+        _attitudeError.Clear();
+        _phasePeakPa = 0.0;
+        _phasePeakAltitude = 0.0;
     }
 
     // KSA's RCS tracker crawls at half a rate bit inside 0.5*AngleDeadband + AngleTurnaround and
@@ -1282,7 +1364,8 @@ internal sealed partial class IcbmComputer
                              KsaWorld.RunningEnginesCanStop(Craft), engines.MinThrottle, noseCci,
                              RunningStageDeltaV(), _densityRatio ??= DensityRatioAt, _warhead,
                              ReleaseOffsetCci(), ReleaseImpulseCci(), KsaWorld.OnlySolidsRunning(Craft),
-                             AirframeLimitGee > 0.0 ? Craft.StructuralLoad.PeakGLoad : double.NaN);
+                             AirframeLimitGee > 0.0 ? Craft.StructuralLoad.PeakGLoad : double.NaN,
+                             _lastStageLitNothing);
     }
 
     /// <summary>What the engine destroys this airframe at, in g, or zero if it has not said.</summary>
@@ -1316,7 +1399,7 @@ internal sealed partial class IcbmComputer
     }
 
     // While reported solids burn, a long shot's arc is held by what they must deliver, not by the aim: read there at
-    // 0.07-0.85 the loop walked its bias 15 km. KSA reports a stage's delta-v for the controlled craft alone.
+    // 0.07-0.85 the loop walked its bias 15 km. KSA refreshes a stage's delta-v for the controlled craft alone.
     private bool AimWaitsForTheSolids(in IcbmState state)
         => Config.AimWaitsForTheSolids && Program.Phase == IcbmPhase.PitchProgram && !Program.IsShortShot
            && !state.RunningStageCanStop && state.RunningStageDeltaV > 0.0;
@@ -1325,7 +1408,10 @@ internal sealed partial class IcbmComputer
     {
         try
         {
-            float stage = Craft.Parts.PerformanceSequences.FindActiveSequenceDeltaV();
+            // A list never computed is empty and answers 0, which is no reading rather than a dry stage.
+            SequencePerformanceList list = Craft.Parts.PerformanceSequences;
+            if (Config.RefreshStageModel && list.PerformanceSequences.IsEmpty) return double.NaN;
+            float stage = list.FindActiveSequenceDeltaV();
             return float.IsFinite(stage) && stage >= 0.0f ? stage : double.NaN;
         }
         catch

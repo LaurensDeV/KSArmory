@@ -249,6 +249,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/SimClock.cs` | classifies a step: usable, paused, or too long to integrate |
 | `Sim/WarpPolicy.cs` | holds timewarp down while rounds fly, and gives it back after |
 | `Sim/WorldSpeed.cs` | what one world clock runs at when several flights each want something — **the slowest wins**, because a speed is a ceiling on what can be simulated faithfully |
+| `Sim/PhaseSamples.cs` | one quantity sampled over one phase of a flight and summarised as it ends -- **so a night logged at INFO still says how each phase went**, where the per-sample probe is DEBUG |
 | `Sim/OverrunLog.cs` | how much simulated time the clamp threw away, and whether that cost anything — **an empty sky loses nothing**, and a scene load is always one |
 | `Sim/FrameBudget.cs` | **what this mod costs the frame, split by what costs it** — the other side of `SolverLoad`'s subtraction, because three suspects eliminated one at a time is not the same as measuring the whole |
 | `Sim/SolverLoad.cs` | whether the engine is keeping up, and what more work in the world costs — **the instrument both throughput levers are priced with**, because neither several rockets nor several game instances has ever been measured |
@@ -319,6 +320,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Icbm/IcbmComputer.Kick.cs` | the separation kick each warhead is thrown with, and the release probe it is solved against |
 | `Ksa/Icbm/IcbmComputer.Prediction.cs` | the flown impact prediction the aim correction reads |
 | `Ksa/Icbm/IcbmComputer.Reach.cs` | the divert footprint flown, pinned at the epoch, and read back as offsets and axes for the panel and the overlay |
+| `Ksa/StageModel.cs` | a computer-flown craft's stage performance recomputed from `AttitudeHook`'s window, four times a second of wall clock and the frame after a staging -- **KSA keeps it current for the controlled craft alone**, so every other rocket reads an empty list; behind `IcbmConfig.RefreshStageModel` |
 | `Ksa/Icbm/IcbmComputers.cs` | one per craft carrying a part that provides `Guidance` — **the Heavy MIRV Bus alone today**, so a Pantsir or a rail gets none — crewed and forgotten with it |
 | `Ksa/AttitudeHook.cs` | **one of the thirteen methods this mod patches in the game** — the only window in which an attitude command survives |
 | `Ksa/PreRenderHook.cs` | the second — **a step before the render on a frame that draws no UI**, because StarMap has no hook that is both |

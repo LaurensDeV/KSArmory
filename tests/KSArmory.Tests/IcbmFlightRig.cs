@@ -265,6 +265,9 @@ internal sealed class IcbmFlightRig
         /// </summary>
         public bool Solid;
 
+        /// <summary>A row of decouplers: staging into it pushes nothing, and the engine is the next one's.</summary>
+        public bool LightsNothing;
+
         /// <summary>
         /// The exhaust velocity in vacuum, or zero for one that does not change with the air. When
         /// set, <see cref="ExhaustVelocity"/> is the sea-level figure and the two are blended on the
@@ -468,7 +471,8 @@ internal sealed class IcbmFlightRig
                                       ReleaseImpulseCci: HandsOverTheThrow && ReleaseLaunchSpeed > 0.0
                                                              ? Vec.Unit(command.ThrustDirectionCci) * ReleaseLaunchSpeed
                                                              : default,
-                                      OnlySolidsRunning: StageIndex < Stages.Count && Stages[StageIndex].Solid);
+                                      OnlySolidsRunning: StageIndex < Stages.Count && Stages[StageIndex].Solid,
+                                      LastStageLitNothing: StageIndex < Stages.Count && Stages[StageIndex].LightsNothing);
 
                 command = program.Update(elapsed == 0.0 ? 0.0 : h, state);
                 StepTrace?.Invoke(elapsed, program.Phase, Vec.Len(PositionCci) - Body.SurfaceRadius, program.VelocityToGain,

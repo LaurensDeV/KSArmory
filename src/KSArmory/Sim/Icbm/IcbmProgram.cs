@@ -137,7 +137,10 @@ internal readonly record struct IcbmState(
     /// The load the engine judges the airframe on now, KSA's smoothed acceleration in standard gravities; NaN if the caller
     /// cannot say.
     /// </summary>
-    double LoadGee = double.NaN)
+    double LoadGee = double.NaN,
+
+    /// <summary>The stage last asked for fired a sequence holding nothing that burns; false if the caller cannot say.</summary>
+    bool LastStageLitNothing = false)
 {
     public double Altitude => Body.AltitudeOf(PositionCci);
 
@@ -488,9 +491,15 @@ internal sealed partial class IcbmProgram
     // Whether the stage now lit has ever pushed. See the staging test in Fly.
     private bool _thrustSeen;
 
+    /// <summary>How many rows of decouplers, fairings or clamps in a row may be staged past without anything pushing.</summary>
+    public const int MaxRowsThatLightNothing = 3;
+
     // Whether anything aboard has ever pushed, which -- unlike _thrustSeen -- survives a stage
     // request. It is what separates lighting the first engine from throwing away a spent one.
     private bool _everLit;
+
+    // Stages in a row that fired nothing that burns, each let the next follow it.
+    private int _litNothingRun;
     private double _drySeconds;
     private double _sinceLaunch;
     private double _sinceCutoff;
@@ -847,6 +856,7 @@ internal sealed partial class IcbmProgram
         _stageCooldown = 0.0;
         _thrustSeen = false;
         _everLit = false;
+        _litNothingRun = 0;
         _drySeconds = 0.0;
         _sinceLaunch = 0.0;
         _sinceCutoff = 0.0;
@@ -1089,7 +1099,18 @@ internal sealed partial class IcbmProgram
     {
         LastBooster = state.Booster;
 
-        if (state.PropellantAvailable && state.Booster.CanThrust) _thrustSeen = _everLit = true;
+        if (state.PropellantAvailable && state.Booster.CanThrust)
+        {
+            _thrustSeen = _everLit = true;
+            _litNothingRun = 0;
+        }
+        else if (Config.RestagesARowThatLightsNothing && state.LastStageLitNothing && _everLit && !_thrustSeen
+                 && _litNothingRun < MaxRowsThatLightNothing)
+        {
+            // A row of decouplers has nothing to prove, and waiting for it to push strands the climb on the dry timer.
+            _thrustSeen = true;
+            _litNothingRun++;
+        }
 
         // Nothing to burn with, which is two situations that read identically. KSA reports no
         // thrust and no propellant for an engine the sequence list has not activated, so a rocket
