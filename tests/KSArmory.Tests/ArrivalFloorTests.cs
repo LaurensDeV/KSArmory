@@ -71,8 +71,8 @@ public class ArrivalFloorTests(ITestOutputHelper Out)
 
         Assert.Equal(487.3176637923442, shot.CheapestFlightSeconds, 9);
         Assert.Equal(487.3176637923442, shot.FlightSeconds, 9);
-        Assert.Equal(-309.36951058623885, shot.RequiredVelocityCci.X, 9);
-        Assert.Equal(7579.903943498994, shot.RequiredVelocityCci.Y, 9);
+        Assert.Equal(-309.36951058528916, shot.RequiredVelocityCci.X, 9);
+        Assert.Equal(7579.9039434975739, shot.RequiredVelocityCci.Y, 9);
         Assert.Equal(0.0, shot.RequiredVelocityCci.Z, 9);
     }
 

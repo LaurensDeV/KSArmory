@@ -203,10 +203,9 @@ Built: `tests/KSArmory.Tests/Reference/make_reference.py` writes `lambert.csv` (
   long way, 1° to 179°, at ICBM and LEO-to-GEO scale, on Earth and the Moon. Cases with |ψ| past 0.95 of
   `Lambert.cs`'s ±4π² bracket are left out.
 - Kepler is solved by the change in anomaly, and checked against RK4 to 2e-5 m. Eccentricity 0 to 1.5.
-- Kepler passes everywhere. **Lambert fails one case**: near-parabolic, 1°, 9.8 s at ICBM scale, 1.68 mm/s off.
-  The cause is `Lambert.MaxIterations`: 48 halvings of the ψ bracket. A short hop across a small angle is the most
-  sensitive to ψ. Ported with more halvings, the worst case falls to 0.028 mm/s at 64 and 2e-5 mm/s at 200. The next
-  worst are 0.63 mm/s (hyperbolic, 1°) and 0.39 mm/s (near-parabolic, 2°). All three are hops of 5–21 s.
+- Kepler passes everywhere. Lambert failed one case at 48 halvings of the ψ bracket: near-parabolic, 1°, 9.8 s at ICBM
+  scale, 1.68 mm/s off, against the 0.63 and 0.39 mm/s of the next two, all hops of 5–21 s. At 64
+  (`Lambert.MaxIterations`) every case is within 0.03 mm/s.
 - Still to add: two textbook cases, taken from the books rather than from memory.
 - It answers 2.8 (two rigs that read wrongly on the shipped round) in a day.
 
