@@ -1,270 +1,239 @@
 # What another flight computer does that the ballistic computer could take
 
-**A plan, not a record.** The first version was drawn up on 2026-10-12. It was redrawn on 2026-11-21 against that
-mod's tree at `f36ba18`, which targets KSA `2026.11.16.5901`, 454 commits after the first read, beside
-`docs/ICBM-GUIDANCE.md` and the code under `Sim/Icbm/` and `Ksa/Icbm/`. Engine facts were checked against the 5901
-decompiled corpus.
+**A plan, not a record.** The first version was drawn up on 2026-10-12. On 2026-11-21 it was redrawn against that
+mod's tree at `f36ba18` (KSA `2026.11.16.5901`), 454 commits later, beside `docs/ICBM-GUIDANCE.md` and the code
+under `Sim/Icbm/` and `Ksa/Icbm/`. The same day, every candidate was priced against the flown logs in `~/shots`.
 
-Nothing here has been built or flown. Each item says what would have to be measured before it is worth building.
-The live ranking of ballistic work stays in `docs/ICBM-OUTSTANDING.md`, and an item moves there when somebody picks
-it up.
+Engine facts were checked against the 5901 decompiled corpus. Nothing here has been built or flown. The live ranking
+of ballistic work stays `docs/ICBM-OUTSTANDING.md`, and an item moves there when somebody picks it up.
 
-That mod is a general flight computer for KSA, and it has no ballistic guidance. Four things it does overlap with
-ours:
-- its ascent to orbit, UPFG plus a convex (SCvx) ascent planner;
+That mod is a general flight computer for KSA, with no ballistic guidance. What overlaps:
+- its ascent to orbit (UPFG plus a convex ascent planner);
 - its booster boostback and entry glide, which steer a drag-integrated impact point onto a site;
 - an attitude controller of its own, which replaces KSA's on 5901;
 - an RCS allocator.
 
-Its numbers below are from a headless harness of its own unless they say otherwise.
+Their figures quoted below come from their own headless harness.
 
-## Ranked
+## What the logs say first
 
-| # | Item | Why it matters here | Cost | Evidence so far |
-| --- | --- | --- | --- | --- |
-| 1 | Guard the 200 kPa breakup limit | The ascent caps g and nothing caps dynamic pressure | small | engine read |
-| 2 | Refresh the stage model ourselves | Stack and stage delta-v are stale for every rocket but the controlled one | small | traced in both sources, not flown |
-| 3 | Fly the stack's own drag through an in-air coast | The bus alone owed the trim 287 m/s of drag at 500 km | medium | our flown logs |
-| 4 | Read every remaining stage, by phase and throttle floor | Cutoff timing and reach are priced on the running stage alone | medium | read |
-| 5 | An attitude controller that knows the air's moment | On 5901 the air turns the stack and KSA's controller does not know it | large | read; theirs measured headless |
-| 6 | Hand back when the craft cannot be controlled | The computer never asks `IsControllable` | small | engine read |
-| 7 | Staging that knows what the next sequence is | A stage that lights hot is lost; the next sequence may not be an engine | medium | read |
-| 8 | Stop when the player takes the attitude | The command is rewritten every frame whatever the player does | small | read |
-| 9 | An RCS allocator for the bus's turns and holds | Jets are what a long hold and a turn spend | large | read |
-| 10 | Solve off the frame thread | Frame time is what sets the simulation rate | medium | read |
-| 11 | Steering over the whole burn | Propellant, on a shot near the edge of reach | large | read; no measurement of what ours loses |
-| 12 | Exact sensitivities through the predictor | Ours are flown differences: slower and noisier at the quantum | large | read |
-| 13 | Reference fixtures for the solvers | Lambert and Kepler are not checked against an independent implementation | small | read |
-| 14 | Fixed-step flights in the real game | Night results move with the frame rate | large | read |
+Most of what that mod builds would buy nothing here, because the flown logs do not show the problem it solves:
 
-## 1. Guard the 200 kPa breakup limit
+- **Propellant is not what limits a shot.** 89% of 9,556 release summaries could have arrived 30–40° steeper than they
+  did, and no flown ascent logged a shot short of propellant. The `ShortOfPropellant` verdicts in the logs were pad
+  verdicts on seats 2+, which read a stale stage figure (item 2 below).
+- **The solve is a small share of the frame.**
+  - Mean `icbm` cost is 1.8–5.2% of the median frame, measured on the 6,181, 1,000 and 12,900 km nights.
+  - On the 12,900 km night `icbmdraw` costs 1.54–1.69 ms, twice the computer's own cost.
+  - The predictor's sensitivity solve is 0.56 ms median.
+- **The bus jets are not short.**
+  - 148 turns on 11-18 and 11-19 all settled, at about 1.0–1.5 kg each, against a 688 kg tank shared with the engine.
+  - No turn moved the trim's debt at its 0.001 m/s quantum.
+  - The trim spent a median 4.85 m/s per flight, and every one finished.
+- **Staging has not failed since 10-15.**
+  - 1,112 SRB drops and 765 interstage drops; no `staging left no engine` and no launcher refusals.
+  - All 285 staging-gap samples read `shed propellant False`. The hot stage has only ever been lost headlessly
+    (`IcbmFlightTests`).
 
-**What is true in the engine.**
-- `VehicleStructuralLimits.MaxDynamicPressure` is 200,000 Pa.
-- `PhysicsBubble.cs:1250-1253` destroys the vehicle as `AerodynamicForces` when `StructuralLoad.DynamicPressureFraction`
-  reaches one.
-- Unlike the g-load beside it, the pressure is not lagged. It is the peak of ½ρv² over the step, against the denser of
-  the air and the ocean.
+So these are **closed with those numbers**: steering over the whole burn, solving off the frame thread, exact dual-number
+sensitivities, an RCS torque allocator, an attitude controller of our own, a q·α limit, and the ignition delay after a
+hot stage. The reasons are under [Closed](#closed).
 
-**What they do.** They plan the ascent to 98% of that constant, read from the engine rather than typed. Their default
-ceiling is 195 kPa, and they also limit q·α to 3,500 Pa·rad.
+What survives is one real bug, three cheap protections, two flagged features, and a test fixture. Two of the features
+bear on the item that matters most in `docs/ICBM-OUTSTANDING.md`, which is 1.23 (GeoSat FAT at about 1,000 km misses by
+kilometres). That item and 1.24 (the divert ring over-promises) outrank everything here. 5.7 (a negative trim budget
+refuses every pass) is a smaller fix that also comes first.
 
-**What it would change here.** `IcbmProgram.AccelerationCapGee` guards the load factor (`docs/ICBM-GUIDANCE.md`, *The
-acceleration limit is the airframe's*), and nothing guards q. The computer logs q at a few events and never its peak.
+## The plan
 
-**Next step: a diagnostic.** Log `StructuralLoad.PeakDynamicPressure` beside the g-load the ascent already prints,
-across the existing scenario saves. A flat, fast stack on a short shot is the case at risk. Build a throttle cap in
-`Sim/Icbm/IcbmProgram.Limits.cs` only if a stack comes within reach of the limit.
+### Phase 0: one night of instruments, no behaviour change
 
-## 2. Refresh the stage model ourselves
+These are all `refactor`s or `chore`s, each a line or two of log, flown together on one night so the later phases
+start from numbers:
 
-**What is true in the engine.**
-- `SequencePerformanceList.RecomputeForFlight` is called from `PhysicsBubble.cs:955` (5901). It is gated on
-  `vehicleState.IsControlled && (ResourceGroups.IsOpen || Program.EngineControlGaugeOpen)`.
-- `UpdateStagedBurn` (`:977`) also calls it, for a craft that has a burn plan. A computer-flown rocket has none.
-- So the figures that `IcbmComputer.StackDeltaV` and `RunningStageDeltaV` read are refreshed only for the controlled
-  craft, and only while the staging list or the engine-control gauge is open.
-- The method is public. Its body reads only the part tree: the sequence list, the live tank masses, and each engine
-  controller's `IsActive`.
+1. **Peak dynamic pressure.**
+   - The engine destroys a vehicle at `VehicleStructuralLimits.MaxDynamicPressure`, 200 kPa (`PhysicsBubble.cs:1250`).
+     It checks the unlagged peak of ½ρv² over the frame's sub-steps, reset each frame. That uses the surface velocity
+     and the denser of air and ocean.
+   - The throttle line already logs the mod's own q at the end of the frame. Add the engine's
+     `StructuralLoad.PeakDynamicPressure` and limit beside it.
+   - Add one INFO line per flight: the maximum, with altitude, airspeed, phase, throttle asked and achieved, and the nose
+     angle off the airflow.
+   - The highest flown so far is **123 kPa** (62%), on OneStage at 200 km, low and fast in the closed loop
+     (`~/shots/2026-10-13-orbits`). The median across 415 logs is 35 kPa. No ascent has been lost to q.
+2. **Attitude error by phase.**
+   - `IcbmComputer.ProbeAttitude` already logs KSA's own error angles, at DEBUG.
+   - Add altitude, q and the command's own turn rate to that line.
+   - Add one INFO line per phase change with the phase's p95 and maximum error, so a night without verbose logging
+     answers it.
+3. **The stage model.** Behind `IcbmConfig.ProbeStageModel`, off. From `AttitudeHook`'s window, once per 250 ms of wall
+   clock for each computer's craft:
+   - read `TotalDeltaV` and `FindActiveSequenceDeltaV`;
+   - call `SequencePerformanceList.RecomputeForFlight(ambient)` inside a try;
+   - read both again, and log old and new with the call's time.
+   - It has to be wall clock because a sim-time gate runs every step under warp.
+   - It is safe from that prefix: `PrepareWorker` runs sequentially on the main thread before the job is queued, and the
+     recompute publishes through an atomic swap.
+4. **The bus's own drag where it coasts in air.** Every 10 s probe while the air is noticeable, log three things side by
+   side:
+   - the bus's measured non-gravitational acceleration;
+   - q·`AeroTable` force over mass;
+   - a second probe that flies the bus through its table to the release and then flies the warhead.
+5. **Jets.** In the release summary, the tank's mass at the split, after the turn, after the trim, and at the last
+   release. Today the split is inferred from the whole craft's mass.
+6. **The drawing's cost.** Price `icbmdraw` before anything moves to a worker.
 
-**What they do.** They call `RecomputeForFlight(ambientPressure)` on each guided vehicle from a `Vehicle.PrepareWorker`
-prefix, every 250 ms of wall clock, and keep the result on the vehicle it describes. A dirty flag forces an immediate
-refresh after a staging. The prefix is safe because the solver job has been waited on by then.
+The night needs these flights:
+- OneStage, ThreeStage and BusEarly at 200 km, plus a 25–100 km high-thrust cell nobody has flown, for item 1;
+- a nine-seat 12,900 km world and a 1,000 km world, for items 2, 3 and 5;
+- one 500 km shot on `SOLVER SCALE 1` with the in-air finish forced on, for item 4. The 107 km bus-drag miss was
+  measured on 2026-10-05, on the old single-box drag. 5901 moved craft onto KSA's per-panel mesh, so the debt is not
+  known for today's game.
 
-**What it would change here.** Our docs say KSA reports stage delta-v for the controlled craft alone. The narrower
-truth is that KSA only refreshes it there. That one fact explains three things:
-- a shot short of propellant is flown and reported rather than refused;
-- `AimWaitsForTheSolids` works on seat 1 only;
-- the controlled craft's own reading is stale whenever both panels are closed.
+Use a fresh boot, and stay off the CPU while it flies (`docs/SHOT-PROTOCOL.md`).
 
-**Next step: a diagnostic, not a fix.** Call the recompute from `AttitudeHook`'s window for a rocket nobody is flying.
-Log `TotalDeltaV` and `FindActiveSequenceDeltaV` beside today's readings, across a staging. Gate it on wall clock, as
-they do, because under warp a sim-time gate runs every step.
+### Phase 1: small fixes, each with a test that fails against today's code
 
-## 3. Fly the stack's own drag through an in-air coast
+**1a. An unrefreshed stage figure reads 0, and the computer believes it.**
+- `IcbmComputer.RunningStageDeltaV` accepts `stage >= 0`. KSA leaves the list at zero on any craft it never refreshed.
+  On the 2026-11-19 reach night, 3,362 of 3,837 throttle lines read `stage dv 0 m/s`, and the 475 live ones were all one
+  rocket.
+- So on every seat but the one being flown:
+  - `AimWaitsForTheSolids` is off;
+  - the solids' unavoidable delta-v is read as nothing, so the arc lofts too little;
+  - `SolidsUnderWeight` never fires.
+- The fix: zero reads as no reading (NaN), so each consumer takes the fallback it already has.
+- Rig test: a seat with no stage figure still lofts for its solids.
+- It changes how seats 2+ fly, so it is flown paired before it is committed as a `fix`.
+- The comment above `AimWaitsForTheSolids`, and `docs/ICBM-OUTSTANDING.md`'s "Seat 1 is the player's case", say KSA
+  *reports* the figure for the controlled craft alone. What it does is *refresh* it there. Change both in the same
+  commit.
 
-At 500 km the bus coasting alone through the air owed the trim 287 m/s of drag and landed 107 km out
-(`docs/SHORT-RANGE.md`, `docs/ICBM-GUIDANCE.md` "Finish in the air"). The predictor flies the warhead's drag and
-never the stack's or the bus's.
+**1b. A sequence that lights nothing strands the climb.**
+- `IcbmProgram` stages again only once thrust has been seen (`_thrustSeen || !_everLit`). So a row holding only a
+  decoupler, a fairing or a clamp is fired, lights nothing, and the climb waits for the dry timer.
+- No flown stack has hit this. It is read from the code, and `docs/ICBM-GUIDANCE.md` records the same trap for ignition.
+- The fix:
+  - before staging, the `Ksa` side walks the next sequence's modules, as `LauncherSeparation.NextStageSeparates` does;
+  - it passes `LastStageLitNothing` in `IcbmState`;
+  - the program then treats that stage as proven, bounded to a few in a row;
+  - an unreadable part counts as lit.
+- Rig tests:
+  - a decoupler-only row, which today strands;
+  - an engine slow to light, which must still not be staged away, because a freshly lit engine reads dry until KSA's
+    first rocket update.
+- Fly one `make-rocket.py` stack with a decoupler on its own row, and confirm GeoSat FAT is unchanged.
 
-**What they do.** They sample the engine's own loads into body-axis force and moment tables over ±20° by passing the
-part tree to `PhysicsStates.ComputeDerivatives`. They also sample each booster as the vehicle it becomes after a
-separation, which they build from the split's root axes and `VehicleProperties.RecomputeAerodynamicProperties`.
+**1c. Stand down when the craft cannot be controlled, or the player takes it.**
+- `Vehicle.UpdateControl` releases the flight computer and forces 1x when a probe core loses power or fails. The engine
+  does not stop a mod writing to it afterwards, and ours rewrites Auto/Custom every frame.
+- `AttitudeHook` keeps what it last wrote per craft. Before rewriting, it compares that against the live computer,
+  skipping the frame after its own Hold, Release or hand-back.
+  - A mismatch on a craft that `!IsControllable` is a loss of control.
+  - Otherwise somebody else took the attitude.
+- Across 221,336 aimed probes on the November nights the read-back was always `Auto/Custom`, so the comparison has never
+  fired falsely.
+- Either way, `IcbmComputer.Yield(why)`:
+  - hands the attitude back and releases the keys;
+  - cancels pending stages and its own warp;
+  - disarms;
+  - leaves the engines as they are, because cutting a burn in the air costs more than a stood-down computer.
+- The header strip latches the reason until the computer is re-armed. Whether a takeover should cut the engine as
+  `Abort` does is a design decision for the owner.
+- Measure in the same night: whether the bus's probe power lasts a 12,900 km coast with its jets firing.
 
-**What it would change here.** `Ksa/AeroTables.cs` already samples a craft's loads for the gun's lead. What is
-missing is feeding the stack's table into the coast that `ImpactPredictor` and `BurnoutGuidance` fly while there is
-air.
+### Phase 2: flagged features, each decided on a paired night
 
-**Measure first.** Work out from that night's logs how much of the 107 km the bus's drag accounts for, flown through
-the table.
+**2a. Refresh the stage model ourselves** (`IcbmConfig.RefreshStageModel`, off).
+- Phase 0's call, plus an immediate refresh on the frame after a queued staging.
+- `StackDeltaV` and `RunningStageDeltaV` then read what the hook captured.
+- Price the call's milliseconds times the rocket count before the night. A CPU-costing arm changes the world's clock.
+- This is what lets the reach, the arrival budget, `BoosterReach` and the panel's "one stage's reckoning" use the whole
+  stack on every seat.
 
-## 4. Read every remaining stage, by phase and throttle floor
+**2b. A stage plan for the countdown** (`Sim/StagePlan.cs`, `IcbmConfig.FlyTheStagePlan`, off; needs 2a).
+- One constant-thrust phase per `SequencePerformance` phase, read from index 0, skipping spent sequences.
+- The active phase takes the live thrust and flow from `BoosterPerformance`; later phases take design figures. The
+  live headline thrust is never combined with the design delta-v.
+- A solid's burn time comes from the recompute, since its grain is not in a tank.
+- Each phase's throttle floor is read from the parts: the lowest `EngineController.MinimumThrottle` among its engines.
+  That mod reads it with a transpiler on a private method; reading the parts avoids that.
+- `BurnoutGuidance`'s `timeToCutoff` then knows the stagings.
+- Test: a two-stage stack whose countdown on the single-stage model cuts off late.
+- **Why it ranks here:** 1.23's open next step is to end the 1,000 km burn on the upper stage, where every cutoff has
+  been clean, and a countdown that knows where the upper stage begins is what that needs.
 
-`Sim/BoosterPerformance.cs` is four numbers about the stage that is burning. They build one constant-thrust stage per
-`SequencePerformance.Phases` entry, so solids flaming out under a core are a phase boundary rather than a surprise.
-Only the burning stage is scaled to ambient pressure.
+**2c. Lead the attitude command through the one swing that lags.**
+- On the November 5901 nights the nose follows its command closely everywhere but one place:
+  - steady closed loop: 0.02° median, 0.46° p99;
+  - through max q: under 2.6° p99.
+- The exception is near 83 km, where `HoldIntoTheAirflow` lets go at 200 Pa. There the line swings about 100° at
+  13–14°/s, and the nose trails it by a steady 11–13°: a tracker following a ramp with no rate feedforward.
+  - It costs propellant, estimated at about 50 m/s thrown off the line.
+  - It does not cost accuracy.
+- The handover, the bus's per-tube re-points and `BusTurn` are commanded steps, which a feedforward cannot help.
+- Two arms on one paired night, scored on propellant at cutoff and the swing's error:
+  - **Lead in the command**, no patch: rotate the aim ahead by the command's smoothed rate times the measured lag (about
+    0.9 s). Overshoot at the ramp's end is the risk.
+  - **Rate feedforward**: a postfix on the private `FlightComputer.UpdateAttitudeTarget`, adding the command's rate to
+    `AttitudeTarget.RatesCci`.
+    - The rate is snapshotted in the `PrepareWorker` prefix for the worker to read, and cleared on release.
+    - A patch that does not apply is today's flight, so it degrades like `PreRenderHook`, and is logged once.
 
-Since the first read, each phase also carries its throttle floor. They get it by transpiling the private
-`SequencePerformanceList.RunDrainSimulation` to record the active cores and `Rocket.MinimumThrottle`, which 5901 moved
-onto `<Rocket>`. Stages with different floors are not merged. That bears on `PulsesBelowTheFloor`.
+**2d. Only if Phase 0 earns them.**
+- **A dynamic-pressure cap**, if any stack goes past about 150 kPa (`IcbmConfig.CapsDynamicPressure`, off).
+  - Throttle only, beside the g cap in `IcbmProgram.Limits.cs`, at 0.9 of the engine's limit, from a soft start at
+    0.8.
+  - `HoldBackTheAscent` and `ReserveBinds` must take the combined cap.
+  - A solid cannot be throttled, so there the cap only logs.
+  - The rig test must be shown to exceed 200 kPa with the flag off before it counts.
+- **The vehicle's drag in the predictor**, if the 5901 debt is material (`IcbmConfig.PredictsTheVehicleDrag`, off).
+  - `ImpactPredictor`'s drag term takes the craft's `AeroTable` force until the release, then the warhead's.
+  - While in air, `BusTrim`'s reference becomes the drag-flown coast rather than the vacuum conic.
+  - The table must exist at the split, so build the separated vehicle's table beforehand, or start the reference about
+    2 s after the split.
+  - What it would buy is retiring the pause and relight for 300–1,200 km arcs. That relight is half of 1.23.
 
-Before reading that list ourselves:
-- Always read from index 0. The recompute drains its simulated tanks forward through the list, and a spent sequence
-  carries no phases.
-- For the active sequence, the headline `Thrust` and `MassFlowRate` are phase 0's live throttled values, while
-  `DeltaV` is from design conditions. Do not combine the two.
-- A solid's grain is not in a tank. The game paces it at the mean flow of the burn it has left.
+### Phase 3: a test fixture
 
-What it would buy is a `timeToCutoff` and a reach that know the upper stages exist. It depends on item 2. Reading
-the floor without a transpiler, from the parts, is the version worth trying first.
+`Sim/Lambert.cs` and `Sim/Kepler.cs` are checked only against the mod's own predictor and integrator.
+- Add a committed table under `tests/KSArmory.Tests/Reference/`, generated by a script with two independent Lambert
+  methods and an outside Kepler propagator. It should cover elliptic, near-parabolic, hyperbolic, short-way, long-way,
+  1° and 179° transfers.
+- Add two textbook cases, taken from the books rather than from memory.
+- Tolerance: 1 mm/s and 1 mm, because a long shot multiplies that by one to two kilometres per m/s.
+- It answers 2.8 (two rigs that read wrongly on the shipped round) in a day.
 
-## 5. An attitude controller that knows the air's moment
+## Closed
 
-**What they do.** Since 5901 their ascent and their entry glide no longer use KSA's attitude controller:
-- KSA's controller is left in Manual.
-- Their own PD runs at 2 rad/s, with a slow integral, a capture-rate cap and a gyroscopic term.
-- It feeds forward the air's moment from their body-axis table at the Mach, α and β being flown.
-- The torque goes to the gimbals first, then the fins, then RCS.
-- It is written in a postfix on `FlightComputer.ComputeControl`, on the worker. The gimbals go through
-  `outputs.Gimbals`, and the RCS pulses go into `ThrusterControllerState.CommandPulseTime` after stock has written
-  them.
-
-**What they measured.** Their harness runs on the real simulation. Holding a 3° tilt cost 163 kg of RCS on stock
-against 46 kg on theirs. On a gliding booster, stock left about a degree of standing error and burned 11.9 kg/s of
-RCS, against 1.1 kg/s on theirs.
-
-**What it would change here.** We command a direction in `EclBody` precisely so that no feedforward is needed
-(`Ksa/VehicleCommand.cs`). That holds for a fixed line in still air. It does not hold for a turning line, or for air
-that pushes back, and 5901's air does push back: `docs/ICBM-GUIDANCE.md` "Short shots" already records that a short
-shot steers at any angle of attack.
-
-The cheaper half is the old turn-rate feedforward. They still use it outside the ascent and the glide: a postfix on
-the private `FlightComputer.UpdateAttitudeTarget` adds the steering law's rate to `AttitudeTarget.RatesCci`, and a
-stale rate is cleared on release.
-
-**The cost is the patch.** Both methods are private. That makes this the `PreRenderHook` kind of risk, with no
-signature to pin. It is worse than `PreRenderHook`, though: losing the patch here mid-flight leaves a craft in
-Manual with nobody steering, so it cannot degrade to the status quo.
-
-**Measure first.** Log the angle between the commanded and held direction through max q, and through a bus
-re-point, on 5901. If the lag is a degree or two, neither patch is worth a hook.
-
-## 6. Hand back when the craft cannot be controlled
-
-`Vehicle.UpdateControl` releases the flight computer and forces 1x when a probe core is unpowered or failed. They
-cancel guidance on `!vehicle.IsControllable`, gate their worker writes on it, and forecast how long probe power has
-left. The ballistic computer asks none of this, so a bus whose power runs out mid-coast goes on being commanded with
-nothing listening, and nobody is told why.
-
-**Measure first.** Check whether the bus's power lasts a 12,900 km coast with its jets firing.
-
-They also stand down when KSA's flight-software prototype (`KSA.Kfs.KfsPrototype.Enabled`, switched on by
-`KFS_PROTOTYPE=1`) owns the craft. Ours would have to as well, if that prototype ever ships switched on.
-
-## 7. Staging that knows what the next sequence is
-
-`ActivateNextSequence` fires whatever the player put next, and a stage that lights hot is still lost to the throttle
-servo (`docs/ICBM-GUIDANCE.md`, *The cap is right and the actuator is too slow*). Their automatic staging reads the
-sequence before firing it. It:
-- will not stage away the last control module, and refuses any separation that would leave the retained parts
-  uncontrollable, judged with `Vehicle.ComputeControl` over the retained selection;
-- stages again when a sequence holds only decouplers;
-- drops spent boosters only when no retained engine can still draw from them, counting only engines as crossfeed;
-- holds the next row until every separating root has left the tree, plus a second, with a 2.5 s deadline;
-- holds an engine's ignition for a per-part delay after the decoupler.
-
-The ignition delay bears on the hot stage. Lighting the upper stage a second or two after the split, with the
-throttle already down, is the cut our doc describes, without the dry-stage reading it worries about. Unverified. It
-also bears on `IcbmComputer.StagingWouldDropTheLauncher`.
-
-## 8. Stop when the player takes the attitude
-
-They record the attitude command they last wrote and compare it against the flight computer on every step. A
-mismatch means a player or another mod is steering, so guidance stops, keeps the player's fields, and restores only
-what it replaced, including the deadband and rate limit that it changed around `SetAttitudeProfile`. They also count
-failed steps and release the craft after a run of them. The last command is left in place, because cutting the engine
-in the air costs more than one bad step.
-
-Here `VehicleCommand.TryAim` rewrites the target every frame, and disarming is the only way out. Whether that is a
-fault is a design question: a launch cannot be taken back, and `Armed` is the switch. It is listed because a player
-who grabs the attitude mid-ascent today fights the computer without being told why.
-
-## 9. An RCS allocator for the bus's turns and holds
-
-They solve a linear programme (Bergmann–Weiler) over each thruster's live wrench. It minimises propellant against the
-torque asked for, with a priced shortfall so that pitch and yaw come before roll. Each thruster's duty becomes a
-pulse on a 0.1 s period, and a pulse shorter than the thruster's minimum carries forward to the next period.
-
-They leave the side force free. Ours would have to constrain it, so that a turn does not translate the bus after
-`BusTrim` has nulled the split. It bears on `Sim/BusTurn.cs`, on `Sim/HoldPointing.cs`'s rule that pointing on the
-jets empties them, and on `tools/model/checkring.py`'s quantum. It needs the same worker postfix as item 5.
-
-**Measure first, from flown logs.** The jet propellant each turn and hold spends, and the translation a turn leaves
-for the trim to null.
-
-## 10. Solve off the frame thread
-
-On the shared thread pool, their 40 ms entry re-solves sat queued for up to 3.6 s behind the game's own work. So they
-moved the solves, and the aero sweep, onto threads of their own. The sweep alone had been costing them stalls of
-about a second on the frame thread.
-
-Every solve of ours runs on the frame thread, and frame time is the only thing that buys simulation rate
-(`Sim/StageDisposal.cs`). Nothing here is known to be slow. Read `FrameBudget`'s solve share on a long shot before
-weighing what a worker's latency would cost the cutoff countdown.
-
-## 11. Steering over the whole burn
-
-They solve UPFG's linear-tangent steering across every remaining stage, and now also plan the ascent as a convex
-programme with q and q·α bounds and lift. We fly a square-root pitch schedule and then thrust along
-velocity-to-be-gained. Ours is robust by construction and costs propellant.
-
-Nobody has measured how much it costs. So the first step is a number: the delta-v a flown shot spends against the
-Lambert requirement at handover, on the stacks in `docs/ICBM-OUTSTANDING.md` that fall short or barely reach. If that
-is a few percent, the item closes.
-
-One finding of theirs applies to any such work. UPFG called every sim step wound its integrator up sixty times faster
-than it is damped for, so they solve once a second and evaluate the law every step.
-
-## 12. Exact sensitivities through the predictor
-
-`ReleaseFocus.FlownSensitivity` flies the predictor seven times, at a 1 m step and a small velocity step, and
-differences the landings. Their predictor carries dual numbers through the integrator, so one sweep per input gives
-the exact derivative, including how the time of flight changes with the input.
-
-Our differenced landings already carry that term, because each flight arrives at its own instant. So this item is
-about cost and noise at the millimetre quantum, not about a missing term. It would mean a second numeric type running
-through `Slug` and `Medium`.
-
-## 13. Reference fixtures
-
-Their solvers are checked against Python reference implementations kept in the test tree, which now include their
-three-degree-of-freedom flight model. `Sim/Lambert.cs` and `Sim/Kepler.cs` are checked only against each other and
-against flown arcs. A table of published Lambert cases, Vallado's or a short script's output committed beside the
-test, would be the first check that does not share an author with the code.
-
-## 14. Fixed-step flights in the real game
-
-They test against the real simulation with no window and no GPU, stepping it from the test. One trial holds both arms,
-stock against theirs, in the same run. A flight stepped that way would take the frame rate out of a night's result,
-which we know moves with it.
-
-Their warning: a long run with `Vehicle.PrepareWorker` unpatched let the JIT inline it, and a later patch then never
-ran. Before anything else, find out whether such a driver reaches this mod's step at all: the GUI pass, `PreRenderHook`
-and `AttitudeHook`.
+| Idea | Why not |
+| --- | --- |
+| UPFG or a convex ascent | No flown shot is propellant-bound (above). Reopen only if a stack runs out. |
+| Solves off the frame thread | 1.8–5.2% of the frame. The last 0.75 s before cutoff must stay on the frame thread: one frame of staleness on the core at 1,000 km is 5–8 m/s. |
+| Dual-number sensitivities | 0.56 ms a solve, and 40 of 40 warheads at 6,181 km inside the trace's 1 cm quantum. |
+| An RCS torque allocator | About 1 kg a turn to save, and turns leave no measurable translation. Revisit for a bus with no axial engine whose walks bind on the tank. |
+| An attitude controller of our own | The lag is one ramp, which 2c answers. `ComputeControl` is public and pinnable, but it leaves KSA in Manual, and gimbal, fin and RCS allocation is a large job the data does not ask for. |
+| A q·α limit | The engine has no q·α kill. 8° at 123 kPa is about 17 kPa·rad, and staging into the airflow is already held. |
+| Ignition delay after a hot stage | The shipped stack never stages hot in flight. Build a stack that does first, and read its peak load. |
+| Profile or deadband tuning for the lag | The deadband is 0.2° against a 12° lag, and the rate limit is not what binds. |
 
 ## Off this topic, found on the way
 
-The engine divides the aerodynamic torque by `1 + I⁻¹·dt·q·(½·dt·MomentStiffnessBound + MomentDampingBound/V)`
-(`PhysicsStates.cs:1201`). They measured that this divides the moment by 3.7 on a booster at 6–7 kPa, and now carry
-the term. `Ksa/AeroTables.cs` takes `MomentPerDynamicPressure` from `ComputeLoads` undivided. So the gun lead's turn
-may overstate the moment, which is worth one check against a flown turn.
+`Ksa/AeroTables.cs` keeps the engine's force and moment per q and drops `SurfaceLoads`' two bounds. The engine applies
+both:
+- it divides the torque by `1 + ‖I⁻¹‖·dt·q·(½·dt·MomentStiffnessBound + MomentDampingBound/V)` (`PhysicsStates.cs:1201`);
+- it saturates the force by `1/(1 + F·dt/(m·V))` (`:1195`).
+
+So `Sim/AttitudeTrack.cs` over-predicts a turning target's torque wherever the limiter bites, by an amount that depends
+on the frame time. That mod measured a factor of 3.7 on a booster at 6–7 kPa. The fix is to store both bounds as
+channels and apply the engine's divisor with the step's dt, with a test that varies dt. It bears on the gun's lead, not
+the ballistic computer.
 
 ## What is not worth taking
 
-- **Private writes.** They set `Vehicle._manualControlInputs` through reflection for throttle and ignition. Our
-  throttle servo is slower and is a public call. The cost of theirs is a KSA update that compiles and stops steering.
-- **The impact model.** Theirs aims at one sphere at the site's terrain height. Ours flies the warhead against the
-  height field.
-- **Their warp handling.** Their warp to a burn and their prompt before it suit a mod that warps on a predicted burn
-  point. Ours hands the wait to KSA's own warp in hops, owns it only while `Universe.AutoWarpTime` is the end it set,
-  and ends it itself.
+- **Private writes.** They set `Vehicle._manualControlInputs` through reflection for throttle and ignition. Our throttle
+  servo is slower and is a public call. The cost of theirs is a KSA update that compiles and stops steering.
+- **The impact model.** Theirs aims at one sphere at the site's terrain height. Ours flies the warhead against the height
+  field.
+- **Their warp handling.** It warps on a predicted burn point and prompts first. Ours hands the wait to KSA's own warp in
+  hops, owns it only while `Universe.AutoWarpTime` is the end it set, and ends it itself.

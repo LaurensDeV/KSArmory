@@ -478,9 +478,9 @@ itself, with a time constant of the bounding sphere over 200 — a fifth of a se
 above. Flying at the number is flying on the boundary.
 
 **Dynamic pressure is a second limit, and nothing here guards it.** KSA also destroys a vehicle at
-`VehicleStructuralLimits.MaxDynamicPressure`, 200 kPa, on the unlagged peak of ½ρv² over the step
-(`PhysicsBubble.cs:1250`). No flown ascent has been checked against it; `docs/FLIGHT-COMPUTER-COMPARISON.md` item 1
-is the diagnostic.
+`VehicleStructuralLimits.MaxDynamicPressure`, 200 kPa, on the unlagged peak of ½ρv² over the frame's sub-steps
+(`PhysicsBubble.cs:1250`). The highest flown is 123 kPa, OneStage at 200 km; `docs/FLIGHT-COMPUTER-COMPARISON.md`
+Phase 0 is the instrument and 2d the cap, if one is ever earned.
 
 ### The cap is right and the actuator is too slow
 
