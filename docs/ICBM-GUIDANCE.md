@@ -477,6 +477,11 @@ bubble — which is not the same as there being no limit, and the two are kept a
 itself, with a time constant of the bounding sphere over 200 — a fifth of a second at the size
 above. Flying at the number is flying on the boundary.
 
+**Dynamic pressure is a second limit, and nothing here guards it.** KSA also destroys a vehicle at
+`VehicleStructuralLimits.MaxDynamicPressure`, 200 kPa, on the unlagged peak of ½ρv² over the step
+(`PhysicsBubble.cs:1250`). No flown ascent has been checked against it; `docs/FLIGHT-COMPUTER-COMPARISON.md` item 1
+is the diagnostic.
+
 ### The cap is right and the actuator is too slow
 
 A stage that lights *hot* is still lost, and the measurement says exactly where the fault is. Both
