@@ -93,11 +93,12 @@ internal sealed class IcbmConfig
     public bool RestagesARowThatLightsNothing;
 
     /// <summary>
-    /// Give the craft up and disarm, engines left as they are, the frame it can no longer be controlled or somebody else
-    /// changes its attitude mode. Off, the computer writes its attitude over a player's and over a craft KSA has
-    /// released. <b>Off, and unflown.</b> <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 1c.
+    /// Give the craft up and disarm, engines left as they are, once it has been uncontrollable for a second or the frame
+    /// somebody else changes its attitude mode. Off, the computer writes its attitude over a player's and over a craft
+    /// KSA has released. Flown 2026-11-21: a Prograde press mid-ascent stood it down within the frame, and 20 rocket
+    /// flights at 1,000-12,900 km never stood down unasked. <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 1c.
     /// </summary>
-    public bool StandsDownWhenControlIsTaken;
+    public bool StandsDownWhenControlIsTaken = true;
 
     /// <summary>
     /// Carry the attitude command this far ahead along its own turn while burning (<see cref="CommandLead"/>), in
