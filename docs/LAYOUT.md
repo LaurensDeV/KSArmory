@@ -447,6 +447,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `src/KSArmory/Sounds/` | the cannon, cut from a recording by `tools/cut-cannon.py`; the Mk 42's gunshot, cut from its recording by `tools/mk42-sounds.py`; the M197's loop and tail, by `tools/m197-sounds.py`; a nuclear burst's pickup and bang, by `tools/annie-sounds.py`. A conventional warhead's burst is KSA's own explosion, sound and all |
 | `src/KSArmory/mod.toml` | serves as both the content-mod and StarMap manifest |
 | `tests/KSArmory.Tests/` | links the KSA-free sources and flies engagements headlessly |
+| `tests/KSArmory.Tests/Reference/` | reference tables for `Lambert` and `Kepler`, written by `make_reference.py` from solvers that share none of their code |
 | `KSArmory.sln` | both projects, for editors only — every script builds a csproj directly |
 | `infra/dns/` | ksarmory.com's Cloudflare records, as OpenTofu; see `infra/README.md` |
 | `infra/services/` | Caddy and the feedback service on the VPS, same |
