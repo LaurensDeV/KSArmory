@@ -902,7 +902,7 @@ internal sealed partial class IcbmComputer
                 double3 held = _deploy.DirectionCci;
                 if (Config.CommandLeadSeconds > 0.0 && Program.IsBurning)
                 {
-                    held = _commandLead.Lead(held, simStep, Config.CommandLeadSeconds);
+                    held = _commandLead.Lead(held, simStep, Config.CommandLeadSeconds, Config.CommandLeadFromDegPerSecond);
                 }
                 else
                 {

@@ -74,4 +74,21 @@ public class CommandLeadTests
         }
         Assert.InRange((wanted - nose) / Deg, low, high);
     }
+
+    [Fact]
+    public void ATurnUnderHalfTheThresholdIsNotLedAndOneOverItIsLedInFull()
+    {
+        double Ahead(double degPerSecond)
+        {
+            var lead = new CommandLead();
+            double rate = degPerSecond * Deg;
+            double3 led = default;
+            double t = 0.0;
+            for (; t < 5.0; t += Frame) led = lead.Lead(InPlane(rate * t), Frame, 0.9, fromDegPerSecond: 4.0);
+            return AheadOf(led, rate * (t - Frame)) / Deg;
+        }
+
+        Assert.Equal(0.0, Ahead(1.0), 9);
+        Assert.InRange(Ahead(13.0), 13.0 * 0.9 - 0.2, 13.0 * 0.9 + 0.2);
+    }
 }

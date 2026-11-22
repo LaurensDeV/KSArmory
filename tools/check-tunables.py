@@ -138,6 +138,7 @@ RESEARCH = (
     "RestagesARowThatLightsNothing",
     "StandsDownWhenControlIsTaken",
     "CommandLeadSeconds",
+    "CommandLeadFromDegPerSecond",
     "BackstopRisesOnTheThrottledFrame",
     "CancelProbeMissAtSeparation",
     "CancelSpinAtSeparation",

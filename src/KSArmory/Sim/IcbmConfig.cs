@@ -108,6 +108,13 @@ internal sealed class IcbmConfig
     public double CommandLeadSeconds;
 
     /// <summary>
+    /// The turn rate, deg/s, a command must reach for <see cref="CommandLeadSeconds"/> to lead it in full, eased in from
+    /// half of it; zero leads every turn. Led through the pitch programme's ~1 deg/s, the nose's median error rose from
+    /// 0.13 to 0.47 deg at 12,900 km on 2026-11-22. <b>Unflown.</b>
+    /// </summary>
+    public double CommandLeadFromDegPerSecond;
+
+    /// <summary>
     /// Warp the ballistic coast without being asked, stopping a settling margin short of the release
     /// (<see cref="IcbmProgram.SteadyBeforeReleaseSeconds"/>). On, so a coast is warped without a tick box to find
     /// first. <c>docs/ICBM-GUIDANCE.md</c>, "Automatic only if

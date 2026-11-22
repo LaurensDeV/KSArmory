@@ -22,6 +22,7 @@ public sealed class CommandLead
     private double3 _last;
     private double3 _rate;
     private bool _primed;
+    private double _fromRadPerSecond;
 
     /// <summary>The smoothed turn rate of the command, rad/s, about the axis it points along.</summary>
     public double3 RateRadPerSecond => _rate;
@@ -35,11 +36,13 @@ public sealed class CommandLead
 
     /// <summary>
     /// The command carried ahead by <paramref name="leadSeconds"/> of its own smoothed turn, after <paramref name="dt"/>
-    /// seconds of simulated time since the last call. Zero lead, a zero or unfinite step, or a direction that cannot be
-    /// normalised returns the command unchanged.
+    /// seconds of simulated time since the last call, eased in between half and the whole of
+    /// <paramref name="fromDegPerSecond"/> of turn so a slow turn is not led. Zero lead, a zero or unfinite step, or a
+    /// direction that cannot be normalised returns the command unchanged.
     /// </summary>
-    public double3 Lead(double3 commanded, double dt, double leadSeconds)
+    public double3 Lead(double3 commanded, double dt, double leadSeconds, double fromDegPerSecond = 0.0)
     {
+        _fromRadPerSecond = Math.Max(fromDegPerSecond, 0.0) * Math.PI / 180.0;
         double3 now = Vec.Unit(commanded);
         if (now.Equals(Vec.Zero)) return commanded;
 
@@ -76,7 +79,9 @@ public sealed class CommandLead
         double rate = Vec.Len(turning);
         if (!(rate > 0.0)) return now;
 
-        double lead = Math.Min(rate * leadSeconds, MaxLeadDeg * Math.PI / 180.0);
+        double share = _fromRadPerSecond > 0.0 ? Ramp.Smooth(0.5 * _fromRadPerSecond, _fromRadPerSecond, rate) : 1.0;
+        double lead = Math.Min(rate * leadSeconds * share, MaxLeadDeg * Math.PI / 180.0);
+        if (!(lead > 0.0)) return now;
         double3 axis = turning * (1.0 / rate);
         double3 ahead = Vec.Unit(Vec.Cross(axis, now));
         return Vec.Unit(now * Math.Cos(lead) + ahead * Math.Sin(lead));
