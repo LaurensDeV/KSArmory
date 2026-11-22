@@ -87,10 +87,11 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// Stage again after a sequence that held nothing that burns, as for an ignition, rather than wait for it to push:
-    /// without it a row of decouplers between two engine stages strands the climb on the dry timer.
-    /// <b>Off, and unflown.</b> <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 1b.
+    /// without it a row of decouplers between two engine stages strands the climb on the dry timer. Flown 2026-11-23 on
+    /// a two-stage stack with its interstage on a row of its own: on, the upper stage lit 1.7 s after the row and the
+    /// shot passed; off, the burn ended 4 s later with 2,774 m/s to gain. <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 1b.
     /// </summary>
-    public bool RestagesARowThatLightsNothing;
+    public bool RestagesARowThatLightsNothing = true;
 
     /// <summary>
     /// Give the craft up and disarm, engines left as they are, once it has been uncontrollable for a second or the frame

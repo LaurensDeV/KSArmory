@@ -31,8 +31,9 @@ rockets of every world on each arm) unless it says otherwise. Logs are in `~/sho
 - **Propellant is measurable at 12,900 km and not at 1,000.** Thrust spent past the requirement at ignition, arm against
   base per shot: steady to a few m/s at 12,900 km, and swinging -720 to +850 m/s at 1,000 km, for a reason not yet
   read. A propellant claim from the short cell is noise.
-- **1b, the decoupler row, is built, off** (`IcbmConfig.RestagesARowThatLightsNothing`). Flown on, it changed nothing on
-  GeoSat FAT, which has no such row. No stack that has one has been flown.
+- **1b, the decoupler row, is on** (`IcbmConfig.RestagesARowThatLightsNothing`). Flown 2026-11-23 on `TEST DECOUPLER
+  ROW` (`tools/make-rocket.py --decoupler-own-row`, its interstage on a row of its own): with it, the upper stage lit 1.7 s
+  after the empty row and the shot passed; without it, the burn ended 4 s later with 2,774 m/s to gain.
 - **2c, leading the attitude command, loses as first built** (`IcbmConfig.CommandLeadSeconds`, off).
   - At 0.9 s, leading every turn took the closed loop's p95 from about 13 deg to about 4 deg.
   - It also raised the pitch programme's median from 0.13 to 0.47 deg, and at 12,900 km spent +196, +204, +196 and
