@@ -130,16 +130,6 @@ internal sealed partial class IcbmComputer
 
         // The turn's jets and the trim's are kept apart: the trim's acceleration estimate assumes a steady frame.
         _mayTrim = plan.MayTrim && !Turning && !HopWaitsForItsWarhead;
-        if (_didSplit && !_trimHasPushed)
-        {
-            if (!_mayTrim) _heldBeforeTheTrim += simStep;
-            else
-            {
-                _trimHasPushed = true;
-                Log.Info($"{KsaWorld.DisplayName(Craft)} ICBM: the trim was held {_heldBeforeTheTrim:F1} s after the split"
-                         + (Config.PostBoostClockStartsAtTheTrim ? "; the correction's clock gives it back" : ""));
-            }
-        }
 
         _trim.Begin();
 
@@ -172,6 +162,17 @@ internal sealed partial class IcbmComputer
         AttitudeHook.KeepJetsThroughTheClear(Craft, Config.JetsThroughTheKeyboardClear);
         VehicleCommand.DriveTranslation(Craft, trim.Fire);
         _lastOwed = trim.ToGainMetresPerSecond;
+
+        // The first push, not the clearance: BusTrim itself holds while the stack is opening behind the direction it
+        // must push, and at 1,000 km that wait ran 28-84 s.
+        // Or the trim finishing without a push, or the clock would grow as fast as it runs and never end the correction.
+        if (_didSplit && !_trimHasPushed && (trim.Fire != TrimAxes.None || _trim.Done))
+        {
+            _trimHasPushed = true;
+            _heldBeforeTheTrim = _sinceSplit;
+            Log.Info($"{KsaWorld.DisplayName(Craft)} ICBM: the trim first pushed {_heldBeforeTheTrim:F1} s after the split"
+                     + (Config.PostBoostClockStartsAtTheTrim ? "; the correction's clock gives that wait back" : ""));
+        }
 
         // Stepped through a turn, the passes count it as the bus not holding still and end the correction.
         if (Turning) return;
@@ -443,6 +444,7 @@ internal sealed partial class IcbmComputer
     {
         double clock = Config.HopsSizeTheirOwnSlots ? PostBoostAim.MaxSeconds + _hopBurnSeconds : double.NaN;
         if (!Config.PostBoostClockStartsAtTheTrim) return clock;
-        return (double.IsFinite(clock) ? clock : PostBoostAim.MaxSeconds) + _heldBeforeTheTrim;
+        double held = _trimHasPushed ? _heldBeforeTheTrim : _sinceSplit;
+        return (double.IsFinite(clock) ? clock : PostBoostAim.MaxSeconds) + held;
     }
 }

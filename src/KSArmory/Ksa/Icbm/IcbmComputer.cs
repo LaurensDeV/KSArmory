@@ -65,7 +65,7 @@ internal sealed partial class IcbmComputer
     private bool _didSplit;
     private bool _mayTrim = true;
 
-    // Simulated seconds from the split until the trim was first allowed to push, and whether it has been.
+    // Simulated seconds from the split until the trim first pushed, and whether it has.
     private double _heldBeforeTheTrim;
     private bool _trimHasPushed;
     private bool _saidBudget;
