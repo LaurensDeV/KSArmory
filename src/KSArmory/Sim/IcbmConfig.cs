@@ -254,10 +254,11 @@ internal sealed class IcbmConfig
     /// <summary>
     /// Whether the reach drawn before the burn, and both of the slot price's lines, are the floor for the round flown
     /// since v0.9.0, <c>0.80 · (t_go − 15 s)</c>, rather than 0.88 · t_go fitted on its retired hand-typed drag, which
-    /// over-promises up to 1.39x. A smaller reach refuses more clicks and walks fewer stops. <b>Off, and unflown.</b>
+    /// over-promises up to 1.39x. A smaller reach refuses more clicks and walks fewer stops. Flown 2026-11-22 paired at
+    /// 6,181 km: two targets landed 0.81x base, and a pinned seven-target walk 7 km apart still walked all seven.
     /// <c>docs/ICBM-OUTSTANDING.md</c> 1.24.
     /// </summary>
-    public bool PinnedReachFloorsTheFlownRound;
+    public bool PinnedReachFloorsTheFlownRound = true;
 
     /// <summary>
     /// Whether a walk gives each hop the time its divert burn takes at the bus's
