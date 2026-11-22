@@ -201,6 +201,9 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
     private double _sinceReach = double.PositiveInfinity;
     private ReachDisplay? _reach;
 
+    /// <summary>The reach as the rig last priced it.</summary>
+    public ReachDisplay Reach => _reach ?? default;
+
     private readonly AimCorrection _aim = new();
     private readonly BusTrim _trim = new();
     private readonly PostBoostAim _postBoost = new();
@@ -639,7 +642,8 @@ internal sealed class PastCutoffRig : IcbmFlightRig.IAimLoop
                                      TankExhaustVelocity: EngineHops ? EngineExhaustVelocity : JetExhaustVelocity / LateralCostFactor,
                                      StoreMassKg: WarheadMassKg,
                                      HopTurnSeconds: EngineHops ? HopBurn.TurnsSeconds : 0.0,
-                                     PassesMetresPerSecondPerStop: EngineHops ? ReleaseItinerary.EnginePassesMetresPerSecond : 0.0),
+                                     PassesMetresPerSecondPerStop: EngineHops ? ReleaseItinerary.EnginePassesMetresPerSecond : 0.0,
+                                     PinnedReachOnTheFlownRound: Config.PinnedReachFloorsTheFlownRound),
             Program.Phase, false, TargetSet.MaxTargets, KSArmory.Warhead.LethalRadius(Warhead.ChargeKg), PlannedLead,
             ReachHold.Unflown, Config.PriceEachHopAtItsSlot, Config.PriceHopsAtWhatTheTrimPays,
             Config.PriceSlotsOnTheGateChord, _later, EngineHops, Config.FreeHopsCountTheArrivalTheyMove);

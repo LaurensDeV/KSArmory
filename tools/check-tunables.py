@@ -179,6 +179,7 @@ RESEARCH = (
     "PriceEachHopAtItsSlot",
     "PriceHopsAtWhatTheTrimPays",
     "PriceSlotsOnTheGateChord",
+    "PinnedReachFloorsTheFlownRound",
     "ProbeMissFollowsTheGround",
     "PulseSeconds",
     "PulseTrim",

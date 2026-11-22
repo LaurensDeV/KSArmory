@@ -252,6 +252,14 @@ internal sealed class IcbmConfig
     public bool PriceSlotsOnTheGateChord = true;
 
     /// <summary>
+    /// Whether the reach drawn before the burn, and both of the slot price's lines, are the floor for the round flown
+    /// since v0.9.0, <c>0.80 · (t_go − 15 s)</c>, rather than 0.88 · t_go fitted on its retired hand-typed drag, which
+    /// over-promises up to 1.39x. A smaller reach refuses more clicks and walks fewer stops. <b>Off, and unflown.</b>
+    /// <c>docs/ICBM-OUTSTANDING.md</c> 1.24.
+    /// </summary>
+    public bool PinnedReachFloorsTheFlownRound;
+
+    /// <summary>
     /// Whether a walk gives each hop the time its divert burn takes at the bus's
     /// <see cref="LauncherProfile.TrimAccelerationMetresPerSecond2"/> -- its slot, the trim's clock and the
     /// correction's -- and plans on <see cref="TrimBudgetMetresPerSecond"/> rather than

@@ -237,24 +237,23 @@ public class DivertFootprintTests(ITestOutputHelper Out)
     }
 
     /// <summary>
-    /// <b>The measurement the pre-launch reach rests on.</b> Pinned, the footprint is the release
-    /// epoch and nothing else: the arc it is flown on cannot move it.
+    /// <b>The measurement the pre-launch reach rests on.</b> Pinned, the footprint is mostly the release
+    /// epoch: the arc it is flown on moves it by a seventh where it moves the free axis by more than three
+    /// times, and the epoch's floor is under every arc.
     /// </summary>
     /// <remarks>
     /// <para>The free-clock long axis is <c>450 · cot γ</c>, which belongs to the arc actually flown —
     /// a pad-drawn estimate of it was out by 1.04x, 0.51x and 0.59x at three flown geometries. Pinning
-    /// the arrival takes that whole axis out, and what is left is <c>0.96 · t_go</c> in <em>both</em>
-    /// directions. So the one quantity the pad cannot know is the one the pinned reach does not use,
-    /// which is what lets a target be placed before launch.</para>
+    /// the arrival takes that whole axis out, so the one quantity the pad cannot know is the one the
+    /// pinned reach does not use, which is what lets a target be placed before launch.</para>
     ///
     /// <para>Swept over 2,002–12,787 km of range, 13.3°–52.2° of arrival and two lofts at a 420 s
-    /// release: the free major runs <b>497 to 1,816</b> m per m/s, a 3.66x swing, and the pinned reach
-    /// <b>395 to 407</b>, a 1.03x one — the low end being the 12,787 km shot arriving at 13.3°, which
-    /// is the shallowest geometry in the matrix. If this ever stops holding,
-    /// <c>docs/ICBM-GUIDANCE.md</c>'s "The pad can draw the pinned reach" goes with it.</para>
+    /// release, on the Mk 21's shape's drag: the free major runs 497 to 1,807 m per m/s and the pinned reach
+    /// 354 to 406, 1.15x. The retired hand-typed drag read 395 to 407, which 0.88 · t_go was a floor of.
+    /// <c>docs/ICBM-OUTSTANDING.md</c> 1.24.</para>
     /// </remarks>
-    [Fact(Skip = "Fails on the round flown since v0.9.0: the pinned divert reach over-promises. docs/ICBM-OUTSTANDING.md 1.24.")]
-    public void ThePinnedReachIsTheReleaseEpochAndTheArcCannotMoveIt()
+    [Fact]
+    public void ThePinnedReachBarelyMovesWithTheArcAndTheEpochFloorIsUnderEveryArc()
     {
         double lo = double.PositiveInfinity, hi = 0.0;
         double freeLo = double.PositiveInfinity, freeHi = 0.0;
@@ -269,34 +268,34 @@ public class DivertFootprintTests(ITestOutputHelper Out)
             flown++;
         }
 
+        double floor = DivertFootprint.PinnedReachAt(420.0, flownRound: true);
         Out.WriteLine($"{flown} geometries at a 420 s release: pinned {lo:F0} to {hi:F0} m per m/s, "
-                      + $"free major {freeLo:F0} to {freeHi:F0}");
+                      + $"free major {freeLo:F0} to {freeHi:F0}, the epoch's floor {floor:F0}");
 
         Assert.True(flown >= 15, $"only {flown} geometries flew, which settles nothing");
 
-        // The free axis swings by more than three times; the pinned one by a few per cent.
         Assert.True(freeHi / freeLo > 3.0, $"the free major only moved {freeHi / freeLo:F2}x");
-        Assert.InRange(hi / lo, 1.0, 1.05);
+        Assert.InRange(hi / lo, 1.0, 1.2);
+        Assert.True(floor <= lo, $"the epoch draws {floor:F0} where the lowest arc reaches {lo:F0}");
     }
 
     /// <summary>
-    /// And <see cref="DivertFootprint.PinnedMetresPerSecondToGo"/> is a floor over the whole band it
+    /// And <see cref="DivertFootprint.PinnedReachAt"/> on the flown round is a floor over the whole band it
     /// is allowed in, not a fit to the middle of it.
     /// </summary>
     /// <remarks>
     /// It is drawn before the flight can check it, so the one failure that matters is promising ground
-    /// the bus cannot reach. The ratio decays with the epoch — 0.96 at 420 s, 0.89 at 745 — because the
-    /// out-of-plane response is harmonic about the body and saturates over a quarter period, which is
-    /// why the band has a top at all.
+    /// the bus cannot reach. The worst arc reaches 0.82 · t_go from 300 to 900 s and 0.63 · t_go at 60 s, where
+    /// the drag the warhead meets is most of a short fall; 0.88 · t_go promised 1.39x there.
     /// </remarks>
-    [Fact(Skip = "Fails on the round flown since v0.9.0: the pinned divert reach over-promises. docs/ICBM-OUTSTANDING.md 1.24.")]
+    [Fact]
     public void TheEpochEstimateIsAFloorEverywhereItIsAllowed()
     {
-        foreach (double seconds in new[] { DivertFootprint.EpochLeastSeconds, 240.0, 420.0, 550.0,
+        foreach (double seconds in new[] { DivertFootprint.EpochLeastSeconds, 90.0, 240.0, 420.0, 550.0,
                                            DivertFootprint.EpochMostSeconds })
         {
             Assert.True(DivertFootprint.TryAtTheEpoch(Flown(DivertFootprint.ArrivalClock.Pinned).Frame,
-                                                      seconds, out DivertFootprint estimate));
+                                                      seconds, out DivertFootprint estimate, flownRound: true));
 
             double worst = double.PositiveInfinity;
 
@@ -318,7 +317,7 @@ public class DivertFootprintTests(ITestOutputHelper Out)
     /// <see cref="ReleaseItinerary.Bus.SlotReachScale"/>'s line from the gate's floor never promises a slot more
     /// reach than its own columns fly, and it is worth having.
     /// </summary>
-    [Fact(Skip = "Fails on the round flown since v0.9.0: the pinned divert reach over-promises. docs/ICBM-OUTSTANDING.md 1.24.")]
+    [Fact]
     public void TheGateChordIsAFloorUnderEverySlotItPrices()
     {
         const double gate = 420.0;
@@ -330,7 +329,8 @@ public class DivertFootprintTests(ITestOutputHelper Out)
             foreach ((double measuredAt, double measured) in reach)
             {
                 ReleaseItinerary.Bus bus = new(gate, double.NaN, 6, ReachMeasuredAtSeconds: measuredAt,
-                                               ReachMeasuredMetresPerMetrePerSecond: measured);
+                                               ReachMeasuredMetresPerMetrePerSecond: measured,
+                                               PinnedReachOnTheFlownRound: true);
 
                 foreach ((double slot, double flown) in reach)
                 {

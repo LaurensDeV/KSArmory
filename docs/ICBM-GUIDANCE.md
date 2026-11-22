@@ -1495,7 +1495,8 @@ has no γ in it at all. **So the one quantity the pad cannot know is the one the
 
 Swept headlessly over 2,002–12,787 km of range, 13.3°–52.2° of arrival angle and loft 1.0 and 1.35 — 20
 geometries, each arc coasted to a 420 s release and the columns flown from there
-(`DivertFootprintTests.ThePinnedReachIsTheReleaseEpochAndTheArcCannotMoveIt`):
+(`DivertFootprintTests.ThePinnedReachBarelyMovesWithTheArcAndTheEpochFloorIsUnderEveryArc`, on the
+round's shape's drag):
 
 | | free long axis | pinned reach |
 | --- | --- | --- |
@@ -1520,6 +1521,12 @@ is refused outside 60–760 s where it stops being one. At the shipped 420 s gat
 against a true 395–407, about 7% small: **every click the pad accepts is one the coast's own flown reach
 accepts too**, which is the only direction this error may point. `t_go` is the gate exactly, because
 `ReleaseItinerary` counts back from it — a new target is always the *last* stop and always releases there.
+
+**The numbers above are the Mk 21's retired hand-typed drag, and on the round flown since v0.9.0 0.88 is not a
+floor.** Its shape's drag takes reach off a short fall: the same 20 arcs read **354 to 406** at 420 s, 1.15x, and
+the worst arc 0.82 · t_go from 300 to 900 s and 0.63 · t_go at 60 s, so the disc promises up to 1.39x.
+`IcbmConfig.PinnedReachFloorsTheFlownRound` (off) draws `0.80 · (t_go − 15 s)` instead, a floor from 30 to 900 s
+and 324 m per m/s at the gate. `docs/ICBM-OUTSTANDING.md` 1.24 has the sweep and what it costs a walk.
 
 **What the pad still does not know is the coast's length**, which is what bounds how many stops fit
 (`ReleaseItinerary.CoastFits`); at 2,000 km the whole coast is 351 s against a 420 s gate and only one fits.

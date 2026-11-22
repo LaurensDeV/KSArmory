@@ -16,13 +16,14 @@ public class HopCeilingRigTests(ITestOutputHelper Out)
 
     // APlannedWalkLandsEveryStopItFliesAndTheReserveBuysAnother's bus and shot, the walk started at cutoff, six targets
     // spaced wider than a gate-ending walk can reach at all.
-    private PastCutoffRig Planned(bool ownCeiling, double spacingMetres, bool gateChord = false)
+    private PastCutoffRig Planned(bool ownCeiling, double spacingMetres, bool gateChord = false, bool flownRound = false)
     {
         IcbmProgram program = new(new IcbmConfig
         {
             Armed = true, MaxAccelerationGee = 8.0f, MinArrivalAngleDeg = 0.0, ArrivalPreference = 0.5, FlyAnyRange = true,
             PulsesBelowTheFloor = false, SpendTheSplitReserveAfterTheFirstStop = true,
             WalkStartsAtCutoff = true, HopsFlyTheirOwnCeiling = ownCeiling, PriceSlotsOnTheGateChord = gateChord,
+            PinnedReachFloorsTheFlownRound = flownRound,
         }.Narrowed(nameof(IcbmConfig.WalkStartsAtCutoff), nameof(IcbmConfig.HopsFlyTheirOwnCeiling),
                    nameof(IcbmConfig.PriceSlotsOnTheGateChord)));
 
@@ -37,7 +38,9 @@ public class HopCeilingRigTests(ITestOutputHelper Out)
         rig.PlannedLead = 0;
 
         PastCutoffRig.Outcome last = rig.Fly(GameStackShortRangeTests.South(6_181_000.0));
-        Out.WriteLine($"own ceiling {(ownCeiling ? "on" : "off")}, {spacingMetres / 1_000.0:F0} km: planned "
+        Out.WriteLine($"own ceiling {(ownCeiling ? "on" : "off")}, chord {(gateChord ? "on" : "off")}, flown-round floor "
+                      + $"{(flownRound ? "on" : "off")}, {spacingMetres / 1_000.0:F0} km: ring scale {rig.Reach.SlotReachScale:F3} of "
+                      + $"{rig.Reach.Footprint.SemiMinorMetresPerMetrePerSecond:F0} m per m/s, planned "
                       + $"{rig.Plan.Stops} stops ({rig.Plan.Hold}, dearest hop {rig.Plan.HopMetresPerSecond:F2} m/s), "
                       + $"flew {rig.Stops.Count}, curtailed {rig.Curtailed}: {last.Said}");
         for (int k = 0; k < rig.Stops.Count; k++)
@@ -92,5 +95,21 @@ public class HopCeilingRigTests(ITestOutputHelper Out)
         Assert.Equal(chordStops, chord.Stops.Count);
         Assert.False(chord.Curtailed, "a stop the chord priced was not flown");
         Assert.All(chord.Stops, stop => Assert.True(stop.LandedMetres < 1.0, $"landed {stop.LandedMetres:F2} m out"));
+    }
+
+    // The shipped pricing's sixth stop at 7 km lands to the metre: 6,181 km is not the geometry the flown round's floor
+    // is held under. docs/ICBM-OUTSTANDING.md 1.24.
+    [Theory]
+    [InlineData(7_000.0, 6, 5)]
+    [InlineData(9_000.0, 5, 4)]
+    public void TheFlownRoundsFloorWalksAStopFewerAtTheSameSpacing(double spacingMetres, int shippedStops, int floorStops)
+    {
+        PastCutoffRig shipped = Planned(ownCeiling: true, spacingMetres, gateChord: true);
+        PastCutoffRig floor = Planned(ownCeiling: true, spacingMetres, gateChord: true, flownRound: true);
+
+        Assert.Equal(shippedStops, shipped.Stops.Count);
+        Assert.Equal(floorStops, floor.Stops.Count);
+        Assert.False(floor.Curtailed, "a stop the floor priced was not flown");
+        Assert.All(floor.Stops, stop => Assert.True(stop.LandedMetres < 1.0, $"landed {stop.LandedMetres:F2} m out"));
     }
 }
