@@ -130,6 +130,16 @@ internal sealed partial class IcbmComputer
 
         // The turn's jets and the trim's are kept apart: the trim's acceleration estimate assumes a steady frame.
         _mayTrim = plan.MayTrim && !Turning && !HopWaitsForItsWarhead;
+        if (_didSplit && !_trimHasPushed)
+        {
+            if (!_mayTrim) _heldBeforeTheTrim += simStep;
+            else
+            {
+                _trimHasPushed = true;
+                Log.Info($"{KsaWorld.DisplayName(Craft)} ICBM: the trim was held {_heldBeforeTheTrim:F1} s after the split"
+                         + (Config.PostBoostClockStartsAtTheTrim ? "; the correction's clock gives it back" : ""));
+            }
+        }
 
         _trim.Begin();
 
@@ -187,7 +197,7 @@ internal sealed partial class IcbmComputer
             BudgetMetresPerSecond: Config.HopsSizeTheirOwnSlots
                                        ? ReleaseLoop.PlanningBudget(TrimBudgetMetresPerSecond)
                                        : PostBoostAim.MaxTrimMetresPerSecond + ReserveReleasedMetresPerSecond,
-            MaxSeconds: Config.HopsSizeTheirOwnSlots ? PostBoostAim.MaxSeconds + _hopBurnSeconds : double.NaN,
+            MaxSeconds: PostBoostMaxSeconds(),
             HoldingCostMetresPerSecond: double.IsFinite(_holdingCost)
                                             ? _holdingCost
                                             : Config.HoldingCostMetresPerSecond,
@@ -425,5 +435,14 @@ internal sealed partial class IcbmComputer
         {
             Log.Debug($"holding cost could not be measured: {e.Message}");
         }
+    }
+
+    // The correction's clock runs from the split, so a trim held for the clearance spends it waiting: at 1,000 km a
+    // hold over 80 s left one or two passes and a release kick over its cap. docs/ICBM-OUTSTANDING.md 1.26.
+    private double PostBoostMaxSeconds()
+    {
+        double clock = Config.HopsSizeTheirOwnSlots ? PostBoostAim.MaxSeconds + _hopBurnSeconds : double.NaN;
+        if (!Config.PostBoostClockStartsAtTheTrim) return clock;
+        return (double.IsFinite(clock) ? clock : PostBoostAim.MaxSeconds) + _heldBeforeTheTrim;
     }
 }

@@ -64,6 +64,10 @@ internal sealed partial class IcbmComputer
     private bool _awaitingSplit;
     private bool _didSplit;
     private bool _mayTrim = true;
+
+    // Simulated seconds from the split until the trim was first allowed to push, and whether it has been.
+    private double _heldBeforeTheTrim;
+    private bool _trimHasPushed;
     private bool _saidBudget;
 
     private bool _saidFloorUnaffordable;
@@ -654,6 +658,8 @@ internal sealed partial class IcbmComputer
         _keepOutTowardCci = double3.Zero;
         _sinceSplit = 0.0;
         _mayTrim = true;
+        _heldBeforeTheTrim = 0.0;
+        _trimHasPushed = false;
         _saidBudget = false;
         _saidFloorUnaffordable = false;
         _owedAtSplit = double.NaN;

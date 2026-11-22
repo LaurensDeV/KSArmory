@@ -520,6 +520,14 @@ internal sealed class IcbmConfig
     public bool MissKickStopsAtTheCap;
 
     /// <summary>
+    /// Give the post-boost correction its whole clock from the moment the trim may first push, not from the split: a
+    /// trim held for the clearance spends that clock waiting. At 1,000 km on 2026-11-21 the hold predicted the release
+    /// probe's miss at r = 0.89, and over 80 s of it left one or two passes and a kick over its cap.
+    /// <b>Off, and unflown.</b> <c>docs/ICBM-OUTSTANDING.md</c> 1.26.
+    /// </summary>
+    public bool PostBoostClockStartsAtTheTrim;
+
+    /// <summary>
     /// Hold a long shot's aim correction while solids that cannot stop are burning and KSA reports what
     /// they have left, which it does for the controlled craft alone. On: every rocket within 16.2 mm.
     /// <c>docs/ACCURACY-PLAN.md</c>, "12,900 km on 2026-10-06".

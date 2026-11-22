@@ -48,11 +48,10 @@ rockets of every world on each arm) unless it says otherwise. Logs are in `~/sho
     tonight's 1,000 km cells. By chance alone that is p = 0.04.
   - That class is a release kick refused at its cap, which the lead could reach only by moving the predicted miss.
   - It stays off until a 1,000 km night with it on and 1.26 answered shows nothing.
-- **A 400 m class at 1,000 km, and what it is.** 4 of 176 rockets across tonight's 1,000 km cells landed
-  365-443 m out, every warhead together, on every arm. Each wanted a release kick of 1.11-1.24 m/s to cancel its probe's
-  predicted miss, against the 1 m/s cap, so the kick was refused whole. The good rockets took kicks up to 0.98 m/s.
-  It is `docs/ICBM-OUTSTANDING.md` 1.26, and none of this plan's flags caused it. The gated lead's two in 16 against two in
-  160 elsewhere is then a matter of which rockets' predicted misses fell past 1 m/s.
+- **A 400 m class at 1,000 km, and what it is.** 6 of 239 rockets at 1,000 km landed 365-598 m out, every warhead
+  together, on every arm. Each wanted a release kick over the 1 m/s cap, and was refused it whole. The kick was that
+  large because the trim had been held for the separation clearance, on the correction's own 120 s clock, until only
+  one or two passes were left. It is `docs/ICBM-OUTSTANDING.md` 1.26, and none of this plan's flags caused it.
 - **Phase 3 found a bug.** `Lambert.MaxIterations` was 48, which left 1.68 mm/s on a 10 s hop across 1 deg. At 64
   every reference case is within 0.03 mm/s. Flown in both arms of every cell above.
 
