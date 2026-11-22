@@ -46,13 +46,13 @@ rockets of every world on each arm) unless it says otherwise. Logs are in `~/sho
     (1.05x and 0.82x on the two runs of four).
   - At 1,000 km two of its 16 rockets were in the 400 m class below, against two of the 160 other rockets of
     tonight's 1,000 km cells. By chance alone that is p = 0.04.
-  - It leads no step, and the 41 km handover where that class shows is a step, so the mechanism is not obvious.
-  - It stays off until 1.26 is understood or a 1,000 km night with it on shows nothing.
-- **A 400 m class at 1,000 km, older than anything here.** 4 of 176 rockets across tonight's 1,000 km cells landed
-  365-443 m out, every warhead together. One was on the base arm, one on the stage-model arm and two on the gated lead.
-  All four release with the trim still owing 2.0-5.6 m/s, the same at the split as on release, and correct the aim off
-  at most one plant reading, three of them off none. The 51-57 deg step every rocket's command takes at the 41 km
-  handover is not what separates them. It is `docs/ICBM-OUTSTANDING.md` 1.26.
+  - That class is a release kick refused at its cap, which the lead could reach only by moving the predicted miss.
+  - It stays off until a 1,000 km night with it on and 1.26 answered shows nothing.
+- **A 400 m class at 1,000 km, and what it is.** 4 of 176 rockets across tonight's 1,000 km cells landed
+  365-443 m out, every warhead together, on every arm. Each wanted a release kick of 1.11-1.24 m/s to cancel its probe's
+  predicted miss, against the 1 m/s cap, so the kick was refused whole. The good rockets took kicks up to 0.98 m/s.
+  It is `docs/ICBM-OUTSTANDING.md` 1.26, and none of this plan's flags caused it. The gated lead's two in 16 against two in
+  160 elsewhere is then a matter of which rockets' predicted misses fell past 1 m/s.
 - **Phase 3 found a bug.** `Lambert.MaxIterations` was 48, which left 1.68 mm/s on a 10 s hop across 1 deg. At 64
   every reference case is within 0.03 mm/s. Flown in both arms of every cell above.
 
