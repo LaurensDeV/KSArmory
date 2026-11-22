@@ -4,8 +4,57 @@
 mod's tree at `f36ba18` (KSA `2026.11.16.5901`), 454 commits later, beside `docs/ICBM-GUIDANCE.md` and the code
 under `Sim/Icbm/` and `Ksa/Icbm/`. The same day, every candidate was priced against the flown logs in `~/shots`.
 
-Engine facts were checked against the 5901 decompiled corpus. Nothing here has been built or flown. The live ranking
-of ballistic work stays `docs/ICBM-OUTSTANDING.md`, and an item moves there when somebody picks it up.
+Engine facts were checked against the 5901 decompiled corpus. The live ranking of ballistic work stays
+`docs/ICBM-OUTSTANDING.md`, and an item moves there when somebody picks it up. [Progress](#progress) says what has
+been built and flown since.
+
+## Progress
+
+Flown on the night of 2026-11-21/22, KSA 2026.11.16.5901, on `SOLVER SCALE 8` (eight GeoSat FATs, paired: half the
+rockets of every world on each arm) unless it says otherwise. Logs are in `~/shots/2026-11-21-fc`.
+
+- **Phase 0's attitude and q instruments are built** (`Sim/PhaseSamples.cs`): one INFO line as each phase ends, with
+  the nose's median, p95 and maximum angle off the line wanted, and the engine's own peak q against its 200 kPa.
+  Through the pitch programme on the base arm at 12,900 km: 0.13 deg median, 2.5 max, q peaking at 52-53 kPa at 13 km.
+- **1c, the stand-down, is on** (`IcbmConfig.StandsDownWhenControlIsTaken`).
+  - On `SOLVER SCALE 1`, KSA's own Prograde pressed through the bridge five seconds into the pitch programme stood the
+    computer down within the frame.
+  - Its first form stood down on the first frame `IsControllable` read false. At every separation the half without
+    the control module reads that for the frames before the computer moves onto the bus, so all four buses of one arm
+    were disarmed. It now waits a second. After that, 20 rocket flights at 1,000-12,900 km never stood down unasked.
+- **2a, the stage model, is built, off, and neutral** (`IcbmConfig.RefreshStageModel`, `Ksa/StageModel.cs`).
+  - Every other seat went from `stack 0` to 14,710 m/s, at 0.1-0.3 ms a recompute.
+  - At 1,000 km over 14 paired shots it won 7: 0.30x on the first two, 0.40x on the next six (4 of 6), 1.91x on the
+    last six (1 of 6). At 12,900 km the arms land alike (4.41 mm against 4.25).
+  - So the figure is right and the shot does not notice: the stage figure only moves the solids' loft and the wait for
+    them, and at these ranges neither shows above the millimetres the scatter already is.
+- **Propellant is measurable at 12,900 km and not at 1,000.** Thrust spent past the requirement at ignition, arm against
+  base per shot: steady to a few m/s at 12,900 km, and swinging -720 to +850 m/s at 1,000 km, for a reason not yet
+  read. A propellant claim from the short cell is noise.
+- **1b, the decoupler row, is built, off** (`IcbmConfig.RestagesARowThatLightsNothing`). Flown on, it changed nothing on
+  GeoSat FAT, which has no such row. No stack that has one has been flown.
+- **2c, leading the attitude command, loses as first built** (`IcbmConfig.CommandLeadSeconds`, off).
+  - At 0.9 s, leading every turn took the closed loop's p95 from about 13 deg to about 4 deg.
+  - It also raised the pitch programme's median from 0.13 to 0.47 deg, and at 12,900 km spent +196, +204, +196 and
+    +201 m/s more than base on the four shots, landing alike (1.04x).
+  - The pitch programme turns at 1.3 deg/s at most and the swing at up to 16, so `CommandLeadFromDegPerSecond` leads
+    only the fast turn.
+- **Gated, the lead is a small win on the long shot, and unsettled on the short one.**
+  - With `CommandLeadFromDegPerSecond=4`, the pitch programme is untouched: 0.13 deg median, 0.55 p95.
+  - The closed loop's p95 goes from 12 deg to 4.5 deg.
+  - At 12,900 km it spent less than base on all eight shots, by 4 to 18 m/s (sign test p = 0.008), landing alike
+    (1.05x and 0.82x on the two runs of four).
+  - At 1,000 km two of its 16 rockets were in the 400 m class below, against two of the 160 other rockets of
+    tonight's 1,000 km cells. By chance alone that is p = 0.04.
+  - It leads no step, and the 41 km handover where that class shows is a step, so the mechanism is not obvious.
+  - It stays off until 1.26 is understood or a 1,000 km night with it on shows nothing.
+- **A 400 m class at 1,000 km, older than anything here.** 4 of 176 rockets across tonight's 1,000 km cells landed
+  365-443 m out, every warhead together. One was on the base arm, one on the stage-model arm and two on the gated lead.
+  All four release with the trim still owing 2.0-5.6 m/s, the same at the split as on release, and correct the aim off
+  at most one plant reading, three of them off none. The 51-57 deg step every rocket's command takes at the 41 km
+  handover is not what separates them. It is `docs/ICBM-OUTSTANDING.md` 1.26.
+- **Phase 3 found a bug.** `Lambert.MaxIterations` was 48, which left 1.68 mm/s on a 10 s hop across 1 deg. At 64
+  every reference case is within 0.03 mm/s. Flown in both arms of every cell above.
 
 That mod is a general flight computer for KSA, with no ballistic guidance. What overlaps:
 - its ascent to orbit (UPFG plus a convex ascent planner);
