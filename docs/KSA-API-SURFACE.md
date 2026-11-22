@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-388 types and 1014 members across 12 assemblies.
+389 types and 1020 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -1981,7 +1981,9 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.SequencePerformance
 
-*referenced as a type only*
+- `System.Collections.Generic.List`1<KSA.SequencePhaseInfo> Phases`
+- `System.Collections.Generic.List`1<System.Collections.Generic.HashSet`1<KSA.Part>> PhaseEngineParts`
+- `float WetMass`
 
 ### KSA.SequencePerformanceList
 
@@ -1991,6 +1993,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `float get_TotalDeltaV()`
 - `void RecomputeForFlight(float)`
 - `void SetDirty()`
+
+### KSA.SequencePhaseInfo
+
+- `float Duration`
+- `float MassFlowRate`
+- `float Thrust`
 
 ### KSA.SerializedId
 

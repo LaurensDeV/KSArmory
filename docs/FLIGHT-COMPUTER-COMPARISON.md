@@ -199,15 +199,24 @@ Use a fresh boot, and stay off the CPU while it flies (`docs/SHOT-PROTOCOL.md`).
 - This is what lets the reach, the arrival budget, `BoosterReach` and the panel's "one stage's reckoning" use the whole
   stack on every seat.
 
-**2b. A stage plan for the countdown** (`Sim/StagePlan.cs`, `IcbmConfig.FlyTheStagePlan`, off; needs 2a).
-- One constant-thrust phase per `SequencePerformance` phase, read from index 0, skipping spent sequences.
-- The active phase takes the live thrust and flow from `BoosterPerformance`; later phases take design figures. The
-  live headline thrust is never combined with the design delta-v.
-- A solid's burn time comes from the recompute, since its grain is not in a tank.
-- Each phase's throttle floor is read from the parts: the lowest `EngineController.MinimumThrottle` among its engines.
-  That mod reads it with a transpiler on a private method; reading the parts avoids that.
-- `BurnoutGuidance`'s `timeToCutoff` then knows the stagings.
-- Test: a two-stage stack whose countdown on the single-stage model cuts off late.
+**2b. A stage plan for the countdown** (`Sim/StagePlan.cs`, `IcbmConfig.FlyTheStagePlan`). **Built, off, not flown.**
+- One constant-thrust phase per `SequencePerformance` phase, read from index 0; a spent sequence has no phases, which
+  skips it (`StageModel.Plan`, laid out as `SequencePerformanceList.FillStagedBurn` lays them).
+- The running phase takes the live thrust, flow and mass from `BoosterPerformance` and keeps the propellant the
+  recompute gave it; later phases take design figures. The live headline thrust is never combined with the design
+  delta-v: each phase's delta-v comes from its own thrust, flow, mass and duration.
+- A solid's burn time comes from the recompute, since its grain is not in a tank, and a solid reached is spent whole.
+- Each phase's throttle floor is read from the parts (`PhaseEngineParts`): the lowest `EngineController.MinimumThrottle`
+  among its engines. Carried, and nothing reads it yet.
+- `BurnoutGuidance` takes it for the time to gain, the propellant cap on the predicted cutoff and the displacement to
+  it; the program's along-the-line countdowns take it too.
+- Rig (`StagePlanFlightTests`): a 640 km shot off a 900 kN first stage hands over about ten seconds before the staging.
+  Against the full-throttle seconds actually flown to cutoff, the worst countdown before the staging is 10.51 s off
+  without the plan and 3.31 s with it; the miss is 0.84 m and 0.13 m, both inside the noise.
+- **Not neutral on every geometry.** On the same stack at 955 km the plan's slightly larger velocity to gain kept the
+  climb from handing over before the staging (`ReserveBinds` reads the running stage alone), so the schedule flew on
+  into the upper stage: cutoff at 278 s against 190 s, 1.1 t of propellant left against 8.7 t, miss 3.6 m against
+  4.4 m. A paired night must look at propellant at cutoff, not only the miss.
 - **Why it ranks here:** 1.23's open next step is to end the 1,000 km burn on the upper stage, where every cutoff has
   been clean, and a countdown that knows where the upper stage begins is what that needs.
 

@@ -627,6 +627,12 @@ countdown; the frame runs it down; the engines stop when less than half a frame 
 which puts the cutoff at the frame boundary nearest the ideal instant. Inside three quarters of a
 second of cutoff it solves every step, because those thirty frames decide the shot.
 
+**The countdown is the running stage's law carried past its burnout**, which reads a burn spanning a
+staging short: the upper stage's thrust and the dry mass thrown away are not in it. It is re-solved
+after the staging, so the cutoff itself is unaffected; what the short reading moves is the cutoff the
+arc is solved from before then. `IcbmConfig.FlyTheStagePlan` (off, rig-tested, not flown) counts it down
+over every stage left instead (`Sim/StagePlan.cs`, `docs/FLIGHT-COMPUTER-COMPARISON.md` 2b).
+
 **The throttle comes back for the last two seconds** — `IcbmProgram.ThrottleDownSeconds` — which
 divides the residual by the same fraction. Nothing depends on the vehicle honouring it: the cutoff
 test is written against the throttle the vehicle *reports having*, not the one that was asked for,

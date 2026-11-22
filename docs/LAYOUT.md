@@ -136,6 +136,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Sim/AimAuthority.cs` | what a metre of aim movement costs the trim — **a property of the trajectory**, and the rate the trim floor in `Ksa/Icbm/IcbmComputer.Trim.cs` is a stop band over |
 | `Sim/BoosterPerformance.cs` | what the stack can still do, as the four numbers guidance needs |
 | `Sim/BurnoutGuidance.cs` | where to point and when to stop — velocity still to be gained |
+| `Sim/StagePlan.cs` | every burn the stack has left, staging included, as constant-thrust phases — **the countdown across a staging**, which the running stage's law reads short; a solid reached is spent whole. Behind `IcbmConfig.FlyTheStagePlan`, off |
 | `Sim/AscentProfile.cs` | the schedule flown while there is air, and the limit that keeps the stack in one piece |
 | `Sim/PostBoostAim.cs` | correcting the aim after the engines stop — **the trim is the actuator**, and nothing is read off a bus whose nose is turning |
 | `Sim/Icbm/IcbmProgram.cs` | **the flight** — pad to cutoff to release, as one phase machine |
@@ -321,7 +322,7 @@ assembly, so a `using KSA;` under `Sim/` fails the test build. It also means a n
 | `Ksa/Icbm/IcbmComputer.Kick.cs` | the separation kick each warhead is thrown with, and the release probe it is solved against |
 | `Ksa/Icbm/IcbmComputer.Prediction.cs` | the flown impact prediction the aim correction reads |
 | `Ksa/Icbm/IcbmComputer.Reach.cs` | the divert footprint flown, pinned at the epoch, and read back as offsets and axes for the panel and the overlay |
-| `Ksa/StageModel.cs` | a computer-flown craft's stage performance recomputed from `AttitudeHook`'s window, four times a second of wall clock and the frame after a staging -- **KSA keeps it current for the controlled craft alone**, so every other rocket reads an empty list; behind `IcbmConfig.RefreshStageModel` |
+| `Ksa/StageModel.cs` | a computer-flown craft's stage performance recomputed from `AttitudeHook`'s window, four times a second of wall clock and the frame after a staging -- **KSA keeps it current for the controlled craft alone**, so every other rocket reads an empty list; behind `IcbmConfig.RefreshStageModel`; and `Plan`, that list read into a `StagePlan` with the running phase on the engines' live figures |
 | `Ksa/Icbm/IcbmComputers.cs` | one per craft carrying a part that provides `Guidance` — **the Heavy MIRV Bus alone today**, so a Pantsir or a rail gets none — crewed and forgotten with it |
 | `Ksa/AttitudeHook.cs` | **one of the thirteen methods this mod patches in the game** — the only window in which an attitude command survives |
 | `Ksa/PreRenderHook.cs` | the second — **a step before the render on a frame that draws no UI**, because StarMap has no hook that is both |

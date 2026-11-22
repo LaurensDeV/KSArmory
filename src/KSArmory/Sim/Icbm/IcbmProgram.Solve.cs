@@ -39,7 +39,7 @@ internal sealed partial class IcbmProgram
         bool steered = BurnoutGuidance.TrySteer(
             state.Body, state.PositionCci, state.VelocityCci, aimUsed, state.Booster,
             out BurnoutGuidance.Command command, Config.Loft, LongWay, _cutoffSeed, _flightSeed,
-            arrivalFromNow, floorDeg, _unavoidable);
+            arrivalFromNow, floorDeg, _unavoidable, Plan(state));
 
         // A floor is what to aim for, not a reason to fly nowhere. A stack that cannot afford the
         // arrival asked for still has a target, and the shallow arc it can afford is worth far more
@@ -53,7 +53,7 @@ internal sealed partial class IcbmProgram
         {
             steered = BurnoutGuidance.TrySteer(
                 state.Body, state.PositionCci, state.VelocityCci, aimUsed, state.Booster,
-                out command, Config.Loft, LongWay, _cutoffSeed, _flightSeed, arrivalFromNow);
+                out command, Config.Loft, LongWay, _cutoffSeed, _flightSeed, arrivalFromNow, plan: Plan(state));
 
             if (steered) _arrivalFloorUnaffordable = true;
         }
@@ -143,7 +143,7 @@ internal sealed partial class IcbmProgram
             _thrustDirCci = Vec.TurnToward(_thrustDirCci, command.ThrustDirectionCci, turn);
 
             double along = Vec.Dot(command.ToGainVectorCci, _thrustDirCci);
-            double seconds = state.Booster.SecondsToGain(Math.Max(along, 0.0));
+            double seconds = SecondsToGain(state, Math.Max(along, 0.0));
             _countdown = double.IsFinite(seconds) ? seconds : 0.0;
         }
         else if (_toGain > holdBelow || _thrustDirCci.Equals(Vec.Zero) || (_lineCarriedOver && SlowsTheLine(state)))
@@ -157,7 +157,7 @@ internal sealed partial class IcbmProgram
             // Steering is frozen, so only the component along the line being thrust can still be
             // removed; counting down the whole length overshoots and grows the residual again.
             double along = Vec.Dot(command.ToGainVectorCci, _thrustDirCci);
-            double seconds = state.Booster.SecondsToGain(Math.Max(along, 0.0));
+            double seconds = SecondsToGain(state, Math.Max(along, 0.0));
             _countdown = double.IsFinite(seconds) ? seconds : 0.0;
         }
         AssessReach(state, command.VelocityToGain);
@@ -192,6 +192,11 @@ internal sealed partial class IcbmProgram
             _arrivalFromLaunch = double.NaN;
         }
     }
+
+    private StagePlan? Plan(in IcbmState state) => Config.FlyTheStagePlan ? state.StagePlan : null;
+
+    private double SecondsToGain(in IcbmState state, double deltaV)
+        => Plan(state) is { } plan ? plan.SecondsToGain(deltaV) : state.Booster.SecondsToGain(deltaV);
 
     // The closed loop's latch: a steady aim, an aim that sits out the burn, the window, or a short shot. Once solids
     // have burned out inside the loop, the window and the steady aim count from their burnout instead.

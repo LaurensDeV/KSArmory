@@ -95,6 +95,66 @@ internal static class StageModel
         }
     }
 
+    /// <summary>
+    /// Every burn the craft has left, as <c>SequencePerformanceList.FillStagedBurn</c> lays them out, the running one on
+    /// the engines' live figures; null when the list is empty or cannot be read.
+    /// </summary>
+    public static StagePlan? Plan(Vehicle craft, in BoosterPerformance live)
+    {
+        try
+        {
+            List<StagePhase> phases = [];
+            // From index 0: a spent sequence has no phases, which skips it.
+            foreach (ref readonly SequencePerformance sequence in craft.Parts.PerformanceSequences.PerformanceSequences)
+            {
+                if (sequence.Phases is not { } info) continue;
+
+                double mass = sequence.WetMass;
+                bool startsStage = true;
+                for (int i = 0; i < info.Count; i++)
+                {
+                    SequencePhaseInfo phase = info[i];
+                    if (!(phase.Duration > 0f && phase.Thrust > 0f && phase.MassFlowRate > 0f)) continue;
+
+                    HashSet<Part>? engines = sequence.PhaseEngineParts is { } parts && i < parts.Count ? parts[i] : null;
+                    (bool solid, double floor) = Engines(engines);
+                    phases.Add(new StagePhase(phase.Thrust, phase.MassFlowRate, mass, phase.Duration, solid, floor, startsStage));
+                    mass -= (double)phase.MassFlowRate * phase.Duration;
+                    startsStage = false;
+                }
+            }
+
+            StagePlan plan = new(phases);
+            return plan.IsEmpty ? null : plan.WithRunning(live);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    // Any solid makes the phase uncuttable; the floor is the lowest any of its engines holds.
+    private static (bool Solid, double MinThrottle) Engines(HashSet<Part>? parts)
+    {
+        if (parts is null) return (false, 0.0);
+
+        bool solid = false;
+        double floor = double.PositiveInfinity;
+        foreach (Part part in parts)
+        {
+            Span<EngineController> engines = part.Modules.Get<EngineController>();
+            for (int i = 0; i < engines.Length; i++)
+            {
+                floor = Math.Min(floor, engines[i].MinimumThrottle);
+                foreach (Rocket rocket in engines[i].Rockets)
+                {
+                    foreach (RocketCore core in rocket.Cores) solid |= core is SolidMotor;
+                }
+            }
+        }
+        return (solid, double.IsFinite(floor) ? floor : 0.0);
+    }
+
     // Craft the census no longer holds, so a destroyed vehicle is not kept reachable.
     public static void Prune()
     {

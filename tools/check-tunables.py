@@ -135,6 +135,7 @@ RESEARCH = (
     "AimWaitsForCutoffUnderAFloor",
     "AimWaitsForTheSolids",
     "RefreshStageModel",
+    "FlyTheStagePlan",
     "RestagesARowThatLightsNothing",
     "StandsDownWhenControlIsTaken",
     "CommandLeadSeconds",

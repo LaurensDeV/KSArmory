@@ -63,13 +63,15 @@ internal static class BurnoutGuidance
     /// arc under the floor is refused and the constrained search re-commits; a predicate is idempotent
     /// where a loft multiplier is not.</para>
     /// </param>
+    /// <param name="plan">Every burn left, staging included; null counts the running stage's law alone.</param>
     public static bool TrySteer(BallisticBody body, double3 positionCci, double3 velocityCci,
                                 double3 aimNowCci, BoosterPerformance booster,
                                 out Command command, double loft = 1.0, bool longWay = false,
                                 double cutoffSeed = 0.0, double flightSeed = double.NaN,
                                 double arrivalFromNowSeconds = double.NaN,
                                 double minArrivalDeg = 0.0,
-                                double minToGain = 0.0)
+                                double minToGain = 0.0,
+                                StagePlan? plan = null)
     {
         command = default;
 
@@ -97,7 +99,7 @@ internal static class BurnoutGuidance
             cutoffPosition = positionCci
                            + velocityCci * timeToCutoff
                            + gravity * (0.5 * timeToCutoff * timeToCutoff)
-                           + thrustDir * booster.ThrustDisplacement(timeToCutoff);
+                           + thrustDir * (plan?.ThrustDisplacement(timeToCutoff) ?? booster.ThrustDisplacement(timeToCutoff));
 
             // A first pass along the seeded direction can predict a cutoff tens of kilometres
             // underground, from which no arc departs; lifting it to the surface costs the converged
@@ -150,12 +152,12 @@ internal static class BurnoutGuidance
             if (!next.Equals(Vec.Zero)) thrustDir = next;
 
             // Infinite when the stack cannot thrust: a zero would read as a finished burn.
-            wanted = booster.SecondsToGain(toGain);
+            wanted = plan?.SecondsToGain(toGain) ?? booster.SecondsToGain(toGain);
             if (double.IsNaN(wanted)) wanted = 0.0;
 
-            // The prediction is capped at this stage's propellant and the reported time is not:
-            // capping the reported one cuts the engines at every staging.
-            double available = booster.BurnSecondsRemaining;
+            // The prediction is capped at the propellant it is told of and the reported time is not:
+            // capping the reported one on a single stage's figures cuts the engines at every staging.
+            double available = plan?.BurnSecondsRemaining ?? booster.BurnSecondsRemaining;
             timeToCutoff = available > 0.0 ? Math.Min(wanted, available) : wanted;
             if (!double.IsFinite(timeToCutoff)) timeToCutoff = 0.0;
 

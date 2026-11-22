@@ -552,6 +552,13 @@ internal sealed class IcbmConfig
     public bool RefreshStageModel = true;
 
     /// <summary>
+    /// Count the cutoff down over every stage left (<see cref="StagePlan"/>) rather than the running stage's law carried
+    /// past its burnout, which reads a burn spanning a staging short. Rig-tested, not yet flown.
+    /// <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 2b.
+    /// </summary>
+    public bool FlyTheStagePlan;
+
+    /// <summary>
     /// Arm a short shot's backstop at <see cref="BusTrim.MaxMetresPerSecond"/> rather than
     /// <see cref="IcbmProgram.BackstopBelow"/> when its arc releases after the trim, so a residual that
     /// turns back up is cut off and handed to the trim. On: Real SRB4 108 → 3.9 mm at 500 km.

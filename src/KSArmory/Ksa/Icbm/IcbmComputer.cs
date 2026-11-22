@@ -1386,7 +1386,7 @@ internal sealed partial class IcbmComputer
                              RunningStageDeltaV(), _densityRatio ??= DensityRatioAt, _warhead,
                              ReleaseOffsetCci(), ReleaseImpulseCci(), KsaWorld.OnlySolidsRunning(Craft),
                              AirframeLimitGee > 0.0 ? Craft.StructuralLoad.PeakGLoad : double.NaN,
-                             _lastStageLitNothing);
+                             _lastStageLitNothing, Config.FlyTheStagePlan ? StageModel.Plan(Craft, booster) : null);
     }
 
     /// <summary>What the engine destroys this airframe at, in g, or zero if it has not said.</summary>

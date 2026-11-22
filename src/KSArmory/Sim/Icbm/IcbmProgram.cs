@@ -140,7 +140,10 @@ internal readonly record struct IcbmState(
     double LoadGee = double.NaN,
 
     /// <summary>The stage last asked for fired a sequence holding nothing that burns; false if the caller cannot say.</summary>
-    bool LastStageLitNothing = false)
+    bool LastStageLitNothing = false,
+
+    /// <summary>Every burn the stack has left, the running one on its live figures; null if the caller cannot say.</summary>
+    StagePlan? StagePlan = null)
 {
     public double Altitude => Body.AltitudeOf(PositionCci);
 
