@@ -529,9 +529,11 @@ internal sealed class IcbmConfig
     /// <summary>
     /// Recompute the stage performance of every computer-flown craft a few times a second, which KSA does for the
     /// controlled craft alone and only with its staging list or engine gauge open; unrefreshed, every other seat reads
-    /// its running stage as empty. <b>Off, and unflown.</b> <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 2a.
+    /// its running stage as empty, and the reach and the shortfall are one stage's reckoning. Flown 2026-11-21: 14
+    /// paired shots at 1,000 km and 2 at 12,900 land alike, at 0.1-0.3 ms a recompute.
+    /// <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 2a.
     /// </summary>
-    public bool RefreshStageModel;
+    public bool RefreshStageModel = true;
 
     /// <summary>
     /// Arm a short shot's backstop at <see cref="BusTrim.MaxMetresPerSecond"/> rather than
