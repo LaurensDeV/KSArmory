@@ -36,6 +36,7 @@
 #   ./tools/scenario.sh head-on --keep   # leave the game running afterwards
 #   ./tools/scenario.sh head-on --shots  # ...and screenshot on CAPTURE (whole screen, opt-in)
 #   ./tools/scenario.sh mirv --no-deploy # fly whatever is already in the mods folder
+#   KSARMORY_SCENARIO_SOUND=1 ./tools/scenario.sh drop   # with the game's sound on; every other run is muted
 #   KSARMORY_SCENARIO_WINDOW=native ./tools/scenario.sh mirv   # the player's own display mode and size;
 #       the default is a 1280x720 window, so a run does not cost the frame rate of a machine in use
 #   KSARMORY_SCENARIO_VERBOSE=1 ./tools/scenario.sh head-on   # ...logging at DEBUG, per-part blast sweep included
@@ -235,7 +236,7 @@ SETTINGS_OWNER="$USER_DIR/Logs/scenario-settings-owner.txt"
 RUN_ID="$$-$(date +%s%N)"
 if [[ -f "$SETTINGS" ]]; then
     if [[ ! -s "$SETTINGS_WAS" ]]; then
-        grep -E '^(selectSystemOnStart|startVehicle|lastSystemId|mode|width|height|posX|posY) = ' \
+        grep -E '^(selectSystemOnStart|startVehicle|lastSystemId|mode|width|height|posX|posY|masterVolume) = ' \
             "$SETTINGS" > "$SETTINGS_WAS" || true
     fi
     echo "$RUN_ID" > "$SETTINGS_OWNER"
@@ -256,6 +257,9 @@ if [[ -f "$SETTINGS" ]]; then
                -e "s/^width = .*/width = ${BASH_REMATCH[1]}/" -e "s/^height = .*/height = ${BASH_REMATCH[2]}/" \
                -e 's/^posX = .*/posX = 40/' -e 's/^posY = .*/posY = 40/' "$SETTINGS"
     fi
+
+    # Silent unless the run is about a sound; the player's volume comes back with the rest.
+    [[ "${KSARMORY_SCENARIO_SOUND:-0}" == 1 ]] || sed -i 's/^masterVolume = .*/masterVolume = 0/' "$SETTINGS"
 fi
 
 # Any instance still up is one an earlier run left behind -- this launches its own either way, and
