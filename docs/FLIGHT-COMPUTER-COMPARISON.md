@@ -58,6 +58,15 @@ rockets of every world on each arm) unless it says otherwise. Logs are in `~/sho
   together, on every arm. Each wanted a release kick over the 1 m/s cap, and was refused it whole. The kick was that
   large because the trim had been held for the separation clearance, on the correction's own 120 s clock, until only
   one or two passes were left. It is `docs/ICBM-OUTSTANDING.md` 1.26, and none of this plan's flags caused it.
+- **The 400 m class is fixed** (`docs/ICBM-OUTSTANDING.md` 1.26), with two changes on:
+  - `PostBoostClockPausesForTheClearance`: 0.12x base at 1,000 km on 8 of 8, alike at 6,180 and 12,900 km.
+  - `MissKickStopsAtTheCap`.
+- **1.24 and 5.7 are fixed.** The divert reach is floored on the flown round, on and flown. An unlimited trim budget is
+  unlimited per pass.
+- **2b, the stage plan, is built, off, and neutral.**
+  - At 12,900 km its burn matched base to 8 m/s and it landed alike (1.02x). Its 'saving' of 481 m/s on every shot was
+    the reckoned requirement moving, not the burn.
+  - At 1,000 km it was unresolved: 0.58x, with per-shot ratios from 0.07 to 5.46.
 - **Phase 3 found a bug.** `Lambert.MaxIterations` was 48, which left 1.68 mm/s on a 10 s hop across 1 deg. At 64
   every reference case is within 0.03 mm/s. Flown in both arms of every cell above.
 
