@@ -525,9 +525,11 @@ internal sealed class IcbmConfig
     /// <summary>
     /// Give a miss kick over its cap at the cap, along the line that cancels it, rather than refuse it whole. At
     /// 12,900 km seven of 48 groups landed 442-550 m out on a kick of 1.01-1.17 m/s against the 1 m/s cap, which at
-    /// the cap would have taken 86-99% of it. <b>Off, and unflown.</b> <c>docs/ACCURACY-PLAN.md</c> 3fr.
+    /// the cap would have taken 86-99% of it. Flown 2026-11-23 at 1,000 km with the cap lowered to 0.5 m/s to force it:
+    /// refused, three groups landed 304-340 m out; given at the cap, five landed 111-147 m out.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3fr, <c>docs/ICBM-OUTSTANDING.md</c> 1.26.
     /// </summary>
-    public bool MissKickStopsAtTheCap;
+    public bool MissKickStopsAtTheCap = true;
 
     /// <summary>
     /// Give the post-boost correction back every second the separation clearance holds the trim, so its clock runs on
