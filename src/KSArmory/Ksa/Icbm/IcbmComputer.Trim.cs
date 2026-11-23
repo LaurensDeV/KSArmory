@@ -176,7 +176,7 @@ internal sealed partial class IcbmComputer
             {
                 Log.Info($"{KsaWorld.DisplayName(Craft)} ICBM: the clearance held the trim {_thisHold:F1} s, "
                          + $"{_heldByTheClearance:F1} s since the split"
-                         + (Config.PostBoostClockStartsAtTheTrim ? "; the correction's clock gives it back" : ""));
+                         + (Config.PostBoostClockPausesForTheClearance ? "; the correction's clock gives it back" : ""));
             }
             _thisHold = 0.0;
         }
@@ -450,7 +450,7 @@ internal sealed partial class IcbmComputer
     private double PostBoostMaxSeconds()
     {
         double clock = Config.HopsSizeTheirOwnSlots ? PostBoostAim.MaxSeconds + _hopBurnSeconds : double.NaN;
-        if (!Config.PostBoostClockStartsAtTheTrim) return clock;
+        if (!Config.PostBoostClockPausesForTheClearance) return clock;
         return (double.IsFinite(clock) ? clock : PostBoostAim.MaxSeconds) + _heldByTheClearance;
     }
 }

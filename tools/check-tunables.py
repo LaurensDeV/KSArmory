@@ -140,7 +140,7 @@ RESEARCH = (
     "StandsDownWhenControlIsTaken",
     "CommandLeadSeconds",
     "CommandLeadFromDegPerSecond",
-    "PostBoostClockStartsAtTheTrim",
+    "PostBoostClockPausesForTheClearance",
     "BackstopRisesOnTheThrottledFrame",
     "CancelProbeMissAtSeparation",
     "CancelSpinAtSeparation",

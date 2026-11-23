@@ -533,11 +533,11 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// Give the post-boost correction back every second the separation clearance holds the trim, so its clock runs on
-    /// the trim's time rather than the split's: a trim held for the clearance spends that clock waiting. At 1,000 km on 2026-11-21 the hold predicted the release
-    /// probe's miss at r = 0.89, and over 80 s of it left one or two passes and a kick over its cap.
-    /// <b>Off, and unflown.</b> <c>docs/ICBM-OUTSTANDING.md</c> 1.26.
+    /// the trim's time rather than the split's. Flown 2026-11-23 paired on SOLVER SCALE 8: at 1,000 km 0.12x base on 8 of
+    /// 8 shots (2.1 mm against 9.5), no kick over 0.8 m/s against 10; at 12,900 and 6,180 km alike (1.03x, 0.92x).
+    /// <c>docs/ICBM-OUTSTANDING.md</c> 1.26.
     /// </summary>
-    public bool PostBoostClockStartsAtTheTrim;
+    public bool PostBoostClockPausesForTheClearance = true;
 
     /// <summary>
     /// Hold a long shot's aim correction while solids that cannot stop are burning and KSA reports what
@@ -557,8 +557,8 @@ internal sealed class IcbmConfig
 
     /// <summary>
     /// Count the cutoff down over every stage left (<see cref="StagePlan"/>) rather than the running stage's law carried
-    /// past its burnout, which reads a burn spanning a staging short. Rig-tested, not yet flown.
-    /// <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 2b.
+    /// past its burnout, which reads a burn spanning a staging short. Flown 2026-11-23 on GeoSat FAT: alike at 12,900 km
+    /// (1.02x, the same burn to 8 m/s), unresolved at 1,000. <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 2b.
     /// </summary>
     public bool FlyTheStagePlan;
 
