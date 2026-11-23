@@ -111,7 +111,9 @@ internal sealed class IcbmConfig
     /// <summary>
     /// The turn rate, deg/s, a command must reach for <see cref="CommandLeadSeconds"/> to lead it in full, eased in from
     /// half of it; zero leads every turn. Led through the pitch programme's ~1 deg/s, the nose's median error rose from
-    /// 0.13 to 0.47 deg at 12,900 km on 2026-11-22. <b>Unflown.</b>
+    /// 0.13 to 0.47 deg at 12,900 km on 2026-11-22. At 4 with <see cref="CommandLeadSeconds"/> 0.9 it saved 2-16 m/s on
+    /// 8 of 8 shots at 12,900 km and lost 5 of 8 on landing at 1,000 km, so both stay off.
+    /// <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 2c.
     /// </summary>
     public double CommandLeadFromDegPerSecond;
 

@@ -53,7 +53,9 @@ rockets of every world on each arm) unless it says otherwise. Logs are in `~/sho
   - At 1,000 km two of its 16 rockets were in the 400 m class below, against two of the 160 other rockets of
     tonight's 1,000 km cells. By chance alone that is p = 0.04.
   - That class is a release kick refused at its cap, which the lead could reach only by moving the predicted miss.
-  - It stays off until a 1,000 km night with it on and 1.26 answered shows nothing.
+  - Flown again at 1,000 km on 2026-11-23 with 1.26 fixed on both arms: all 64 rockets landed within centimetres. On
+    landing it lost 5 of 8 shots (1.54x, 0.50-1.98). It stays off: 2-16 m/s of a 9,600 m/s burn does not pay for an
+    accuracy measure that leans against it.
 - **A 400 m class at 1,000 km, and what it is.** 6 of 239 rockets at 1,000 km landed 365-598 m out, every warhead
   together, on every arm. Each wanted a release kick over the 1 m/s cap, and was refused it whole. The kick was that
   large because the trim had been held for the separation clearance, on the correction's own 120 s clock, until only
