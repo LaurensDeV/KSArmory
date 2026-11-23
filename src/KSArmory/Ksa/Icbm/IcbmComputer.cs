@@ -65,9 +65,9 @@ internal sealed partial class IcbmComputer
     private bool _didSplit;
     private bool _mayTrim = true;
 
-    // Simulated seconds from the split until the trim first pushed, and whether it has.
-    private double _heldBeforeTheTrim;
-    private bool _trimHasPushed;
+    // Simulated seconds the separation clearance has held the trim since the split, and in the hold now running.
+    private double _heldByTheClearance;
+    private double _thisHold;
     private bool _saidBudget;
 
     private bool _saidFloorUnaffordable;
@@ -658,8 +658,8 @@ internal sealed partial class IcbmComputer
         _keepOutTowardCci = double3.Zero;
         _sinceSplit = 0.0;
         _mayTrim = true;
-        _heldBeforeTheTrim = 0.0;
-        _trimHasPushed = false;
+        _heldByTheClearance = 0.0;
+        _thisHold = 0.0;
         _saidBudget = false;
         _saidFloorUnaffordable = false;
         _owedAtSplit = double.NaN;

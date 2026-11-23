@@ -16,6 +16,11 @@ rockets of every world on each arm) unless it says otherwise. Logs are in `~/sho
 - **Phase 0's attitude and q instruments are built** (`Sim/PhaseSamples.cs`): one INFO line as each phase ends, with
   the nose's median, p95 and maximum angle off the line wanted, and the engine's own peak q against its 200 kPa.
   Through the pitch programme on the base arm at 12,900 km: 0.13 deg median, 2.5 max, q peaking at 52-53 kPa at 13 km.
+- **Peak q, the worst case flown: 128 kPa, 64% of the limit, so no guard yet.** `TEST HOT SINGLE`
+  (`tools/make-rocket.py`, one A2 on two LF3W6HB, its airframe destroyed at 27.5 g) flown 100 km on 2026-11-23 peaked at
+  127.6 kPa at 4.8 km in the closed loop. That shot failed for another reason: the nose ran a median 66 deg off the
+  command through the closed loop, up to 176, and the burn ended 750 m/s short with all seven warheads aboard. A
+  stack that hot flown that short is outside anything else tested.
 - **1c, the stand-down, is on** (`IcbmConfig.StandsDownWhenControlIsTaken`).
   - On `SOLVER SCALE 1`, KSA's own Prograde pressed through the bridge five seconds into the pitch programme stood the
     computer down within the frame.
