@@ -197,7 +197,7 @@ internal sealed class BusTrim
     /// <see cref="PostCutoffSequence.CeilingFor"/>, or NaN where nothing above has an opinion.
     /// </param>
     public static double CeilingFor(double askedMetresPerSecond)
-        => askedMetresPerSecond > 0.0 && double.IsFinite(askedMetresPerSecond)
+        => askedMetresPerSecond > 0.0 && !double.IsNaN(askedMetresPerSecond)
                ? Math.Max(askedMetresPerSecond, MaxMetresPerSecond)
                : MaxMetresPerSecond;
 

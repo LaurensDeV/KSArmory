@@ -48,6 +48,18 @@ public class PostCutoffSequenceTests
         Assert.Equal(0.0, PostCutoffSequence.CeilingFor(1, budget, spent));
     }
 
+    [Theory]
+    [InlineData(-1.0, 0.0)]
+    [InlineData(-1.0, 250.0)]
+    [InlineData(double.PositiveInfinity, 40.0)]
+    public void AnUnlimitedBudgetLeavesEveryPassUnlimited(double budget, double spent)
+    {
+        double ceiling = PostCutoffSequence.CeilingFor(1, budget, spent);
+
+        Assert.True(double.IsPositiveInfinity(ceiling));
+        Assert.True(double.IsPositiveInfinity(BusTrim.CeilingFor(ceiling)));
+    }
+
     [Fact]
     public void AnUnreadableBudgetIsNoAllowanceRatherThanAnInfiniteOne()
     {

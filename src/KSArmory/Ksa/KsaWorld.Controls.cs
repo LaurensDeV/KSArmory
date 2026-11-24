@@ -60,6 +60,43 @@ internal static partial class KsaWorld
     private static FieldInfo? _controlField;
 
     /// <summary>
+    /// Whether the sequence KSA would fire next holds anything that burns -- false for a row of decouplers, fairings or
+    /// clamps, which a stage request fires and nothing then pushes. True wherever the list cannot be read, which keeps
+    /// the staging that has always flown.
+    /// </summary>
+    public static bool NextStageLightsAnEngine(Vehicle craft)
+    {
+        try
+        {
+            craft.Parts.EnsureDerived(DerivedData.Sequences);
+            ReadOnlySpan<Sequence> sequences = craft.Parts.SequenceList.Sequences;
+
+            // KSA fires the first sequence not yet activated that has parts in it.
+            for (int i = 0; i < sequences.Length; i++)
+            {
+                Sequence sequence = sequences[i];
+                if (sequence.Activated || sequence.Parts.IsEmpty) continue;
+
+                foreach (Part part in sequence.Parts)
+                {
+                    Part full = part.FullPart;
+                    if (full.Modules.Get<RocketCore>().Length > 0 || full.Modules.Get<EngineController>().Length > 0) return true;
+                    foreach (Part sub in full.SubParts)
+                    {
+                        if (sub.Modules.Get<RocketCore>().Length > 0) return true;
+                    }
+                }
+                return false;
+            }
+            return true;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    /// <summary>
     /// Whether the engines running now stop when told to. False while any active engine burns a
     /// solid grain: KSA's <c>SolidMotor</c> keeps burning once lit whatever it is commanded, and only
     /// a spent grain stops it. True when it cannot be read, which is every engine that throttles.

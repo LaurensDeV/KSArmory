@@ -7,7 +7,7 @@ This is the checklist for a KSA update: anything here that changed shape in the 
 build is a breaking change for this mod, and anything not here cannot be. See the
 `upgrade-ksa` skill, which diffs the decompiled sources against exactly this list.
 
-387 types and 1009 members across 12 assemblies.
+391 types and 1022 members across 12 assemblies.
 
 ## BepuUtilities
 
@@ -935,6 +935,10 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 *referenced as a type only*
 
+### KSA.ChamberCore`1
+
+*referenced as a type only*
+
 ### KSA.ChannelWrapper
 
 - `KSA.SpatialAudio get_SpatialAudio()`
@@ -965,7 +969,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Combustor
 
-- `KSA.CombustorConfig Config`
+*referenced as a type only*
 
 ### KSA.CombustorConfig
 
@@ -1745,7 +1749,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.PrePassData
 
-- `KSA.Rendering.RenderTarget Target`
+- `KSA.Rendering.MultiRenderTarget Target`
 
 ### KSA.PrePassRenderer
 
@@ -1862,6 +1866,12 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `KSA.Vehicle Target`
 - `System.Collections.Generic.List`1<KSA.Rendering.Lighting.Light> Lights`
 
+### KSA.Rendering.MultiRenderTarget
+
+- `Brutal.VulkanApi.VkExtent2D get_Extent()`
+- `KSA.Rendering.RenderImage get_DepthImage()`
+- `KSA.Rendering.RenderImage[] get_ColorImage()`
+
 ### KSA.Rendering.Particles.ExplosionReference
 
 *referenced as a type only*
@@ -1935,8 +1945,9 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.Rocket
 
-- `KSA.RocketCoreConditions ComputeCoreConditions(KSA.RocketCore, float)`
 - `System.ReadOnlySpan`1<KSA.RocketCore> get_Cores()`
+- `int FindCoreIndex(KSA.RocketCore)`
+- `void ComputeCoreConditions(float, System.Span`1<KSA.RocketCoreConditions>)`
 
 ### KSA.RocketControllerData
 
@@ -1979,11 +1990,26 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 - `void ActivateNextSequence(KSA.Vehicle)`
 - `void MoveSequence(KSA.Sequence, KSA.Sequence)`
 
+### KSA.SequencePerformance
+
+- `System.Collections.Generic.List`1<KSA.SequencePhaseInfo> Phases`
+- `System.Collections.Generic.List`1<System.Collections.Generic.HashSet`1<KSA.Part>> PhaseEngineParts`
+- `float WetMass`
+
 ### KSA.SequencePerformanceList
 
+- `System.ReadOnlySpan`1<KSA.SequencePerformance> get_PerformanceSequences()`
+- `bool get_IsDirty()`
 - `float FindActiveSequenceDeltaV()`
 - `float get_TotalDeltaV()`
+- `void RecomputeForFlight(float)`
 - `void SetDirty()`
+
+### KSA.SequencePhaseInfo
+
+- `float Duration`
+- `float MassFlowRate`
+- `float Thrust`
 
 ### KSA.SerializedId
 
@@ -2057,7 +2083,9 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.StructuralLoad
 
+- `double MaxDynamicPressure`
 - `double MaxGLoad`
+- `double PeakDynamicPressure`
 - `double PeakGLoad`
 - `double get_GLoadFraction()`
 
@@ -2085,7 +2113,7 @@ build is a breaking change for this mod, and anything not here cannot be. See th
 
 ### KSA.ThermalCore
 
-- `KSA.ThermalCoreConfig Config`
+*referenced as a type only*
 
 ### KSA.ThermalCoreConfig
 

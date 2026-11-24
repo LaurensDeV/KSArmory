@@ -106,7 +106,7 @@ internal sealed partial class IcbmProgram
             if (!BurnoutGuidance.TrySteer(state.Body, state.PositionCci, state.VelocityCci,
                                           Offset(state.AimNowCci, east, north, state.Body), state.Booster,
                                           out BurnoutGuidance.Command trial, Config.Loft, LongWay, _cutoffSeed,
-                                          _flightSeed, arrivalFromNow, 0.0, _unavoidable)
+                                          _flightSeed, arrivalFromNow, 0.0, _unavoidable, Plan(state))
                 || !TryDragMiss(state, trial, out double3 trialMiss)
                 || Vec.Len(trialMiss) >= Vec.Len(miss))
             {
@@ -157,12 +157,12 @@ internal sealed partial class IcbmProgram
         return Vec.IsFinite(freeCci);
     }
 
-    private static BurnoutGuidance.Command OffTheLine(in IcbmState state, in BurnoutGuidance.Command command, double3 freeCci)
+    private BurnoutGuidance.Command OffTheLine(in IcbmState state, in BurnoutGuidance.Command command, double3 freeCci)
     {
         double3 left = command.ToGainVectorCci - freeCci * Vec.Dot(command.ToGainVectorCci, freeCci);
         double length = Vec.Len(left);
         if (!(length > 0.0)) return command with { VelocityToGain = 0.0, ToGainVectorCci = Vec.Zero, SecondsToCutoff = 0.0 };
-        double seconds = state.Booster.SecondsToGain(length);
+        double seconds = SecondsToGain(state, length);
         return command with
         {
             ThrustDirectionCci = left / length,

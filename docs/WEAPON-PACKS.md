@@ -640,6 +640,9 @@ subpart `Mk8200` so that `BodyMarker="Mk82"` matches it and nothing else.
 - **An engine's throttle floor goes inside `<Rocket>`.** Since KSA 2026.11.16.5901 `MinimumThrottle` and
   `MinimumPulseTime` belong to the rocket, after its `<Nozzles>`; on a `<Combustor>` they are dropped
   silently and the engine runs at full throttle or not at all.
+- **Every `<Rocket>` on a part needs a controller.** Since KSA 2026.11.25.5949 a rocket that no
+  `RocketEngineController` or `RocketThrusterController` names throws when the part is created, unless it
+  sits on a subpart; it used to load with a warning and never light.
 - **File names are case-sensitive on Linux.** A path that differs only in case works on Windows and
   fails on Linux.
 

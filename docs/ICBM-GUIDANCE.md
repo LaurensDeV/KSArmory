@@ -477,6 +477,11 @@ bubble — which is not the same as there being no limit, and the two are kept a
 itself, with a time constant of the bounding sphere over 200 — a fifth of a second at the size
 above. Flying at the number is flying on the boundary.
 
+**Dynamic pressure is a second limit, and nothing here guards it.** KSA also destroys a vehicle at
+`VehicleStructuralLimits.MaxDynamicPressure`, 200 kPa, on the unlagged peak of ½ρv² over the frame's sub-steps
+(`PhysicsBubble.cs:1250`). The highest flown is 123 kPa, OneStage at 200 km; `docs/FLIGHT-COMPUTER-COMPARISON.md`
+Phase 0 is the instrument and 2d the cap, if one is ever earned.
+
 ### The cap is right and the actuator is too slow
 
 A stage that lights *hot* is still lost, and the measurement says exactly where the fault is. Both
@@ -621,6 +626,12 @@ So the program is **stepped every frame and solves a few times a second**. The s
 countdown; the frame runs it down; the engines stop when less than half a frame of burning is left,
 which puts the cutoff at the frame boundary nearest the ideal instant. Inside three quarters of a
 second of cutoff it solves every step, because those thirty frames decide the shot.
+
+**The countdown is the running stage's law carried past its burnout**, which reads a burn spanning a
+staging short: the upper stage's thrust and the dry mass thrown away are not in it. It is re-solved
+after the staging, so the cutoff itself is unaffected; what the short reading moves is the cutoff the
+arc is solved from before then. `IcbmConfig.FlyTheStagePlan` (off, rig-tested, not flown) counts it down
+over every stage left instead (`Sim/StagePlan.cs`, `docs/FLIGHT-COMPUTER-COMPARISON.md` 2b).
 
 **The throttle comes back for the last two seconds** — `IcbmProgram.ThrottleDownSeconds` — which
 divides the residual by the same fraction. Nothing depends on the vehicle honouring it: the cutoff
@@ -1490,7 +1501,8 @@ has no γ in it at all. **So the one quantity the pad cannot know is the one the
 
 Swept headlessly over 2,002–12,787 km of range, 13.3°–52.2° of arrival angle and loft 1.0 and 1.35 — 20
 geometries, each arc coasted to a 420 s release and the columns flown from there
-(`DivertFootprintTests.ThePinnedReachIsTheReleaseEpochAndTheArcCannotMoveIt`):
+(`DivertFootprintTests.ThePinnedReachBarelyMovesWithTheArcAndTheEpochFloorIsUnderEveryArc`, on the
+round's shape's drag):
 
 | | free long axis | pinned reach |
 | --- | --- | --- |
@@ -1515,6 +1527,12 @@ is refused outside 60–760 s where it stops being one. At the shipped 420 s gat
 against a true 395–407, about 7% small: **every click the pad accepts is one the coast's own flown reach
 accepts too**, which is the only direction this error may point. `t_go` is the gate exactly, because
 `ReleaseItinerary` counts back from it — a new target is always the *last* stop and always releases there.
+
+**The numbers above are the Mk 21's retired hand-typed drag, and on the round flown since v0.9.0 0.88 is not a
+floor.** Its shape's drag takes reach off a short fall: the same 20 arcs read **354 to 406** at 420 s, 1.15x, and
+the worst arc 0.82 · t_go from 300 to 900 s and 0.63 · t_go at 60 s, so the disc promises up to 1.39x.
+`IcbmConfig.PinnedReachFloorsTheFlownRound` (off) draws `0.80 · (t_go − 15 s)` instead, a floor from 30 to 900 s
+and 324 m per m/s at the gate. `docs/ICBM-OUTSTANDING.md` 1.24 has the sweep and what it costs a walk.
 
 **What the pad still does not know is the coast's length**, which is what bounds how many stops fit
 (`ReleaseItinerary.CoastFits`); at 2,000 km the whole coast is 351 s against a 420 s gate and only one fits.
@@ -2181,8 +2199,10 @@ back idle with its targets and flies nothing until armed again. A setting left a
 written, so a default changed in a later release reaches that save. Restoring a flight in progress — the
 phase, the latched arrival, the aim bias, the trim's debt — is not built.
 
-**The delta-v readout is one stage's except on the craft being flown.** KSA reports the whole stack
-only for the controlled craft and otherwise the running stage's engines, which is why a shot short of
+**The delta-v readout is the whole stack's because the computer refreshes it.** KSA refreshes its stage
+figures for the controlled craft alone, with its staging list or engine gauge open, and every other rocket
+reads an empty list; `IcbmConfig.RefreshStageModel` (on, `Ksa/StageModel.cs`) recomputes it for every
+computer-flown craft four times a second. Off, the stack falls back to the running stage's engines. A shot short of
 the propellant is flown and reported rather than refused: a launch gate built on that number would
 turn away every multi-stage rocket nobody is flying. It flies, falls short, says by how much, and holds
 its warheads, because releasing on a trajectory known to fall short scatters them over whatever is under

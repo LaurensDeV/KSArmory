@@ -86,6 +86,38 @@ internal sealed class IcbmConfig
     public bool AutoStage = true;
 
     /// <summary>
+    /// Stage again after a sequence that held nothing that burns, as for an ignition, rather than wait for it to push:
+    /// without it a row of decouplers between two engine stages strands the climb on the dry timer. Flown 2026-11-23 on
+    /// a two-stage stack with its interstage on a row of its own: on, the upper stage lit 1.7 s after the row and the
+    /// shot passed; off, the burn ended 4 s later with 2,774 m/s to gain. <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 1b.
+    /// </summary>
+    public bool RestagesARowThatLightsNothing = true;
+
+    /// <summary>
+    /// Give the craft up and disarm, engines left as they are, once it has been uncontrollable for a second or the frame
+    /// somebody else changes its attitude mode. Off, the computer writes its attitude over a player's and over a craft
+    /// KSA has released. Flown 2026-11-21: a Prograde press mid-ascent stood it down within the frame, and 20 rocket
+    /// flights at 1,000-12,900 km never stood down unasked. <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 1c.
+    /// </summary>
+    public bool StandsDownWhenControlIsTaken = true;
+
+    /// <summary>
+    /// Carry the attitude command this far ahead along its own turn while burning (<see cref="CommandLead"/>), in
+    /// seconds; zero is off. Flown on 5901, the nose trailed the 13-14 deg/s swing near 83 km by 11-13 deg, about 0.9 s.
+    /// <b>Off, and unflown.</b> <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 2c.
+    /// </summary>
+    public double CommandLeadSeconds;
+
+    /// <summary>
+    /// The turn rate, deg/s, a command must reach for <see cref="CommandLeadSeconds"/> to lead it in full, eased in from
+    /// half of it; zero leads every turn. Led through the pitch programme's ~1 deg/s, the nose's median error rose from
+    /// 0.13 to 0.47 deg at 12,900 km on 2026-11-22. At 4 with <see cref="CommandLeadSeconds"/> 0.9 it saved 2-16 m/s on
+    /// 8 of 8 shots at 12,900 km and lost 5 of 8 on landing at 1,000 km, so both stay off.
+    /// <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 2c.
+    /// </summary>
+    public double CommandLeadFromDegPerSecond;
+
+    /// <summary>
     /// Warp the ballistic coast without being asked, stopping a settling margin short of the release
     /// (<see cref="IcbmProgram.SteadyBeforeReleaseSeconds"/>). On, so a coast is warped without a tick box to find
     /// first. <c>docs/ICBM-GUIDANCE.md</c>, "Automatic only if
@@ -221,6 +253,15 @@ internal sealed class IcbmConfig
     /// gate on a walk from cutoff. <b>On</b>, with the rest of the wide walk: <c>docs/WIDE-SPREAD.md</c> step 7.
     /// </summary>
     public bool PriceSlotsOnTheGateChord = true;
+
+    /// <summary>
+    /// Whether the reach drawn before the burn, and both of the slot price's lines, are the floor for the round flown
+    /// since v0.9.0, <c>0.80 · (t_go − 15 s)</c>, rather than 0.88 · t_go fitted on its retired hand-typed drag, which
+    /// over-promises up to 1.39x. A smaller reach refuses more clicks and walks fewer stops. Flown 2026-11-22 paired at
+    /// 6,181 km: two targets landed 0.81x base, and a pinned seven-target walk 7 km apart still walked all seven.
+    /// <c>docs/ICBM-OUTSTANDING.md</c> 1.24.
+    /// </summary>
+    public bool PinnedReachFloorsTheFlownRound = true;
 
     /// <summary>
     /// Whether a walk gives each hop the time its divert burn takes at the bus's
@@ -486,9 +527,19 @@ internal sealed class IcbmConfig
     /// <summary>
     /// Give a miss kick over its cap at the cap, along the line that cancels it, rather than refuse it whole. At
     /// 12,900 km seven of 48 groups landed 442-550 m out on a kick of 1.01-1.17 m/s against the 1 m/s cap, which at
-    /// the cap would have taken 86-99% of it. <b>Off, and unflown.</b> <c>docs/ACCURACY-PLAN.md</c> 3fr.
+    /// the cap would have taken 86-99% of it. Flown 2026-11-23 at 1,000 km with the cap lowered to 0.5 m/s to force it:
+    /// refused, three groups landed 304-340 m out; given at the cap, five landed 111-147 m out.
+    /// <c>docs/ACCURACY-PLAN.md</c> 3fr, <c>docs/ICBM-OUTSTANDING.md</c> 1.26.
     /// </summary>
-    public bool MissKickStopsAtTheCap;
+    public bool MissKickStopsAtTheCap = true;
+
+    /// <summary>
+    /// Give the post-boost correction back every second the separation clearance holds the trim, so its clock runs on
+    /// the trim's time rather than the split's. Flown 2026-11-23 paired on SOLVER SCALE 8: at 1,000 km 0.12x base on 8 of
+    /// 8 shots (2.1 mm against 9.5), no kick over 0.8 m/s against 10; at 12,900 and 6,180 km alike (1.03x, 0.92x).
+    /// <c>docs/ICBM-OUTSTANDING.md</c> 1.26.
+    /// </summary>
+    public bool PostBoostClockPausesForTheClearance = true;
 
     /// <summary>
     /// Hold a long shot's aim correction while solids that cannot stop are burning and KSA reports what
@@ -496,6 +547,22 @@ internal sealed class IcbmConfig
     /// <c>docs/ACCURACY-PLAN.md</c>, "12,900 km on 2026-10-06".
     /// </summary>
     public bool AimWaitsForTheSolids = true;
+
+    /// <summary>
+    /// Recompute the stage performance of every computer-flown craft a few times a second, which KSA does for the
+    /// controlled craft alone and only with its staging list or engine gauge open; unrefreshed, every other seat reads
+    /// its running stage as empty, and the reach and the shortfall are one stage's reckoning. Flown 2026-11-21: 14
+    /// paired shots at 1,000 km and 2 at 12,900 land alike, at 0.1-0.3 ms a recompute.
+    /// <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 2a.
+    /// </summary>
+    public bool RefreshStageModel = true;
+
+    /// <summary>
+    /// Count the cutoff down over every stage left (<see cref="StagePlan"/>) rather than the running stage's law carried
+    /// past its burnout, which reads a burn spanning a staging short. Flown 2026-11-23 on GeoSat FAT: alike at 12,900 km
+    /// (1.02x, the same burn to 8 m/s), unresolved at 1,000. <c>docs/FLIGHT-COMPUTER-COMPARISON.md</c> 2b.
+    /// </summary>
+    public bool FlyTheStagePlan;
 
     /// <summary>
     /// Arm a short shot's backstop at <see cref="BusTrim.MaxMetresPerSecond"/> rather than

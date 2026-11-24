@@ -50,7 +50,10 @@ internal static class PostCutoffSequence
         // Never negative: a budget already overspent is no allowance rather than a debt, and a
         // negative ceiling reads to BusTrim as a refusal of every pass including the ones that
         // would have cost nothing.
+        // A negative budget is IcbmConfig's unlimited, and an infinite one with finite spending is too.
+        if (budgetMetresPerSecond < 0.0) return double.PositiveInfinity;
         double left = budgetMetresPerSecond - spentMetresPerSecond;
+        if (double.IsPositiveInfinity(left)) return left;
 
         return double.IsFinite(left) ? Math.Max(0.0, left) : 0.0;
     }

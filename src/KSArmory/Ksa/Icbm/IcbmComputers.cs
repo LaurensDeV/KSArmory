@@ -154,6 +154,7 @@ internal sealed class IcbmComputers(Config session)
         }
 
         weapons.FaithfulStep(out bool roundsInFlight);
+        StageModel.Prune();
 
         foreach (IcbmComputer computer in _computers.Values)
         {

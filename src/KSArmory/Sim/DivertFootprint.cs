@@ -89,6 +89,22 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
     public const double PinnedMetresPerSecondToGo = 0.88;
 
     /// <summary>
+    /// <see cref="PinnedMetresPerSecondToGo"/> for the round flown since v0.9.0, whose shape's drag takes reach off a
+    /// short fall: <c>0.80 · (t_go − 15 s)</c>, a floor from 30 to 900 s where 0.88 promises up to 1.39x at 60 s.
+    /// <see cref="IcbmConfig.PinnedReachFloorsTheFlownRound"/>; <c>docs/ICBM-OUTSTANDING.md</c> 1.24.
+    /// </summary>
+    public const double FlownRoundMetresPerSecondToGo = 0.80;
+
+    /// <inheritdoc cref="FlownRoundMetresPerSecondToGo"/>
+    public const double FlownRoundOffsetSeconds = 15.0;
+
+    /// <summary>The pinned reach per metre a second a release <paramref name="secondsToGo"/> out is drawn at.</summary>
+    public static double PinnedReachAt(double secondsToGo, bool flownRound)
+        => flownRound
+               ? FlownRoundMetresPerSecondToGo * Math.Max(0.0, secondsToGo - FlownRoundOffsetSeconds)
+               : PinnedMetresPerSecondToGo * secondsToGo;
+
+    /// <summary>
     /// The release epochs <see cref="PinnedMetresPerSecondToGo"/> is a floor over, in seconds before
     /// arrival.
     ///
@@ -117,13 +133,15 @@ internal readonly record struct DivertFootprint(double SemiMajorMetresPerMetrePe
     /// How long after the release the warheads arrive: <see cref="IcbmConfig.ReleaseBeforeArrivalSeconds"/>
     /// under <see cref="ReleaseItinerary"/>, whose last release lands on the gate.
     /// </param>
-    public static bool TryAtTheEpoch(ArrivalFrame frame, double secondsToGo, out DivertFootprint footprint)
+    /// <param name="flownRound"><see cref="IcbmConfig.PinnedReachFloorsTheFlownRound"/>: see <see cref="PinnedReachAt"/>.</param>
+    public static bool TryAtTheEpoch(ArrivalFrame frame, double secondsToGo, out DivertFootprint footprint,
+                                     bool flownRound = false)
     {
         footprint = default;
 
         if (!(secondsToGo >= EpochLeastSeconds) || !(secondsToGo <= EpochMostSeconds)) return false;
 
-        double reach = PinnedMetresPerSecondToGo * secondsToGo;
+        double reach = PinnedReachAt(secondsToGo, flownRound);
 
         footprint = new DivertFootprint(reach, reach, 0.0, ArrivalClock.Pinned, frame, secondsToGo,
                                         FromTheRealState: false);

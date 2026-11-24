@@ -553,8 +553,9 @@ def resource_groups(root):
 
 
 class Rocket:
-    def __init__(self, lib, name, stages, srb=0, bus_after=None, solid_core=0, bus="mirv"):
+    def __init__(self, lib, name, stages, srb=0, bus_after=None, solid_core=0, bus="mirv", decoupler_own_row=False):
         self.lib, self.name, self.srb, self.bus_after = lib, name, srb, bus_after
+        self.decoupler_own_row = decoupler_own_row
         self.bus = BUSES[bus]
         self.stages = [parse_stage(s) if isinstance(s, str) else s for s in stages]
         self.solid_core = solid_core
@@ -740,9 +741,13 @@ class Rocket:
                 self.solid_motor.modules = [grain(SRB_GRAIN[self.solid_motor.pid]),
                                             ("SolidMotorData", {"InstanceOf": "MotorCore", "DefaultGrain": "Neutral"}, None),
                                             controller("SRBEMotor", seq)]
+            # A row holding only the interstage is a staging that lights nothing, as a player can build.
+            if "interstage" in stage and self.decoupler_own_row:
+                stage["interstage"].modules = [("DecouplerData", {"Sequence": str(seq)}, None)]
+                seq += 1
             for engine in self.engines_by_stage[k]:
                 engine.modules = [controller(self.lib.engine_controller(engine.pid), seq)]
-            if "interstage" in stage:
+            if "interstage" in stage and not self.decoupler_own_row:
                 stage["interstage"].modules = [("DecouplerData", {"Sequence": str(seq)}, None)]
             seq += 1
         self.bus_decoupler.modules = [("DecouplerData", {"Sequence": str(seq)}, None)]
@@ -1228,6 +1233,8 @@ def main():
     ap.add_argument("--srb", type=int, default=0, help="radial boosters on the first stage")
     ap.add_argument("--bus", choices=sorted(BUSES), default="mirv", help="which bus the rocket carries")
     ap.add_argument("--bus-after", type=int, help="fire the bus decoupler straight after this stage, counted from 1")
+    ap.add_argument("--decoupler-own-row", action="store_true",
+                    help="each interstage decoupler on a staging row of its own, before the engines above it light")
     ap.add_argument("--solid-core", type=int, default=0,
                     help="a first stage of this many 2 m solid segments and a thrust assembly, under the --stage list")
     ap.add_argument("--list", action="store_true", help="presets and the parts a stage can use")
@@ -1281,13 +1288,14 @@ def main():
             sys.exit(f"no preset {name!r}; --list names them")
         specs[name] = PRESETS[name]
     if a.name:
-        specs[a.name] = dict(stages=a.stage, srb=a.srb, bus_after=a.bus_after, solid_core=a.solid_core, bus=a.bus)
+        specs[a.name] = dict(stages=a.stage, srb=a.srb, bus_after=a.bus_after, solid_core=a.solid_core, bus=a.bus,
+                             decoupler_own_row=a.decoupler_own_row)
     if specs and not a.out:
         sys.exit("--out is required to write a rocket")
     build = game_build()
     for name, spec in specs.items():
         rocket = Rocket(lib, name, spec["stages"], spec.get("srb", 0), spec.get("bus_after"), spec.get("solid_core", 0),
-                        spec.get("bus", "mirv"))
+                        spec.get("bus", "mirv"), spec.get("decoupler_own_row", False))
         path = write(rocket, a.out, build)
         ok &= report(rocket, path, lib, references)
     if not (specs or a.validate or a.check_reference):

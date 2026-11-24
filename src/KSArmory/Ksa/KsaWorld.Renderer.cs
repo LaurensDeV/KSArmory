@@ -63,7 +63,7 @@ internal static partial class KsaWorld
 
     private static bool _lookedForWeather;
 
-    private static object? _transparencies;
+    private static FieldInfo? _transparenciesField;
 
     private static bool _warnedAboutWeather;
 
@@ -87,20 +87,23 @@ internal static partial class KsaWorld
             if (!_lookedForWeather)
             {
                 _lookedForWeather = true;
-                _transparencies = typeof(Program)
-                                  .GetField("_planetTransparenciesRenderer",
-                                            BindingFlags.NonPublic | BindingFlags.Instance)
-                                  ?.GetValue(Program.Instance);
+                _transparenciesField = typeof(Program).GetField("_planetTransparenciesRenderer",
+                                                                BindingFlags.NonPublic | BindingFlags.Instance);
+            }
 
-                if (_transparencies is not PlanetTransparenciesRenderer && !_warnedAboutWeather)
+            // Read every call: loading a save from another solar system disposes and rebuilds it.
+            object? transparencies = _transparenciesField?.GetValue(Program.Instance);
+            if (transparencies is not PlanetTransparenciesRenderer owner)
+            {
+                if (!_warnedAboutWeather)
                 {
                     _warnedAboutWeather = true;
                     Log.Warn("weather clouds: Program._planetTransparenciesRenderer did not resolve; "
                              + "a burst will be drawn in front of them");
                 }
-            }
 
-            if (_transparencies is not PlanetTransparenciesRenderer owner) return false;
+                return false;
+            }
             if (owner.GetCloudRenderer() is not { } clouds) return false;
 
             if (TrySettledWeather(clouds, out colour, out distance)) return true;

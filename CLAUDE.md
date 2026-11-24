@@ -258,7 +258,7 @@ parses as it is.
   tool takes `KSA_DIR` to override it. On this box the Ahwoo/Neutrino launcher's library,
   `/mnt/c/Program Files/Ahwoo/Games/Kitten Space Agency`; a hand-unpacked copy used to sit at
   `/mnt/c/Program Files/Kitten Space Agency`, which is still tried (Windows game, WSL dev)
-- **KSA build these notes were taken against**: `2026.11.16.5901`
+- **KSA build these notes were taken against**: `2026.11.25.5949`
 - The system `dotnet` is 8.0 and **cannot build this** — the mod targets **net10.0**
   (`error NETSDK1045`). A .NET 10 SDK is installed at `~/.dotnet`.
   **Use `tools/build.sh` / `tools/test.sh`**, which source `tools/env.sh` to fix PATH. Bare
@@ -888,11 +888,11 @@ are NuGet packages, which a mod references directly. `sync-assemblies.sh --subse
 Per-mod pinning still comes from that mod's own `ksa-assemblies.lock`, which covers only what it
 references, so the drift check stays exact without the mirror being narrow.
 
-The build number is written down in seven places, so update all seven: `ksa-assemblies.lock`,
-`current/KSA_BUILD` in the private repo, and the five prose files — the **KSA build** line under
-Environment above, `README.md`, `docs/KSA-MODDING-NOTES.md`, `docs/KSA-CAMERAS.md` and
-`docs/BLOCKED-ON-KSA.md`. The lock is the source of truth and `check-docs.sh` fails on any prose
-file that disagrees with it; `current/KSA_BUILD` is the one nothing here can check.
+The build number is written down in the lock, in `current/KSA_BUILD` in the private repo, and in the
+prose files `check-docs.sh` lists — the **KSA build** line under Environment above, `README.md`,
+`docs/KSA-MODDING-NOTES.md`, `docs/KSA-CAMERAS.md`, `docs/BLOCKED-ON-KSA.md`, and any of `docs/LAYOUT.md`,
+`docs/WEAPON-PACKS.md` and the upgrade skill that names a build at all. The lock is the source of truth and
+`check-docs.sh` fails on any of those that does not name it; `current/KSA_BUILD` is the one nothing here can check.
 
 CI is split the same way the source is:
 
@@ -1280,8 +1280,10 @@ absence is a rocket that stops steering.
 **The third is how the mod knows a save was loaded, because nothing else can tell it.** StarMap
 has no load hook — `BeforeMain`, `ImmediateLoad`, `AllModsLoaded`, `Unload`, `AfterOnFrame`,
 `BeforeGui`, `AfterGui` is the whole list — and `KsaWorld.InFlightScene` stays **true** right
-across one: `Universe.LoadSystem` runs at startup and a save only replaces what is inside the
-system it built, so the mod never leaves the scene and the out-of-flight path never runs. What
+across one: a save of the running system only replaces what is inside the system built at startup,
+so the mod never leaves the scene and the out-of-flight path never runs. A save of another installed
+system rebuilds the system and its renderers first (`Program.SwapSystem`), and `OnGameLoaded` still
+follows it, which is why a renderer reached by reflection is read every call rather than held. What
 that costs is rounds outliving their world. `Universe.DeserializeSave` calls `DestroyAllVehicles`,
 so every craft dies on one frame and each system still flying rounds goes **loose** — which is
 right for a launcher shot out from under them and wrong for the world being taken away. The loose

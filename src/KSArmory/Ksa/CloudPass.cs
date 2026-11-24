@@ -144,7 +144,7 @@ internal static class CloudPass
         public IRenderImage? RingsMsaaImage;
         public IRenderImage? RingsMsaaNormal;
         public ComputePipelineWrapper? Holes;
-        public IRenderImage? HolesNormal;
+        public IRenderImage? HolesRoughness;
         public ComputePipelineWrapper? Leaks;
         public ComputePipelineWrapper? Tracers;
         // One beam pipeline per weather image pair it was built against, as the clouds keep theirs.
@@ -1090,9 +1090,10 @@ internal static class CloudPass
         // A splat paints the ground and nothing standing on it. KSA's pre-pass says which pixels are the
         // ground, for the main view alone; a window, or a frame it is not valid, has the shader's
         // geometric test, and the pass's own layer stands in so the descriptor is never empty.
-        bool prePassTrusted = TryPrePassNormal(viewport, view, out IRenderImage? prePassNormal);
+        bool prePassTrusted = TryPrePass(viewport, view, out IRenderImage? prePassNormal, out IRenderImage? prePassRoughness);
         IRenderImage normal = prePassNormal ?? view.LayerDistance;
-        if ((view.Rings is null || !ReferenceEquals(view.RingsNormal, normal)) && !BuildRings(view, depth, normal)) return;
+        IRenderImage roughness = prePassRoughness ?? view.LayerDistance;
+        if ((view.Rings is null || !ReferenceEquals(view.RingsNormal, normal)) && !BuildRings(view, depth, normal, roughness)) return;
 
         _rings.Clear();
         int left = int.MaxValue, top = int.MaxValue, right = 0, bottom = 0;
@@ -1175,7 +1176,7 @@ internal static class CloudPass
             {
                 if ((view.RingsMsaa is null || !ReferenceEquals(view.RingsMsaaImage, msaa)
                                             || !ReferenceEquals(view.RingsMsaaNormal, normal))
-                    && !BuildRingsMsaa(view, msaa, depth, normal)) return;
+                    && !BuildRingsMsaa(view, msaa, depth, normal, roughness)) return;
 
                 BarrierBatch toStorage = new(one);
                 toStorage.Add(msaa, ImageBarrierInfo.Presets.StorageReadWriteC);
@@ -1269,9 +1270,9 @@ internal static class CloudPass
         if (_holeBuffer is null && !BuildHoleBuffer()) return;
         // A craft's splat reaches through the craft along its spray, and the ground behind is not the
         // craft; the pre-pass says which pixels are the ground, in the main view alone.
-        bool prePassTrusted = TryPrePassNormal(viewport, view, out IRenderImage? prePassNormal);
-        IRenderImage normal = prePassNormal ?? view.LayerDistance;
-        if ((view.Holes is null || !ReferenceEquals(view.HolesNormal, normal)) && !BuildHoles(view, depth, normal)) return;
+        bool prePassTrusted = TryPrePass(viewport, view, out _, out IRenderImage? prePassRoughness);
+        IRenderImage roughness = prePassRoughness ?? view.LayerDistance;
+        if ((view.Holes is null || !ReferenceEquals(view.HolesRoughness, roughness)) && !BuildHoles(view, depth, roughness)) return;
 
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
 
@@ -2028,7 +2029,7 @@ internal static class CloudPass
         return true;
     }
 
-    private static bool BuildHoles(View view, IRenderImage depth, IRenderImage normal)
+    private static bool BuildHoles(View view, IRenderImage depth, IRenderImage roughness)
     {
         view.Holes = null;
         if (!ModLibrary.TryGet<ShaderReference>(HoleShaderId, out var shader) || shader is null)
@@ -2044,9 +2045,9 @@ internal static class CloudPass
         IRenderImage[] depthTargets = [depth];
         VkPushConstantRange[] ranges = PushRanges<HolePush>();
 
-        IRenderImage[] sampled = [normal];
+        IRenderImage[] sampled = [roughness];
         VkBuffer[] buffers = [_holeBuffer!.Value.VkBuffer];
-        view.HolesNormal = normal;
+        view.HolesRoughness = roughness;
         view.Holes = new ComputePipelineWrapper(
             storageTargets, depthTargets, sampled, default, shader,
             default, ranges, renderer.MaxFramesInFlight, renderer,
@@ -2056,7 +2057,8 @@ internal static class CloudPass
         return true;
     }
 
-    private static bool BuildRingsMsaa(View view, RenderImage msaa, IRenderImage depth, IRenderImage normal)
+    private static bool BuildRingsMsaa(View view, RenderImage msaa, IRenderImage depth, IRenderImage normal,
+                                       IRenderImage roughness)
     {
         view.RingsMsaa = null;
         if (!ModLibrary.TryGet<ShaderReference>(RingMsaaShaderId, out var shader) || shader is null)
@@ -2070,7 +2072,7 @@ internal static class CloudPass
         IRenderImage[] storageTargets = [view.SceneCopy];
         IRenderImage[] multisampled = [msaa];
         IRenderImage[] depthTargets = [depth];
-        IRenderImage[] sampled = [normal];
+        IRenderImage[] sampled = [normal, roughness];
         VkPushConstantRange[] ranges = PushRanges<RingPush>();
 
         view.RingsMsaaImage = msaa;
@@ -2084,7 +2086,7 @@ internal static class CloudPass
         return true;
     }
 
-    private static bool BuildRings(View view, IRenderImage depth, IRenderImage normal)
+    private static bool BuildRings(View view, IRenderImage depth, IRenderImage normal, IRenderImage roughness)
     {
         view.Rings = null;
         if (!ModLibrary.TryGet<ShaderReference>(RingShaderId, out var shader) || shader is null)
@@ -2097,7 +2099,7 @@ internal static class CloudPass
 
         IRenderImage[] storageTargets = [view.Target, view.SceneCopy];
         IRenderImage[] depthTargets = [depth];
-        IRenderImage[] sampled = [normal];
+        IRenderImage[] sampled = [normal, roughness];
         VkPushConstantRange[] ranges = PushRanges<RingPush>();
 
         view.RingsNormal = normal;
@@ -2129,7 +2131,7 @@ internal static class CloudPass
         if (!ReferenceEquals(viewport, Program.MainViewport)) return;
         if (Program.Instance?.PrePassRenderer is not { OpaqueHasValidDepth: true } prePass) return;
         if (prePass.OpaquePrePassData.Target is not { } target) return;
-        if (target.ColorImage is not { } normal || target.DepthImage is not { } prePassDepth) return;
+        if (target.ColorImage is not [{ } normal, { } roughness, ..] || target.DepthImage is not { } prePassDepth) return;
         if (target.Extent.Width != view.Width || target.Extent.Height != view.Height) return;
         if (!TryPrePassIrradiance(out RenderImage? irradiance)) return;
 
@@ -2138,7 +2140,7 @@ internal static class CloudPass
             || !view.FireLightNormal.Equals(normal.ImageView)
             || !view.FireLightIrradiance.Equals(irradiance!.ImageView))
         {
-            if (!BuildFireLight(view, depth, prePassDepth, normal, irradiance!)) return;
+            if (!BuildFireLight(view, depth, prePassDepth, normal, roughness, irradiance!)) return;
         }
 
         FireLightPush push = new()
@@ -2169,17 +2171,20 @@ internal static class CloudPass
         }
     }
 
-    // KSA's pre-pass normal for this view, and whether this frame's can be trusted: the main view alone,
-    // at the view's size. The image is handed back even when untrusted, so the pipeline is not rebuilt.
-    private static bool TryPrePassNormal(IViewport viewport, View view, out IRenderImage? normal)
+    // KSA's pre-pass normal and roughness for this view, and whether this frame's can be trusted: the
+    // main view alone, at the view's size. The images are handed back even when untrusted, so the
+    // pipeline is not rebuilt.
+    private static bool TryPrePass(IViewport viewport, View view, out IRenderImage? normal, out IRenderImage? roughness)
     {
         normal = null;
+        roughness = null;
         if (!ReferenceEquals(viewport, Program.MainViewport)) return false;
         if (Program.Instance?.PrePassRenderer is not { } prePass) return false;
-        if (prePass.OpaquePrePassData.Target is not { ColorImage: { } image } target) return false;
+        if (prePass.OpaquePrePassData.Target is not { ColorImage: [{ } n, { } r, ..] } target) return false;
         if (target.Extent.Width != view.Width || target.Extent.Height != view.Height) return false;
 
-        normal = image;
+        normal = n;
+        roughness = r;
         return prePass.OpaqueHasValidDepth;
     }
 
@@ -2292,7 +2297,7 @@ internal static class CloudPass
     }
 
     private static bool BuildFireLight(View view, IRenderImage depth, RenderImage prePassDepth, RenderImage normal,
-                                       RenderImage irradiance)
+                                       RenderImage roughness, RenderImage irradiance)
     {
         view.FireLight = null;
         if (!ModLibrary.TryGet<ShaderReference>(FireLightShaderId, out var shader) || shader is null)
@@ -2305,7 +2310,7 @@ internal static class CloudPass
 
         IRenderImage[] storageTargets = [view.Target];
         IRenderImage[] depthTargets = [depth, prePassDepth];
-        VkImageView[] readOnly = [normal.ImageView, irradiance.ImageView];
+        VkImageView[] readOnly = [normal.ImageView, roughness.ImageView, irradiance.ImageView];
         VkPushConstantRange[] ranges = PushRanges<FireLightPush>();
 
         VkDescriptorSetLayout[] external = [Program.Instance.TextureSystem.Layout];

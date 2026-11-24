@@ -193,7 +193,9 @@ internal sealed partial class IcbmComputer
                                                           HopTurnSeconds: HopsBurnTheEngine ? HopBurn.TurnsSeconds : 0.0,
                                                           PassesMetresPerSecondPerStop: HopsBurnTheEngine
                                                               ? ReleaseItinerary.EnginePassesMetresPerSecond
-                                                              : 0.0);
+                                                              : 0.0,
+                                                          PinnedReachOnTheFlownRound:
+                                                              Config.PinnedReachFloorsTheFlownRound);
 
     private ReachDisplay Display(DivertFootprint? footprint, List<ReachDisplay.Placed> placed, in ReleaseItinerary.Bus means,
                                  bool coasting)
@@ -271,7 +273,8 @@ internal sealed partial class IcbmComputer
         double3 alongCci = Vec.PerpendicularTo(Vec.Unit(arrivalCci), arrivalCci - state.PositionCci);
 
         if (!ArrivalFrame.TryAt(arrivalCci, alongCci, out ArrivalFrame frame)) return;
-        if (!DivertFootprint.TryAtTheEpoch(frame, seconds, out DivertFootprint footprint)) return;
+        if (!DivertFootprint.TryAtTheEpoch(frame, seconds, out DivertFootprint footprint,
+                                           Config.PinnedReachFloorsTheFlownRound)) return;
 
         _reachFootprint = footprint;
         _reachCci2Ccf = parent.GetCci2Ccf();

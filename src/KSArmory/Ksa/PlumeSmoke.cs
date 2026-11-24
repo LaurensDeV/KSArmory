@@ -30,6 +30,7 @@ internal static class PlumeSmoke
 {
     private static VolumetricTrailRenderer? _renderer;
     private static bool _looked;
+    private static FieldInfo? _field;
     private static bool _warned;
 
     /// <summary>Whether the renderer was found. False means nothing of this will draw.</summary>
@@ -105,30 +106,29 @@ internal static class PlumeSmoke
         }
     }
 
-    // Resolved once. The field is private, so this is the one place the mod stands on a name rather
-    // than on a signature -- and the one thing api-surface.sh cannot check for it.
+    // The field is private, so this is the one place the mod stands on a name rather than on a
+    // signature -- and the one thing api-surface.sh cannot check for it. Its value is read every call,
+    // because loading a save from another solar system disposes the renderer and builds a new one.
     private static VolumetricTrailRenderer? Resolve()
     {
-        if (_looked) return _renderer;
-        _looked = true;
-
         try
         {
-            FieldInfo? field = typeof(Program).GetField(
-                "_volumetricTrailRenderer", BindingFlags.NonPublic | BindingFlags.Instance);
-
-            if (field is null)
+            if (!_looked)
             {
-                Warn("KSA.Program has no _volumetricTrailRenderer field - it has been renamed or "
-                     + "given an accessor. If it now has one, use it and delete this.");
-                return null;
+                _looked = true;
+                _field = typeof(Program).GetField(
+                    "_volumetricTrailRenderer", BindingFlags.NonPublic | BindingFlags.Instance);
+
+                if (_field is null)
+                    Warn("KSA.Program has no _volumetricTrailRenderer field - it has been renamed or "
+                         + "given an accessor. If it now has one, use it and delete this.");
             }
 
-            _renderer = field.GetValue(Program.Instance) as VolumetricTrailRenderer;
+            if (_field?.GetValue(Program.Instance) is not VolumetricTrailRenderer renderer) return _renderer = null;
+            if (ReferenceEquals(renderer, _renderer)) return renderer;
 
-            if (_renderer is null) { Warn("_volumetricTrailRenderer is not yet built"); return null; }
-
-            Tune(_renderer);
+            _renderer = renderer;
+            Tune(renderer);
             Log.Info("volumetric smoke: the trail renderer is reachable");
         }
         catch (Exception e)

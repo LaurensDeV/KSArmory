@@ -265,6 +265,9 @@ internal sealed class IcbmFlightRig
         /// </summary>
         public bool Solid;
 
+        /// <summary>A row of decouplers: staging into it pushes nothing, and the engine is the next one's.</summary>
+        public bool LightsNothing;
+
         /// <summary>
         /// The exhaust velocity in vacuum, or zero for one that does not change with the air. When
         /// set, <see cref="ExhaustVelocity"/> is the sea-level figure and the two are blended on the
@@ -375,6 +378,29 @@ internal sealed class IcbmFlightRig
     /// </summary>
     public bool ReportsStackDeltaV;
 
+    /// <summary>Whether the rig hands the program a <see cref="KSArmory.StagePlan"/>, as the computer does under the flag.</summary>
+    public bool ReportsStagePlan;
+
+    /// <summary>
+    /// Every stage not yet dropped as one phase, the running one on its live figures and the rest in vacuum, as
+    /// <c>StageModel.Plan</c> lays them out.
+    /// </summary>
+    public StagePlan? StagePlan(double densityRatio)
+    {
+        List<StagePhase> phases = [];
+        for (int i = StageIndex; i < Stages.Count; i++)
+        {
+            Stage s = Stages[i];
+            if (s.LightsNothing) continue;
+            double flow = i == StageIndex ? s.MassFlowNow() : s.MassFlow;
+            double thrust = i == StageIndex ? s.ThrustAt(densityRatio) : s.MassFlow * s.VacuumVelocity;
+            phases.Add(new StagePhase(thrust, flow, MassAbove(i), flow > 0.0 ? s.PropellantKg / flow : 0.0, s.Solid,
+                                      MinThrottle));
+        }
+        StagePlan plan = new(phases);
+        return plan.IsEmpty ? null : plan;
+    }
+
     /// <summary>The ideal vacuum delta-v of every stage not yet dropped.</summary>
     public double StackDeltaV()
     {
@@ -468,7 +494,9 @@ internal sealed class IcbmFlightRig
                                       ReleaseImpulseCci: HandsOverTheThrow && ReleaseLaunchSpeed > 0.0
                                                              ? Vec.Unit(command.ThrustDirectionCci) * ReleaseLaunchSpeed
                                                              : default,
-                                      OnlySolidsRunning: StageIndex < Stages.Count && Stages[StageIndex].Solid);
+                                      OnlySolidsRunning: StageIndex < Stages.Count && Stages[StageIndex].Solid,
+                                      LastStageLitNothing: StageIndex < Stages.Count && Stages[StageIndex].LightsNothing,
+                                      StagePlan: ReportsStagePlan ? StagePlan(density) : null);
 
                 command = program.Update(elapsed == 0.0 ? 0.0 : h, state);
                 StepTrace?.Invoke(elapsed, program.Phase, Vec.Len(PositionCci) - Body.SurfaceRadius, program.VelocityToGain,

@@ -163,6 +163,24 @@ internal sealed partial class IcbmComputer
         VehicleCommand.DriveTranslation(Craft, trim.Fire);
         _lastOwed = trim.ToGainMetresPerSecond;
 
+        // Every frame the clearance holds the trim, not only the first wait: the gap it asks for is re-read each frame,
+        // so a split can read clear on its first frame and then hold for tens of seconds.
+        if (_didSplit && !plan.MayTrim)
+        {
+            _heldByTheClearance += simStep;
+            _thisHold += simStep;
+        }
+        else if (_thisHold > 0.0)
+        {
+            if (_thisHold >= 1.0)
+            {
+                Log.Info($"{KsaWorld.DisplayName(Craft)} ICBM: the clearance held the trim {_thisHold:F1} s, "
+                         + $"{_heldByTheClearance:F1} s since the split"
+                         + (Config.PostBoostClockPausesForTheClearance ? "; the correction's clock gives it back" : ""));
+            }
+            _thisHold = 0.0;
+        }
+
         // Stepped through a turn, the passes count it as the bus not holding still and end the correction.
         if (Turning) return;
 
@@ -187,7 +205,7 @@ internal sealed partial class IcbmComputer
             BudgetMetresPerSecond: Config.HopsSizeTheirOwnSlots
                                        ? ReleaseLoop.PlanningBudget(TrimBudgetMetresPerSecond)
                                        : PostBoostAim.MaxTrimMetresPerSecond + ReserveReleasedMetresPerSecond,
-            MaxSeconds: Config.HopsSizeTheirOwnSlots ? PostBoostAim.MaxSeconds + _hopBurnSeconds : double.NaN,
+            MaxSeconds: PostBoostMaxSeconds(),
             HoldingCostMetresPerSecond: double.IsFinite(_holdingCost)
                                             ? _holdingCost
                                             : Config.HoldingCostMetresPerSecond,
@@ -425,5 +443,14 @@ internal sealed partial class IcbmComputer
         {
             Log.Debug($"holding cost could not be measured: {e.Message}");
         }
+    }
+
+    // The correction's clock runs from the split and on through the clearance's holds, so a trim held that long spends
+    // it waiting: at 1,000 km a hold over 80 s left one or two passes and a kick over its cap. ICBM-OUTSTANDING 1.26.
+    private double PostBoostMaxSeconds()
+    {
+        double clock = Config.HopsSizeTheirOwnSlots ? PostBoostAim.MaxSeconds + _hopBurnSeconds : double.NaN;
+        if (!Config.PostBoostClockPausesForTheClearance) return clock;
+        return (double.IsFinite(clock) ? clock : PostBoostAim.MaxSeconds) + _heldByTheClearance;
     }
 }

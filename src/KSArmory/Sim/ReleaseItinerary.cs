@@ -217,6 +217,10 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
     /// What a hop's turns add to its slot, where a hop is turned onto -- <see cref="HopBurn.TurnsSeconds"/> for one flown
     /// on the engine.
     /// </param>
+    /// <param name="PinnedReachOnTheFlownRound">
+    /// <see cref="IcbmConfig.PinnedReachFloorsTheFlownRound"/>: both of <see cref="SlotReachScale"/>'s lines on
+    /// <see cref="DivertFootprint.PinnedReachAt"/>'s floor for the round flown since v0.9.0.
+    /// </param>
     internal readonly record struct Bus(double GateSeconds, double CoastSeconds, int Warheads,
                                         double HopSeconds = MedianHopSeconds,
                                         double BudgetMetresPerSecond = PostBoostAim.MaxTrimMetresPerSecond,
@@ -235,7 +239,8 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
                                         double TankExhaustVelocity = double.NaN,
                                         double StoreMassKg = 0.0,
                                         double HopTurnSeconds = 0.0,
-                                        double PassesMetresPerSecondPerStop = 0.0)
+                                        double PassesMetresPerSecondPerStop = 0.0,
+                                        bool PinnedReachOnTheFlownRound = false)
     {
         public bool PricesTheTank => TankKg >= 0.0 && MassKg > TankKg && TankExhaustVelocity > 0.0
                                      && double.IsFinite(MassKg) && double.IsFinite(TankExhaustVelocity);
@@ -289,19 +294,26 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
         ///
         /// <para>Never above one, and a floor because the pinned reach is concave in the time to go: the line
         /// from the origin to the measured reach lies under it, and so does the line from the gate's own floor,
-        /// <see cref="DivertFootprint.PinnedMetresPerSecondToGo"/> times the gate, which the larger of the two
-        /// takes where a slot lies between the gate and the measurement.</para>
+        /// <see cref="DivertFootprint.PinnedReachAt"/> the gate, which the larger of the two takes where a slot lies
+        /// between the gate and the measurement. Under <see cref="PinnedReachOnTheFlownRound"/> the line from the
+        /// origin starts at <see cref="DivertFootprint.FlownRoundOffsetSeconds"/>, where the flown round's reach does.</para>
         /// </summary>
         public double SlotReachScale(double beforeArrivalSeconds, SlotCurve? slots = null)
         {
             if (!PricesEachSlot || !(beforeArrivalSeconds >= 0.0) || !double.IsFinite(beforeArrivalSeconds)) return 1.0;
 
-            double linear = Math.Min(1.0, beforeArrivalSeconds / ReachMeasuredAtSeconds);
             if (FreeArrival)
             {
                 double share = slots?.ShareAt(beforeArrivalSeconds) ?? double.NaN;
-                return double.IsFinite(share) ? share : Math.Pow(linear, FreeSlotExponent);
+                return double.IsFinite(share)
+                           ? share
+                           : Math.Pow(Math.Min(1.0, beforeArrivalSeconds / ReachMeasuredAtSeconds), FreeSlotExponent);
             }
+
+            double offset = PinnedReachOnTheFlownRound ? DivertFootprint.FlownRoundOffsetSeconds : 0.0;
+            double linear = ReachMeasuredAtSeconds > offset
+                                ? Math.Clamp((beforeArrivalSeconds - offset) / (ReachMeasuredAtSeconds - offset), 0.0, 1.0)
+                                : Math.Min(1.0, beforeArrivalSeconds / ReachMeasuredAtSeconds);
 
             double measured = ReachMeasuredMetresPerMetrePerSecond;
             double gate = GateSeconds;
@@ -310,7 +322,7 @@ internal readonly record struct ReleaseItinerary(IReadOnlyList<ReleaseItinerary.
                               && beforeArrivalSeconds >= gate && beforeArrivalSeconds < ReachMeasuredAtSeconds;
             if (!chordHolds) return linear;
 
-            double atGate = DivertFootprint.PinnedMetresPerSecondToGo * gate;
+            double atGate = DivertFootprint.PinnedReachAt(gate, PinnedReachOnTheFlownRound);
             double chord = atGate + (measured - atGate) * (beforeArrivalSeconds - gate) / (ReachMeasuredAtSeconds - gate);
 
             return Math.Min(1.0, Math.Max(linear, chord / measured));

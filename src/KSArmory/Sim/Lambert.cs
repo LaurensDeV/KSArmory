@@ -25,8 +25,9 @@ internal static class Lambert
 
     private const double PsiLower = -4.0 * Math.PI * Math.PI;
 
-    /// <summary>Enough for the bracket to close to well under a millimetre per second.</summary>
-    public const int MaxIterations = 48;
+    // Halvings of the +/-4 pi^2 bracket: 48 left 1.7 mm/s on a 10 s near-parabolic hop across 1 deg, and 64 bring every
+    // case in tests/KSArmory.Tests/Reference/lambert.csv within 0.03 mm/s.
+    public const int MaxIterations = 64;
 
     /// <summary>What a solved transfer is: the velocity needed at each end of it.</summary>
     internal readonly record struct Transfer(double3 DepartureVelocityCci, double3 ArrivalVelocityCci);

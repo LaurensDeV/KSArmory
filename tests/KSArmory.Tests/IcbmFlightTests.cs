@@ -291,6 +291,40 @@ public class IcbmFlightTests
         return rig.Fly(new IcbmProgram(new IcbmConfig { Armed = true }), Equator(0.7848), 0.02, 1800.0);
     }
 
+    [Fact]
+    public void ARowOfDecouplersBetweenTwoEngineStagesIsStagedPastOnlyWithTheFlag()
+    {
+        double strandedLeft = UpperStageLeftAfterADecouplerRow(restages: false);
+        double flownLeft = UpperStageLeftAfterADecouplerRow(restages: true);
+
+        Assert.Equal(UpperStagePropellantKg, strandedLeft);
+        Assert.True(flownLeft < 0.5 * UpperStagePropellantKg, $"the upper stage kept {flownLeft:F0} kg with the flag on");
+    }
+
+    private const double UpperStagePropellantKg = 12_000;
+
+    private static double UpperStageLeftAfterADecouplerRow(bool restages)
+    {
+        double3 pad = Equator(0.0);
+
+        IcbmFlightRig rig = new()
+        {
+            Body = Earth,
+            PositionCci = pad,
+            VelocityCci = Earth.GroundVelocityCci(pad),
+            Stages =
+            [
+                new() { DryMassKg = 4_000, PropellantKg = 46_000, ThrustNewtons = 1_400_000, ExhaustVelocity = 2_600 },
+                new() { DryMassKg = 50, PropellantKg = 0, ThrustNewtons = 0, ExhaustVelocity = 1, LightsNothing = true },
+                new() { DryMassKg = 1_200, PropellantKg = UpperStagePropellantKg, ThrustNewtons = 240_000, ExhaustVelocity = 3_000 },
+            ],
+        };
+
+        rig.Fly(new IcbmProgram(new IcbmConfig { Armed = true, RestagesARowThatLightsNothing = restages }),
+                Equator(0.7848), 0.02, 1800.0);
+        return rig.Stages[2].PropellantKg;
+    }
+
     /// <summary>
     /// Two limits saying different things: the operator's is about this shot, the airframe's is what
     /// the engine destroys it at. The tighter one wins, in both directions, and a missing airframe

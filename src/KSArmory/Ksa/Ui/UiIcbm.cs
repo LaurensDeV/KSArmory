@@ -300,6 +300,13 @@ internal sealed partial class Ui
             computer.Abort("aborted from the panel");
         }
 
+        if (computer.StoodDownBecause is { } stoodDown)
+        {
+            ImGui.TextColored(Bad, $"STOOD DOWN - {stoodDown}");
+            Tip("The computer let go of the craft and disarmed, leaving the engines as they were. Arm it again to resume "
+                + "from wherever the craft is now.");
+        }
+
         // First: without it none of the rest can happen.
         if (!AttitudeHook.Installed)
         {
