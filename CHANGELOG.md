@@ -1,3 +1,22 @@
+## [0.10.5](https://github.com/LaurensDeV/KSArmory/compare/v0.10.4...v0.10.5) (2026-11-24)
+
+### Features
+
+* **icbm:** give a release kick over its cap at the cap, not refuse it ([33304a0](https://github.com/LaurensDeV/KSArmory/commit/33304a0a0df9835cfe19cd38e2aa8a3826cfbfde))
+* **icbm:** give the post-boost correction back its clearance waits ([a9b959b](https://github.com/LaurensDeV/KSArmory/commit/a9b959bb9dfadaf2e7b85b4aeb2a446912ced3f6))
+* **icbm:** keep every computer-flown rocket's stage figures current ([5d737fc](https://github.com/LaurensDeV/KSArmory/commit/5d737fc3ad6f573d389e62c512e0d89fcffbb584))
+* **icbm:** stage past a row of decouplers rather than strand the climb ([419eaf3](https://github.com/LaurensDeV/KSArmory/commit/419eaf37eebb5fa1e77cb5aa1306abcf7a5e4819))
+* **icbm:** stand down when somebody else takes the attitude ([1651485](https://github.com/LaurensDeV/KSArmory/commit/1651485eae6406b56d194bbaae580c605cf8c699))
+* **mirv:** draw the divert reach the bus actually has ([0f4764b](https://github.com/LaurensDeV/KSArmory/commit/0f4764bdc2dac0cbfe7d412e91b6ee08cbf51abc))
+
+### Fixes
+
+* **sim:** close Lambert's bisection on a short hop across a small angle ([702f5b5](https://github.com/LaurensDeV/KSArmory/commit/702f5b5f6ab39643a9a9ad1bd6b5488bae4c57d2))
+
+### Build and packaging
+
+* **ksa:** retarget 2026.11.25.5949 ([ac1b3b3](https://github.com/LaurensDeV/KSArmory/commit/ac1b3b3d1e35e5a1ac1d1fbb922c941135876094))
+
 ## [0.10.4](https://github.com/LaurensDeV/KSArmory/compare/v0.10.3...v0.10.4) (2026-11-19)
 
 ### Features
