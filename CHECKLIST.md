@@ -123,6 +123,32 @@ Four things changed shape and need watching, worst first:
 
 Also unflown on this build: everything the previous retarget listed as unwatched, and the turret.
 
+**Retargeted to KSA `2026.11.25.5949` — a rocket of several cores, a pre-pass in two targets, and a save that
+swaps the solar system.** `Rocket.ComputeCoreConditions` now fills every core's conditions at once, so a damaged
+core's flow is refreshed from its own slot. The light pre-pass keeps a packed normal and a separate roughness
+target, so the fire light, the splats and the holes read the ground off roughness = 1 and unpack the normal --
+left alone, `w == 1` read a channel KSA no longer writes and no pixel was ground. Loading a save of another
+installed system rebuilds the renderers (`Program.SwapSystem`), so the weather and trail renderers are read
+every call rather than held. Every other contract in the upgrade skill reads the same.
+
+- [x] **`head-on`** on 5949, 2026-11-24, twice: PASS, `built for KSA 2026.11.25.5949, running 2026.11.25.5949 -
+      reporting on`, no exception in KSA's log, air mirrored to a worst density error of 0. Round 1 burst **26 m
+      and 28 m** from the drone (41 and 48 parts dented, none broken), against 17 m on 5901 with the drone on
+      the same 75 deg dive; the fuze fires on the fragment band, not its 12 m radius, so this is the closing
+      geometry moving. Not chased: 5949 also stops moving the bubble origin between RK stages, which changes how
+      the drone flies.
+- [x] **Engine damage through the per-core conditions**, 2026-11-24: `KSARMORY_SCENARIO_CLOUDS=1
+      KSARMORY_SCENARIO_SAVE="CIWS" gunnery:2,head-on,20,300,1` PASS, 71 bursts at 0.0 m, 2 of 2 drones; engines
+      capped to 93%, 70% and 66% and shut down at 9% and 6%, no `could not be written`, nothing in KSA's log.
+- [x] **A paint splat is painted on the ground in the main view** (the roughness path), 2026-11-24, from the
+      `5inch_gun` mount with Paintball on: a 5"/54 shell's splat on open ground 380 m out, seen from 700 m up.
+- [ ] **A shell hole is painted on a hull** (`KSArmoryHole.comp` on the roughness target): the CIWS run held up
+      to nine holes and painted none, the drones being out of view.
+- [ ] **A fireball lights a craft beyond 3 km** (`KSArmoryFireLight.comp` on the new layout).
+- [ ] **A save of another solar system** reloads the weather clouds and smoke onto the new renderers. Two known
+      gaps there: `SaveHook` names a save KSA refused for an uninstalled system as open, and the planet map's
+      exporter is held across the swap. Only reachable with a second system installed.
+
 **Retargeted to KSA `2026.11.16.5901` — rockets reworked, two silent breaks, and aerodynamics that fly.**
 Engines and thrusters hold `Rocket`s rather than cores. `MinimumThrottle` and `MinimumPulseTime` moved onto
 `<Rocket>`, where an unset floor is 1.0, and the weather-shadow struct traded `middleRadius` for `topRadius`;

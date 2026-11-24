@@ -123,7 +123,11 @@ internal static class DamagedEngines
 
         core.RecomputeDesignConditions();
         // KSA caches the full-power flow at creation, and the resource graph draws on it.
-        core.RefreshMaxMassFlowRate(core.Rocket.ComputeCoreConditions(core, 1f));
+        Rocket rocket = core.Rocket;
+        int index = rocket.FindCoreIndex(core);
+        Span<RocketCoreConditions> conditions = stackalloc RocketCoreConditions[rocket.Cores.Length];
+        rocket.ComputeCoreConditions(1f, conditions);
+        core.RefreshMaxMassFlowRate(in conditions[index]);
     }
 
     private static void Hold(Gimbal gimbal, bool lost)

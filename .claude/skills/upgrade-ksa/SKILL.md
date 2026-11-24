@@ -39,7 +39,7 @@ cannot satisfy yet.
 If both say we are up to date, stop — there is nothing to upgrade, and the issue that sent you
 here can be closed.
 
-Write down the new build number. It is needed in seven places later.
+Write down the new build number. It is needed in up to ten places later.
 
 ## 2. Refresh the binaries and the corpus
 
@@ -120,7 +120,7 @@ claim still holds.
 | `ResetCachedPosMatrixValues` also marks the tree's `PartTreeRenderData` dirty, and part matrices are packed to `float` per term and multiplied there | `Part.cs`, `PartTreeRenderData.cs` | A subpart write without the reset is never drawn, not just drawn stale; and a round far from its launcher shivers however close the camera is. |
 | The gauge and the crew dose read `Radiation.ComputeDoseRates`, and its `Cosmic` share is the one a hull stops least | `Program.cs` (`UpdateDoseGauges`), `Vehicle.cs` (`ComputeCrewDoseRates`), `RadiationShield.cs` | `DoseRateHook` postfixes it; a gauge or crew path that moves to another call drops the bursts silently, with the hook still reporting installed. |
 | Orbit dose averages are cached until the orbit, the sun's direction or the field state moves, in `Program` and on every `Vehicle` | `OrbitDoseAverageCache.cs`, `Program.cs`, `Vehicle.cs` | `Radioactivity.ForgetOrbitAverage` clears each by reflection; a new cache holder keeps dosing on a belt that has gone, or misses one that arrived. |
-| The light pre-pass holds craft, structures, terrain and clutter, and only terrain and clutter write the normal's w as exactly one, lighting themselves forward | `PrePassRenderer.cs`, `PlanetDepth.frag`, `GroundClutter/SolidDepth.frag`, `MeshNormalIndirect.frag`, `StaticObjectNormalIndirect.frag` | `KSArmoryFireLight.comp` skips w = 1; a part writing one, or terrain writing roughness, lights the ground twice or leaves a craft dark. |
+| Since 2026.11.25.5949 the light pre-pass holds craft, structures, terrain and clutter in `ColorImage[0]` (the normal, packed `n·0.5+0.5`) and `ColorImage[1]` (roughness); terrain and clutter write a roughness of exactly one and light themselves forward | `PrePassData.cs`, `PrePassRenderer.cs`, `PlanetDepth.frag`, `GroundClutter/SolidDepth.frag`, `MeshNormalIndirect.frag`, `StaticObjectNormalIndirect.frag` | `KSArmoryFireLight.comp`, the ring's splats and the holes test roughness = 1 for the ground and unpack the normal; a part writing one, or a new layout, lights the ground twice, paints a craft, or leaves a craft dark. |
 | KSA storm-scales the belt with the largest L, by exact equality, in `ComputeBeltDoseRate` and the overlay | `Radiation.cs`, `RadiationBeltPass.cs` | `DoseRateHook` splits a burst's belts out of the call; if the rule moves, the split is pointless or wrong. |
 | A gas mole's pressure is `m/V·T·R` at its storage temperature, and `ConsumeStored` drains a gas | `Mole.cs` | `Leaks.MeasureGas` vents by it and `TankLeak.GasDrawn` assumes the held temperature. |
 | `SpatialAudio` takes the listener's pressure in **atmospheres**, and `Camera.ComputeAtmosphericPressure` answers in **pascals** | `SpatialAudio.cs`, `Camera.cs`, `ExplosionSoundSystem.cs` | `SoundChannels.PressureAt` converts; drop it and every sound is low-passed as though under 100,000 atmospheres. |
@@ -202,7 +202,7 @@ Two the tooling owns:
   source of truth for the rest.
 - `../ksa-game-assemblies/current/KSA_BUILD` — in the private repository.
 
-Then **five prose files**, every one of them enforced. `tools/check-docs.sh` fails if a file
+Then **the prose files `check-docs.sh` lists**, every one of them enforced. `tools/check-docs.sh` fails if a file
 mentions any build number and does not mention the lock's, so a missed one is a red CI run rather
 than a quiet lie — but only if you run it, which is step 7.
 
@@ -211,8 +211,11 @@ than a quiet lie — but only if you run it, which is step 7.
 - `docs/KSA-MODDING-NOTES.md`
 - `docs/KSA-CAMERAS.md`
 - `docs/BLOCKED-ON-KSA.md`
+- `docs/LAYOUT.md`, `docs/WEAPON-PACKS.md` and this skill, but only while they name any build at all — a
+  "since build X" line passes on the build it names and fails on the next. Give each a true line about the
+  new build, or none.
 
-The last three each name the build they were read against, which is what makes their claims
+The three after `README.md` each name the build they were read against, which is what makes their claims
 datable. Do not sweep the number through with `sed` and call it done: a doc that says it was read
 against the new build is asserting someone read it against the new build.
 
@@ -224,7 +227,7 @@ the enforced list for exactly that reason.
 `docs/BLOCKED-ON-KSA.md` cite `file:line` throughout, and line numbers move on every update.
 
 **Leaving them stale does not work, because the build number cannot date them.** `check-docs.sh`
-requires all five prose files to name the build in the lock, so the moment the number is updated
+requires those prose files to name the build in the lock, so the moment the number is updated
 the file claims to be current and its citations are not — which is how `KSA-CAMERAS.md` came to
 carry 191 dead citations out of 375, against two builds it no longer named. Either re-derive the
 citations in the file you touched, or say in the file which build its citations are against and
@@ -324,7 +327,7 @@ publishing. Neither needs touching here.
   pushed after this one.
 - **Tests pass and the game misbehaves** — expected, and exactly what steps 3 and 8 are for. The
   tests never load KSA, so they cannot tell you anything about it either way.
-- **`check-docs.sh` fails on a build number after you updated them** — there are five prose files,
-  not three. `README.md` and `docs/BLOCKED-ON-KSA.md` are the two that get forgotten.
+- **`check-docs.sh` fails on a build number after you updated them** — the list is in
+  the script, not here. `README.md`, `docs/BLOCKED-ON-KSA.md` and the files that only say "since build X" get forgotten.
 - **A part loads but behaves differently, with nothing in any log** — an XML attribute was renamed
   and is now sitting at its default. Step 4.

@@ -8,8 +8,8 @@ Each entry cites what the decompiled corpus says, so a claim can be rechecked af
 rather than taken on trust. **Recheck this file when the game moves** — the whole point of it is
 that some of these will quietly become possible.
 
-Findings are against KSA **2026.11.16.5901**, read from the decompiled source, not flown entry by entry;
-citations are against 2026.11.10.5801 unless an entry names 5901, since only the drag entry's files moved. Paths are relative to
+Findings are against KSA **2026.11.25.5949**, read from the decompiled source, not flown entry by entry;
+citations are against 2026.11.10.5801 unless an entry names a later build, since only the drag and light pre-pass entries' files moved. Paths are relative to
 `../ksa-game-assemblies/current/src`, and shaders to the install's `Content/Core/Shaders`. A line number is
 where the member was on the build its entry cites; search for the member it names.
 
@@ -20,15 +20,14 @@ will not surface any of these — none is a signature change, and most are a cal
 happen rather than a member that moved.
 
 - [x] Secondary viewport gets the planet, atmosphere and lighting passes — **partly**: terrain, sky,
-  clouds and ground clutter, not the ocean, trails or clustered lights; unchanged in 5901; see the entry below
+  clouds and ground clutter, not the ocean, trails or clustered lights; unchanged in 5949; see the entry below
 - [x] A secondary viewport's terrain is shadowed by cascades fitted to its own camera, not the main one's
   — **partly, in 2026.10.13.5602**: not shadowed at all unless `PlanetRenderer.ViewportShadows` is set,
-  which is the picture the entry below asked for; unchanged in 5901
+  which is the picture the entry below asked for; unchanged in 5949 (it adds a cascade count only)
 - [x] `Camera.NearbyCelestial` is set per camera rather than only for the frame viewport — **partly,
   in 2026.10.7.5541**: the field is still the frame camera's, but `Camera.GetEffectiveNearbyCelestial`
   (`KSA/KSA/Camera.cs:166`) resolves one for any camera, and the planet and atmosphere passes read that
-- [x] Wheel, suspension or steering module exists — no, still none in `ModuleList.CreateModules`; 5901 only
-  compacted how a part stores its modules
+- [x] Wheel, suspension or steering module exists — no, still none in `ModuleList.CreateModules` in 5949
 - [x] Custom part modules can be registered without patching — no
 - [x] Public accessor for the volumetric trail renderer — no, still `Program._volumetricTrailRenderer`
 - [x] **A hook that hands a mod the frame's command buffer** — none; the day it exists, `Ksa/CloudPassHook.cs`'s
@@ -37,32 +36,36 @@ happen rather than a member that moved.
   patch the day this exists
 - [x] **A menu a mod can add a submenu to** — StarMap's Mods menu takes a button only; the `BeginMainMenuBar`
   append in `Ui.DrawMenuBarEntry` goes the day it takes more
-- [x] **`DistanceReference.IsValid()` stops requiring 100 km** — unchanged in 5901, and **moot since 5801**: neither
+- [x] **`DistanceReference.IsValid()` stops requiring 100 km** — unchanged in 5949, and **moot since 5801**: neither
   the atmosphere nor the ocean has an `IsValid()` any more; see the entry below
 - [x] **`PhysicsStates.ComputeDrag` is still a body-fixed drag box over the mass, with no lift, no
   Mach term and no restoring torque** — **no longer, in 5901**: a craft in air is flown on its
   aerodynamic mesh, per panel, with Mach, lift and a moment, and the box is the fallback. The lead now
   samples the engine's loads and flies the moment; see the entry below. And
   `IcbmConfig.FlyAnyRange` lets a short shot steer at any angle of attack because nothing here can
-  tip a stack over: an aerodynamic moment would make that a way to lose the rocket
+  tip a stack over: an aerodynamic moment would make that a way to lose the rocket. 5949 keeps the same laws,
+  only passing the bubble origin into `PhysicsStates.ComputeDerivatives` rather than moving it between RK stages
 - [x] **`RecomputeImmersion` rotates `MassToGeometryAsmb` into the planet's frame**, or buoyancy
   gets a centre of its own — not yet; see *A floating craft's waterline depends on where it is* below
 - [x] **A kitten can walk on a vehicle** — `IsGroundSurfaceFor` accepts something other than a
   static handle — not yet; see *Walking on a craft* below
 - [x] **KSA bursts a tank on `RatedPressure`, or gives a liquid a pressure** — neither yet. The rated
   pressure and stored gas arrived in 2026.10.25.5707 and gas venting is built; for a liquid the mod would
-  rather read the game's bar values than its own 0.2 bar leak and 2–4 bar ram prestress. See *A tank's
+  rather read the game's bar values than its own 0.2 bar leak and 2–4 bar ram prestress. 5949's pressure-fed
+  and gas-generator rockets state a design feed pressure (`RocketFeedSystem.TANK_PRESSURE_MAX`, 3 bar), but no
+  tank holds one yet. See *A tank's
   pressure and its walls* below
 - [x] **KSA's destroy runs warm the first time it is called** -- its assemblies compiled ahead
   (ReadyToRun), or a debris split that no longer does first-time work -- **delete
-  `JitWarmup.EngineTypes` the day it does**; 5901's `KSA.dll` is still IL-only; see the entry below
-- [x] **A body declares what its air is made of** — **partly, since 5801, and 5901 adds its viscosity**: a gas mixture with mole
+  `JitWarmup.EngineTypes` the day it does**; 5949's `KSA.dll` is still IL-only; see the entry below
+- [x] **A body declares what its air is made of** — **partly, since 5801, 5901 adds its viscosity and 5949 an equilibrium table nothing calls yet**: a gas mixture with mole
   fractions and a γ by temperature; see *A body's magnetic field and what its air is made of* below
 
-**Rechecked against 2026.11.16.5901, from the source only.** One thing moved, and it is the one this list
-was watching for: aerodynamics now fly a craft (*Aerodynamics have landed* below). The flight order around
+**Rechecked against 2026.11.25.5949, from the source only.** Nothing on the list moved. The flight order around
 `PrepareWorker`, the command-buffer hook, the module list's contents, the immersion maths, ground contact,
-tank pressures and `KSA.dll`'s IL-only header are as 5801 left them.
+tank pressures and `KSA.dll`'s IL-only header are as 5901 left them. What did move is the light pre-pass,
+which now keeps roughness in a target of its own (*A bright light far away* below), and a save of another
+solar system, which now rebuilds the system's renderers mid-session (`Program.SwapSystem`).
 
 **Rechecked against 2026.11.10.5801, from the source only.** Two things moved. The atmosphere is no longer
 isothermal: `PhysicalAtmosphere` (`KSA/KSA/PhysicalAtmosphere.cs`) is built from a sea-level pressure, a
@@ -245,8 +248,8 @@ see coarser ground. `Ksa/SightCamera.cs` borrowing the main view is still the fu
 
 **Don't build a second renderer for it.** One was built and flown before 5541: a second
 `PlanetRenderer` bound to a window's target drew no terrain and made the main view's flicker, because
-the terrain mesh belongs to the `Celestial` (`PlanetRenderer.GetMesh`, `GenerateMeshData` writes
-`cubeMesh.Mesh`'s own buffers) and was regenerated every frame for one camera.
+the terrain mesh belongs to the `Celestial` (`PlanetRenderer.GetMesh` answers `celestial.GetLodMesh`, whose
+segment buffers `GenerateMeshData` writes) and was regenerated every frame for one camera.
 
 **What would unblock the rest.** The ocean, trail and lighting passes run per viewport as the planet,
 clutter and cloud passes now are, and shadow cascades fitted per viewport.
@@ -499,7 +502,7 @@ model placement already uses.
 `KSA/KSA.Rendering.Lighting/ClusteredLightSystem.cs:892`). Terrain takes it through the forward
 loop (`Lighting/PunctualLighting.glsl` `SampleForwardLights`), which has no cut. Craft parts, static
 objects such as the launch pad, and every other pre-pass mesh take it only through
-`Lighting/LightPrePass.comp`, whose first test (`:321`, unchanged in 5801) is
+`Lighting/LightPrePass.comp`, whose first test (`:323` in 5949) is
 
 ```glsl
 if (subgroupAll(dotNL * rangeAtt < ATT_EPSILON))   // 1e-7, rangeAtt = falloff / d^2
@@ -517,9 +520,11 @@ it out. No light flag keeps a light out of either path.
 whose irradiance holds less than half the fireball's, adds the forward loop's diffuse term. Since
 2026.10.25.5707 terrain and ground clutter are drawn into the pre-pass too (`PrePassRenderer.Render`)
 while still lighting themselves forward (`Planet.frag`, `GroundClutter/Solid.frag`), so they are told
-apart by the normal's w: both write exactly one there (`PlanetDepth.frag`, `GroundClutter/SolidDepth.frag`),
+apart by roughness, which since 2026.11.25.5949 is the pre-pass's second target (`PrePassData.RoughnessTextureForSampling`,
+R8) beside a normal packed `n·0.5+0.5`: both write exactly one there (`PlanetDepth.frag`, `GroundClutter/SolidDepth.frag`),
 where a part or structure writes its filtered roughness (`MeshNormalIndirect.frag`,
-`StaticObjectNormalIndirect.frag`). A structure texel exactly fully rough is then left as KSA draws it. The
+`StaticObjectNormalIndirect.frag`). A structure texel exactly fully rough is then left as KSA draws it, and so
+are a structure with no PBR texture and a kitten's fur, which both write one. The
 pre-pass keeps a surface's normal and not its colour, so the albedo is recovered from the pixel: in
 sunlight it shows `albedo / pi x sunColor x occlusionColor x N.L`, `StaticObject.frag`'s direct term,
 and the albedo divides out. Where the sun does not reach the pixel is black and says nothing: a surface

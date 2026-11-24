@@ -2,7 +2,7 @@
 
 Everything here comes out of the shipped assemblies of **KSA build 2026.9.10.5438**, read with
 `tools/apidump`, or out of the StarMap sources, and was rechecked against **2026.9.22.5482**
-and again against **2026.10.7.5541**, **2026.10.10.5554**, **2026.10.13.5602**, **2026.10.19.5638**, **2026.10.25.5707**, **2026.11.10.5801** and **2026.11.16.5901** wherever those builds changed a type this mod uses. KSA is pre-release and unofficially moddable:
+and again against **2026.10.7.5541**, **2026.10.10.5554**, **2026.10.13.5602**, **2026.10.19.5638**, **2026.10.25.5707**, **2026.11.10.5801**, **2026.11.16.5901** and **2026.11.25.5949** wherever those builds changed a type this mod uses. KSA is pre-release and unofficially moddable:
 none of this is documented by RocketWerkz, and **it will drift between game builds**. Re-run
 the dumper rather than trusting this file after an update.
 
@@ -1109,8 +1109,11 @@ inside `<Rocket>`, after `<Nozzles>`, as Core's `CorePropulsionAGameData.xml` do
 `<Combustor>` or `<ThermalCore>` they are dropped without a word, and the floor is then
 `RocketTemplate`'s default of **1.0**: an engine that cannot throttle at all. The pulse defaults to the
 1 ms floor. `RocketCore.MaxMassFlowRate` is now cached from full power at creation, and the resource
-graph draws on it, so a core whose chamber pressure is changed afterwards needs
-`RefreshMaxMassFlowRate(core.Rocket.ComputeCoreConditions(core, 1f))` -- `Ksa/DamagedEngines.cs` does.
+graph draws on it, so a core whose chamber pressure is changed afterwards needs it refreshed. Since
+2026.11.25.5949 a rocket may have several cores (a gas generator's chamber and generator), so
+`Rocket.ComputeCoreConditions(throttle, span)` fills every core's at once and the core's own is
+`span[rocket.FindCoreIndex(core)]` -- which throws, rather than answering -1, for a core not on it.
+`Ksa/DamagedEngines.cs` does that.
 A solid motor has to be declared `<SolidRocket>`; a `<Rocket>` round one throws at load.
 
 ## A craft is controllable only with an able crew or a powered probe core

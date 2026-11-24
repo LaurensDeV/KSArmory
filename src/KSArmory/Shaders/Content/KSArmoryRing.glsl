@@ -19,6 +19,7 @@ layout (set = 1, binding = 1, Rgba16f) uniform image2D sceneCopy;
 layout (set = 1, binding = 2) uniform sampler2D sceneDepth;
 // KSA's pre-pass normal, w exactly one on terrain and clutter; the pass's own layer when TileWidth.w is 0.
 layout (set = 1, binding = 3) uniform sampler2D prePassNormal;
+layout (set = 1, binding = 4) uniform sampler2D prePassRoughness;
 
 layout (push_constant) uniform PushConstants
 {
@@ -82,9 +83,9 @@ bool SplatOnGround(ivec2 at, ivec2 size, vec3 p, vec3 up, float h)
 {
     if (pc.TileWidth.w > 0.5)
     {
-        vec4 normalRough = texelFetch(prePassNormal, at, 0);
-        if (normalRough.w == 1.0) return true;
-        return abs(h) < SplatStandsMetres && dot(normalize(normalRough.xyz), up) > SplatFacesUp;
+        if (texelFetch(prePassRoughness, at, 0).r == 1.0) return true;
+        vec3 n = texelFetch(prePassNormal, at, 0).xyz * 2.0 - 1.0;
+        return abs(h) < SplatStandsMetres && dot(normalize(n), up) > SplatFacesUp;
     }
 
     return abs(h) < SplatStandsMetres && dot(SurfaceNormal(at, size, p), up) > SplatFacesUp;
